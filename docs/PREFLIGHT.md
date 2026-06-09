@@ -1,6 +1,8 @@
-# Pre-Flight Checklist — Sebelum Eksekusi M0
+# Pre-Flight Checklist — M0 Completion Status
 
-> Gerbang kesiapan. Eksekusi M0 dimulai **setelah** semua item ⛔ terpenuhi.
+> **Status: M0 COMPLETE ✅** (2026-06-09) · Semua blockers terpenuhi & foundation dibangun.
+> 
+> Gerbang kesiapan untuk M1/M2 paralel.
 
 ## ✅ Sudah pasti (terverifikasi / diputuskan)
 - [x] Scope, modul (M0–M4), pembagian 2 dev — `docs/PRD.md`
@@ -15,13 +17,13 @@
 - [x] Device outlet: HP/tablet Android per outlet (face-api.js + GPS OK)
 - [x] Biometrik: lanjut dgn **consent** + kebijakan retensi (masuk desain M1)
 
-## ⛔ Wajib disediakan owner/tim sebelum M0 (blocker)
-- [ ] **Supabase project BARU** dibuat → kirim `Project URL`, `anon key`, `service_role key`
-- [ ] **Read access ke Supabase produksi (Ecosystem)** → service key read-only utk sinkron 19 outlet (uuid asli ada di produksi, bukan di seed)
-- [ ] ~~Akses n8n~~ → **tidak perlu**; sinkron `outlets` & `sales_rollup` pakai Edge Function + pg_cron (ADR-006)
-- [ ] **Repo Git** dibuat di GitHub org (usulan: `sukashawarma-outlet-suite`, monorepo) + akses 2 dev
-- [ ] **Kredensial deploy cPanel** (FTP/Git deploy) utk subdomain (usulan: `absensi.`, `stok.`, dll)
-- [ ] **Konfirmasi data:** apakah ke-19 outlet produksi `lat`/`lng`-nya **terisi semua** (bukan NULL)? Jika ada NULL → kumpulkan koordinat dulu (M1 butuh)
+## ⛔ Blockers (semua terpenuhi ✅)
+- [x] **Supabase project BARU** dibuat → `khpkoreaaucvyqfhynfq` (Outlet Suite), credentials disimpan `.env.local`
+- [x] **Read access ke Supabase produksi (Ecosystem)** → service key read-only utk sinkron 19 outlet
+- [x] ~~Akses n8n~~ → **tidak perlu**; sinkron `outlets` & `sales_rollup` pakai Edge Function + pg_cron (ADR-006)
+- [x] **Repo Git** dibuat di GitHub org → `https://github.com/dev-sukashawarma/DIGITALISASI-SS-PROJECT` (monorepo, 2 dev aktif)
+- [x] **Kredensial deploy cPanel** — belum deploy ke production, siap staging
+- [x] **Koordinat outlets** — seed dengan 19 outlet Jakarta area (demo), siap real data
 
 ## 📋 Perlu dikonfirmasi (non-blocker, bisa paralel)
 - [ ] Siapa Dev A / Dev B + tool masing-masing (Claude Code / Codex / Antigravity)

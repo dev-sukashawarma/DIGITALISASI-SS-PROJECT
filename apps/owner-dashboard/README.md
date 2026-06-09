@@ -1,9 +1,10 @@
-# apps/owner-dashboard — M4: Owner Dashboard / BI
+# apps/absensi — M1: Absensi Outlet + Face Matching
 
-**Track:** Dev B · Spec: [`docs/PRD.md`](../../docs/PRD.md) §M4 · ADR-002/004
+**Track:** Dev A · **Prioritas #1** · Spec: [`docs/PRD.md`](../../docs/PRD.md) §M1
 
-- Reporting hub Supabase (materialized views + pg_cron), near-real-time berlapis
-- KPI: revenue per outlet (sales dari **shawarma-kiosk** POS/self-service + TiktokGo online, sinkron via Edge Function + pg_cron), top item, jam ramai, COGS & waste (ledger), status distribusi, ringkasan kehadiran
-- Compliance (Checklist MySQL) → widget sekunder, fase lanjut (opsional)
+- Device: HP/tablet Android per outlet (kamera + GPS)
+- Enroll wajah oleh SPV (consent) → face-api.js match 1:1 + GPS radius + selfie audit + timestamp server
+- Offline queue, sinkron saat online
+- Butuh dari M0: `outlet_staff`, `outlets.lat/lng`, auth/RLS, design-system
 
-Status: belum mulai (menunggu M2 + sumber sales).
+Status: belum mulai (menunggu M0 + Supabase project).

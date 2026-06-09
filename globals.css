@@ -1,0 +1,38 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@layer base {
+  :root {
+    --suka-orange: #f29744;
+    --suka-brown: #701604;
+    --suka-ink: #400a07;
+    --suka-cream: #fff7ed;
+    --suka-green: #0a7d2c;
+    --suka-gray-light: #f5f5f5;
+    --suka-gray-medium: #cccccc;
+    --suka-gray-dark: #666666;
+  }
+
+  @font-face {
+    font-family: 'Lilita One';
+    src: url('https://fonts.googleapis.com/css2?family=Lilita+One') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  @font-face {
+    font-family: 'Plus Jakarta Sans';
+    src: url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  html {
+    @apply h-full;
+  }
+
+  body {
+    @apply h-full font-sans text-slate-900 antialiased;
+  }
+}

@@ -1,10 +1,10 @@
-# apps/distribusi — M3: Supply Chain Pusat→Outlet
+# apps/absensi — M1: Absensi Outlet + Face Matching
 
-**Track:** Dev A · Spec: [`docs/PRD.md`](../../docs/PRD.md) §M3
+**Track:** Dev A · **Prioritas #1** · Spec: [`docs/PRD.md`](../../docs/PRD.md) §M1
 
-- Gudang Pusat buat **Surat Jalan** (outlet + item + qty dikirim)
-- Outlet **verifikasi terima** (qty diterima vs dikirim, selisih, foto)
-- Status: `dikirim → diterima_sebagian/lengkap → selisih_dicatat`
-- **Integrasi:** qty terverifikasi → baris "stok masuk" di ledger M2
+- Device: HP/tablet Android per outlet (kamera + GPS)
+- Enroll wajah oleh SPV (consent) → face-api.js match 1:1 + GPS radius + selfie audit + timestamp server
+- Offline queue, sinkron saat online
+- Butuh dari M0: `outlet_staff`, `outlets.lat/lng`, auth/RLS, design-system
 
-Status: belum mulai (menunggu M0 + M2 ledger).
+Status: belum mulai (menunggu M0 + Supabase project).

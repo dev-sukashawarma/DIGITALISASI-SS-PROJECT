@@ -1,6 +1,7 @@
 # PRD — Digitalisasi Sukashawarma (Suite Operasional Outlet)
 
 > Status: Disetujui (2026-06-09) · Program-level PRD · Tim: 2 developer (vibe coding)
+> Visual: [`ARCHITECTURE.md`](ARCHITECTURE.md) (struktur & ERD) · [`FLOWS.md`](FLOWS.md) (alur proses)
 
 ## Context
 

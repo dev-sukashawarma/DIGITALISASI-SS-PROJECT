@@ -2,7 +2,7 @@
 
 Suite digital **operasional outlet** Sukashawarma (19 outlet Jabodetabek). Sistem baru, terpisah dari HR pusat (SS-WEBAPP) dan dari app produksi existing (TiktokGo, POS).
 
-> **Mulai dari sini:** baca [`docs/PRD.md`](docs/PRD.md) → [`CONTEXT.md`](CONTEXT.md) (glossary) → [`docs/adr/`](docs/adr/) (keputusan) → [`docs/PREFLIGHT.md`](docs/PREFLIGHT.md) (gerbang sebelum eksekusi).
+> **Mulai dari sini:** [`docs/PRD.md`](docs/PRD.md) → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (diagram struktur) → [`docs/FLOWS.md`](docs/FLOWS.md) (alur proses) → [`CONTEXT.md`](CONTEXT.md) (glossary) → [`docs/adr/`](docs/adr/) (keputusan) → [`docs/PREFLIGHT.md`](docs/PREFLIGHT.md) (gerbang sebelum eksekusi).
 
 ## Modul
 

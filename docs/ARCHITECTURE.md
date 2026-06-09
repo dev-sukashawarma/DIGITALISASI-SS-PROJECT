@@ -23,7 +23,7 @@ flowchart TB
 
     subgraph EXIST["Ekosistem Existing (di luar scope build)"]
         online["🛒 Online Order<br/>(TiktokGo)"]
-        pos["💵 POS/Kasir<br/>(baru, menyusul)"]
+        pos["💵 POS + Self-Service<br/>(shawarma-kiosk)<br/>project Supabase sendiri"]
         checklist["✅ Checklist Ops<br/>(PHP/MySQL)"]
     end
 
@@ -39,8 +39,8 @@ flowchart TB
     m2 -->|"COGS / waste"| m4
     m1 -->|"kehadiran"| m4
     m3 -->|"status distribusi"| m4
-    online -.->|"sales (sinkron)"| m4
-    pos -.->|"sales (sinkron)"| m4
+    pos -.->|"sales (sumber utama, sinkron)"| m4
+    online -.->|"sales online (sinkron)"| m4
     checklist -.->|"compliance (fase lanjut)"| m4
 ```
 

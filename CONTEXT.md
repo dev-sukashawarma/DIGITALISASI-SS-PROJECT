@@ -34,6 +34,7 @@
 
 ## Sistem & Hosting
 
-- **Ecosystem (project produksi)** — Supabase project existing yang dipakai TiktokGo, POS SS, kiosk. Master `outlets`. **Read-only** dari sisi suite baru.
+- **Ecosystem (project produksi)** — Supabase project existing dipakai TiktokGo + POS SS lama. Master `outlets`. **Read-only** dari sisi suite baru.
+- **shawarma-kiosk** — POS/self-service baru (Next.js+Supabase, multi-outlet, kasir+payment+reports). Project Supabase **terpisah**. **Sumber sales resmi** untuk Owner Dashboard. **Read-only** dari sisi suite baru. (akan dikonsolidasi nanti)
 - **Outlet Suite (project baru)** — Supabase project di **akun/org berbeda** untuk modul baru (M0–M4). (lihat ADR-004)
 - **Hosting app** — server **cPanel CloudLinux shared** (penyedia lokal), file **statis** (Next.js static export), subdomain per modul. Postgres bawaan cPanel tidak dipakai. (lihat ADR-005)

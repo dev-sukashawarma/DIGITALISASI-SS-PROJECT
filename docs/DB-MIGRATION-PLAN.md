@@ -3,12 +3,15 @@
 > Status: Draft (2026-06-09). Mengikuti keputusan: **Supabase project BARU di akun/org berbeda** + **outlet_staff enroll fresh**. Hosting app = cPanel CloudLinux shared (static export). Postgres bawaan cPanel **tidak dipakai** — DB = Supabase cloud.
 > Terkait: ADR-002 (amended), ADR-004, ADR-005.
 
-## 1. Topologi 2 Project Supabase (akun berbeda)
+## 1. Topologi 3 Project Supabase (akun berbeda)
 
 | Project | Akun | Isi | Status |
 |---------|------|-----|--------|
-| **Ecosystem** (existing) | akun Supabase produksi | `outlets` (19, master), `menu_items`, `orders`, `order_items`, `admin_users`, `pos_cashiers`, `pos_daily_stock`, dll. Dipakai TiktokGo + POS SS + kiosk. | Produksi — **JANGAN diubah destruktif** |
+| **Ecosystem** (existing) | akun Supabase produksi | `outlets` (19, master), `menu_items`, `orders`, `admin_users`, `pos_cashiers`, dll. Dipakai TiktokGo + POS SS lama. | Produksi — **JANGAN diubah destruktif** |
+| **shawarma-kiosk** (existing) | project terpisah | POS/self-service baru: `outlets`, `profiles`, `orders`, `order_items`, kasir/payment/reports. **Sumber sales resmi M4.** | Produksi — **read-only** dari suite |
 | **Outlet Suite** (baru) | **akun/org Supabase BERBEDA** | `outlet_staff`, domain Stok Bahan Baku, Shipment/Goods Receipt, reporting schema. | Greenfield (suite ini) |
+
+> **Konsolidasi nanti:** owner berencana migrasi/menyatukan project Supabase ke depan. Sampai itu terjadi, sinkron antar-akun (Edge Function). Saat konsolidasi, sumber sales & outlets bisa disederhanakan.
 
 **Prinsip:** Project Ecosystem **read-only** dari sisi suite baru (hanya dibaca untuk sinkron). Tidak ada migrasi destruktif ke produksi. Karena beda akun, sinkron lintas-akun via **Supabase Edge Function** (panggil REST Ecosystem dgn read key) dijadwalkan **pg_cron**, bukan FDW, bukan n8n. (ADR-006)
 
@@ -48,9 +51,10 @@ Reporting schema (M4): materialized views (`mv_sales_daily`, `mv_cogs_waste`, `m
 
 ## 4. Konsekuensi Dashboard Owner (M4) — lintas project
 
-Revenue/penjualan ada di **Ecosystem** (`orders`, POS), sisanya di **Outlet Suite**. Karena ADR-002 ingin dashboard baca 1 tempat:
+Revenue/penjualan ada di **shawarma-kiosk** (POS/self-service, sumber utama) + **Ecosystem** (TiktokGo online order); sisanya di **Outlet Suite**. Karena ADR-002 ingin dashboard baca 1 tempat:
 
-- **Strategi:** sinkron **agregat sales** (bukan raw rows) dari Ecosystem → tabel `sales_rollup` di reporting schema Outlet Suite, via **Edge Function `sync-sales` + pg_cron** (harian + "hari ini" tiap ~2 menit). Dashboard tetap baca 1 project (Outlet Suite).
+- **Strategi:** sinkron **agregat sales** (bukan raw rows) dari shawarma-kiosk (+ Ecosystem) → tabel `sales_rollup` di reporting schema Outlet Suite, via **Edge Function `sync-sales` + pg_cron** (harian + "hari ini" tiap ~2 menit). Dashboard tetap baca 1 project (Outlet Suite).
+- **Catatan konsolidasi:** bila project Supabase nanti disatukan, jumlah sumber sync berkurang.
 - Join sales↔stok pakai `outlet_id` (uuid sama) → COGS per outlet valid.
 - HR pusat: tetap tidak diintegrasi. Compliance (MySQL): **fase lanjut** (opsional) — konektor MySQL paling gampang via n8n bila nanti diperlukan.
 

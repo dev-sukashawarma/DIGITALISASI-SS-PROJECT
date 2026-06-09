@@ -16,8 +16,8 @@ Sukashawarma adalah usaha F&B (fokus shawarma) dengan **19 outlet se-Jabodetabek
 | # | Subsistem | Status | Lokasi / Stack |
 |---|-----------|--------|----------------|
 | 1 | Absensi staff outlet + face recognition | 🔴 **Greenfield (target suite ini)** | Existing absensi di SS-WEBAPP = HQ, bukan outlet. Face matching belum ada |
-| 2 | Pesanan online | 🟢 Production (di luar scope build baru) | TiktokGo SS (~85%) + Self-Ordering kiosk (~65%), Supabase+Xendit+Fonnte |
-| 3 | POS / Kasir | 🟡 Akan di-upload owner nanti | POS SS lama live; versi baru menyusul |
+| 2 | Pesanan online | 🟢 Production (di luar scope build baru) | TiktokGo SS (~85%) + **shawarma-kiosk** (Next.js+Supabase, multi-outlet, self-ordering) |
+| 3 | POS / Kasir | 🟢 **Production (POS baru)** | **shawarma-kiosk** `app/kasir/` (menu, histori, payment QRIS, reports) — gabung dgn self-service. Project Supabase **terpisah** (akan dimigrasi/konsolidasi nanti) |
 | 4 | Inventarisasi | 🔴 Greenfield | — |
 | 5 | Manajemen stok bahan baku | 🔴 Greenfield | — |
 | 6 | Monitoring bahan baku | 🔴 Greenfield | — |
@@ -26,7 +26,9 @@ Sukashawarma adalah usaha F&B (fokus shawarma) dengan **19 outlet se-Jabodetabek
 
 **Aset reuse:** Design System SUKA (`LINKTREE SS/SUKA Shawarma Design System`) — warna `--suka-orange #f29744`, `--suka-brown #701604`, font Lilita One + Plus Jakarta Sans. (n8n ada di ekosistem untuk CS chatbot — **tidak** dipakai untuk pipa data inti; sinkron pakai Edge Function + pg_cron, lihat ADR-006.)
 
-**Scope build baru:** #1, #4, #5, #6, #7, #8. (#2 sudah jalan; #3 ditunggu dari owner.)
+**Scope build baru:** #1, #4, #5, #6, #7, #8. (#2 & #3 sudah jalan di **shawarma-kiosk** — di luar scope build, tapi jadi **sumber sales** untuk M4.)
+
+**Topologi Supabase saat ini = 3 project:** (a) **Ecosystem** (TiktokGo + POS SS lama), (b) **shawarma-kiosk** (POS/self-service baru — sumber sales resmi, project terpisah), (c) **Outlet Suite** (build baru, akun terpisah). Rencana: konsolidasi/migrasi project nanti (lihat [`DB-MIGRATION-PLAN.md`](DB-MIGRATION-PLAN.md)).
 
 ---
 
@@ -78,7 +80,8 @@ Detail keputusan: lihat [`docs/adr/`](adr/), plan migrasi DB di [`docs/DB-MIGRAT
 
 ### M4 — Owner Dashboard / BI (Dev B) — brief #7
 - Reporting hub Supabase: materialized views + pg_cron.
-- KPI: revenue per outlet/hari, top item, jam ramai, **COGS & waste** (ledger stok), status distribusi, ringkasan kehadiran.
+- KPI: revenue per outlet/hari (**sales dari shawarma-kiosk** POS/self-service + online TiktokGo), top item, jam ramai, **COGS & waste** (ledger stok), status distribusi, ringkasan kehadiran.
+- **Sumber sales:** sinkron agregat dari project shawarma-kiosk (+ Ecosystem) → `sales_rollup` (Edge Function + pg_cron). Lintas-akun selama project belum dikonsolidasi.
 - Layered refresh: "hari ini" ~2 menit; historis jam/harian.
 - Compliance (Checklist MySQL) → widget sekunder, **fase lanjut** (opsional; konektor MySQL bisa via n8n nanti).
 

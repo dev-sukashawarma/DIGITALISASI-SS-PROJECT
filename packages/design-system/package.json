@@ -1,0 +1,31 @@
+{
+  "name": "@suka/design-system",
+  "version": "0.0.1",
+  "description": "SUKA brand design tokens and UI components",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens.d.ts",
+      "default": "./dist/tokens.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc --declaration --emitDeclarationOnly && node -e \"console.log('✓ Build complete')\"",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/react": "^18.2.45"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "tailwindcss": "^4.0.0"
+  }
+}

@@ -35,6 +35,9 @@ Thumbs.db
 .idea/
 *.swp
 
+# TypeScript build info
+*.tsbuildinfo
+
 # Misc
 coverage/
 .turbo/

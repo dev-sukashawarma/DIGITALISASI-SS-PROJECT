@@ -3,21 +3,21 @@
   "version": "0.0.1",
   "description": "SUKA brand design tokens and UI components",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
     },
     "./tokens": {
-      "types": "./dist/tokens.d.ts",
-      "default": "./dist/tokens.js"
+      "types": "./src/tokens.ts",
+      "default": "./src/tokens.ts"
     }
   },
   "files": ["dist", "src"],
   "scripts": {
-    "build": "tsc --declaration --emitDeclarationOnly && node -e \"console.log('✓ Build complete')\"",
+    "build": "tsc && node -e \"console.log('✓ Build complete')\"",
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {

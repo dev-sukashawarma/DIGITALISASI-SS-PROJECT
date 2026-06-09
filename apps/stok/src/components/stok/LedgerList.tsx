@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { Card, Badge } from '@suka/design-system'
+import { Card } from '@suka/design-system'
 import type { LedgerStok } from '@/types/stok'
 
 const LABEL: Record<string,string> = {

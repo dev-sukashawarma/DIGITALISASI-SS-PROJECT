@@ -1,7 +1,8 @@
 # PRD — Digitalisasi Sukashawarma (Suite Operasional Outlet)
 
-> Status: Disetujui (2026-06-09) · Program-level PRD · Tim: 2 developer (vibe coding)
-> Visual: [`ARCHITECTURE.md`](ARCHITECTURE.md) (struktur & ERD) · [`FLOWS.md`](FLOWS.md) (alur proses)
+> **Status:** Disetujui (2026-06-09) · **M0 COMPLETE ✅** (2026-06-09) · Program-level PRD · Tim: 2 developer (vibe coding)
+> **Next:** M1 (Dev A: Absensi) + M2 (Dev B: Stok) in parallel
+> Visual: [`ARCHITECTURE.md`](ARCHITECTURE.md) (struktur & ERD) · [`FLOWS.md`](FLOWS.md) (alur proses) · [`M0-COMPLETION.md`](M0-COMPLETION.md) · [`M2-STOK-SPECIFICATION.md`](M2-STOK-SPECIFICATION.md)
 
 ## Context
 

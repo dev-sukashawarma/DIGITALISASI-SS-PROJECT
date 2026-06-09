@@ -6,12 +6,36 @@
 
 ---
 
-## Pilot Outlets
+## Pilot Outlets & Test Staff
 
-| Outlet | Region | Crew Size | Notes |
-|--------|--------|-----------|-------|
-| **EMPANG** | Bogor Sel | ~3-4 crew | City center, stable WiFi |
-| **SUKMAJAYA** | Depok | ~2-3 crew | Suburb, WiFi decent |
+| Outlet | Email | UUID | Notes |
+|--------|-------|------|-------|
+| **EMPANG** | andi.empang@sukashawarma.com | 9e8df551-406d-4da7-bfdb-22e53253253e | City center, stable WiFi |
+| **SUKMAJAYA** | budi.sukmajaya@sukashawarma.com | edf7428a-e37a-43a1-bc66-5b72e83a4026 | Suburb, WiFi decent |
+
+---
+
+## Setup (Completed ✅)
+
+**Test staff created in Supabase:**
+
+```sql
+INSERT INTO outlet_staff (id, outlet_id, name, role, status) VALUES
+  ('9e8df551-406d-4da7-bfdb-22e53253253e', 
+   '550e8400-e29b-41d4-a716-446655440002',  -- Empang
+   'Crew Empang',
+   'crew',
+   'active'),
+  ('edf7428a-e37a-43a1-bc66-5b72e83a4026',
+   '550e8400-e29b-41d4-a716-446655440005',  -- Sukmajaya
+   'Crew Sukmajaya',
+   'crew',
+   'active');
+```
+
+**Auth credentials (set in Supabase Auth):**
+- Empang: `andi.empang@sukashawarma.com` (UUID: 9e8df551...)
+- Sukmajaya: `budi.sukmajaya@sukashawarma.com` (UUID: edf7428a...)
 
 ---
 
@@ -44,8 +68,9 @@ WHERE tablename IN ('opname', 'ledger_stok', 'stok_balance');
 **Goal:** End-to-end flow: opname → ledger → monitoring (with real crew, real bahan).
 
 #### Scenario A: Harian Opname (Daily Count)
-1. **Setup:** Create staff profiles for Empang (2 crew) + Sukmajaya (2 crew)
-   - Each staff: create auth user → insert outlet_staff with matching id
+1. **Setup:** Test staff already created (see table above)
+   - ✅ Empang: andi.empang@sukashawarma.com
+   - ✅ Sukmajaya: budi.sukmajaya@sukashawarma.com
 2. **Opname (Empang crew):**
    - Login as Empang crew
    - Go to `/stok/opname/new`

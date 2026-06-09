@@ -14,7 +14,7 @@ import type { AttendancePayload } from "@/lib/attendance/types";
 type Staff = { id: string; name: string; face_descriptor: number[] | null };
 
 export default function ClockPage() {
-  const { outletStaff } = useAuth();
+  const { outletStaff, session } = useAuth();
   const supabase = createClient();
   const queue = useAttendanceQueue();
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -79,12 +79,13 @@ export default function ClockPage() {
       .from("selfies")
       .upload(path, blob, { contentType: "image/jpeg" });
 
-    const { data: s } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return setMsg("❌ Sesi habis, silakan login ulang.");
     const res = await submitAttendance(
       { ...payload, selfie_path: path },
       {
         functionUrl: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/submit-attendance`,
-        accessToken: s.session!.access_token,
+        accessToken: token,
       },
     );
 

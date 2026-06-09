@@ -56,9 +56,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
+      if (session?.user.id) {
+        const { data: staff } = await supabase
+          .from('outlet_staff')
+          .select()
+          .eq('id', session.user.id)
+          .single()
+        setOutletStaff(staff ?? null)
+      } else {
+        setOutletStaff(null)
+      }
     })
 
     return () => subscription.unsubscribe()

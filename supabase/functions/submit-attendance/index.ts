@@ -32,18 +32,17 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { ok: false, reason: "method_not_allowed" });
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
     const url = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Client beridentitas caller (untuk auth.getUser); + admin client (service role) untuk tulis.
-    const userClient = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    // Admin client (service role) untuk validasi token & tulis data.
     const admin = createClient(url, serviceKey);
 
-    const { data: userData } = await userClient.auth.getUser();
-    const callerId = userData.user?.id;
-    if (!callerId) return json(401, { ok: false, reason: "unauthenticated" });
+    // Validasi JWT caller dengan token eksplisit (server-side tidak punya session).
+    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const callerId = userData?.user?.id;
+    if (userErr || !callerId) return json(401, { ok: false, reason: "unauthenticated" });
 
     let body: Body;
     try { body = await req.json(); } catch { return json(400, { ok: false, reason: "bad_json" }); }

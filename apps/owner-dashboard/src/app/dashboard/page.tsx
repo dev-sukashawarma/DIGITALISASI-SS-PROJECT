@@ -1,37 +1,40 @@
 'use client';
 
-import { useAuth } from '@/context/AuthContext';
-import { redirect } from 'next/navigation';
-
 export default function DashboardPage() {
-  const { session, profile, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-suka-orange"></div>
-      </div>
-    );
-  }
-
-  if (!session || !profile) {
-    redirect('/login');
-  }
-
   return (
     <div className="p-6">
       <h1 className="text-3xl font-bold text-suka-brown mb-4">Owner Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <p className="text-gray-600 mb-6">Dashboard Pemilik - Business Intelligence & Reporting</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-4 bg-suka-orange/10 rounded-lg border border-suka-orange">
-          <p className="text-sm text-gray-600">Outlet</p>
-          <p className="text-2xl font-bold text-suka-brown">{profile.outlet_name}</p>
+          <p className="text-sm text-gray-600">Status</p>
+          <p className="text-2xl font-bold text-suka-brown">Ready</p>
         </div>
         <div className="p-4 bg-suka-brown/10 rounded-lg border border-suka-brown">
-          <p className="text-sm text-gray-600">Role</p>
-          <p className="text-2xl font-bold text-suka-brown capitalize">{profile.role}</p>
+          <p className="text-sm text-gray-600">Mode</p>
+          <p className="text-2xl font-bold text-suka-brown">Testing</p>
+        </div>
+        <div className="p-4 bg-blue-100 rounded-lg border border-blue-500">
+          <p className="text-sm text-gray-600">Version</p>
+          <p className="text-2xl font-bold text-blue-900">M0</p>
         </div>
       </div>
-      <p className="mt-8 text-gray-500">More features coming in M1...</p>
+
+      <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <h2 className="font-semibold text-suka-brown mb-2">M0 Foundation Checklist</h2>
+        <ul className="text-sm text-gray-700 space-y-1">
+          <li>✅ Monorepo setup (Yarn workspaces)</li>
+          <li>✅ Design System package (@suka/design-system)</li>
+          <li>✅ Offline Queue package (@suka/offline-queue)</li>
+          <li>✅ Supabase schema (outlets, outlet_staff)</li>
+          <li>✅ Next.js app shells (4 apps)</li>
+          <li>⏳ Auth & RLS (coming in M1)</li>
+          <li>⏳ Features (coming in M1-M4)</li>
+        </ul>
+      </div>
+
+      <p className="mt-8 text-gray-500 text-sm">Ready for M1 development...</p>
     </div>
   );
 }

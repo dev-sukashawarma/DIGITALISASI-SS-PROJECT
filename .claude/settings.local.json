@@ -18,7 +18,8 @@
       "Bash(bash -n \"D:\\\\MIT\\\\CLAUDE CODE PROJECT\\\\SS DIGITAL PROJECT\\\\scripts\\\\verify-m0.sh\")",
       "Bash(bash scripts/verify-m0.sh)",
       "Bash(yarn --version)",
-      "Bash(yarn install *)"
+      "Bash(yarn install *)",
+      "Bash(supabase link *)"
     ]
   }
 }

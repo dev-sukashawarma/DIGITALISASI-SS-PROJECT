@@ -1,6 +1,6 @@
 import { AuthProvider } from '@/context/AuthContext'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
-import '@/app/globals.css'
+import './globals.css'
 
 export const metadata = {
   title: 'Stok Bahan Baku — Sukashawarma',

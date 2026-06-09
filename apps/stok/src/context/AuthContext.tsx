@@ -34,22 +34,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        setSession(session)
+        setUser(session?.user ?? null)
 
-      if (session?.user.id) {
-        const { data: staff } = await supabase
-          .from('outlet_staff')
-          .select()
-          .eq('id', session.user.id)
-          .single()
-        setOutletStaff(staff ?? null)
+        if (session?.user.id) {
+          const { data: staff } = await supabase
+            .from('outlet_staff')
+            .select()
+            .eq('id', session.user.id)
+            .single()
+          setOutletStaff(staff ?? null)
+        }
+      } catch (err) {
+        console.error('Failed to get session:', err)
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
 
     getSession()

@@ -22,7 +22,8 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   const [busy, setBusy] = useState(false)
 
   const needsReason = tipe === 'adjustment'
-  const valid = bahanBakuId && qty !== '' && (!needsReason || catatan.trim() !== '')
+  const isValidQty = qty !== '' && !isNaN(Number(qty)) && Number(qty) > 0
+  const valid = bahanBakuId && isValidQty && (!needsReason || catatan.trim() !== '')
 
   async function submit() {
     setBusy(true)

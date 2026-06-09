@@ -26,9 +26,9 @@ export function useOpnameActions() {
   const supabase = createClient()
   const { add, flush, isOnline } = useOfflineQueue<FinalizePayload>('stok-opname-finalize')
 
-  const createDraft = useCallback(async (outletId: string, tipe: string, createdBy: string) => {
+  const createDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
     const { data, error } = await supabase.from('opname')
-      .insert({ outlet_id: outletId, tipe, created_by: createdBy }).select().single()
+      .insert({ outlet_id: outletId, tipe, created_by: createdBy, notes: notes || null }).select().single()
     if (error) throw error
     return data as Opname
   }, [])
@@ -59,7 +59,7 @@ export function useOpnameActions() {
     })
   }, [flush])
 
-  useEffect(() => { if (isOnline) flushFinalize() }, [isOnline])
+  useEffect(() => { if (isOnline) flushFinalize() }, [isOnline, flushFinalize])
 
   return { createDraft, upsertItems, finalize }
 }

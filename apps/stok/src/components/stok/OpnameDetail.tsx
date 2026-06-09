@@ -7,13 +7,24 @@ import type { Opname, OpnameItem } from '@/types/stok'
 export function OpnameDetail({ opnameId }: { opnameId: string }) {
   const [opname, setOpname] = useState<Opname | null>(null)
   const [items, setItems] = useState<OpnameItem[]>([])
+  const [error, setError] = useState<string | null>(null)
   useEffect(() => {
+    setError(null)
     const supabase = createClient()
     supabase.from('opname').select('*').eq('id', opnameId).single()
-      .then(({ data }) => setOpname(data as Opname))
+      .then(({ data, error: err }) => {
+        if (err) throw err
+        setOpname(data as Opname)
+      })
+      .catch(err => setError(`Gagal muat opname: ${err.message}`))
     supabase.from('opname_item').select('*').eq('opname_id', opnameId)
-      .then(({ data }) => setItems((data as OpnameItem[]) ?? []))
+      .then(({ data, error: err }) => {
+        if (err) throw err
+        setItems((data as OpnameItem[]) ?? [])
+      })
+      .catch(err => setError(`Gagal muat item opname: ${err.message}`))
   }, [opnameId])
+  if (error) return <p className="text-red-600">{error}</p>
   if (!opname) return <p>Memuat…</p>
   return (
     <div className="space-y-4">

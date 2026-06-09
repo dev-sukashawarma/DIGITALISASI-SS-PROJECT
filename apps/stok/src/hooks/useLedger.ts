@@ -8,15 +8,22 @@ const PAGE_SIZE = 50
 export function useLedgerList(outletId: string | undefined, page = 0) {
   const [data, setData] = useState<LedgerStok[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   useEffect(() => {
-    if (!outletId) return
+    if (!outletId) { setLoading(false); return }
+    setError(null)
     const supabase = createClient()
     supabase.from('ledger_stok').select('*').eq('outlet_id', outletId)
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
-      .then(({ data }) => { setData((data as LedgerStok[]) ?? []); setLoading(false) })
+      .then(({ data, error: err }) => {
+        if (err) throw err
+        setData((data as LedgerStok[]) ?? [])
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
   }, [outletId, page])
-  return { ledger: data, loading }
+  return { ledger: data, loading, error }
 }
 
 export interface ManualEntryInput {

@@ -9,7 +9,7 @@ import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih'
 
 export function OpnameForm({ outletId, createdBy }: { outletId: string; createdBy: string }) {
   const router = useRouter()
-  const { bahanBaku } = useBahanBaku()
+  const { bahanBaku, error: bahanError } = useBahanBaku()
   const { balances } = useStokBalance(outletId)
   const { createDraft, upsertItems, finalize } = useOpnameActions()
   const [tipe, setTipe] = useState('harian')
@@ -26,7 +26,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
   async function handleFinalize() {
     setBusy(true)
     try {
-      const opname = await createDraft(outletId, tipe, createdBy)
+      const opname = await createDraft(outletId, tipe, createdBy, notes)
       const items = bahanBaku
         .filter(b => fisik[b.id] !== undefined && fisik[b.id] !== '')
         .map(b => {
@@ -45,6 +45,8 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
       router.push('/stok/opname')
     } finally { setBusy(false) }
   }
+
+  if (bahanError) return <p className="text-red-600">Gagal muat bahan baku: {bahanError}</p>
 
   return (
     <div className="space-y-4">

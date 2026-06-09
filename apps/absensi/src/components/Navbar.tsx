@@ -14,7 +14,7 @@ export function Navbar() {
 
   async function handleLogout() {
     await signOut();
-    router.push('/login');
+    router.replace('/login'); // replace agar back button tidak bisa balik ke halaman protected
   }
 
   const links = [

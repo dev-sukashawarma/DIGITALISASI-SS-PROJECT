@@ -6,7 +6,17 @@ CREATE POLICY outlets_read_authenticated
   TO authenticated
   USING (true);
 
-CREATE POLICY outlets_write_denied
-  ON outlets FOR INSERT, UPDATE, DELETE
+CREATE POLICY outlets_insert_denied
+  ON outlets FOR INSERT
+  TO authenticated
+  WITH CHECK (false);
+
+CREATE POLICY outlets_update_denied
+  ON outlets FOR UPDATE
+  TO authenticated
+  USING (false);
+
+CREATE POLICY outlets_delete_denied
+  ON outlets FOR DELETE
   TO authenticated
   USING (false);

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\MIT\\\\CLAUDE CODE PROJECT\\\\SS DIGITAL PROJECT\" -Force)",
+      "Bash(Select-Object Name, LastWriteTime)",
+      "PowerShell(Head -20)",
+      "Bash(node -e \"console.log\\('package.json:', JSON.stringify\\(require\\('./packages/design-system/package.json'\\), null, 2\\)\\)\")",
+      "Bash(node -e \"console.log\\('tsconfig.json:', JSON.stringify\\(require\\('./packages/design-system/tsconfig.json'\\), null, 2\\)\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(npx tsc *)",
+      "Bash(npm list *)",
+      "Bash(ls -la \"D:\\\\MIT\\\\CLAUDE CODE PROJECT\\\\SS DIGITAL PROJECT\\\\\" | head -20)",
+      "Bash(node -e \"console.log\\(JSON.stringify\\(require\\('./apps/absensi/package.json'\\), null, 2\\)\\)\")",
+      "Bash(Get-ChildItem -Path \"D:\\\\MIT\\\\CLAUDE CODE PROJECT\\\\SS DIGITAL PROJECT\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(chmod +x \"D:\\\\MIT\\\\CLAUDE CODE PROJECT\\\\SS DIGITAL PROJECT\\\\scripts\\\\verify-m0.sh\")",
+      "Bash(bash -n \"D:\\\\MIT\\\\CLAUDE CODE PROJECT\\\\SS DIGITAL PROJECT\\\\scripts\\\\verify-m0.sh\")",
+      "Bash(bash scripts/verify-m0.sh)",
+      "Bash(yarn --version)",
+      "Bash(yarn install *)"
+    ]
+  }
+}

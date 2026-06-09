@@ -1,5 +1,6 @@
 import { AuthProvider } from '@/context/AuthContext'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { Navbar } from '@/components/Navbar'
 import './globals.css'
 
 export const metadata = {
@@ -16,7 +17,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="antialiased bg-slate-50 text-slate-900 selection:bg-suka-orange selection:text-white min-h-screen">
         <ErrorBoundary>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <Navbar />
+            {children}
+          </AuthProvider>
         </ErrorBoundary>
       </body>
     </html>

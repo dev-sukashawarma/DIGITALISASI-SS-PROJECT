@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .from('outlet_staff')
           .select()
           .eq('id', session.user.id)
-          .single()
+          .maybeSingle()
         setOutletStaff(staff ?? null)
       }
 
@@ -64,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .from('outlet_staff')
           .select()
           .eq('id', session.user.id)
-          .single()
+          .maybeSingle()
         setOutletStaff(staff ?? null)
       } else {
         setOutletStaff(null)

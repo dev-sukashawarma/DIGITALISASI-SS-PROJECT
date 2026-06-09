@@ -35,15 +35,6 @@ INSERT INTO bahan_baku (nama, satuan, kategori, default_reorder_point) VALUES
   ('CENGKEH', 'kg', 'bumbu', 2)
 ON CONFLICT (nama) DO NOTHING;
 
--- one global recipe (BOM) example: shawarma ayam
-INSERT INTO resep (menu_item_ref, nama, scope) VALUES ('menu-shawarma-ayam','Shawarma Ayam','global')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO resep_item (resep_id, bahan_baku_id, qty_per_porsi, satuan)
-SELECT r.id, b.id, v.qty, b.satuan
-FROM resep r
-JOIN (VALUES ('Daging Ayam',0.15),('Roti Pita',1),('Saus Mayo',0.02),('Selada',0.03))
-     AS v(nama, qty) ON true
-JOIN bahan_baku b ON b.nama = v.nama
-WHERE r.menu_item_ref = 'menu-shawarma-ayam'
-ON CONFLICT (resep_id, bahan_baku_id) DO NOTHING;
+-- BOM (resep/resep_item) structure is built for M2 but not seeded.
+-- M2 does NOT auto-deduct BOM (awaiting POS feed in M4).
+-- Resep can be created manually in M4 owner dashboard for M5 auto-deduction.

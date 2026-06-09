@@ -44,7 +44,7 @@ WHERE name IN ('Test User', 'Admin SS');
 - All 33 are seeded in migration `20260609001800_seed_sample_stok.sql`
 - Satuan enum updated to include `crt`, `kompan`
 
-**Migration note:** Initial seed creates 10 sample items. If running fresh install, you'll get all 33. In dev, we manually deleted old sample rows—in fresh install, they're replaced automatically via `ON CONFLICT (nama) DO NOTHING`.
+**Migration note:** Seed now creates 33 real bahan only. Phantom resep/resep_item entries (referencing deleted sample bahan) have been removed. BOM structure exists for M4 auto-deduction (wired when POS feed ready), but no seed data needed in M2.
 
 ## Error Handling Improvements
 

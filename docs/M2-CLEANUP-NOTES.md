@@ -2,18 +2,70 @@
 
 ## Database Cleanup (Dev Only)
 
-After initial dev/testing, run in Supabase SQL Editor to clean test data:
+After initial dev/testing, run in Supabase SQL Editor. **ORDER MATTERS** (FK constraints):
 
 ```sql
--- Remove old sample bahan_baku (replaced with real 33 ingredients)
+-- CAUTION: Delete in this exact order to avoid FK violations
+
+-- 1. Ledger entries for old bahan (ledger_stok → bahan_baku FK)
+DELETE FROM ledger_stok 
+WHERE bahan_baku_id IN (
+  SELECT id FROM bahan_baku 
+  WHERE nama IN ('Daging Ayam', 'Daging Sapi', 'Roti Pita', 'Saus Mayo', 
+                 'Saus Sambal', 'Selada', 'Tomat', 'Bawang Bombay', 
+                 'Kemasan Box', 'Bumbu Shawarma')
+);
+
+-- 2. Stok balance entries for old bahan
+DELETE FROM stok_balance 
+WHERE bahan_baku_id IN (
+  SELECT id FROM bahan_baku 
+  WHERE nama IN ('Daging Ayam', 'Daging Sapi', 'Roti Pita', 'Saus Mayo', 
+                 'Saus Sambal', 'Selada', 'Tomat', 'Bawang Bombay', 
+                 'Kemasan Box', 'Bumbu Shawarma')
+);
+
+-- 3. Opname items for old bahan (opname_item → bahan_baku FK)
+DELETE FROM opname_item 
+WHERE bahan_baku_id IN (
+  SELECT id FROM bahan_baku 
+  WHERE nama IN ('Daging Ayam', 'Daging Sapi', 'Roti Pita', 'Saus Mayo', 
+                 'Saus Sambal', 'Selada', 'Tomat', 'Bawang Bombay', 
+                 'Kemasan Box', 'Bumbu Shawarma')
+);
+
+-- 4. Orphaned opname entries (no items)
+DELETE FROM opname 
+WHERE id NOT IN (SELECT DISTINCT opname_id FROM opname_item);
+
+-- 5. Resep items for old bahan (resep_item → bahan_baku FK)
+DELETE FROM resep_item 
+WHERE bahan_baku_id IN (
+  SELECT id FROM bahan_baku 
+  WHERE nama IN ('Daging Ayam', 'Daging Sapi', 'Roti Pita', 'Saus Mayo', 
+                 'Saus Sambal', 'Selada', 'Tomat', 'Bawang Bombay', 
+                 'Kemasan Box', 'Bumbu Shawarma')
+);
+
+-- 6. Orphaned resep entries (no items)
+DELETE FROM resep 
+WHERE id NOT IN (SELECT DISTINCT resep_id FROM resep_item);
+
+-- 7. Finally: old bahan_baku (all FKs cleaned up)
 DELETE FROM bahan_baku 
 WHERE nama IN ('Daging Ayam', 'Daging Sapi', 'Roti Pita', 'Saus Mayo', 
                'Saus Sambal', 'Selada', 'Tomat', 'Bawang Bombay', 
                'Kemasan Box', 'Bumbu Shawarma');
 
--- Remove test outlet_staff entries (should be empty in prod)
+-- 8. Remove test outlet_staff entries (should be empty in prod)
 DELETE FROM outlet_staff 
 WHERE name IN ('Test User', 'Admin SS');
+
+-- Verify final state
+SELECT COUNT(*) as bahan FROM bahan_baku;
+SELECT COUNT(*) as opname FROM opname;
+SELECT COUNT(*) as ledger FROM ledger_stok;
+SELECT COUNT(*) as resep FROM resep;
 ```
 
 ## Critical Design Decisions

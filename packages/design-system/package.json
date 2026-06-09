@@ -17,7 +17,7 @@
   },
   "files": ["dist", "src"],
   "scripts": {
-    "build": "tsc --declaration --emitDeclarationOnly && node -e \"console.log('✓ Build complete')\"",
+    "build": "tsc && node -e \"console.log('✓ Build complete')\"",
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
@@ -26,6 +26,6 @@
   },
   "peerDependencies": {
     "react": "^19.0.0",
-    "tailwindcss": "^4.0.0"
+    "tailwindcss": "^3.4.0 || ^4.0.0"
   }
 }

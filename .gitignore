@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output (Next.js static export)
+out/
+.next/
+dist/
+build/
+
+# Secrets & env — JANGAN commit key Supabase!
+.env
+.env.*
+!.env.example
+config.js
+!config.example.js
+**/config.local.*
+
+# Supabase
+.supabase/
+supabase/.branches/
+supabase/.temp/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Misc
+coverage/
+.turbo/

@@ -47,7 +47,7 @@ sequenceDiagram
 flowchart TD
     start(["Staff buka app, tekan Clock-in"]) --> cam["Kamera live ambil wajah"]
     cam --> desc["face-api.js hitung descriptor"]
-    desc --> match{"Match 1:1 vs<br/>descriptor terdaftar?<br/>(jarak < 0.5)"}
+    desc --> match{"Match 1:1 vs<br/>descriptor terdaftar?<br/>(jarak di bawah 0.5)"}
     match -- "Tidak" --> rej1["❌ Tolak: wajah tidak cocok"]
     match -- "Ya" --> gps{"Dalam radius<br/>GPS outlet?<br/>(75-100m)"}
     gps -- "Tidak" --> rej2["❌ Tolak: di luar lokasi"]
@@ -87,7 +87,7 @@ sequenceDiagram
 
     Note over S: Monitoring
     S->>S: saldo = SUM(ledger) per outlet+material
-    S-->>App: alert bila saldo < reorder_point ⚠️
+    S-->>App: alert bila saldo di bawah reorder_point ⚠️
 ```
 
 ---
@@ -144,7 +144,7 @@ flowchart LR
         roll --> mv
     end
 
-    mv -->|"baca < 1 dtk"| dash["📊 Owner Dashboard<br/>(static, client-side)"]
+    mv -->|"baca cepat (sub-detik)"| dash["📊 Owner Dashboard<br/>(static, client-side)"]
 
     note["Refresh berlapis:<br/>hari ini ~2 mnt · historis jam/harian"]
     mv -.- note

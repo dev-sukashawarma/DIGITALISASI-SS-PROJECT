@@ -8,7 +8,10 @@ export function useOpnameList(outletId: string | undefined) {
   const [data, setData] = useState<Opname[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
-    if (!outletId) return
+    if (!outletId) {
+      setLoading(false)
+      return
+    }
     const supabase = createClient()
     supabase.from('opname').select('*').eq('outlet_id', outletId)
       .order('tanggal', { ascending: false }).limit(60)

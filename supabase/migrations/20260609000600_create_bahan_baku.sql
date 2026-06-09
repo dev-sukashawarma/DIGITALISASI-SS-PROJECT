@@ -3,7 +3,7 @@
 CREATE TABLE bahan_baku (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nama TEXT NOT NULL UNIQUE,
-  satuan TEXT NOT NULL CHECK (satuan IN ('kg','gram','liter','ml','pcs','box','pack','ikat','botol')),
+  satuan TEXT NOT NULL CHECK (satuan IN ('kg','gram','liter','ml','pcs','box','pack','ikat','botol','crt','kompan')),
   kategori TEXT NOT NULL CHECK (kategori IN ('protein','sayur','bumbu','saus','roti','kemasan','minuman','lainnya')),
   default_reorder_point NUMERIC NOT NULL DEFAULT 0 CHECK (default_reorder_point >= 0),
   is_active BOOLEAN NOT NULL DEFAULT true,

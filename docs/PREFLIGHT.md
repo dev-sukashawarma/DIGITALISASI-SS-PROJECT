@@ -18,7 +18,7 @@
 ## ⛔ Wajib disediakan owner/tim sebelum M0 (blocker)
 - [ ] **Supabase project BARU** dibuat → kirim `Project URL`, `anon key`, `service_role key`
 - [ ] **Read access ke Supabase produksi (Ecosystem)** → service key read-only utk sinkron 19 outlet (uuid asli ada di produksi, bukan di seed)
-- [ ] **Akses n8n** (endpoint + kredensial) → pipeline sinkron `outlets` & `sales_rollup`
+- [ ] ~~Akses n8n~~ → **tidak perlu**; sinkron `outlets` & `sales_rollup` pakai Edge Function + pg_cron (ADR-006)
 - [ ] **Repo Git** dibuat di GitHub org (usulan: `sukashawarma-outlet-suite`, monorepo) + akses 2 dev
 - [ ] **Kredensial deploy cPanel** (FTP/Git deploy) utk subdomain (usulan: `absensi.`, `stok.`, dll)
 - [ ] **Konfirmasi data:** apakah ke-19 outlet produksi `lat`/`lng`-nya **terisi semua** (bukan NULL)? Jika ada NULL → kumpulkan koordinat dulu (M1 butuh)
@@ -32,6 +32,6 @@
 
 ## ⚠️ Risiko yang diakui
 - Tanpa liveness, face match rawan foto-dari-foto → mitigasi: kamera live + GPS + selfie audit + spot-check SPV (liveness fase lanjut). ADR-003
-- 2 pipeline sinkron lintas-project (outlets + sales) jadi titik rawan → monitoring n8n. ADR-004
+- 2 sinkron lintas-akun (outlets + sales) jadi titik rawan → Edge Function + pg_cron, pantau via log Supabase. ADR-004/006
 - Akurasi face-api.js tergantung pencahayaan outlet → kalibrasi threshold per kondisi.
 - Library face-api.js relatif lama → pertimbangkan fork aktif (`@vladmandic/face-api`) saat M1.

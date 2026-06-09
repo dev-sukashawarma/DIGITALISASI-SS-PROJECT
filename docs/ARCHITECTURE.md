@@ -41,7 +41,7 @@ flowchart TB
     m3 -->|"status distribusi"| m4
     online -.->|"sales (sinkron)"| m4
     pos -.->|"sales (sinkron)"| m4
-    checklist -.->|"compliance (n8n)"| m4
+    checklist -.->|"compliance (fase lanjut)"| m4
 ```
 
 ---
@@ -72,18 +72,17 @@ flowchart LR
         db0[("outlets master,<br/>orders, POS")]
     end
 
-    n8n["n8n<br/>(sinkron)"]
-
     gh -->|"build static export → upload out/"| HOST
     HOST -->|"Supabase JS (anon key + RLS)"| db1
     HOST --> ef1
     HOST --> st1
-    cron1 --> db1
-    n8n -->|"baca (read key)"| db0
-    n8n -->|"upsert outlets + sales_rollup"| db1
+    cron1 -->|"refresh views"| db1
+    cron1 -->|"jadwalkan sync"| ef1
+    ef1 -->|"baca (read key)"| db0
+    ef1 -->|"upsert outlets + sales_rollup"| db1
 ```
 
-> Catatan: app = file **statis**; semua logika & data di Supabase. cPanel hanya menyajikan file. DB Outlet Suite di **akun Supabase berbeda** dari produksi (ADR-004). Static export (ADR-005).
+> Catatan: app = file **statis**; semua logika & data di Supabase. cPanel hanya menyajikan file. DB Outlet Suite di **akun Supabase berbeda** dari produksi (ADR-004). Static export (ADR-005). Sinkron antar-akun via Edge Function + pg_cron, bukan n8n (ADR-006).
 
 ---
 

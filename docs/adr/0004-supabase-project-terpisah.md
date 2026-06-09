@@ -16,5 +16,5 @@ Bangun modul baru di **Supabase project BARU di akun/org Supabase BERBEDA** ("Ou
 ## Konsekuensi
 - (+) Isolasi penuh; migrasi suite tidak bisa merusak produksi.
 - (+) `outlet_staff` bersih dari awal.
-- (−) **Amandemen ADR-002:** dashboard owner jadi lintas-project. Mitigasi: sinkron `outlets` + agregat sales dari Ecosystem → reporting schema Outlet Suite (via n8n), dashboard tetap baca 1 project. Lihat `docs/DB-MIGRATION-PLAN.md`.
+- (−) **Amandemen ADR-002:** dashboard owner jadi lintas-project. Mitigasi: sinkron `outlets` + agregat sales dari Ecosystem → reporting schema Outlet Suite (via Edge Function + pg_cron, ADR-006), dashboard tetap baca 1 project. Lihat `docs/DB-MIGRATION-PLAN.md`.
 - (−) Tambah 1 pipeline sinkron (outlets + sales rollup) yang harus dijaga.

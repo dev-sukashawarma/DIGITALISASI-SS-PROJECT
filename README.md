@@ -17,7 +17,7 @@ Suite digital **operasional outlet** Sukashawarma (19 outlet Jabodetabek). Siste
 ## Stack
 - **DB/Backend:** Supabase Cloud (akun terpisah dari produksi) — Postgres + Auth + Storage + RLS + Edge Functions + pg_cron
 - **Frontend:** Next.js + TypeScript (**static export**) + Tailwind, deploy ke **cPanel shared** (static), subdomain per modul
-- **Otomasi/sinkron:** n8n
+- **Sinkron data:** Supabase Edge Function + pg_cron (n8n opsional, hanya utk compliance MySQL fase lanjut)
 - **Design:** Design System SUKA (reuse)
 
 ## Struktur

@@ -24,7 +24,7 @@ Sukashawarma adalah usaha F&B (fokus shawarma) dengan **19 outlet se-Jabodetabek
 | 7 | Dashboard owner (P&L/analitik) | 🟡 Partial | Ada dashboard operasional (Checklist PHP) & HR (SS-WEBAPP); **BI bisnis belum ada** |
 | 8 | Pengiriman & verifikasi pusat→outlet | 🔴 Greenfield | — |
 
-**Aset reuse:** Design System SUKA (`LINKTREE SS/SUKA Shawarma Design System`) — warna `--suka-orange #f29744`, `--suka-brown #701604`, font Lilita One + Plus Jakarta Sans. n8n sudah dipakai di ekosistem.
+**Aset reuse:** Design System SUKA (`LINKTREE SS/SUKA Shawarma Design System`) — warna `--suka-orange #f29744`, `--suka-brown #701604`, font Lilita One + Plus Jakarta Sans. (n8n ada di ekosistem untuk CS chatbot — **tidak** dipakai untuk pipa data inti; sinkron pakai Edge Function + pg_cron, lihat ADR-006.)
 
 **Scope build baru:** #1, #4, #5, #6, #7, #8. (#2 sudah jalan; #3 ditunggu dari owner.)
 
@@ -32,12 +32,12 @@ Sukashawarma adalah usaha F&B (fokus shawarma) dengan **19 outlet se-Jabodetabek
 
 ## Keputusan Arsitektur (terkunci)
 
-1. **Stack modul baru:** Supabase (Postgres + Auth + Storage + RLS + Edge Functions + pg_cron) + **Next.js/TypeScript (static export `output: 'export'`)** + Tailwind, deploy ke **server cPanel CloudLinux shared (penyedia lokal)** sebagai file statis, subdomain per modul. Logika server di Edge Functions/RLS/n8n (bukan SSR). Reuse Design System SUKA sebagai package bersama. → ADR-005
+1. **Stack modul baru:** Supabase (Postgres + Auth + Storage + RLS + Edge Functions + pg_cron) + **Next.js/TypeScript (static export `output: 'export'`)** + Tailwind, deploy ke **server cPanel CloudLinux shared (penyedia lokal)** sebagai file statis, subdomain per modul. Logika server & sinkron di Edge Functions/RLS/pg_cron (bukan SSR, bukan n8n). Reuse Design System SUKA sebagai package bersama. → ADR-005, ADR-006
 2. **Identitas terpadu `outlet_staff`** (role: `crew`, `kasir`, `spv`, `kepala_outlet`). Tidak kopling `pos_cashiers` lama. → ADR-001
 3. **Face matching ringan:** face-api.js 1:1 di browser device outlet. Enroll oleh SPV. Anti-curang MVP = GPS radius + selfie audit + timestamp server. Liveness ditunda. → ADR-003
 4. **Stok bahan baku = SATU domain, 3 muka:** Inventarisasi (opname) · Manajemen (ledger) · Monitoring (alert). Mulai manual/opname, BOM auto-deduction fase lanjut.
 5. **Supply chain:** **1 Gudang Pusat** → Surat Jalan → outlet verifikasi terima → **stok masuk = qty terverifikasi**.
-6. **Owner Dashboard = reporting hub Supabase** (materialized views + pg_cron, near-real-time berlapis). Compliance disinkron via n8n. HR pusat tidak diintegrasi. → ADR-002
+6. **Owner Dashboard = reporting hub Supabase** (materialized views + pg_cron, near-real-time berlapis). Sinkron `outlets` + agregat sales dari Ecosystem via **Edge Function + pg_cron**. Compliance fase lanjut (opsional). HR pusat tidak diintegrasi. → ADR-002, ADR-006
 7. **DB terpisah:** modul baru di **Supabase project BARU di akun/org Supabase berbeda** dari produksi (isolasi penuh, bukan extend); `outlets` disinkron 1-arah (uuid sama), `outlet_staff` enroll fresh. → ADR-004, lihat [`docs/DB-MIGRATION-PLAN.md`](DB-MIGRATION-PLAN.md)
 8. **Pembagian kerja:** 2-track paralel by domain.
 
@@ -80,7 +80,7 @@ Detail keputusan: lihat [`docs/adr/`](adr/), plan migrasi DB di [`docs/DB-MIGRAT
 - Reporting hub Supabase: materialized views + pg_cron.
 - KPI: revenue per outlet/hari, top item, jam ramai, **COGS & waste** (ledger stok), status distribusi, ringkasan kehadiran.
 - Layered refresh: "hari ini" ~2 menit; historis jam/harian.
-- Compliance (Checklist MySQL) disinkron via n8n → widget sekunder.
+- Compliance (Checklist MySQL) → widget sekunder, **fase lanjut** (opsional; konektor MySQL bisa via n8n nanti).
 
 ---
 

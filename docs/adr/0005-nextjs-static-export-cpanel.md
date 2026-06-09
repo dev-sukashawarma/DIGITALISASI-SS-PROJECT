@@ -7,7 +7,7 @@
 Hosting = **server cPanel CloudLinux shared** dari penyedia lokal (terkonfirmasi via metrik LVE: Entry Processes 40, Number of Processes 450, RAM 6GB, **no root access**). Postgres tersedia di server tapi **tidak dipakai** (DB = Supabase cloud, beda akun). App suite = tool internal (absensi, stok, distribusi, dashboard) yang datanya via Supabase. Karena shared (no root), SSR/Node app persisten berliku & rapuh; kapasitas server (39GB disk, ∞ bandwidth, ∞ subdomain) kegedean untuk static.
 
 ## Keputusan
-Bangun app dengan **Next.js + TypeScript** tapi konfigurasi **`output: 'export'`** (static export) → di-deploy sebagai file statis ke cPanel. Logika server (auth, RPC, cron, sinkron) di **Supabase Edge Functions + pg_cron + n8n**, bukan Next API routes/SSR. Data diambil client-side via Supabase JS + RLS — pola yang sama dengan app produksi existing.
+Bangun app dengan **Next.js + TypeScript** tapi konfigurasi **`output: 'export'`** (static export) → di-deploy sebagai file statis ke cPanel. Logika server (auth, RPC, cron, sinkron) di **Supabase Edge Functions + pg_cron**, bukan Next API routes/SSR. Data diambil client-side via Supabase JS + RLS — pola yang sama dengan app produksi existing.
 
 ## Alternatif yang ditolak
 - **Next.js SSR di Vercel** — ditolak: owner mau cPanel (1 ekosistem hosting).

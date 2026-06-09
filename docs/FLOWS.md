@@ -9,7 +9,7 @@ Lihat juga: [`ARCHITECTURE.md`](ARCHITECTURE.md) · [`PRD.md`](PRD.md)
 
 ```mermaid
 sequenceDiagram
-    participant N as n8n (scheduled)
+    participant N as Edge Function sync-outlets (pg_cron)
     participant E as Supabase Ecosystem (produksi)
     participant S as Supabase Outlet Suite (akun baru)
 
@@ -131,10 +131,10 @@ flowchart LR
         comp["compliance<br/>(Checklist MySQL)"]
     end
 
-    n8n["n8n (sinkron)"]
-    sales -->|"agregat"| n8n
-    comp -->|"berkala"| n8n
-    n8n --> roll["sales_rollup +<br/>compliance (di Outlet Suite)"]
+    ef["Edge Function + pg_cron<br/>(sync-sales)"]
+    sales -->|"agregat"| ef
+    ef --> roll["sales_rollup<br/>(di Outlet Suite)"]
+    comp -.->|"fase lanjut (opsional)"| roll
 
     subgraph HUB["Reporting Hub (Supabase Outlet Suite)"]
         roll

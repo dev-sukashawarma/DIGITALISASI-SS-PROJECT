@@ -10,7 +10,7 @@
 | **Ecosystem** (existing) | akun Supabase produksi | `outlets` (19, master), `menu_items`, `orders`, `order_items`, `admin_users`, `pos_cashiers`, `pos_daily_stock`, dll. Dipakai TiktokGo + POS SS + kiosk. | Produksi — **JANGAN diubah destruktif** |
 | **Outlet Suite** (baru) | **akun/org Supabase BERBEDA** | `outlet_staff`, domain Stok Bahan Baku, Shipment/Goods Receipt, reporting schema. | Greenfield (suite ini) |
 
-**Prinsip:** Project Ecosystem **read-only** dari sisi suite baru (hanya dibaca untuk sinkron). Tidak ada migrasi destruktif ke produksi. Karena beda akun, sinkron lintas-akun via REST/service key (n8n), bukan FDW intra-project.
+**Prinsip:** Project Ecosystem **read-only** dari sisi suite baru (hanya dibaca untuk sinkron). Tidak ada migrasi destruktif ke produksi. Karena beda akun, sinkron lintas-akun via **Supabase Edge Function** (panggil REST Ecosystem dgn read key) dijadwalkan **pg_cron**, bukan FDW, bukan n8n. (ADR-006)
 
 ## 2. Sinkronisasi `outlets` (Ecosystem → Outlet Suite)
 
@@ -18,8 +18,8 @@
 
 - **ID strategy:** **pertahankan `outlet.id` (uuid) yang sama** di kedua project → join lintas-project tetap valid (krusial untuk dashboard).
 - **Seed awal:** export 19 outlet dari Ecosystem → upsert ke `outlets` Outlet Suite (kolom yang dibutuhkan: `id, slug, name, address, lat, lng, type, is_active`). `lat/lng` langsung dipakai M1 (GPS radius absensi).
-- **Sinkron berkala:** outlets jarang berubah (19 outlet). Pakai **n8n** (sudah ada di ekosistem): scheduled job baca REST Ecosystem → upsert by `id` ke Outlet Suite (1 arah). Frekuensi harian cukup; trigger manual saat ada outlet baru.
-- **Catatan:** karena 2 project di **akun berbeda**, sinkron lewat REST/service key (n8n). FDW intra-akun tidak relevan. **Default: n8n upsert (salinan lokal)** demi isolasi.
+- **Sinkron berkala:** outlets jarang berubah (19 outlet). **Edge Function `sync-outlets`** dijadwalkan pg_cron: baca REST Ecosystem (read key) → upsert by `id` ke Outlet Suite (1 arah). Frekuensi harian cukup; bisa trigger manual saat ada outlet baru.
+- **Catatan:** karena 2 project di **akun berbeda**, sinkron lewat REST + read key dari dalam Edge Function. FDW intra-akun tidak relevan. Salinan lokal `outlets` demi isolasi.
 
 ## 3. Skema BARU di Outlet Suite (additive, fresh project)
 
@@ -50,13 +50,13 @@ Reporting schema (M4): materialized views (`mv_sales_daily`, `mv_cogs_waste`, `m
 
 Revenue/penjualan ada di **Ecosystem** (`orders`, POS), sisanya di **Outlet Suite**. Karena ADR-002 ingin dashboard baca 1 tempat:
 
-- **Strategi:** sinkron **agregat sales** (bukan raw rows) dari Ecosystem → tabel `sales_rollup` di reporting schema Outlet Suite, via n8n/scheduled (harian + "hari ini" tiap ~2 menit). Dashboard tetap baca 1 project (Outlet Suite).
+- **Strategi:** sinkron **agregat sales** (bukan raw rows) dari Ecosystem → tabel `sales_rollup` di reporting schema Outlet Suite, via **Edge Function `sync-sales` + pg_cron** (harian + "hari ini" tiap ~2 menit). Dashboard tetap baca 1 project (Outlet Suite).
 - Join sales↔stok pakai `outlet_id` (uuid sama) → COGS per outlet valid.
-- HR pusat: tetap tidak diintegrasi. Compliance (MySQL): sinkron via n8n seperti rencana semula.
+- HR pusat: tetap tidak diintegrasi. Compliance (MySQL): **fase lanjut** (opsional) — konektor MySQL paling gampang via n8n bila nanti diperlukan.
 
 ## 5. Urutan Eksekusi Migrasi
 
-1. **M0 (Dev B):** buat project Outlet Suite → migration `outlets` + `outlet_staff` + RLS → seed sinkron 19 outlet (n8n job) → verifikasi isolasi RLS.
+1. **M0 (Dev B):** buat project Outlet Suite → migration `outlets` + `outlet_staff` + RLS → Edge Function `sync-outlets` + pg_cron, seed 19 outlet → verifikasi isolasi RLS.
 2. **M1 (Dev A):** tabel `attendance` (butuh `outlet_staff` + `outlets.lat/lng`).
 3. **M2 (Dev B):** `raw_materials`, `outlet_material_config`, `stock_ledger`, `stock_opname*`.
 4. **M3 (Dev A):** `shipments`, `shipment_items`, `goods_receipts` + trigger goods_receipt→stock_ledger(masuk).

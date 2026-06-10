@@ -71,15 +71,15 @@ export function VerifikasiForm({ id }: { id: string }) {
         throw new Error(`Failed to verify items: ${errors[0].error?.message}`)
       }
 
-      // Update surat jalan status to diterima_lengkap
-      const { error: sjError } = await supabase
-        .from('surat_jalan')
-        .update({ status: 'diterima_lengkap' })
-        .eq('id', id)
+      // Call RPC function to finalize and create ledger entries
+      const { data: rpcResult, error: rpcError } = await supabase.rpc(
+        'finalize_surat_jalan_and_ledger',
+        { p_surat_jalan_id: id }
+      )
 
-      if (sjError) throw sjError
+      if (rpcError) throw new Error(`Failed to finalize: ${rpcError.message}`)
 
-      alert('Verifikasi berhasil disimpan!')
+      alert('Verifikasi berhasil disimpan! Ledger entries created.')
       router.push('/distribusi/terima')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Gagal menyimpan verifikasi'

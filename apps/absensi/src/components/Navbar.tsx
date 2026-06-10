@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { Clock, Camera, ClipboardList, LayoutDashboard, LogOut } from 'lucide-react';
 
 export function Navbar() {
   const { outletStaff, signOut } = useAuth();
@@ -18,16 +19,17 @@ export function Navbar() {
   }
 
   const links = [
-    { href: '/clock',   label: '🕐 Absensi' },
-    { href: '/enroll',  label: '📷 Enroll' },
-    { href: '/rekap',   label: '📋 Rekap' },
+    { href: '/dashboard', label: 'Papan', Icon: LayoutDashboard },
+    { href: '/clock',     label: 'Absensi', Icon: Clock },
+    { href: '/enroll',    label: 'Enroll', Icon: Camera },
+    { href: '/rekap',     label: 'Rekap', Icon: ClipboardList },
   ];
 
   return (
     <nav className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm">
       {/* Kiri: nama outlet + staff */}
       <div>
-        <span className="font-bold text-suka-brown text-sm">🥙 Sukashawarma</span>
+        <span className="font-bold text-suka-brown text-sm">Sukashawarma</span>
         {outletStaff && (
           <span className="ml-2 text-xs text-gray-500">
             ({outletStaff.name} · {outletStaff.role})
@@ -37,16 +39,17 @@ export function Navbar() {
 
       {/* Tengah: navigasi */}
       <div className="flex gap-1">
-        {links.map(({ href, label }) => (
+        {links.map(({ href, label, Icon }) => (
           <Link
             key={href}
             href={href}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
               pathname === href
                 ? 'bg-suka-orange text-white'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
+            <Icon size={16} />
             {label}
           </Link>
         ))}
@@ -55,9 +58,9 @@ export function Navbar() {
       {/* Kanan: tombol logout */}
       <button
         onClick={handleLogout}
-        className="px-3 py-1.5 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 transition border border-red-200"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 transition border border-red-200"
       >
-        Keluar →
+        <LogOut size={16} /> Keluar
       </button>
     </nav>
   );

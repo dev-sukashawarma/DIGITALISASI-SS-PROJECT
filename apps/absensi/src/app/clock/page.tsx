@@ -1,135 +1,82 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button, Card } from "@suka/design-system";
-import { createClient } from "@/lib/supabase";
+import { useEffect, useRef } from "react";
+import { Card, Spinner } from "@suka/design-system";
+import { UserRound, Eye, CircleCheck, CircleX } from "lucide-react";
+import { CameraCapture } from "@/components/CameraCapture";
+import { loadFaceModels } from "@/lib/face/recognizer";
 import { useAuth } from "@/context/AuthContext";
-import { CameraCapture, captureFrame } from "@/components/CameraCapture";
-import { loadFaceModels, extractDescriptor } from "@/lib/face/recognizer";
-import { isMatch } from "@/lib/face/match";
-import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
-import { submitAttendance } from "@/lib/attendance/submit";
-import type { AttendancePayload } from "@/lib/attendance/types";
-
-type Staff = { id: string; name: string; face_descriptor: number[] | null };
+import { useClockKiosk } from "@/features/clock/useClockKiosk";
 
 export default function ClockPage() {
-  const { outletStaff, session } = useAuth();
-  const supabase = createClient();
-  const queue = useAttendanceQueue();
-  const [staff, setStaff] = useState<Staff[]>([]);
-  const [selected, setSelected] = useState<Staff | null>(null);
-  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
-  const [msg, setMsg] = useState("");
+  const { outletStaff } = useAuth();
+  const kiosk = useClockKiosk();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const loopRef = useRef<number | null>(null);
 
+  useEffect(() => { loadFaceModels(); }, []);
+  useEffect(() => { if (outletStaff) { kiosk.loadCandidates(); kiosk.flushQueue(); } }, [outletStaff]);
+
+  // Loop deteksi: jalankan tick/liveness sesuai phase.
   useEffect(() => {
-    loadFaceModels();
-    if (!outletStaff) return;
-    supabase
-      .from("outlet_staff")
-      .select("id,name,face_descriptor")
-      .eq("outlet_id", outletStaff.outlet_id)
-      .not("face_descriptor", "is", null)
-      .then(({ data }) => setStaff((data as Staff[]) ?? []));
-  }, [outletStaff]);
-
-  async function doClock(type: "in" | "out") {
-    if (!selected || !video || !outletStaff) return;
-    setMsg("Memproses wajah...");
-
-    const live = await extractDescriptor(video);
-    if (!live) return setMsg("Wajah tidak terdeteksi, coba lagi.");
-    if (!selected.face_descriptor || !isMatch(live, selected.face_descriptor)) {
-      return setMsg("❌ Wajah tidak cocok.");
+    function loop() {
+      const v = videoRef.current;
+      if (v && v.readyState >= 2) {
+        if (kiosk.phase === "idle") kiosk.tick(v);
+        else if (kiosk.phase === "liveness") kiosk.runLiveness(v);
+      }
+      loopRef.current = window.setTimeout(loop, 350);
     }
+    loop();
+    return () => { if (loopRef.current) clearTimeout(loopRef.current); };
+  }, [kiosk.phase, kiosk.tick, kiosk.runLiveness]);
 
-    setMsg("Mengambil lokasi...");
-    let pos: GeolocationPosition;
-    try {
-      pos = await new Promise((res, rej) =>
-        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true }),
-      );
-    } catch {
-      return setMsg("Tidak bisa mengambil lokasi. Aktifkan GPS.");
-    }
-
-    const { dataUrl } = captureFrame(video);
-    const id = crypto.randomUUID();
-    const payload: AttendancePayload = {
-      id,
-      outlet_staff_id: selected.id,
-      type,
-      gps_lat: pos.coords.latitude,
-      gps_lng: pos.coords.longitude,
-      match_distance: 0,
-      selfie_path: null,
-      ts_client: new Date().toISOString(),
-      from_queue: false,
-    };
-
-    if (!navigator.onLine) {
-      queue.enqueue(payload, dataUrl);
-      return setMsg("📴 Tersimpan offline, akan sinkron saat online.");
-    }
-
-    // Online: upload selfie dulu, baru submit
-    const path = `${outletStaff.outlet_id}/${id}.jpg`;
-    const blob = await (await fetch(dataUrl)).blob();
-    await supabase.storage
-      .from("selfies")
-      .upload(path, blob, { contentType: "image/jpeg" });
-
-    const token = session?.access_token;
-    if (!token) return setMsg("❌ Sesi habis, silakan login ulang.");
-    const res = await submitAttendance(
-      { ...payload, selfie_path: path },
-      {
-        functionUrl: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/submit-attendance`,
-        accessToken: token,
-      },
-    );
-
-    setMsg(
-      res.ok
-        ? `✅ Absen ${res.status}`
-        : `❌ ${res.reason}${res.distance_m ? ` (${res.distance_m}m dari outlet)` : ""}`,
-    );
-  }
-
-  // Auto-flush queue saat online
-  useEffect(() => {
-    if (navigator.onLine && outletStaff) queue.flush(outletStaff.outlet_id);
-  }, [outletStaff]);
+  const ringColor =
+    kiosk.phase === "idle" ? "border-gray-400 border-dashed" :
+    kiosk.phase === "result" && !kiosk.result?.ok ? "border-red-500" : "border-suka-green";
 
   return (
     <div className="max-w-md mx-auto p-4 space-y-4">
-      <h1 className="text-xl font-bold">Absensi</h1>
-      <select
-        className="w-full border rounded p-2"
-        onChange={(e) => setSelected(staff.find((s) => s.id === e.target.value) ?? null)}
-      >
-        <option value="">Pilih nama…</option>
-        {staff.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.name}
-          </option>
-        ))}
-      </select>
-      {selected && (
-        <Card>
-          <CameraCapture onReady={setVideo} onError={setMsg} />
-          <div className="flex gap-2 mt-3">
-            <Button onClick={() => doClock("in")}>Clock-in</Button>
-            <Button onClick={() => doClock("out")}>Clock-out</Button>
-          </div>
-        </Card>
-      )}
-      {msg && <p className="text-center">{msg}</p>}
-      {!queue.isOnline && (
-        <p className="text-amber-600 text-sm">
-          Offline — {queue.pending} absen menunggu sync
-        </p>
-      )}
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-suka-brown">Absensi</h1>
+        {!kiosk.isOnline && (
+          <span className="text-xs text-amber-600">Offline · {kiosk.pending} menunggu sync</span>
+        )}
+      </div>
+
+      <Card className="relative overflow-hidden p-0">
+        <div className="relative">
+          <CameraCapture onReady={(v) => (videoRef.current = v)} />
+          <div className={`pointer-events-none absolute inset-0 m-auto h-40 w-40 rounded-full border-4 ${ringColor}`} />
+        </div>
+
+        <div className="p-4 text-center min-h-[92px] flex flex-col items-center justify-center gap-2">
+          {kiosk.phase === "idle" && (
+            <p className="flex items-center gap-2 text-gray-500"><UserRound size={18} /> Menghadap kamera…</p>
+          )}
+          {kiosk.phase === "identified" && (
+            <p className="text-lg font-medium text-suka-ink">Halo, {kiosk.who?.name}</p>
+          )}
+          {kiosk.phase === "liveness" && (
+            <>
+              <p className="text-sm text-gray-500">Halo, {kiosk.who?.name} · {kiosk.action === "in" ? "Clock-in" : "Clock-out"}</p>
+              <p className="flex items-center gap-2 rounded-md border border-suka-orange bg-suka-cream px-3 py-2 font-medium text-suka-brown">
+                <Eye size={18} /> {kiosk.challengeLabel}
+              </p>
+            </>
+          )}
+          {kiosk.phase === "submitting" && <Spinner />}
+          {kiosk.phase === "result" && kiosk.result && (
+            <p className={`flex items-center gap-2 text-lg font-medium ${kiosk.result.ok ? "text-suka-green" : "text-red-600"}`}>
+              {kiosk.result.ok ? <CircleCheck size={22} /> : <CircleX size={22} />} {kiosk.result.message}
+            </p>
+          )}
+        </div>
+      </Card>
+
+      <p className="text-center text-xs text-gray-400">
+        Hadapkan wajah ke kamera. Sistem mengenali otomatis lalu meminta satu gerakan acak.
+      </p>
     </div>
   );
 }

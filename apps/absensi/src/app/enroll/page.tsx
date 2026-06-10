@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Button, Card } from "@suka/design-system";
+import { Camera, Save, ShieldCheck } from "lucide-react";
+import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { CameraCapture, captureFrame } from "@/components/CameraCapture";
@@ -13,6 +15,7 @@ type Staff = { id: string; name: string };
 export default function EnrollPage() {
   const { outletStaff } = useAuth();
   const supabase = createClient();
+  const toast = useToast();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [targetId, setTargetId] = useState("");
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
@@ -33,7 +36,7 @@ export default function EnrollPage() {
   async function takeShot() {
     if (!video) return;
     const d = await extractDescriptor(video);
-    if (!d) return setMsg("Wajah tidak terdeteksi.");
+    if (!d) return toast.show("err", "Wajah tidak terdeteksi");
     setShots((prev) => [...prev, d]);
     setMsg(`Foto ${shots.length + 1}/3 diambil.`);
   }
@@ -57,13 +60,14 @@ export default function EnrollPage() {
         enrolled_at: new Date().toISOString(),
       })
       .eq("id", targetId);
-    setMsg(error ? `❌ ${error.message}` : "✅ Enroll tersimpan.");
+    if (error) toast.show("err", error.message);
+    else toast.show("ok", "Enroll tersimpan");
     setShots([]);
   }
 
   return (
     <div className="max-w-md mx-auto p-4 space-y-4">
-      <h1 className="text-xl font-bold">Enroll Wajah Staff</h1>
+      <h1 className="flex items-center gap-2 text-xl font-bold text-suka-brown"><Camera size={20} /> Enroll wajah staff</h1>
       <select
         className="w-full border rounded p-2"
         value={targetId}
@@ -82,7 +86,7 @@ export default function EnrollPage() {
           checked={consent}
           onChange={(e) => setConsent(e.target.checked)}
         />
-        Staff menyetujui pemrosesan data biometrik (UU PDP).
+        <span className="flex items-center gap-1.5"><ShieldCheck size={15} className="text-suka-green" /> Staff menyetujui pemrosesan data biometrik (UU PDP).</span>
       </label>
       {targetId && consent && (
         <Card>
@@ -92,7 +96,7 @@ export default function EnrollPage() {
               Ambil foto ({shots.length}/3)
             </Button>
             <Button onClick={save} disabled={shots.length === 0}>
-              Simpan
+              <span className="flex items-center gap-1.5"><Save size={16} /> Simpan</span>
             </Button>
           </div>
         </Card>

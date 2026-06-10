@@ -9,13 +9,18 @@ export function useBahanBaku() {
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('bahan_baku').select('*').eq('is_active', true).order('nama')
-      .then(({ data, error: err }) => {
+    const load = async () => {
+      try {
+        const { data, error: err } = await supabase.from('bahan_baku').select('*').eq('is_active', true).order('nama')
         if (err) throw err
         setData((data as BahanBaku[]) ?? [])
-      })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
+      } catch (err: any) {
+        setError(err.message || err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [])
   return { bahanBaku: data, loading, error }
 }

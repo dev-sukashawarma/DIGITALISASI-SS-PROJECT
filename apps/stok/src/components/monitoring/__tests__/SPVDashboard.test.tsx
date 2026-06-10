@@ -7,6 +7,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 vi.mock('@/lib/queries/monitoring', () => ({
   fetchSPVMonitoringData: vi.fn(),
   fetchCrewMonitoringData: vi.fn(),
+  fetchOpnameStatus: vi.fn(),
 }));
 
 vi.mock('@/hooks/useMonitoringData');
@@ -60,7 +61,7 @@ describe('SPVDashboard', () => {
     } as any);
 
     render(<SPVDashboard />, { wrapper });
-    expect(screen.getByText('Loading monitoring data...')).toBeInTheDocument();
+    expect(screen.getByText(/Memuat/)).toBeInTheDocument();
   });
 
   it('renders dashboard with title and controls', () => {
@@ -91,12 +92,24 @@ describe('SPVDashboard', () => {
     } as any);
 
     render(<SPVDashboard />, { wrapper });
-    expect(screen.getByText(/Connection unstable/)).toBeInTheDocument();
+    expect(screen.getByText(/Koneksi tidak stabil/)).toBeInTheDocument();
   });
 
   it('renders SPVTable and SPVTabs components', () => {
+    const mockItems = [{
+      outlet_id: '1',
+      outlet_name: 'Bandung',
+      bahan_baku_id: 'bb1',
+      item_name: 'Minyak',
+      current_qty: 8,
+      threshold: 15,
+      status: 'below' as const,
+      is_flagged: false,
+      last_updated: '2026-06-10T10:00:00Z',
+      last_opname_date: null,
+    }];
     vi.mocked(hook.useSPVMonitoringData).mockReturnValue({
-      data: { items: [], lastFetched: '2026-06-10T10:00:00Z' },
+      data: { items: mockItems, lastFetched: '2026-06-10T10:00:00Z' },
       isLoading: false,
       isError: false,
       error: null,

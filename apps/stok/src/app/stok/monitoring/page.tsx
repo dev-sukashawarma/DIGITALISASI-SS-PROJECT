@@ -6,7 +6,7 @@ export const metadata = {
 
 export default function Page() {
   return (
-    <main className="max-w-7xl mx-auto p-4">
+    <main className="w-full min-h-screen bg-[#fff8f1]">
       <MonitoringPage />
     </main>
   );

@@ -41,11 +41,11 @@ export function generatePDFContent(data: SuratJalanData): string {
     .map(
       (sig) => `
     <tr>
-      <td style="padding: 8px; text-align: center; height: 80px;">
+      <td style="padding: 8px; text-align: center; height: 80px; vertical-align: middle;">
         ${
           sig.signature_image
-            ? `<img src="${sig.signature_image}" style="max-height: 70px; max-width: 100%;" />`
-            : '<p style="color: #999; font-size: 12px;">No image</p>'
+            ? `<img src="${sig.signature_image}" style="max-height: 70px; max-width: 100%; display: block; margin: 0 auto;" />`
+            : '<div style="height: 70px; border-bottom: 2px solid #000;"></div>'
         }
       </td>
       <td style="padding: 8px; text-align: center;">${sig.signed_by}</td>

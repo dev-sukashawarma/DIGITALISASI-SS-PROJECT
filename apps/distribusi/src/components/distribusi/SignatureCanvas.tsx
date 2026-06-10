@@ -55,8 +55,8 @@ export function SignatureCanvas({ onSignatureSaved }: SignatureCanvasProps) {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    // Convert to JPEG with high compression (0.3 quality = 70% compression)
-    const signatureImage = canvas.toDataURL('image/jpeg', 0.3)
+    // Convert to PNG (lossless, no artifacts like JPEG compression)
+    const signatureImage = canvas.toDataURL('image/png')
     console.log('Signature data size:', signatureImage.length, 'bytes')
     onSignatureSaved(signatureImage)
   }

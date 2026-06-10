@@ -44,7 +44,7 @@ export async function fetchCrewMonitoringData() {
   // Get user's outlet_id from outlet_staff
   const { data: staffData, error: staffError } = await supabase
     .from('outlet_staff')
-    .select('outlet_id, outlets(nama)')
+    .select('outlet_id, outlets(nama:name)')
     .eq('id', authData.user.id)
     .single<OutletStaffData>();
 
@@ -160,7 +160,7 @@ export async function fetchOpnameStatus() {
     .select(
       `
       id,
-      nama,
+      nama:name,
       opname(created_at)
     `
     )
@@ -188,3 +188,17 @@ export async function fetchOpnameStatus() {
     }) || []
   );
 }
+
+/**
+ * Fetch master list of all outlets
+ */
+export async function fetchOutletsList() {
+  const { data, error } = await supabase
+    .from('outlets')
+    .select('id, nama:name')
+    .order('name');
+
+  if (error) throw error;
+  return data || [];
+}
+

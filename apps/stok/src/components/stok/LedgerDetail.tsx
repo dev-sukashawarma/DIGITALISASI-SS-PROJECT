@@ -10,12 +10,16 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
   useEffect(() => {
     setError(null)
     const supabase = createClient()
-    supabase.from('ledger_stok').select('*').eq('id', ledgerId).single()
-      .then(({ data, error: err }) => {
+    const load = async () => {
+      try {
+        const { data, error: err } = await supabase.from('ledger_stok').select('*').eq('id', ledgerId).single()
         if (err) throw err
         setL(data as LedgerStok)
-      })
-      .catch(err => setError(`Gagal muat ledger: ${err.message}`))
+      } catch (err: any) {
+        setError(`Gagal muat ledger: ${err.message || err}`)
+      }
+    }
+    load()
   }, [ledgerId])
   if (error) return <p className="text-red-600">{error}</p>
   if (!l) return <p>Memuat…</p>

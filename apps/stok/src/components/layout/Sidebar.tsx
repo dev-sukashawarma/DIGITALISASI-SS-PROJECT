@@ -9,6 +9,7 @@ const MENU_ITEMS = [
   { label: 'Opname', href: '/stok/opname' },
   { label: 'Ledger', href: '/stok/ledger' },
   { label: 'Monitoring', href: '/stok/monitoring' },
+  { label: 'Live Monitoring', href: '/stok/monitoring-live' },
 ]
 
 export const Sidebar = () => {

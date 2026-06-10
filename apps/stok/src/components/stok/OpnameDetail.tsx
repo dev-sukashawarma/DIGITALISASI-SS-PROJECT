@@ -11,18 +11,23 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
   useEffect(() => {
     setError(null)
     const supabase = createClient()
-    supabase.from('opname').select('*').eq('id', opnameId).single()
-      .then(({ data, error: err }) => {
-        if (err) throw err
-        setOpname(data as Opname)
-      })
-      .catch(err => setError(`Gagal muat opname: ${err.message}`))
-    supabase.from('opname_item').select('*').eq('opname_id', opnameId)
-      .then(({ data, error: err }) => {
-        if (err) throw err
-        setItems((data as OpnameItem[]) ?? [])
-      })
-      .catch(err => setError(`Gagal muat item opname: ${err.message}`))
+    const load = async () => {
+      try {
+        const [opnameRes, itemsRes] = await Promise.all([
+          supabase.from('opname').select('*').eq('id', opnameId).single(),
+          supabase.from('opname_item').select('*').eq('opname_id', opnameId)
+        ])
+        
+        if (opnameRes.error) throw opnameRes.error
+        if (itemsRes.error) throw itemsRes.error
+
+        setOpname(opnameRes.data as Opname)
+        setItems((itemsRes.data as OpnameItem[]) ?? [])
+      } catch (err: any) {
+        setError(`Gagal memuat detail opname: ${err.message || err}`)
+      }
+    }
+    load()
   }, [opnameId])
   if (error) return <p className="text-red-600">{error}</p>
   if (!opname) return <p>Memuat…</p>

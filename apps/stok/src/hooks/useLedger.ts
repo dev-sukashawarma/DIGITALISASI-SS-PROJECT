@@ -13,15 +13,20 @@ export function useLedgerList(outletId: string | undefined, page = 0) {
     if (!outletId) { setLoading(false); return }
     setError(null)
     const supabase = createClient()
-    supabase.from('ledger_stok').select('*').eq('outlet_id', outletId)
-      .order('created_at', { ascending: false })
-      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
-      .then(({ data, error: err }) => {
+    const load = async () => {
+      try {
+        const { data, error: err } = await supabase.from('ledger_stok').select('*').eq('outlet_id', outletId)
+          .order('created_at', { ascending: false })
+          .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
         if (err) throw err
         setData((data as LedgerStok[]) ?? [])
-      })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
+      } catch (err: any) {
+        setError(err.message || err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [outletId, page])
   return { ledger: data, loading, error }
 }

@@ -140,14 +140,23 @@ export function SignatureFlow({
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            disabled={signatures.some((s) => s.role === role)}
-            className="border border-gray-300 rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="border border-gray-300 rounded px-3 py-2 text-sm"
           >
-            <option value="Kitchen SPV" disabled={signatures.some((s) => s.role === 'Kitchen SPV')}>
-              Kitchen SPV {signatures.some((s) => s.role === 'Kitchen SPV') ? '✓ Sudah ditandatangani' : ''}
+            <option
+              value="Kitchen SPV"
+              disabled={signatures.some((s) => s.role === 'Kitchen SPV')}
+            >
+              {signatures.some((s) => s.role === 'Kitchen SPV')
+                ? 'Kitchen SPV ✓'
+                : 'Kitchen SPV'}
             </option>
-            <option value="Supir" disabled={signatures.some((s) => s.role === 'Supir')}>
-              Supir (Pengemudi) {signatures.some((s) => s.role === 'Supir') ? '✓ Sudah ditandatangani' : ''}
+            <option
+              value="Supir"
+              disabled={signatures.some((s) => s.role === 'Supir')}
+            >
+              {signatures.some((s) => s.role === 'Supir')
+                ? 'Supir ✓'
+                : 'Supir (Pengemudi)'}
             </option>
           </select>
           <button

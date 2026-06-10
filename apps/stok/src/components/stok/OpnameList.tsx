@@ -45,7 +45,8 @@ export function OpnameList({ items }: { items: Opname[] }) {
         o.tanggal.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.tipe.toLowerCase().includes(searchTerm.toLowerCase()) ||
         formattedDate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (o.notes || '').toLowerCase().includes(searchTerm.toLowerCase());
+        (o.notes || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (o.outlet_staff?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
 
       let matchesFilter = false;
       if (activeFilter === 'all') {
@@ -123,6 +124,10 @@ export function OpnameList({ items }: { items: Opname[] }) {
         {filteredItems.map((o) => {
           const isFinalized = o.status === 'finalized';
           const formattedDate = formatOpnameDate(o.tanggal);
+          
+          const totalCounted = o.opname_item?.filter((item) => item.qty_fisik !== null).length || 0;
+          const discrepancyCount = o.opname_item?.filter((item) => item.qty_fisik !== null && item.selisih !== 0).length || 0;
+          const flaggedCount = o.opname_item?.filter((item) => item.qty_fisik !== null && item.flagged).length || 0;
 
           return (
             <Link key={o.id} href={`/stok/opname/${o.id}`}>
@@ -132,15 +137,52 @@ export function OpnameList({ items }: { items: Opname[] }) {
                   : 'border-[#f29744]/30 bg-white hover:border-[#f29744] hover:scale-[1.005]'
               }`}>
                 {/* Left Section */}
-                <div className="space-y-1 min-w-0">
+                <div className="space-y-2.5 min-w-0 flex-1 pr-4">
                   <div className="flex items-center gap-2">
                     <span className="text-[9px] font-extrabold uppercase tracking-wide text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#701604]/5">
                       {TIPE_LABEL[o.tipe] || o.tipe}
                     </span>
                   </div>
-                  <h4 className="font-extrabold text-[#701604] text-sm tracking-wide mt-1 uppercase">
-                    {formattedDate}
-                  </h4>
+                  
+                  <div className="space-y-1">
+                    <h4 className="font-extrabold text-[#701604] text-sm tracking-wide uppercase">
+                      {formattedDate}
+                    </h4>
+
+                    {/* Metadata Info Row */}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-gray-500 font-bold mt-1">
+                      {o.outlet_staff?.name && (
+                        <span className="flex items-center gap-1 bg-[#faf2e9] text-[#701604] px-2 py-0.5 rounded border border-[#701604]/5">
+                          👤 {o.outlet_staff.name}
+                        </span>
+                      )}
+                      
+                      {o.opname_item && o.opname_item.length > 0 ? (
+                        <>
+                          <span className="flex items-center gap-1 text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                            📦 {totalCounted} Bahan
+                          </span>
+                          {discrepancyCount > 0 && (
+                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded border ${
+                              flaggedCount > 0
+                                ? 'bg-red-50 text-red-700 border-red-100'
+                                : 'bg-amber-50 text-amber-700 border-amber-100'
+                            }`}>
+                              ⚖️ {discrepancyCount} Selisih
+                              {flaggedCount > 0 && (
+                                <span className="ml-1 px-1 py-0.2 text-[8px] bg-red-600 text-white font-extrabold rounded-full">
+                                  {flaggedCount} Kritis
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-gray-400 font-medium italic">Belum ada item terhitung</span>
+                      )}
+                    </div>
+                  </div>
+
                   {o.notes && (
                     <p className="text-[10px] text-gray-500 font-medium truncate mt-1 max-w-md">
                       📝 {o.notes}

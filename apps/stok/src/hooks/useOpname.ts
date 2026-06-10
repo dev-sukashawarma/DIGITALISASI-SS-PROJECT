@@ -13,7 +13,9 @@ export function useOpnameList(outletId: string | undefined) {
       return
     }
     const supabase = createClient()
-    supabase.from('opname').select('*').eq('outlet_id', outletId)
+    supabase.from('opname')
+      .select('*, outlet_staff(name), opname_item(qty_fisik, qty_system, selisih, flagged)')
+      .eq('outlet_id', outletId)
       .order('tanggal', { ascending: false }).limit(60)
       .then(({ data }) => { setData((data as Opname[]) ?? []); setLoading(false) })
   }, [outletId])

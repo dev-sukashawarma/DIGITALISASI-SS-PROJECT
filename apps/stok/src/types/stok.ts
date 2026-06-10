@@ -15,6 +15,13 @@ export interface Opname {
   id: string; outlet_id: string; tanggal: string; tipe: OpnameTipe
   status: OpnameStatus; created_by: string | null; created_at: string
   updated_at: string; notes: string | null
+  outlet_staff?: { name: string } | null;
+  opname_item?: {
+    qty_fisik: number | null;
+    qty_system: number;
+    selisih: number;
+    flagged: boolean;
+  }[];
 }
 export interface OpnameItem {
   id: string; opname_id: string; bahan_baku_id: string

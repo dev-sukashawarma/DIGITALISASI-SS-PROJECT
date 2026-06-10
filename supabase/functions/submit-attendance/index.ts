@@ -1,13 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
-import { haversineMeters } from "../_shared/haversine.ts";
 import { computeStatus } from "./status.ts";
 
 type Body = {
   id: string;
   outlet_staff_id: string;
   type: "in" | "out";
-  gps_lat: number;
-  gps_lng: number;
+  gps_lat?: number;
+  gps_lng?: number;
   match_distance: number;
   selfie_path: string | null;
   ts_client: string;
@@ -47,14 +46,6 @@ Deno.serve(async (req) => {
     let body: Body;
     try { body = await req.json(); } catch { return json(400, { ok: false, reason: "bad_json" }); }
 
-    // Fix 2: Validate GPS is a real number (prevent NaN radius bypass).
-    if (
-      typeof body.gps_lat !== "number" || typeof body.gps_lng !== "number" ||
-      Number.isNaN(body.gps_lat) || Number.isNaN(body.gps_lng)
-    ) {
-      return json(400, { ok: false, reason: "invalid_gps" });
-    }
-
     // Caller harus SPV/kepala_outlet (device login); ambil outlet_id caller.
     const { data: caller } = await admin
       .from("outlet_staff")
@@ -81,21 +72,12 @@ Deno.serve(async (req) => {
       return json(403, { ok: false, reason: "selfie_path_mismatch" });
     }
 
-    // Lokasi outlet + config.
-    const { data: outlet } = await admin
-      .from("outlets").select("lat,lng").eq("id", caller.outlet_id).single();
+    // Config jam kerja (tanpa GPS/radius — absensi di device outlet).
     const { data: cfg } = await admin
       .from("outlet_attendance_config")
-      .select("jam_masuk,toleransi_menit,radius_m")
+      .select("jam_masuk,toleransi_menit")
       .eq("outlet_id", caller.outlet_id).single();
-    if (!outlet || !cfg) return json(500, { ok: false, reason: "config_missing" });
-
-    const distance = Math.round(
-      haversineMeters({ lat: outlet.lat, lng: outlet.lng }, { lat: body.gps_lat, lng: body.gps_lng }),
-    );
-    if (distance > cfg.radius_m) {
-      return json(200, { ok: false, reason: "outside_radius", distance_m: distance });
-    }
+    if (!cfg) return json(500, { ok: false, reason: "config_missing" });
 
     const tsServer = new Date().toISOString();
     const basis = body.from_queue ? body.ts_client : tsServer;
@@ -109,16 +91,16 @@ Deno.serve(async (req) => {
       type: body.type,
       ts_server: tsServer,
       ts_client: body.ts_client,
-      gps_lat: body.gps_lat,
-      gps_lng: body.gps_lng,
-      distance_m: distance,
+      gps_lat: null,
+      gps_lng: null,
+      distance_m: null,
       match_distance: body.match_distance,
       selfie_url: body.selfie_path,
       status,
     }, { onConflict: "id", ignoreDuplicates: true });
     if (error) return json(500, { ok: false, reason: "insert_failed", detail: error.message });
 
-    return json(200, { ok: true, status, distance_m: distance, ts_server: tsServer, attendance_id: body.id });
+    return json(200, { ok: true, status, ts_server: tsServer, attendance_id: body.id });
   } catch (_e) {
     return json(500, { ok: false, reason: "internal_error" });
   }

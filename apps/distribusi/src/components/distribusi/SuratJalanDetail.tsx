@@ -56,7 +56,11 @@ export function SuratJalanDetail({ id }: { id: string }) {
         <Link href="/distribusi/surat-jalan" className="text-blue-600 hover:underline">
           ← Kembali
         </Link>
-        <h1 className="text-3xl font-bold">Detail Surat Jalan</h1>
+      </div>
+
+      <div className="border-b-4 border-gray-800 pb-4 mb-6 text-center">
+        <h1 className="text-4xl font-bold">SURAT JALAN</h1>
+        <p className="text-sm text-gray-600 mt-2">No: {id.substring(0, 8).toUpperCase()}</p>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 space-y-6">

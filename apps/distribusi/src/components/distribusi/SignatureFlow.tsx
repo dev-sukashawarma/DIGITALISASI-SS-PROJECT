@@ -104,6 +104,13 @@ export function SignatureFlow({
 
   return (
     <div className="bg-white rounded-lg shadow p-6 space-y-4">
+      <div className="border-b-2 border-gray-300 pb-4 mb-4">
+        <h2 className="text-2xl font-bold text-center">SURAT JALAN</h2>
+        <p className="text-center text-sm text-gray-600 mt-1">
+          No: {suratJalanId.substring(0, 8).toUpperCase()}
+        </p>
+      </div>
+
       <h3 className="text-lg font-semibold">Proses Penandatanganan</h3>
 
       {/* Existing signatures */}
@@ -140,10 +147,15 @@ export function SignatureFlow({
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 text-sm"
+            disabled={signatures.some((s) => s.role === role)}
+            className="border border-gray-300 rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
-            <option value="Kitchen SPV">Kitchen SPV</option>
-            <option value="Supir">Supir (Pengemudi)</option>
+            <option value="Kitchen SPV" disabled={signatures.some((s) => s.role === 'Kitchen SPV')}>
+              Kitchen SPV {signatures.some((s) => s.role === 'Kitchen SPV') ? '✓ Sudah ditandatangani' : ''}
+            </option>
+            <option value="Supir" disabled={signatures.some((s) => s.role === 'Supir')}>
+              Supir (Pengemudi) {signatures.some((s) => s.role === 'Supir') ? '✓ Sudah ditandatangani' : ''}
+            </option>
           </select>
           <button
             onClick={() => setShowCanvas(!showCanvas)}

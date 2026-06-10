@@ -55,7 +55,8 @@ export function SignatureCanvas({ onSignatureSaved }: SignatureCanvasProps) {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const signatureImage = canvas.toDataURL('image/png')
+    // Convert to JPEG with compression untuk file size lebih kecil
+    const signatureImage = canvas.toDataURL('image/jpeg', 0.7)
     onSignatureSaved(signatureImage)
   }
 

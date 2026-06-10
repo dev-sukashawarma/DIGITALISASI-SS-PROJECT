@@ -54,6 +54,8 @@ export function SignatureFlow({
     const supabase = createClient()
 
     try {
+      console.log('Signing with image size:', signatureImage.length, 'bytes')
+
       const { data, error } = await supabase.rpc('sign_surat_jalan', {
         p_surat_jalan_id: suratJalanId,
         p_signed_by_name: signedBy,
@@ -61,8 +63,16 @@ export function SignatureFlow({
         p_signature_image: signatureImage,
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('RPC error:', error)
+        throw new Error(`Gagal menyimpan tanda tangan: ${error.message}`)
+      }
 
+      if (!data?.signatures) {
+        throw new Error('Tidak ada data tanda tangan kembali dari server')
+      }
+
+      console.log('Signature saved successfully:', data)
       onSignatureAdded(data.signatures)
       setSignedBy('')
       setSignatureImage('')
@@ -70,6 +80,7 @@ export function SignatureFlow({
       alert(`Tanda tangan dari ${signedBy} berhasil ditambahkan`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Gagal menambah tanda tangan'
+      console.error('Full error:', err)
       alert(`Error: ${message}`)
     } finally {
       setSigning(false)

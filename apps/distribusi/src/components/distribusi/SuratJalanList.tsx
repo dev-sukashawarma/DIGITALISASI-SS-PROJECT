@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
 import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
 
@@ -11,15 +12,51 @@ export function SuratJalanList() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const { data, loading, draftCount, sentCount } = useSuratJalanList(dateFilter)
 
-  const handleDownloadPDF = (sj: any) => {
+  const handleDownloadPDF = async (sjId: string) => {
+    const supabase = createClient()
+
+    // Fetch full surat jalan detail with items
+    const { data: sj } = await supabase
+      .from('surat_jalan')
+      .select('*')
+      .eq('id', sjId)
+      .single()
+
+    if (!sj) {
+      alert('Surat Jalan tidak ditemukan')
+      return
+    }
+
+    // Fetch items
+    const { data: items } = await supabase
+      .from('surat_jalan_item')
+      .select('*')
+      .eq('surat_jalan_id', sjId)
+
+    // Fetch bahan for each item
+    const itemsWithBahan = await Promise.all(
+      (items || []).map(async (item) => {
+        const { data: bahan } = await supabase
+          .from('bahan_baku')
+          .select('nama, satuan')
+          .eq('id', item.bahan_baku_id)
+          .single()
+        return { ...item, ...bahan }
+      })
+    )
+
+    // Find outlet name from list data
+    const outletData = data.find((d) => d.id === sjId)
+
     const htmlContent = generatePDFContent({
       id: sj.id,
-      outlet_name: sj.outlet?.name || 'Unknown',
+      outlet_name: outletData?.outlet?.name || 'Unknown',
       status: sj.status,
       created_at: sj.created_at,
-      items: sj.items || [],
+      items: itemsWithBahan,
       signatures: sj.signatures || [],
     })
+
     downloadPDF(`Surat-Jalan-${sj.id.substring(0, 8)}.html`, htmlContent)
   }
 
@@ -142,7 +179,7 @@ export function SuratJalanList() {
                       Lihat
                     </Link>
                     <button
-                      onClick={() => handleDownloadPDF(sj)}
+                      onClick={() => handleDownloadPDF(sj.id)}
                       className="text-green-600 hover:underline"
                     >
                       PDF

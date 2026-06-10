@@ -42,7 +42,13 @@ export function generatePDFContent(data: SuratJalanData): string {
     .map(
       (sig) => `
     <tr>
-      <td style="padding: 8px; text-align: center; border-bottom: 1px solid #000; height: 80px;"></td>
+      <td style="padding: 8px; text-align: center; height: 80px;">
+        ${
+          sig.signature_image
+            ? `<img src="${sig.signature_image}" style="max-height: 70px; max-width: 100%;" />`
+            : '<p style="color: #999; font-size: 12px;">No image</p>'
+        }
+      </td>
       <td style="padding: 8px; text-align: center;">${sig.signed_by}</td>
       <td style="padding: 8px; text-align: center;">${sig.role}</td>
       <td style="padding: 8px; text-align: center;">${new Date(sig.signed_at).toLocaleDateString('id-ID')}</td>

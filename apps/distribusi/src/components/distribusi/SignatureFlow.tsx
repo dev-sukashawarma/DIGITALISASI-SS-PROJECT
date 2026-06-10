@@ -58,6 +58,7 @@ export function SignatureFlow({
         p_surat_jalan_id: suratJalanId,
         p_signed_by_name: signedBy,
         p_role: role,
+        p_signature_image: signatureImage,
       })
 
       if (error) throw error

@@ -78,7 +78,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     const supabase = createClient()
     try {
       const updatePromises = items.map((item) => {
-        const v = verifications[item.id]
+        const v = verifications[item.id] ?? { qty_terima: item.qty_dikirim, kondisi: 'baik' as const, catatan: '' }
         return supabase
           .from('surat_jalan_item')
           .update({
@@ -132,7 +132,7 @@ export function VerifikasiForm({ id }: { id: string }) {
                       : 'bg-green-50 text-green-700'
                   }`}
                 >
-                  {isJelek ? `Jelek · ${v.qty_terima}/${item.qty_dikirim} ${item.bahan_baku?.satuan}` : `Baik · ${v.qty_terima} ${item.bahan_baku?.satuan}`}
+                  {isJelek ? `Jelek · ${v?.qty_terima ?? item.qty_dikirim}/${item.qty_dikirim} ${item.bahan_baku?.satuan}` : `Baik · ${v?.qty_terima ?? item.qty_dikirim} ${item.bahan_baku?.satuan}`}
                 </span>
               </div>
             )

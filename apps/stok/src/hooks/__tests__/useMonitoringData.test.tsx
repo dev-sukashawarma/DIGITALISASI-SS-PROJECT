@@ -85,4 +85,66 @@ describe('useSPVMonitoringData', () => {
       expect(vi.mocked(monitoringQueries.fetchSPVMonitoringData).mock.calls.length).toBeGreaterThan(1);
     });
   });
+
+  it('returns cached data when error occurs after prior successful fetch', async () => {
+    const mockData = {
+      items: [
+        {
+          outlet_id: '1',
+          item_name: 'Minyak',
+          current_qty: 8,
+          threshold: 15,
+          status: 'below' as const,
+          is_flagged: false,
+          outlet_name: 'Bandung',
+          bahan_baku_id: 'bb1',
+          last_updated: '2026-06-10T10:00:00Z',
+          last_opname_date: '2026-06-09T10:00:00Z',
+        },
+      ],
+      lastFetched: '2026-06-10T10:00:00Z',
+    };
+    vi.mocked(monitoringQueries.fetchSPVMonitoringData)
+      .mockResolvedValueOnce(mockData) // First call succeeds
+      .mockRejectedValueOnce(new Error('Network')); // Second call fails
+
+    const { result } = renderHook(() => useSPVMonitoringData(), { wrapper });
+    await waitFor(() => expect(result.current.data).toEqual(mockData));
+
+    result.current.refetch();
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+      expect(result.current.data).toEqual(mockData); // Still has cached
+    });
+  });
+
+  it('pause and resume controls work correctly', async () => {
+    const mockData = { items: [], lastFetched: '2026-06-10T10:00:00Z' };
+    vi.mocked(monitoringQueries.fetchSPVMonitoringData).mockResolvedValue(mockData);
+
+    const { result } = renderHook(() => useSPVMonitoringData(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    result.current.autoRefresh.pause();
+    expect(result.current.autoRefresh.isPaused()).toBe(true);
+
+    result.current.autoRefresh.resume();
+    expect(result.current.autoRefresh.isPaused()).toBe(false);
+  });
+
+  it('resets isError to false when refetch is triggered', async () => {
+    const mockError = new Error('Network error');
+    vi.mocked(monitoringQueries.fetchSPVMonitoringData).mockRejectedValue(mockError);
+
+    const { result } = renderHook(() => useSPVMonitoringData(), { wrapper });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    vi.mocked(monitoringQueries.fetchSPVMonitoringData).mockResolvedValue({
+      items: [],
+      lastFetched: '2026-06-10T10:00:00Z',
+    });
+    result.current.refetch();
+
+    await waitFor(() => expect(result.current.isError).toBe(false)); // Should reset
+  });
 });

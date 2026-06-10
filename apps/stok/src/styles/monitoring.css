@@ -1,0 +1,53 @@
+@keyframes cellHighlight {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(255, 193, 7, 0.3);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.cell-updated {
+  animation: cellHighlight 0.5s ease-in-out;
+}
+
+/* Table responsive adjustments */
+.monitoring-table {
+  @apply w-full border-collapse text-sm;
+}
+
+.monitoring-table th {
+  @apply bg-gray-50 px-4 py-2 text-left font-semibold text-gray-700 border-b-2 border-gray-200;
+}
+
+.monitoring-table td {
+  @apply px-4 py-2 border-b border-gray-100;
+}
+
+.monitoring-table tbody tr:hover {
+  @apply bg-gray-50 cursor-pointer;
+}
+
+.monitoring-sticky-header {
+  position: sticky;
+  top: 0;
+  background-color: rgb(249, 250, 251);
+  z-index: 10;
+}
+
+/* Outlet column sticky on mobile */
+@media (max-width: 768px) {
+  .monitoring-outlet-col {
+    position: sticky;
+    left: 0;
+    background-color: white;
+    z-index: 5;
+  }
+
+  .monitoring-table tbody tr:hover .monitoring-outlet-col {
+    background-color: rgb(249, 250, 251);
+  }
+}

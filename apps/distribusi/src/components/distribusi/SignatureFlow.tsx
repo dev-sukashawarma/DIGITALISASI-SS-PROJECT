@@ -104,13 +104,6 @@ export function SignatureFlow({
 
   return (
     <div className="bg-white rounded-lg shadow p-6 space-y-4">
-      <div className="border-b-2 border-gray-300 pb-4 mb-4">
-        <h2 className="text-2xl font-bold text-center">SURAT JALAN</h2>
-        <p className="text-center text-sm text-gray-600 mt-1">
-          No: {suratJalanId.substring(0, 8).toUpperCase()}
-        </p>
-      </div>
-
       <h3 className="text-lg font-semibold">Proses Penandatanganan</h3>
 
       {/* Existing signatures */}

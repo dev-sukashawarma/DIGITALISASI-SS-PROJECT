@@ -35,7 +35,7 @@ export function useSuratJalanDetail(id: string) {
     const supabase = createClient()
     supabase
       .from('surat_jalan')
-      .select('*')
+      .select('id, outlet_id, status, created_at, signatures, document_number')
       .eq('id', id)
       .single()
       .then(async ({ data: sj, error: sjError }) => {

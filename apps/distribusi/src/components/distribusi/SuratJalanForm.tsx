@@ -44,12 +44,11 @@ export function SuratJalanForm() {
     const supabase = createClient()
 
     try {
-      // Create surat jalan
-      const { data: sj, error: sjError } = await supabase
-        .from('surat_jalan')
-        .insert([{ outlet_id: outletId, status: 'draft' }])
-        .select('id')
-        .single()
+      // Create surat jalan with formatted document number
+      const { data: sj, error: sjError } = await supabase.rpc(
+        'create_surat_jalan_with_number',
+        { p_outlet_id: outletId }
+      )
 
       if (sjError) throw new Error(`Failed to create surat jalan: ${sjError.message}`)
       if (!sj?.id) throw new Error('No ID returned from surat jalan insert')

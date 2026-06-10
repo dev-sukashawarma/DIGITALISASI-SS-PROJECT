@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
 
 export function VerifikasiForm({ id }: { id: string }) {
+  const router = useRouter()
   const { data, loading, error } = useSuratJalanDetail(id)
   const [verifications, setVerifications] = useState<Record<string, any>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -34,29 +36,39 @@ export function VerifikasiForm({ id }: { id: string }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitting(true)
 
+    // Validate all items have qty_terima
+    const incompleteItems = data.surat_jalan_item.filter(
+      (item) => verifications[item.id]?.qty_terima === undefined
+    )
+    if (incompleteItems.length > 0) {
+      alert('Semua item harus diisi qty terima')
+      return
+    }
+
+    setSubmitting(true)
     const supabase = createClient()
 
     try {
-      // Update all items
-      const updates = data.surat_jalan_item.map((item) => ({
-        id: item.id,
-        ...verifications[item.id],
-        verified_at: new Date().toISOString(),
-      }))
-
-      for (const update of updates) {
-        const { error: updateError } = await supabase
+      // Update all items in parallel
+      const updatePromises = data.surat_jalan_item.map((item) => {
+        const verification = verifications[item.id]
+        return supabase
           .from('surat_jalan_item')
           .update({
-            qty_terima: update.qty_terima,
-            kondisi: update.kondisi,
-            verified_at: update.verified_at,
+            qty_terima: verification.qty_terima,
+            kondisi: verification.kondisi || 'baik',
+            verified_at: new Date().toISOString(),
           })
-          .eq('id', update.id)
+          .eq('id', item.id)
+      })
 
-        if (updateError) throw updateError
+      const results = await Promise.all(updatePromises)
+
+      // Check for errors
+      const errors = results.filter(({ error }) => error)
+      if (errors.length > 0) {
+        throw new Error(`Failed to verify items: ${errors[0].error?.message}`)
       }
 
       // Update surat jalan status to diterima_lengkap
@@ -68,7 +80,7 @@ export function VerifikasiForm({ id }: { id: string }) {
       if (sjError) throw sjError
 
       alert('Verifikasi berhasil disimpan!')
-      window.location.href = '/distribusi/terima'
+      router.push('/distribusi/terima')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Gagal menyimpan verifikasi'
       alert(`Error: ${message}`)

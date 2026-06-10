@@ -59,17 +59,23 @@ export function useSuratJalanDetail(id: string) {
           .select('*')
           .eq('surat_jalan_id', id)
 
-        // Fetch bahan for each item
-        const itemsWithBahan = await Promise.all(
-          (items || []).map(async (item) => {
-            const { data: bahan } = await supabase
+        // Batch fetch all bahan_baku for these items
+        const bahanIds = (items || []).map((item) => item.bahan_baku_id)
+        const { data: bahanList } = bahanIds.length > 0
+          ? await supabase
               .from('bahan_baku')
-              .select('nama, satuan')
-              .eq('id', item.bahan_baku_id)
-              .single()
-            return { ...item, bahan_baku: bahan }
-          })
+              .select('id, nama, satuan')
+              .in('id', bahanIds)
+          : { data: [] }
+
+        const bahanMap = new Map(
+          (bahanList || []).map((b) => [b.id, b])
         )
+
+        const itemsWithBahan = (items || []).map((item) => ({
+          ...item,
+          bahan_baku: bahanMap.get(item.bahan_baku_id) || null,
+        }))
 
         setData({
           ...sj,

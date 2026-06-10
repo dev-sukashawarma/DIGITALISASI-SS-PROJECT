@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
 
 export function SuratJalanDetail({ id }: { id: string }) {
+  const router = useRouter()
   const { data, loading, error } = useSuratJalanDetail(id)
   const [sending, setSending] = useState(false)
 
@@ -24,7 +26,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
       if (sendError) throw sendError
 
       alert('Surat Jalan berhasil dikirim!')
-      window.location.reload()
+      router.push('/distribusi/surat-jalan')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Gagal mengirim'
       alert(`Error: ${message}`)

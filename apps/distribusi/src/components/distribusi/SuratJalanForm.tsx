@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
@@ -12,12 +13,14 @@ interface FormItem {
 }
 
 export function SuratJalanForm() {
+  const router = useRouter()
   const { outlets, loading: outletsLoading } = useOutlets()
   const { bahanBaku, loading: bahanLoading } = useBahanBaku()
   const [outletId, setOutletId] = useState('')
   const [items, setItems] = useState<FormItem[]>([])
   const [selectedBahan, setSelectedBahan] = useState('')
   const [qty, setQty] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const addItem = () => {
     if (!selectedBahan || !qty) return
@@ -37,11 +40,10 @@ export function SuratJalanForm() {
       return
     }
 
+    setSubmitting(true)
     const supabase = createClient()
 
     try {
-      console.log('Saving surat jalan...', { outletId, items })
-
       // Create surat jalan
       const { data: sj, error: sjError } = await supabase
         .from('surat_jalan')
@@ -49,7 +51,6 @@ export function SuratJalanForm() {
         .select('id')
         .single()
 
-      console.log('Create SJ result:', { sj, sjError })
       if (sjError) throw new Error(`Failed to create surat jalan: ${sjError.message}`)
       if (!sj?.id) throw new Error('No ID returned from surat jalan insert')
 
@@ -60,20 +61,19 @@ export function SuratJalanForm() {
         qty_dikirim: item.qty,
       }))
 
-      console.log('Inserting items:', itemsToInsert)
       const { error: itemsError } = await supabase
         .from('surat_jalan_item')
         .insert(itemsToInsert)
 
-      console.log('Insert items result:', { itemsError })
       if (itemsError) throw new Error(`Failed to insert items: ${itemsError.message}`)
 
       alert('Surat Jalan berhasil dibuat!')
-      window.location.href = '/distribusi/surat-jalan'
+      router.push('/distribusi/surat-jalan')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Gagal menyimpan'
-      console.error('Save error:', err)
       alert(`Error: ${message}`)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -179,9 +179,10 @@ export function SuratJalanForm() {
           <div className="flex gap-3">
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              disabled={submitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              Simpan
+              {submitting ? 'Menyimpan...' : 'Simpan'}
             </button>
             <Link
               href="/distribusi/surat-jalan"

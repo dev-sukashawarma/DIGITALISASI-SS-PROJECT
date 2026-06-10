@@ -2,7 +2,6 @@
 import { Card, Badge } from '@suka/design-system'
 import { SignatureFlow } from './SignatureFlow'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalan'
-import type { SuratJalan, SuratJalanItem } from '@/types/distribusi'
 
 const statusLabel: Record<string, string> = {
   draft: 'Draft',

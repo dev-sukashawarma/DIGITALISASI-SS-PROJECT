@@ -1,10 +1,8 @@
 'use client'
-import { useAuth } from '@/context/AuthContext'
 import { useSuratJalanList } from '@/hooks/useSuratJalan'
 import { SuratJalanList } from '@/components/distribusi/SuratJalanList'
 
 export default function SuratJalanListPage() {
-  const { outletStaff } = useAuth()
   const { suratJalanList, loading } = useSuratJalanList()
 
   return (

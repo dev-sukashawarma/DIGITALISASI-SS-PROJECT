@@ -24,10 +24,11 @@ FROM stok_balance sb
 JOIN outlets o ON sb.outlet_id = o.id
 JOIN bahan_baku bb ON sb.bahan_baku_id = bb.id
 LEFT JOIN (
-  SELECT bahan_baku_id, flagged, opname_id
-  FROM opname_item
-  WHERE flagged = true
-) oi ON oi.bahan_baku_id = sb.bahan_baku_id
+  SELECT oi.bahan_baku_id, oi.flagged, oi.opname_id, op.outlet_id
+  FROM opname_item oi
+  JOIN opname op ON oi.opname_id = op.id
+  WHERE oi.flagged = true
+) oi ON oi.bahan_baku_id = sb.bahan_baku_id AND oi.outlet_id = sb.outlet_id
 LEFT JOIN (
   SELECT DISTINCT ON (outlet_id) outlet_id, created_at
   FROM opname
@@ -41,6 +42,7 @@ ORDER BY o.name, bb.nama;
 CREATE OR REPLACE VIEW monitoring_view_crew AS
 SELECT
   sb.outlet_id,
+  o.name as outlet_name,
   sb.bahan_baku_id,
   bb.nama as item_name,
   sb.saldo as current_qty,
@@ -54,18 +56,29 @@ SELECT
   sb.updated_at as last_updated,
   opn.created_at as last_opname_date
 FROM stok_balance sb
+JOIN outlets o ON sb.outlet_id = o.id
 JOIN bahan_baku bb ON sb.bahan_baku_id = bb.id
-LEFT JOIN opname_item oi ON oi.bahan_baku_id = sb.bahan_baku_id AND oi.flagged = true
+LEFT JOIN (
+  SELECT oi.bahan_baku_id, oi.flagged, oi.opname_id, op.outlet_id
+  FROM opname_item oi
+  JOIN opname op ON oi.opname_id = op.id
+  WHERE oi.flagged = true
+) oi ON oi.bahan_baku_id = sb.bahan_baku_id AND oi.outlet_id = sb.outlet_id
 LEFT JOIN (
   SELECT DISTINCT ON (outlet_id) outlet_id, created_at
   FROM opname
   ORDER BY outlet_id, created_at DESC
 ) opn ON opn.outlet_id = sb.outlet_id
-WHERE bb.is_active = true AND sb.outlet_id = (
-  -- RLS: only see own outlet
+WHERE bb.is_active = true AND sb.outlet_id IN (
+  -- RLS: only see own outlet(s)
   SELECT outlet_id FROM outlet_staff WHERE id = auth.uid()
 )
 ORDER BY bb.nama;
+
+-- Create performance index for opname queries
+-- Supports DISTINCT ON queries in views for faster monitoring dashboard
+CREATE INDEX IF NOT EXISTS idx_opname_outlet_created_desc
+  ON opname(outlet_id, created_at DESC);
 
 -- Grant SELECT on views to authenticated users
 -- (actual RLS policies inherited from base tables and view definition)

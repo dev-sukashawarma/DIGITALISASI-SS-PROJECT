@@ -1,10 +1,27 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
+import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
+
+type DateFilter = 'all' | 'today' | '7days' | '30days'
 
 export function SuratJalanList() {
-  const { data, loading, draftCount, sentCount } = useSuratJalanList()
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const { data, loading, draftCount, sentCount } = useSuratJalanList(dateFilter)
+
+  const handleDownloadPDF = (sj: any) => {
+    const htmlContent = generatePDFContent({
+      id: sj.id,
+      outlet_name: sj.outlet?.name || 'Unknown',
+      status: sj.status,
+      created_at: sj.created_at,
+      items: sj.items || [],
+      signatures: sj.signatures || [],
+    })
+    downloadPDF(`Surat-Jalan-${sj.id.substring(0, 8)}.html`, htmlContent)
+  }
 
   if (loading) {
     return (
@@ -26,7 +43,49 @@ export function SuratJalanList() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-lg shadow p-6 mb-6 space-y-3">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setDateFilter('all')}
+            className={`px-3 py-1 text-sm rounded ${
+              dateFilter === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            Semua
+          </button>
+          <button
+            onClick={() => setDateFilter('today')}
+            className={`px-3 py-1 text-sm rounded ${
+              dateFilter === 'today'
+                ? 'bg-blue-600 text-white'
+                : 'border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            Hari Ini
+          </button>
+          <button
+            onClick={() => setDateFilter('7days')}
+            className={`px-3 py-1 text-sm rounded ${
+              dateFilter === '7days'
+                ? 'bg-blue-600 text-white'
+                : 'border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            7 Hari
+          </button>
+          <button
+            onClick={() => setDateFilter('30days')}
+            className={`px-3 py-1 text-sm rounded ${
+              dateFilter === '30days'
+                ? 'bg-blue-600 text-white'
+                : 'border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            1 Bulan
+          </button>
+        </div>
         <p className="text-sm text-gray-600">
           {draftCount} draft · {sentCount} sedang dikirim
         </p>
@@ -75,13 +134,19 @@ export function SuratJalanList() {
                   <td className="px-6 py-4 text-sm">
                     {new Date(sj.created_at).toLocaleDateString('id-ID')}
                   </td>
-                  <td className="px-6 py-4 text-sm">
+                  <td className="px-6 py-4 text-sm space-x-2">
                     <Link
                       href={`/distribusi/surat-jalan/${sj.id}`}
                       className="text-blue-600 hover:underline"
                     >
                       Lihat
                     </Link>
+                    <button
+                      onClick={() => handleDownloadPDF(sj)}
+                      className="text-green-600 hover:underline"
+                    >
+                      PDF
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -14,7 +14,9 @@ interface SuratJalanWithOutlet extends SuratJalan {
   outlet?: { name: string }
 }
 
-export function useSuratJalanList() {
+type DateFilter = 'all' | 'today' | '7days' | '30days'
+
+export function useSuratJalanList(dateFilter: DateFilter = 'all') {
   const [data, setData] = useState<SuratJalanWithOutlet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -24,11 +26,26 @@ export function useSuratJalanList() {
     setError(null)
 
     const supabase = createClient()
-    supabase
+    let query = supabase
       .from('surat_jalan')
       .select('id, outlet_id, status, created_at')
       .order('created_at', { ascending: false })
-      .then(async ({ data: sjList, error: err }) => {
+
+    // Apply date filters
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+    if (dateFilter === 'today') {
+      query = query.gte('created_at', today)
+    } else if (dateFilter === '7days') {
+      query = query.gte('created_at', sevenDaysAgo)
+    } else if (dateFilter === '30days') {
+      query = query.gte('created_at', thirtyDaysAgo)
+    }
+
+    query.then(async ({ data: sjList, error: err }) => {
         if (err) {
           setError(err.message)
           setData([])
@@ -62,7 +79,7 @@ export function useSuratJalanList() {
         setData([])
         setLoading(false)
       })
-  }, [])
+  }, [dateFilter])
 
   const draftCount = data.filter((sj) => sj.status === 'draft').length
   const sentCount = data.filter((sj) => sj.status === 'dikirim').length

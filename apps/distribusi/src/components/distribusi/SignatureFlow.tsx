@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { SignatureCanvas } from './SignatureCanvas'
 
 interface Signature {
   signed_by: string
@@ -24,6 +25,8 @@ export function SignatureFlow({
 }: SignatureFlowProps) {
   const [signedBy, setSignedBy] = useState('')
   const [role, setRole] = useState('Kitchen SPV')
+  const [signatureImage, setSignatureImage] = useState<string>('')
+  const [showCanvas, setShowCanvas] = useState(false)
   const [signing, setSigning] = useState(false)
   const [sending, setSending] = useState(false)
 
@@ -34,6 +37,11 @@ export function SignatureFlow({
   const handleSign = async () => {
     if (!signedBy.trim()) {
       alert('Nama penanda tangan harus diisi')
+      return
+    }
+
+    if (!signatureImage) {
+      alert('Tanda tangan harus digambar terlebih dahulu')
       return
     }
 
@@ -56,6 +64,8 @@ export function SignatureFlow({
 
       onSignatureAdded(data.signatures)
       setSignedBy('')
+      setSignatureImage('')
+      setShowCanvas(false)
       alert(`Tanda tangan dari ${signedBy} berhasil ditambahkan`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Gagal menambah tanda tangan'
@@ -135,13 +145,29 @@ export function SignatureFlow({
             <option value="Supir">Supir (Pengemudi)</option>
           </select>
           <button
-            onClick={handleSign}
-            disabled={signing}
-            className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+            onClick={() => setShowCanvas(!showCanvas)}
+            className="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50"
           >
-            {signing ? 'Menandatangani...' : 'Tandatangani'}
+            {showCanvas ? 'Sembunyikan' : 'Gambar Tanda Tangan'}
           </button>
         </div>
+
+        {showCanvas && (
+          <SignatureCanvas onSignatureSaved={(img) => setSignatureImage(img)} />
+        )}
+
+        {signatureImage && (
+          <div className="flex items-center gap-2">
+            <img src={signatureImage} alt="preview" className="h-12 border rounded" />
+            <button
+              onClick={handleSign}
+              disabled={signing}
+              className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+            >
+              {signing ? 'Menandatangani...' : 'Konfirmasi & Tandatangani'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Send button */}

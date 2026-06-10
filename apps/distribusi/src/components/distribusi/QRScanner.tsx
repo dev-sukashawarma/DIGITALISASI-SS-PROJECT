@@ -16,6 +16,10 @@ export function QRScanner() {
   const animFrameRef = useRef<number | null>(null)
 
   const navigateToVerifikasi = async (documentNumber: string) => {
+    // Stop scan loop immediately to prevent double-navigation race condition
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+    animFrameRef.current = null
+
     const supabase = createClient()
     const { data, error } = await supabase
       .from('surat_jalan')
@@ -25,10 +29,12 @@ export function QRScanner() {
 
     if (error || !data) {
       setError(`Surat Jalan "${documentNumber}" tidak ditemukan`)
+      setScanning(false)
       return
     }
     if (data.status === 'diterima') {
       setError('Surat Jalan ini sudah diterima sebelumnya')
+      setScanning(false)
       return
     }
     stopCamera()

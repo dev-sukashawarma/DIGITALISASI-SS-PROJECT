@@ -9,7 +9,7 @@ interface Item {
   qty_dikirim: number
   qty_terima?: number
   kondisi?: string
-  bahan_baku?: { nama: string; satuan: string }
+  bahan_baku?: { nama: string; satuan: string; kategori?: string }
 }
 
 interface SuratJalanDetail {
@@ -64,7 +64,7 @@ export function useSuratJalanDetail(id: string) {
         const { data: bahanList } = bahanIds.length > 0
           ? await supabase
               .from('bahan_baku')
-              .select('id, nama, satuan')
+              .select('id, nama, satuan, kategori')
               .in('id', bahanIds)
           : { data: [] }
 

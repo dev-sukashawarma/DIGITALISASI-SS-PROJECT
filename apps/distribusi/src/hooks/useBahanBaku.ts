@@ -18,10 +18,15 @@ export function useBahanBaku() {
       .from('bahan_baku')
       .select('id, nama, satuan')
       .order('nama', { ascending: true })
-      .then(({ data }: any) => {
+      .then(({ data, error }) => {
+        if (error) throw error
         setBahanBaku((data as BahanBaku[]) ?? [])
-        setLoading(false)
       })
+      .catch(err => {
+        console.error('Error fetching bahan_baku:', err)
+        setBahanBaku([])
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   return { bahanBaku, loading }

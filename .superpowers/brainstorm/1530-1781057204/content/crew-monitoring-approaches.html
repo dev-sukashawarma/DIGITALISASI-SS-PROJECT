@@ -1,0 +1,108 @@
+<h2>Crew Monitoring Dashboard — 3 Approaches</h2>
+<p class="subtitle">Crew at outlet needs to monitor their own stok. Different use case than SPV. Which fits better?</p>
+
+<div class="cards">
+  <div class="card" data-choice="crew-a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; color: white; font-family: monospace; font-size: 12px; line-height: 1.6; overflow: auto; max-height: 200px;">
+      <div style="margin-bottom: 10px;"><strong>STATUS SUMMARY + SIMPLE LIST</strong></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+        <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold;">5</div>
+          <div style="font-size: 11px;">Items Below Threshold</div>
+        </div>
+        <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold;">2</div>
+          <div style="font-size: 11px;">Flagged Discrepancy</div>
+        </div>
+      </div>
+      <div style="font-size: 10px;">
+        <div style="margin-bottom: 6px;"><strong>⚠️ Action Needed:</strong></div>
+        <div style="opacity: 0.9;">• Minyak: 8/15</div>
+        <div style="opacity: 0.9;">• Daging: 5/20</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Status Summary + List</h3>
+      <p><strong>Top:</strong> Count cards (items below threshold, flagged). <strong>Below:</strong> Simple list of items needing action, sorted by priority.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Quick visual: "apa yang butuh action"</li><li>Simple, mobile-friendly</li><li>Focus on priority items only</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Don't see ALL items (only at-risk)</li><li>Need separate view for full inventory</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="crew-b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; color: white; font-family: monospace; font-size: 12px; line-height: 1.6; overflow: auto; max-height: 200px;">
+      <div style="margin-bottom: 10px;"><strong>SIMPLE FLAT LIST (all items)</strong></div>
+      <div style="font-size: 10px; line-height: 1.8;">
+        <div style="display: grid; grid-template-columns: 1.5fr 0.5fr 0.5fr 0.5fr; gap: 4px; margin-bottom: 8px; font-weight: bold;">
+          <div>Item</div>
+          <div>Qty</div>
+          <div>Thold</div>
+          <div>Status</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1.5fr 0.5fr 0.5fr 0.5fr; gap: 4px; margin-bottom: 3px; background: rgba(255,100,100,0.2); padding: 4px; border-radius: 2px;">
+          <div>Minyak</div>
+          <div>8</div>
+          <div>15</div>
+          <div>🔴</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1.5fr 0.5fr 0.5fr 0.5fr; gap: 4px; margin-bottom: 3px; background: rgba(255,200,100,0.2); padding: 4px; border-radius: 2px;">
+          <div>Daging</div>
+          <div>22</div>
+          <div>30</div>
+          <div>🟡</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1.5fr 0.5fr 0.5fr 0.5fr; gap: 4px; opacity: 0.7;">
+          <div>Sayur</div>
+          <div>40</div>
+          <div>20</div>
+          <div>✅</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Simple Flat List</h3>
+      <p><strong>All items in one list:</strong> Item name, Current qty, Threshold, Status (color-coded). Sortable by status (red first) or name.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>See complete inventory at once</li><li>Easy to scan</li><li>No hidden items</li><li>Familiar (like spreadsheet)</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>May be long list if many items</li><li>Less visual priority</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="crew-c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; color: white; font-family: monospace; font-size: 12px; line-height: 1.6; overflow: auto; max-height: 200px;">
+      <div style="margin-bottom: 10px;"><strong>KANBAN-STYLE COLUMNS</strong></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div style="background: rgba(255,100,100,0.3); padding: 8px; border-radius: 4px;">
+          <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px;">🔴 Below Threshold (5)</div>
+          <div style="font-size: 9px; line-height: 1.4;">
+            <div>Minyak (8/15)</div>
+            <div>Daging (5/20)</div>
+          </div>
+        </div>
+        <div style="background: rgba(100,100,255,0.3); padding: 8px; border-radius: 4px;">
+          <div style="font-size: 10px; font-weight: bold; margin-bottom: 6px;">✅ OK (35)</div>
+          <div style="font-size: 9px; line-height: 1.4;">
+            <div>Sayur (40/20)</div>
+            <div>Telur (50/40)</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 8px; font-size: 9px; background: rgba(255,200,100,0.3); padding: 8px; border-radius: 4px;">
+        <strong style="font-size: 10px;">⚠️ Flagged (2)</strong> — Daging rusak, Minyak selisih
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. Kanban Columns</h3>
+      <p><strong>Group by status:</strong> Below Threshold | OK | Flagged. Each column shows items count and list. Visual grouping for quick scanning.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Visual grouping by status</li><li>Quick "what needs action" scan</li><li>Scalable (works with many items)</li><li>Touch-friendly (cards)</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>May not show ALL items compactly</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 30px; color: #666; font-size: 14px;">💡 <strong>Context:</strong> Crew monitoring is for daily operational checks — "am I ready for opname?", "stok X berapa?", "ada item rusak?". Different from SPV's multi-outlet alert aggregation.</p>

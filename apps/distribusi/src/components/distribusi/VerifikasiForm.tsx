@@ -9,7 +9,7 @@ import type { SuratJalanItem } from '@/types/distribusi'
 
 export function VerifikasiForm({ suratJalanId }: { suratJalanId: string }) {
   const router = useRouter()
-  const { sj, items } = useSuratJalanDetail(suratJalanId)
+  const { sj, items, loading } = useSuratJalanDetail(suratJalanId)
   const { verify, finalize } = useSuratJalanActions()
   const { uploadFoto } = useFileUpload()
   const [busy, setBusy] = useState(false)
@@ -43,10 +43,16 @@ export function VerifikasiForm({ suratJalanId }: { suratJalanId: string }) {
       const data = formData[item.id] || {}
       if (!data.qty_terima || !data.kondisi) {
         alert('Qty dan kondisi harus diisi')
+        setBusy(false)
         return
       }
 
-      const qty_terima = Number(data.qty_terima)
+      const qty_terima = parseFloat(data.qty_terima)
+      if (isNaN(qty_terima)) {
+        alert('Qty harus berupa angka')
+        setBusy(false)
+        return
+      }
       const needsFoto = qty_terima !== item.qty_dikirim || data.kondisi !== 'baik'
 
       if (needsFoto && !data.foto_path) {
@@ -75,7 +81,7 @@ export function VerifikasiForm({ suratJalanId }: { suratJalanId: string }) {
     }
   }
 
-  if (!sj) return <p>Memuat…</p>
+  if (!sj || loading) return <p>Memuat…</p>
 
   const allVerified = items.length > 0 && items.every(it => verified[it.id])
 

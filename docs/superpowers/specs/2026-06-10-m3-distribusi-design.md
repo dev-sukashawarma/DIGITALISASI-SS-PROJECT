@@ -56,7 +56,7 @@ CREATE TABLE surat_jalan_item (
   qty_terima NUMERIC,  -- NULL until crew verifies
   
   -- Verification by crew
-  kondisi TEXT CHECK (kondisi IN ('baik','rusak','hilang_qty')),  -- NULL until verified
+  kondisi TEXT CHECK (kondisi IN ('baik','rusak','hilang_qty')),  -- NULL until crew verifies; required values only (no custom)
   selisih NUMERIC GENERATED ALWAYS AS (COALESCE(qty_terima,0) - qty_dikirim) STORED,
   flagged BOOLEAN NOT NULL DEFAULT false,  -- |selisih| > 0 OR kondisi != 'baik'
   

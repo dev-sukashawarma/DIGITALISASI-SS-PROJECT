@@ -15,10 +15,16 @@ export function useSuratJalanList(outlet_id?: string, status?: string) {
     if (outlet_id) query = query.eq('outlet_id', outlet_id)
     if (status) query = query.eq('status', status)
 
-    query.order('created_at', { ascending: false }).then(({ data }: any) => {
-      setData((data as SuratJalan[]) ?? [])
-      setLoading(false)
-    })
+    query.order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) throw error
+        setData((data as SuratJalan[]) ?? [])
+      })
+      .catch(err => {
+        console.error('Error fetching surat_jalan:', err)
+        setData([])
+      })
+      .finally(() => setLoading(false))
   }, [outlet_id, status])
 
   return { suratJalanList: data, loading }
@@ -33,13 +39,24 @@ export function useSuratJalanDetail(suratJalanId: string | undefined) {
   useEffect(() => {
     if (!suratJalanId) return
     const supabase = createClient()
-    supabase.from('surat_jalan').select('*').eq('id', suratJalanId).single()
-      .then(({ data }: any) => setSj(data as SuratJalan))
-    supabase.from('surat_jalan_item').select('*').eq('surat_jalan_id', suratJalanId)
-      .then(({ data }: any) => {
-        setItems((data as SuratJalanItem[]) ?? [])
-        setLoading(false)
+    Promise.all([
+      supabase.from('surat_jalan').select('*').eq('id', suratJalanId).single(),
+      supabase.from('surat_jalan_item').select('*').eq('surat_jalan_id', suratJalanId)
+    ])
+      .then(([sjResult, itemsResult]) => {
+        const { data: sjData, error: sjError } = sjResult
+        const { data: itemsData, error: itemsError } = itemsResult
+        if (sjError) throw sjError
+        if (itemsError) throw itemsError
+        setSj(sjData as SuratJalan)
+        setItems((itemsData as SuratJalanItem[]) ?? [])
       })
+      .catch(err => {
+        console.error('Error fetching detail:', err)
+        setSj(null)
+        setItems([])
+      })
+      .finally(() => setLoading(false))
   }, [suratJalanId])
 
   return { sj, items, loading }

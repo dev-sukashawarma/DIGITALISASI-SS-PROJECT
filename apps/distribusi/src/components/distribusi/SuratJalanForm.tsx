@@ -41,6 +41,8 @@ export function SuratJalanForm({ outletId }: { outletId: string }) {
       }
       const sj = await create(payload.outlet_id, payload.items)
       router.push(`/distribusi/surat-jalan/${sj.id}`)
+    } catch (err) {
+      alert('Gagal membuat Surat Jalan: ' + (err as Error).message)
     } finally {
       setBusy(false)
     }

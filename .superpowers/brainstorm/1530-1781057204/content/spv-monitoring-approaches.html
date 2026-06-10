@@ -1,0 +1,98 @@
+<h2>SPV Monitoring Dashboard — 3 Approaches</h2>
+<p class="subtitle">Which layout concept works best for constantly monitoring multiple outlets?</p>
+
+<div class="cards">
+  <div class="card" data-choice="approach-a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; color: white; font-family: monospace; font-size: 12px; line-height: 1.5; overflow: auto; max-height: 200px;">
+      <div style="margin-bottom: 10px;"><strong>ALERT-FIRST DASHBOARD</strong></div>
+      <div style="font-size: 10px; margin-bottom: 8px;">🔴 CRITICAL ALERTS (5)</div>
+      <div style="background: rgba(0,0,0,0.2); padding: 8px; margin-bottom: 8px; border-radius: 4px;">
+        • Outlet Bandung: Minyak di bawah threshold (8/15)
+        • Outlet Jakarta: Opname 3 hari overdue
+        • Outlet Surabaya: Daging rusak (discrepancy)
+      </div>
+      <div style="font-size: 10px; margin-bottom: 8px;">📊 OUTLET STATUS CARDS</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+        <div style="background: rgba(76, 175, 80, 0.3); padding: 6px; border-radius: 3px;">Bandung 🔴</div>
+        <div style="background: rgba(255, 193, 7, 0.3); padding: 6px; border-radius: 3px;">Jakarta 🟡</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Alert-First</h3>
+      <p><strong>Top:</strong> Live critical alerts across all outlets. <strong>Below:</strong> Status cards (color-coded) per outlet, click to expand items.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Instant attention to critical issues</li><li>Alerts first, overview second</li><li>Monitor tile</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Need to drill-down for full picture</li><li>Less overview at-a-glance</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="approach-b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; color: white; font-family: monospace; font-size: 11px; line-height: 1.6; overflow: auto; max-height: 200px;">
+      <div style="margin-bottom: 10px;"><strong>OUTLET CARDS LAYOUT</strong></div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div style="border: 2px solid rgba(255,255,255,0.3); padding: 10px; border-radius: 6px;">
+          <div style="font-weight: bold;">Bandung</div>
+          <div style="font-size: 10px; margin-top: 4px;">Status: 🔴 Alert</div>
+          <div style="font-size: 10px;">Items: 5/50</div>
+          <div style="font-size: 10px;">Opname: OK</div>
+        </div>
+        <div style="border: 2px solid rgba(255,255,255,0.3); padding: 10px; border-radius: 6px;">
+          <div style="font-weight: bold;">Jakarta</div>
+          <div style="font-size: 10px; margin-top: 4px;">Status: 🟡 Warning</div>
+          <div style="font-size: 10px;">Items: 12/50</div>
+          <div style="font-size: 10px;">Opname: LATE</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Outlet Cards</h3>
+      <p><strong>Grid/list of cards:</strong> Each outlet shows summary (status, item count at-risk, opname status). Click card to expand full item detail.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Good balance: overview + drillable</li><li>Responsive (tablet + monitor)</li><li>Visual grouping per outlet</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>May need scrolling on many outlets</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="approach-c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; color: white; font-family: monospace; font-size: 11px; line-height: 1.6; overflow: auto; max-height: 200px;">
+      <div style="margin-bottom: 10px;"><strong>TABLE + TABS LAYOUT</strong></div>
+      <div style="margin-bottom: 8px;">
+        <span style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 3px; margin-right: 4px;">📊 Overview</span>
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 3px; margin-right: 4px;">🔴 Alerts</span>
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 3px;">✅ Compliance</span>
+      </div>
+      <div style="font-size: 10px; margin-top: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; margin-top: 4px;">
+          <div>Outlet</div>
+          <div>Item</div>
+          <div>Qty/Threshold</div>
+          <div>Status</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; margin-top: 4px; opacity: 0.8;">
+          <div>Bandung</div>
+          <div>Minyak</div>
+          <div>8/15</div>
+          <div>🔴</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; margin-top: 2px; opacity: 0.8;">
+          <div>Jakarta</div>
+          <div>Daging</div>
+          <div>22/30</div>
+          <div>🟡</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. Table + Tabs</h3>
+      <p><strong>Tabs for different views:</strong> Overview (all items), Alerts (below-threshold), Compliance (opname status). Table shows Outlet | Item | Qty/Threshold | Status.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Data-dense, comprehensive</li><li>Easy filtering/sorting</li><li>Good for compliance audit</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Less "at-a-glance" visual</li><li>May feel busy on monitor</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 30px; color: #666; font-size: 14px;">💡 <strong>Selection note:</strong> We can also combine approaches (e.g., A + C: alerts on top, tabs below). Pick what resonates with how you naturally scan information.</p>

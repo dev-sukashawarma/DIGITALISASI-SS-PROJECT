@@ -17,6 +17,8 @@ interface SignatureFlowProps {
   onSent: () => void
 }
 
+const MAX_SIGNATURE_SIZE = 50000 // 50KB - PNG data URL limit for RPC parameter safety
+
 export function SignatureFlow({
   suratJalanId,
   signatures,
@@ -47,6 +49,13 @@ export function SignatureFlow({
 
     if (signatures.some((s) => s.role === role)) {
       alert(`${role} sudah menandatangani. Tidak bisa menambah tanda tangan ganda.`)
+      return
+    }
+
+    if (signatureImage.length > MAX_SIGNATURE_SIZE) {
+      alert(
+        `Tanda tangan terlalu besar (${(signatureImage.length / 1024).toFixed(1)}KB). Coba ulang dengan stroke yang lebih ringan atau canvas yang lebih kecil.`
+      )
       return
     }
 

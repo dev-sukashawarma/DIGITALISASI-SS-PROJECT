@@ -18,6 +18,12 @@ interface SuratJalanData {
   }>
 }
 
+// Signature cell styling constants
+const SIGNATURE_CELL_HEIGHT = '80px'
+const SIGNATURE_IMAGE_MAX_HEIGHT = '70px'
+const SIGNATURE_IMAGE_STYLE = `max-height: ${SIGNATURE_IMAGE_MAX_HEIGHT}; max-width: 100%; display: block; margin: 0 auto;`
+const SIGNATURE_PLACEHOLDER_STYLE = `height: 70px; border-bottom: 2px solid #000;`
+
 export function generatePDFContent(data: SuratJalanData): string {
   const createdDate = new Date(data.created_at).toLocaleDateString('id-ID', {
     year: 'numeric',
@@ -41,11 +47,11 @@ export function generatePDFContent(data: SuratJalanData): string {
     .map(
       (sig) => `
     <tr>
-      <td style="padding: 8px; text-align: center; height: 80px; vertical-align: middle;">
+      <td style="padding: 8px; text-align: center; height: ${SIGNATURE_CELL_HEIGHT};">
         ${
           sig.signature_image
-            ? `<img src="${sig.signature_image}" style="max-height: 70px; max-width: 100%; display: block; margin: 0 auto;" />`
-            : '<div style="height: 70px; border-bottom: 2px solid #000;"></div>'
+            ? `<img src="${sig.signature_image}" style="${SIGNATURE_IMAGE_STYLE}" />`
+            : `<div style="${SIGNATURE_PLACEHOLDER_STYLE}"></div>`
         }
       </td>
       <td style="padding: 8px; text-align: center;">${sig.signed_by}</td>
@@ -56,12 +62,19 @@ export function generatePDFContent(data: SuratJalanData): string {
     )
     .join('')
 
+  // Warn if any signature is missing image (data integrity check)
+  const missingSigImages = data.signatures.filter((sig) => !sig.signature_image)
+  const sigImageWarning =
+    missingSigImages.length > 0
+      ? `\n  <!-- WARNING: ${missingSigImages.length} signature(s) missing image data: ${missingSigImages.map((s) => s.signed_by).join(', ')} -->`
+      : ''
+
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Surat Jalan - ${data.outlet_name}</title>
+  <title>Surat Jalan - ${data.outlet_name}</title>${sigImageWarning}
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     .header { text-align: center; margin-bottom: 20px; }

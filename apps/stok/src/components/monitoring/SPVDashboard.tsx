@@ -10,6 +10,16 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchOpnameStatus } from '@/lib/queries/monitoring';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 
+const getOutletRegion = (outletName: string): 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
+  const name = outletName.toUpperCase();
+  if (name.includes('JATIASIH') || name.includes('JATIWANGIN')) return 'Bekasi';
+  if (name.includes('CIRENDEU')) return 'Tangerang';
+  if (name.includes('CIBINONG') || name.includes('CISEENG') || name.includes('CITAYAM') || name.includes('DRAMAGA') || name.includes('EMPANG') || name.includes('BEJI')) return 'Bogor';
+  if (name.includes('DEPOK') || name.includes('SUKMAJAYA') || name.includes('PALEDANG') || name.includes('PAJA JARAN')) return 'Depok';
+  if (name.includes('TEBET') || name.includes('KALISARI') || name.includes('PEKAYON') || name.includes('JAGAKARSA') || name.includes('CIMANGGUL')) return 'Jakarta';
+  return 'Jakarta'; // Default
+};
+
 export function SPVDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'compliance'>('overview');
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
@@ -101,11 +111,12 @@ export function SPVDashboard() {
     return Math.round((okCount / total) * 100);
   }, [currentOutletItems]);
 
-  // Group items by outlet for Left panel navigation
+  // Group items by outlet, then by region
   const outlets = useMemo(() => {
-    const map: Record<string, {
+    const outletMap: Record<string, {
       outlet_id: string;
       outlet_name: string;
+      region: string;
       items: typeof items;
       kritisCount: number;
       menipisCount: number;
@@ -113,17 +124,18 @@ export function SPVDashboard() {
     }> = {};
 
     for (const item of items) {
-      if (!map[item.outlet_id]) {
-        map[item.outlet_id] = {
+      if (!outletMap[item.outlet_id]) {
+        outletMap[item.outlet_id] = {
           outlet_id: item.outlet_id,
           outlet_name: item.outlet_name,
+          region: getOutletRegion(item.outlet_name),
           items: [],
           kritisCount: 0,
           menipisCount: 0,
           status: 'ok',
         };
       }
-      const o = map[item.outlet_id];
+      const o = outletMap[item.outlet_id];
       o.items.push(item);
       if (item.status === 'below') {
         o.kritisCount++;
@@ -136,7 +148,7 @@ export function SPVDashboard() {
       }
     }
 
-    const result = Object.values(map).sort((a, b) => {
+    const outletList = Object.values(outletMap).sort((a, b) => {
       const order = { below: 0, warning: 1, ok: 2 };
       if (a.status !== b.status) {
         return order[a.status] - order[b.status];
@@ -144,13 +156,22 @@ export function SPVDashboard() {
       return a.outlet_name.localeCompare(b.outlet_name);
     });
 
-    return result;
+    // Group by region
+    const regionMap: Record<string, typeof outletList> = {};
+    for (const outlet of outletList) {
+      if (!regionMap[outlet.region]) {
+        regionMap[outlet.region] = [];
+      }
+      regionMap[outlet.region].push(outlet);
+    }
+
+    return { byOutlet: outletList, byRegion: regionMap };
   }, [items]);
 
   // Automatically set first outlet as active on initial load
   React.useEffect(() => {
-    if (outlets.length > 0 && !selectedOutletId) {
-      setSelectedOutletId(outlets[0].outlet_id);
+    if (outlets.byOutlet.length > 0 && !selectedOutletId) {
+      setSelectedOutletId(outlets.byOutlet[0].outlet_id);
     }
   }, [outlets, selectedOutletId]);
 
@@ -168,7 +189,7 @@ export function SPVDashboard() {
 
   const handleTransferConfirm = (sourceOutletId: string, qty: number) => {
     if (!transferItem) return;
-    const sourceOutletName = outlets.find(o => o.outlet_id === sourceOutletId)?.outlet_name || 'Outlet Asal';
+    const sourceOutletName = outlets.byOutlet.find(o => o.outlet_id === sourceOutletId)?.outlet_name || 'Outlet Asal';
     showToast(`✅ Transfer Stok Berhasil: ${qty} unit ${transferItem.item_name} dipindahkan dari ${sourceOutletName} ke ${transferItem.outlet_name}`);
     setTransferItem(null);
   };
@@ -256,12 +277,19 @@ export function SPVDashboard() {
         {activeTab === 'overview' && (
           <div className="flex-1 flex overflow-hidden">
             {/* Left panel: Outlets */}
-            <aside className="w-[25%] bg-[#faf2e9] border-r border-[#d9c2b2] overflow-y-auto p-6 space-y-4">
+            <aside className="w-[25%] bg-[#faf2e9] border-r border-[#d9c2b2] overflow-y-auto p-6 space-y-6">
               <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase border-b border-suka-brown/10 pb-2">
                 Daftar 19 Outlet
               </h3>
-              <div className="flex flex-col gap-3">
-                {outlets.map((outlet) => {
+              <div className="flex flex-col gap-6">
+                {['Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang'].map((region) => (
+                  outlets.byRegion[region] && outlets.byRegion[region].length > 0 && (
+                    <div key={region} className="flex flex-col gap-2">
+                      <h4 className="text-xs font-bold text-suka-orange/70 uppercase tracking-widest px-2">
+                        {region}
+                      </h4>
+                      <div className="flex flex-col gap-2">
+                        {outlets.byRegion[region].map((outlet) => {
                   const isActive = selectedOutletId === outlet.outlet_id;
                   const cleanName = outlet.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
                   
@@ -313,9 +341,12 @@ export function SPVDashboard() {
                         <span className="text-suka-brown/30">•</span>
                         <span className="text-suka-brown/60 font-medium">{subLocation}</span>
                       </div>
-                    </button>
-                  );
-                })}
+                        </button>
+                        })}
+                      </div>
+                    </div>
+                  )
+                ))}
               </div>
             </aside>
 
@@ -327,7 +358,7 @@ export function SPVDashboard() {
                   <div className="p-6 border-b border-suka-brown/10 flex flex-col gap-4 bg-white z-10 flex-shrink-0">
                     <div className="flex justify-between items-center flex-wrap gap-4">
                       <h3 className="text-lg font-bold text-suka-brown uppercase tracking-tight">
-                        DETAIL STOK: {outlets.find(o => o.outlet_id === selectedOutletId)?.outlet_name}
+                        DETAIL STOK: {outlets.byOutlet.find(o => o.outlet_id === selectedOutletId)?.outlet_name}
                       </h3>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50 text-sm">🔍</span>
@@ -509,7 +540,7 @@ export function SPVDashboard() {
               {selectedOutletId ? (
                 <div className="space-y-4">
                   <h2 className="text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">
-                    CHECKLIST OPERASIONAL OUTLET: {outlets.find(o => o.outlet_id === selectedOutletId)?.outlet_name}
+                    CHECKLIST OPERASIONAL OUTLET: {outlets.byOutlet.find(o => o.outlet_id === selectedOutletId)?.outlet_name}
                   </h2>
                   
                   {/* Mock Compliance Checklist items */}

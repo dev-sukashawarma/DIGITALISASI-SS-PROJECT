@@ -5,6 +5,8 @@ export interface MonitoringItem {
   outlet_name: string;
   bahan_baku_id: string;
   item_name: string;
+  satuan: string;
+  kategori: string;
   current_qty: number;
   threshold: number;
   status: StockStatus;

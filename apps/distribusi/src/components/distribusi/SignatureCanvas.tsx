@@ -15,12 +15,20 @@ export function SignatureCanvas({ onSignatureSaved }: SignatureCanvasProps) {
     if (!canvas) return
 
     const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
     const rect = canvas.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
 
-    ctx?.beginPath()
-    ctx?.moveTo(x, y)
+    // Configure stroke for better rendering (thick, smooth line)
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = '#000'
+
+    ctx.beginPath()
+    ctx.moveTo(x, y)
     setIsDrawing(true)
   }
 
@@ -55,9 +63,21 @@ export function SignatureCanvas({ onSignatureSaved }: SignatureCanvasProps) {
     const canvas = canvasRef.current
     if (!canvas) return
 
+    // Check if signature is empty (all blank pixels)
+    const imageData = canvas.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height)
+    if (imageData) {
+      const data = imageData.data
+      const hasContent = data.some((val, i) => i % 4 !== 3 && val !== 255) // Check for non-white pixels
+      if (!hasContent) {
+        alert('Tanda tangan tidak boleh kosong. Silakan gambar tanda tangan Anda.')
+        return
+      }
+    }
+
     // Convert to PNG (lossless, no artifacts like JPEG compression)
     const signatureImage = canvas.toDataURL('image/png')
-    console.log('Signature data size:', signatureImage.length, 'bytes')
+    const sizeKB = (signatureImage.length / 1024).toFixed(2)
+    console.log(`Signature captured: ${sizeKB}KB`)
     onSignatureSaved(signatureImage)
   }
 

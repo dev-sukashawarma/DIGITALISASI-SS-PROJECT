@@ -22,8 +22,18 @@ export async function fetchSPVMonitoringData() {
     .order('item_name');
 
   if (error) throw error;
+
+  // Deduplicate by composite key (outlet_id, bahan_baku_id)
+  const seen = new Set<string>();
+  const dedupedItems = (data || []).filter((item) => {
+    const key = `${item.outlet_id}-${item.bahan_baku_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   return {
-    items: data || [],
+    items: dedupedItems,
     lastFetched: new Date().toISOString(),
   };
 }
@@ -61,20 +71,29 @@ export async function fetchCrewMonitoringData() {
 
   if (error) throw error;
 
+  // Deduplicate by composite key (outlet_id, bahan_baku_id)
+  const seen = new Set<string>();
+  const dedupedData = (data || []).filter((item) => {
+    const key = `${item.outlet_id}-${item.bahan_baku_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   // Calculate summary
   // Note: "below_threshold" counts only items strictly below threshold (status === 'below').
   // "warning" items (80-100% of threshold) are tracked separately and not included in this count.
   const summary = {
-    below_threshold: (data || []).filter((item) => item.status === 'below').length,
-    flagged: (data || []).filter((item) => item.is_flagged).length,
-    ok: (data || []).filter((item) => item.status === 'ok').length,
-    total: data?.length || 0,
+    below_threshold: dedupedData.filter((item) => item.status === 'below').length,
+    flagged: dedupedData.filter((item) => item.is_flagged).length,
+    ok: dedupedData.filter((item) => item.status === 'ok').length,
+    total: dedupedData.length,
   };
 
   return {
     outlet_id: staffData.outlet_id,
     outlet_name: outletName,
-    items: data || [],
+    items: dedupedData,
     summary,
     lastFetched: new Date().toISOString(),
   };

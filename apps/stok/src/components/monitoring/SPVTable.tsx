@@ -267,7 +267,7 @@ export function SPVTable({
                     }`}>
                       {item.current_qty}{' '}
                       <span className="text-xs font-normal text-suka-brown/50">
-                        {item.item_name.toLowerCase().includes('gas') || item.item_name.toLowerCase().includes('kulit') ? 'pcs' : 'kg'}
+                        {item.satuan || 'kg'}
                       </span>
                     </td>
                     <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -372,7 +372,7 @@ export function SPVTable({
       </div>
 
       <div className="text-xs text-suka-brown/50 font-medium">
-        Menampilkan {filteredItems.length} dari {items.length} item bahan baku
+        Menampilkan {filteredItems.length} item bahan baku
       </div>
     </div>
   );

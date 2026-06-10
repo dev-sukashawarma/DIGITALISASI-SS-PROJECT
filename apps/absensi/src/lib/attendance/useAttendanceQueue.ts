@@ -48,7 +48,7 @@ export function useAttendanceQueue() {
     await flush(async (items: QueueItem<QueuedAbsen>[]) => {
       for (const it of items) {
         const res = await syncOne(it.data, outletId, token);
-        if (!res.ok && res.reason !== "outside_radius") throw new Error(res.reason);
+        if (!res.ok) throw new Error(res.reason);
       }
     });
   }

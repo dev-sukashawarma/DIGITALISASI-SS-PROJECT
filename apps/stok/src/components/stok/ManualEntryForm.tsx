@@ -20,6 +20,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   const [qty, setQty] = useState('')
   const [catatan, setCatatan] = useState('')
   const [busy, setBusy] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const needsReason = tipe === 'adjustment'
   const isValidQty = qty !== '' && !isNaN(Number(qty)) && Number(qty) > 0
@@ -27,6 +28,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
 
   async function submit() {
     setBusy(true)
+    setErrorMsg(null)
     try {
       await addManual({
         outletId, bahanBakuId, tipe,
@@ -34,6 +36,8 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         catatan, createdBy,
       }, tipe === 'adjustment' ? Number(qty) : undefined)
       router.push('/stok/ledger')
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err))
     } finally { setBusy(false) }
   }
 
@@ -55,6 +59,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         value={qty} onChange={e=>setQty(e.target.value)} />
       <Input placeholder={needsReason?'Alasan (wajib)':'Catatan'}
         value={catatan} onChange={e=>setCatatan(e.target.value)} />
+      {errorMsg && <p className="text-sm text-red-600">{errorMsg}</p>}
       <Button disabled={!valid || busy} onClick={submit} className="w-full">
         {busy?'Menyimpan…':'Simpan Entri'}
       </Button>

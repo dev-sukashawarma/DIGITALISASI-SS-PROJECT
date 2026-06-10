@@ -39,7 +39,7 @@ export function useLedgerActions() {
       outlet_id: input.outletId, bahan_baku_id: input.bahanBakuId,
       tipe: input.tipe, qty, catatan: input.catatan, created_by: input.createdBy,
     })
-    if (error) throw error
+    if (error) throw new Error(error.message)
   }, [])
   return { addManual }
 }

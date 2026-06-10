@@ -36,7 +36,11 @@ Deno.serve(async (req) => {
     catatan: 'Terima kiriman (verifikasi M3)',
   }))
 
-  const { data, error } = await supabase.from('ledger_stok').insert(rows).select('id')
+  // onConflict: if same shipment+item already exists (retry/double-call), skip silently.
+  const { data, error } = await supabase
+    .from('ledger_stok')
+    .upsert(rows, { onConflict: 'ref_shipment_id,bahan_baku_id', ignoreDuplicates: true })
+    .select('id')
   if (error) return json({ error: error.message }, 500)
 
   return json({ status: 'created', ledger_ids: data?.map(d => d.id) ?? [] }, 200)

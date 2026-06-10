@@ -3,14 +3,16 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
-interface Outlet {
+interface SuratJalan {
   id: string
-  name: string
-  address?: string
+  outlet_id: string
+  status: string
+  created_at: string
+  outlets?: { name: string }
 }
 
-export function useOutlets() {
-  const [outlets, setOutlets] = useState<Outlet[]>([])
+export function useTerimaList() {
+  const [data, setData] = useState<SuratJalan[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -20,24 +22,24 @@ export function useOutlets() {
 
     const supabase = createClient()
     supabase
-      .from('outlets')
-      .select('id, name, address')
-      .eq('is_active', true)
-      .order('name')
+      .from('surat_jalan')
+      .select('id, outlet_id, status, created_at, outlets(name)')
+      .in('status', ['dikirim', 'diterima_sebagian'])
+      .order('created_at', { ascending: false })
       .then(({ data, error: err }) => {
         if (err) {
           setError(err.message)
-          setOutlets([])
+          setData([])
         } else {
-          setOutlets(data || [])
+          setData((data || []) as SuratJalan[])
         }
       })
       .catch(err => {
         setError(err.message)
-        setOutlets([])
+        setData([])
       })
       .finally(() => setLoading(false))
   }, [])
 
-  return { outlets, loading, error }
+  return { data, loading, error }
 }

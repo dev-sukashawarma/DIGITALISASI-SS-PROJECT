@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 
@@ -35,8 +36,45 @@ export function SuratJalanForm() {
       alert('Pilih outlet dan minimal 1 item')
       return
     }
-    // TODO: Submit to API
-    console.log({ outletId, items })
+
+    const supabase = createClient()
+
+    try {
+      console.log('Saving surat jalan...', { outletId, items })
+
+      // Create surat jalan
+      const { data: sj, error: sjError } = await supabase
+        .from('surat_jalan')
+        .insert([{ outlet_id: outletId, status: 'draft' }])
+        .select('id')
+        .single()
+
+      console.log('Create SJ result:', { sj, sjError })
+      if (sjError) throw new Error(`Failed to create surat jalan: ${sjError.message}`)
+      if (!sj?.id) throw new Error('No ID returned from surat jalan insert')
+
+      // Insert items
+      const itemsToInsert = items.map((item) => ({
+        surat_jalan_id: sj.id,
+        bahan_baku_id: item.bahanId,
+        qty_dikirim: item.qty,
+      }))
+
+      console.log('Inserting items:', itemsToInsert)
+      const { error: itemsError } = await supabase
+        .from('surat_jalan_item')
+        .insert(itemsToInsert)
+
+      console.log('Insert items result:', { itemsError })
+      if (itemsError) throw new Error(`Failed to insert items: ${itemsError.message}`)
+
+      alert('Surat Jalan berhasil dibuat!')
+      window.location.href = '/distribusi/surat-jalan'
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Gagal menyimpan'
+      console.error('Save error:', err)
+      alert(`Error: ${message}`)
+    }
   }
 
   return (
@@ -63,7 +101,7 @@ export function SuratJalanForm() {
                 <option value="">Pilih outlet...</option>
                 {outlets.map((outlet) => (
                   <option key={outlet.id} value={outlet.id}>
-                    {outlet.nama}
+                    {outlet.name}
                   </option>
                 ))}
               </select>
@@ -122,7 +160,7 @@ export function SuratJalanForm() {
                       className="flex justify-between items-center bg-gray-50 p-3 rounded"
                     >
                       <span>
-                        {bahan?.nama} - {item.qty} {bahan?.satuan}
+                        {bahan?.nama || 'Unknown'} - {item.qty} {bahan?.satuan}
                       </span>
                       <button
                         type="button"

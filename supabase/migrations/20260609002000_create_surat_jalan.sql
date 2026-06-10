@@ -7,12 +7,12 @@ CREATE TABLE surat_jalan (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   notes TEXT,
-  signatures JSONB DEFAULT '[]'::jsonb,
-
-  INDEX idx_surat_jalan_outlet ON outlet_id,
-  INDEX idx_surat_jalan_status ON status,
-  INDEX idx_surat_jalan_created ON created_at DESC
+  signatures JSONB DEFAULT '[]'::jsonb
 );
+
+CREATE INDEX idx_surat_jalan_outlet ON surat_jalan(outlet_id);
+CREATE INDEX idx_surat_jalan_status ON surat_jalan(status);
+CREATE INDEX idx_surat_jalan_created ON surat_jalan(created_at DESC);
 
 -- Surat Jalan items: line items with verification data
 CREATE TABLE surat_jalan_item (
@@ -32,7 +32,8 @@ CREATE TABLE surat_jalan_item (
   verified_by UUID REFERENCES outlet_staff(id),
   verified_at TIMESTAMPTZ,
 
-  UNIQUE(surat_jalan_id, bahan_baku_id),
-  INDEX idx_sj_item_sj ON surat_jalan_id,
-  INDEX idx_sj_item_bahan ON bahan_baku_id
+  UNIQUE(surat_jalan_id, bahan_baku_id)
 );
+
+CREATE INDEX idx_sj_item_sj ON surat_jalan_item(surat_jalan_id);
+CREATE INDEX idx_sj_item_bahan ON surat_jalan_item(bahan_baku_id);

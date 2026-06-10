@@ -6,174 +6,260 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
 
+type Kondisi = 'baik' | 'jelek'
+
+type ItemVerification = {
+  qty_terima: number
+  kondisi: Kondisi
+  catatan: string
+}
+
+type Step = 'cards' | 'summary'
+
 export function VerifikasiForm({ id }: { id: string }) {
   const router = useRouter()
   const { data, loading, error } = useSuratJalanDetail(id)
-  const [verifications, setVerifications] = useState<Record<string, any>>({})
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [verifications, setVerifications] = useState<Record<string, ItemVerification>>({})
+  const [step, setStep] = useState<Step>('cards')
   const [submitting, setSubmitting] = useState(false)
 
-  if (loading) {
-    return <p className="text-gray-500">Memuat...</p>
+  if (loading) return <p className="p-6 text-gray-500">Memuat...</p>
+  if (error || !data) return <p className="p-6 text-red-600">Gagal memuat: {error}</p>
+
+  const items = data.surat_jalan_item
+  const currentItem = items[currentIndex]
+  const currentVerif = verifications[currentItem?.id] ?? {
+    qty_terima: currentItem?.qty_dikirim ?? 0,
+    kondisi: 'baik' as Kondisi,
+    catatan: '',
+  }
+  const progress = Math.round((currentIndex / items.length) * 100)
+  const jelekItems = Object.entries(verifications).filter(([, v]) => v.kondisi === 'jelek')
+
+  const setVerif = (patch: Partial<ItemVerification>) => {
+    setVerifications((prev) => ({
+      ...prev,
+      [currentItem.id]: { ...currentVerif, ...patch },
+    }))
   }
 
-  if (error || !data) {
-    return <p className="text-red-600">Gagal memuat: {error}</p>
+  const confirmItem = (v: ItemVerification) => {
+    setVerifications((prev) => ({ ...prev, [currentItem.id]: v }))
+    if (currentIndex + 1 >= items.length) {
+      setStep('summary')
+    } else {
+      setCurrentIndex((i) => i + 1)
+    }
   }
 
-  const handleQtyChange = (itemId: string, value: string) => {
-    setVerifications({
-      ...verifications,
-      [itemId]: { ...verifications[itemId], qty_terima: parseInt(value) || 0 },
+  const handleBaik = () => {
+    confirmItem({
+      qty_terima: currentItem.qty_dikirim,
+      kondisi: 'baik',
+      catatan: '',
     })
   }
 
-  const handleKondisiChange = (itemId: string, value: string) => {
-    setVerifications({
-      ...verifications,
-      [itemId]: { ...verifications[itemId], kondisi: value },
-    })
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // Validate all items have qty_terima
-    const incompleteItems = data.surat_jalan_item.filter(
-      (item) => verifications[item.id]?.qty_terima === undefined
-    )
-    if (incompleteItems.length > 0) {
-      alert('Semua item harus diisi qty terima')
+  const handleJelekConfirm = () => {
+    if (currentVerif.kondisi === 'jelek' && !currentVerif.catatan.trim()) {
+      alert('Wajib isi catatan untuk item yang jelek')
       return
     }
+    if (currentVerif.qty_terima > currentItem.qty_dikirim) {
+      alert('Qty terima tidak boleh melebihi qty dikirim')
+      return
+    }
+    confirmItem(currentVerif)
+  }
 
+  const handleSubmit = async () => {
     setSubmitting(true)
     const supabase = createClient()
-
     try {
-      // Update all items in parallel
-      const updatePromises = data.surat_jalan_item.map((item) => {
-        const verification = verifications[item.id]
+      const updatePromises = items.map((item) => {
+        const v = verifications[item.id]
         return supabase
           .from('surat_jalan_item')
           .update({
-            qty_terima: verification.qty_terima,
-            kondisi: verification.kondisi || 'baik',
+            qty_terima: v.qty_terima,
+            kondisi: v.kondisi === 'jelek' ? 'rusak' : 'baik',
+            catatan: v.catatan || null,
             verified_at: new Date().toISOString(),
           })
           .eq('id', item.id)
       })
 
       const results = await Promise.all(updatePromises)
-
-      // Check for errors
       const errors = results.filter(({ error }) => error)
-      if (errors.length > 0) {
-        throw new Error(`Failed to verify items: ${errors[0].error?.message}`)
-      }
+      if (errors.length > 0) throw new Error(errors[0].error?.message)
 
-      // Call RPC function to finalize and create ledger entries
-      const { data: rpcResult, error: rpcError } = await supabase.rpc(
-        'finalize_surat_jalan_and_ledger',
-        { p_surat_jalan_id: id }
-      )
+      const { error: rpcError } = await supabase.rpc('finalize_surat_jalan_and_ledger', {
+        p_surat_jalan_id: id,
+      })
+      if (rpcError) throw new Error(rpcError.message)
 
-      if (rpcError) throw new Error(`Failed to finalize: ${rpcError.message}`)
-
-      alert('Verifikasi berhasil disimpan! Ledger entries created.')
       router.push('/distribusi/terima')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal menyimpan verifikasi'
-      alert(`Error: ${message}`)
+      alert(`Error: ${err instanceof Error ? err.message : 'Gagal menyimpan'}`)
     } finally {
       setSubmitting(false)
     }
   }
 
+  if (step === 'summary') {
+    return (
+      <div className="p-6 max-w-lg mx-auto">
+        <h1 className="text-2xl font-bold mb-1">Ringkasan Verifikasi</h1>
+        <p className="text-gray-500 text-sm mb-6">{items.length} item selesai dikonfirmasi</p>
+
+        <div className="bg-white rounded-xl border border-gray-200 divide-y mb-4">
+          {items.map((item) => {
+            const v = verifications[item.id]
+            const isJelek = v?.kondisi === 'jelek'
+            return (
+              <div key={item.id} className="px-4 py-3 flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-medium">{item.bahan_baku?.nama}</p>
+                  {isJelek && v.catatan && (
+                    <p className="text-xs text-red-600 mt-0.5">{v.catatan}</p>
+                  )}
+                </div>
+                <span
+                  className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    isJelek
+                      ? 'bg-red-50 text-red-700'
+                      : 'bg-green-50 text-green-700'
+                  }`}
+                >
+                  {isJelek ? `Jelek · ${v.qty_terima}/${item.qty_dikirim} ${item.bahan_baku?.satuan}` : `Baik · ${v.qty_terima} ${item.bahan_baku?.satuan}`}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+
+        {jelekItems.length > 0 && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-red-700 text-sm">
+            {jelekItems.length} item bermasalah — concern tercatat di catatan
+          </div>
+        )}
+
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="w-full bg-green-600 text-white rounded-xl py-3 font-medium hover:bg-green-700 disabled:opacity-50"
+        >
+          {submitting ? 'Menyimpan...' : 'Selesai & Simpan Verifikasi'}
+        </button>
+        <button
+          onClick={() => { setCurrentIndex(items.length - 1); setStep('cards') }}
+          className="w-full mt-2 border border-gray-300 rounded-xl py-3 text-sm text-gray-600 hover:bg-gray-50"
+        >
+          Kembali ke item terakhir
+        </button>
+      </div>
+    )
+  }
+
+  // Card step
+  const isJelekMode = currentVerif.kondisi === 'jelek'
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/distribusi/terima" className="text-blue-600 hover:underline">
+    <div className="p-6 max-w-lg mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <Link href="/distribusi/terima" className="text-blue-600 text-sm hover:underline">
           ← Kembali
         </Link>
-        <h1 className="text-3xl font-bold">Verifikasi Penerimaan</h1>
+        <span className="text-sm text-gray-500 font-medium">
+          {currentIndex + 1} / {items.length}
+        </span>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 space-y-6">
-        <div className="grid grid-cols-2 gap-4">
+      <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6">
+        <div
+          className="bg-green-500 h-1.5 rounded-full transition-all"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+          {currentItem.bahan_baku?.kategori}
+        </p>
+        <h2 className="text-xl font-semibold mb-4">{currentItem.bahan_baku?.nama}</h2>
+
+        <div className="flex items-end gap-4 mb-6">
           <div>
-            <p className="text-sm text-gray-600">Outlet</p>
-            <p className="text-lg font-medium">{data.outlets?.name}</p>
+            <p className="text-xs text-gray-500 mb-1">Dikirim</p>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-lg font-medium text-gray-500 min-w-[72px] text-center">
+              {currentItem.qty_dikirim} {currentItem.bahan_baku?.satuan}
+            </div>
           </div>
+          <span className="text-gray-300 text-xl pb-2">→</span>
           <div>
-            <p className="text-sm text-gray-600">Status</p>
-            <p className="text-lg font-medium">{data.status}</p>
+            <p className="text-xs text-gray-500 mb-1">Diterima</p>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={0}
+                max={currentItem.qty_dikirim}
+                value={currentVerif.qty_terima}
+                onChange={(e) => setVerif({ qty_terima: parseInt(e.target.value) || 0, kondisi: 'jelek' })}
+                className={`border rounded-lg px-3 py-2 text-lg font-medium text-center w-20 ${
+                  isJelekMode ? 'border-red-400' : 'border-green-400'
+                }`}
+              />
+              <span className="text-sm text-gray-500">{currentItem.bahan_baku?.satuan}</span>
+            </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <h2 className="text-lg font-semibold">Verifikasi Item</h2>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-4 py-2 text-left">Barang</th>
-                  <th className="px-4 py-2 text-center">Qty Dikirim</th>
-                  <th className="px-4 py-2 text-center">Qty Terima</th>
-                  <th className="px-4 py-2 text-left">Kondisi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {data.surat_jalan_item.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2">
-                      {item.bahan_baku?.nama} ({item.bahan_baku?.satuan})
-                    </td>
-                    <td className="px-4 py-2 text-center">{item.qty_dikirim}</td>
-                    <td className="px-4 py-2 text-center">
-                      <input
-                        type="number"
-                        min="0"
-                        value={verifications[item.id]?.qty_terima || ''}
-                        onChange={(e) => handleQtyChange(item.id, e.target.value)}
-                        className="w-16 border border-gray-300 rounded px-2 py-1 text-center"
-                        placeholder="0"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <select
-                        value={verifications[item.id]?.kondisi || 'baik'}
-                        onChange={(e) => handleKondisiChange(item.id, e.target.value)}
-                        className="border border-gray-300 rounded px-2 py-1"
-                      >
-                        <option value="baik">Baik</option>
-                        <option value="rusak">Rusak</option>
-                        <option value="hilang_qty">Hilang Qty</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {isJelekMode && (
+          <div className="mb-4">
+            <label className="text-xs text-gray-500 mb-1 block">Catatan / concern (wajib)</label>
+            <textarea
+              value={currentVerif.catatan}
+              onChange={(e) => setVerif({ catatan: e.target.value })}
+              placeholder="Contoh: 2 kg busuk, kondisi kemasan rusak..."
+              rows={2}
+              className="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-red-50 resize-none"
+            />
           </div>
-
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-            >
-              {submitting ? 'Menyimpan...' : 'Selesai Verifikasi'}
-            </button>
-            <Link
-              href="/distribusi/terima"
-              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-            >
-              Batal
-            </Link>
-          </div>
-        </form>
+        )}
       </div>
+
+      {!isJelekMode ? (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={handleBaik}
+            className="bg-green-600 text-white rounded-xl py-3 font-medium hover:bg-green-700 flex items-center justify-center gap-2"
+          >
+            ✓ Baik
+          </button>
+          <button
+            onClick={() => setVerif({ kondisi: 'jelek', qty_terima: currentItem.qty_dikirim })}
+            className="border border-red-400 text-red-600 rounded-xl py-3 font-medium hover:bg-red-50 flex items-center justify-center gap-2"
+          >
+            ✗ Jelek
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setVerif({ kondisi: 'baik', qty_terima: currentItem.qty_dikirim, catatan: '' })}
+            className="border border-gray-300 text-gray-600 rounded-xl py-3 font-medium hover:bg-gray-50"
+          >
+            ← Batalkan
+          </button>
+          <button
+            onClick={handleJelekConfirm}
+            className="bg-red-600 text-white rounded-xl py-3 font-medium hover:bg-red-700"
+          >
+            Konfirmasi Jelek →
+          </button>
+        </div>
+      )}
     </div>
   )
 }

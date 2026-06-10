@@ -4,13 +4,19 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
-import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
+import { generatePDFContent, generateQRDataUrl, downloadPDF, downloadBarcode } from '@/utils/generatePDF'
 
 type DateFilter = 'all' | 'today' | '7days' | '30days'
 
 export function SuratJalanList() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const { data, loading, draftCount, sentCount } = useSuratJalanList(dateFilter)
+
+  const handleDownloadBarcode = async (sjId: string, docNumber: string) => {
+    const url = `${window.location.origin}/distribusi/terima/${sjId}`
+    const dataUrl = await generateQRDataUrl(url, 400)
+    downloadBarcode(`Barcode-SJ-${docNumber}.png`, dataUrl)
+  }
 
   const handleDownloadPDF = async (sjId: string) => {
     const supabase = createClient()
@@ -55,6 +61,7 @@ export function SuratJalanList() {
       sender_outlet: 'Outlet Kitchen Bogor',
       status: sj.status,
       created_at: sj.created_at,
+      verification_url: `${window.location.origin}/distribusi/terima/${sj.id}`,
       items: itemsWithBahan,
       signatures: sj.signatures || [],
     })
@@ -173,19 +180,30 @@ export function SuratJalanList() {
                   <td className="px-6 py-4 text-sm">
                     {new Date(sj.created_at).toLocaleDateString('id-ID')}
                   </td>
-                  <td className="px-6 py-4 text-sm space-x-2">
-                    <Link
-                      href={`/distribusi/surat-jalan/${sj.id}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      Lihat
-                    </Link>
-                    <button
-                      onClick={() => handleDownloadPDF(sj.id)}
-                      className="text-green-600 hover:underline"
-                    >
-                      PDF
-                    </button>
+                  <td className="px-6 py-4 text-sm">
+                    {sj.status === 'draft' ? (
+                      <Link
+                        href={`/distribusi/surat-jalan/${sj.id}`}
+                        className="text-blue-600 hover:underline font-medium"
+                      >
+                        Verifikasi
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleDownloadPDF(sj.id)}
+                          className="text-green-600 hover:underline"
+                        >
+                          Download PDF
+                        </button>
+                        <button
+                          onClick={() => handleDownloadBarcode(sj.id, sj.document_number || sj.id.substring(0, 8))}
+                          className="text-purple-600 hover:underline"
+                        >
+                          Download Barcode
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

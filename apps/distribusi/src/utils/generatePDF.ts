@@ -7,6 +7,7 @@ interface SuratJalanData {
   sender_outlet: string
   status: string
   created_at: string
+  verification_url?: string
   items: Array<{
     nama: string
     satuan: string
@@ -25,12 +26,13 @@ const SIGNATURE_IMAGE_MAX_HEIGHT = '70px'
 const SIGNATURE_IMAGE_STYLE = `max-height: ${SIGNATURE_IMAGE_MAX_HEIGHT}; max-width: 100%; display: block; margin: 0 auto;`
 const SIGNATURE_PLACEHOLDER_STYLE = `height: 70px; border-bottom: 2px solid #000;`
 
-export async function generateQRDataUrl(text: string): Promise<string> {
-  return QRCode.toDataURL(text, { width: 80, margin: 1 })
+export async function generateQRDataUrl(text: string, size = 80): Promise<string> {
+  return QRCode.toDataURL(text, { width: size, margin: 1 })
 }
 
 export async function generatePDFContent(data: SuratJalanData): Promise<string> {
-  const qrDataUrl = await generateQRDataUrl(data.document_number)
+  const qrUrl = data.verification_url || data.document_number
+  const qrDataUrl = await generateQRDataUrl(qrUrl, 200)
   const createdDate = new Date(data.created_at).toLocaleDateString('id-ID', {
     year: 'numeric',
     month: 'long',
@@ -82,12 +84,9 @@ export async function generatePDFContent(data: SuratJalanData): Promise<string> 
   <title>Surat Jalan - ${data.outlet_name}</title>${sigImageWarning}
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-    .header-text { text-align: center; flex: 1; }
-    .header-text h1 { margin: 0; font-size: 24px; }
-    .header-text p { margin: 5px 0; }
-    .qr-block { text-align: center; }
-    .qr-block p { font-size: 10px; color: #666; margin: 4px 0 0; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header p { margin: 5px 0; }
     .info { margin: 20px 0; }
     .info p { margin: 5px 0; }
     table { width: 100%; border-collapse: collapse; margin: 20px 0; }
@@ -95,18 +94,15 @@ export async function generatePDFContent(data: SuratJalanData): Promise<string> 
     .signature-section { margin-top: 40px; }
     .signature-table { width: 100%; }
     .signature-table td { padding: 8px; }
+    .qr-section { margin-top: 40px; text-align: center; border-top: 1px solid #ddd; padding-top: 24px; }
+    .qr-section p { font-size: 13px; color: #444; margin: 8px 0 4px; font-weight: bold; }
+    .qr-section small { font-size: 11px; color: #888; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="header-text">
-      <h1>SURAT JALAN</h1>
-      <p style="font-size: 16px; margin: 10px 0;">${data.document_number}</p>
-    </div>
-    <div class="qr-block">
-      <img src="${qrDataUrl}" width="80" height="80" alt="QR Code" />
-      <p>${data.document_number}</p>
-    </div>
+    <h1>SURAT JALAN</h1>
+    <p style="font-size: 16px; margin: 10px 0;">${data.document_number}</p>
   </div>
 
   <div class="info">
@@ -142,7 +138,14 @@ export async function generatePDFContent(data: SuratJalanData): Promise<string> 
     </table>
   </div>
 
-  <p style="margin-top: 30px; font-size: 12px; color: #666;">
+  <div class="qr-section">
+    <p>Scan QR untuk verifikasi penerimaan</p>
+    <img src="${qrDataUrl}" width="200" height="200" alt="QR Verifikasi" />
+    <br/>
+    <small>${data.document_number}</small>
+  </div>
+
+  <p style="margin-top: 24px; font-size: 12px; color: #666; text-align: center;">
     Dokumen ini dicetak otomatis dari sistem Sukashawarma
   </p>
 </body>
@@ -156,6 +159,16 @@ export function downloadPDF(filename: string, htmlContent: string) {
     'href',
     'data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent)
   )
+  element.setAttribute('download', filename)
+  element.style.display = 'none'
+  document.body.appendChild(element)
+  element.click()
+  document.body.removeChild(element)
+}
+
+export function downloadBarcode(filename: string, dataUrl: string) {
+  const element = document.createElement('a')
+  element.setAttribute('href', dataUrl)
   element.setAttribute('download', filename)
   element.style.display = 'none'
   document.body.appendChild(element)

@@ -6,6 +6,9 @@ import { usePathname } from 'next/navigation'
 const MENU_ITEMS = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Absensi', href: '/absensi' },
+  { label: 'Opname', href: '/stok/opname' },
+  { label: 'Ledger', href: '/stok/ledger' },
+  { label: 'Monitoring', href: '/stok/monitoring' },
 ]
 
 export const Sidebar = () => {

@@ -33,32 +33,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const supabase = createClient()
 
   useEffect(() => {
-    const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-
-      if (session?.user.id) {
-        const { data: staff } = await supabase
-          .from('outlet_staff')
-          .select()
-          .eq('id', session.user.id)
-          .single()
-        setOutletStaff(staff ?? null)
+    // Fetch the outlet_staff profile for a given user id (null-safe).
+    const loadStaff = async (userId: string | undefined) => {
+      if (!userId) {
+        setOutletStaff(null)
+        return
       }
+      const { data: staff } = await supabase
+        .from('outlet_staff')
+        .select()
+        .eq('id', userId)
+        .single()
+      setOutletStaff(staff ?? null)
+    }
 
-      setLoading(false)
+    const getSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        setSession(session)
+        setUser(session?.user ?? null)
+        await loadStaff(session?.user?.id)
+      } catch (err) {
+        console.error('Failed to get session:', err)
+      } finally {
+        setLoading(false)
+      }
     }
 
     getSession()
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
+      // Critical: re-fetch the staff profile when the session changes
+      // (e.g. right after login), otherwise outletStaff stays null and
+      // pages that depend on it hang forever.
+      await loadStaff(session?.user?.id)
     })
 
     return () => subscription.unsubscribe()

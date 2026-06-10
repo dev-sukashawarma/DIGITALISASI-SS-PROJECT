@@ -1,14 +1,13 @@
-'use client'
-import { useAuth } from '@/context/AuthContext'
-import { MonitoringDashboard } from '@/components/stok/MonitoringDashboard'
+import { MonitoringPage } from '@/components/monitoring/MonitoringPage';
 
-export default function MonitoringPage() {
-  const { outletStaff } = useAuth()
-  if (!outletStaff) return <main className="p-4">Memuat…</main>
+export const metadata = {
+  title: 'Monitoring - Stok Management',
+};
+
+export default function Page() {
   return (
-    <main className="max-w-2xl mx-auto p-4">
-      <h1 className="text-xl font-bold mb-4">Monitoring Stok</h1>
-      <MonitoringDashboard outletId={outletStaff.outlet_id} />
+    <main className="max-w-7xl mx-auto p-4">
+      <MonitoringPage />
     </main>
-  )
+  );
 }

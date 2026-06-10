@@ -50,7 +50,9 @@ export function SuratJalanList() {
 
     const htmlContent = generatePDFContent({
       id: sj.id,
+      document_number: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
       outlet_name: outletData?.outlet?.name || 'Unknown',
+      sender_outlet: 'Outlet Kitchen Bogor',
       status: sj.status,
       created_at: sj.created_at,
       items: itemsWithBahan,

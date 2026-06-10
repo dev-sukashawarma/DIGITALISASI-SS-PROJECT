@@ -60,15 +60,22 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
       <div className="border-b-4 border-gray-800 pb-4 mb-6 text-center">
         <h1 className="text-4xl font-bold">SURAT JALAN</h1>
-        <p className="text-sm text-gray-600 mt-2">No: {id.substring(0, 8).toUpperCase()}</p>
+        <p className="text-lg font-medium mt-2">{data?.document_number || id.substring(0, 8).toUpperCase()}</p>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 space-y-6">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-6 border-b pb-6">
           <div>
-            <p className="text-sm text-gray-600">Outlet</p>
-            <p className="text-lg font-medium">{data.outlets?.name || 'Unknown'}</p>
+            <p className="text-sm text-gray-600 font-medium">Dikirim dari:</p>
+            <p className="text-lg font-bold mt-1">Outlet Kitchen Bogor</p>
           </div>
+          <div>
+            <p className="text-sm text-gray-600 font-medium">ke Outlet:</p>
+            <p className="text-lg font-bold mt-1">{data.outlets?.name || 'Unknown'}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <p className="text-sm text-gray-600">Status</p>
             <div className="mt-1">
@@ -83,7 +90,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
             </div>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Tanggal Dibuat</p>
+            <p className="text-sm text-gray-600">Tanggal</p>
             <p className="text-lg font-medium">
               {new Date(data.created_at).toLocaleDateString('id-ID')}
             </p>
@@ -98,20 +105,18 @@ export function SuratJalanDetail({ id }: { id: string }) {
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="px-4 py-2 text-left">Barang</th>
-                    <th className="px-4 py-2 text-center">Qty Dikirim</th>
-                    <th className="px-4 py-2 text-center">Qty Terima</th>
-                    <th className="px-4 py-2 text-left">Kondisi</th>
+                    <th className="px-4 py-2 text-center">Qty</th>
+                    <th className="px-4 py-2 text-center">Satuan</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {data.surat_jalan_item.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2">
-                        {item.bahan_baku?.nama} ({item.bahan_baku?.satuan})
+                        {item.bahan_baku?.nama}
                       </td>
                       <td className="px-4 py-2 text-center">{item.qty_dikirim}</td>
-                      <td className="px-4 py-2 text-center">{item.qty_terima || '-'}</td>
-                      <td className="px-4 py-2">{item.kondisi || '-'}</td>
+                      <td className="px-4 py-2 text-center">{item.bahan_baku?.satuan}</td>
                     </tr>
                   ))}
                 </tbody>

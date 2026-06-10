@@ -1,19 +1,20 @@
 interface SuratJalanData {
   id: string
+  document_number: string
   outlet_name: string
+  sender_outlet: string
   status: string
   created_at: string
   items: Array<{
     nama: string
     satuan: string
     qty_dikirim: number
-    qty_terima?: number
-    kondisi?: string
   }>
   signatures: Array<{
     signed_by: string
     role: string
     signed_at: string
+    signature_image?: string
   }>
 }
 
@@ -31,8 +32,6 @@ export function generatePDFContent(data: SuratJalanData): string {
       <td style="border: 1px solid #000; padding: 8px;">${item.nama}</td>
       <td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.qty_dikirim}</td>
       <td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.satuan}</td>
-      <td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.qty_terima || '-'}</td>
-      <td style="border: 1px solid #000; padding: 8px;">${item.kondisi || '-'}</td>
     </tr>
   `
     )
@@ -80,23 +79,22 @@ export function generatePDFContent(data: SuratJalanData): string {
 <body>
   <div class="header">
     <h1>SURAT JALAN</h1>
-    <p>No: ${data.id.substring(0, 8).toUpperCase()}</p>
-    <p>Status: ${data.status}</p>
+    <p style="font-size: 16px; margin: 10px 0;">${data.document_number}</p>
   </div>
 
   <div class="info">
-    <p><strong>Outlet Tujuan:</strong> ${data.outlet_name}</p>
+    <p><strong>Dikirim dari:</strong> ${data.sender_outlet}</p>
+    <p><strong>ke Outlet:</strong> ${data.outlet_name}</p>
     <p><strong>Tanggal:</strong> ${createdDate}</p>
+    <p><strong>Status:</strong> ${data.status}</p>
   </div>
 
   <table>
     <thead>
       <tr>
         <th>Barang</th>
-        <th style="text-align: center;">Qty Dikirim</th>
+        <th style="text-align: center;">Qty</th>
         <th style="text-align: center;">Satuan</th>
-        <th style="text-align: center;">Qty Terima</th>
-        <th>Kondisi</th>
       </tr>
     </thead>
     <tbody>

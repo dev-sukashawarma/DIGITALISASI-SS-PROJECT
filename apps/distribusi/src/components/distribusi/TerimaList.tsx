@@ -16,7 +16,15 @@ export function TerimaList() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Penerimaan Barang</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Penerimaan Barang</h1>
+        <Link
+          href="/distribusi/terima/scan"
+          className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2"
+        >
+          <span>📷</span> Scan QR
+        </Link>
+      </div>
 
       {data.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-6">

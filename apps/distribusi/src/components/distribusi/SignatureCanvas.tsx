@@ -55,18 +55,19 @@ export function SignatureCanvas({ onSignatureSaved }: SignatureCanvasProps) {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    // Convert to JPEG with compression untuk file size lebih kecil
-    const signatureImage = canvas.toDataURL('image/jpeg', 0.7)
+    // Convert to JPEG with high compression (0.3 quality = 70% compression)
+    const signatureImage = canvas.toDataURL('image/jpeg', 0.3)
+    console.log('Signature data size:', signatureImage.length, 'bytes')
     onSignatureSaved(signatureImage)
   }
 
   return (
     <div className="border-2 border-dashed border-gray-300 rounded p-4 space-y-3">
-      <p className="text-sm font-medium text-gray-700">Tanda Tangan Digital</p>
+      <p className="text-sm font-medium text-gray-700">Tanda Tangan Digital (Tanda tangan di area ini)</p>
       <canvas
         ref={canvasRef}
-        width={400}
-        height={150}
+        width={300}
+        height={100}
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}

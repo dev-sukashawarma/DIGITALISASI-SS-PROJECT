@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -21,7 +21,6 @@ type StaffRow = { id: string; name: string; face_descriptor: number[] | null };
 
 const FUNCTION_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/submit-attendance`;
 const DETECT_OPTS = new faceapi.TinyFaceDetectorOptions();
-const LIVENESS_TIMEOUT_MS = 8000;
 
 export function useClockKiosk() {
   const { outletStaff, session } = useAuth();
@@ -30,17 +29,11 @@ export function useClockKiosk() {
 
   const candidatesRef = useRef<Candidate[]>([]);
   const [phase, setPhase] = useState<KioskPhase>("idle");
-  const [who, setWho] = useState<{ id: string; name: string; distance: number } | null>(null);
+  const [who, setWho] = useState<{ id: string; name: string } | null>(null);
   const [action, setAction] = useState<"in" | "out">("in");
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [result, setResult] = useState<KioskResult | null>(null);
   const busyRef = useRef(false);
-  const livenessStartRef = useRef<number>(0);
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => { if (resetTimerRef.current) clearTimeout(resetTimerRef.current); };
-  }, []);
 
   /** Muat descriptor staff ter-enroll (panggil sekali setelah outletStaff siap). */
   const loadCandidates = useCallback(async () => {
@@ -83,17 +76,17 @@ export function useClockKiosk() {
       if (!found) return;
       const next = await decideAction(found.id);
       if (next === "done") {
-        setWho({ id: found.id, name: found.name, distance: found.distance });
+        setWho({ id: found.id, name: found.name });
         setResult({ ok: true, message: `${found.name} sudah absen masuk & keluar hari ini` });
         setPhase("result");
         scheduleReset();
         return;
       }
-      setWho({ id: found.id, name: found.name, distance: found.distance });
+      setWho({ id: found.id, name: found.name });
       setAction(next);
       setChallenge(pickChallenge());
       setPhase("identified");
-      setTimeout(() => { livenessStartRef.current = Date.now(); setPhase("liveness"); }, 900); // jeda salam "Halo, Nama"
+      setTimeout(() => setPhase("liveness"), 900); // jeda salam "Halo, Nama"
     } finally {
       busyRef.current = false;
     }
@@ -103,11 +96,6 @@ export function useClockKiosk() {
   const livenessRef = useRef<ReturnType<typeof createLivenessDetector> | null>(null);
   const runLiveness = useCallback(async (video: HTMLVideoElement) => {
     if (phase !== "liveness" || !who || !challenge || !outletStaff) return;
-    if (Date.now() - livenessStartRef.current > LIVENESS_TIMEOUT_MS) {
-      livenessRef.current = null;
-      setPhase("idle"); setWho(null); setChallenge(null);
-      return;
-    }
     if (!livenessRef.current) livenessRef.current = createLivenessDetector(challenge);
     if (busyRef.current) return;
     busyRef.current = true;
@@ -133,7 +121,7 @@ export function useClockKiosk() {
       id,
       outlet_staff_id: who.id,
       type: action,
-      match_distance: who.distance,
+      match_distance: 0,
       selfie_path: null,
       ts_client: new Date().toISOString(),
       from_queue: false,
@@ -160,11 +148,9 @@ export function useClockKiosk() {
   }
 
   function scheduleReset() {
-    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    resetTimerRef.current = setTimeout(() => {
+    setTimeout(() => {
       setPhase("idle"); setWho(null); setChallenge(null); setResult(null);
       livenessRef.current = null;
-      resetTimerRef.current = null;
     }, 2500);
   }
 

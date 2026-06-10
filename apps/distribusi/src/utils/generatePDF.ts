@@ -1,3 +1,5 @@
+import QRCode from 'qrcode'
+
 interface SuratJalanData {
   id: string
   document_number: string
@@ -18,13 +20,17 @@ interface SuratJalanData {
   }>
 }
 
-// Signature cell styling constants
 const SIGNATURE_CELL_HEIGHT = '80px'
 const SIGNATURE_IMAGE_MAX_HEIGHT = '70px'
 const SIGNATURE_IMAGE_STYLE = `max-height: ${SIGNATURE_IMAGE_MAX_HEIGHT}; max-width: 100%; display: block; margin: 0 auto;`
 const SIGNATURE_PLACEHOLDER_STYLE = `height: 70px; border-bottom: 2px solid #000;`
 
-export function generatePDFContent(data: SuratJalanData): string {
+export async function generateQRDataUrl(text: string): Promise<string> {
+  return QRCode.toDataURL(text, { width: 80, margin: 1 })
+}
+
+export async function generatePDFContent(data: SuratJalanData): Promise<string> {
+  const qrDataUrl = await generateQRDataUrl(data.document_number)
   const createdDate = new Date(data.created_at).toLocaleDateString('id-ID', {
     year: 'numeric',
     month: 'long',
@@ -62,7 +68,6 @@ export function generatePDFContent(data: SuratJalanData): string {
     )
     .join('')
 
-  // Warn if any signature is missing image (data integrity check)
   const missingSigImages = data.signatures.filter((sig) => !sig.signature_image)
   const sigImageWarning =
     missingSigImages.length > 0
@@ -77,9 +82,12 @@ export function generatePDFContent(data: SuratJalanData): string {
   <title>Surat Jalan - ${data.outlet_name}</title>${sigImageWarning}
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    .header { text-align: center; margin-bottom: 20px; }
-    .header h1 { margin: 0; font-size: 24px; }
-    .header p { margin: 5px 0; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+    .header-text { text-align: center; flex: 1; }
+    .header-text h1 { margin: 0; font-size: 24px; }
+    .header-text p { margin: 5px 0; }
+    .qr-block { text-align: center; }
+    .qr-block p { font-size: 10px; color: #666; margin: 4px 0 0; }
     .info { margin: 20px 0; }
     .info p { margin: 5px 0; }
     table { width: 100%; border-collapse: collapse; margin: 20px 0; }
@@ -91,8 +99,14 @@ export function generatePDFContent(data: SuratJalanData): string {
 </head>
 <body>
   <div class="header">
-    <h1>SURAT JALAN</h1>
-    <p style="font-size: 16px; margin: 10px 0;">${data.document_number}</p>
+    <div class="header-text">
+      <h1>SURAT JALAN</h1>
+      <p style="font-size: 16px; margin: 10px 0;">${data.document_number}</p>
+    </div>
+    <div class="qr-block">
+      <img src="${qrDataUrl}" width="80" height="80" alt="QR Code" />
+      <p>${data.document_number}</p>
+    </div>
   </div>
 
   <div class="info">

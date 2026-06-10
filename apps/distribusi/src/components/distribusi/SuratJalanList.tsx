@@ -48,7 +48,7 @@ export function SuratJalanList() {
     // Find outlet name from list data
     const outletData = data.find((d) => d.id === sjId)
 
-    const htmlContent = generatePDFContent({
+    const htmlContent = await generatePDFContent({
       id: sj.id,
       document_number: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
       outlet_name: outletData?.outlet?.name || 'Unknown',

@@ -23,13 +23,22 @@ export function SignatureFlow({
   onSent,
 }: SignatureFlowProps) {
   const [signedBy, setSignedBy] = useState('')
-  const [role, setRole] = useState('SPV')
+  const [role, setRole] = useState('Kitchen SPV')
   const [signing, setSigning] = useState(false)
   const [sending, setSending] = useState(false)
+
+  const REQUIRED_ROLES = ['Kitchen SPV', 'Supir']
+  const signedRoles = signatures.map((s) => s.role)
+  const missingRoles = REQUIRED_ROLES.filter((r) => !signedRoles.includes(r))
 
   const handleSign = async () => {
     if (!signedBy.trim()) {
       alert('Nama penanda tangan harus diisi')
+      return
+    }
+
+    if (signatures.some((s) => s.role === role)) {
+      alert(`${role} sudah menandatangani. Tidak bisa menambah tanda tangan ganda.`)
       return
     }
 
@@ -57,8 +66,8 @@ export function SignatureFlow({
   }
 
   const handleSend = async () => {
-    if (signatures.length === 0) {
-      alert('Minimal 1 tanda tangan diperlukan untuk mengirim')
+    if (missingRoles.length > 0) {
+      alert(`Tanda tangan yang masih diperlukan: ${missingRoles.join(', ')}`)
       return
     }
 
@@ -122,9 +131,8 @@ export function SignatureFlow({
             onChange={(e) => setRole(e.target.value)}
             className="border border-gray-300 rounded px-3 py-2 text-sm"
           >
-            <option value="SPV">SPV</option>
-            <option value="Manager">Manager</option>
-            <option value="Director">Director</option>
+            <option value="Kitchen SPV">Kitchen SPV</option>
+            <option value="Supir">Supir (Pengemudi)</option>
           </select>
           <button
             onClick={handleSign}
@@ -140,15 +148,19 @@ export function SignatureFlow({
       <div className="flex gap-3 border-t pt-4">
         <button
           onClick={handleSend}
-          disabled={sending || signatures.length === 0}
+          disabled={sending || missingRoles.length > 0}
           className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
         >
           {sending ? 'Mengirim...' : 'Kirim Surat Jalan'}
         </button>
-        <span className="text-sm text-gray-500 self-center">
-          {signatures.length === 0
-            ? 'Minimal 1 tanda tangan untuk mengirim'
-            : `Siap dikirim (${signatures.length} tanda tangan)`}
+        <span className="text-sm self-center">
+          {missingRoles.length > 0 ? (
+            <span className="text-orange-600">
+              Menunggu tanda tangan: {missingRoles.join(', ')}
+            </span>
+          ) : (
+            <span className="text-green-600">✓ Semua tanda tangan lengkap - siap dikirim</span>
+          )}
         </span>
       </div>
     </div>

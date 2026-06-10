@@ -76,8 +76,8 @@ begin
 
   v_sig_count := jsonb_array_length(v_sj.signatures);
 
-  if v_sig_count < 1 then
-    raise exception 'Minimal 1 signature required to send surat jalan';
+  if v_sig_count < 2 then
+    raise exception 'Minimal 2 signatures required: Kitchen SPV dan Supir';
   end if;
 
   -- Update status to dikirim

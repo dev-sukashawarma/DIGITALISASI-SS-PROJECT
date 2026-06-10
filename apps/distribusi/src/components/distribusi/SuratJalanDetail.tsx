@@ -5,34 +5,19 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
+import { SignatureFlow } from './SignatureFlow'
 
 export function SuratJalanDetail({ id }: { id: string }) {
   const router = useRouter()
   const { data, loading, error } = useSuratJalanDetail(id)
-  const [sending, setSending] = useState(false)
+  const [signatures, setSignatures] = useState<any[]>(data?.signatures || [])
 
-  const handleSend = async () => {
-    if (!data?.id) return
+  const handleSignatureAdded = (newSignatures: any[]) => {
+    setSignatures(newSignatures)
+  }
 
-    setSending(true)
-    const supabase = createClient()
-
-    try {
-      const { error: sendError } = await supabase
-        .from('surat_jalan')
-        .update({ status: 'dikirim' })
-        .eq('id', data.id)
-
-      if (sendError) throw sendError
-
-      alert('Surat Jalan berhasil dikirim!')
-      router.push('/distribusi/surat-jalan')
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal mengirim'
-      alert(`Error: ${message}`)
-    } finally {
-      setSending(false)
-    }
+  const handleSent = () => {
+    router.push('/distribusi/surat-jalan')
   }
 
   if (loading) {
@@ -134,21 +119,22 @@ export function SuratJalanDetail({ id }: { id: string }) {
         </div>
 
         {data.status === 'draft' && (
-          <div className="flex gap-3">
-            <button
-              onClick={handleSend}
-              disabled={sending}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              {sending ? 'Mengirim...' : 'Kirim Surat Jalan'}
-            </button>
-            <Link
-              href="/distribusi/surat-jalan"
-              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-            >
-              Kembali
-            </Link>
-          </div>
+          <>
+            <SignatureFlow
+              suratJalanId={id}
+              signatures={signatures}
+              onSignatureAdded={handleSignatureAdded}
+              onSent={handleSent}
+            />
+            <div className="flex gap-3">
+              <Link
+                href="/distribusi/surat-jalan"
+                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+              >
+                Kembali
+              </Link>
+            </div>
+          </>
         )}
       </div>
     </div>

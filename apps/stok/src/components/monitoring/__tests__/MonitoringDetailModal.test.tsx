@@ -166,7 +166,7 @@ describe('MonitoringDetailModal', () => {
     const onCloseMock = vi.fn();
     vi.mocked(monitoringQueries.fetchItemDetail).mockResolvedValue(mockDetail);
 
-    const { rerender } = render(
+    render(
       <MonitoringDetailModal item={mockItem} isOpen={true} onClose={onCloseMock} />
     );
 

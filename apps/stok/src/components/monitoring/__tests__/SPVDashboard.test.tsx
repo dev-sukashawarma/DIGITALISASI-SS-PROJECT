@@ -12,21 +12,21 @@ vi.mock('@/lib/queries/monitoring', () => ({
 
 vi.mock('@/hooks/useMonitoringData');
 vi.mock('../SPVTable', () => ({
-  SPVTable: ({ items, tab, onRowClick }: any) => (
+  SPVTable: ({ items, tab, onRowClick: _onRowClick }: any) => (
     <div data-testid="spv-table">
       SPVTable: {tab}, items: {items.length}
     </div>
   ),
 }));
 vi.mock('../SPVTabs', () => ({
-  SPVTabs: ({ activeTab, onTabChange, alertCount }: any) => (
+  SPVTabs: ({ activeTab, onTabChange: _onTabChange, alertCount }: any) => (
     <div data-testid="spv-tabs">
       SPVTabs: {activeTab}, alerts: {alertCount}
     </div>
   ),
 }));
 vi.mock('../MonitoringDetailModal', () => ({
-  MonitoringDetailModal: ({ item, isOpen, onClose }: any) => (
+  MonitoringDetailModal: ({ item, isOpen, onClose: _onClose }: any) => (
     isOpen && (
       <div data-testid="monitoring-detail-modal">
         MonitoringDetailModal for {item?.item_name}

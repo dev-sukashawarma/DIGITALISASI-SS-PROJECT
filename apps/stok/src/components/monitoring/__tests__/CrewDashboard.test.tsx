@@ -11,14 +11,14 @@ vi.mock('@/lib/queries/monitoring', () => ({
 
 vi.mock('@/hooks/useMonitoringData');
 vi.mock('../CrewList', () => ({
-  CrewList: ({ items, onItemClick }: any) => (
+  CrewList: ({ items, onItemClick: _onItemClick }: any) => (
     <div data-testid="crew-list">
       CrewList: items: {items.length}
     </div>
   ),
 }));
 vi.mock('../MonitoringDetailModal', () => ({
-  MonitoringDetailModal: ({ item, isOpen, onClose }: any) => (
+  MonitoringDetailModal: ({ item, isOpen, onClose: _onClose }: any) => (
     isOpen && (
       <div data-testid="monitoring-detail-modal">
         MonitoringDetailModal for {item?.item_name}

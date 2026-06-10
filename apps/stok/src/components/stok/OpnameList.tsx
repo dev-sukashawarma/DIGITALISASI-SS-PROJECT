@@ -1,37 +1,176 @@
-'use client'
-import Link from 'next/link'
-import { Card, Button, Badge } from '@suka/design-system'
-import type { Opname } from '@/types/stok'
+'use client';
+
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import type { Opname } from '@/types/stok';
+
+const TIPE_LABEL: Record<string, string> = {
+  harian: 'Harian 📅',
+  mingguan: 'Mingguan 📆',
+  ad_hoc: 'Ad Hoc ⚡',
+};
+
+const FILTER_LABELS: Record<string, string> = {
+  all: 'Semua',
+  finalized: 'Selesai 🟢',
+  draft: 'Draft 📝',
+};
 
 export function OpnameList({ items }: { items: Opname[] }) {
-  const draftCount = items.filter(o => o.status === 'draft').length
-  const finalToday = items.filter(o =>
-    o.status === 'finalized' && o.tanggal === new Date().toISOString().slice(0, 10)).length
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+
+  const draftCount = useMemo(() => items.filter((o) => o.status === 'draft').length, [items]);
+  const finalToday = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return items.filter((o) => o.status === 'finalized' && o.tanggal === todayStr).length;
+  }, [items]);
+
+  // Format Date to Localized String
+  const formatOpnameDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  // Filter items based on search and status
+  const filteredItems = useMemo(() => {
+    return items.filter((o) => {
+      const formattedDate = formatOpnameDate(o.tanggal);
+      const matchesSearch =
+        o.tanggal.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.tipe.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        formattedDate.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (o.notes || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+      let matchesFilter = false;
+      if (activeFilter === 'all') {
+        matchesFilter = true;
+      } else if (activeFilter === 'finalized') {
+        matchesFilter = o.status === 'finalized';
+      } else if (activeFilter === 'draft') {
+        matchesFilter = o.status === 'draft';
+      }
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [items, searchTerm, activeFilter]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-600">{finalToday} selesai hari ini · {draftCount} draft</p>
-        <Link href="/stok/opname/new">
-          <Button>+ Opname Baru</Button>
-        </Link>
+    <div className="space-y-6">
+      {/* Stats Summary Cards */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="p-4 bg-white border border-[#701604]/10 rounded-2xl shadow-[0px_4px_12px_rgba(112,22,4,0.02)] flex flex-col justify-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#701604]/50">
+            Selesai Hari Ini
+          </span>
+          <span className="text-xl font-extrabold text-[#0a7d2c] mt-1">
+            {finalToday} <span className="text-xs font-bold text-gray-400">laporan</span>
+          </span>
+        </div>
+        <div className="p-4 bg-white border border-[#701604]/10 rounded-2xl shadow-[0px_4px_12px_rgba(112,22,4,0.02)] flex flex-col justify-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#701604]/50">
+            Draft Tertunda
+          </span>
+          <span className="text-xl font-extrabold text-[#f29744] mt-1">
+            {draftCount} <span className="text-xs font-bold text-gray-400">draft</span>
+          </span>
+        </div>
       </div>
-      <div className="space-y-2">
-        {items.map(o => (
-          <Link key={o.id} href={`/stok/opname/${o.id}`}>
-            <Card className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition">
-              <div>
-                <p className="font-semibold">{o.tanggal}</p>
-                <p className="text-xs text-gray-500 capitalize">{o.tipe}</p>
+
+      {/* Search and Filters */}
+      <div className="space-y-3">
+        {/* Search */}
+        <div className="relative">
+          <input
+            type="text"
+            className="w-full px-4.5 py-3.5 pl-11 rounded-xl border border-[#701604]/10 bg-white focus:outline-none focus:ring-2 focus:ring-[#f29744] focus:border-[#f29744] text-xs font-medium text-suka-ink shadow-sm"
+            placeholder="Cari berdasarkan tanggal, tipe, atau catatan..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base">🔍</span>
+        </div>
+
+        {/* Status Filter Pills */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-thin">
+          {Object.entries(FILTER_LABELS).map(([key, label]) => {
+            const isActive = activeFilter === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveFilter(key)}
+                className={`px-4 py-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all border whitespace-nowrap shadow-sm ${
+                  isActive
+                    ? 'bg-[#701604] border-[#701604] text-white'
+                    : 'bg-white border-[#701604]/10 text-[#701604]/70 hover:bg-[#faf2e9]/50'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Opname List Cards */}
+      <div className="space-y-3">
+        {filteredItems.map((o) => {
+          const isFinalized = o.status === 'finalized';
+          const formattedDate = formatOpnameDate(o.tanggal);
+
+          return (
+            <Link key={o.id} href={`/stok/opname/${o.id}`}>
+              <div className={`bg-white rounded-2xl border p-5 flex justify-between items-center shadow-[0px_4px_12px_rgba(112,22,4,0.02)] transition-all duration-200 cursor-pointer mb-3 ${
+                isFinalized 
+                  ? 'border-[#701604]/10 hover:border-[#0a7d2c]/30 hover:scale-[1.005]' 
+                  : 'border-[#f29744]/30 bg-white hover:border-[#f29744] hover:scale-[1.005]'
+              }`}>
+                {/* Left Section */}
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#701604]/5">
+                      {TIPE_LABEL[o.tipe] || o.tipe}
+                    </span>
+                  </div>
+                  <h4 className="font-extrabold text-[#701604] text-sm tracking-wide mt-1 uppercase">
+                    {formattedDate}
+                  </h4>
+                  {o.notes && (
+                    <p className="text-[10px] text-gray-500 font-medium truncate mt-1 max-w-md">
+                      📝 {o.notes}
+                    </p>
+                  )}
+                </div>
+
+                {/* Right Section: Status Badge */}
+                <div className="flex-shrink-0">
+                  <span className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider border shadow-sm ${
+                    isFinalized
+                      ? 'bg-green-50 text-green-700 border-green-200'
+                      : 'bg-orange-50 text-[#f29744] border-orange-200'
+                  }`}>
+                    {isFinalized ? 'Selesai' : 'Draft'}
+                  </span>
+                </div>
               </div>
-              <Badge variant={o.status === 'finalized' ? 'success' as any : 'default' as any}>
-                {o.status === 'finalized' ? 'Selesai' : 'Draft'}
-              </Badge>
-            </Card>
-          </Link>
-        ))}
-        {items.length === 0 && <p className="text-center text-gray-400 py-8">Belum ada opname.</p>}
+            </Link>
+          );
+        })}
+
+        {filteredItems.length === 0 && (
+          <div className="text-center py-12 bg-white rounded-2xl border border-[#701604]/10 p-8 shadow-sm">
+            <span className="text-3xl">📭</span>
+            <p className="font-bold text-sm text-[#701604]/80 mt-2">Belum Ada Catatan Opname</p>
+            <p className="text-xs text-gray-500 mt-1">Tidak ada opname yang cocok dengan pencarian atau filter.</p>
+          </div>
+        )}
       </div>
     </div>
-  )
+  );
 }

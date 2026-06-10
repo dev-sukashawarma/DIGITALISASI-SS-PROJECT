@@ -1,16 +1,64 @@
-'use client'
-import { useAuth } from '@/context/AuthContext'
-import { useOpnameList } from '@/hooks/useOpname'
-import { OpnameList } from '@/components/stok/OpnameList'
+'use client';
+
+import React from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useOpnameList } from '@/hooks/useOpname';
+import { OpnameList } from '@/components/stok/OpnameList';
+import Link from 'next/link';
 
 export default function OpnamePage() {
-  const { outletStaff } = useAuth()
-  const { opnameList, loading } = useOpnameList(outletStaff?.outlet_id)
+  const { outletStaff } = useAuth();
+  const { opnameList, loading } = useOpnameList(outletStaff?.outlet_id);
+
+  if (!outletStaff) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fff8f1]">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-[#701604] border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-[#701604] font-bold uppercase tracking-wider text-sm">Memuat Data Karyawan...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <main className="max-w-2xl mx-auto p-4">
-      <h1 className="text-xl font-bold mb-4">Opname Stok</h1>
-      {loading ? <p>Memuat…</p> : <OpnameList items={opnameList} />}
-    </main>
-  )
+    <div className="min-h-screen bg-[#fff8f1] text-[#400a07] pb-12">
+      {/* Header Banner */}
+      <header className="bg-white border-b border-[#701604]/10 px-8 py-5 flex items-center justify-between shadow-sm sticky top-0 z-40">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <Link href="/stok/monitoring" className="text-[#701604]/60 hover:text-[#701604] transition-colors text-sm font-bold flex items-center gap-1">
+              ← Kembali ke Dashboard
+            </Link>
+          </div>
+          <h1 className="text-xl font-extrabold text-[#701604] tracking-tight uppercase mt-1">
+            RIWAYAT OPNAME STOK
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="bg-[#faf2e9] border border-[#701604]/10 px-4 py-2 rounded-xl text-xs font-bold text-[#701604]/80 shadow-sm hidden sm:block">
+            Outlet: <span className="text-[#701604] font-extrabold uppercase">{outletStaff.name}</span>
+          </div>
+          <Link href="/stok/opname/new">
+            <button className="px-4 py-2 bg-[#701604] hover:bg-[#591002] text-white rounded-xl font-bold text-xs transition-colors shadow-sm">
+              + Opname Baru
+            </button>
+          </Link>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <main className="max-w-3xl mx-auto px-4 mt-8 space-y-6">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-10 h-10 border-4 border-[#701604] border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="text-[#701604]/70 font-bold uppercase tracking-wider text-xs mt-4">Memuat riwayat opname...</p>
+          </div>
+        ) : (
+          <OpnameList items={opnameList} />
+        )}
+      </main>
+    </div>
+  );
 }

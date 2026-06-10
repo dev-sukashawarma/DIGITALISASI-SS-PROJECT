@@ -3,7 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "description": "Outlet Suite — digitalisasi operasional outlet Sukashawarma",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "yarn workspaces foreach -p run dev",
     "build": "yarn workspaces foreach -p run build",
@@ -12,12 +15,13 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "tailwindcss": "^3.4.17",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.32",
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.45",
-    "prettier": "^3.1.1"
+    "autoprefixer": "^10.4.20",
+    "jsdom": "^29.1.1",
+    "postcss": "^8.4.32",
+    "prettier": "^3.1.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.3.3"
   }
 }

@@ -12,6 +12,7 @@ interface OutletStaffProfile {
   status: 'active' | 'inactive' | 'on_leave'
   face_descriptor?: any
   ref_photo_url?: string
+  outlets?: { name: string } | null
 }
 
 interface AuthContextType {
@@ -43,10 +44,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user.id) {
         const { data: staff } = await supabase
           .from('outlet_staff')
-          .select()
+          .select('*, outlets(name)')
           .eq('id', session.user.id)
-          .single()
-        setOutletStaff(staff ?? null)
+          .maybeSingle()
+        setOutletStaff(staff as OutletStaffProfile | null)
       }
 
       setLoading(false)
@@ -56,9 +57,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
+      if (session?.user.id) {
+        const { data: staff } = await supabase
+          .from('outlet_staff')
+          .select('*, outlets(name)')
+          .eq('id', session.user.id)
+          .maybeSingle()
+        setOutletStaff(staff as OutletStaffProfile | null)
+      } else {
+        setOutletStaff(null)
+      }
     })
 
     return () => subscription.unsubscribe()

@@ -24,16 +24,21 @@ export function useRiwayatList() {
     const fetchData = async () => {
       setLoading(true)
       setError(null)
+
+      // Guard: tanpa outlet_id, jangan kirim query tanpa filter (cegah bocor lintas-outlet)
+      if (!outletStaff?.outlet_id) {
+        setData([])
+        setLoading(false)
+        return
+      }
+
       try {
         const supabase = createClient()
-        let query = supabase
+        const query = supabase
           .from('surat_jalan')
           .select('id, outlet_id, status, created_at, document_number, outlets(name), surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
           .in('status', ['diterima_lengkap', 'diterima_sebagian'])
-
-        if (outletStaff?.outlet_id) {
-          query = query.eq('outlet_id', outletStaff.outlet_id)
-        }
+          .eq('outlet_id', outletStaff.outlet_id)
 
         const { data, error: err } = await query.order('created_at', { ascending: false })
         if (err) { setError(err.message); setData([]); return }

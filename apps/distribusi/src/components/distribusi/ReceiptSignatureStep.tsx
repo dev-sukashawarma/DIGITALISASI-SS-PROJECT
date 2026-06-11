@@ -50,6 +50,7 @@ export function ReceiptSignatureStep({ suratJalanId, submitting, onFinalize, onB
         p_signature_image: signatureImage,
       })
       if (error) throw new Error(error.message)
+      if (!data?.receipt_signatures) throw new Error('Tidak ada data tanda tangan kembali dari server')
       setSignatures(data.receipt_signatures)
       setSignedBy('')
       setSignatureImage('')

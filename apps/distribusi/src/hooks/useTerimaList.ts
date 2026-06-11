@@ -57,7 +57,7 @@ export function useTerimaList() {
     }
 
     fetchData()
-  }, [])
+  }, [outletStaff?.outlet_id])
 
   return { data, loading, error }
 }

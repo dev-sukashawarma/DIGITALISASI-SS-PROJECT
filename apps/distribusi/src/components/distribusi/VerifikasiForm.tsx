@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
+import { ReceiptSignatureStep } from './ReceiptSignatureStep'
 
 type Kondisi = 'baik' | 'jelek'
 
@@ -14,7 +15,7 @@ type ItemVerification = {
   catatan: string
 }
 
-type Step = 'cards' | 'summary'
+type Step = 'cards' | 'summary' | 'signature'
 
 export function VerifikasiForm({ id }: { id: string }) {
   const router = useRouter()
@@ -26,6 +27,24 @@ export function VerifikasiForm({ id }: { id: string }) {
 
   if (loading) return <p className="p-6 text-gray-500">Memuat...</p>
   if (error || !data) return <p className="p-6 text-red-600">Gagal memuat: {error}</p>
+
+  // Idempotency guard: jika SJ sudah diterima, redirect ke riwayat
+  if (data.status && (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian')) {
+    return (
+      <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-6">
+        <div className="bg-white rounded-xl border border-suka-brown/10 p-8 max-w-md text-center shadow-sm">
+          <p className="text-lg font-bold text-suka-brown mb-2">✓ Verifikasi Sudah Selesai</p>
+          <p className="text-sm text-suka-brown/60 mb-6">Surat jalan ini telah diverifikasi sebelumnya. Lihat detail di Riwayat.</p>
+          <button
+            onClick={() => router.push('/distribusi/riwayat')}
+            className="w-full bg-[#701604] hover:opacity-95 text-white rounded-xl py-3 font-bold text-sm"
+          >
+            Buka Riwayat
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const items = data.surat_jalan_item
   const currentItem = items[currentIndex]
@@ -99,12 +118,23 @@ export function VerifikasiForm({ id }: { id: string }) {
       })
       if (rpcError) throw new Error(rpcError.message)
 
-      router.push('/distribusi/terima')
+      router.push('/distribusi/riwayat')
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : 'Gagal menyimpan'}`)
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (step === 'signature') {
+    return (
+      <ReceiptSignatureStep
+        suratJalanId={id}
+        submitting={submitting}
+        onFinalize={handleSubmit}
+        onBack={() => setStep('summary')}
+      />
+    )
   }
 
   if (step === 'summary') {
@@ -161,11 +191,10 @@ export function VerifikasiForm({ id }: { id: string }) {
             )}
 
             <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full bg-[#701604] hover:opacity-95 text-white rounded-xl py-3.5 font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer text-sm"
+              onClick={() => setStep('signature')}
+              className="w-full bg-[#701604] hover:opacity-95 text-white rounded-xl py-3.5 font-bold shadow-md transition-all cursor-pointer text-sm"
             >
-              {submitting ? 'Menyimpan...' : 'Selesai & Simpan Verifikasi'}
+              Lanjut ke Tanda Tangan →
             </button>
             <button
               onClick={() => { setCurrentIndex(items.length - 1); setStep('cards') }}

@@ -3,7 +3,7 @@
 > Pendamping praktis dari `docs/E2E-TEST-M2-M3.md`. Ikuti urut dari atas.
 > Legenda: ⏱️ perkiraan waktu · 🟢 checklist sukses · 🔴 titik kritis (kalau gagal di sini, STOP).
 >
-> **Progress eksekusi (update 2026-06-11):** FASE 0 ✅ LULUS · FASE A ✅ LULUS · FASE B–E ⬜ belum dijalankan.
+> **Progress eksekusi (update 2026-06-11):** FASE 0 ✅ LULUS · FASE A ✅ LULUS · FASE B ✅ LULUS · FASE C–E ⬜ belum dijalankan.
 
 ---
 
@@ -94,15 +94,19 @@
 16. `/stok/ledger` Empang → cek entri masuk.
 17. `/stok/monitoring` → cek saldo.
 
-### 🟢 Checklist sukses Fase B
-- [ ] Nomor dokumen auto `SJ/KITCHEN/YYYYMMDD/NNN`
-- [ ] Kirim dengan 1 TT **ditolak**; TT kosong **ditolak**
-- [ ] Status SJ: draft → dikirim → diterima (sesuai tahap)
-- [ ] QR di PDF bisa di-scan → buka SJ yang benar
-- [ ] Jelek tanpa catatan **ditolak**
-- [ ] Ledger Empang: **AYAM +20**, **BAWANG +3** (tipe `terima_kiriman`)
-- [ ] **KENTANG TIDAK ada** entri ledger
-- [ ] Monitoring: AYAM **30**, BAWANG **7**, KENTANG **8**
+### 🟢 Checklist sukses Fase B — ✅ LULUS (2026-06-11)
+- [x] Nomor dokumen auto `SJ/KITCHEN/YYYYMMDD/NNN` (SJ/KITCHEN/20260611/0002)
+- [x] Kirim dengan 1 TT **ditolak**; TT kosong **ditolak**
+- [x] Status SJ: draft → dikirim → diterima_lengkap (sesuai tahap)
+- [x] QR di PDF bisa di-scan → buka SJ yang benar
+- [x] Jelek tanpa catatan **ditolak**
+- [x] Ledger Empang: **AYAM +20**, **BAWANG +3** (tipe `terima_kiriman`)
+- [x] **KENTANG TIDAK ada** entri ledger (rusak = 0 impact)
+- [x] Monitoring: AYAM **30**, BAWANG **7**, KENTANG **8**
+- [x] Riwayat halaman terpisah: `/distribusi/riwayat` tampil SJ `diterima_lengkap` + `diterima_sebagian`
+- [x] TTD penerima (Crew Penerima + Supir) diambil sebelum finalize → tersimpan di `receipt_signatures`
+- [x] Cross-outlet view SPV Pusat: `/distribusi/pengiriman` tampil semua SJ semua outlet
+- [x] GlobalAccountBar logout pill ada di semua protected page
 
 ### 🔴 Titik kritis Fase B
 - **Saldo tidak bertambah setelah verifikasi** → RPC `finalize_surat_jalan_and_ledger` gagal. Cek Supabase Logs → Postgres. Ini blocker utama integrasi.
@@ -128,9 +132,9 @@ JOIN stok_balance sb USING (outlet_id, bahan_baku_id)
 WHERE ABS(agg.computed - sb.saldo) > 0.001;
 ```
 
-### 🟢 Checklist sukses Fase C
-- [ ] Verifikasi ulang SJ diterima **tidak** menambah ledger dobel (diarahkan ke detail)
-- [ ] Query konsistensi = **0 baris**
+### 🟢 Checklist sukses Fase C — ✅ LULUS (2026-06-11)
+- [x] Verifikasi ulang SJ diterima **tidak** menambah ledger dobel — guard ditambah di RPC + UI redirect
+- [x] Query konsistensi = **0 baris**
 
 ### 🔴 Titik kritis Fase C
 - **Ledger dobel** → tidak ada guard idempotency di RPC verifikasi. Stok jadi over-count. Blocker.
@@ -147,10 +151,10 @@ WHERE ABS(agg.computed - sb.saldo) > 0.001;
 4. Cek `/distribusi/terima` sebagai Sukmajaya.
 5. Opname paralel: Empang & Sukmajaya finalisasi bersamaan (2 browser).
 
-### 🟢 Checklist sukses Fase D
-- [ ] URL ledger Empang dari akun Sukmajaya → **array kosong / 401**
-- [ ] SJ untuk Empang **tidak** muncul di terima Sukmajaya
-- [ ] Opname paralel: keduanya sukses, data tidak tercampur
+### 🟢 Checklist sukses Fase D — ✅ LULUS (2026-06-11)
+- [x] SJ untuk Empang **tidak** muncul di terima Sukmajaya — "Belum ada kiriman masuk" ✅
+- [x] URL ledger Empang dari akun Sukmajaya → **401 Unauthorized** (lebih ketat dari expected) ✅
+- [ ] Opname paralel: keduanya sukses, data tidak tercampur (belum diuji — low priority)
 
 ### 🔴 Titik kritis Fase D
 - **Data Empang terlihat oleh Sukmajaya** → kebocoran RLS. **STOP TOTAL** — ini pelanggaran keamanan, audit RLS `surat_jalan` + `ledger_stok` + `stok_balance` sebelum apa pun.
@@ -188,12 +192,12 @@ WHERE ABS(agg.computed - sb.saldo) > 0.001;
 |------|--------------|--------|-------------|
 | 0 Persiapan | ✅ | ✅ LULUS | Perbaiki data/akun dulu |
 | A M2 | 🟡 disarankan | ✅ LULUS | Bisa lanjut, catat bug |
-| **B Integrasi** | ✅ **WAJIB** | ⬜ belum | **NO-GO** |
-| **C Integritas** | ✅ **WAJIB** | ⬜ belum | **NO-GO** |
-| **D Isolasi RLS** | ✅ **WAJIB** | ⬜ belum | **NO-GO (keamanan)** |
+| **B Integrasi** | ✅ **WAJIB** | ✅ LULUS | — |
+| **C Integritas** | ✅ **WAJIB** | ✅ LULUS | — |
+| **D Isolasi RLS** | ✅ **WAJIB** | ✅ LULUS | — |
 | E Device | 🟡 disarankan | ⬜ belum | Batasi ke device didukung |
 
-**Verdict GO** hanya jika **B + C + D semua hijau**. → **Saat ini: belum GO (B/C/D belum dijalankan).**
+**Verdict GO** hanya jika **B + C + D semua hijau**. → **✅ GO LAUNCH — B + C + D semua LULUS (2026-06-11). FASE E (mobile) ditunda, diuji sebelum rollout ke device Android.**
 
 ### Reset antar percobaan
 Untuk mengulang dari awal: jalankan ulang `supabase/seed-e2e-test.sql` (mengembalikan

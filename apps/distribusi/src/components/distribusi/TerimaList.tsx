@@ -31,6 +31,13 @@ export function TerimaList() {
         <div className="flex items-center gap-6">
           <div className="text-right">
             <p className="text-sm font-semibold text-suka-brown">{outletStaff?.name || 'Staff'}</p>
+            <p className="text-xs text-suka-brown/60">
+              {data.length > 0 && data[0].outlets?.name
+                ? data[0].outlets.name
+                : outletStaff?.outlet_id
+                ? '...'
+                : 'Outlet'}
+            </p>
             <p className="text-xs text-suka-brown/60">{outletStaff?.role || 'crew'}</p>
           </div>
           <Link

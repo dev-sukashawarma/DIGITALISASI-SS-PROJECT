@@ -20,6 +20,7 @@ interface SuratJalanDetail {
   outlets?: { name: string }
   surat_jalan_item: Item[]
   signatures?: any[]
+  receipt_signatures?: any[]
   document_number?: string
 }
 
@@ -39,7 +40,7 @@ export function useSuratJalanDetail(id: string) {
       try {
         const { data: sj, error: sjError } = await supabase
           .from('surat_jalan')
-          .select('id, outlet_id, status, created_at, signatures, document_number')
+          .select('id, outlet_id, status, created_at, signatures, receipt_signatures, document_number')
           .eq('id', id)
           .single()
 

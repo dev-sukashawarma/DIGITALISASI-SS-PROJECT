@@ -1,8 +1,53 @@
 import { useState, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { SPVMonitoringData, CrewMonitoringData } from '@/lib/types/monitoring';
-import { fetchSPVMonitoringData, fetchCrewMonitoringData } from '@/lib/queries/monitoring';
+import { fetchSPVMonitoringData, fetchCrewMonitoringData, fetchRecentLedger, fetchStockoutForecast, fetchWasteToday } from '@/lib/queries/monitoring';
 import { useAutoRefresh } from './useAutoRefresh';
+
+/**
+ * Live activity feed (cross-outlet stock movements) for the SPV monitoring board.
+ * Polls every 15s; only real ledger entries are returned (empty = no activity).
+ */
+export function useRecentLedger(limit = 50) {
+  return useQuery({
+    queryKey: ['monitoring', 'recentLedger', limit],
+    queryFn: () => fetchRecentLedger(limit),
+    refetchInterval: 15000,
+    staleTime: 10000,
+    gcTime: 60000,
+    retry: 2,
+  });
+}
+
+/**
+ * Predictive stockout forecast — items projected to run out within `maxDays`.
+ * Slower-moving signal; refreshes every 60s.
+ */
+export function useStockoutForecast(maxDays = 1, limit = 6) {
+  return useQuery({
+    queryKey: ['monitoring', 'stockoutForecast', maxDays, limit],
+    queryFn: () => fetchStockoutForecast(maxDays, limit),
+    refetchInterval: 60000,
+    staleTime: 45000,
+    gcTime: 120000,
+    retry: 2,
+  });
+}
+
+/**
+ * Today's loss events (waste / rejected / shrinkage) across all outlets.
+ * Refreshes every 30s.
+ */
+export function useWasteToday() {
+  return useQuery({
+    queryKey: ['monitoring', 'wasteToday'],
+    queryFn: fetchWasteToday,
+    refetchInterval: 30000,
+    staleTime: 20000,
+    gcTime: 60000,
+    retry: 2,
+  });
+}
 
 export function useSPVMonitoringData() {
   const [isError, setIsError] = useState(false);

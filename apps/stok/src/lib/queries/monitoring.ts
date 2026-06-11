@@ -203,6 +203,103 @@ export async function fetchOpnameStatus() {
   );
 }
 
+export type LedgerFeedTipe =
+  | 'terima_kiriman' | 'pemakaian' | 'waste' | 'adjustment'
+  | 'opname_selisih' | 'transfer_keluar' | 'transfer_masuk' | 'rejected_kiriman';
+
+export interface LedgerFeedEntry {
+  id: string;
+  outlet_id: string;
+  outlet_name: string;
+  bahan_baku_id: string;
+  item_name: string;
+  satuan: string | null;
+  tipe: LedgerFeedTipe;
+  qty: number;
+  catatan: string | null;
+  saldo_sesudah: number;
+  created_at: string;
+}
+
+/**
+ * Fetch recent stock-movement activity across all outlets (SPV live feed).
+ * Backed by ledger_feed_spv (definer view) so SPV sees all outlets despite
+ * the per-outlet RLS on ledger_stok.
+ */
+export async function fetchRecentLedger(limit = 50): Promise<LedgerFeedEntry[]> {
+  const { data, error } = await supabase
+    .from('ledger_feed_spv')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data || []) as LedgerFeedEntry[];
+}
+
+export interface StockoutForecastItem {
+  outlet_id: string;
+  outlet_name: string;
+  bahan_baku_id: string;
+  item_name: string;
+  satuan: string | null;
+  current_qty: number;
+  threshold: number;
+  daily_rate: number;
+  days_left: number;
+}
+
+/**
+ * Fetch stockout forecast (cross-outlet). Returns items projected to run out
+ * within `maxDays`, sorted soonest-first — predictive early warning before an
+ * item hits the threshold. Backed by stockout_forecast_spv (definer view).
+ */
+export async function fetchStockoutForecast(maxDays = 1, limit = 6): Promise<StockoutForecastItem[]> {
+  const { data, error } = await supabase
+    .from('stockout_forecast_spv')
+    .select('*')
+    .lte('days_left', maxDays)
+    .order('days_left', { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data || []) as StockoutForecastItem[];
+}
+
+const LOSS_TIPE = ['waste', 'rejected_kiriman', 'opname_selisih'] as const;
+
+export interface WasteTodaySummary {
+  count: number;
+  entries: LedgerFeedEntry[];
+}
+
+/**
+ * Aggregate today's loss events (waste, rejected shipments, negative opname
+ * variance) across all outlets — a money-leak lens distinct from stock level.
+ * Reuses the ledger_feed_spv definer view; no extra migration needed.
+ */
+export async function fetchWasteToday(): Promise<WasteTodaySummary> {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const { data, error } = await supabase
+    .from('ledger_feed_spv')
+    .select('*')
+    .in('tipe', LOSS_TIPE as unknown as string[])
+    .gte('created_at', startOfDay.toISOString())
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  // opname_selisih counts as loss only when negative (shrinkage); positive
+  // variance is a found surplus, not a loss.
+  const entries = (data || []).filter(
+    (e) => e.tipe !== 'opname_selisih' || e.qty < 0
+  ) as LedgerFeedEntry[];
+
+  return { count: entries.length, entries };
+}
+
 /**
  * Fetch master list of all outlets
  */

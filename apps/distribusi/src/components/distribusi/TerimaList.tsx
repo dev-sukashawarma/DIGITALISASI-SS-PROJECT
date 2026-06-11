@@ -1,9 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import { useAuth } from '@/context/AuthContext'
 import { useTerimaList } from '@/hooks/useTerimaList'
 
 export function TerimaList() {
+  const { outletStaff } = useAuth()
   const { data, loading } = useTerimaList()
 
   if (loading) {
@@ -26,7 +28,11 @@ export function TerimaList() {
             <p className="text-xs text-suka-brown/60 mt-0.5">Sistem Distribusi & Logistik</p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <p className="text-sm font-semibold text-suka-brown">{outletStaff?.name || 'Staff'}</p>
+            <p className="text-xs text-suka-brown/60">{outletStaff?.role || 'crew'}</p>
+          </div>
           <Link
             href="/distribusi/terima/scan"
             className="px-4 py-2 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-1.5"

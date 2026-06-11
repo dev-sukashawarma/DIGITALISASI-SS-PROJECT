@@ -28,7 +28,7 @@ export function useTerimaList() {
         let query = supabase
           .from('surat_jalan')
           .select('id, outlet_id, status, created_at, outlets(name)')
-          .in('status', ['dikirim', 'diterima_sebagian'])
+          .in('status', ['dikirim', 'dikirim_lengkap', 'diterima_sebagian'])
 
         // Crew sees only SJ for their own outlet
         if (outletStaff?.outlet_id) {

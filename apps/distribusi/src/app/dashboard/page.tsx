@@ -59,7 +59,32 @@ export default function DashboardPage() {
         </ul>
       </div>
 
-      <p className="mt-8 text-gray-500 text-sm">Ready for M1 development...</p>
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        {(outletStaff?.role === 'crew' || outletStaff?.role === 'spv') && (
+          <>
+            <a href="/distribusi/terima" className="p-5 bg-white rounded-xl border border-suka-brown/10 hover:border-suka-orange shadow-sm transition">
+              <p className="text-lg font-bold text-suka-brown">📥 Inbox Penerimaan</p>
+              <p className="text-sm text-gray-500 mt-1">Verifikasi kiriman masuk</p>
+            </a>
+            <a href="/distribusi/riwayat" className="p-5 bg-white rounded-xl border border-suka-brown/10 hover:border-suka-orange shadow-sm transition">
+              <p className="text-lg font-bold text-suka-brown">📚 Riwayat</p>
+              <p className="text-sm text-gray-500 mt-1">Penerimaan yang sudah selesai</p>
+            </a>
+          </>
+        )}
+        {outletStaff?.role === 'kepala_outlet' && (
+          <>
+            <a href="/distribusi/surat-jalan/new" className="p-5 bg-white rounded-xl border border-suka-brown/10 hover:border-suka-orange shadow-sm transition">
+              <p className="text-lg font-bold text-suka-brown">➕ Buat Surat Jalan</p>
+              <p className="text-sm text-gray-500 mt-1">Kirim barang ke outlet</p>
+            </a>
+            <a href="/distribusi/pengiriman" className="p-5 bg-white rounded-xl border border-suka-brown/10 hover:border-suka-orange shadow-sm transition">
+              <p className="text-lg font-bold text-suka-brown">🚚 Pengiriman</p>
+              <p className="text-sm text-gray-500 mt-1">Pantau semua outlet</p>
+            </a>
+          </>
+        )}
+      </div>
     </div>
   );
 }

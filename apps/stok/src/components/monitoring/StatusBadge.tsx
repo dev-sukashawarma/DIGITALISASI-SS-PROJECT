@@ -12,13 +12,13 @@ export function StatusBadge({ status, isFlagged }: StatusBadgeProps) {
   const getStatusColor = () => {
     switch (status) {
       case 'below':
-        return 'bg-red-100 text-red-800 border border-red-300';
+        return 'bg-[#ba1a1a]/10 text-[#ba1a1a] border border-[#ba1a1a]/20';
       case 'warning':
-        return 'bg-yellow-100 text-yellow-800 border border-yellow-300';
+        return 'bg-[#fd7e62]/10 text-[#a43c26] border border-[#fd7e62]/20';
       case 'ok':
-        return 'bg-green-100 text-green-800 border border-green-300';
+        return 'bg-[#006e24]/10 text-[#006e24] border border-[#006e24]/20';
       default:
-        return 'bg-gray-100 text-gray-800 border border-gray-300';
+        return 'bg-gray-100 text-gray-700 border border-gray-200';
     }
   };
 
@@ -37,10 +37,10 @@ export function StatusBadge({ status, isFlagged }: StatusBadgeProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor()}`}>
+      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor()}`}>
         {getStatusLabel()}
       </span>
-      {isFlagged && <span className="text-red-600 font-bold">*</span>}
+      {isFlagged && <span className="text-[#ba1a1a] font-bold">*</span>}
     </div>
   );
 }

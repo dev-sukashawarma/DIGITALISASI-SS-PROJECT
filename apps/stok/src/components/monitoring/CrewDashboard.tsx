@@ -154,8 +154,8 @@ export function CrewDashboard() {
         )}
 
         {/* Section 2: Quick Actions Panel */}
-        <section className="-mx-4 px-4 overflow-x-auto pb-2 no-scrollbar">
-          <div className="flex gap-3 min-w-max">
+        <section className="-mx-4 overflow-x-auto pb-2 no-scrollbar">
+          <div className="flex gap-3 px-4 min-w-max">
             <Link href="/stok/ledger/new" className="flex-shrink-0 bg-white border border-[#d9c2b2]/45 rounded-xl p-4 flex flex-col items-center gap-2 w-28 shadow-sm hover:shadow transition-all active:scale-95">
               <div className="w-12 h-12 rounded-full bg-[#f29744]/10 flex items-center justify-center">
                 <span className="text-xl">📒</span>

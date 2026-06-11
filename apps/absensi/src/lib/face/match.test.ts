@@ -40,8 +40,8 @@ describe("isMatch", () => {
   });
 
   test("uses DEFAULT_MATCH_THRESHOLD when none provided", () => {
-    expect(DEFAULT_MATCH_THRESHOLD).toBe(0.5);
-    // distance 0.6 > 0.5 default -> no match
+    expect(DEFAULT_MATCH_THRESHOLD).toBe(0.4);
+    // distance 0.6 > 0.4 default -> no match
     expect(isMatch([0, 0], [0.36, 0.48])).toBe(false);
   });
 });

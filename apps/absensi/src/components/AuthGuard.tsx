@@ -4,14 +4,14 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
-const PUBLIC_ROUTES = ['/login'];
+const PUBLIC_ROUTES = ['/login', '/'];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  const isPublic = PUBLIC_ROUTES.includes(pathname);
+  const isPublic = PUBLIC_ROUTES.includes(pathname) || pathname.startsWith('/kiosk');
 
   useEffect(() => {
     if (loading) return;
@@ -21,11 +21,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       router.replace('/login');
     }
 
-    if (session && isPublic) {
-      // Sudah login tapi buka /login → redirect ke clock
-      router.replace('/clock');
+    if (session && pathname === '/login') {
+      // Sudah login tapi buka /login → redirect ke dashboard SPV
+      router.replace('/dashboard');
     }
-  }, [session, loading, isPublic, router]);
+  }, [session, loading, isPublic, pathname, router]);
 
   // Tampilkan loading spinner saat cek auth
   if (loading) {

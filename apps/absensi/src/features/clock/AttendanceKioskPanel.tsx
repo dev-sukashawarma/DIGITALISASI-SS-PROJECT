@@ -222,7 +222,7 @@ export function AttendanceKioskPanel() {
               <div className={`pointer-events-none absolute w-64 h-64 transition-all duration-300 face-id-corners ${
                 kiosk.phase === "idle" ? "text-gray-400 opacity-60" :
                 kiosk.phase === "result" && !kiosk.result?.ok ? "text-red-500 scale-105 opacity-0" :
-                kiosk.phase === "result" && kiosk.result?.ok ? "text-suka-green scale-105 opacity-0" :
+                kiosk.phase === "result" && kiosk.result?.ok ? "text-blue-500 scale-105 opacity-0" :
                 "text-blue-500"
               } ${(kiosk.phase === "liveness" || kiosk.phase === "identified") ? "animate-[pulse-glow_2s_infinite]" : ""}`} />
 
@@ -241,7 +241,7 @@ export function AttendanceKioskPanel() {
               {kiosk.phase === "result" && kiosk.result && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 transition-all duration-300">
                   <div className={`flex flex-col items-center justify-center p-6 ${
-                    kiosk.result.ok ? "text-suka-green" : "text-red-500 animate-success-pop"
+                    kiosk.result.ok ? "text-blue-500" : "text-red-500 animate-success-pop"
                   }`}>
                     <div className="drop-shadow-[0_0_30px_currentColor]">
                       {kiosk.result.ok ? (
@@ -278,7 +278,7 @@ export function AttendanceKioskPanel() {
               )}
               {kiosk.phase === "submitting" && <Spinner />}
               {kiosk.phase === "result" && kiosk.result && (
-                <p className={`flex items-center gap-2 text-lg font-medium ${kiosk.result.ok ? "text-suka-green" : "text-red-600"}`}>
+                <p className={`flex items-center gap-2 text-lg font-medium ${kiosk.result.ok ? "text-blue-500" : "text-red-600"}`}>
                   {kiosk.result.ok ? <CircleCheck size={22} /> : <CircleX size={22} />} {kiosk.result.message}
                 </p>
               )}
@@ -290,7 +290,7 @@ export function AttendanceKioskPanel() {
         <div className="space-y-6">
           <Card className="p-5 rounded-2xl">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-green-50 rounded-xl text-suka-green">
+              <div className="p-3 bg-blue-50 rounded-xl text-blue-500">
                 <CheckCircle2 size={24} />
               </div>
               <div>

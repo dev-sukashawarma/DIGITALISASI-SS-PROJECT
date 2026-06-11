@@ -22,7 +22,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
             <ToastProvider>
               <AuthGuard>
-                <Navbar />
                 {children}
               </AuthGuard>
             </ToastProvider>

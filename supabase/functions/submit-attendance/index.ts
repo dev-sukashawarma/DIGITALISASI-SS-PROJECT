@@ -38,45 +38,28 @@ Deno.serve(async (req) => {
     // Admin client (service role) untuk validasi token & tulis data.
     const admin = createClient(url, serviceKey);
 
-    // Validasi JWT caller dengan token eksplisit (server-side tidak punya session).
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
-    const callerId = userData?.user?.id;
-    if (userErr || !callerId) return json(401, { ok: false, reason: "unauthenticated" });
-
-    let body: Body;
+    let body: Body & { outlet_id: string };
     try { body = await req.json(); } catch { return json(400, { ok: false, reason: "bad_json" }); }
 
-    // Caller harus SPV/kepala_outlet (device login); ambil outlet_id caller.
-    const { data: caller } = await admin
-      .from("outlet_staff")
-      .select("outlet_id, role")
-      .eq("id", callerId).single();
-    if (!caller) return json(403, { ok: false, reason: "caller_not_staff" });
-
-    // Fix 1: Enforce caller role — only SPV/kepala_outlet may submit attendance.
-    if (!["spv", "kepala_outlet"].includes(caller.role)) {
-      return json(403, { ok: false, reason: "forbidden_role" });
-    }
-
-    // Target staff harus se-outlet dengan caller & sudah enroll.
+    // Target staff harus terdaftar & sesuai dengan outlet_id
     const { data: target } = await admin
       .from("outlet_staff")
       .select("outlet_id, face_descriptor")
       .eq("id", body.outlet_staff_id).single();
     if (!target) return json(404, { ok: false, reason: "staff_not_found" });
-    if (target.outlet_id !== caller.outlet_id) return json(403, { ok: false, reason: "cross_outlet" });
+    if (target.outlet_id !== body.outlet_id) return json(403, { ok: false, reason: "cross_outlet" });
     if (!target.face_descriptor) return json(422, { ok: false, reason: "not_enrolled" });
 
     // Validasi path selfie milik outlet ini.
-    if (body.selfie_path && !body.selfie_path.startsWith(`${caller.outlet_id}/`)) {
+    if (body.selfie_path && !body.selfie_path.startsWith(`${body.outlet_id}/`)) {
       return json(403, { ok: false, reason: "selfie_path_mismatch" });
     }
 
     // Config jam kerja (tanpa GPS/radius — absensi di device outlet).
     const { data: cfg } = await admin
       .from("outlet_attendance_config")
-      .select("jam_masuk,toleransi_menit")
-      .eq("outlet_id", caller.outlet_id).single();
+      .select("jam_masuk,jam_keluar,toleransi_menit")
+      .eq("outlet_id", body.outlet_id).single();
     if (!cfg) return json(500, { ok: false, reason: "config_missing" });
 
     const tsServer = new Date().toISOString();
@@ -87,7 +70,7 @@ Deno.serve(async (req) => {
     const { error } = await admin.from("attendance").upsert({
       id: body.id,
       outlet_staff_id: body.outlet_staff_id,
-      outlet_id: caller.outlet_id,
+      outlet_id: body.outlet_id,
       type: body.type,
       ts_server: tsServer,
       ts_client: body.ts_client,
@@ -99,6 +82,10 @@ Deno.serve(async (req) => {
       status,
     }, { onConflict: "id", ignoreDuplicates: true });
     if (error) return json(500, { ok: false, reason: "insert_failed", detail: error.message });
+
+    if (status === "alpha" && body.type === "in") {
+      return json(200, { ok: false, reason: "terlambat_alpha", ts_server: tsServer, attendance_id: body.id });
+    }
 
     return json(200, { ok: true, status, ts_server: tsServer, attendance_id: body.id });
   } catch (_e) {

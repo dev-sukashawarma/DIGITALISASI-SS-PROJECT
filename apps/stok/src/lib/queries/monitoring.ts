@@ -300,6 +300,79 @@ export async function fetchWasteToday(): Promise<WasteTodaySummary> {
   return { count: entries.length, entries };
 }
 
+export interface OutletDetailItem {
+  bahan_baku_id: string;
+  item_name: string;
+  current_qty: number;
+  threshold: number;
+  satuan: string | null;
+  status: 'below' | 'warning' | 'ok';
+  recent_ledger: Array<{
+    tipe: string;
+    qty: number;
+    catatan: string | null;
+    created_at: string;
+  }>;
+}
+
+/**
+ * Fetch ALL items (inventory lengkap) untuk satu outlet + ledger history.
+ * Client-side via definer views (monitoring_view_spv + ledger_feed_spv) yang
+ * bypass RLS — sama seperti papan utama. JANGAN query stok_balance/ledger_stok
+ * langsung karena RLS membatasi ke outlet milik user (SPV lihat outlet lain → kosong).
+ */
+export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDetailItem[]> {
+  const { data: items, error } = await supabase
+    .from('monitoring_view_spv')
+    .select('*')
+    .eq('outlet_id', outletId)
+    .order('item_name');
+
+  if (error) throw error;
+
+  // Deduplicate by bahan_baku_id
+  const seen = new Set<string>();
+  const dedupedItems = (items || []).filter((it) => {
+    if (seen.has(it.bahan_baku_id)) return false;
+    seen.add(it.bahan_baku_id);
+    return true;
+  });
+
+  // Sort: below → warning → ok, then by name
+  const statusOrder: Record<string, number> = { below: 0, warning: 1, ok: 2 };
+  dedupedItems.sort((a, b) => {
+    if (statusOrder[a.status] !== statusOrder[b.status]) {
+      return statusOrder[a.status] - statusOrder[b.status];
+    }
+    return (a.item_name || '').localeCompare(b.item_name || '');
+  });
+
+  // Enrich each item with ledger history (definer view, bypass RLS)
+  const enriched = await Promise.all(
+    dedupedItems.map(async (it): Promise<OutletDetailItem> => {
+      const { data: ledger } = await supabase
+        .from('ledger_feed_spv')
+        .select('tipe, qty, catatan, created_at')
+        .eq('outlet_id', outletId)
+        .eq('bahan_baku_id', it.bahan_baku_id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      return {
+        bahan_baku_id: it.bahan_baku_id,
+        item_name: it.item_name,
+        current_qty: it.current_qty,
+        threshold: it.threshold,
+        satuan: it.satuan,
+        status: it.status,
+        recent_ledger: ledger || [],
+      };
+    })
+  );
+
+  return enriched;
+}
+
 /**
  * Fetch master list of all outlets
  */

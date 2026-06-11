@@ -1,8 +1,9 @@
 # M3 Distribusi — Progress & Completion Status
 
-> **Last Updated:** 2026-06-10  
-> **Status:** Phase 1 (Monitoring Dashboard) ✅ Complete · Phase 2 (Surat Jalan + Verification) ✅ Complete  
-> **Code Quality:** Code review (--effort=high) ✅ Complete, all findings fixed
+> **Last Updated:** 2026-06-11  
+> **Status:** Phase 1 (Monitoring Dashboard) ✅ Complete · Phase 2 (Surat Jalan + Verification) ✅ Complete · Phase 2.5 (QR Scan + Card Verifikasi) ✅ Complete (dev)  
+> **Code Quality:** Code review (--effort=high) ✅ Complete, all findings fixed  
+> **Outstanding:** UAT on real Android devices, rollout to all 19 outlets, several pre-prod items (see Analysis section at end)
 
 ---
 
@@ -243,6 +244,42 @@ await Promise.all(updatePromises)  // Parallel, not sequential
 
 ---
 
+## Phase 2.5: QR Scan + Card-by-Card Verifikasi (✅ COMPLETED — dev)
+
+> Spec: `docs/superpowers/specs/2026-06-10-barcode-verifikasi-design.md` · Plan: `docs/superpowers/plans/2026-06-10-m3-distribusi.md`
+
+### Overview
+
+Crew menerima barang dengan **scan QR** dari Surat Jalan fisik, lalu verifikasi **kartu per item** (Baik/Jelek). Mengurangi salah-input dan mempercepat penerimaan di outlet.
+
+### Deliverables
+
+#### 1️⃣ QR Code di PDF
+- `generatePDF.ts` — QR di-generate via library `qrcode` (Node-compatible), encode **full URL** (bukan hanya nomor dokumen) → bisa langsung dibuka kamera HP biasa.
+- QR dipindah ke **bagian bawah** PDF + tombol download barcode terpisah.
+- PDF di-redesign penuh memakai **SUKA design system tokens** (brand colors, typography, layout) — commit `69dd92b`.
+
+#### 2️⃣ Halaman Scan QR
+- `apps/distribusi/src/app/distribusi/terima/scan/page.tsx` — halaman scan baru.
+- `QRScanner.tsx` — kamera via `getUserMedia({ facingMode: 'environment' })`, decode via `BarcodeDetector` (Android Chrome 83+), fallback input manual nomor dokumen.
+- Lookup `surat_jalan` by document_number/URL → redirect ke `/distribusi/terima/[id]`.
+- Tombol **Scan QR** ditambah di `TerimaList` sebagai aksi utama.
+
+#### 3️⃣ Card-by-Card VerifikasiForm
+- `VerifikasiForm.tsx` redesign jadi **stepper** satu kartu satu item.
+- State `qty_terima` (default = qty_dikirim), `kondisi` (baik/jelek), `catatan` (wajib jika jelek).
+- Layar ringkasan sebelum submit → `Promise.all` update items → `finalize_surat_jalan_and_ledger()`.
+- Null-guards ditambah untuk verifications map (commit `c2f3e87`).
+
+#### 4️⃣ Schema
+- `supabase/migrations/20260610001100_add_catatan_to_surat_jalan_item.sql` — kolom `catatan` untuk catatan barang rusak.
+
+### Fixes during Phase 2.5
+- `e98f38e` — fetch `kategori` di `useSuratJalanDetail`, perbaiki race condition saat scan QR.
+- Action button di detail kini muncul **sesuai status** SJ (draft/dikirim/diterima).
+
+---
+
 ## Code Review Findings (Phase 1)
 
 ### Fixed
@@ -408,4 +445,45 @@ const dedupedItems = data.filter(item => {
 | RLS protection | 2 | ✅ | Authenticated only, role-based |
 | End-to-end test | 2 | 🔶 | Pending UAT with real users |
 | Mobile test | 2 | 🔶 | Pending Android tablet testing |
+| **Phase 2.5: QR + Card Verifikasi** |
+| QR di PDF (full URL) | 2.5 | ✅ | Library `qrcode`, downloadable barcode |
+| Halaman scan QR | 2.5 | ✅ | BarcodeDetector + manual fallback |
+| Card-by-card stepper | 2.5 | ✅ | Baik/Jelek + catatan wajib |
+| Kolom catatan migration | 2.5 | ✅ | `20260610001100` |
+| Scan on real device | 2.5 | ❌ | **Belum diuji di HP/tablet Android nyata** |
+| BarcodeDetector fallback | 2.5 | 🔶 | Fallback ada, tapi belum diuji di browser lama (iOS Safari tidak punya BarcodeDetector) |
+
+---
+
+## ⚠️ Analysis: Belum Dikerjakan & Concern (per 2026-06-11)
+
+### 🔴 Blocker untuk Go-Live (harus selesai dulu)
+
+1. **Data hanya 3 outlet pilot** — `stok_balance` baru terisi untuk Kitchen, Empang, Paledang. 16 outlet lain belum ada data → monitoring & supply chain tidak bisa dipakai full rollout.
+2. **Belum ada UAT di device nyata** — seluruh flow (signature canvas, QR scan, card stepper, print PDF) dirancang untuk Android 6+ tapi **belum pernah dijalankan di HP/tablet fisik**. Ini risiko tertinggi karena fitur paling rapuh (kamera, canvas, print) justru yang belum diuji.
+3. **End-to-end multi-user belum diuji** — alur SPV (buat SJ) → Supir (tanda tangan ke-2) → Crew (terima + verifikasi) belum dijalankan dengan 3 user/role berbeda secara nyata.
+4. **Supabase masih Free tier** — PRE-PROD-CHECKLIST menandai upgrade ke Pro (daily backup + PITR) sebagai **CRITICAL** sebelum produksi. Belum dilakukan.
+5. **Migrasi belum dideploy ke produksi** — sejumlah migration M3 (RLS, RPC, catatan) perlu diterapkan di project Supabase produksi.
+
+### 🟡 Concern Teknis
+
+6. **iOS / browser lama tidak didukung scan** — `BarcodeDetector` hanya ada di Chrome Android. Kalau ada crew pakai iPhone/Safari, scan tidak jalan; hanya fallback manual. Perlu keputusan: cukupkah fallback, atau tambah `html5-qrcode`?
+7. **Signature & QR disimpan sebagai PNG data URL di JSONB** — sudah dibatasi 50KB, tapi tetap membebani row & payload. Phase 4 backlog: pindah ke Supabase Storage. Untuk 19 outlet × banyak SJ, ini bisa jadi masalah ukuran DB.
+8. **PDF berbasis HTML + print browser** — bergantung pada perilaku print engine tiap device. Belum ada tes print nyata di Android; risiko layout/QR tidak tercetak benar.
+9. **Compliance tab masih mock** — checklist di SPV Dashboard belum terhubung ke data opname nyata.
+10. **Transfer modal & restock request** — UI ada di monitoring, tapi belum terintegrasi penuh ke backend (masih toast saja).
+11. **Performance belum di-profile** — `monitoring_view_spv` belum diukur dengan data 19 outlet (target < 2s). Baru diuji dengan 99 baris (3 outlet).
+12. **RLS hanya diverifikasi manual** — belum ada test otomatis untuk isolasi antar-outlet di M3 (surat_jalan). M2 sudah diuji cross-outlet, M3 belum dipastikan setara.
+
+### 🟢 Operasional / Non-teknis
+
+13. **Materi training crew** — tips ambil tanda tangan, alur scan & verifikasi belum dibuat.
+14. **Incident & rollback plan** — apa yang dilakukan jika tanda tangan gagal tersimpan, verifikasi konflik, atau SJ perlu dibatalkan setelah ledger terbentuk — belum didefinisikan.
+15. **Monitoring & alerting produksi** — alert error-rate edge function, slow query, balance drift cron belum dipasang (skrip ada di checklist).
+
+### Rekomendasi urutan eksekusi
+1. UAT 1 device dulu (smoke test semua flow di 1 HP Android) — buka concern #2, #6, #8 lebih awal.
+2. Populasi `stok_balance` 19 outlet (#1) + deploy migrasi (#5) + upgrade Supabase Pro (#4).
+3. Soft launch 2 outlet (Empang + Sukmajaya), monitor 1 minggu.
+4. Sisanya (training, alerting, transfer modal, compliance tab) paralel selama soft launch.
 

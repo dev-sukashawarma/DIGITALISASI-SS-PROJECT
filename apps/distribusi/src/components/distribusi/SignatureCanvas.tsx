@@ -82,8 +82,8 @@ export function SignatureCanvas({ onSignatureSaved }: SignatureCanvasProps) {
   }
 
   return (
-    <div className="border-2 border-dashed border-gray-300 rounded p-4 space-y-3">
-      <p className="text-sm font-medium text-gray-700">Tanda Tangan Digital (Tanda tangan di area ini)</p>
+    <div className="border-2 border-dashed border-suka-brown/20 rounded-xl p-4 bg-[#fff8f1]/30 space-y-3">
+      <p className="text-xs font-bold text-suka-brown uppercase tracking-wider">Tanda Tangan Digital (Gambar pada area di bawah)</p>
       <canvas
         ref={canvasRef}
         width={300}
@@ -92,20 +92,20 @@ export function SignatureCanvas({ onSignatureSaved }: SignatureCanvasProps) {
         onMouseMove={draw}
         onMouseUp={stopDrawing}
         onMouseLeave={stopDrawing}
-        className="border border-gray-300 rounded bg-white cursor-crosshair block w-full"
+        className="border border-suka-brown/15 rounded-xl bg-white cursor-crosshair block w-full shadow-inner"
       />
       <div className="flex gap-2">
         <button
           type="button"
           onClick={clearSignature}
-          className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+          className="px-4 py-2 border border-suka-brown/15 text-suka-brown font-semibold text-xs rounded-xl bg-white hover:bg-suka-cream transition-all cursor-pointer"
         >
           Bersihkan
         </button>
         <button
           type="button"
           onClick={saveSignature}
-          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="px-4 py-2 bg-suka-orange hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
         >
           Simpan Tanda Tangan
         </button>

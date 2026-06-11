@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "stok",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["workspace", "@ss/stok", "dev"],
+      "port": 3001
+    }
+  ]
+}

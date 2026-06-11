@@ -8,6 +8,7 @@ interface SuratJalan {
   outlet_id: string
   status: string
   created_at: string
+  document_number?: string
 }
 
 interface SuratJalanWithOutlet extends SuratJalan {
@@ -22,39 +23,41 @@ export function useSuratJalanList(dateFilter: DateFilter = 'all') {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
 
-    const supabase = createClient()
-    let query = supabase
-      .from('surat_jalan')
-      .select('id, outlet_id, status, created_at')
-      .order('created_at', { ascending: false })
+      const supabase = createClient()
+      let query = supabase
+        .from('surat_jalan')
+        .select('id, outlet_id, status, created_at, document_number')
+        .order('created_at', { ascending: false })
 
-    // Apply date filters
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      // Apply date filters
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
-    if (dateFilter === 'today') {
-      query = query.gte('created_at', today)
-    } else if (dateFilter === '7days') {
-      query = query.gte('created_at', sevenDaysAgo)
-    } else if (dateFilter === '30days') {
-      query = query.gte('created_at', thirtyDaysAgo)
-    }
+      if (dateFilter === 'today') {
+        query = query.gte('created_at', today)
+      } else if (dateFilter === '7days') {
+        query = query.gte('created_at', sevenDaysAgo)
+      } else if (dateFilter === '30days') {
+        query = query.gte('created_at', thirtyDaysAgo)
+      }
 
-    query.then(async ({ data: sjList, error: err }) => {
+      try {
+        const { data: sjList, error: err } = await query
+
         if (err) {
           setError(err.message)
           setData([])
-          setLoading(false)
           return
         }
 
         // Batch fetch outlets
-        const outletIds = (sjList || []).map((sj) => sj.outlet_id)
+        const outletIds = (sjList || []).map((sj: any) => sj.outlet_id)
         const { data: outlets } = outletIds.length > 0
           ? await supabase
               .from('outlets')
@@ -63,22 +66,24 @@ export function useSuratJalanList(dateFilter: DateFilter = 'all') {
           : { data: [] }
 
         const outletMap = new Map(
-          (outlets || []).map((o) => [o.id, o])
+          (outlets || []).map((o: any) => [o.id, o])
         )
 
-        const result = (sjList || []).map((sj) => ({
+        const result = (sjList || []).map((sj: any) => ({
           ...sj,
           outlet: outletMap.get(sj.outlet_id),
         }))
 
         setData(result as SuratJalanWithOutlet[])
-        setLoading(false)
-      })
-      .catch(err => {
-        setError(err.message)
+      } catch (err: any) {
+        setError(err?.message || 'Terjadi kesalahan')
         setData([])
+      } finally {
         setLoading(false)
-      })
+      }
+    }
+
+    fetchData()
   }, [dateFilter])
 
   const draftCount = data.filter((sj) => sj.status === 'draft').length

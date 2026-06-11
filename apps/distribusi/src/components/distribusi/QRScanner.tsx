@@ -9,7 +9,6 @@ export function QRScanner() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [manualInput, setManualInput] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [scanning, setScanning] = useState(false)
   const [cameraAvailable, setCameraAvailable] = useState(true)
   const streamRef = useRef<MediaStream | null>(null)
   const detectorRef = useRef<any>(null)
@@ -29,12 +28,10 @@ export function QRScanner() {
 
     if (error || !data) {
       setError(`Surat Jalan "${documentNumber}" tidak ditemukan`)
-      setScanning(false)
       return
     }
     if (data.status === 'diterima') {
       setError('Surat Jalan ini sudah diterima sebelumnya')
-      setScanning(false)
       return
     }
     stopCamera()
@@ -63,7 +60,6 @@ export function QRScanner() {
       }
       // @ts-ignore — BarcodeDetector not in TS lib yet
       detectorRef.current = new BarcodeDetector({ formats: ['qr_code'] })
-      setScanning(true)
       scanLoop()
     } catch {
       setCameraAvailable(false)

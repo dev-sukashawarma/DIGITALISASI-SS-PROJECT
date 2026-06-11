@@ -123,22 +123,28 @@ export function SignatureFlow({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 space-y-4">
-      <h3 className="text-lg font-semibold">Proses Penandatanganan</h3>
+    <div className="bg-white rounded-xl border border-suka-brown/10 p-6 space-y-6">
+      <h3 className="text-md font-bold text-suka-brown uppercase tracking-wider">Proses Penandatanganan</h3>
 
       {/* Existing signatures */}
       {signatures.length > 0 && (
-        <div className="bg-blue-50 rounded p-4">
-          <p className="text-sm font-medium text-blue-900 mb-2">
-            Tanda tangan ({signatures.length}):
+        <div className="bg-[#fff8f1] border border-suka-brown/10 rounded-xl p-4">
+          <p className="text-xs font-bold text-suka-brown uppercase tracking-wider mb-2">
+            Tanda tangan dikonfirmasi ({signatures.length}):
           </p>
           <div className="space-y-2">
             {signatures.map((sig, idx) => (
-              <div key={idx} className="text-sm text-blue-800">
-                <span className="font-medium">{sig.signed_by}</span>
-                <span className="text-blue-600 ml-2">({sig.role})</span>
-                <span className="text-blue-500 ml-2">
-                  {new Date(sig.signed_at).toLocaleString('id-ID')}
+              <div key={idx} className="text-sm text-suka-ink flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-suka-green" />
+                <span className="font-semibold">{sig.signed_by}</span>
+                <span className="text-suka-brown/60 text-xs font-medium">({sig.role})</span>
+                <span className="text-suka-brown/50 text-xs ml-auto">
+                  {new Date(sig.signed_at).toLocaleString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
                 </span>
               </div>
             ))}
@@ -147,20 +153,20 @@ export function SignatureFlow({
       )}
 
       {/* Add signature form */}
-      <div className="space-y-3 border-t pt-4">
-        <p className="text-sm text-gray-600">Tambah Tanda Tangan</p>
-        <div className="flex gap-2">
+      <div className="space-y-4 border-t border-suka-brown/10 pt-4">
+        <p className="text-sm font-bold text-suka-brown">Tambah Tanda Tangan Baru</p>
+        <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
             value={signedBy}
             onChange={(e) => setSignedBy(e.target.value)}
             placeholder="Nama penanda tangan"
-            className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+            className="flex-1 bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all"
           />
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 text-sm"
+            className="bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all"
           >
             <option
               value="Kitchen SPV"
@@ -181,9 +187,9 @@ export function SignatureFlow({
           </select>
           <button
             onClick={() => setShowCanvas(!showCanvas)}
-            className="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50"
+            className="px-4 py-2.5 border border-suka-brown/15 text-suka-brown font-semibold text-sm rounded-xl bg-white hover:bg-suka-cream transition-all cursor-pointer"
           >
-            {showCanvas ? 'Sembunyikan' : 'Gambar Tanda Tangan'}
+            {showCanvas ? 'Sembunyikan Canvas' : 'Gambar Tanda Tangan'}
           </button>
         </div>
 
@@ -192,35 +198,39 @@ export function SignatureFlow({
         )}
 
         {signatureImage && (
-          <div className="flex items-center gap-2">
-            <img src={signatureImage} alt="preview" className="h-12 border rounded" />
+          <div className="flex items-center gap-4 border border-suka-brown/10 p-3 bg-[#fff8f1]/50 rounded-xl">
+            <div className="bg-white p-2 border border-suka-brown/10 rounded-lg">
+              <img src={signatureImage} alt="preview" className="h-10 w-auto object-contain" />
+            </div>
             <button
               onClick={handleSign}
               disabled={signing}
-              className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-suka-orange hover:bg-orange-600 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
             >
-              {signing ? 'Menandatangani...' : 'Konfirmasi & Tandatangani'}
+              {signing ? 'Menandatangani...' : 'Konfirmasi & Simpan'}
             </button>
           </div>
         )}
       </div>
 
       {/* Send button */}
-      <div className="flex gap-3 border-t pt-4">
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between border-t border-suka-brown/10 pt-4">
         <button
           onClick={handleSend}
           disabled={sending || missingRoles.length > 0}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+          className="w-full sm:w-auto px-6 py-3 bg-[#701604] hover:opacity-95 text-white font-bold text-sm rounded-xl shadow-md disabled:opacity-50 transition-all cursor-pointer"
         >
           {sending ? 'Mengirim...' : 'Kirim Surat Jalan'}
         </button>
-        <span className="text-sm self-center">
+        <span className="text-xs font-bold tracking-wide">
           {missingRoles.length > 0 ? (
-            <span className="text-orange-600">
-              Menunggu tanda tangan: {missingRoles.join(', ')}
+            <span className="text-orange-600 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg">
+              ⚠️ Menunggu tanda tangan: {missingRoles.join(', ')}
             </span>
           ) : (
-            <span className="text-green-600">✓ Semua tanda tangan lengkap - siap dikirim</span>
+            <span className="text-suka-green bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg">
+              ✓ Semua tanda tangan lengkap - Siap dikirim
+            </span>
           )}
         </span>
       </div>

@@ -62,11 +62,15 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
               <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
                 <div>
                   <p className="text-sm text-gray-600">Current Qty</p>
-                  <p className="text-3xl font-bold text-suka-brown">{detail.current_qty}</p>
+                  <p className="text-3xl font-bold text-suka-brown">
+                    {detail.current_qty} <span className="text-lg font-normal text-gray-500">{detail.satuan}</span>
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Threshold</p>
-                  <p className="text-3xl font-bold text-gray-700">{detail.threshold}</p>
+                  <p className="text-3xl font-bold text-gray-700">
+                    {detail.threshold} <span className="text-lg font-normal text-gray-500">{detail.satuan}</span>
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Status</p>

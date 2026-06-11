@@ -71,146 +71,137 @@ export function SuratJalanList() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
-        <p className="text-gray-500">Memuat...</p>
+      <div className="flex flex-col min-h-screen justify-center items-center bg-[#fff8f1] text-[#701604] font-medium">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#701604] mb-4"></div>
+        <p className="text-sm">Memuat daftar surat jalan...</p>
       </div>
     )
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Surat Jalan</h1>
-        <Link
-          href="/distribusi/surat-jalan/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Buat Surat Jalan
-        </Link>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6 mb-6 space-y-3">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setDateFilter('all')}
-            className={`px-3 py-1 text-sm rounded ${
-              dateFilter === 'all'
-                ? 'bg-blue-600 text-white'
-                : 'border border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            Semua
-          </button>
-          <button
-            onClick={() => setDateFilter('today')}
-            className={`px-3 py-1 text-sm rounded ${
-              dateFilter === 'today'
-                ? 'bg-blue-600 text-white'
-                : 'border border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            Hari Ini
-          </button>
-          <button
-            onClick={() => setDateFilter('7days')}
-            className={`px-3 py-1 text-sm rounded ${
-              dateFilter === '7days'
-                ? 'bg-blue-600 text-white'
-                : 'border border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            7 Hari
-          </button>
-          <button
-            onClick={() => setDateFilter('30days')}
-            className={`px-3 py-1 text-sm rounded ${
-              dateFilter === '30days'
-                ? 'bg-blue-600 text-white'
-                : 'border border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            1 Bulan
-          </button>
+    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
+          <div className="flex flex-col">
+            <h2 className="text-xl font-bold text-[#701604] tracking-tight">Daftar Surat Jalan</h2>
+            <p className="text-xs text-suka-brown/60 mt-0.5">Sistem Distribusi & Logistik</p>
+          </div>
         </div>
-        <p className="text-sm text-gray-600">
-          {draftCount} draft · {sentCount} sedang dikirim
-        </p>
-      </div>
-
-      {data.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-500">Belum ada Surat Jalan</p>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/distribusi/surat-jalan/new"
+            className="px-4 py-2 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-1.5"
+          >
+            <span>+</span> Buat Surat Jalan
+          </Link>
         </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">
-                  Outlet
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">
-                  Tanggal
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">
-                  Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {data.map((sj) => (
-                <tr key={sj.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm">{sj.outlet?.name || 'Unknown'}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        sj.status === 'draft'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : sj.status === 'dikirim'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-green-100 text-green-800'
-                      }`}
-                    >
-                      {sj.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    {new Date(sj.created_at).toLocaleDateString('id-ID')}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    {sj.status === 'draft' ? (
-                      <Link
-                        href={`/distribusi/surat-jalan/${sj.id}`}
-                        className="text-blue-600 hover:underline font-medium"
-                      >
-                        Verifikasi
-                      </Link>
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => handleDownloadPDF(sj.id)}
-                          className="text-green-600 hover:underline"
-                        >
-                          Download PDF
-                        </button>
-                        <button
-                          onClick={() => handleDownloadBarcode(sj.id, sj.document_number || sj.id.substring(0, 8))}
-                          className="text-purple-600 hover:underline"
-                        >
-                          Download Barcode
-                        </button>
-                      </div>
-                    )}
-                  </td>
+      </header>
+
+      {/* Content container */}
+      <div className="p-6 max-w-6xl mx-auto space-y-6">
+        {/* Summary / Filter Bar */}
+        <div className="bg-white rounded-xl border border-suka-brown/10 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+          <div className="flex gap-2">
+            {[
+              { key: 'all', label: 'Semua' },
+              { key: 'today', label: 'Hari Ini' },
+              { key: '7days', label: '7 Hari' },
+              { key: '30days', label: '1 Bulan' }
+            ].map((btn) => (
+              <button
+                key={btn.key}
+                onClick={() => setDateFilter(btn.key as DateFilter)}
+                className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all cursor-pointer ${
+                  dateFilter === btn.key
+                    ? 'bg-suka-orange text-white border-2 border-suka-orange shadow-sm'
+                    : 'bg-[#fff8f1] border border-suka-brown/10 text-suka-brown hover:bg-suka-cream'
+                }`}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+          <div className="text-sm font-semibold text-suka-brown/80 bg-[#fff7ed] border border-suka-brown/10 px-4 py-2 rounded-xl flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#f29744] animate-pulse" />
+            <span>{draftCount} draft · {sentCount} sedang dikirim</span>
+          </div>
+        </div>
+
+        {data.length === 0 ? (
+          <div className="bg-white rounded-xl border border-suka-brown/10 p-12 text-center shadow-sm">
+            <p className="text-suka-brown/50 font-medium text-lg">Belum ada Surat Jalan</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-suka-brown/10 overflow-hidden shadow-[0px_4px_12px_rgba(112,22,4,0.04)]">
+            <table className="w-full text-left">
+              <thead className="bg-[#faf2e9] border-b border-suka-brown/10">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-suka-brown">Outlet</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-suka-brown">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-suka-brown">Tanggal</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-suka-brown">Aksi</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody className="divide-y divide-suka-brown/10">
+                {data.map((sj) => (
+                  <tr key={sj.id} className="hover:bg-suka-cream/10 transition-colors">
+                    <td className="px-6 py-4 text-sm font-semibold text-suka-ink">
+                      {sj.outlet?.name || 'Unknown'}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
+                          sj.status === 'draft'
+                            ? 'bg-yellow-50 text-yellow-850 border-yellow-250'
+                            : sj.status === 'dikirim'
+                              ? 'bg-blue-50 text-blue-800 border-blue-250'
+                              : 'bg-green-50 text-green-800 border-green-250'
+                        }`}
+                      >
+                        {sj.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-suka-brown/70 font-medium">
+                      {new Date(sj.created_at).toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      {sj.status === 'draft' ? (
+                        <Link
+                          href={`/distribusi/surat-jalan/${sj.id}`}
+                          className="inline-flex px-3 py-1.5 bg-[#701604] hover:opacity-95 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+                        >
+                          Verifikasi
+                        </Link>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleDownloadPDF(sj.id)}
+                            className="text-suka-green hover:underline font-bold text-xs flex items-center gap-1"
+                          >
+                            📥 Download PDF
+                          </button>
+                          <button
+                            onClick={() => handleDownloadBarcode(sj.id, sj.document_number || sj.id.substring(0, 8))}
+                            className="text-suka-orange hover:underline font-bold text-xs flex items-center gap-1"
+                          >
+                            🏷️ QR Code
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -26,15 +26,18 @@ export default function LedgerPage() {
     <div className="min-h-screen bg-[#fff8f1] text-[#400a07] pb-12">
       {/* Header Banner */}
       <header className="bg-white border-b border-[#701604]/10 px-8 py-5 flex items-center justify-between shadow-sm sticky top-0 z-40">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            <Link href="/stok/monitoring" className="text-[#701604]/60 hover:text-[#701604] transition-colors text-sm font-bold flex items-center gap-1">
-              ← Kembali ke Dashboard
-            </Link>
+        <div className="flex items-center gap-4">
+          <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <Link href="/dashboard" className="text-[#701604]/60 hover:text-[#701604] transition-colors text-sm font-bold flex items-center gap-1">
+                ← Kembali ke Dashboard
+              </Link>
+            </div>
+            <h1 className="text-xl font-extrabold text-[#701604] tracking-tight uppercase mt-1">
+              LOG PERGERAKAN STOK (LEDGER)
+            </h1>
           </div>
-          <h1 className="text-xl font-extrabold text-[#701604] tracking-tight uppercase mt-1">
-            LOG PERGERAKAN STOK (LEDGER)
-          </h1>
         </div>
         
         <div className="flex items-center gap-3">

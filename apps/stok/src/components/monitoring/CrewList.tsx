@@ -119,7 +119,7 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
               <div className="flex-1">
                 <div className="font-medium text-gray-900">{item.item_name}</div>
                 <div className="text-sm text-gray-600">
-                  {item.current_qty} / {item.threshold} {item.threshold === 0 ? '(no threshold)' : ''}
+                  {item.current_qty} {item.satuan} / {item.threshold} {item.satuan} {item.threshold === 0 ? ' (no threshold)' : ''}
                 </div>
               </div>
               <StatusBadge status={item.status} isFlagged={item.is_flagged} />

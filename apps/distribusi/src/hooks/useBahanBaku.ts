@@ -16,28 +16,33 @@ export function useBahanBaku() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
 
-    const supabase = createClient()
-    supabase
-      .from('bahan_baku')
-      .select('id, nama, satuan, kategori')
-      .eq('is_active', true)
-      .order('nama')
-      .then(({ data, error: err }) => {
+      try {
+        const supabase = createClient()
+        const { data, error: err } = await supabase
+          .from('bahan_baku')
+          .select('id, nama, satuan, kategori')
+          .eq('is_active', true)
+          .order('nama')
+
         if (err) {
           setError(err.message)
           setBahanBaku([])
         } else {
           setBahanBaku(data || [])
         }
-      })
-      .catch(err => {
-        setError(err.message)
+      } catch (err: any) {
+        setError(err?.message || 'Terjadi kesalahan')
         setBahanBaku([])
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
   }, [])
 
   return { bahanBaku, loading, error }

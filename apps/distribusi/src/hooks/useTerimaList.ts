@@ -17,28 +17,37 @@ export function useTerimaList() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
 
-    const supabase = createClient()
-    supabase
-      .from('surat_jalan')
-      .select('id, outlet_id, status, created_at, outlets(name)')
-      .in('status', ['dikirim', 'diterima_sebagian'])
-      .order('created_at', { ascending: false })
-      .then(({ data, error: err }) => {
+      try {
+        const supabase = createClient()
+        const { data, error: err } = await supabase
+          .from('surat_jalan')
+          .select('id, outlet_id, status, created_at, outlets(name)')
+          .in('status', ['dikirim', 'diterima_sebagian'])
+          .order('created_at', { ascending: false })
+
         if (err) {
           setError(err.message)
           setData([])
         } else {
-          setData((data || []) as SuratJalan[])
+          const formatted = (data || []).map((sj: any) => ({
+            ...sj,
+            outlets: Array.isArray(sj.outlets) ? sj.outlets[0] : sj.outlets
+          }))
+          setData(formatted as SuratJalan[])
         }
-      })
-      .catch(err => {
-        setError(err.message)
+      } catch (err: any) {
+        setError(err?.message || 'Terjadi kesalahan')
         setData([])
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
   }, [])
 
   return { data, loading, error }

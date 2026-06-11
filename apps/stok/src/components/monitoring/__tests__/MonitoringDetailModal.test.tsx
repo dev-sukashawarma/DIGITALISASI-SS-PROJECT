@@ -26,6 +26,8 @@ const mockItem: MonitoringItem = {
   outlet_name: 'Bandung',
   bahan_baku_id: 'bb1',
   item_name: 'Minyak Goreng',
+  satuan: 'liter',
+  kategori: 'bumbu',
   current_qty: 8,
   threshold: 15,
   status: 'below',

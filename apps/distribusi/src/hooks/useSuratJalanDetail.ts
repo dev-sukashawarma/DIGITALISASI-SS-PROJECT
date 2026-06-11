@@ -19,6 +19,8 @@ interface SuratJalanDetail {
   created_at: string
   outlets?: { name: string }
   surat_jalan_item: Item[]
+  signatures?: any[]
+  document_number?: string
 }
 
 export function useSuratJalanDetail(id: string) {
@@ -29,16 +31,18 @@ export function useSuratJalanDetail(id: string) {
   useEffect(() => {
     if (!id) return
 
-    setLoading(true)
-    setError(null)
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+      const supabase = createClient()
 
-    const supabase = createClient()
-    supabase
-      .from('surat_jalan')
-      .select('id, outlet_id, status, created_at, signatures, document_number')
-      .eq('id', id)
-      .single()
-      .then(async ({ data: sj, error: sjError }) => {
+      try {
+        const { data: sj, error: sjError } = await supabase
+          .from('surat_jalan')
+          .select('id, outlet_id, status, created_at, signatures, document_number')
+          .eq('id', id)
+          .single()
+
         if (sjError) {
           setError(sjError.message)
           setData(null)
@@ -60,7 +64,7 @@ export function useSuratJalanDetail(id: string) {
           .eq('surat_jalan_id', id)
 
         // Batch fetch all bahan_baku for these items
-        const bahanIds = (items || []).map((item) => item.bahan_baku_id)
+        const bahanIds = (items || []).map((item: any) => item.bahan_baku_id)
         const { data: bahanList } = bahanIds.length > 0
           ? await supabase
               .from('bahan_baku')
@@ -69,10 +73,10 @@ export function useSuratJalanDetail(id: string) {
           : { data: [] }
 
         const bahanMap = new Map(
-          (bahanList || []).map((b) => [b.id, b])
+          (bahanList || []).map((b: any) => [b.id, b])
         )
 
-        const itemsWithBahan = (items || []).map((item) => ({
+        const itemsWithBahan = (items || []).map((item: any) => ({
           ...item,
           bahan_baku: bahanMap.get(item.bahan_baku_id) || null,
         }))
@@ -82,13 +86,15 @@ export function useSuratJalanDetail(id: string) {
           outlets: outlet,
           surat_jalan_item: itemsWithBahan,
         } as SuratJalanDetail)
-        setLoading(false)
-      })
-      .catch(err => {
-        setError(err.message)
+      } catch (err: any) {
+        setError(err?.message || 'Terjadi kesalahan')
         setData(null)
+      } finally {
         setLoading(false)
-      })
+      }
+    }
+
+    fetchData()
   }, [id])
 
   return { data, loading, error }

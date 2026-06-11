@@ -18,9 +18,12 @@ export function CrewDashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-suka-brown">{data?.outlet_name} - Monitoring</h1>
-          <p className="text-sm text-gray-600 mt-1">Check stok status before shifts & opname</p>
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Logo Suka Shawarma" className="h-12 w-auto object-contain" />
+          <div>
+            <h1 className="text-2xl font-bold text-suka-brown">{data?.outlet_name} - Monitoring</h1>
+            <p className="text-sm text-gray-600 mt-1">Check stok status before shifts & opname</p>
+          </div>
         </div>
         <div className="flex gap-2 items-center">
           {isError && (

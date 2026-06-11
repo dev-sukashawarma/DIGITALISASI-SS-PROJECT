@@ -109,55 +109,72 @@ export function VerifikasiForm({ id }: { id: string }) {
 
   if (step === 'summary') {
     return (
-      <div className="p-6 max-w-lg mx-auto">
-        <h1 className="text-2xl font-bold mb-1">Ringkasan Verifikasi</h1>
-        <p className="text-gray-500 text-sm mb-6">{items.length} item selesai dikonfirmasi</p>
-
-        <div className="bg-white rounded-xl border border-gray-200 divide-y mb-4">
-          {items.map((item) => {
-            const v = verifications[item.id]
-            const isJelek = v?.kondisi === 'jelek'
-            return (
-              <div key={item.id} className="px-4 py-3 flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-medium">{item.bahan_baku?.nama}</p>
-                  {isJelek && v.catatan && (
-                    <p className="text-xs text-red-600 mt-0.5">{v.catatan}</p>
-                  )}
-                </div>
-                <span
-                  className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    isJelek
-                      ? 'bg-red-50 text-red-700'
-                      : 'bg-green-50 text-green-700'
-                  }`}
-                >
-                  {isJelek ? `Jelek · ${v?.qty_terima ?? item.qty_dikirim}/${item.qty_dikirim} ${item.bahan_baku?.satuan}` : `Baik · ${v?.qty_terima ?? item.qty_dikirim} ${item.bahan_baku?.satuan}`}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-
-        {jelekItems.length > 0 && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-red-700 text-sm">
-            {jelekItems.length} item bermasalah — concern tercatat di catatan
+      <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
+        <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
+            <div className="flex flex-col">
+              <h2 className="text-xl font-bold text-[#701604] tracking-tight">Ringkasan Verifikasi</h2>
+              <p className="text-xs text-suka-brown/60 mt-0.5">Sistem Distribusi & Logistik</p>
+            </div>
           </div>
-        )}
+        </header>
 
-        <button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="w-full bg-green-600 text-white rounded-xl py-3 font-medium hover:bg-green-700 disabled:opacity-50"
-        >
-          {submitting ? 'Menyimpan...' : 'Selesai & Simpan Verifikasi'}
-        </button>
-        <button
-          onClick={() => { setCurrentIndex(items.length - 1); setStep('cards') }}
-          className="w-full mt-2 border border-gray-300 rounded-xl py-3 text-sm text-gray-600 hover:bg-gray-50"
-        >
-          Kembali ke item terakhir
-        </button>
+        <div className="p-6 max-w-lg mx-auto mt-6">
+          <div className="bg-white rounded-xl border border-suka-brown/10 p-6 shadow-sm mb-6">
+            <h1 className="text-xl font-extrabold text-suka-brown mb-1 uppercase tracking-tight">Konfirmasi Penerimaan</h1>
+            <p className="text-suka-brown/50 text-xs font-semibold mb-6">{items.length} item selesai diverifikasi</p>
+
+            <div className="bg-[#fff8f1] rounded-xl border border-suka-brown/10 divide-y divide-suka-brown/10 mb-4 overflow-hidden">
+              {items.map((item) => {
+                const v = verifications[item.id]
+                const isJelek = v?.kondisi === 'jelek'
+                return (
+                  <div key={item.id} className="px-4 py-3 flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-bold text-suka-ink">{item.bahan_baku?.nama}</p>
+                      {isJelek && v.catatan && (
+                        <p className="text-xs text-red-650 mt-1 italic font-medium">{v.catatan}</p>
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wide border ${
+                        isJelek
+                          ? 'bg-red-50 text-red-750 border-red-200'
+                          : 'bg-green-50 text-green-755 border-green-200'
+                      }`}
+                    >
+                      {isJelek 
+                        ? `Jelek · ${v?.qty_terima ?? item.qty_dikirim}/${item.qty_dikirim} ${item.bahan_baku?.satuan}` 
+                        : `Baik · ${v?.qty_terima ?? item.qty_dikirim} ${item.bahan_baku?.satuan}`}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            {jelekItems.length > 0 && (
+              <div className="mb-4 p-3.5 bg-red-50 border border-red-250 rounded-xl text-red-800 text-xs font-bold flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{jelekItems.length} item bermasalah — detail terekam di catatan</span>
+              </div>
+            )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="w-full bg-[#701604] hover:opacity-95 text-white rounded-xl py-3.5 font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer text-sm"
+            >
+              {submitting ? 'Menyimpan...' : 'Selesai & Simpan Verifikasi'}
+            </button>
+            <button
+              onClick={() => { setCurrentIndex(items.length - 1); setStep('cards') }}
+              className="w-full mt-2 border border-suka-brown/15 text-suka-brown font-semibold rounded-xl py-3.5 text-xs hover:bg-suka-cream bg-white transition-all cursor-pointer"
+            >
+              Kembali ke item terakhir
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -166,100 +183,118 @@ export function VerifikasiForm({ id }: { id: string }) {
   const isJelekMode = currentVerif.kondisi === 'jelek'
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <Link href="/distribusi/terima" className="text-blue-600 text-sm hover:underline">
-          ← Kembali
-        </Link>
-        <span className="text-sm text-gray-500 font-medium">
-          {currentIndex + 1} / {items.length}
-        </span>
-      </div>
-
-      <div className="w-full bg-gray-100 rounded-full h-1.5 mb-6">
-        <div
-          className="bg-green-500 h-1.5 rounded-full transition-all"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-          {currentItem.bahan_baku?.kategori}
-        </p>
-        <h2 className="text-xl font-semibold mb-4">{currentItem.bahan_baku?.nama}</h2>
-
-        <div className="flex items-end gap-4 mb-6">
-          <div>
-            <p className="text-xs text-gray-500 mb-1">Dikirim</p>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-lg font-medium text-gray-500 min-w-[72px] text-center">
-              {currentItem.qty_dikirim} {currentItem.bahan_baku?.satuan}
-            </div>
-          </div>
-          <span className="text-gray-300 text-xl pb-2">→</span>
-          <div>
-            <p className="text-xs text-gray-500 mb-1">Diterima</p>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                min={0}
-                max={currentItem.qty_dikirim}
-                value={currentVerif.qty_terima}
-                onChange={(e) => setVerif({ qty_terima: parseInt(e.target.value) || 0, kondisi: 'jelek' })}
-                className={`border rounded-lg px-3 py-2 text-lg font-medium text-center w-20 ${
-                  isJelekMode ? 'border-red-400' : 'border-green-400'
-                }`}
-              />
-              <span className="text-sm text-gray-500">{currentItem.bahan_baku?.satuan}</span>
-            </div>
+    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
+      <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
+          <div className="flex flex-col">
+            <h2 className="text-xl font-bold text-[#701604] tracking-tight">Verifikasi Item</h2>
+            <p className="text-xs text-suka-brown/60 mt-0.5">Sistem Distribusi & Logistik</p>
           </div>
         </div>
+        <div>
+          <Link
+            href="/distribusi/terima"
+            className="px-4 py-2 border border-suka-brown/15 text-suka-brown font-semibold text-xs rounded-xl bg-white hover:bg-suka-cream transition-all"
+          >
+            ← Batal
+          </Link>
+        </div>
+      </header>
 
-        {isJelekMode && (
-          <div className="mb-4">
-            <label className="text-xs text-gray-500 mb-1 block">Catatan / concern (wajib)</label>
-            <textarea
-              value={currentVerif.catatan}
-              onChange={(e) => setVerif({ catatan: e.target.value })}
-              placeholder="Contoh: 2 kg busuk, kondisi kemasan rusak..."
-              rows={2}
-              className="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-red-50 resize-none"
-            />
+      <div className="p-6 max-w-lg mx-auto mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-bold text-suka-brown uppercase tracking-wider">Progress Verifikasi</span>
+          <span className="text-xs font-bold text-suka-orange bg-white border border-suka-brown/10 px-2.5 py-1 rounded-lg">
+            {currentIndex + 1} / {items.length} Barang
+          </span>
+        </div>
+
+        <div className="w-full bg-[#faf2e9] border border-suka-brown/5 rounded-full h-2.5 mb-6 overflow-hidden">
+          <div
+            className="bg-suka-orange h-full rounded-full transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        <div className="bg-white rounded-xl border border-suka-brown/10 p-6 mb-6 shadow-sm">
+          <p className="text-xs text-suka-orange/80 font-bold uppercase tracking-widest mb-1.5">
+            Kategori: {currentItem.bahan_baku?.kategori || 'BAHAN BAKU'}
+          </p>
+          <h2 className="text-xl font-extrabold text-suka-ink mb-6 border-b border-suka-brown/10 pb-3">{currentItem.bahan_baku?.nama}</h2>
+
+          <div className="flex items-center justify-center gap-6 mb-6 bg-[#fff8f1] p-4 rounded-xl border border-suka-brown/5">
+            <div>
+              <p className="text-xs text-suka-brown/60 font-bold uppercase tracking-wider mb-1.5 text-center">Dikirim</p>
+              <div className="bg-white border border-suka-brown/10 rounded-xl px-4 py-2.5 text-base font-bold text-suka-brown/70 min-w-[80px] text-center shadow-sm">
+                {currentItem.qty_dikirim} <span className="text-xs font-semibold">{currentItem.bahan_baku?.satuan}</span>
+              </div>
+            </div>
+            <span className="text-suka-brown/30 text-xl font-bold pt-4">→</span>
+            <div>
+              <p className="text-xs text-suka-brown/60 font-bold uppercase tracking-wider mb-1.5 text-center">Diterima</p>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={0}
+                  max={currentItem.qty_dikirim}
+                  value={currentVerif.qty_terima}
+                  onChange={(e) => setVerif({ qty_terima: parseInt(e.target.value) || 0, kondisi: 'jelek' })}
+                  className={`border-2 rounded-xl px-3 py-2 text-base font-bold text-center w-20 bg-white focus:outline-none focus:ring-1 focus:ring-suka-orange transition-all ${
+                    isJelekMode ? 'border-red-400' : 'border-suka-green'
+                  }`}
+                />
+                <span className="text-xs font-bold text-suka-brown/70">{currentItem.bahan_baku?.satuan}</span>
+              </div>
+            </div>
+          </div>
+
+          {isJelekMode && (
+            <div className="mb-4 space-y-1">
+              <label className="text-xs font-bold text-red-650 block">Catatan / Concern Masalah (Wajib)</label>
+              <textarea
+                value={currentVerif.catatan}
+                onChange={(e) => setVerif({ catatan: e.target.value })}
+                placeholder="Contoh: 2 kg busuk, kemasan berlubang, dll..."
+                rows={2}
+                className="w-full border border-red-200 rounded-xl px-4 py-3 text-xs bg-red-50 focus:outline-none focus:ring-1 focus:ring-red-400 resize-none"
+              />
+            </div>
+          )}
+        </div>
+
+        {!isJelekMode ? (
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={handleBaik}
+              className="bg-suka-green hover:opacity-95 text-white rounded-xl py-3.5 font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
+            >
+              ✓ Kondisi Baik
+            </button>
+            <button
+              onClick={() => setVerif({ kondisi: 'jelek', qty_terima: currentItem.qty_dikirim })}
+              className="border border-red-400 text-red-600 rounded-xl py-3.5 font-bold hover:bg-red-50 bg-white transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
+            >
+              ✗ Ada Masalah (Jelek)
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setVerif({ kondisi: 'baik', qty_terima: currentItem.qty_dikirim, catatan: '' })}
+              className="border border-suka-brown/15 text-suka-brown rounded-xl py-3.5 font-semibold hover:bg-suka-cream bg-white transition-all cursor-pointer text-sm"
+            >
+              ← Batalkan
+            </button>
+            <button
+              onClick={handleJelekConfirm}
+              className="bg-red-600 hover:opacity-95 text-white rounded-xl py-3.5 font-bold shadow-md transition-all cursor-pointer text-sm"
+            >
+              Konfirmasi Masalah →
+            </button>
           </div>
         )}
       </div>
-
-      {!isJelekMode ? (
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={handleBaik}
-            className="bg-green-600 text-white rounded-xl py-3 font-medium hover:bg-green-700 flex items-center justify-center gap-2"
-          >
-            ✓ Baik
-          </button>
-          <button
-            onClick={() => setVerif({ kondisi: 'jelek', qty_terima: currentItem.qty_dikirim })}
-            className="border border-red-400 text-red-600 rounded-xl py-3 font-medium hover:bg-red-50 flex items-center justify-center gap-2"
-          >
-            ✗ Jelek
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setVerif({ kondisi: 'baik', qty_terima: currentItem.qty_dikirim, catatan: '' })}
-            className="border border-gray-300 text-gray-600 rounded-xl py-3 font-medium hover:bg-gray-50"
-          >
-            ← Batalkan
-          </button>
-          <button
-            onClick={handleJelekConfirm}
-            className="bg-red-600 text-white rounded-xl py-3 font-medium hover:bg-red-700"
-          >
-            Konfirmasi Jelek →
-          </button>
-        </div>
-      )}
     </div>
   )
 }

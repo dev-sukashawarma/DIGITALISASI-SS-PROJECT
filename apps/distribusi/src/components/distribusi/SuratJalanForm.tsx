@@ -77,120 +77,137 @@ export function SuratJalanForm() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/distribusi/surat-jalan" className="text-blue-600 hover:underline">
-          ← Kembali
-        </Link>
-        <h1 className="text-3xl font-bold">Buat Surat Jalan</h1>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Outlet Tujuan</label>
-            {outletsLoading ? (
-              <p className="text-sm text-gray-500">Memuat outlet...</p>
-            ) : (
-              <select
-                value={outletId}
-                onChange={(e) => setOutletId(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2"
-              >
-                <option value="">Pilih outlet...</option>
-                {outlets.map((outlet) => (
-                  <option key={outlet.id} value={outlet.id}>
-                    {outlet.name}
-                  </option>
-                ))}
-              </select>
-            )}
+    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
+          <div className="flex flex-col">
+            <h2 className="text-xl font-bold text-[#701604] tracking-tight">Buat Surat Jalan</h2>
+            <p className="text-xs text-suka-brown/60 mt-0.5">Sistem Distribusi & Logistik</p>
           </div>
+        </div>
+        <div>
+          <Link
+            href="/distribusi/surat-jalan"
+            className="px-4 py-2 border border-suka-brown/15 text-suka-brown font-semibold text-xs rounded-xl bg-white hover:bg-suka-cream transition-all flex items-center gap-1"
+          >
+            ← Kembali
+          </Link>
+        </div>
+      </header>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Tambah Item Barang</label>
-            <div className="flex gap-2 mb-3">
-              {bahanLoading ? (
-                <p className="text-sm text-gray-500">Memuat barang...</p>
+      {/* Main card */}
+      <div className="p-6 max-w-2xl mx-auto mt-6">
+        <div className="bg-white rounded-xl border border-suka-brown/10 p-6 shadow-[0px_4px_12px_rgba(112,22,4,0.04)]">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-bold text-suka-brown mb-1.5">Outlet Tujuan</label>
+              {outletsLoading ? (
+                <p className="text-sm text-suka-brown/50">Memuat outlet...</p>
               ) : (
-                <>
-                  <select
-                    value={selectedBahan}
-                    onChange={(e) => setSelectedBahan(e.target.value)}
-                    className="flex-1 border border-gray-300 rounded px-3 py-2"
-                  >
-                    <option value="">Pilih barang...</option>
-                    {bahanBaku.map((bahan) => (
-                      <option key={bahan.id} value={bahan.id}>
-                        {bahan.nama} ({bahan.satuan})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    value={qty}
-                    onChange={(e) => setQty(e.target.value)}
-                    placeholder="Qty"
-                    className="w-24 border border-gray-300 rounded px-3 py-2"
-                  />
-                  <button
-                    type="button"
-                    onClick={addItem}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                  >
-                    Tambah
-                  </button>
-                </>
+                <select
+                  value={outletId}
+                  onChange={(e) => setOutletId(e.target.value)}
+                  className="w-full bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all"
+                >
+                  <option value="">Pilih outlet...</option>
+                  {outlets.map((outlet) => (
+                    <option key={outlet.id} value={outlet.id}>
+                      {outlet.name.replace('SUKA SHAWARMA ', '').toUpperCase()}
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Item yang dipilih</label>
-            {items.length === 0 ? (
-              <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded">Belum ada item</p>
-            ) : (
-              <div className="space-y-2">
-                {items.map((item, idx) => {
-                  const bahan = bahanBaku.find((b) => b.id === item.bahanId)
-                  return (
-                    <div
-                      key={idx}
-                      className="flex justify-between items-center bg-gray-50 p-3 rounded"
+            <div className="border-t border-suka-brown/10 pt-4">
+              <label className="block text-sm font-bold text-suka-brown mb-2">Tambah Item Barang</label>
+              <div className="flex gap-2 mb-3">
+                {bahanLoading ? (
+                  <p className="text-sm text-suka-brown/50">Memuat barang...</p>
+                ) : (
+                  <>
+                    <select
+                      value={selectedBahan}
+                      onChange={(e) => setSelectedBahan(e.target.value)}
+                      className="flex-1 bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all"
                     >
-                      <span>
-                        {bahan?.nama || 'Unknown'} - {item.qty} {bahan?.satuan}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(idx)}
-                        className="text-red-600 hover:text-red-700 text-sm"
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                  )
-                })}
+                      <option value="">Pilih barang...</option>
+                      {bahanBaku.map((bahan) => (
+                        <option key={bahan.id} value={bahan.id}>
+                          {bahan.nama} ({bahan.satuan})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      value={qty}
+                      onChange={(e) => setQty(e.target.value)}
+                      placeholder="Qty"
+                      className="w-24 bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm text-center transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={addItem}
+                      className="px-4 py-2.5 bg-suka-orange text-white font-bold text-sm rounded-xl hover:bg-orange-600 active:bg-orange-700 shadow-sm transition-all cursor-pointer"
+                    >
+                      Tambah
+                    </button>
+                  </>
+                )}
               </div>
-            )}
-          </div>
+            </div>
 
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              {submitting ? 'Menyimpan...' : 'Simpan'}
-            </button>
-            <Link
-              href="/distribusi/surat-jalan"
-              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-            >
-              Batal
-            </Link>
-          </div>
-        </form>
+            <div className="border-t border-suka-brown/10 pt-4">
+              <label className="block text-sm font-bold text-suka-brown mb-2">Item yang dipilih</label>
+              {items.length === 0 ? (
+                <p className="text-sm text-suka-brown/50 bg-[#fff8f1]/50 border border-dashed border-suka-brown/10 p-4 rounded-xl text-center">
+                  Belum ada item ditambahkan
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {items.map((item, idx) => {
+                    const bahan = bahanBaku.find((b) => b.id === item.bahanId)
+                    return (
+                      <div
+                        key={idx}
+                        className="flex justify-between items-center bg-[#fff8f1] border border-suka-brown/10 px-4 py-3 rounded-xl"
+                      >
+                        <span className="text-sm font-semibold text-suka-ink">
+                          {bahan?.nama || 'Unknown'} - {item.qty} {bahan?.satuan}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(idx)}
+                          className="text-red-600 hover:text-red-700 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          ✕ Hapus
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 border-t border-suka-brown/10 pt-4">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 px-4 py-3 bg-[#701604] hover:opacity-95 text-white font-bold text-sm rounded-xl disabled:opacity-50 transition-all cursor-pointer"
+              >
+                {submitting ? 'Menyimpan...' : 'Simpan Surat Jalan'}
+              </button>
+              <Link
+                href="/distribusi/surat-jalan"
+                className="px-6 py-3 border border-suka-brown/15 text-suka-brown font-semibold text-sm rounded-xl bg-white hover:bg-suka-cream transition-all text-center"
+              >
+                Batal
+              </Link>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   )

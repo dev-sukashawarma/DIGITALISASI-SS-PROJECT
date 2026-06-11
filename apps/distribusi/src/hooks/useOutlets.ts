@@ -15,28 +15,33 @@ export function useOutlets() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
 
-    const supabase = createClient()
-    supabase
-      .from('outlets')
-      .select('id, name, address')
-      .eq('is_active', true)
-      .order('name')
-      .then(({ data, error: err }) => {
+      try {
+        const supabase = createClient()
+        const { data, error: err } = await supabase
+          .from('outlets')
+          .select('id, name, address')
+          .eq('is_active', true)
+          .order('name')
+
         if (err) {
           setError(err.message)
           setOutlets([])
         } else {
           setOutlets(data || [])
         }
-      })
-      .catch(err => {
-        setError(err.message)
+      } catch (err: any) {
+        setError(err?.message || 'Terjadi kesalahan')
         setOutlets([])
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
   }, [])
 
   return { outlets, loading, error }

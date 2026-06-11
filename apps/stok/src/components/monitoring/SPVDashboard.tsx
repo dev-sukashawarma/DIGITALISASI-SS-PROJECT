@@ -10,8 +10,9 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchOpnameStatus } from '@/lib/queries/monitoring';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 
-const getOutletRegion = (outletName: string): 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
+const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
   const name = outletName.toUpperCase();
+  if (name.includes('KITCHEN')) return 'Central Kitchen';
   if (name.includes('JATIASIH') || name.includes('JATIWANGIN')) return 'Bekasi';
   if (name.includes('CIRENDEU')) return 'Tangerang';
   if (name.includes('CIBINONG') || name.includes('CISEENG') || name.includes('CITAYAM') || name.includes('DRAMAGA') || name.includes('EMPANG') || name.includes('BEJI')) return 'Bogor';
@@ -218,11 +219,14 @@ export function SPVDashboard() {
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm flex-shrink-0">
-        <div className="flex flex-col">
-          <h2 className="text-xl font-bold text-[#701604] tracking-tight">SPV Monitoring Dashboard</h2>
-          <p className="text-xs text-suka-brown/60 mt-0.5">
-            Last updated: {lastFetched ? new Date(lastFetched).toLocaleTimeString('id-ID') : 'Never'}
-          </p>
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
+          <div className="flex flex-col">
+            <h2 className="text-xl font-bold text-[#701604] tracking-tight">SPV Monitoring Dashboard</h2>
+            <p className="text-xs text-suka-brown/60 mt-0.5">
+              Last updated: {lastFetched ? new Date(lastFetched).toLocaleTimeString('id-ID') : 'Never'}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {isError && (
@@ -282,7 +286,7 @@ export function SPVDashboard() {
                 Daftar 19 Outlet
               </h3>
               <div className="flex flex-col gap-6">
-                {['Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang'].map((region) => (
+                {['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang'].map((region) => (
                   outlets.byRegion[region] && outlets.byRegion[region].length > 0 && (
                     <div key={region} className="flex flex-col gap-2">
                       <h4 className="text-xs font-bold text-suka-orange/70 uppercase tracking-widest px-2">
@@ -341,8 +345,9 @@ export function SPVDashboard() {
                         <span className="text-suka-brown/30">•</span>
                         <span className="text-suka-brown/60 font-medium">{subLocation}</span>
                       </div>
-                        </button>
-                        })}
+                    </button>
+                    );
+                  })}
                       </div>
                     </div>
                   )

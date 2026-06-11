@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { AuthGuard } from '@/components/common/AuthGuard';
+import { getCrossAppUrl } from '@/lib/navigation';
 
 const CREW_MENU = [
   {
@@ -28,6 +28,14 @@ const CREW_MENU = [
     desc: 'Status saldo bahan baku outlet',
     icon: '📊',
   },
+  {
+    href: '/distribusi/terima',
+    label: 'Terima Kiriman',
+    desc: 'Verifikasi surat jalan barang masuk',
+    icon: '🚚',
+    action: 'Scan QR',
+    actionHref: '/distribusi/terima/scan',
+  },
 ];
 
 const SPV_EXTRA = [
@@ -45,6 +53,15 @@ function DashboardHub() {
   const { outletStaff } = useAuth();
   const isSPV = outletStaff?.role === 'spv';
   const menu = isSPV ? [...CREW_MENU, ...SPV_EXTRA] : CREW_MENU;
+
+  const handleNavigate = (path: string) => {
+    const resolvedUrl = getCrossAppUrl(path);
+    if (resolvedUrl.startsWith('http')) {
+      window.location.href = resolvedUrl;
+    } else {
+      router.push(resolvedUrl);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#fff8f1] text-[#400a07]">
@@ -74,7 +91,7 @@ function DashboardHub() {
         {menu.map((item) => (
           <div
             key={item.href}
-            onClick={() => router.push(item.href)}
+            onClick={() => handleNavigate(item.href)}
             className="block group cursor-pointer"
           >
             <div className="bg-white border border-[#701604]/10 rounded-2xl px-5 py-4 flex items-center justify-between shadow-sm hover:shadow-md hover:border-[#701604]/25 transition-all">
@@ -94,13 +111,13 @@ function DashboardHub() {
               </div>
               <div className="flex items-center gap-2">
                 {'actionHref' in item && item.actionHref && (
-                  <Link
-                    href={item.actionHref}
+                  <a
+                    href={getCrossAppUrl(item.actionHref)}
                     onClick={(e) => e.stopPropagation()}
                     className="px-3 py-1.5 bg-[#701604] text-white text-[10px] font-bold rounded-lg hover:bg-[#591002] transition-colors"
                   >
                     {item.action}
-                  </Link>
+                  </a>
                 )}
                 <span className="text-[#701604]/30 group-hover:text-[#701604]/60 transition-colors text-lg">›</span>
               </div>

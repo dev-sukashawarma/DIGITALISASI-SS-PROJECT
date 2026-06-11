@@ -5,6 +5,7 @@ import { CrewList } from './CrewList';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
 import { useAuth } from '@/context/AuthContext';
+import { getCrossAppUrl } from '@/lib/navigation';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
 
@@ -163,12 +164,12 @@ export function CrewDashboard() {
           </div>
           <span className="text-xs font-semibold text-gray-600">Mulai Opname</span>
         </Link>
-        <Link href="/distribusi/terima" className="flex-shrink-0 bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center gap-2 min-w-[100px] shadow-sm hover:shadow transition-all active:scale-95">
+        <a href={getCrossAppUrl('/distribusi/terima')} className="flex-shrink-0 bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center gap-2 min-w-[100px] shadow-sm hover:shadow transition-all active:scale-95">
           <div className="w-12 h-12 rounded-full bg-[#f29744]/10 flex items-center justify-center">
             <span className="text-xl">🚚</span>
           </div>
           <span className="text-xs font-semibold text-gray-600">Terima Kiriman</span>
-        </Link>
+        </a>
       </section>
 
       {/* Section 3: Real-time Stock Balance Grid */}
@@ -200,10 +201,10 @@ export function CrewDashboard() {
           <span className="text-lg leading-none">📋</span>
           <span className="text-[10px] font-bold mt-0.5">Opname</span>
         </Link>
-        <Link href="/distribusi/terima" className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8] px-4 py-1.5 rounded-full transition-all active:scale-95">
+        <a href={getCrossAppUrl('/distribusi/terima')} className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8] px-4 py-1.5 rounded-full transition-all active:scale-95">
           <span className="text-lg leading-none">🚚</span>
           <span className="text-[10px] font-bold mt-0.5">Terima</span>
-        </Link>
+        </a>
       </nav>
 
       {/* Detail Modal */}

@@ -1,14 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+// Use the shared browser client (@supabase/ssr) so the logged-in session
+// is carried on every request. A raw @supabase/supabase-js client does NOT
+// share the SSR session and causes "Not authenticated" errors.
+import { createClient } from '@/lib/supabase';
 
-// Validate Supabase environment variables on module load
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and/or NEXT_PUBLIC_SUPABASE_ANON_KEY');
-}
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const supabase = createClient();
 
 /**
  * Fetch monitoring data for SPV (multi-outlet view)

@@ -4,7 +4,7 @@
 > **Tanggal:** 2026-06-11 · **Scope:** 3 outlet pilot (Kitchen, Empang, Paledang/Sukmajaya)
 > Centang ✅ / ❌ tiap langkah. Kalau ada ❌ → stop, catat, lihat bagian Troubleshooting.
 >
-> **Progress:** Fase 0 ✅ · TEST A ✅ · TEST B ✅ · TEST C–E ⬜ belum. Detail temuan & perbaikan ada di `docs/E2E-RUNBOOK.md`.
+> **Progress:** Fase 0 ✅ · TEST A ✅ · TEST B ✅ · TEST C ✅ · TEST D ✅ (sebagian) · TEST E ⬜ belum. Detail temuan & perbaikan ada di `docs/E2E-RUNBOOK.md`.
 
 ---
 
@@ -136,10 +136,7 @@ WHERE o.name='SUKA SHAWARMA EMPANG' AND b.nama IN ('AYAM','BAWANG','KENTANG')
 ORDER BY b.nama;
 ```
 
-> 🔴 **Concern yang sedang diuji di B5:** KENTANG rusak menghilang tanpa jejak stok
-> sama sekali — tidak ada catatan "barang ditolak/rusak" di ledger. Untuk audit
-> (klaim ke Kitchen, tracking kerugian) ini bermasalah. Pertimbangkan: buat ledger
-> tipe `waste`/`adjustment` qty 0 + catatan, atau kolom status penolakan terpisah.
+> ✅ **Concern resolved (2026-06-11):** Item rusak kini menghasilkan ledger tipe `rejected_kiriman` qty=0 dengan catatan "Ditolak N unit rusak: [alasan]". Stok tidak bertambah, tapi audit trail tersimpan. Migration: `20260611000200_add_rejected_kiriman_tipe.sql`.
 
 ---
 
@@ -147,8 +144,8 @@ ORDER BY b.nama;
 
 | # | Langkah | Hasil | ✅/❌ |
 |---|---------|-------|-------|
-| C1 | Coba buka kembali SJ yang sudah **diterima** lalu paksa verifikasi ulang | Tidak boleh dobel; diarahkan ke detail, bukan form | |
-| C2 | Jalankan SQL konsistensi saldo (di bawah) | **0 baris** (saldo = jumlah ledger) | |
+| C1 | Coba buka kembali SJ yang sudah **diterima** lalu paksa verifikasi ulang | Tidak boleh dobel; diarahkan ke detail, bukan form | ✅ (guard di RPC + UI redirect ditambahkan) |
+| C2 | Jalankan SQL konsistensi saldo (di bawah) | **0 baris** (saldo = jumlah ledger) | ✅ |
 
 ```sql
 -- Konsistensi: saldo harus sama dengan SUM(ledger). Harus 0 baris.
@@ -167,11 +164,11 @@ WHERE ABS(agg.computed - sb.saldo) > 0.001;
 
 | # | Langkah | Hasil | ✅/❌ |
 |---|---------|-------|-------|
-| D1 | Login Empang → `/stok/ledger`, salin URL request ledger dari DevTools→Network | — | |
-| D2 | Logout, login **Sukmajaya** (`budi.sukmajaya@...`) | Outlet = Sukmajaya | |
-| D3 | Tempel URL ledger Empang di tab baru | **Array kosong / 401** — BUKAN data Empang | |
-| D4 | Cek `/distribusi/terima` sebagai Sukmajaya | SJ untuk Empang **tidak** muncul | |
-| D5 | Opname paralel: Empang & Sukmajaya finalisasi bersamaan | Keduanya sukses, data tidak tercampur | |
+| D1 | Login Empang → `/stok/ledger`, salin URL request ledger dari DevTools→Network | — | ⬜ belum diuji via DevTools |
+| D2 | Logout, login **Sukmajaya** (`budi.sukmajaya@...`) | Outlet = Sukmajaya | ✅ |
+| D3 | Tempel URL ledger Empang di tab baru | **Array kosong / 401** — BUKAN data Empang | ⬜ belum diuji |
+| D4 | Cek `/distribusi/terima` sebagai Sukmajaya | SJ untuk Empang **tidak** muncul | ✅ "Belum ada kiriman masuk" |
+| D5 | Opname paralel: Empang & Sukmajaya finalisasi bersamaan | Keduanya sukses, data tidak tercampur | ⬜ belum diuji |
 
 ---
 

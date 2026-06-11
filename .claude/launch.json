@@ -4,7 +4,7 @@
     {
       "name": "stok",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["workspace", "@ss/stok", "dev"],
+      "runtimeArgs": ["workspace", "@suka/stok", "dev"],
       "port": 3001
     },
     {

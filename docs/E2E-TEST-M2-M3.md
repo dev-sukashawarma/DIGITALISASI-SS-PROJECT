@@ -3,6 +3,8 @@
 > **Tujuan:** Membuktikan rantai penuh **M3 (kirim barang) → M2 (ledger & stok) → Monitoring** bekerja end-to-end tanpa korupsi data.
 > **Tanggal:** 2026-06-11 · **Scope:** 3 outlet pilot (Kitchen, Empang, Paledang/Sukmajaya)
 > Centang ✅ / ❌ tiap langkah. Kalau ada ❌ → stop, catat, lihat bagian Troubleshooting.
+>
+> **Progress:** Fase 0 ✅ · TEST A ✅ · TEST B–E ⬜ belum. Detail temuan & perbaikan ada di `docs/E2E-RUNBOOK.md`.
 
 ---
 
@@ -42,29 +44,29 @@ konsistensi saldo harus 0 baris**.
 
 ---
 
-## TEST A — M2 Stok berdiri sendiri (opname → ledger → monitoring)
+## TEST A — M2 Stok berdiri sendiri (opname → ledger → monitoring) — ✅ LULUS (2026-06-11)
 
-**Login: Crew Empang** (`andi.empang@sukashawarma.com`)
+**Login: Crew Empang** (`andi.empang@sukashawarma.com` / `test`)
 
 | # | Langkah | Hasil yang diharapkan | ✅/❌ |
 |---|---------|-----------------------|-------|
-| A1 | Login → dashboard | Outlet ter-set = Empang | |
-| A2 | Buka `/stok/opname/new`, tipe **harian** | Form tampil 15+ bahan, ada filter kategori + search | |
-| A3 | Hitung 5 bahan; buat **3 item selisih >15%** (mis. AYAM jauh dari sistem) | Border item merah, ada warning selisih | |
-| A4 | Klik **Finalisasi Opname** | Redirect ke list, muncul "1 selesai hari ini" | |
-| A5 | Buka `/stok/ledger` | Ada entri `opname_selisih` sebanyak item yang selisih ≠ 0 | |
-| A6 | Klik 1 entri ledger | `saldo_sesudah = saldo_sebelum + qty` (matematika benar) | |
-| A7 | Buka `/stok/monitoring` | Bahan tampil terurut kritis→aman, satuan benar (bukan tebakan) | |
-| A8 | Set 1 bahan qty=0 saat opname lalu finalisasi → cek monitoring | Bahan jadi 🔴 Kritis | |
-| A9 | `/stok/monitoring-live` | Kartu outlet tampil, alarm bunyi untuk item kritis | |
+| A1 | Login → dashboard | Outlet ter-set = Empang | ✅ |
+| A2 | Buka `/stok/opname/new`, tipe **harian** | Form tampil 15+ bahan, ada filter kategori + search | ✅ |
+| A3 | Hitung 5 bahan; buat **3 item selisih >15%** (mis. AYAM jauh dari sistem) | Border item merah, ada warning selisih | ✅ |
+| A4 | Klik **Finalisasi Opname** | Redirect ke list, muncul "1 selesai hari ini" | ✅ |
+| A5 | Buka `/stok/ledger` | Ada entri `opname_selisih` sebanyak item yang selisih ≠ 0 | ✅ (3 entri) |
+| A6 | Klik 1 entri ledger | `saldo_sesudah = saldo_sebelum + qty` (matematika benar) | ✅ |
+| A7 | Buka `/stok/monitoring` | Bahan tampil terurut kritis→aman, satuan benar (bukan tebakan) | ✅ (perlu fix SSR client dulu — commit `e8d0636`) |
+| A8 | Set 1 bahan qty=0 saat opname lalu finalisasi → cek monitoring | Bahan jadi 🔴 Kritis | ✅ (KENTANG 🔴) |
+| A9 | `/stok/monitoring-live` | Kartu outlet tampil, alarm bunyi untuk item kritis | ⬜ belum diuji |
 
 **Manual ledger entry:**
 
 | # | Langkah | Hasil | ✅/❌ |
 |---|---------|-------|-------|
-| A10 | `/stok/ledger/new` → tipe **waste**, qty 2, bahan AYAM | Submit sukses | |
-| A11 | Cek ledger | Entri qty = **-2** (merah) | |
-| A12 | Cek monitoring | Saldo AYAM berkurang 2 | |
+| A10 | `/stok/ledger/new` → tipe **waste**, qty 2, bahan AYAM | Submit sukses | ⬜ opsional, belum |
+| A11 | Cek ledger | Entri qty = **-2** (merah) | ⬜ |
+| A12 | Cek monitoring | Saldo AYAM berkurang 2 | ⬜ |
 
 ---
 

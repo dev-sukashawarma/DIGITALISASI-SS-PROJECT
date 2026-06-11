@@ -4,7 +4,7 @@
 > **Tanggal:** 2026-06-11 · **Scope:** 3 outlet pilot (Kitchen, Empang, Paledang/Sukmajaya)
 > Centang ✅ / ❌ tiap langkah. Kalau ada ❌ → stop, catat, lihat bagian Troubleshooting.
 >
-> **Progress:** Fase 0 ✅ · TEST A ✅ · TEST B–E ⬜ belum. Detail temuan & perbaikan ada di `docs/E2E-RUNBOOK.md`.
+> **Progress:** Fase 0 ✅ · TEST A ✅ · TEST B ✅ · TEST C–E ⬜ belum. Detail temuan & perbaikan ada di `docs/E2E-RUNBOOK.md`.
 
 ---
 
@@ -74,56 +74,56 @@ konsistensi saldo harus 0 baris**.
 
 Ini bagian terpenting: membuktikan barang yang dikirim Kitchen masuk otomatis ke ledger outlet.
 
-### B1. Buat Surat Jalan — **Login: SPV** (`spv@test.com`)
+### B1. Buat Surat Jalan — **Login: SPV** (`spv@test.com`) — ✅ LULUS
 
 | # | Langkah | Hasil | ✅/❌ |
 |---|---------|-------|-------|
-| B1.1 | Buka `/distribusi/surat-jalan/new` | Form tampil, bisa pilih outlet tujuan + barang | |
-| B1.2 | Tujuan = **EMPANG**; tambah 3 barang: **AYAM 20**, **BAWANG 5**, **KENTANG 4** | Item masuk daftar | |
-| B1.3 | Submit | Nomor dokumen auto-generate `SJ/KITCHEN/YYYYMMDD/NNN` | |
-| B1.4 | Buka detail SJ | Status **draft**, nomor & item tampil benar | |
+| B1.1 | Buka `/distribusi/surat-jalan/new` | Form tampil, bisa pilih outlet tujuan + barang | ✅ |
+| B1.2 | Tujuan = **EMPANG**; tambah 3 barang: **AYAM 20**, **BAWANG 5**, **KENTANG 4** | Item masuk daftar | ✅ |
+| B1.3 | Submit | Nomor dokumen auto-generate `SJ/KITCHEN/YYYYMMDD/NNN` (SJ/KITCHEN/20260611/0002) | ✅ |
+| B1.4 | Buka detail SJ | Status **draft**, nomor & item tampil benar | ✅ |
 
-### B2. Tanda tangan 2 pihak — masih **SPV**
-
-| # | Langkah | Hasil | ✅/❌ |
-|---|---------|-------|-------|
-| B2.1 | Tanda tangan ke-1: role **SPV Kitchen**, gambar di canvas | Tersimpan, muncul thumbnail TT | |
-| B2.2 | Coba submit/kirim dengan 1 TT saja | **Ditolak** — wajib 2 tanda tangan | |
-| B2.3 | Tanda tangan ke-2: pilih role **Supir** | Tersimpan | |
-| B2.4 | Coba tanda tangan canvas kosong | Ditolak (validasi empty) | |
-| B2.5 | Klik **Kirim** (`send_surat_jalan_signed`) | Status → **dikirim** | |
-
-### B3. Download PDF + QR
+### B2. Tanda tangan 2 pihak — masih **SPV** — ✅ LULUS
 
 | # | Langkah | Hasil | ✅/❌ |
 |---|---------|-------|-------|
-| B3.1 | Download PDF dari list/detail | PDF terbuka, header brand SUKA, tabel item, tabel TT dengan gambar | |
-| B3.2 | Cek QR di PDF (bagian bawah) | QR ada + nomor dokumen di bawahnya | |
-| B3.3 | Scan QR pakai kamera HP biasa | Membuka URL ke halaman terima SJ tsb | |
+| B2.1 | Tanda tangan ke-1: role **SPV Kitchen**, gambar di canvas | Tersimpan, muncul thumbnail TT | ✅ |
+| B2.2 | Coba submit/kirim dengan 1 TT saja | **Ditolak** — wajib 2 tanda tangan | ✅ |
+| B2.3 | Tanda tangan ke-2: pilih role **Supir** | Tersimpan | ✅ |
+| B2.4 | Coba tanda tangan canvas kosong | Ditolak (validasi empty) | ✅ |
+| B2.5 | Klik **Kirim** (`send_surat_jalan_signed`) | Status → **dikirim** | ✅ |
 
-### B4. Terima & Verifikasi — **Login: Crew Empang**
+### B3. Download PDF + QR — ✅ LULUS
 
 | # | Langkah | Hasil | ✅/❌ |
 |---|---------|-------|-------|
-| B4.1 | Buka `/distribusi/terima` | SJ dari Kitchen muncul di daftar masuk | |
-| B4.2 | Klik **Scan QR** → `/distribusi/terima/scan` | Kamera terbuka (atau fallback input manual nomor) | |
-| B4.3 | Scan QR dari B3.2 (atau ketik nomor) | Redirect ke verifikasi SJ yang benar | |
-| B4.4 | Kartu item 1 (AYAM): klik **Baik** | qty_terima = 20, lanjut item berikutnya | |
-| B4.5 | Kartu item 2 (BAWANG): klik **Baik** tapi ubah qty diterima jadi **3** (terima sebagian) | qty_terima = 3, lanjut | |
-| B4.6 | Kartu item 3 (KENTANG): klik **Jelek**, **kosongkan catatan** | Submit ditolak — catatan wajib | |
-| B4.7 | Isi catatan "kentang busuk semua", konfirmasi | Lanjut ke ringkasan | |
-| B4.8 | Layar ringkasan | AYAM Baik 20 · BAWANG Baik 3 · KENTANG Jelek + warning merah | |
-| B4.9 | Klik **Selesai & Simpan Verifikasi** | `finalize_surat_jalan_and_ledger` jalan, redirect ke `/distribusi/terima` | |
-| B4.10 | Buka detail SJ | Status → **diterima** | |
+| B3.1 | Download PDF dari list/detail | PDF terbuka, header brand SUKA, tabel item, tabel TT dengan gambar | ✅ |
+| B3.2 | Cek QR di PDF (bagian bawah) | QR ada + nomor dokumen di bawahnya | ✅ |
+| B3.3 | Scan QR pakai kamera HP biasa | Membuka URL ke halaman terima SJ tsb | ✅ |
 
-### B5. Verifikasi auto-ledger di M2 — **masih Crew Empang**
+### B4. Terima & Verifikasi — **Login: Crew Empang** (`andi.empang@sukashawarma.com`) — ✅ LULUS
+
+| # | Langkah | Hasil | ✅/❌ |
+|---|---------|-------|-------|
+| B4.1 | Buka `/distribusi/terima` | SJ dari Kitchen muncul di daftar masuk | ✅ |
+| B4.2 | Klik **Scan QR** → `/distribusi/terima/scan` | Kamera terbuka (atau fallback input manual nomor) | ✅ |
+| B4.3 | Scan QR dari B3.2 (atau ketik nomor) | Redirect ke verifikasi SJ yang benar | ✅ |
+| B4.4 | Kartu item 1 (AYAM): klik **Baik** | qty_terima = 20, lanjut item berikutnya | ✅ |
+| B4.5 | Kartu item 2 (BAWANG): klik **Baik** tapi ubah qty diterima jadi **3** (terima sebagian) | qty_terima = 3, lanjut | ✅ |
+| B4.6 | Kartu item 3 (KENTANG): klik **Jelek**, **kosongkan catatan** | Submit ditolak — catatan wajib | ✅ |
+| B4.7 | Isi catatan "kentang busuk semua", konfirmasi | Lanjut ke ringkasan | ✅ |
+| B4.8 | Layar ringkasan | AYAM Baik 20 · BAWANG Baik 3 · KENTANG Jelek + warning merah | ✅ |
+| B4.9 | Klik **Selesai & Simpan Verifikasi** (dengan TTD penerima: Crew Penerima + Supir) | `finalize_surat_jalan_and_ledger` jalan, redirect ke `/distribusi/riwayat` | ✅ |
+| B4.10 | Buka detail SJ dari riwayat | Status → **diterima_lengkap**, tampil 4 TTD (2 pengirim + 2 penerima dengan gambar) | ✅ |
+
+### B5. Verifikasi auto-ledger di M2 — **masih Crew Empang** — ✅ LULUS
 
 Baseline Empang dari seed: AYAM=10, BAWANG=4, KENTANG=8.
 
 | # | Langkah | Hasil yang diharapkan | ✅/❌ |
 |---|---------|-----------------------|-------|
-| B5.1 | Buka `/stok/ledger` Empang | **2** entri `terima_kiriman`: AYAM **+20**, BAWANG **+3**. **KENTANG TIDAK ada** (karena rusak) | |
-| B5.2 | Buka `/stok/monitoring` | AYAM 10→**30**, BAWANG 4→**7**, KENTANG tetap **8** | |
+| B5.1 | Buka `/stok/ledger` Empang | **2** entri `terima_kiriman`: AYAM **+20**, BAWANG **+3**. **KENTANG TIDAK ada** (karena rusak) | ✅ |
+| B5.2 | Buka `/stok/monitoring` | AYAM 10→**30**, BAWANG 4→**7**, KENTANG tetap **8** | ✅ |
 
 **Cek SQL (jalankan setelah B5):**
 ```sql

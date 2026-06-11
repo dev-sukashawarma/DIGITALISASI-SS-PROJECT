@@ -32,7 +32,6 @@ export function ReceiptSignatureStep({ suratJalanId, submitting, onFinalize, onB
 
   // Auto-fill nama untuk Crew Penerima (staff yang login)
   const crewNameForRole = role === 'Crew Penerima' ? (outletStaff?.name || '') : ''
-  const displayName = role === 'Crew Penerima' ? crewNameForRole : signedBy
 
   const signedRoles = signatures.map((s) => s.role)
   const missingRoles = REQUIRED_ROLES.filter((r) => !signedRoles.includes(r))

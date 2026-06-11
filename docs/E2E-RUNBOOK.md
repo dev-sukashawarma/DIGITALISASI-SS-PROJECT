@@ -3,7 +3,7 @@
 > Pendamping praktis dari `docs/E2E-TEST-M2-M3.md`. Ikuti urut dari atas.
 > Legenda: ⏱️ perkiraan waktu · 🟢 checklist sukses · 🔴 titik kritis (kalau gagal di sini, STOP).
 >
-> **Progress eksekusi (update 2026-06-11):** FASE 0 ✅ LULUS · FASE A ✅ LULUS · FASE B–E ⬜ belum dijalankan.
+> **Progress eksekusi (update 2026-06-11):** FASE 0 ✅ LULUS · FASE A ✅ LULUS · FASE B ✅ LULUS · FASE C–E ⬜ belum dijalankan.
 
 ---
 
@@ -94,15 +94,19 @@
 16. `/stok/ledger` Empang → cek entri masuk.
 17. `/stok/monitoring` → cek saldo.
 
-### 🟢 Checklist sukses Fase B
-- [ ] Nomor dokumen auto `SJ/KITCHEN/YYYYMMDD/NNN`
-- [ ] Kirim dengan 1 TT **ditolak**; TT kosong **ditolak**
-- [ ] Status SJ: draft → dikirim → diterima (sesuai tahap)
-- [ ] QR di PDF bisa di-scan → buka SJ yang benar
-- [ ] Jelek tanpa catatan **ditolak**
-- [ ] Ledger Empang: **AYAM +20**, **BAWANG +3** (tipe `terima_kiriman`)
-- [ ] **KENTANG TIDAK ada** entri ledger
-- [ ] Monitoring: AYAM **30**, BAWANG **7**, KENTANG **8**
+### 🟢 Checklist sukses Fase B — ✅ LULUS (2026-06-11)
+- [x] Nomor dokumen auto `SJ/KITCHEN/YYYYMMDD/NNN` (SJ/KITCHEN/20260611/0002)
+- [x] Kirim dengan 1 TT **ditolak**; TT kosong **ditolak**
+- [x] Status SJ: draft → dikirim → diterima_lengkap (sesuai tahap)
+- [x] QR di PDF bisa di-scan → buka SJ yang benar
+- [x] Jelek tanpa catatan **ditolak**
+- [x] Ledger Empang: **AYAM +20**, **BAWANG +3** (tipe `terima_kiriman`)
+- [x] **KENTANG TIDAK ada** entri ledger (rusak = 0 impact)
+- [x] Monitoring: AYAM **30**, BAWANG **7**, KENTANG **8**
+- [x] Riwayat halaman terpisah: `/distribusi/riwayat` tampil SJ `diterima_lengkap` + `diterima_sebagian`
+- [x] TTD penerima (Crew Penerima + Supir) diambil sebelum finalize → tersimpan di `receipt_signatures`
+- [x] Cross-outlet view SPV Pusat: `/distribusi/pengiriman` tampil semua SJ semua outlet
+- [x] GlobalAccountBar logout pill ada di semua protected page
 
 ### 🔴 Titik kritis Fase B
 - **Saldo tidak bertambah setelah verifikasi** → RPC `finalize_surat_jalan_and_ledger` gagal. Cek Supabase Logs → Postgres. Ini blocker utama integrasi.
@@ -188,12 +192,12 @@ WHERE ABS(agg.computed - sb.saldo) > 0.001;
 |------|--------------|--------|-------------|
 | 0 Persiapan | ✅ | ✅ LULUS | Perbaiki data/akun dulu |
 | A M2 | 🟡 disarankan | ✅ LULUS | Bisa lanjut, catat bug |
-| **B Integrasi** | ✅ **WAJIB** | ⬜ belum | **NO-GO** |
+| **B Integrasi** | ✅ **WAJIB** | ✅ LULUS | — |
 | **C Integritas** | ✅ **WAJIB** | ⬜ belum | **NO-GO** |
 | **D Isolasi RLS** | ✅ **WAJIB** | ⬜ belum | **NO-GO (keamanan)** |
 | E Device | 🟡 disarankan | ⬜ belum | Batasi ke device didukung |
 
-**Verdict GO** hanya jika **B + C + D semua hijau**. → **Saat ini: belum GO (B/C/D belum dijalankan).**
+**Verdict GO** hanya jika **B + C + D semua hijau**. → **Saat ini: B ✅ lulus, C + D belum dijalankan. Siap lanjut C & D.**
 
 ### Reset antar percobaan
 Untuk mengulang dari awal: jalankan ulang `supabase/seed-e2e-test.sql` (mengembalikan

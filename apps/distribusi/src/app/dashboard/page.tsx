@@ -5,6 +5,64 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
+interface ActivityItem {
+  id: string;
+  action: string;
+  details: string;
+  user: string;
+  time: string;
+  type: 'received' | 'shipped' | 'transfer' | 'draft';
+  statusLabel: string;
+}
+
+const mockActivities: ActivityItem[] = [
+  {
+    id: '1',
+    action: 'Penerimaan Surat Jalan Selesai',
+    details: 'Verifikasi logistik masuk #SJ-8821 dengan 12 item',
+    user: 'Budi Santoso (Crew)',
+    time: '10 Menit Lalu',
+    type: 'received',
+    statusLabel: 'Diterima',
+  },
+  {
+    id: '2',
+    action: 'Surat Jalan Baru Dibuat',
+    details: 'Pengiriman bahan baku ke Outlet Margonda #SJ-8824',
+    user: 'Agus Wijaya (SPV)',
+    time: '2 Jam Lalu',
+    type: 'shipped',
+    statusLabel: 'Dikirim',
+  },
+  {
+    id: '3',
+    action: 'Transfer Stok Darurat',
+    details: '50 kg Daging Kebab ke Outlet Depok Baru',
+    user: 'Anton Hermansyah (Kepala Outlet)',
+    time: '4 Jam Lalu',
+    type: 'transfer',
+    statusLabel: 'Selesai',
+  },
+  {
+    id: '4',
+    action: 'Draft Surat Jalan Disimpan',
+    details: 'Rencana pengiriman mingguan bahan kering #SJ-8825',
+    user: 'Agus Wijaya (SPV)',
+    time: '1 Hari Lalu',
+    type: 'draft',
+    statusLabel: 'Pending',
+  },
+  {
+    id: '5',
+    action: 'Penerimaan Diselisihkan',
+    details: 'Verifikasi #SJ-8819 dengan 2 kg Daging Shawarma kurang',
+    user: 'Siti Aminah (Crew)',
+    time: '2 Hari Lalu',
+    type: 'received',
+    statusLabel: 'Selisih',
+  },
+];
+
 export default function DashboardPage() {
   const router = useRouter();
   const { outletStaff, signOut, loading } = useAuth();
@@ -102,52 +160,74 @@ export default function DashboardPage() {
 
         {/* Main Grid Content */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Foundation Checklist (8 columns) */}
+          {/* Recent Action / Activity (8 columns) */}
           <section className="lg:col-span-8 flex flex-col gap-6">
             <div className="bg-white rounded-xl border border-[#d9c2b2]/45 shadow-[0px_4px_20px_rgba(112,22,4,0.03)] overflow-hidden">
               <div className="px-6 py-5 border-b border-[#701604]/10 flex justify-between items-center bg-[#faf2e9]/40">
-                <h2 className="text-sm font-black text-[#701604] uppercase tracking-wider">M0 Foundation Checklist</h2>
+                <div className="flex flex-col">
+                  <h2 className="text-sm font-black text-[#701604] uppercase tracking-wider">Aktivitas & Log Terbaru</h2>
+                  <p className="text-[10px] text-[#57423d]/60 font-semibold uppercase mt-0.5">Riwayat aktivitas logistik outlet</p>
+                </div>
                 <span className="bg-[#fff8f1] border border-[#d9c2b2]/40 px-3 py-1 rounded-full text-[10px] font-bold text-[#701604]">
-                  5/7 Task Selesai
+                  5 Log Terakhir
                 </span>
               </div>
               <div className="divide-y divide-[#d9c2b2]/20">
-                {/* Completed Items */}
-                {[
-                  'Monorepo setup (Yarn workspaces)',
-                  'Design System package (@suka/design-system)',
-                  'Offline Queue package (@suka/offline-queue)',
-                  'Supabase schema (outlets, outlet_staff)',
-                  'Next.js app shells (4 apps)',
-                ].map((task) => (
-                  <div key={task} className="px-6 py-3.5 flex items-center justify-between hover:bg-[#fff8f1]/30 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <span className="text-green-700 text-sm">✅</span>
-                      <span className="text-sm font-semibold text-[#1e1b17]">{task}</span>
+                {mockActivities.map((activity) => {
+                  let iconBg = '';
+                  let icon = '';
+                  let badgeStyles = '';
+
+                  switch (activity.type) {
+                    case 'received':
+                      iconBg = activity.statusLabel === 'Selisih' ? 'bg-[#ba1a1a]/10 text-[#ba1a1a]' : 'bg-[#e2f8f0] text-[#0f7652]';
+                      icon = activity.statusLabel === 'Selisih' ? '⚠️' : '📥';
+                      badgeStyles = activity.statusLabel === 'Selisih'
+                        ? 'bg-[#ba1a1a]/5 text-[#ba1a1a] border-[#ba1a1a]/20'
+                        : 'bg-green-50 text-green-700 border-green-200';
+                      break;
+                    case 'shipped':
+                      iconBg = 'bg-[#f29744]/10 text-[#f29744]';
+                      icon = '🚚';
+                      badgeStyles = 'bg-[#ffdcc2]/30 text-[#f29744] border-[#f29744]/20';
+                      break;
+                    case 'transfer':
+                      iconBg = 'bg-blue-50 text-blue-700';
+                      icon = '🔄';
+                      badgeStyles = 'bg-blue-50 text-blue-700 border-blue-200';
+                      break;
+                    case 'draft':
+                    default:
+                      iconBg = 'bg-[#faf2e9] text-[#544437]';
+                      icon = '📝';
+                      badgeStyles = 'bg-gray-50 text-[#57423d] border-gray-200';
+                      break;
+                  }
+
+                  return (
+                    <div key={activity.id} className="px-6 py-4 flex items-center justify-between hover:bg-[#fff8f1]/30 transition-colors gap-4">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-sm shrink-0 ${iconBg}`}>
+                          {icon}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <p className="text-sm font-bold text-[#1e1b17] leading-tight truncate">{activity.action}</p>
+                          <p className="text-xs text-[#57423d]/80 mt-0.5 leading-snug truncate sm:whitespace-normal">{activity.details}</p>
+                          <p className="text-[10px] text-[#57423d]/50 mt-1 font-semibold">
+                            {activity.user} &bull; {activity.time}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shrink-0 ${badgeStyles}`}>
+                        {activity.statusLabel}
+                      </span>
                     </div>
-                    <span className="text-[9px] font-bold text-green-700 uppercase tracking-wider bg-green-50 px-2.5 py-0.5 rounded-full border border-green-200">
-                      Completed
-                    </span>
-                  </div>
-                ))}
-                {/* In Progress Items */}
-                {[
-                  'Auth & RLS (coming in M1)',
-                  'Features development (coming in M1-M4)',
-                ].map((task) => (
-                  <div key={task} className="px-6 py-3.5 flex items-center justify-between hover:bg-[#fff8f1]/30 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[#f29744] text-sm">⏳</span>
-                      <span className="text-sm font-semibold text-[#1e1b17]/80">{task}</span>
-                    </div>
-                    <span className="text-[9px] font-bold text-[#f29744] uppercase tracking-wider bg-[#ffdcc2]/30 px-2.5 py-0.5 rounded-full border border-[#f29744]/20">
-                      In Progress
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </section>
+
 
           {/* Quick Actions & Updates Banner (4 columns) */}
           <aside className="lg:col-span-4 flex flex-col gap-6 w-full">

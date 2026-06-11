@@ -10,16 +10,25 @@ security definer
 as $$
 declare
   v_outlet_id uuid;
+  v_status text;
   v_item record;
   v_qty_terima numeric;
 begin
-  -- Get surat jalan outlet_id
-  select outlet_id into v_outlet_id
+  -- Get surat jalan outlet_id & status
+  select outlet_id, status into v_outlet_id, v_status
   from surat_jalan
   where id = p_surat_jalan_id;
 
   if v_outlet_id is null then
     raise exception 'Surat jalan not found';
+  end if;
+
+  -- Idempotency: jika sudah diterima, return early (prevent dobel-ledger)
+  if v_status in ('diterima_lengkap', 'diterima_sebagian') then
+    return jsonb_build_object(
+      'success', false,
+      'message', 'Surat jalan sudah diverifikasi sebelumnya'
+    );
   end if;
 
   -- Create ledger entries for each verified item

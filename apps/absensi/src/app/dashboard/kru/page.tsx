@@ -1,5 +1,5 @@
 import { AttendanceKioskPanel } from "@/features/clock/AttendanceKioskPanel";
 
-export default function DashboardPage() {
+export default function KruDashboardPage() {
   return <AttendanceKioskPanel />;
 }

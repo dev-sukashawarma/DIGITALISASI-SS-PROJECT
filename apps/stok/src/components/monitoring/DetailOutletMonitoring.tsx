@@ -78,92 +78,63 @@ export function DetailOutletMonitoring({ outletId }: { outletId: string }) {
             <p className="text-lg text-suka-brown/60 font-semibold">Tidak ada data stok</p>
           </div>
         ) : (
-          <div className="space-y-6 max-w-4xl">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {items.map((item) => {
               const ratio = item.threshold > 0 ? item.current_qty / item.threshold : 0;
               const percent = Math.min(100, Math.round(ratio * 100));
+              const lastLedger = item.recent_ledger?.[0];
 
-              let statusBgColor = 'bg-white border-outline-variant';
+              let statusBgColor = 'bg-white border-suka-brown/10';
               let statusTextColor = 'text-suka-green';
-              let statusLabel = '🟢 Aman';
+              let statusDot = 'bg-suka-green';
+              let barColor = 'bg-suka-green';
 
               if (item.status === 'below') {
                 statusBgColor = 'bg-[#ffdad6]/20 border-[#ba1a1a]';
                 statusTextColor = 'text-[#ba1a1a]';
-                statusLabel = '🔴 Kritis';
+                statusDot = 'bg-[#ba1a1a]';
+                barColor = 'bg-[#ba1a1a]';
               } else if (item.status === 'warning') {
                 statusBgColor = 'bg-suka-orange/5 border-suka-orange';
                 statusTextColor = 'text-suka-orange';
-                statusLabel = '🟡 Menipis';
+                statusDot = 'bg-suka-orange';
+                barColor = 'bg-suka-orange';
               }
 
               return (
                 <div
                   key={item.bahan_baku_id}
-                  className={`${statusBgColor} border-2 rounded-xl p-6 space-y-4 shadow-[0px_4px_12px_rgba(112,22,4,0.08)]`}
+                  className={`${statusBgColor} border-2 rounded-xl p-4 flex flex-col gap-2.5 shadow-[0px_2px_8px_rgba(112,22,4,0.05)]`}
                 >
-                  {/* Item header */}
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-black text-suka-ink uppercase tracking-wide">{item.item_name}</h3>
-                      <p className={`text-sm font-bold ${statusTextColor} mt-1`}>{statusLabel}</p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-2xl font-black font-mono text-suka-ink">{item.current_qty}</p>
-                      <p className="text-xs text-suka-brown/60 font-semibold">/ {item.threshold} {item.satuan}</p>
-                    </div>
+                  {/* Name + status dot */}
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-black text-suka-ink uppercase tracking-wide leading-tight">{item.item_name}</h3>
+                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1 ${statusDot}`} />
+                  </div>
+
+                  {/* Qty */}
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-black font-mono text-suka-ink leading-none">{item.current_qty}</span>
+                    <span className="text-xs text-suka-brown/50 font-semibold">/ {item.threshold} {item.satuan}</span>
                   </div>
 
                   {/* Progress bar */}
-                  <div className="space-y-2">
-                    <div className="w-full h-2 bg-suka-brown/10 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all ${
-                          item.status === 'below'
-                            ? 'bg-[#ba1a1a]'
-                            : item.status === 'warning'
-                              ? 'bg-suka-orange'
-                              : 'bg-suka-green'
-                        }`}
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs font-semibold text-suka-brown/60">
-                      <span>Min: {item.threshold}</span>
-                      <span>{percent}% Stok</span>
-                    </div>
+                  <div className="w-full h-1.5 bg-suka-brown/10 rounded-full overflow-hidden">
+                    <div className={`h-full transition-all ${barColor}`} style={{ width: `${percent}%` }} />
                   </div>
 
-                  {/* Ledger history */}
-                  {item.recent_ledger && item.recent_ledger.length > 0 && (
-                    <div className="border-t border-suka-brown/10 pt-4 space-y-2">
-                      <p className="text-xs font-bold uppercase tracking-wider text-suka-brown/85">Riwayat Terbaru</p>
-                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                        {item.recent_ledger.slice(0, 5).map((ledger, idx) => (
-                          <div
-                            key={idx}
-                            className="bg-white/40 rounded px-3 py-2 text-xs space-y-0.5"
-                          >
-                            <div className="flex justify-between items-baseline">
-                              <span className="font-bold text-suka-ink">{ledger.tipe}</span>
-                              <span className={`font-bold font-mono ${ledger.qty > 0 ? 'text-suka-green' : 'text-[#ba1a1a]'}`}>
-                                {ledger.qty > 0 ? '+' : ''}{ledger.qty}
-                              </span>
-                            </div>
-                            <p className="text-suka-brown/60 font-medium">
-                              {new Date(ledger.created_at).toLocaleString('id-ID', {
-                                month: 'short',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </p>
-                            {ledger.catatan && <p className="text-suka-brown/60 italic">{ledger.catatan}</p>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* Footer: status + last activity */}
+                  <div className="flex items-center justify-between text-[10px] font-bold">
+                    <span className={statusTextColor}>{percent}%</span>
+                    {lastLedger && (
+                      <span className={`font-mono ${lastLedger.qty > 0 ? 'text-suka-green' : 'text-[#ba1a1a]'}`}>
+                        {lastLedger.qty > 0 ? '+' : ''}{lastLedger.qty}
+                        <span className="text-suka-brown/40 font-medium ml-1">
+                          {new Date(lastLedger.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
+                        </span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             })}

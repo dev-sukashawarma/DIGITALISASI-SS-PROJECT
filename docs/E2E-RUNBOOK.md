@@ -197,7 +197,7 @@ WHERE ABS(agg.computed - sb.saldo) > 0.001;
 | **D Isolasi RLS** | ✅ **WAJIB** | ✅ LULUS | — |
 | E Device | 🟡 disarankan | ⬜ belum | Batasi ke device didukung |
 
-**Verdict GO** hanya jika **B + C + D semua hijau**. → **✅ GO — B + C + D semua LULUS (2026-06-11). FASE E opsional.**
+**Verdict GO** hanya jika **B + C + D semua hijau**. → **✅ GO LAUNCH — B + C + D semua LULUS (2026-06-11). FASE E (mobile) ditunda, diuji sebelum rollout ke device Android.**
 
 ### Reset antar percobaan
 Untuk mengulang dari awal: jalankan ulang `supabase/seed-e2e-test.sql` (mengembalikan

@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSPVMonitoringData } from '@/hooks/useMonitoringData';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
 
 export function LiveMonitoringPage() {
+  const router = useRouter();
   const { data, isLoading: isMonitoringLoading, refetch } = useSPVMonitoringData();
   const { data: outletsMaster, isLoading: isOutletsLoading } = useQuery({
     queryKey: ['monitoring', 'outletsList'],
@@ -288,7 +290,8 @@ export function LiveMonitoringPage() {
             return (
               <div
                 key={outlet.outlet_id}
-                className={`${bgClass} ${borderClass} rounded-lg p-5 flex flex-col gap-4 min-h-60 transition-all`}
+                onClick={() => router.push(`/stok/monitoring-live/${outlet.outlet_id}`)}
+                className={`${bgClass} ${borderClass} rounded-lg p-5 flex flex-col gap-4 min-h-60 transition-all cursor-pointer hover:shadow-lg`}
               >
                 {/* Card header */}
                 <div className="flex justify-between items-start gap-3">

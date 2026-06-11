@@ -14,12 +14,12 @@ export async function GET(
   try {
     const supabase = createClient();
 
-    // Fetch items untuk outlet ini dari monitoring_view_spv
+    // Fetch ALL items untuk outlet ini (inventory lengkap)
     const { data: items, error: itemsError } = await supabase
       .from('monitoring_view_spv')
       .select('*')
       .eq('outlet_id', outletId)
-      .order('item_name');
+      .order('status, item_name');
 
     if (itemsError) throw itemsError;
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
 
 interface SuratJalan {
   id: string
@@ -12,6 +13,7 @@ interface SuratJalan {
 }
 
 export function useTerimaList() {
+  const { outletStaff } = useAuth()
   const [data, setData] = useState<SuratJalan[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -23,10 +25,17 @@ export function useTerimaList() {
 
       try {
         const supabase = createClient()
-        const { data, error: err } = await supabase
+        let query = supabase
           .from('surat_jalan')
           .select('id, outlet_id, status, created_at, outlets(name)')
           .in('status', ['dikirim', 'diterima_sebagian'])
+
+        // Crew sees only SJ for their own outlet
+        if (outletStaff?.outlet_id) {
+          query = query.eq('outlet_id', outletStaff.outlet_id)
+        }
+
+        const { data, error: err } = await query
           .order('created_at', { ascending: false })
 
         if (err) {

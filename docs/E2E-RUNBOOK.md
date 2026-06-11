@@ -153,8 +153,8 @@ WHERE ABS(agg.computed - sb.saldo) > 0.001;
 
 ### 🟢 Checklist sukses Fase D — ✅ LULUS (2026-06-11)
 - [x] SJ untuk Empang **tidak** muncul di terima Sukmajaya — "Belum ada kiriman masuk" ✅
-- [ ] URL ledger Empang dari akun Sukmajaya → **array kosong / 401** (belum diuji via DevTools)
-- [ ] Opname paralel: keduanya sukses, data tidak tercampur (belum diuji)
+- [x] URL ledger Empang dari akun Sukmajaya → **401 Unauthorized** (lebih ketat dari expected) ✅
+- [ ] Opname paralel: keduanya sukses, data tidak tercampur (belum diuji — low priority)
 
 ### 🔴 Titik kritis Fase D
 - **Data Empang terlihat oleh Sukmajaya** → kebocoran RLS. **STOP TOTAL** — ini pelanggaran keamanan, audit RLS `surat_jalan` + `ledger_stok` + `stok_balance` sebelum apa pun.

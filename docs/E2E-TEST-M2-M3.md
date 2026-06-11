@@ -164,9 +164,9 @@ WHERE ABS(agg.computed - sb.saldo) > 0.001;
 
 | # | Langkah | Hasil | ✅/❌ |
 |---|---------|-------|-------|
-| D1 | Login Empang → `/stok/ledger`, salin URL request ledger dari DevTools→Network | — | ⬜ belum diuji via DevTools |
+| D1 | Login Empang → `/stok/ledger`, salin URL request ledger dari DevTools→Network | — | ✅ |
 | D2 | Logout, login **Sukmajaya** (`budi.sukmajaya@...`) | Outlet = Sukmajaya | ✅ |
-| D3 | Tempel URL ledger Empang di tab baru | **Array kosong / 401** — BUKAN data Empang | ⬜ belum diuji |
+| D3 | Tempel URL ledger Empang di tab baru | **Array kosong / 401** — BUKAN data Empang | ✅ **401 Unauthorized** (lebih ketat dari expected) |
 | D4 | Cek `/distribusi/terima` sebagai Sukmajaya | SJ untuk Empang **tidak** muncul | ✅ "Belum ada kiriman masuk" |
 | D5 | Opname paralel: Empang & Sukmajaya finalisasi bersamaan | Keduanya sukses, data tidak tercampur | ⬜ belum diuji |
 

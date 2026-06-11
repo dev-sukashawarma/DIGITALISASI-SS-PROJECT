@@ -14,18 +14,45 @@ export async function GET(
   try {
     const supabase = createClient();
 
-    // Fetch ALL items untuk outlet ini (inventory lengkap)
+    // Fetch ALL items untuk outlet ini — direct query dari stok_balance + join
+    // (lebih reliable daripada dari view yang mungkin punya filter)
     const { data: items, error: itemsError } = await supabase
-      .from('monitoring_view_spv')
-      .select('*')
+      .from('stok_balance')
+      .select(`
+        saldo as current_qty,
+        bahan_baku_id,
+        bahan_baku(nama as item_name, satuan, default_reorder_point)
+      `)
       .eq('outlet_id', outletId)
-      .order('status, item_name');
+      .order('bahan_baku(nama)');
 
     if (itemsError) throw itemsError;
 
+    // Transform data & determine status
+    const transformedItems = (items || []).map((item: any) => {
+      const threshold = item.bahan_baku?.default_reorder_point || 10;
+      const currentQty = item.current_qty || 0;
+      let status: 'below' | 'warning' | 'ok' = 'ok';
+
+      if (currentQty < threshold / 2) {
+        status = 'below';
+      } else if (currentQty < threshold) {
+        status = 'warning';
+      }
+
+      return {
+        bahan_baku_id: item.bahan_baku_id,
+        item_name: item.bahan_baku?.item_name || 'Unknown',
+        current_qty: currentQty,
+        threshold,
+        satuan: item.bahan_baku?.satuan || 'kg',
+        status,
+      };
+    });
+
     // Fetch ledger history untuk setiap item
     const enrichedItems = await Promise.all(
-      (items || []).map(async (item) => {
+      transformedItems.map(async (item) => {
         const { data: ledger, error: ledgerError } = await supabase
           .from('ledger_stok')
           .select('tipe, qty, catatan, created_at')

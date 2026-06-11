@@ -10,6 +10,21 @@ interface CrewListProps {
 
 type SortBy = 'status' | 'name';
 
+const getStorageLocation = (category: string, name: string) => {
+  const nameLower = name.toLowerCase();
+  const catLower = (category || '').toLowerCase();
+  if (nameLower.includes('daging') || nameLower.includes('ayam') || catLower === 'protein') {
+    return 'Frozen Storage';
+  }
+  if (nameLower.includes('saus') || nameLower.includes('garlic') || catLower === 'sauce' || catLower === 'chilled') {
+    return 'Chilled Storage';
+  }
+  if (nameLower.includes('gas') || nameLower.includes('lpg') || nameLower.includes('utility')) {
+    return 'Utility Area';
+  }
+  return 'Dry Storage';
+};
+
 export function CrewList({ items, onItemClick }: CrewListProps) {
   const [sortBy, setSortBy] = useState<SortBy>('status');
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'flagged'>('all');
@@ -143,7 +158,7 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
                   <div className={`w-2.5 h-2.5 rounded-full ${statusDotColor} ring-4`}></div>
                   <div className="flex flex-col">
                     <span className="font-semibold text-gray-900 text-sm">{item.item_name}</span>
-                    <span className="text-[11px] text-gray-500 capitalize">{item.kategori || 'Bahan Baku'}</span>
+                    <span className="text-[11px] text-gray-500 capitalize">{getStorageLocation(item.kategori, item.item_name)}</span>
                   </div>
                 </div>
                 

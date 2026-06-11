@@ -2,6 +2,8 @@
 
 > Pendamping praktis dari `docs/E2E-TEST-M2-M3.md`. Ikuti urut dari atas.
 > Legenda: ⏱️ perkiraan waktu · 🟢 checklist sukses · 🔴 titik kritis (kalau gagal di sini, STOP).
+>
+> **Progress eksekusi (update 2026-06-11):** FASE 0 ✅ LULUS · FASE A ✅ LULUS · FASE B–E ⬜ belum dijalankan.
 
 ---
 
@@ -17,15 +19,19 @@
    - `andi.empang@sukashawarma.com` (Empang)
    - `budi.sukmajaya@sukashawarma.com` (Sukmajaya)
 
-### 🟢 Checklist sukses Fase 0
-- [ ] Seed jalan tanpa error
-- [ ] Tabel saldo: EMPANG AYAM=10, BAWANG=4, KENTANG=8 (sesuai baseline)
-- [ ] Query konsistensi terakhir = **0 baris**
-- [ ] Ketiga akun bisa login dan outlet ter-set benar
+### 🟢 Checklist sukses Fase 0 — ✅ LULUS (2026-06-11)
+- [x] Seed jalan tanpa error
+- [x] Tabel saldo: EMPANG AYAM=10, BAWANG=4, KENTANG=8 (sesuai baseline)
+- [x] Query konsistensi terakhir = **0 baris**
+- [x] Ketiga akun bisa login dan outlet ter-set benar
 
 ### 🔴 Titik kritis Fase 0
 - **Konsistensi ≠ 0 baris** → ada saldo lama tanpa ledger (warisan INSERT langsung). Catat baris bermasalah; jangan lanjut sebelum dipahami, karena cek integritas di Fase C pasti gagal.
 - **Akun tidak bisa login** → `outlet_staff.id` tidak sama dengan `auth.users.id`. Tidak ada gunanya lanjut.
+
+> **Catatan eksekusi Fase 0:**
+> 1. **Konsistensi awal GAGAL (21+ baris drift)** — data lama hasil `INSERT` langsung ke `stok_balance` (99 baris dari M3 Phase 1) tidak punya ledger pendukung. **Solusi:** `DELETE` ledger+balance 4 outlet pilot, lalu jalankan ulang seed. Setelah itu konsistensi = 0 baris. ✅
+> 2. **Password `andi.empang` lupa** → di-reset via SQL: `UPDATE auth.users SET encrypted_password = crypt('test', gen_salt('bf')) WHERE email='andi.empang@sukashawarma.com';` (password sekarang: `test`).
 
 ---
 
@@ -41,17 +47,22 @@
 6. `/stok/monitoring` → cek urutan & warna status.
 7. `/stok/ledger/new` → `waste`, qty 2, AYAM → submit.
 
-### 🟢 Checklist sukses Fase A
-- [ ] Item selisih >15% border merah saat input
-- [ ] Finalisasi → redirect + "1 selesai hari ini"
-- [ ] Jumlah entri `opname_selisih` = jumlah item selisih ≠ 0
-- [ ] `saldo_sesudah = saldo_sebelum + qty` benar
-- [ ] Monitoring: satuan sesuai DB (kg/pack/crt), bukan tebakan
-- [ ] Waste qty muncul **-2** (merah), saldo AYAM turun 2
+### 🟢 Checklist sukses Fase A — ✅ LULUS (2026-06-11)
+- [x] Item selisih >15% border merah saat input (AYAM +100%, BAWANG +25%, KENTANG -50%)
+- [x] Finalisasi → redirect + "1 selesai hari ini"
+- [x] Jumlah entri `opname_selisih` = jumlah item selisih ≠ 0 (3 entri)
+- [x] `saldo_sesudah = saldo_sebelum + qty` benar (AYAM 10+10=20, BAWANG 4+1=5, KENTANG 8-4=4)
+- [x] Monitoring: satuan sesuai DB (kg/pack/crt), bukan tebakan
+- [ ] Waste qty muncul **-2** (merah), saldo AYAM turun 2 *(belum diuji — opsional)*
 
 ### 🔴 Titik kritis Fase A
 - **Finalisasi gagal/timeout** → cek RPC `finalize_opname` di Supabase Logs.
 - **Saldo_sesudah salah** → trigger `ledger_stamp_saldo` bermasalah; integritas seluruh M2 dipertaruhkan.
+
+> **Bug ditemukan & diperbaiki di Fase A:**
+> 1. **Monitoring kosong + "Connection unstable"** — `apps/stok/src/lib/queries/monitoring.ts` membuat raw client `@supabase/supabase-js` sendiri tanpa session SSR → `Not authenticated`. **Fix:** pakai client bersama `@/lib/supabase` (createBrowserClient). Commit `e8d0636`. Memperbaiki crew & SPV monitoring sekaligus.
+> 2. **Nested `<a>` hydration error** di `/dashboard` — `<Link>` di dalam `<Link>`. **Fix:** outer jadi `<div>` + `router.push`. Commit `83dc988`.
+> 3. **Monitoring hanya 3 bahan** — seed E2E sengaja minimal. Ditambah seed semua 33 bahan di Empang (target = 2× reorder_point) via ledger adjustment (konsisten). Status warna terverifikasi: KENTANG 🔴, AYAM 🟡, BAWANG 🟢, sisanya 🟢.
 
 ---
 
@@ -172,16 +183,16 @@ WHERE ABS(agg.computed - sb.saldo) > 0.001;
 
 ## RINGKASAN GO / NO-GO
 
-| Fase | Wajib lulus? | Kalau gagal |
-|------|--------------|-------------|
-| 0 Persiapan | ✅ | Perbaiki data/akun dulu |
-| A M2 | 🟡 disarankan | Bisa lanjut, catat bug |
-| **B Integrasi** | ✅ **WAJIB** | **NO-GO** |
-| **C Integritas** | ✅ **WAJIB** | **NO-GO** |
-| **D Isolasi RLS** | ✅ **WAJIB** | **NO-GO (keamanan)** |
-| E Device | 🟡 disarankan | Batasi ke device didukung |
+| Fase | Wajib lulus? | Status | Kalau gagal |
+|------|--------------|--------|-------------|
+| 0 Persiapan | ✅ | ✅ LULUS | Perbaiki data/akun dulu |
+| A M2 | 🟡 disarankan | ✅ LULUS | Bisa lanjut, catat bug |
+| **B Integrasi** | ✅ **WAJIB** | ⬜ belum | **NO-GO** |
+| **C Integritas** | ✅ **WAJIB** | ⬜ belum | **NO-GO** |
+| **D Isolasi RLS** | ✅ **WAJIB** | ⬜ belum | **NO-GO (keamanan)** |
+| E Device | 🟡 disarankan | ⬜ belum | Batasi ke device didukung |
 
-**Verdict GO** hanya jika **B + C + D semua hijau**.
+**Verdict GO** hanya jika **B + C + D semua hijau**. → **Saat ini: belum GO (B/C/D belum dijalankan).**
 
 ### Reset antar percobaan
 Untuk mengulang dari awal: jalankan ulang `supabase/seed-e2e-test.sql` (mengembalikan

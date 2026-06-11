@@ -311,8 +311,11 @@ export function LiveMonitoringPage() {
                           <div key={item.bahan_baku_id} className="space-y-1">
                             <div className="flex justify-between items-center text-xs">
                               <span className="font-bold text-suka-ink truncate mr-1">{item.item_name}</span>
-                              <span className={`flex-shrink-0 font-extrabold ${textColor}`}>
-                                {item.current_qty} <span className="text-[9px] font-normal text-suka-brown/50">{item.item_name.toLowerCase().includes('gas') || item.item_name.toLowerCase().includes('kulit') ? 'pcs' : 'kg'}</span>
+                              <span className="flex-shrink-0 text-xs">
+                                <span className={`font-extrabold ${textColor}`}>{item.current_qty}</span>
+                                <span className="text-[#544437]/35 font-bold mx-0.5">/</span>
+                                <span className="text-[#544437]/75 font-semibold">{item.threshold}</span>
+                                <span className="text-[9px] font-normal text-suka-brown/50 ml-0.5 capitalize">{item.satuan || (item.item_name.toLowerCase().includes('gas') || item.item_name.toLowerCase().includes('kulit') ? 'pcs' : 'kg')}</span>
                               </span>
                             </div>
                             

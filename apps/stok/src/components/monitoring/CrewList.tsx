@@ -28,15 +28,22 @@ const getStorageLocation = (category: string, name: string) => {
 export function CrewList({ items, onItemClick }: CrewListProps) {
   const [sortBy, setSortBy] = useState<SortBy>('status');
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'flagged'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const filteredAndSorted = useMemo(() => {
     let result = [...items];
 
-    // Filter
+    // Filter by status
     if (filterStatus === 'below') {
       result = result.filter((item) => item.status === 'below');
     } else if (filterStatus === 'flagged') {
       result = result.filter((item) => item.is_flagged);
+    }
+
+    // Filter by name (case-insensitive search specifically for ingredient/material names)
+    if (searchTerm.trim() !== '') {
+      const term = searchTerm.toLowerCase();
+      result = result.filter((item) => item.item_name.toLowerCase().includes(term));
     }
 
     // Sort
@@ -53,7 +60,7 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
     });
 
     return result;
-  }, [items, sortBy, filterStatus]);
+  }, [items, sortBy, filterStatus, searchTerm]);
 
   const belowCount = items.filter((item) => item.status === 'below').length;
   const flaggedCount = items.filter((item) => item.is_flagged).length;
@@ -65,10 +72,10 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
       <div className="grid grid-cols-3 gap-3">
         <button
           onClick={() => setFilterStatus(filterStatus === 'below' ? 'all' : 'below')}
-          className={`p-3.5 rounded-2xl border text-center transition-all active:scale-95 ${
+          className={`p-3.5 rounded-xl border text-center transition-all active:scale-95 ${
             filterStatus === 'below'
               ? 'bg-[#ffdad6] border-[#ba1a1a] text-[#ba1a1a]'
-              : 'bg-white border-gray-200 text-gray-700 hover:border-red-200 shadow-sm'
+              : 'bg-white border-[#d9c2b2]/40 text-[#544437] hover:border-[#ba1a1a]/30 shadow-sm'
           }`}
         >
           <div className="text-2xl font-black">{belowCount}</div>
@@ -77,24 +84,45 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
 
         <button
           onClick={() => setFilterStatus(filterStatus === 'flagged' ? 'all' : 'flagged')}
-          className={`p-3.5 rounded-2xl border text-center transition-all active:scale-95 ${
+          className={`p-3.5 rounded-xl border text-center transition-all active:scale-95 ${
             filterStatus === 'flagged'
-              ? 'bg-orange-50 border-[#f29744] text-[#a43c26]'
-              : 'bg-white border-gray-200 text-gray-700 hover:border-orange-200 shadow-sm'
+              ? 'bg-[#ffdcc2] border-[#f29744] text-[#904d00]'
+              : 'bg-white border-[#d9c2b2]/40 text-[#544437] hover:border-[#f29744]/30 shadow-sm'
           }`}
         >
           <div className="text-2xl font-black">{flaggedCount}</div>
           <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Selisih</div>
         </button>
 
-        <div className="p-3.5 rounded-2xl border border-green-200 bg-green-50 text-center text-[#006e24] shadow-sm">
+        <div className="p-3.5 rounded-xl border border-[#93f997]/25 bg-[#93f997]/10 text-center text-[#006e24] shadow-sm">
           <div className="text-2xl font-black">{okCount}</div>
           <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Aman</div>
         </div>
       </div>
 
+      {/* Search Input Box specifically for ingredient/material name */}
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#544437]/60">🔍</span>
+        <input
+          type="text"
+          placeholder="Cari nama bahan..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-9 pr-8 py-2.5 bg-white border border-[#d9c2b2]/40 rounded-xl text-sm text-[#1e1b15] placeholder-[#544437]/50 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm"
+        />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#544437]/50 hover:text-[#ba1a1a] p-1"
+            title="Clear search"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       {/* Sort options */}
-      <div className="flex gap-4 text-xs font-semibold text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+      <div className="flex gap-4 text-xs font-semibold text-[#544437] bg-[#faf2e9] p-3 rounded-xl border border-[#d9c2b2]/30 shadow-sm">
         <label className="flex items-center gap-1.5 cursor-pointer">
           <input
             type="radio"
@@ -102,7 +130,7 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
             value="status"
             checked={sortBy === 'status'}
             onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="text-[#f29744] focus:ring-[#f29744] border-gray-300"
+            className="text-[#f29744] focus:ring-[#f29744] border-[#d9c2b2]/60 focus:ring-offset-0"
           />
           Sort by Status
         </label>
@@ -113,17 +141,17 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
             value="name"
             checked={sortBy === 'name'}
             onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="text-[#f29744] focus:ring-[#f29744] border-gray-300"
+            className="text-[#f29744] focus:ring-[#f29744] border-[#d9c2b2]/60 focus:ring-offset-0"
           />
           Sort by Name
         </label>
       </div>
 
       {/* Items list */}
-      <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-[#d9c2b2]/40 divide-y divide-[#d9c2b2]/20 shadow-sm overflow-hidden">
         {filteredAndSorted.length === 0 ? (
-          <div className="text-center py-8 text-xs text-gray-500 font-medium">
-            {filterStatus === 'all' ? 'No items found' : `No ${filterStatus} items`}
+          <div className="text-center py-8 text-xs text-[#544437] font-medium bg-white">
+            {searchTerm ? 'Bahan tidak ditemukan' : (filterStatus === 'all' ? 'No items found' : `No ${filterStatus} items`)}
           </div>
         ) : (
           filteredAndSorted.map((item) => {
@@ -131,8 +159,8 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
               item.status === 'below'
                 ? 'bg-[#ba1a1a] ring-[#ffdad6]'
                 : item.status === 'warning'
-                ? 'bg-yellow-500 ring-yellow-100'
-                : 'bg-[#006e24] ring-green-100';
+                ? 'bg-[#fd7e62] ring-[#ffdad3]'
+                : 'bg-[#006e24] ring-[#93f997]/35';
 
             const statusLabelText =
               item.status === 'below'
@@ -145,7 +173,7 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
               item.status === 'below'
                 ? 'text-[#ba1a1a]'
                 : item.status === 'warning'
-                ? 'text-yellow-600'
+                ? 'text-[#a43c26]'
                 : 'text-[#006e24]';
 
             return (

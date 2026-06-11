@@ -9,6 +9,7 @@ import { useSPVMonitoringData } from '@/hooks/useMonitoringData';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOpnameStatus } from '@/lib/queries/monitoring';
 import type { MonitoringItem } from '@/lib/types/monitoring';
+import Link from 'next/link';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
   const name = outletName.toUpperCase();
@@ -220,6 +221,9 @@ export function SPVDashboard() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm flex-shrink-0">
         <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="w-8 h-8 flex items-center justify-center rounded-full bg-[#faf2e9] hover:bg-[#f5ede3] border border-[#d9c2b2]/50 text-[#701604] transition-colors" title="Kembali ke Dashboard">
+            ←
+          </Link>
           <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
           <div className="flex flex-col">
             <h2 className="text-xl font-bold text-[#701604] tracking-tight">SPV Monitoring Dashboard</h2>

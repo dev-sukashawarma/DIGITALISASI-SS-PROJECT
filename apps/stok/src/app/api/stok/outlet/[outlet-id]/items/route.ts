@@ -14,45 +14,61 @@ export async function GET(
   try {
     const supabase = createClient();
 
-    // Fetch ALL items untuk outlet ini — direct query dari stok_balance + join
-    // (lebih reliable daripada dari view yang mungkin punya filter)
-    const { data: items, error: itemsError } = await supabase
+    // Fetch semua bahan_baku dulu
+    const { data: bahanBaku, error: bahanError } = await supabase
+      .from('bahan_baku')
+      .select('id, nama, satuan, default_reorder_point');
+
+    if (bahanError) throw bahanError;
+
+    const bahanMap = new Map((bahanBaku || []).map((b: any) => [b.id, b]));
+
+    // Fetch stok_balance untuk outlet ini
+    const { data: stokBalance, error: stokError } = await supabase
       .from('stok_balance')
-      .select(`
-        saldo as current_qty,
-        bahan_baku_id,
-        bahan_baku(nama as item_name, satuan, default_reorder_point)
-      `)
-      .eq('outlet_id', outletId)
-      .order('bahan_baku(nama)');
+      .select('saldo, bahan_baku_id')
+      .eq('outlet_id', outletId);
 
-    if (itemsError) throw itemsError;
+    if (stokError) throw stokError;
 
-    // Transform data & determine status
-    const transformedItems = (items || []).map((item: any) => {
-      const threshold = item.bahan_baku?.default_reorder_point || 10;
-      const currentQty = item.current_qty || 0;
-      let status: 'below' | 'warning' | 'ok' = 'ok';
+    // Transform data
+    const items = (stokBalance || [])
+      .map((sb: any) => {
+        const bahan = bahanMap.get(sb.bahan_baku_id);
+        if (!bahan) return null;
 
-      if (currentQty < threshold / 2) {
-        status = 'below';
-      } else if (currentQty < threshold) {
-        status = 'warning';
-      }
+        const threshold = bahan.default_reorder_point || 10;
+        const currentQty = sb.saldo || 0;
+        let status: 'below' | 'warning' | 'ok' = 'ok';
 
-      return {
-        bahan_baku_id: item.bahan_baku_id,
-        item_name: item.bahan_baku?.item_name || 'Unknown',
-        current_qty: currentQty,
-        threshold,
-        satuan: item.bahan_baku?.satuan || 'kg',
-        status,
-      };
-    });
+        if (currentQty < threshold / 2) {
+          status = 'below';
+        } else if (currentQty < threshold) {
+          status = 'warning';
+        }
+
+        return {
+          bahan_baku_id: sb.bahan_baku_id,
+          item_name: bahan.nama,
+          current_qty: currentQty,
+          threshold,
+          satuan: bahan.satuan || 'kg',
+          status,
+        };
+      })
+      .filter((item: any) => item !== null)
+      .sort((a: any, b: any) => {
+        // Sort by status (below > warning > ok), then by name
+        const statusOrder: Record<string, number> = { below: 0, warning: 1, ok: 2 };
+        if (statusOrder[a.status] !== statusOrder[b.status]) {
+          return statusOrder[a.status] - statusOrder[b.status];
+        }
+        return a.item_name.localeCompare(b.item_name);
+      });
 
     // Fetch ledger history untuk setiap item
     const enrichedItems = await Promise.all(
-      transformedItems.map(async (item) => {
+      items.map(async (item: any) => {
         const { data: ledger, error: ledgerError } = await supabase
           .from('ledger_stok')
           .select('tipe, qty, catatan, created_at')

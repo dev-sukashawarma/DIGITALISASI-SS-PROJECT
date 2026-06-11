@@ -4,10 +4,16 @@ export const metadata = {
   title: 'Detail Outlet - Monitoring Stok',
 };
 
-export default function DetailOutletPage({ params }: { params: { 'outlet-id': string } }) {
+export default async function DetailOutletPage({
+  params
+}: {
+  params: Promise<{ 'outlet-id': string }>
+}) {
+  const { 'outlet-id': outletId } = await params;
+
   return (
     <main className="w-full min-h-screen bg-[#fff8f1]">
-      <DetailOutletMonitoring outletId={params['outlet-id']} />
+      <DetailOutletMonitoring outletId={outletId} />
     </main>
   );
 }

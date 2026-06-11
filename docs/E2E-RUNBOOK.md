@@ -53,7 +53,8 @@
 - [x] Jumlah entri `opname_selisih` = jumlah item selisih ≠ 0 (3 entri)
 - [x] `saldo_sesudah = saldo_sebelum + qty` benar (AYAM 10+10=20, BAWANG 4+1=5, KENTANG 8-4=4)
 - [x] Monitoring: satuan sesuai DB (kg/pack/crt), bukan tebakan
-- [ ] Waste qty muncul **-2** (merah), saldo AYAM turun 2 *(belum diuji — opsional)*
+- [x] Waste qty muncul **-2** (merah), saldo AYAM turun 2
+- [x] Live Monitoring (`/stok/monitoring-live`, SPV) tampil + alarm item kritis
 
 ### 🔴 Titik kritis Fase A
 - **Finalisasi gagal/timeout** → cek RPC `finalize_opname` di Supabase Logs.

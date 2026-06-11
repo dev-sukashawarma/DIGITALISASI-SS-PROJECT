@@ -58,15 +58,15 @@ konsistensi saldo harus 0 baris**.
 | A6 | Klik 1 entri ledger | `saldo_sesudah = saldo_sebelum + qty` (matematika benar) | ✅ |
 | A7 | Buka `/stok/monitoring` | Bahan tampil terurut kritis→aman, satuan benar (bukan tebakan) | ✅ (perlu fix SSR client dulu — commit `e8d0636`) |
 | A8 | Set 1 bahan qty=0 saat opname lalu finalisasi → cek monitoring | Bahan jadi 🔴 Kritis | ✅ (KENTANG 🔴) |
-| A9 | `/stok/monitoring-live` | Kartu outlet tampil, alarm bunyi untuk item kritis | ⬜ belum diuji |
+| A9 | `/stok/monitoring-live` | Kartu outlet tampil, alarm bunyi untuk item kritis | ✅ |
 
 **Manual ledger entry:**
 
 | # | Langkah | Hasil | ✅/❌ |
 |---|---------|-------|-------|
-| A10 | `/stok/ledger/new` → tipe **waste**, qty 2, bahan AYAM | Submit sukses | ⬜ opsional, belum |
-| A11 | Cek ledger | Entri qty = **-2** (merah) | ⬜ |
-| A12 | Cek monitoring | Saldo AYAM berkurang 2 | ⬜ |
+| A10 | `/stok/ledger/new` → tipe **waste**, qty 2, bahan AYAM | Submit sukses | ✅ |
+| A11 | Cek ledger | Entri qty = **-2** (merah) | ✅ |
+| A12 | Cek monitoring | Saldo AYAM berkurang 2 | ✅ |
 
 ---
 

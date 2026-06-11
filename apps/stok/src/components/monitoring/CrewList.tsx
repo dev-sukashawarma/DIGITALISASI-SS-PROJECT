@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { StatusBadge } from './StatusBadge';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 
 interface CrewListProps {
@@ -16,7 +15,7 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'flagged'>('all');
 
   const filteredAndSorted = useMemo(() => {
-    let result = items;
+    let result = [...items];
 
     // Filter
     if (filterStatus === 'below') {
@@ -48,83 +47,117 @@ export function CrewList({ items, onItemClick }: CrewListProps) {
   return (
     <div className="space-y-4">
       {/* Summary counts */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         <button
           onClick={() => setFilterStatus(filterStatus === 'below' ? 'all' : 'below')}
-          className={`p-4 rounded-lg border-2 text-center transition-colors ${
+          className={`p-3.5 rounded-2xl border text-center transition-all active:scale-95 ${
             filterStatus === 'below'
-              ? 'bg-red-50 border-red-300'
-              : 'bg-gray-50 border-gray-200 hover:border-red-200'
+              ? 'bg-[#ffdad6] border-[#ba1a1a] text-[#ba1a1a]'
+              : 'bg-white border-gray-200 text-gray-700 hover:border-red-200 shadow-sm'
           }`}
         >
-          <div className="text-2xl font-bold text-red-700">{belowCount}</div>
-          <div className="text-sm text-gray-600">Below Threshold</div>
+          <div className="text-2xl font-black">{belowCount}</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Kritis</div>
         </button>
 
         <button
           onClick={() => setFilterStatus(filterStatus === 'flagged' ? 'all' : 'flagged')}
-          className={`p-4 rounded-lg border-2 text-center transition-colors ${
+          className={`p-3.5 rounded-2xl border text-center transition-all active:scale-95 ${
             filterStatus === 'flagged'
-              ? 'bg-orange-50 border-orange-300'
-              : 'bg-gray-50 border-gray-200 hover:border-orange-200'
+              ? 'bg-orange-50 border-[#f29744] text-[#a43c26]'
+              : 'bg-white border-gray-200 text-gray-700 hover:border-orange-200 shadow-sm'
           }`}
         >
-          <div className="text-2xl font-bold text-orange-700">{flaggedCount}</div>
-          <div className="text-sm text-gray-600">Flagged Discrepancies</div>
+          <div className="text-2xl font-black">{flaggedCount}</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Selisih</div>
         </button>
 
-        <div className="p-4 rounded-lg border-2 border-green-200 bg-green-50 text-center">
-          <div className="text-2xl font-bold text-green-700">{okCount}</div>
-          <div className="text-sm text-gray-600">OK</div>
+        <div className="p-3.5 rounded-2xl border border-green-200 bg-green-50 text-center text-[#006e24] shadow-sm">
+          <div className="text-2xl font-black">{okCount}</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Aman</div>
         </div>
       </div>
 
-      {/* Sort dropdown */}
-      <div className="flex gap-2">
-        <label className="flex items-center gap-2 text-sm">
+      {/* Sort options */}
+      <div className="flex gap-4 text-xs font-semibold text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+        <label className="flex items-center gap-1.5 cursor-pointer">
           <input
             type="radio"
             name="sort"
             value="status"
             checked={sortBy === 'status'}
             onChange={(e) => setSortBy(e.target.value as SortBy)}
+            className="text-[#f29744] focus:ring-[#f29744] border-gray-300"
           />
           Sort by Status
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-1.5 cursor-pointer">
           <input
             type="radio"
             name="sort"
             value="name"
             checked={sortBy === 'name'}
             onChange={(e) => setSortBy(e.target.value as SortBy)}
+            className="text-[#f29744] focus:ring-[#f29744] border-gray-300"
           />
           Sort by Name
         </label>
       </div>
 
       {/* Items list */}
-      <div className="space-y-2">
+      <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100 shadow-sm overflow-hidden">
         {filteredAndSorted.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-xs text-gray-500 font-medium">
             {filterStatus === 'all' ? 'No items found' : `No ${filterStatus} items`}
           </div>
         ) : (
-          filteredAndSorted.map((item) => (
-            <div
-              key={item.bahan_baku_id}
-              onClick={() => onItemClick(item)}
-              className="flex justify-between items-center p-4 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors min-h-[56px]"
-            >
-              <div className="flex-1">
-                <div className="font-medium text-gray-900">{item.item_name}</div>
-                <div className="text-sm text-gray-600">
-                  {item.current_qty} {item.satuan} / {item.threshold} {item.satuan} {item.threshold === 0 ? ' (no threshold)' : ''}
+          filteredAndSorted.map((item) => {
+            const statusDotColor =
+              item.status === 'below'
+                ? 'bg-[#ba1a1a] ring-[#ffdad6]'
+                : item.status === 'warning'
+                ? 'bg-yellow-500 ring-yellow-100'
+                : 'bg-[#006e24] ring-green-100';
+
+            const statusLabelText =
+              item.status === 'below'
+                ? 'Kritis'
+                : item.status === 'warning'
+                ? 'Warning'
+                : 'Ready';
+
+            const statusLabelColor =
+              item.status === 'below'
+                ? 'text-[#ba1a1a]'
+                : item.status === 'warning'
+                ? 'text-yellow-600'
+                : 'text-[#006e24]';
+
+            return (
+              <div
+                key={item.bahan_baku_id}
+                onClick={() => onItemClick(item)}
+                className="flex justify-between items-center p-4 hover:bg-gray-50/50 cursor-pointer transition-colors min-h-[56px]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-2.5 h-2.5 rounded-full ${statusDotColor} ring-4`}></div>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-gray-900 text-sm">{item.item_name}</span>
+                    <span className="text-[11px] text-gray-500 capitalize">{item.kategori || 'Bahan Baku'}</span>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-end">
+                  <span className="font-bold text-gray-900 text-sm">
+                    {item.current_qty} {item.satuan} / {item.threshold} {item.satuan} {item.threshold === 0 ? ' (no threshold)' : ''}
+                  </span>
+                  <span className={`text-[10px] font-extrabold uppercase tracking-wider ${statusLabelColor}`}>
+                    {statusLabelText} {item.is_flagged && <span className="text-[#ba1a1a] font-bold">*</span>}
+                  </span>
                 </div>
               </div>
-              <StatusBadge status={item.status} isFlagged={item.is_flagged} />
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

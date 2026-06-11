@@ -10,6 +10,17 @@ vi.mock('@/lib/queries/monitoring', () => ({
 }));
 
 vi.mock('@/hooks/useMonitoringData');
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    outletStaff: {
+      id: '1',
+      outlet_id: '1',
+      name: 'Andi',
+      role: 'crew',
+      status: 'active',
+    },
+  }),
+}));
 vi.mock('../CrewList', () => ({
   CrewList: ({ items, onItemClick: _onItemClick }: any) => (
     <div data-testid="crew-list">

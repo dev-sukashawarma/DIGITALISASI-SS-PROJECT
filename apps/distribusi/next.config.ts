@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  ...(process.env.STATIC_EXPORT === 'true' ? { output: 'export' } : {}),
   typescript: {
     tsconfigPath: './tsconfig.json',
   },

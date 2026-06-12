@@ -48,12 +48,8 @@ export async function POST(req: Request) {
       status = local.getTime() <= deadline.getTime() ? "tepat" : "alpha";
     }
 
-    // Tolak absen masuk telat SEBELUM menyimpan — agar tidak membuat record
-    // "alpha" yang mengunci kiosk seharian (decideAction memblokir bila ada
-    // record in berstatus alpha). Status alpha tetap dihitung virtual di rekap.
-    if (status === "alpha" && body.type === "in") {
-      return NextResponse.json({ ok: false, reason: "terlambat_alpha", ts_server: tsServer, attendance_id: body.id }, { status: 200 });
-    }
+    // Status alpha tetap dihitung dan kini diizinkan masuk ke database
+    // karena bug penguncian kiosk akibat absen alpha sudah diperbaiki di sisi database.
 
     const { error } = await admin.from("attendance").upsert({
       id: body.id,

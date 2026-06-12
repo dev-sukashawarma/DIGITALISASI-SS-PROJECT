@@ -215,14 +215,14 @@ function DashboardHub() {
                   <button
                     key={item.href}
                     onClick={() => handleNavigate(item.href)}
-                    className="flex-shrink-0 w-[115px] lg:w-full bg-white border border-[#d9c2b2]/40 hover:border-[#f29744]/40 p-4 rounded-xl flex flex-col items-center justify-center text-center gap-2.5 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:shadow-md active:scale-95 transition-all cursor-pointer"
+                    className="flex-shrink-0 w-32 lg:w-full bg-white border border-[#d9c2b2]/40 hover:border-[#f29744]/40 p-4 rounded-xl flex flex-col items-center justify-center text-center gap-2.5 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:shadow-md active:scale-95 transition-all cursor-pointer"
                   >
                     <div className="w-12 h-12 rounded-full bg-[#f29744]/10 flex items-center justify-center text-xl text-[#f29744] font-bold leading-none mb-1">
                       {item.icon}
                     </div>
-                    <div className="space-y-0.5">
-                      <p className="font-bold text-[#701604] text-xs uppercase tracking-tight leading-tight truncate w-full">{item.label}</p>
-                      <p className="text-[9px] text-[#544437]/60 font-bold uppercase mt-0.5 truncate w-full">{item.desc}</p>
+                    <div className="space-y-1 w-full">
+                      <p className="font-bold text-[#701604] text-xs uppercase tracking-tight leading-tight w-full whitespace-normal text-center">{item.label}</p>
+                      <p className="text-[9px] text-[#544437]/60 font-bold uppercase w-full whitespace-normal leading-tight text-center">{item.desc}</p>
                     </div>
                   </button>
                 ))}

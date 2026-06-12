@@ -36,6 +36,11 @@ Set di **kedua** project (Production + Preview):
 - **Fix:** `getCrossAppUrl` sekarang pakai `NEXT_PUBLIC_STOK_URL` / `NEXT_PUBLIC_DISTRIBUSI_URL` (domain absolut) kalau di-set; fallback ke path relatif untuk cPanel (subdomain + reverse proxy).
 - **Konsekuensi:** kalau env var di atas belum di-set di Vercel, tombol "Terima Kiriman" dari app stok akan 404. Lihat test **#9.5**.
 
+### 🐞 Open Item — Dynamic detail routes di cPanel static export
+- Route detail UUID dinamis: `/stok/monitoring-live/[outlet-id]`, `/stok/ledger/[id]`, `/stok/opname/[id]`.
+- Di **Vercel (SSR)** sudah jalan (dilayani on-demand). `dynamicParams=false` dihapus karena bikin 404 di SSR.
+- Di **cPanel (`STATIC_EXPORT=true`)** route ini **belum bisa** — static export tak bisa generate halaman untuk UUID arbitrer tanpa daftar id saat build. Perlu pendekatan lain (mis. query-param `?id=`, atau pre-list id). **Belum dikerjakan.**
+
 ### 🔒 Keamanan — JANGAN commit / set di Vercel
 - **`SUPABASE_SERVICE_ROLE_KEY` HARUS DIHAPUS** dari env vars Vercel (bypass semua RLS, bahaya di static/client app). Sisakan hanya `anon key`.
 - File `.env.local` jangan ke-commit (sudah di `.gitignore`).

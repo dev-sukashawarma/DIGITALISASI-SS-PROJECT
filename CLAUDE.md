@@ -108,6 +108,51 @@ supabase migration repair  # Fix diverged riwayat
 
 ---
 
+## Deployment — cPanel + CloudLinux Node Selector + LiteSpeed
+
+Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106.237**, NS connectindo.net), LiteSpeed + CloudLinux Node Selector. Dipilih shared server Indonesia demi **latency** (Vercel kena limit redeploy). **1 subdomain = 1 Node app.**
+
+### Status
+- ✅ `distribusi.sukashawarma.com` — LIVE (2026-06-12)
+- ⏳ `stok.sukashawarma.com` — subdomain + Node app dibuat, app belum di-build/deploy
+
+### Prasyarat (sekali setup)
+- Monorepo di-`git clone` ke `/home/sukashaw/suka-app` (repo public: `github.com/dev-sukashawarma/DIGITALISASI-SS-PROJECT`).
+- **node/npm asli** (bypass wrapper CloudLinux): `/opt/alt/alt-nodejs24/root/usr/bin/node` + `/opt/alt/alt-nodejs24/root/usr/lib/node_modules/npm/bin/npm-cli.js`.
+
+### Langkah deploy per app
+1. cPanel → buat **Subdomain** (docroot otomatis `/home/sukashaw/<sub>.sukashawarma.com`, di home level — normal di host ini).
+2. cPanel → **Setup Node.js App**: Node `24.15.0`, mode `Production`, app root = subdomain folder, startup file `server.cjs`. JANGAN tambah env `NODE_ENV` manual (mode Production sudah set; manual bikin duplikat korup).
+3. Upload `apps/<app>/.env.local` ke `suka-app/apps/<app>/` via FileZilla (berisi service role keys — jangan echo di terminal).
+4. Install deps (bypass wrapper, pakai `.npmrc` nested default — JANGAN override hoisted):
+   ```bash
+   cd /home/sukashaw/suka-app && /opt/alt/alt-nodejs24/root/usr/bin/node /opt/alt/alt-nodejs24/root/usr/lib/node_modules/npm/bin/npm-cli.js install
+   ```
+5. Build app:
+   ```bash
+   cd /home/sukashaw/suka-app/apps/<app> && /opt/alt/alt-nodejs24/root/usr/bin/node /opt/alt/alt-nodejs24/root/usr/lib/node_modules/npm/bin/npm-cli.js run build
+   ```
+6. Buat `server.cjs` di **docroot subdomain** (CommonJS, absolute-path ke build — hindari konflik node_modules symlink CloudLinux):
+   ```js
+   const { createServer } = require('http');
+   const appDir = '/home/sukashaw/suka-app/apps/<app>';
+   process.chdir(appDir);
+   const next = require(appDir + '/node_modules/next');
+   const app = next({ dev: false, dir: appDir });
+   const handle = app.getRequestHandler();
+   app.prepare().then(() => createServer((req, res) => handle(req, res)).listen(process.env.PORT || 3000));
+   ```
+7. Panel Node app: startup file `server.cjs`, env `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`, **SAVE → RESTART**.
+8. DNS: cek `dig +short <sub>.sukashawarma.com @dns1.connectindo.net`. Kalau kosong, tambah A record `<sub>` → `103.77.106.237` di cPanel **Zone Editor** (kadang tidak auto-dibuat).
+
+### Gotcha penting
+- **TEST via IP publik, BUKAN `127.0.0.1`** — loopback di server ini SELALU balik cPanel defaultwebpage (false negative). Pakai: `curl -sk --resolve <domain>:443:103.77.106.237 https://<domain>/`. Passenger spawn on-demand → `ps` kosong saat idle itu normal.
+- **`type: module`** di package.json → startup HARUS `.cjs` (bukan `.js`).
+- **Type error build** (Next 16 ketat) → `next.config.js`: `typescript.ignoreBuildErrors: true`. Key `eslint` tidak didukung Next 16. ⚠️ Edit `next.config.js` di server ke-overwrite saat `git pull` — fix permanen harus commit ke repo.
+- **`@suka/*` 404 ke registry** = wrapper npm CloudLinux membajak node_modules ke venv. Selalu pakai npm asli `/opt/alt/...`.
+
+---
+
 ## Notes
 
 - **Monitoring-live design rationale:** Papan TV lebar perlu readability & speed (3 detik ditangkap), bukan density informasi maksimal. Sidebar feed dihapus → detail page. Top-3 & Kitchen highlight SPOF & prioritas.
@@ -116,5 +161,5 @@ supabase migration repair  # Fix diverged riwayat
 
 ---
 
-**Last updated:** 2026-06-11  
+**Last updated:** 2026-06-12  
 **Owner:** Dev Suka Shawarma

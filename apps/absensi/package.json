@@ -4,27 +4,40 @@
   "description": "M1 — Absensi outlet + face recognition",
   "type": "module",
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev --webpack -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
-    "react": "^19.0.0-rc.0",
-    "react-dom": "^19.0.0-rc.0",
-    "next": "^16.1.6",
-    "@supabase/supabase-js": "^2.38.0",
-    "@supabase/ssr": "^0.2.0",
     "@suka/design-system": "*",
-    "@suka/offline-queue": "*"
+    "@suka/offline-queue": "*",
+    "@supabase/ssr": "^0.2.0",
+    "@supabase/supabase-js": "^2.38.0",
+    "dayjs": "^1.11.21",
+    "face-api.js": "^0.22.2",
+    "lucide-react": "^1.17.0",
+    "next": "^16.1.6",
+    "react": "^19.0.0-rc.0",
+    "react-dom": "^19.0.0-rc.0"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
+    "@playwright/test": "^1.60.0",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^25.0.1",
+    "postcss": "^8.4.32",
     "tailwindcss": "^4.0.0",
-    "postcss": "^8.4.32"
+    "typescript": "^5.3.3",
+    "vitest": "^2.1.0"
   }
 }

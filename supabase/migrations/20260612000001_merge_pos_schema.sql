@@ -1,0 +1,183 @@
+-- 20260612000001_merge_pos_schema.sql
+-- Merge POS Kasir schema into the Unified (Absensi) database
+
+-- 1. Alter existing outlets table to add POS columns
+ALTER TABLE public.outlets 
+ADD COLUMN IF NOT EXISTS phone TEXT,
+ADD COLUMN IF NOT EXISTS inactive_reason TEXT;
+
+-- 2. Create POS Tables
+
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id uuid NOT NULL,
+  role text NOT NULL CHECK (role = ANY (ARRAY['admin'::text, 'kasir'::text, 'kiosk'::text])),
+  outlet_id uuid,
+  username text UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  is_active boolean DEFAULT true,
+  inactive_reason text,
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE,
+  CONSTRAINT profiles_outlet_id_fkey FOREIGN KEY (outlet_id) REFERENCES public.outlets(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.categories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  sort_order integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT categories_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS public.menu_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  category_id uuid,
+  name text NOT NULL,
+  description text,
+  price numeric NOT NULL CHECK (price > 0::numeric),
+  image_url text,
+  is_available boolean DEFAULT true,
+  sort_order integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  outlet_id uuid,
+  CONSTRAINT menu_items_pkey PRIMARY KEY (id),
+  CONSTRAINT menu_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id) ON DELETE SET NULL,
+  CONSTRAINT menu_items_outlet_id_fkey FOREIGN KEY (outlet_id) REFERENCES public.outlets(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.orders (
+  id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  outlet_id      UUID          NOT NULL REFERENCES public.outlets(id) ON DELETE CASCADE,
+  order_number   SERIAL        UNIQUE,
+  customer_name  TEXT,
+  status         TEXT          DEFAULT 'pending' CHECK (status IN ('pending','preparing','ready','completed','cancelled')),
+  payment_method TEXT          CHECK (payment_method IN ('cash','qris','card')),
+  total_amount   DECIMAL(10,2) NOT NULL CHECK (total_amount >= 0),
+  notes          TEXT,
+  created_at     TIMESTAMPTZ   DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ   DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.order_items (
+  id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id       UUID          REFERENCES public.orders(id) ON DELETE CASCADE,
+  menu_item_id   UUID          REFERENCES public.menu_items(id) ON DELETE SET NULL,
+  menu_item_name TEXT          NOT NULL,
+  quantity       INTEGER       NOT NULL CHECK (quantity > 0 AND quantity <= 10),
+  unit_price     DECIMAL(10,2) NOT NULL,
+  subtotal       DECIMAL(10,2) NOT NULL,
+  created_at     TIMESTAMPTZ   DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.kiosk_settings (
+  outlet_id  UUID NOT NULL REFERENCES public.outlets(id) ON DELETE CASCADE,
+  key        TEXT,
+  value      TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (outlet_id, key)
+);
+
+CREATE TABLE IF NOT EXISTS public.outlet_order_counters (
+  outlet_id uuid NOT NULL,
+  last_number integer NOT NULL DEFAULT 0,
+  CONSTRAINT outlet_order_counters_pkey PRIMARY KEY (outlet_id),
+  CONSTRAINT outlet_order_counters_outlet_id_fkey FOREIGN KEY (outlet_id) REFERENCES public.outlets(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS public.global_settings (
+  key text NOT NULL,
+  value text,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT global_settings_pkey PRIMARY KEY (key)
+);
+
+CREATE TABLE IF NOT EXISTS public.guides (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  category text NOT NULL,
+  title text NOT NULL,
+  content text NOT NULL,
+  image_url text,
+  sort_order integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT guides_pkey PRIMARY KEY (id)
+);
+
+-- 3. Row Level Security (RLS) for POS tables
+ALTER TABLE public.profiles    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.categories  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.menu_items  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.kiosk_settings ENABLE ROW LEVEL SECURITY;
+
+-- Helper functions
+CREATE OR REPLACE FUNCTION get_user_role() RETURNS text AS $$
+  SELECT role FROM profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION get_user_outlet_id() RETURNS uuid AS $$
+  SELECT outlet_id FROM profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER;
+
+-- Profiles Policies
+CREATE POLICY "profiles_select_self" ON profiles FOR SELECT USING (id = auth.uid());
+CREATE POLICY "profiles_all_admin" ON profiles FOR ALL USING (get_user_role() = 'admin');
+
+-- Categories & Menu Items
+CREATE POLICY "categories_select_public" ON categories FOR SELECT USING (true);
+CREATE POLICY "categories_all_admin" ON categories FOR ALL USING (get_user_role() = 'admin');
+CREATE POLICY "menu_items_select_public" ON menu_items FOR SELECT USING (true);
+CREATE POLICY "menu_items_all_admin" ON menu_items FOR ALL USING (get_user_role() = 'admin');
+
+-- Orders & Items
+CREATE POLICY "orders_select_public" ON orders FOR SELECT USING (true);
+CREATE POLICY "orders_insert_public" ON orders FOR INSERT WITH CHECK (true);
+CREATE POLICY "orders_update_kasir" ON orders FOR UPDATE USING (outlet_id = get_user_outlet_id() AND get_user_role() = 'kasir');
+CREATE POLICY "orders_all_admin" ON orders FOR ALL USING (get_user_role() = 'admin');
+
+CREATE POLICY "order_items_select_public" ON order_items FOR SELECT USING (true);
+CREATE POLICY "order_items_insert_public" ON order_items FOR INSERT WITH CHECK (true);
+CREATE POLICY "order_items_all_admin_kasir" ON order_items FOR ALL USING (get_user_role() IN ('admin', 'kasir'));
+
+CREATE POLICY "kiosk_settings_select_public" ON kiosk_settings FOR SELECT USING (true);
+CREATE POLICY "kiosk_settings_all_admin" ON kiosk_settings FOR ALL USING (get_user_role() = 'admin');
+CREATE POLICY "kiosk_settings_all_kasir" ON kiosk_settings FOR ALL USING (outlet_id = get_user_outlet_id() AND get_user_role() = 'kasir');
+
+-- 4. Re-apply the Attendance Auto-Unlock Integration RPC and Policy
+-- Allow POS Kasir to read attendance data for their outlet
+CREATE POLICY "attendance_read_kasir" ON attendance
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles p
+      WHERE p.id = auth.uid()
+        AND p.role = 'kasir'
+        AND p.outlet_id = attendance.outlet_id
+    )
+  );
+
+-- Helper function to check if there is an active staff presence in the outlet today
+CREATE OR REPLACE FUNCTION get_outlet_presence(p_outlet_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM (
+      SELECT outlet_staff_id, (array_agg(type ORDER BY ts_server DESC))[1] as latest_type
+      FROM attendance
+      WHERE outlet_id = p_outlet_id
+        AND (ts_server AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date
+      GROUP BY outlet_staff_id
+    ) sub
+    WHERE latest_type = 'in'
+  );
+$$;
+
+-- 5. Enable Realtime for attendance table
+ALTER PUBLICATION supabase_realtime ADD TABLE attendance;

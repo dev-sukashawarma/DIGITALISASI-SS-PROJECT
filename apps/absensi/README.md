@@ -8,3 +8,7 @@
 - Butuh dari M0: `outlet_staff`, `outlets.lat/lng`, auth/RLS, design-system
 
 Status: belum mulai (menunggu M0 + Supabase project).
+
+## Model face-api.js
+Unduh weights ke `public/models/` (tiny_face_detector, face_landmark_68, face_recognition)
+dari https://github.com/justadudewhohacks/face-api.js/tree/master/weights

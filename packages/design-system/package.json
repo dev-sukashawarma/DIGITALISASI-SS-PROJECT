@@ -18,11 +18,13 @@
   "files": ["dist", "src"],
   "scripts": {
     "build": "tsc && node -e \"console.log('✓ Build complete')\"",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prepare": "tsc"
   },
   "devDependencies": {
     "typescript": "^5.3.3",
-    "@types/react": "^18.2.45"
+    "@types/react": "^18.2.45",
+    "next": "^16.1.6"
   },
   "peerDependencies": {
     "react": "^19.0.0",

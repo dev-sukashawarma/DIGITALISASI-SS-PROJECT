@@ -5,8 +5,6 @@ export function generateStaticParams() {
   return []
 }
 
-export const dynamicParams = false
-
 export default async function LedgerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   return (

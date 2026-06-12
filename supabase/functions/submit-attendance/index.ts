@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     // Admin client (service role) untuk validasi token & tulis data.
     const admin = createClient(url, serviceKey);
 
-    let body: Body & { outlet_id: string };
+    let body: Body & { outlet_id: string; selfie_base64?: string };
     try { body = await req.json(); } catch { return json(400, { ok: false, reason: "bad_json" }); }
 
     // Target staff harus terdaftar & sesuai dengan outlet_id
@@ -50,8 +50,20 @@ Deno.serve(async (req) => {
     if (target.outlet_id !== body.outlet_id) return json(403, { ok: false, reason: "cross_outlet" });
     if (!target.face_descriptor) return json(422, { ok: false, reason: "not_enrolled" });
 
-    // Validasi path selfie milik outlet ini.
-    if (body.selfie_path && !body.selfie_path.startsWith(`${body.outlet_id}/`)) {
+    if (body.selfie_base64) {
+      const base64Str = body.selfie_base64.split(",")[1];
+      const binaryStr = atob(base64Str);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+      
+      const path = `${body.outlet_id}/${body.id}.jpg`;
+      const { error: uploadErr } = await admin.storage.from("selfies").upload(path, bytes, {
+        contentType: "image/jpeg",
+        upsert: true
+      });
+      if (uploadErr) console.error("Selfie upload err:", uploadErr);
+      body.selfie_path = path;
+    } else if (body.selfie_path && !body.selfie_path.startsWith(`${body.outlet_id}/`)) {
       return json(403, { ok: false, reason: "selfie_path_mismatch" });
     }
 

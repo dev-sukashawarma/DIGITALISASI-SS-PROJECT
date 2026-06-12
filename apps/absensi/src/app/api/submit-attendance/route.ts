@@ -18,7 +18,17 @@ export async function POST(req: Request) {
     if (target.outlet_id !== body.outlet_id) return NextResponse.json({ ok: false, reason: "cross_outlet" }, { status: 403 });
     if (!target.face_descriptor) return NextResponse.json({ ok: false, reason: "not_enrolled" }, { status: 422 });
 
-    if (body.selfie_path && !body.selfie_path.startsWith(`${body.outlet_id}/`)) {
+    if (body.selfie_base64) {
+      const base64Str = body.selfie_base64.split(",")[1];
+      const buffer = Buffer.from(base64Str, "base64");
+      const path = `${body.outlet_id}/${body.id}.jpg`;
+      const { error: uploadErr } = await admin.storage.from("selfies").upload(path, buffer, {
+        contentType: "image/jpeg",
+        upsert: true
+      });
+      if (uploadErr) console.error("Selfie upload err server:", uploadErr);
+      body.selfie_path = path;
+    } else if (body.selfie_path && !body.selfie_path.startsWith(`${body.outlet_id}/`)) {
       return NextResponse.json({ ok: false, reason: "selfie_path_mismatch" }, { status: 403 });
     }
 

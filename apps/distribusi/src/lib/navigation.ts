@@ -1,10 +1,10 @@
 /**
- * Resolves URLs across different micro-frontend applications in the monorepo.
+ * Resolves URLs across micro-frontend apps. App ini = DISTRIBUSI.
  *
- * - Development: redirects localhost:3001 (stok) and localhost:3002 (distribusi).
- * - Staging (Vercel, dua domain terpisah): pakai NEXT_PUBLIC_STOK_URL /
- *   NEXT_PUBLIC_DISTRIBUSI_URL kalau di-set → domain absolut.
- * - Production (cPanel, subdomain + reverse proxy): fallback ke path relatif.
+ * - Route milik DISTRIBUSI sendiri (/distribusi, /dashboard, /login) → relatif (SPA nav).
+ * - Route app lain (/stok/*) → absolut kalau NEXT_PUBLIC_STOK_URL di-set
+ *   (Vercel dua domain); kalau tidak → relatif (cPanel subdomain proxy).
+ * - Dev: redirect ke port lokal masing-masing app.
  */
 export const getCrossAppUrl = (path: string): string => {
   if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
@@ -16,11 +16,8 @@ export const getCrossAppUrl = (path: string): string => {
     }
   }
 
+  // Hanya route app LAIN (stok) yang di-eksternal-kan.
   const stokUrl = process.env.NEXT_PUBLIC_STOK_URL;
-  const distribusiUrl = process.env.NEXT_PUBLIC_DISTRIBUSI_URL;
-  if (path.startsWith('/distribusi') && distribusiUrl) {
-    return `${distribusiUrl.replace(/\/$/, '')}${path}`;
-  }
   if (path.startsWith('/stok') && stokUrl) {
     return `${stokUrl.replace(/\/$/, '')}${path}`;
   }

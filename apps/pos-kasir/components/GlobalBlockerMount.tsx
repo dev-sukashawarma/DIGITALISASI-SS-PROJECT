@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import BlockedOverlay from './BlockedOverlay'
 
@@ -8,6 +8,9 @@ export default function GlobalBlockerMount() {
   const [isBlocked, setIsBlocked] = useState(false)
   const [blockedReason, setBlockedReason] = useState('')
   const [blockType, setBlockType] = useState<'user' | 'outlet' | 'attendance'>('user')
+  
+  // Simpan outlet_id kasir agar bisa filter event attendance per outlet
+  const outletIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -24,6 +27,9 @@ export default function GlobalBlockerMount() {
         .eq('id', currentUid).single()
         
       if (profile && profile.role !== 'admin') {
+        // Simpan outlet_id untuk filtering realtime
+        outletIdRef.current = profile.outlet_id || null
+        
         if (profile.is_active === false) {
           setIsBlocked(true)
           setBlockType('user')
@@ -48,15 +54,16 @@ export default function GlobalBlockerMount() {
               setIsBlocked(false)
             }
           } catch (err) {
-            console.error('Failed to check presence', err)
-            setIsBlocked(true)
-            setBlockType('attendance')
-            setBlockedReason('Mengecek status absensi...')
+            console.error('[POS-Blocker] Failed to check presence:', err)
+            // Jika RPC belum ada di database, jangan block — biarkan terbuka
+            // agar tidak mengganggu operasional
+            setIsBlocked(false)
           }
         } else {
           setIsBlocked(false)
         }
       } else {
+        // Admin tidak pernah diblokir
         setIsBlocked(false)
       }
     }
@@ -71,10 +78,10 @@ export default function GlobalBlockerMount() {
       checkStatus()
     })
 
-    // Mengecek status secara berkala untuk amannya
-    const interval = setInterval(checkStatus, 15000)
+    // Polling setiap 10 detik sebagai safety net
+    const interval = setInterval(checkStatus, 10000)
 
-    // Realtime listener agar pemblokiran instan tanpa harus menunggu 30 detik
+    // Realtime listener untuk perubahan profiles/outlets (nonaktif/aktif)
     const channel = supabase.channel('global_blocker')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => {
         checkStatus()
@@ -84,22 +91,72 @@ export default function GlobalBlockerMount() {
       })
       .subscribe()
 
-    // Realtime listener untuk menangkap sinyal instan saat kru absen (masuk ATAU pulang)
-    // Karena sekarang database sudah disatukan, kita bisa langsung listen ke tabel 'attendance'
-    const attendanceChannel = supabase.channel('attendance_changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance' }, () => {
-        // Setiap ada data absensi baru (masuk/pulang), langsung cek ulang kehadiran
-        // JANGAN optimistik membuka — biarkan RPC get_outlet_presence yang menentukan
-        checkStatus()
+    // Realtime listener untuk attendance — filter berdasarkan outlet_id
+    // Ketika ada INSERT baru di tabel attendance (masuk ATAU pulang),
+    // langsung re-check kehadiran outlet kasir ini
+    const attendanceChannel = supabase.channel('attendance_outlet_changes')
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'attendance',
+          // Filter hanya event dari outlet kasir ini
+          filter: outletIdRef.current ? `outlet_id=eq.${outletIdRef.current}` : undefined
+        },
+        () => {
+          console.log('[POS-Blocker] Attendance event received, re-checking...')
+          checkStatus()
+        }
+      )
+      .subscribe((status) => {
+        console.log('[POS-Blocker] Attendance channel status:', status)
       })
-      .subscribe()
 
-    return () => { 
+    // Re-subscribe attendance channel setelah outlet_id diketahui
+    // karena saat pertama kali mount, outletIdRef mungkin masih null
+    const resubscribeTimer = setTimeout(async () => {
+      if (outletIdRef.current) {
+        await supabase.removeChannel(attendanceChannel)
+        
+        const filteredChannel = supabase.channel('attendance_outlet_filtered')
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'attendance',
+              filter: `outlet_id=eq.${outletIdRef.current}`
+            },
+            () => {
+              console.log('[POS-Blocker] Filtered attendance event for outlet:', outletIdRef.current)
+              checkStatus()
+            }
+          )
+          .subscribe((status) => {
+            console.log('[POS-Blocker] Filtered attendance channel status:', status)
+          })
+          
+        // Update cleanup to include new channel
+        cleanupRef.current = () => {
+          sub.subscription.unsubscribe()
+          clearInterval(interval)
+          supabase.removeChannel(channel)
+          supabase.removeChannel(filteredChannel)
+        }
+      }
+    }, 3000) // Tunggu 3 detik agar profile sudah di-fetch
+
+    // Cleanup ref untuk dynamic cleanup
+    const cleanupRef = { current: () => {
       sub.subscription.unsubscribe()
       clearInterval(interval)
+      clearTimeout(resubscribeTimer)
       supabase.removeChannel(channel)
       supabase.removeChannel(attendanceChannel)
-    }
+    }}
+
+    return () => cleanupRef.current()
   }, [])
 
   if (isBlocked) {

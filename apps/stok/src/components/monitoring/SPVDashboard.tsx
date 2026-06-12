@@ -5,6 +5,8 @@ import { SPVTabs } from './SPVTabs';
 import { SPVTable } from './SPVTable';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { TransferModal } from './TransferModal';
+import { TransferSuggestionPanel } from './TransferSuggestionPanel';
+import type { TransferSuggestion } from '@/lib/stok/transferSuggestion';
 import { useSPVMonitoringData } from '@/hooks/useMonitoringData';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOpnameStatus } from '@/lib/queries/monitoring';
@@ -194,6 +196,15 @@ export function SPVDashboard() {
     const sourceOutletName = outlets.byOutlet.find(o => o.outlet_id === sourceOutletId)?.outlet_name || 'Outlet Asal';
     showToast(`✅ Transfer Stok Berhasil: ${qty} unit ${transferItem.item_name} dipindahkan dari ${sourceOutletName} ke ${transferItem.outlet_name}`);
     setTransferItem(null);
+  };
+
+  const handleSuggestionTransfer = (suggestion: TransferSuggestion) => {
+    const recipientItem = (items ?? []).find(
+      (i) =>
+        i.outlet_id === suggestion.recipientOutletId &&
+        i.bahan_baku_id === suggestion.bahan_baku_id
+    );
+    if (recipientItem) setTransferItem(recipientItem);
   };
 
   const handleThresholdChange = (outletId: string, bahanBakuId: string, value: number) => {
@@ -601,6 +612,17 @@ export function SPVDashboard() {
           isOpen={!!selectedItem}
         />
       )}
+
+      {/* Transfer Suggestions */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-extrabold uppercase tracking-wider text-suka-brown/70">
+          Saran Transfer Antar-Outlet
+        </h2>
+        <TransferSuggestionPanel
+          items={items ?? []}
+          onTransfer={handleSuggestionTransfer}
+        />
+      </section>
 
       {/* Transfer Stock Modal */}
       <TransferModal

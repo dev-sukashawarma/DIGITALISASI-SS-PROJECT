@@ -128,28 +128,34 @@ function DashboardHub() {
   }, [isSPV]);
 
   return (
-    <div className="min-h-screen bg-suka-cream text-suka-ink font-sans pb-32">
+    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] font-sans pb-32">
       {/* Header */}
-      <header className="bg-white border-b border-suka-brown/10 px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-40">
+      <header className="bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex items-center justify-between shadow-[0_2px_8px_rgba(144,77,0,0.03)] sticky top-0 z-40">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
-          <div>
-            <p className="text-[10px] font-black text-suka-brown/50 uppercase tracking-widest leading-none">Outlet Suite</p>
-            <h1 className="text-sm font-extrabold text-suka-brown uppercase tracking-tight mt-1 leading-none">
-              {crewData?.outlet_name || 'Stock Monitoring'}
-            </h1>
+          <div className="w-10 h-10 rounded-full border-2 border-[#f29744] overflow-hidden bg-white flex items-center justify-center shrink-0 shadow-sm">
+            {outletStaff?.ref_photo_url ? (
+              <img src={outletStaff.ref_photo_url} alt="Staff Profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-lg">🧑‍🍳</span>
+            )}
+          </div>
+          <div className="flex flex-col">
+            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Stock Monitoring</h1>
+            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">
+              Outlet {crewData?.outlet_name || '...'} • {outletStaff?.role?.toUpperCase() || 'CREW'}: {outletStaff?.name || '...'}
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="bg-suka-cream border border-suka-brown/10 px-3 py-1.5 rounded-xl text-xs font-bold text-suka-brown">
-            {outletStaff?.name ?? '—'}
-            <span className="ml-1.5 uppercase text-suka-brown/40 font-medium">
-              · {outletStaff?.role}
-            </span>
-          </div>
-          <Button variant="secondary" size="sm" onClick={() => signOut()}>
+        <div className="flex items-center gap-2">
+          <button className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] active:scale-95 transition-all shadow-sm" title="Notifikasi">
+            <span className="text-sm">🔔</span>
+          </button>
+          <button
+            onClick={() => signOut()}
+            className="px-3.5 py-1.5 rounded-xl bg-white border border-[#ba1a1a]/30 text-[#ba1a1a] hover:bg-[#ba1a1a]/5 text-xs font-bold uppercase tracking-wider active:scale-95 transition-all shadow-sm"
+          >
             Keluar
-          </Button>
+          </button>
         </div>
       </header>
 
@@ -163,17 +169,17 @@ function DashboardHub() {
             {!isLoading && (
               <section>
                 {alerts.length > 0 ? (
-                  <div className="bg-white rounded-2xl border border-red-500/20 p-5 shadow-[0px_4px_12px_rgba(112,22,4,0.03)] flex flex-col gap-4">
+                  <div className="bg-white rounded-2xl border border-[#ba1a1a]/20 p-5 shadow-[0px_4px_12px_rgba(144,77,0,0.06)] flex flex-col gap-4">
                     <div className="flex items-center gap-2 text-[#ba1a1a]">
                       <span className="text-xl">⚠️</span>
-                      <h2 className="font-extrabold text-sm uppercase tracking-wide">Peringatan Kritis ({alerts.length})</h2>
+                      <h2 className="font-bold text-sm uppercase tracking-wide">Peringatan Kritis ({alerts.length})</h2>
                     </div>
                     <div className="space-y-2">
                       {alerts.map((alert) => (
                         <div key={alert.id} className="flex justify-between items-center p-4 bg-[#ba1a1a]/5 rounded-xl border border-[#ba1a1a]/10">
                           <div className="flex flex-col">
-                            <span className="font-extrabold text-xs text-suka-ink uppercase tracking-wide leading-tight">{alert.title}</span>
-                            <span className="text-[11px] text-suka-brown/70 mt-1">
+                            <span className="font-bold text-xs text-[#1e1b15] uppercase tracking-wide leading-tight">{alert.title}</span>
+                            <span className="text-[11px] text-[#544437]/75 mt-1 font-medium">
                               {alert.desc}
                             </span>
                           </div>
@@ -184,17 +190,17 @@ function DashboardHub() {
                     <Button 
                       variant="primary" 
                       onClick={() => handleNavigate('/stok/opname/new')}
-                      className="w-full bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white font-extrabold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-xs uppercase tracking-wider"
+                      className="w-full bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-xs uppercase tracking-wider active:scale-95"
                     >
                       Mulai Opname Baru
                     </Button>
                   </div>
                 ) : (
-                  <div className="bg-white rounded-2xl border border-suka-green/20 p-5 shadow-[0px_4px_12px_rgba(10,125,44,0.03)] flex flex-col items-center justify-center text-center gap-2 py-6">
+                  <div className="bg-white rounded-2xl border border-[#0a7d2c]/20 p-5 shadow-[0px_4px_12px_rgba(144,77,0,0.04)] flex flex-col items-center justify-center text-center gap-2 py-6">
                     <span className="text-2xl leading-none">🟢</span>
                     <div className="leading-tight">
-                      <h2 className="font-extrabold text-xs text-suka-green uppercase tracking-wide">Semua Aman</h2>
-                      <p className="text-[10px] text-suka-green/75 mt-1 font-bold uppercase tracking-wide">Ketersediaan bahan baku & jadwal opname terpenuhi</p>
+                      <h2 className="font-bold text-xs text-[#0a7d2c] uppercase tracking-wide">Semua Aman</h2>
+                      <p className="text-[10px] text-[#0a7d2c]/75 mt-1 font-bold uppercase tracking-wide">Ketersediaan bahan baku & jadwal opname terpenuhi</p>
                     </div>
                   </div>
                 )}
@@ -203,20 +209,20 @@ function DashboardHub() {
 
             {/* Section: Quick Actions */}
             <section>
-              <p className="text-xs font-black text-suka-brown/50 uppercase tracking-widest mb-3">Aksi Cepat</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-4">
+              <p className="text-[10px] font-black text-[#701604]/50 uppercase tracking-widest mb-3 px-1 lg:px-0">Aksi Cepat</p>
+              <div className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 no-scrollbar lg:grid lg:grid-cols-2 lg:gap-4 lg:overflow-x-visible lg:pb-0 lg:mx-0 lg:px-0">
                 {menu.map((item) => (
                   <button
                     key={item.href}
                     onClick={() => handleNavigate(item.href)}
-                    className="bg-white border border-suka-brown/10 hover:border-suka-orange/30 p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2.5 shadow-[0px_4px_12px_rgba(112,22,4,0.02)] hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all w-full cursor-pointer"
+                    className="flex-shrink-0 w-[115px] lg:w-full bg-white border border-[#d9c2b2]/40 hover:border-[#f29744]/40 p-4 rounded-xl flex flex-col items-center justify-center text-center gap-2.5 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:shadow-md active:scale-95 transition-all cursor-pointer"
                   >
-                    <div className="w-12 h-12 rounded-full bg-suka-orange/10 flex items-center justify-center text-xl text-suka-orange font-bold leading-none">
+                    <div className="w-12 h-12 rounded-full bg-[#f29744]/10 flex items-center justify-center text-xl text-[#f29744] font-bold leading-none mb-1">
                       {item.icon}
                     </div>
                     <div className="space-y-0.5">
-                      <p className="font-extrabold text-suka-brown text-xs uppercase tracking-tight leading-tight">{item.label}</p>
-                      <p className="text-[9px] text-suka-brown/50 font-bold uppercase mt-0.5">{item.desc}</p>
+                      <p className="font-bold text-[#701604] text-xs uppercase tracking-tight leading-tight truncate w-full">{item.label}</p>
+                      <p className="text-[9px] text-[#544437]/60 font-bold uppercase mt-0.5 truncate w-full">{item.desc}</p>
                     </div>
                   </button>
                 ))}
@@ -231,43 +237,43 @@ function DashboardHub() {
             {/* Section: Real-time Stock Balance */}
             <section className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="font-extrabold text-suka-brown text-xs uppercase tracking-wider">Saldo Stok Real-time</h2>
-                <span className="text-[9px] font-black text-suka-brown/40 uppercase tracking-widest bg-suka-brown/5 px-2.5 py-1 rounded-lg">
+                <h2 className="font-bold text-[#701604] text-xs uppercase tracking-wider">Saldo Stok Real-time</h2>
+                <span className="text-[9px] font-black text-[#701604]/40 uppercase tracking-widest bg-[#701604]/5 px-2.5 py-1 rounded-lg">
                   Total: {items.length} bahan
                 </span>
               </div>
 
               {/* Search and Filter Tabs */}
-              <div className="bg-white border border-suka-brown/10 rounded-2xl p-3 shadow-sm space-y-3">
+              <div className="bg-white border border-[#d9c2b2]/40 rounded-2xl p-3 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] space-y-3">
                 {/* Search Input */}
                 <div className="relative">
                   <input
                     type="text"
-                    className="w-full px-4 py-2 pl-9 rounded-xl border border-suka-brown/10 bg-suka-cream/20 focus:outline-none focus:ring-2 focus:ring-suka-orange focus:border-suka-orange text-xs text-suka-ink placeholder-suka-brown/40 font-medium transition-all"
+                    className="w-full px-4 py-2.5 pl-9 rounded-xl border border-[#d9c2b2]/40 bg-[#fff8f1]/30 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/40 font-medium transition-all"
                     placeholder="Cari bahan..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-brown/40 text-xs">🔍</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#544437]/40 text-xs">🔍</span>
                 </div>
 
                 {/* Filter Pills */}
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     onClick={() => setActiveTab('all')}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all border cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
                       activeTab === 'all'
-                        ? 'bg-suka-brown border-suka-brown text-white'
-                        : 'bg-white border-suka-brown/10 text-suka-brown/70 hover:bg-suka-cream/50'
+                        ? 'bg-[#701604] border-[#701604] text-white shadow-sm'
+                        : 'bg-white border-[#d9c2b2]/40 text-[#544437]/80 hover:bg-[#fff8f1]/50'
                     }`}
                   >
                     Semua
                   </button>
                   <button
                     onClick={() => setActiveTab('below')}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all border cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
                       activeTab === 'below'
-                        ? 'bg-[#ba1a1a] border-[#ba1a1a] text-white'
+                        ? 'bg-[#ba1a1a] border-[#ba1a1a] text-white shadow-sm'
                         : 'bg-white border-[#ba1a1a]/15 text-[#ba1a1a] hover:bg-[#ba1a1a]/5'
                     }`}
                   >
@@ -275,67 +281,67 @@ function DashboardHub() {
                   </button>
                   <button
                     onClick={() => setActiveTab('warning')}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all border cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
                       activeTab === 'warning'
-                        ? 'bg-suka-orange border-suka-orange text-white'
-                        : 'bg-white border-suka-orange/20 text-suka-orange hover:bg-suka-orange/5'
+                        ? 'bg-[#f29744] border-[#f29744] text-white shadow-sm'
+                        : 'bg-white border-[#f29744]/20 text-[#f29744] hover:bg-[#f29744]/5'
                     }`}
                   >
-                    Menipis ({items.filter((i) => i.status === 'warning').length})
+                    Warning ({items.filter((i) => i.status === 'warning').length})
                   </button>
                   <button
                     onClick={() => setActiveTab('ok')}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all border cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
                       activeTab === 'ok'
-                        ? 'bg-suka-green border-suka-green text-white'
-                        : 'bg-white border-suka-green/20 text-suka-green hover:bg-suka-green/5'
+                        ? 'bg-[#0a7d2c] border-[#0a7d2c] text-white shadow-sm'
+                        : 'bg-white border-[#0a7d2c]/20 text-[#0a7d2c] hover:bg-[#0a7d2c]/5'
                     }`}
                   >
-                    Aman ({items.filter((i) => i.status === 'ok').length})
+                    Ready ({items.filter((i) => i.status === 'ok').length})
                   </button>
                 </div>
               </div>
 
               {/* Items List */}
-              <div className="bg-white rounded-2xl border border-suka-brown/10 shadow-[0px_4px_12px_rgba(112,22,4,0.02)] divide-y divide-suka-brown/5 overflow-hidden">
+              <div className="bg-white rounded-2xl border border-[#d9c2b2]/40 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] divide-y divide-[#d9c2b2]/15 overflow-hidden">
                 {isLoading ? (
-                  <div className="py-12 text-center text-xs text-suka-brown/40 font-bold uppercase tracking-wider animate-pulse">
+                  <div className="py-12 text-center text-xs text-[#544437]/40 font-bold uppercase tracking-wider animate-pulse">
                     Memuat Saldo Stok...
                   </div>
                 ) : filteredItems.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-suka-brown/40 font-bold uppercase tracking-wider">
+                  <div className="py-12 text-center text-xs text-[#544437]/40 font-bold uppercase tracking-wider">
                     Tidak ada data bahan baku
                   </div>
                 ) : (
                   filteredItems.map((item) => {
-                    let dotColor = 'bg-suka-green';
-                    let badgeStyle = 'bg-suka-green/10 text-suka-green border-suka-green/10';
-                    let label = 'Aman';
+                    let dotColor = 'bg-[#0a7d2c] shadow-[0_0_8px_rgba(10,125,44,0.35)]';
+                    let badgeStyle = 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25';
+                    let label = 'Ready';
 
                     if (item.status === 'below') {
-                      dotColor = 'bg-[#ba1a1a] shadow-[0_0_8px_rgba(186,26,26,0.4)]';
+                      dotColor = 'bg-[#ba1a1a] shadow-[0_0_8px_rgba(186,26,26,0.45)]';
                       badgeStyle = 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10';
                       label = 'Kritis';
                     } else if (item.status === 'warning') {
-                      dotColor = 'bg-suka-orange shadow-[0_0_8px_rgba(242,151,68,0.4)]';
-                      badgeStyle = 'bg-suka-orange/10 text-suka-orange border-suka-orange/10';
-                      label = 'Menipis';
+                      dotColor = 'bg-[#f29744] shadow-[0_0_8px_rgba(242,151,68,0.45)]';
+                      badgeStyle = 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10';
+                      label = 'Warning';
                     }
 
                     return (
-                      <div key={item.bahan_baku_id} className="p-4 flex items-center justify-between hover:bg-suka-cream/10 transition-colors">
+                      <div key={item.bahan_baku_id} className="p-4 flex items-center justify-between hover:bg-[#fff8f1]/20 transition-colors">
                         <div className="flex items-center gap-3.5 min-w-0">
                           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`}></span>
                           <div className="flex flex-col min-w-0">
-                            <span className="font-extrabold text-xs text-suka-ink uppercase tracking-wide truncate leading-tight">{item.item_name}</span>
-                            <span className="text-[9px] text-suka-brown/50 font-bold uppercase mt-1 leading-none">{getStorageLocation(item.kategori)}</span>
+                            <span className="font-bold text-xs text-[#1e1b15] uppercase tracking-wide truncate leading-tight">{item.item_name}</span>
+                            <span className="text-[9px] text-[#544437]/50 font-bold uppercase mt-1 leading-none">{getStorageLocation(item.kategori)}</span>
                           </div>
                         </div>
                         <div className="flex flex-col items-end shrink-0 pl-4">
-                          <span className={`font-extrabold text-xs font-mono leading-none ${item.status === 'below' ? 'text-[#ba1a1a]' : item.status === 'warning' ? 'text-suka-orange' : 'text-suka-ink'}`}>
-                            {item.current_qty} <span className="text-[10px] font-sans font-medium text-suka-brown/50">{item.satuan}</span>
+                          <span className={`font-bold text-xs font-mono leading-none ${item.status === 'below' ? 'text-[#ba1a1a]' : item.status === 'warning' ? 'text-[#f29744]' : 'text-[#1e1b15]'}`}>
+                            {item.current_qty} <span className="text-[10px] font-sans font-medium text-[#544437]/50">{item.satuan}</span>
                           </span>
-                          <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded border mt-1 leading-none ${badgeStyle}`}>
+                          <span className={`text-[8px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border mt-1 leading-none ${badgeStyle}`}>
                             {label}
                           </span>
                         </div>
@@ -351,34 +357,34 @@ function DashboardHub() {
       </main>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white rounded-t-2xl shadow-[0px_-4px_12px_rgba(112,22,4,0.06)] border-t border-suka-brown/10 lg:hidden">
+      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-3 pb-safe bg-[#f5ede3] border-t border-[#d9c2b2]/40 shadow-2xl rounded-t-2xl lg:hidden">
         <button
           onClick={() => handleNavigate('/dashboard')}
-          className="flex flex-col items-center justify-center text-suka-orange px-5 py-1 active:scale-95 transition-all duration-200 cursor-pointer"
+          className="flex flex-col items-center justify-center bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200 cursor-pointer"
         >
           <span className="text-xl">📊</span>
-          <span className="text-[9px] font-black uppercase tracking-wider mt-1 leading-none">Dashboard</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Dashboard</span>
         </button>
         <button
           onClick={() => handleNavigate('/stok/ledger')}
-          className="flex flex-col items-center justify-center text-suka-brown/60 hover:text-suka-orange px-4 py-1 active:scale-95 transition-all cursor-pointer"
+          className="flex flex-col items-center justify-center text-[#544437]/75 hover:text-[#701604] px-4 py-1 active:scale-95 transition-all cursor-pointer"
         >
           <span className="text-xl">📒</span>
-          <span className="text-[9px] font-black uppercase tracking-wider mt-1 leading-none">Ledger</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Ledger</span>
         </button>
         <button
           onClick={() => handleNavigate('/stok/opname')}
-          className="flex flex-col items-center justify-center text-suka-brown/60 hover:text-suka-orange px-4 py-1 active:scale-95 transition-all cursor-pointer"
+          className="flex flex-col items-center justify-center text-[#544437]/75 hover:text-[#701604] px-4 py-1 active:scale-95 transition-all cursor-pointer"
         >
           <span className="text-xl">📋</span>
-          <span className="text-[9px] font-black uppercase tracking-wider mt-1 leading-none">Opname</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Opname</span>
         </button>
         <button
           onClick={() => handleNavigate('/distribusi/terima')}
-          className="flex flex-col items-center justify-center text-suka-brown/60 hover:text-suka-orange px-4 py-1 active:scale-95 transition-all cursor-pointer"
+          className="flex flex-col items-center justify-center text-[#544437]/75 hover:text-[#701604] px-4 py-1 active:scale-95 transition-all cursor-pointer"
         >
           <span className="text-xl">🚚</span>
-          <span className="text-[9px] font-black uppercase tracking-wider mt-1 leading-none">Terima</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Terima</span>
         </button>
       </nav>
     </div>

@@ -120,7 +120,7 @@ export function AttendanceKioskPanel() {
         if (kiosk.phase === "idle") kiosk.tick(v);
         else if (kiosk.phase === "liveness") kiosk.runLiveness(v);
       }
-      loopRef.current = window.setTimeout(loop, kiosk.phase === "liveness" ? 40 : 150);
+      loopRef.current = window.setTimeout(loop, kiosk.phase === "liveness" ? 40 : 500);
     }
     loop();
     return () => { if (loopRef.current) clearTimeout(loopRef.current); };
@@ -264,12 +264,6 @@ export function AttendanceKioskPanel() {
               )}
               {kiosk.phase === "idle" && modelsReady && (
                 <p className="flex items-center gap-2 text-gray-500"><UserRound size={18} /> Menghadap kamera…</p>
-              )}
-              {kiosk.phase === "checking" && (
-                <>
-                  <p className="text-lg font-medium text-suka-ink">Halo, {kiosk.who?.name}</p>
-                  <p className="flex items-center gap-2 text-gray-500 text-sm"><Spinner size={14} /> Mengecek data absensi...</p>
-                </>
               )}
               {kiosk.phase === "identified" && (
                 <p className="text-lg font-medium text-suka-ink">Halo, {kiosk.who?.name}</p>

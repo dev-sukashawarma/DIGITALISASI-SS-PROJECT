@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { createClient } from "@/lib/supabase";
-
+import { useAuth } from "@/context/AuthContext";
 import { captureFrame } from "@/components/CameraCapture";
 import { identifyStaff, type Candidate } from "@/lib/face/identify";
 import {
@@ -14,7 +14,7 @@ import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 
-export type KioskPhase = "idle" | "checking" | "identified" | "liveness" | "submitting" | "result";
+export type KioskPhase = "idle" | "identified" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
 
 type StaffRow = { id: string; name: string; face_descriptor: number[] | null };
@@ -23,7 +23,7 @@ const FUNCTION_URL = "/api/submit-attendance";
 // inputSize 160 gagal mendeteksi wajah saat menoleh (liveness turn-left/turn-right)
 // karena resolusi terlalu rendah untuk wajah non-frontal. 224 + scoreThreshold lebih
 // rendah memberi cukup detail tanpa menambah beban berarti (deteksi tetap event-based).
-const DETECT_OPTS = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.35 });
+const DETECT_OPTS = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
 
 export function useClockKiosk(outletId: string) {
   const supabase = createClient();
@@ -87,44 +87,33 @@ export function useClockKiosk(outletId: string) {
         scheduleReset(1000);
         return;
       }
-      // Update UI immediately
-      setWho({ id: found.id, name: found.name });
-      setPhase("checking");
+      const next = await decideAction(found.id);
 
-      // Background validation
-      Promise.all([
-        decideAction(found.id),
-        // Hanya perlu ngecek tutup jika out, tapi kita fetch di parallel untuk kesederhanaan,
-        // isClosingChecklistDone sudah lumayan cepat.
-        isClosingChecklistDone()
-      ]).then(([next, closingDone]) => {
-        if (next === "done") {
-          setResult({ ok: true, message: `${found.name} sudah absen masuk & keluar hari ini` });
-          setPhase("result");
-          scheduleReset(2500);
-          return;
-        }
-
-        if (next === "out" && !closingDone) {
-          setResult({ ok: false, message: "Checklist penutupan belum selesai. Tidak bisa absen pulang." });
-          setPhase("result");
-          scheduleReset(3500);
-          return;
-        }
-
-        setAction(next);
-        setChallenge(pickChallenge());
-        setPhase("identified");
-        setTimeout(() => setPhase("liveness"), 900); // jeda salam "Halo, Nama"
-      }).catch((err) => {
-        setResult({ ok: false, message: "Gagal mengecek status: " + err.message });
+      if (next === "done") {
+        setWho({ id: found.id, name: found.name });
+        setResult({ ok: true, message: `${found.name} sudah absen masuk & keluar hari ini` });
         setPhase("result");
-        scheduleReset(2000);
-      });
+        scheduleReset(2500);
+        return;
+      }
+
+      // Gate absen pulang: checklist penutupan (fase "tutup") wajib selesai dulu.
+      if (next === "out" && !(await isClosingChecklistDone())) {
+        setResult({ ok: false, message: "Checklist penutupan belum selesai. Tidak bisa absen pulang." });
+        setPhase("result");
+        scheduleReset(3500);
+        return;
+      }
+
+      setWho({ id: found.id, name: found.name });
+      setAction(next);
+      setChallenge(pickChallenge());
+      setPhase("identified");
+      setTimeout(() => setPhase("liveness"), 900); // jeda salam "Halo, Nama"
     } finally {
       busyRef.current = false;
     }
-  }, [phase, outletId, decideAction]); // isClosingChecklistDone is defined below and not a useCallback, keep deps same
+  }, [phase, outletId, decideAction]);
 
   /** Dipanggil per-frame saat phase liveness; selesaikan saat lulus. */
   const livenessRef = useRef<ReturnType<typeof createLivenessDetector> | null>(null);

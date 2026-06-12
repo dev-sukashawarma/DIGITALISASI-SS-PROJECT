@@ -25,13 +25,17 @@ export function KioskClient({ outlet_id }: { outlet_id: string }) {
         if (kiosk.phase === "idle") kiosk.tick(v);
         else if (kiosk.phase === "liveness") kiosk.runLiveness(v);
       }
-      loopRef.current = window.setTimeout(loop, kiosk.phase === "liveness" ? 100 : 150);
+      loopRef.current = window.setTimeout(loop, kiosk.phase === "liveness" ? 100 : 500);
     }
     loop();
     return () => { if (loopRef.current) clearTimeout(loopRef.current); };
   }, [kiosk.phase, kiosk.tick, kiosk.runLiveness]);
 
-
+  const ringColor =
+    kiosk.phase === "idle" ? "border-gray-400 border-dashed" :
+    kiosk.phase === "result" && !kiosk.result?.ok ? "border-red-500" : 
+    kiosk.phase === "result" && kiosk.result?.ok ? "border-suka-green" :
+    "border-blue-500";
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -98,12 +102,6 @@ export function KioskClient({ outlet_id }: { outlet_id: string }) {
         <div className="p-4 text-center min-h-[92px] flex flex-col items-center justify-center gap-2">
           {kiosk.phase === "idle" && (
             <p className="flex items-center gap-2 text-gray-500"><UserRound size={18} /> Menghadap kamera…</p>
-          )}
-          {kiosk.phase === "checking" && (
-            <>
-              <p className="text-lg font-medium text-suka-ink">Halo, {kiosk.who?.name}</p>
-              <p className="flex items-center gap-2 text-gray-500 text-sm"><Spinner size={14} /> Mengecek data absensi...</p>
-            </>
           )}
           {kiosk.phase === "identified" && (
             <p className="text-lg font-medium text-suka-ink">Halo, {kiosk.who?.name}</p>

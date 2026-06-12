@@ -4,7 +4,7 @@ import { Ban, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-export default function BlockedOverlay({ reason, type }: { reason: string, type: 'user' | 'outlet' | 'attendance' }) {
+export default function BlockedOverlay({ reason, type }: { reason: string, type: 'user' | 'outlet' }) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -20,32 +20,18 @@ export default function BlockedOverlay({ reason, type }: { reason: string, type:
           <Ban className="w-10 h-10 text-red-600" />
         </div>
         <h1 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">
-          {type === 'attendance' ? 'Menunggu Kehadiran Kru' : type === 'user' ? 'Akun Dinonaktifkan' : 'Cabang Dinonaktifkan'}
+          {type === 'user' ? 'Akun Dinonaktifkan' : 'Cabang Dinonaktifkan'}
         </h1>
         <p className="text-gray-500 font-medium mb-6">
-          {type === 'attendance'
-            ? 'Sistem POS akan otomatis terbuka ketika ada minimal 1 kru yang melakukan absen hadir hari ini.'
-            : type === 'user' 
-              ? 'Akun Anda saat ini sedang dinonaktifkan oleh Administrator.' 
-              : 'Cabang tempat Anda bertugas saat ini sedang dinonaktifkan oleh Administrator.'}
+          {type === 'user' 
+            ? 'Akun Anda saat ini sedang dinonaktifkan oleh Administrator.' 
+            : 'Cabang tempat Anda bertugas saat ini sedang dinonaktifkan oleh Administrator.'}
         </p>
         
-        {type !== 'attendance' ? (
-          <div className="bg-red-50 text-red-900 text-sm font-bold p-4 rounded-xl w-full mb-8 border border-red-100 text-left">
-            <span className="block text-red-400 text-xs font-semibold uppercase tracking-wider mb-1">Alasan Penonaktifan:</span>
-            "{reason}"
-          </div>
-        ) : (
-          <div className="w-full flex items-center justify-center p-4 bg-amber-50 rounded-xl mb-8 border border-amber-100">
-             <div className="animate-pulse flex items-center gap-2 text-amber-700 font-medium">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-                </span>
-                Menunggu Sinyal Absensi...
-             </div>
-          </div>
-        )}
+        <div className="bg-red-50 text-red-900 text-sm font-bold p-4 rounded-xl w-full mb-8 border border-red-100 text-left">
+          <span className="block text-red-400 text-xs font-semibold uppercase tracking-wider mb-1">Alasan Penonaktifan:</span>
+          "{reason}"
+        </div>
 
         <button 
           onClick={handleLogout}

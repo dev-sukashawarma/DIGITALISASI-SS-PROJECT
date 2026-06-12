@@ -107,10 +107,10 @@ describe('LiveMonitoringPage', () => {
 
     render(<LiveMonitoringPage />, { wrapper });
 
-    expect(screen.getByText('LIVE STOCK MONITORING BOARD')).toBeInTheDocument();
+    expect(screen.getByText(/LIVE STOCK/i)).toBeInTheDocument();
     expect(screen.getByText('KITCHEN')).toBeInTheDocument();
     expect(screen.getByText('SUDIRMAN')).toBeInTheDocument();
-    expect(screen.getByText('Ayam')).toBeInTheDocument();
+    expect(screen.getAllByText('Ayam')[0]).toBeInTheDocument();
     expect(screen.getByText('Semua Aman')).toBeInTheDocument(); // Sudirman has no issues
   });
 

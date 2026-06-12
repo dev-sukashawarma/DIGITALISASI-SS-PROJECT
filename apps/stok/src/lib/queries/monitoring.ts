@@ -379,7 +379,7 @@ export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDe
 export async function fetchOutletsList() {
   const { data, error } = await supabase
     .from('outlets')
-    .select('id, nama:name')
+    .select('id, nama:name, slug, address, type')
     .order('name');
 
   if (error) throw error;

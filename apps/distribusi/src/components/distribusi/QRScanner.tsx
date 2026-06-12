@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import jsQR from 'jsqr'
 import { createClient } from '@/lib/supabase'
 
 export function QRScanner() {
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [manualInput, setManualInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [cameraAvailable, setCameraAvailable] = useState(true)
@@ -50,7 +52,9 @@ export function QRScanner() {
   }
 
   const startCamera = async () => {
-    if (!('BarcodeDetector' in window)) {
+    // getUserMedia butuh secure context (HTTPS / localhost)
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('Browser tidak mendukung akses kamera. Gunakan kode manual di bawah.')
       setCameraAvailable(false)
       return
     }
@@ -64,28 +68,67 @@ export function QRScanner() {
         videoRef.current.srcObject = stream
         await videoRef.current.play()
       }
-      // @ts-ignore — BarcodeDetector not in TS lib yet
-      detectorRef.current = new BarcodeDetector({ formats: ['qr_code'] })
+      // Pakai BarcodeDetector (Chrome/Android) kalau ada; selain itu fallback jsQR.
+      if ('BarcodeDetector' in window) {
+        // @ts-ignore — BarcodeDetector not in TS lib yet
+        detectorRef.current = new BarcodeDetector({ formats: ['qr_code'] })
+      } else {
+        detectorRef.current = null
+      }
       scanLoop()
-    } catch {
+    } catch (err) {
+      const name = err instanceof Error ? err.name : ''
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        setError('Izin kamera ditolak. Aktifkan izin kamera atau gunakan kode manual.')
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setError('Kamera tidak ditemukan pada perangkat ini. Gunakan kode manual.')
+      } else {
+        setError('Kamera tidak bisa dibuka. Gunakan kode manual di bawah.')
+      }
       setCameraAvailable(false)
     }
   }
 
   const scanLoop = () => {
-    if (!videoRef.current || !detectorRef.current) return
-    detectorRef.current
-      .detect(videoRef.current)
-      .then((barcodes: any[]) => {
-        if (barcodes.length > 0) {
-          navigateToVerifikasi(barcodes[0].rawValue)
-        } else {
+    const video = videoRef.current
+    if (!video) return
+
+    // Jalur 1: BarcodeDetector native
+    if (detectorRef.current) {
+      detectorRef.current
+        .detect(video)
+        .then((barcodes: any[]) => {
+          if (barcodes.length > 0) {
+            navigateToVerifikasi(barcodes[0].rawValue)
+          } else {
+            animFrameRef.current = requestAnimationFrame(scanLoop)
+          }
+        })
+        .catch(() => {
           animFrameRef.current = requestAnimationFrame(scanLoop)
+        })
+      return
+    }
+
+    // Jalur 2: fallback jsQR (decode frame via canvas)
+    if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
+      const canvas = canvasRef.current ?? (canvasRef.current = document.createElement('canvas'))
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const result = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'dontInvert',
+        })
+        if (result?.data) {
+          navigateToVerifikasi(result.data)
+          return
         }
-      })
-      .catch(() => {
-        animFrameRef.current = requestAnimationFrame(scanLoop)
-      })
+      }
+    }
+    animFrameRef.current = requestAnimationFrame(scanLoop)
   }
 
   useEffect(() => {

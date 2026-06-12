@@ -1,10 +1,12 @@
-'use client'
-import { use } from 'react'
 import { LedgerDetail } from '@/components/stok/LedgerDetail'
 import Link from 'next/link'
 
-export default function LedgerDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export function generateStaticParams() {
+  return []
+}
+
+export default async function LedgerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   return (
     <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
       <header className="bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex items-center justify-between shadow-[0_2px_8px_rgba(144,77,0,0.03)] sticky top-0 z-40">

@@ -1,12 +1,10 @@
 import type { NextConfig } from 'next'
 
+// staging build marker — bump untuk memicu redeploy Vercel
 const nextConfig: NextConfig = {
-  output: 'export',
+  ...(process.env.STATIC_EXPORT === 'true' ? { output: 'export' } : {}),
   typescript: {
     tsconfigPath: './tsconfig.json',
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
 } as any
 

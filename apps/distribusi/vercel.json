@@ -1,6 +1,5 @@
 {
-  "buildCommand": "yarn build",
-  "outputDirectory": "out",
+  "buildCommand": "cd ../../packages/design-system && yarn build && cd ../../apps/distribusi && yarn build",
   "installCommand": "cd ../.. && yarn install",
   "framework": "nextjs"
 }

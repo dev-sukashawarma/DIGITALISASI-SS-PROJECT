@@ -1,7 +1,10 @@
 /**
- * Resolves URLs across different micro-frontend applications in the monorepo.
- * In development, redirects localhost:3001 (stok) and localhost:3002 (distribusi) correctly.
- * In production, uses relative sub-paths handled by the reverse proxy/subdomain mapping.
+ * Resolves URLs across micro-frontend apps. App ini = STOK.
+ *
+ * - Route milik STOK sendiri (/stok, /dashboard, /login) → relatif (SPA nav).
+ * - Route app lain (/distribusi/*) → absolut kalau NEXT_PUBLIC_DISTRIBUSI_URL
+ *   di-set (Vercel dua domain); kalau tidak → relatif (cPanel subdomain proxy).
+ * - Dev: redirect ke port lokal masing-masing app.
  */
 export const getCrossAppUrl = (path: string): string => {
   if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
@@ -12,5 +15,12 @@ export const getCrossAppUrl = (path: string): string => {
       return `http://localhost:3001${path}`;
     }
   }
+
+  // Hanya route app LAIN (distribusi) yang di-eksternal-kan.
+  const distribusiUrl = process.env.NEXT_PUBLIC_DISTRIBUSI_URL;
+  if (path.startsWith('/distribusi') && distribusiUrl) {
+    return `${distribusiUrl.replace(/\/$/, '')}${path}`;
+  }
+
   return path;
 };

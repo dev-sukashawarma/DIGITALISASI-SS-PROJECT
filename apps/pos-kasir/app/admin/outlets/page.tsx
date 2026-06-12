@@ -74,7 +74,8 @@ export default function AdminOutletsPage() {
         setOutlets(outlets.map(o => o.id === editingOutlet.id ? data : o))
         setIsModalOpen(false)
       } else {
-        alert('Gagal mengupdate cabang')
+        console.error('Update outlet error:', error)
+        alert('Gagal mengupdate cabang: ' + (error?.message || 'Unknown error'))
       }
     } else {
       const { data, error } = await supabase.from('outlets').insert({
@@ -89,7 +90,8 @@ export default function AdminOutletsPage() {
         setOutlets([...outlets, data])
         setIsModalOpen(false)
       } else {
-        alert('Gagal menambahkan cabang')
+        console.error('Insert outlet error:', error)
+        alert('Gagal menambahkan cabang: ' + (error?.message || 'Unknown error'))
       }
     }
     
@@ -103,7 +105,8 @@ export default function AdminOutletsPage() {
     if (!error) {
       setOutlets(outlets.filter(o => o.id !== id))
     } else {
-      alert('Gagal menghapus cabang')
+      console.error('Delete outlet error:', error)
+      alert('Gagal menghapus cabang: ' + (error?.message || 'Unknown error'))
     }
   }
 

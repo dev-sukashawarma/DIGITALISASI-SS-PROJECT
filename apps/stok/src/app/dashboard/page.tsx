@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { AuthGuard } from '@/components/common/AuthGuard';
 import { getCrossAppUrl } from '@/lib/navigation';
+import { Button } from '@suka/design-system';
 
 const CREW_MENU = [
   {
@@ -50,7 +51,7 @@ const SPV_EXTRA = [
 
 function DashboardHub() {
   const router = useRouter();
-  const { outletStaff } = useAuth();
+  const { outletStaff, signOut } = useAuth();
   const isSPV = outletStaff?.role === 'spv';
   const menu = isSPV ? [...CREW_MENU, ...SPV_EXTRA] : CREW_MENU;
 
@@ -81,6 +82,9 @@ function DashboardHub() {
               · {outletStaff?.role}
             </span>
           </div>
+          <Button variant="secondary" size="sm" onClick={() => signOut()}>
+            Keluar
+          </Button>
         </div>
       </header>
 

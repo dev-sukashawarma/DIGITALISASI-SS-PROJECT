@@ -4,7 +4,7 @@
   "description": "M1 — Absensi outlet + face recognition",
   "type": "module",
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev --webpack -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

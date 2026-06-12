@@ -1,125 +1,257 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { getCrossAppUrl } from '@/lib/navigation';
+import { BottomNav } from '@/components/distribusi/BottomNav';
+import { useTerimaList } from '@/hooks/useTerimaList';
+import { useRiwayatList } from '@/hooks/useRiwayatList';
+import { usePengirimanList } from '@/hooks/usePengirimanList';
 
-interface ActivityItem {
-  id: string;
-  action: string;
-  details: string;
-  user: string;
-  time: string;
-  type: 'received' | 'shipped' | 'transfer' | 'draft';
-  statusLabel: string;
-}
-
-const mockActivities: ActivityItem[] = [
-  {
-    id: '1',
-    action: 'Penerimaan Surat Jalan Selesai',
-    details: 'Verifikasi logistik masuk #SJ-8821 dengan 12 item',
-    user: 'Budi Santoso (Crew)',
-    time: '10 Menit Lalu',
-    type: 'received',
-    statusLabel: 'Diterima',
-  },
-  {
-    id: '2',
-    action: 'Surat Jalan Baru Dibuat',
-    details: 'Pengiriman bahan baku ke Outlet Margonda #SJ-8824',
-    user: 'Agus Wijaya (SPV)',
-    time: '2 Jam Lalu',
-    type: 'shipped',
-    statusLabel: 'Dikirim',
-  },
-  {
-    id: '3',
-    action: 'Transfer Stok Darurat',
-    details: '50 kg Daging Kebab ke Outlet Depok Baru',
-    user: 'Anton Hermansyah (Kepala Outlet)',
-    time: '4 Jam Lalu',
-    type: 'transfer',
-    statusLabel: 'Selesai',
-  },
-  {
-    id: '4',
-    action: 'Draft Surat Jalan Disimpan',
-    details: 'Rencana pengiriman mingguan bahan kering #SJ-8825',
-    user: 'Agus Wijaya (SPV)',
-    time: '1 Hari Lalu',
-    type: 'draft',
-    statusLabel: 'Pending',
-  },
-  {
-    id: '5',
-    action: 'Penerimaan Diselisihkan',
-    details: 'Verifikasi #SJ-8819 dengan 2 kg Daging Shawarma kurang',
-    user: 'Siti Aminah (Crew)',
-    time: '2 Hari Lalu',
-    type: 'received',
-    statusLabel: 'Selisih',
-  },
-];
+const formatLogTime = (dateStr: string) => {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { outletStaff, signOut, loading } = useAuth();
+  const { outletStaff, signOut, loading: authLoading } = useAuth();
+
+  // Load real-time hooks
+  const { data: terimaData, loading: terimaLoading } = useTerimaList();
+  const { data: riwayatData, loading: riwayatLoading } = useRiwayatList();
+  const { data: pengirimanData, loading: pengirimanLoading } = usePengirimanList();
 
   const handleLogout = async () => {
     await signOut();
     router.push('/login');
   };
 
-  if (loading || !outletStaff) {
+  const handleNavigate = (path: string) => {
+    const resolvedUrl = getCrossAppUrl(path);
+    if (resolvedUrl.startsWith('http')) {
+      window.location.href = resolvedUrl;
+    } else {
+      router.push(resolvedUrl);
+    }
+  };
+
+  if (authLoading || !outletStaff) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fff8f1]">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-[#701604] border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-[#544437] font-bold uppercase tracking-wider text-xs">Loading Auth Session...</p>
+          <p className="text-[#701604] font-bold uppercase tracking-wider text-xs">Loading Auth Session...</p>
         </div>
       </div>
     );
   }
 
-  // Location subdescription helper
-  const getSubLocation = (role: string) => {
-    if (role === 'kepala_outlet') return 'Warehouse Command Center';
-    return 'Outlet Operations Branch';
-  };
+  const isPusat = outletStaff.role === 'kepala_outlet';
+  const dataLoading = isPusat ? pengirimanLoading : (terimaLoading || riwayatLoading);
+
+  // Calculate statistics
+  const draftSJs = pengirimanData.filter(sj => sj.status === 'draft');
+  const activeShipments = pengirimanData.filter(sj => sj.status === 'dikirim' || sj.status === 'dikirim_lengkap');
+  const awaitingPusatVerif = pengirimanData.filter(sj => sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian');
+
+  const pendingTerima = terimaData.filter(sj => sj.status === 'dikirim' || sj.status === 'dikirim_lengkap');
+  const problemTerima = riwayatData.filter(sj => sj.has_problem);
+  const todayStr = new Date().toDateString();
+  const selesaiHariIni = riwayatData.filter(sj => new Date(sj.created_at).toDateString() === todayStr);
+
+  const stats = isPusat
+    ? [
+        {
+          label: 'Draft',
+          value: draftSJs.length,
+          icon: '📝',
+          borderColor: 'border-amber-200/60',
+          badgeBg: 'bg-amber-50',
+          textColor: 'text-amber-700',
+        },
+        {
+          label: 'Kirim',
+          value: activeShipments.length,
+          icon: '🚚',
+          borderColor: 'border-blue-200/60',
+          badgeBg: 'bg-blue-55',
+          textColor: 'text-blue-700',
+        },
+        {
+          label: 'Belum Verif',
+          value: awaitingPusatVerif.length,
+          icon: '👨‍💼',
+          borderColor: 'border-orange-200/60',
+          badgeBg: 'bg-orange-50',
+          textColor: 'text-orange-700',
+        },
+      ]
+    : [
+        {
+          label: 'Belum Verif',
+          value: pendingTerima.length,
+          icon: '🚚',
+          borderColor: 'border-blue-200/60',
+          badgeBg: 'bg-blue-55',
+          textColor: 'text-blue-700',
+        },
+        {
+          label: 'Selesai Hari Ini',
+          value: selesaiHariIni.length,
+          icon: '✓',
+          borderColor: 'border-emerald-200/60',
+          badgeBg: 'bg-emerald-50',
+          textColor: 'text-emerald-700',
+        },
+        {
+          label: 'Ada Selisih',
+          value: problemTerima.length,
+          icon: '⚠️',
+          borderColor: 'border-red-200/60',
+          badgeBg: 'bg-red-50',
+          textColor: 'text-red-700',
+        },
+      ];
+
+  // Compile live activity logs
+  const liveLogs = (() => {
+    if (isPusat) {
+      return pengirimanData.slice(0, 5).map(sj => {
+        let action = 'Surat Jalan';
+        let badgeStyles = 'bg-gray-50 text-gray-700 border-gray-200';
+        let statusLabel = sj.status;
+        let icon = '📄';
+        let iconBg = 'bg-gray-100 text-gray-700';
+
+        if (sj.status === 'draft') {
+          action = 'Surat Jalan Baru (Draft)';
+          badgeStyles = 'bg-amber-50 text-amber-700 border-amber-200';
+          icon = '📝';
+          iconBg = 'bg-amber-50 text-amber-750';
+        } else if (sj.status === 'dikirim' || sj.status === 'dikirim_lengkap') {
+          action = 'Surat Jalan Dikirim';
+          badgeStyles = 'bg-blue-50 text-blue-700 border-blue-200';
+          statusLabel = 'Dikirim';
+          icon = '🚚';
+          iconBg = 'bg-blue-55 text-blue-750';
+        } else if (sj.status === 'diterima_lengkap') {
+          action = 'Diterima Cabang (Aman)';
+          badgeStyles = 'bg-orange-50 text-orange-700 border-orange-200';
+          statusLabel = 'Belum Verif';
+          icon = '👨‍💼';
+          iconBg = 'bg-orange-50 text-orange-700';
+        } else if (sj.status === 'diterima_sebagian') {
+          action = 'Diterima Cabang (Selisih)';
+          badgeStyles = 'bg-red-50 text-red-755 border-red-200';
+          statusLabel = 'Belum Verif';
+          icon = '⚠️';
+          iconBg = 'bg-red-50 text-red-700';
+        } else if (sj.status === 'selesai') {
+          action = 'Selesai & Terverifikasi';
+          badgeStyles = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+          statusLabel = 'Selesai';
+          icon = '📥';
+          iconBg = 'bg-emerald-55 text-emerald-750';
+        }
+
+        return {
+          id: sj.id,
+          action,
+          details: `Tujuan: ${sj.outlets?.name || 'Cabang'} • ${sj.document_number || sj.id.substring(0, 8).toUpperCase()}`,
+          user: sj.status === 'draft' || sj.status === 'dikirim' ? 'Gudang Pusat' : 'Outlet Cabang',
+          time: formatLogTime(sj.created_at),
+          icon,
+          iconBg,
+          badgeStyles,
+          statusLabel,
+          link: `/distribusi/surat-jalan/${sj.id}`
+        };
+      });
+    } else {
+      const combined = [
+        ...terimaData.map(d => ({ ...d, isPending: true })),
+        ...riwayatData.map(d => ({ ...d, isPending: false })),
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      return combined.slice(0, 5).map((sj: any) => {
+        let action = 'Surat Jalan';
+        let badgeStyles = 'bg-gray-50 text-gray-700 border-gray-200';
+        let statusLabel = sj.status;
+        let icon = '📄';
+        let iconBg = 'bg-gray-100 text-gray-700';
+
+        if (sj.isPending) {
+          action = 'Kiriman Masuk (In-Transit)';
+          badgeStyles = 'bg-blue-50 text-blue-700 border-blue-200';
+          statusLabel = 'Dikirim';
+          icon = '🚚';
+          iconBg = 'bg-blue-55 text-blue-750';
+        } else if (sj.status === 'diterima_lengkap') {
+          action = 'Penerimaan Selesai';
+          badgeStyles = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+          statusLabel = 'Aman';
+          icon = '📥';
+          iconBg = 'bg-emerald-55 text-emerald-750';
+        } else {
+          action = 'Penerimaan Diselisihkan';
+          badgeStyles = 'bg-red-50 text-red-750 border-red-200';
+          statusLabel = 'Selisih';
+          icon = '⚠️';
+          iconBg = 'bg-red-50 text-red-700';
+        }
+
+        return {
+          id: sj.id,
+          action,
+          details: `Asal: ${sj.outlets?.name || 'Gudang Pusat'} • ${sj.document_number || sj.id.substring(0, 8).toUpperCase()}`,
+          user: sj.isPending ? 'Kitchen Pusat' : 'Crew Cabang',
+          time: formatLogTime(sj.created_at),
+          icon,
+          iconBg,
+          badgeStyles,
+          statusLabel,
+          link: `/distribusi/surat-jalan/${sj.id}`
+        };
+      });
+    }
+  })();
 
   return (
-    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b17] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-32 flex flex-col font-sans">
       {/* Top Header App Bar */}
-      <header className="sticky top-0 z-50 bg-white border-b border-[#701604]/10 px-6 py-4 flex justify-between items-center shadow-[0px_4px_20px_rgba(112,22,4,0.04)] flex-shrink-0">
+      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)] flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#f29744]/10 flex items-center justify-center text-2xl">
-            🌯
-          </div>
+          <img src="/logo.png" alt="Logo Suka Shawarma" className="h-9 w-auto object-contain shrink-0" />
           <div className="flex flex-col">
-            <h1 className="text-lg font-black text-[#701604] leading-tight tracking-tight uppercase">
-              Distribusi Dashboard
-            </h1>
-            <p className="text-[11px] font-bold text-[#57423d]/70 uppercase tracking-widest">
-              Sistem Distribusi & Logistik
-            </p>
+            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Distribusi Dashboard</h1>
+            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">Sistem Distribusi & Logistik</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3 text-right">
-            <div className="hidden sm:block">
-              <p className="text-xs font-bold text-[#1e1b17] capitalize">{outletStaff.name || 'Staff Member'}</p>
-              <p className="text-[10px] text-[#57423d] font-semibold uppercase tracking-wider mt-0.5">{outletStaff.role || 'Crew'}</p>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-right">
+            <div className="flex flex-col">
+              <p className="text-[10px] sm:text-xs font-bold text-[#1e1b15] capitalize truncate max-w-[70px] sm:max-w-none leading-tight">
+                {outletStaff.name || 'Staff Member'}
+              </p>
+              <p className="text-[8px] sm:text-[9px] text-[#544437]/70 font-semibold uppercase tracking-wider mt-0.5 leading-none">
+                {outletStaff.role === 'kepala_outlet' ? 'SPV Pusat' : (outletStaff.role || 'Crew')}
+              </p>
             </div>
-            <div className="w-9 h-9 rounded-full border-2 border-[#f29744]/30 overflow-hidden bg-[#faf2e9] flex items-center justify-center text-lg shadow-sm">
+            <div className="w-8 h-8 rounded-full border border-[#d9c2b2]/40 bg-white flex items-center justify-center text-sm shadow-sm shrink-0">
               {outletStaff.role === 'kepala_outlet' ? '👨‍💼' : '🧑‍🍳'}
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="px-4 py-1.5 border border-[#ba1a1a]/30 hover:bg-[#ba1a1a] text-[#ba1a1a] hover:text-white rounded-xl font-bold text-xs transition-all active:scale-95 shadow-xs"
+            className="px-3 py-1 border border-[#ba1a1a]/30 hover:bg-[#ba1a1a] text-[#ba1a1a] hover:text-white rounded-lg font-bold text-[10px] transition-all active:scale-95 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             Logout
           </button>
@@ -127,176 +259,176 @@ export default function DashboardPage() {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto w-full px-6 py-8 flex flex-col gap-8 flex-1">
-        {/* Status Panels */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Ready Status Card */}
-          <div className="bg-white rounded-xl p-5 shadow-[0px_4px_20px_rgba(112,22,4,0.03)] border border-[#d9c2b2]/30 border-l-4 border-l-[#f29744] flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#57423d]/60">Distribution Status</p>
-              <h3 className="text-lg font-black text-[#701604] mt-1">Status: Ready</h3>
-            </div>
-            <span className="text-2xl text-[#f29744]">🟢</span>
+      <main className="max-w-7xl mx-auto w-full px-4 py-6 flex flex-col gap-6 flex-1">
+        {/* Welcome Section */}
+        <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+          <div>
+            <h2 className="text-xs font-black text-[#701604] uppercase tracking-wider">
+              Halo, {outletStaff.name?.split(' ')[0] || 'Staff'}!
+            </h2>
+            <p className="text-[10px] text-[#544437]/75 font-semibold mt-0.5">
+              {isPusat 
+                ? 'Selamat datang di panel Pusat. Kelola pengiriman dan pantau stok logistik cabang.'
+                : 'Selamat datang di panel Cabang. Kelola dan verifikasi barang masuk yang datang.'
+              }
+            </p>
           </div>
+        </div>
 
-          {/* Testing Mode Card */}
-          <div className="bg-white rounded-xl p-5 shadow-[0px_4px_20px_rgba(112,22,4,0.03)] border border-[#d9c2b2]/30 border-l-4 border-l-[#701604] flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#57423d]/60">System Environment</p>
-              <h3 className="text-lg font-black text-[#701604] mt-1">Mode: Testing</h3>
-            </div>
-            <span className="text-2xl text-[#701604]">⚙️</span>
+        {/* Real-time stats section */}
+        {dataLoading ? (
+          <div className="grid grid-cols-3 gap-3">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="bg-white rounded-2xl border border-[#d9c2b2]/20 p-4 animate-pulse h-20"></div>
+            ))}
           </div>
-
-          {/* Version Info Card */}
-          <div className="bg-white rounded-xl p-5 shadow-[0px_4px_20px_rgba(112,22,4,0.03)] border border-[#d9c2b2]/30 border-l-4 border-l-blue-500 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#57423d]/60">Build Manifest</p>
-              <h3 className="text-lg font-black text-blue-900 mt-1">Version: M0</h3>
-            </div>
-            <span className="text-2xl text-blue-500">📦</span>
-          </div>
-        </section>
-
-        {/* Main Grid Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Recent Action / Activity (8 columns) */}
-          <section className="lg:col-span-8 flex flex-col gap-6">
-            <div className="bg-white rounded-xl border border-[#d9c2b2]/45 shadow-[0px_4px_20px_rgba(112,22,4,0.03)] overflow-hidden">
-              <div className="px-6 py-5 border-b border-[#701604]/10 flex justify-between items-center bg-[#faf2e9]/40">
-                <div className="flex flex-col">
-                  <h2 className="text-sm font-black text-[#701604] uppercase tracking-wider">Aktivitas & Log Terbaru</h2>
-                  <p className="text-[10px] text-[#57423d]/60 font-semibold uppercase mt-0.5">Riwayat aktivitas logistik outlet</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            {stats.map((stat, i) => (
+              <div key={i} className={`bg-white rounded-2xl border ${stat.borderColor} p-3 sm:p-4 flex flex-col justify-between shadow-[0px_4px_12px_rgba(144,77,0,0.02)]`}>
+                <div className="flex justify-between items-center">
+                  <span className="text-base sm:text-lg">{stat.icon}</span>
+                  <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${stat.badgeBg} ${stat.textColor}`}>
+                    {stat.label}
+                  </span>
                 </div>
-                <span className="bg-[#fff8f1] border border-[#d9c2b2]/40 px-3 py-1 rounded-full text-[10px] font-bold text-[#701604]">
-                  5 Log Terakhir
+                <p className="text-lg sm:text-xl font-extrabold text-[#1e1b15] mt-2 sm:mt-3 leading-none">{stat.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Dynamic Grid Layout (Reordered on Mobile via CSS) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Quick Actions (4 columns) — order-1 (tampil di ATAS pada mobile) */}
+          <aside className="lg:col-span-4 order-1 lg:order-2 flex flex-col gap-4 w-full">
+            <h2 className="text-xs font-black text-[#544437]/50 uppercase tracking-widest px-1">Quick Actions</h2>
+            
+            <div className={`grid gap-3 ${isPusat ? 'grid-cols-2' : 'grid-cols-3'} lg:grid-cols-2`}>
+              {/* Role Contextual Actions */}
+              {!isPusat ? (
+                <>
+                  <button
+                    onClick={() => handleNavigate('/distribusi/terima/scan')}
+                    className="bg-white p-3 sm:p-4 rounded-2xl border border-[#d9c2b2]/45 hover:border-[#f29744]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] active:scale-[0.98] transition-all flex flex-col items-center gap-2 text-center cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#f29744]/10 text-[#f29744] border border-[#f29744]/20 flex items-center justify-center text-base sm:text-lg group-hover:scale-105 transition-transform shadow-sm">
+                      📷
+                    </div>
+                    <span className="text-[9px] font-bold text-[#1e1b15] uppercase tracking-wider leading-tight">Scan QR</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigate('/distribusi/terima')}
+                    className="bg-white p-3 sm:p-4 rounded-2xl border border-[#d9c2b2]/45 hover:border-[#f29744]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] active:scale-[0.98] transition-all flex flex-col items-center gap-2 text-center cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center text-base sm:text-lg group-hover:scale-105 transition-transform shadow-sm">
+                      📥
+                    </div>
+                    <span className="text-[9px] font-bold text-[#1e1b15] uppercase tracking-wider leading-tight">Inbox Terima</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigate('/distribusi/riwayat')}
+                    className="bg-white p-3 sm:p-4 rounded-2xl border border-[#d9c2b2]/45 hover:border-[#f29744]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] active:scale-[0.98] transition-all flex flex-col items-center gap-2 text-center cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#faf2e9] text-[#701604] border border-[#d9c2b2]/30 flex items-center justify-center text-base sm:text-lg group-hover:scale-105 transition-transform shadow-sm">
+                      📚
+                    </div>
+                    <span className="text-[9px] font-bold text-[#1e1b15] uppercase tracking-wider leading-tight">Riwayat</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleNavigate('/distribusi/surat-jalan/new')}
+                    className="bg-white p-3 sm:p-4 rounded-2xl border border-[#d9c2b2]/45 hover:border-[#f29744]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] active:scale-[0.98] transition-all flex flex-col items-center gap-2 text-center cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#f29744]/10 text-[#f29744] border border-[#f29744]/20 flex items-center justify-center text-base sm:text-lg group-hover:scale-105 transition-transform shadow-sm">
+                      ➕
+                    </div>
+                    <span className="text-[9px] font-bold text-[#1e1b15] uppercase tracking-wider leading-tight">Buat SJ</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigate('/distribusi/surat-jalan')}
+                    className="bg-white p-3 sm:p-4 rounded-2xl border border-[#d9c2b2]/45 hover:border-[#f29744]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] active:scale-[0.98] transition-all flex flex-col items-center gap-2 text-center cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#faf2e9] text-[#701604] border border-[#d9c2b2]/30 flex items-center justify-center text-base sm:text-lg group-hover:scale-105 transition-transform shadow-sm">
+                      📚
+                    </div>
+                    <span className="text-[9px] font-bold text-[#1e1b15] uppercase tracking-wider leading-tight">Riwayat Kirim</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </aside>
+
+          {/* Activity Log (8 columns) — order-2 (tampil di BAWAH pada mobile) */}
+          <section className="lg:col-span-8 order-2 lg:order-1 flex flex-col gap-6 w-full">
+            <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#d9c2b2]/20 flex justify-between items-center bg-[#faf2e9]/20">
+                <div className="flex flex-col">
+                  <h2 className="text-xs font-black text-[#701604] uppercase tracking-wider">Aktivitas & Log Terbaru</h2>
+                  <p className="text-[9px] text-[#544437]/60 font-bold uppercase mt-0.5">
+                    {isPusat ? 'Riwayat aktivitas logistik pusat' : 'Riwayat penerimaan outlet Anda'}
+                  </p>
+                </div>
+                <span className="bg-[#fff8f1] border border-[#d9c2b2]/40 px-2 py-0.5 rounded-md text-[8px] font-bold text-[#701604]">
+                  {dataLoading ? 'Loading...' : `${liveLogs.length} Log Terakhir`}
                 </span>
               </div>
-              <div className="divide-y divide-[#d9c2b2]/20">
-                {mockActivities.map((activity) => {
-                  let iconBg = '';
-                  let icon = '';
-                  let badgeStyles = '';
-
-                  switch (activity.type) {
-                    case 'received':
-                      iconBg = activity.statusLabel === 'Selisih' ? 'bg-[#ba1a1a]/10 text-[#ba1a1a]' : 'bg-[#e2f8f0] text-[#0f7652]';
-                      icon = activity.statusLabel === 'Selisih' ? '⚠️' : '📥';
-                      badgeStyles = activity.statusLabel === 'Selisih'
-                        ? 'bg-[#ba1a1a]/5 text-[#ba1a1a] border-[#ba1a1a]/20'
-                        : 'bg-green-50 text-green-700 border-green-200';
-                      break;
-                    case 'shipped':
-                      iconBg = 'bg-[#f29744]/10 text-[#f29744]';
-                      icon = '🚚';
-                      badgeStyles = 'bg-[#ffdcc2]/30 text-[#f29744] border-[#f29744]/20';
-                      break;
-                    case 'transfer':
-                      iconBg = 'bg-blue-50 text-blue-700';
-                      icon = '🔄';
-                      badgeStyles = 'bg-blue-50 text-blue-700 border-blue-200';
-                      break;
-                    case 'draft':
-                    default:
-                      iconBg = 'bg-[#faf2e9] text-[#544437]';
-                      icon = '📝';
-                      badgeStyles = 'bg-gray-50 text-[#57423d] border-gray-200';
-                      break;
-                  }
-
-                  return (
-                    <div key={activity.id} className="px-6 py-4 flex items-center justify-between hover:bg-[#fff8f1]/30 transition-colors gap-4">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-sm shrink-0 ${iconBg}`}>
-                          {icon}
+              
+              {dataLoading ? (
+                <div className="divide-y divide-[#d9c2b2]/15">
+                  {[1, 2, 3].map((n) => (
+                    <div key={n} className="px-4 py-4 animate-pulse flex gap-3">
+                      <div className="w-8 h-8 bg-gray-100 rounded-lg shrink-0"></div>
+                      <div className="flex-1 space-y-2 py-1">
+                        <div className="h-2.5 bg-gray-100 rounded w-1/3"></div>
+                        <div className="h-2 bg-gray-100 rounded w-3/4"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : liveLogs.length === 0 ? (
+                <div className="p-8 text-center text-[10px] text-[#544437]/45 font-bold italic uppercase">
+                  Belum ada log aktivitas.
+                </div>
+              ) : (
+                <div className="divide-y divide-[#d9c2b2]/15">
+                  {liveLogs.map((activity) => (
+                    <div
+                      key={activity.id}
+                      onClick={() => router.push(activity.link)}
+                      className="px-4 py-3 flex items-center justify-between hover:bg-[#fff8f1]/30 transition-colors gap-3 cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 shadow-sm ${activity.iconBg}`}>
+                          {activity.icon}
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <p className="text-sm font-bold text-[#1e1b17] leading-tight truncate">{activity.action}</p>
-                          <p className="text-xs text-[#57423d]/80 mt-0.5 leading-snug truncate sm:whitespace-normal">{activity.details}</p>
-                          <p className="text-[10px] text-[#57423d]/50 mt-1 font-semibold">
+                          <p className="text-xs font-bold text-[#1e1b15] leading-tight truncate group-hover:text-[#701604] transition-colors">{activity.action}</p>
+                          <p className="text-[10px] text-[#544437]/80 mt-0.5 leading-snug truncate sm:whitespace-normal">{activity.details}</p>
+                          <p className="text-[8px] text-[#544437]/50 mt-1 font-semibold uppercase tracking-wider leading-none">
                             {activity.user} &bull; {activity.time}
                           </p>
                         </div>
                       </div>
-                      <span className={`text-[9px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shrink-0 ${badgeStyles}`}>
-                        {activity.statusLabel}
+                      <span className={`text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border shrink-0 ${activity.badgeStyles}`}>
+                        {activity.statusLabel.replace('_', ' ')}
                       </span>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
-
-
-          {/* Quick Actions & Updates Banner (4 columns) */}
-          <aside className="lg:col-span-4 flex flex-col gap-6 w-full">
-            <h2 className="text-xs font-black text-[#57423d] uppercase tracking-wider px-1">Quick Actions</h2>
-            
-            <div className="grid grid-cols-2 gap-4">
-              {/* Role Contextual actions rendering */}
-              {(outletStaff.role === 'crew' || outletStaff.role === 'spv') && (
-                <>
-                  <Link
-                    href="/distribusi/terima"
-                    className="bg-white p-5 rounded-xl border border-[#d9c2b2]/45 hover:border-[#f29744]/60 shadow-[0px_4px_20px_rgba(112,22,4,0.03)] hover:shadow-[0px_6px_20px_rgba(112,22,4,0.07)] transition-all flex flex-col items-center gap-3.5 text-center active:scale-97 group"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-blue-100/60 text-blue-800 flex items-center justify-center text-xl group-hover:scale-105 transition-transform shadow-xs">
-                      📥
-                    </div>
-                    <span className="text-xs font-bold text-[#1e1b17] leading-snug">Inbox Penerimaan</span>
-                  </Link>
-
-                  <Link
-                    href="/distribusi/riwayat"
-                    className="bg-white p-5 rounded-xl border border-[#d9c2b2]/45 hover:border-[#f29744]/60 shadow-[0px_4px_20px_rgba(112,22,4,0.03)] hover:shadow-[0px_6px_20px_rgba(112,22,4,0.07)] transition-all flex flex-col items-center gap-3.5 text-center active:scale-97 group"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-[#faf2e9] text-[#544437] flex items-center justify-center text-xl group-hover:scale-105 transition-transform shadow-xs">
-                      📚
-                    </div>
-                    <span className="text-xs font-bold text-[#1e1b17] leading-snug">Riwayat Logistik</span>
-                  </Link>
-                </>
-              )}
-
-              {outletStaff.role === 'kepala_outlet' && (
-                <>
-                  <Link
-                    href="/distribusi/surat-jalan/new"
-                    className="bg-white p-5 rounded-xl border border-[#d9c2b2]/45 hover:border-[#f29744]/60 shadow-[0px_4px_20px_rgba(112,22,4,0.03)] hover:shadow-[0px_6px_20px_rgba(112,22,4,0.07)] transition-all flex flex-col items-center gap-3.5 text-center active:scale-97 group"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-[#f29744]/10 text-[#f29744] flex items-center justify-center text-xl group-hover:scale-105 transition-transform shadow-xs">
-                      ➕
-                    </div>
-                    <span className="text-xs font-bold text-[#1e1b17] leading-snug">Buat Surat Jalan</span>
-                  </Link>
-
-                  <Link
-                    href="/distribusi/pengiriman"
-                    className="bg-white p-5 rounded-xl border border-[#d9c2b2]/45 hover:border-[#f29744]/60 shadow-[0px_4px_20px_rgba(112,22,4,0.03)] hover:shadow-[0px_6px_20px_rgba(112,22,4,0.07)] transition-all flex flex-col items-center gap-3.5 text-center active:scale-97 group"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-[#701604]/10 text-[#701604] flex items-center justify-center text-xl group-hover:scale-105 transition-transform shadow-xs">
-                      🚚
-                    </div>
-                    <span className="text-xs font-bold text-[#1e1b17] leading-snug">Pantau Pengiriman</span>
-                  </Link>
-                </>
-              )}
-            </div>
-
-            {/* Bottom Graphic Banner */}
-            <div className="relative rounded-xl overflow-hidden mt-1 h-36 group shadow-md border border-[#d9c2b2]/30">
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#701604] to-[#f29744] opacity-90 z-10"></div>
-              <div className="absolute inset-0 z-0 bg-[#701604] bg-opacity-40 bg-center bg-cover"></div>
-              <div className="relative z-20 h-full p-5 flex flex-col justify-end">
-                <p className="text-white/70 text-[9px] font-bold uppercase tracking-widest">Update Logistik</p>
-                <h4 className="text-white font-extrabold text-sm leading-snug mt-1">Optimasi Rute Distribusi Terpusat</h4>
-                <p className="text-white/80 text-[10px] mt-0.5">{getSubLocation(outletStaff.role)}</p>
-              </div>
-            </div>
-          </aside>
         </div>
       </main>
+
+      {/* Bottom Navigation Bar */}
+      <BottomNav activeTab="dashboard" />
     </div>
   );
 }

@@ -9,13 +9,14 @@ interface SuratJalan {
   status: string
   created_at: string
   document_number?: string
+  has_problem?: boolean
 }
 
 interface SuratJalanWithOutlet extends SuratJalan {
   outlet?: { name: string }
 }
 
-type DateFilter = 'all' | 'today' | '7days' | '30days'
+type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif'
 
 export function useSuratJalanList(dateFilter: DateFilter = 'all') {
   const [data, setData] = useState<SuratJalanWithOutlet[]>([])
@@ -30,7 +31,7 @@ export function useSuratJalanList(dateFilter: DateFilter = 'all') {
       const supabase = createClient()
       let query = supabase
         .from('surat_jalan')
-        .select('id, outlet_id, status, created_at, document_number')
+        .select('id, outlet_id, status, created_at, document_number, surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
         .order('created_at', { ascending: false })
 
       // Apply date filters
@@ -45,6 +46,10 @@ export function useSuratJalanList(dateFilter: DateFilter = 'all') {
         query = query.gte('created_at', sevenDaysAgo)
       } else if (dateFilter === '30days') {
         query = query.gte('created_at', thirtyDaysAgo)
+      } else if (dateFilter === 'belum_verif') {
+        query = query.in('status', ['diterima_lengkap', 'diterima_sebagian'])
+      } else if (dateFilter === 'telah_verif') {
+        query = query.eq('status', 'selesai')
       }
 
       try {
@@ -69,10 +74,17 @@ export function useSuratJalanList(dateFilter: DateFilter = 'all') {
           (outlets || []).map((o: any) => [o.id, o])
         )
 
-        const result = (sjList || []).map((sj: any) => ({
-          ...sj,
-          outlet: outletMap.get(sj.outlet_id),
-        }))
+        const result = (sjList || []).map((sj: any) => {
+          const items = sj.surat_jalan_item || []
+          const has_problem = items.some(
+            (it: any) => it.kondisi === 'rusak' || (it.qty_terima != null && it.qty_terima < it.qty_dikirim)
+          )
+          return {
+            ...sj,
+            outlet: outletMap.get(sj.outlet_id),
+            has_problem,
+          }
+        })
 
         setData(result as SuratJalanWithOutlet[])
       } catch (err: any) {
@@ -88,6 +100,8 @@ export function useSuratJalanList(dateFilter: DateFilter = 'all') {
 
   const draftCount = data.filter((sj) => sj.status === 'draft').length
   const sentCount = data.filter((sj) => sj.status === 'dikirim').length
+  const diterimaCount = data.filter((sj) => sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian').length
+  const selesaiCount = data.filter((sj) => sj.status === 'selesai').length
 
-  return { data, loading, error, draftCount, sentCount }
+  return { data, loading, error, draftCount, sentCount, diterimaCount, selesaiCount }
 }

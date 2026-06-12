@@ -9,6 +9,7 @@ interface SuratJalan {
   outlet_id: string
   status: string
   created_at: string
+  document_number?: string
   outlets?: { name: string }
 }
 
@@ -27,7 +28,7 @@ export function useTerimaList() {
         const supabase = createClient()
         let query = supabase
           .from('surat_jalan')
-          .select('id, outlet_id, status, created_at, outlets(name)')
+          .select('id, outlet_id, status, created_at, document_number, outlets(name)')
           .in('status', ['dikirim', 'dikirim_lengkap', 'diterima_sebagian'])
 
         // Crew sees only SJ for their own outlet

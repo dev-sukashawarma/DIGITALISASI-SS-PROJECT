@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
@@ -15,29 +15,115 @@ type ItemVerification = {
   catatan: string
 }
 
-type Step = 'cards' | 'summary' | 'signature'
+type Step = 'form' | 'signature'
+
+function SignatureBlock({ title, sigs }: { title: string; sigs: any[] }) {
+  return (
+    <div className="bg-[#fff8f1]/50 border border-[#d9c2b2]/45 rounded-xl p-4 shadow-sm">
+      <p className="text-[9px] font-bold text-[#544437]/50 uppercase tracking-wider mb-3 leading-none">{title} ({sigs.length})</p>
+      {sigs.length === 0 ? (
+        <p className="text-[10px] text-[#544437]/40 font-bold italic">Belum ada tanda tangan</p>
+      ) : (
+        <div className="space-y-3">
+          {sigs.map((s, i) => (
+            <div key={i} className="flex items-center gap-3">
+              {s.signature_image && (
+                <img src={s.signature_image} alt={s.role} className="h-10 w-auto bg-white border border-[#d9c2b2]/30 rounded p-1 object-contain shadow-xs" />
+              )}
+              <div>
+                <p className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide">{s.signed_by}</p>
+                <p className="text-[10px] text-[#544437]/65 mt-0.5 font-semibold">
+                  {s.role} &bull; {new Date(s.signed_at).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function VerifikasiForm({ id }: { id: string }) {
   const router = useRouter()
   const { data, loading, error } = useSuratJalanDetail(id)
-  const [currentIndex, setCurrentIndex] = useState(0)
   const [verifications, setVerifications] = useState<Record<string, ItemVerification>>({})
-  const [step, setStep] = useState<Step>('cards')
+  const [step, setStep] = useState<Step>('form')
   const [submitting, setSubmitting] = useState(false)
 
-  if (loading) return <p className="p-6 text-gray-500">Memuat...</p>
-  if (error || !data) return <p className="p-6 text-red-600">Gagal memuat: {error}</p>
+  const [unlocked, setUnlocked] = useState(false)
 
-  // Idempotency guard: jika SJ sudah diterima, redirect ke riwayat
-  if (data.status && (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian')) {
+  // Initialize verifications when data is loaded
+  useEffect(() => {
+    if (data?.surat_jalan_item) {
+      const initial: Record<string, ItemVerification> = {}
+      data.surat_jalan_item.forEach((item: any) => {
+        initial[item.id] = {
+          qty_terima: item.qty_dikirim ?? 0,
+          kondisi: 'baik',
+          catatan: '',
+        }
+      })
+      setVerifications(initial)
+    }
+  }, [data])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isUnlocked = sessionStorage.getItem(`unlocked_verification_${id}`) === 'true'
+      setUnlocked(isUnlocked)
+    }
+  }, [id])
+
+  if (loading) return <div className="text-center py-12 text-xs font-bold text-[#544437]/50 animate-pulse bg-[#fff8f1] min-h-screen flex items-center justify-center">Memuat Form Verifikasi...</div>
+  if (error || !data) return <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-4"><p className="p-4 text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 rounded-xl">Gagal memuat: {error}</p></div>
+
+  // QR Code scan validation check
+  if (!unlocked) {
     return (
       <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-6">
-        <div className="bg-white rounded-xl border border-suka-brown/10 p-8 max-w-md text-center shadow-sm">
-          <p className="text-lg font-bold text-suka-brown mb-2">✓ Verifikasi Sudah Selesai</p>
-          <p className="text-sm text-suka-brown/60 mb-6">Surat jalan ini telah diverifikasi sebelumnya. Lihat detail di Riwayat.</p>
+        <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-6 max-w-sm text-center shadow-[0px_4px_12px_rgba(144,77,0,0.03)] space-y-4">
+          <div className="w-16 h-16 bg-red-50 border border-red-200 text-[#ba1a1a] rounded-full flex items-center justify-center mx-auto text-2xl shadow-sm">
+            🔒
+          </div>
+          <h2 className="text-sm font-extrabold text-[#701604] uppercase tracking-wide">Akses Verifikasi Terkunci</h2>
+          <p className="text-xs text-[#544437]/75 leading-relaxed">
+            Untuk alasan keamanan dan meminimalkan kesalahan pencatatan, Anda wajib memindai QR Code pada lembar fisik Surat Jalan yang dibawa oleh supir untuk membuka halaman verifikasi ini.
+          </p>
+          <div className="pt-2 flex flex-col gap-2">
+            <button
+              onClick={() => router.push('/distribusi/terima/scan')}
+              className="w-full bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              📷 Scan QR Code Sekarang
+            </button>
+            <button
+              onClick={() => router.push('/distribusi/terima')}
+              className="w-full border border-[#d9c2b2]/45 text-[#544437] hover:bg-[#faf2e9] bg-white rounded-xl py-2.5 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-sm"
+            >
+              Kembali ke Inbox
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Idempotency guard: jika SJ sudah diterima, redirect ke riwayat
+  if (data.status && (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian' || data.status === 'selesai')) {
+    return (
+      <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-6 max-w-sm text-center shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+          <p className="text-sm font-extrabold text-[#0a7d2c] mb-2 uppercase tracking-wide">✓ Verifikasi Selesai</p>
+          <p className="text-xs text-[#544437]/70 mb-5">Surat jalan ini telah diverifikasi sebelumnya. Anda dapat melihat detailnya di Riwayat.</p>
           <button
             onClick={() => router.push('/distribusi/riwayat')}
-            className="w-full bg-[#701604] hover:opacity-95 text-white rounded-xl py-3 font-bold text-sm"
+            className="w-full bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white rounded-xl py-2.5 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95"
           >
             Buka Riwayat
           </button>
@@ -46,50 +132,26 @@ export function VerifikasiForm({ id }: { id: string }) {
     )
   }
 
-  const items = data.surat_jalan_item
-  const currentItem = items[currentIndex]
-  const currentVerif = verifications[currentItem?.id] ?? {
-    qty_terima: currentItem?.qty_dikirim ?? 0,
-    kondisi: 'baik' as Kondisi,
-    catatan: '',
-  }
-  const progress = Math.round((currentIndex / items.length) * 100)
-  const jelekItems = Object.entries(verifications).filter(([, v]) => v.kondisi === 'jelek')
+  const items = data.surat_jalan_item || []
 
-  const setVerif = (patch: Partial<ItemVerification>) => {
-    setVerifications((prev) => ({
-      ...prev,
-      [currentItem.id]: { ...currentVerif, ...patch },
-    }))
-  }
-
-  const confirmItem = (v: ItemVerification) => {
-    setVerifications((prev) => ({ ...prev, [currentItem.id]: v }))
-    if (currentIndex + 1 >= items.length) {
-      setStep('summary')
-    } else {
-      setCurrentIndex((i) => i + 1)
+  const handleNextStep = () => {
+    // Validate all items
+    for (const item of items) {
+      const v = verifications[item.id] || { qty_terima: item.qty_dikirim, kondisi: 'baik' as const, catatan: '' }
+      
+      if (v.qty_terima > item.qty_dikirim) {
+        alert(`Qty terima untuk ${item.bahan_baku?.nama} tidak boleh melebihi qty dikirim!`)
+        return
+      }
+      
+      const isDiscrepancy = v.qty_terima < item.qty_dikirim || v.kondisi === 'jelek'
+      if (isDiscrepancy && !v.catatan.trim()) {
+        alert(`Wajib mengisi catatan alasan selisih/masalah untuk item: ${item.bahan_baku?.nama}`)
+        return
+      }
     }
-  }
-
-  const handleBaik = () => {
-    confirmItem({
-      qty_terima: currentItem.qty_dikirim,
-      kondisi: 'baik',
-      catatan: '',
-    })
-  }
-
-  const handleJelekConfirm = () => {
-    if (currentVerif.kondisi === 'jelek' && !currentVerif.catatan.trim()) {
-      alert('Wajib isi catatan untuk item yang jelek')
-      return
-    }
-    if (currentVerif.qty_terima > currentItem.qty_dikirim) {
-      alert('Qty terima tidak boleh melebihi qty dikirim')
-      return
-    }
-    confirmItem(currentVerif)
+    
+    setStep('signature')
   }
 
   const handleSubmit = async () => {
@@ -132,197 +194,202 @@ export function VerifikasiForm({ id }: { id: string }) {
         suratJalanId={id}
         submitting={submitting}
         onFinalize={handleSubmit}
-        onBack={() => setStep('summary')}
+        onBack={() => setStep('form')}
       />
     )
   }
 
-  if (step === 'summary') {
-    return (
-      <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
-        <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
-            <div className="flex flex-col">
-              <h2 className="text-xl font-bold text-[#701604] tracking-tight">Ringkasan Verifikasi</h2>
-              <p className="text-xs text-suka-brown/60 mt-0.5">Sistem Distribusi & Logistik</p>
+  return (
+    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-24">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)] flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <Link href="/distribusi/terima" className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm" title="Kembali ke Inbox">
+            <span className="text-base">←</span>
+          </Link>
+          <div className="flex flex-col">
+            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Verifikasi Penerimaan</h1>
+            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">Sistem Distribusi & Logistik</p>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Body (Surat Jalan dari Pusat layout) */}
+      <div className="p-4 max-w-3xl mx-auto space-y-4 mt-2">
+        <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-5 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] space-y-5">
+          
+          {/* Header Info */}
+          <div className="flex justify-between items-center border-b border-[#d9c2b2]/20 pb-4">
+            <div>
+              <span className="text-[9px] font-black text-[#544437]/50 uppercase tracking-widest leading-none">NO. SURAT JALAN</span>
+              <p className="text-xs font-mono font-bold text-gray-500 mt-1.5 leading-none truncate max-w-[150px] lg:max-w-xs">
+                {data.document_number || id.substring(0, 8).toUpperCase()}
+              </p>
+            </div>
+            <span className="px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider border bg-blue-50 text-blue-700 border-blue-200">
+              Dikirim (Pending)
+            </span>
+          </div>
+
+          {/* Route Info */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-[#fff8f1] p-4 rounded-xl border border-[#d9c2b2]/20">
+              <p className="text-[9px] font-black text-[#544437]/55 uppercase tracking-wider">Dikirim Dari</p>
+              <p className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide mt-1.5">Outlet Kitchen Pusat</p>
+            </div>
+            <div className="bg-[#fff8f1] p-4 rounded-xl border border-[#d9c2b2]/20">
+              <p className="text-[9px] font-black text-[#544437]/55 uppercase tracking-wider">Tujuan Outlet</p>
+              <p className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide mt-1.5">{data.outlets?.name || 'Unknown'}</p>
             </div>
           </div>
-        </header>
 
-        <div className="p-6 max-w-lg mx-auto mt-6">
-          <div className="bg-white rounded-xl border border-suka-brown/10 p-6 shadow-sm mb-6">
-            <h1 className="text-xl font-extrabold text-suka-brown mb-1 uppercase tracking-tight">Konfirmasi Penerimaan</h1>
-            <p className="text-suka-brown/50 text-xs font-semibold mb-6">{items.length} item selesai diverifikasi</p>
+          {/* Date Info */}
+          <div className="bg-[#faf2e9]/40 p-4 rounded-xl border border-[#d9c2b2]/20 text-xs flex justify-between items-center">
+            <span className="font-bold text-[#544437]/70 uppercase tracking-wider">Tanggal Dibuat</span>
+            <span className="font-semibold text-[#1e1b15]">
+              {new Date(data.created_at).toLocaleDateString('id-ID', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              })}
+            </span>
+          </div>
 
-            <div className="bg-[#fff8f1] rounded-xl border border-suka-brown/10 divide-y divide-suka-brown/10 mb-4 overflow-hidden">
-              {items.map((item) => {
-                const v = verifications[item.id]
-                const isJelek = v?.kondisi === 'jelek'
+          {/* Items Verification Section */}
+          <div>
+            <h3 className="text-[9px] font-black text-[#544437]/50 uppercase tracking-widest pl-1 mb-3">Item Barang</h3>
+            <div className="space-y-4">
+              {items.map((item: any) => {
+                const v = verifications[item.id] || {
+                  qty_terima: item.qty_dikirim,
+                  kondisi: 'baik',
+                  catatan: '',
+                }
+                const isJelek = v.kondisi === 'jelek'
+
                 return (
-                  <div key={item.id} className="px-4 py-3 flex justify-between items-center">
-                    <div>
-                      <p className="text-sm font-bold text-suka-ink">{item.bahan_baku?.nama}</p>
-                      {isJelek && v.catatan && (
-                        <p className="text-xs text-red-650 mt-1 italic font-medium">{v.catatan}</p>
-                      )}
+                  <div key={item.id} className="p-4 bg-white rounded-2xl border border-[#d9c2b2]/30 space-y-3 shadow-xs">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-[8px] text-[#f29744] font-black uppercase tracking-widest mb-1 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md inline-block">
+                          Kategori: {item.bahan_baku?.kategori || 'BAHAN BAKU'}
+                        </span>
+                        <h4 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide">{item.bahan_baku?.nama}</h4>
+                      </div>
+                      
+                      {/* Condition toggle buttons */}
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVerifications(prev => ({
+                              ...prev,
+                              [item.id]: { ...v, kondisi: 'baik', catatan: '' }
+                            }))
+                          }}
+                          className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                            !isJelek
+                              ? 'bg-green-50 text-green-700 border-green-200'
+                              : 'bg-white border-[#d9c2b2]/30 text-[#544437]/60 hover:bg-[#fff8f1]/50'
+                          }`}
+                        >
+                          ✓ Baik
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVerifications(prev => ({
+                              ...prev,
+                              [item.id]: { ...v, kondisi: 'jelek' }
+                            }))
+                          }}
+                          className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                            isJelek
+                              ? 'bg-red-50 text-red-700 border-red-200'
+                              : 'bg-white border-[#d9c2b2]/30 text-[#544437]/60 hover:bg-[#fff8f1]/50'
+                          }`}
+                        >
+                          ✗ Jelek
+                        </button>
+                      </div>
                     </div>
-                    <span
-                      className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wide border ${
-                        isJelek
-                          ? 'bg-red-50 text-red-750 border-red-200'
-                          : 'bg-green-50 text-green-755 border-green-200'
-                      }`}
-                    >
-                      {isJelek 
-                        ? `Jelek · ${v?.qty_terima ?? item.qty_dikirim}/${item.qty_dikirim} ${item.bahan_baku?.satuan}` 
-                        : `Baik · ${v?.qty_terima ?? item.qty_dikirim} ${item.bahan_baku?.satuan}`}
-                    </span>
+
+                    <div className="flex items-center gap-6 bg-[#fff8f1]/50 p-3 rounded-xl border border-[#d9c2b2]/25 shadow-inner text-xs">
+                      <div className="flex-1">
+                        <p className="text-[9px] text-[#544437]/60 font-bold uppercase tracking-wider mb-1">Qty Kirim</p>
+                        <p className="font-extrabold text-[#701604]">
+                          {item.qty_dikirim} <span className="text-[10px] font-semibold text-[#544437]/75">{item.bahan_baku?.satuan}</span>
+                        </p>
+                      </div>
+                      <span className="text-[#544437]/30 text-base font-bold">→</span>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[9px] text-[#544437]/60 font-bold uppercase tracking-wider shrink-0 mr-1">Qty Terima</p>
+                        <input
+                          type="number"
+                          min={0}
+                          max={item.qty_dikirim}
+                          value={v.qty_terima}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0
+                            setVerifications(prev => ({
+                              ...prev,
+                              [item.id]: {
+                                ...v,
+                                qty_terima: val,
+                                kondisi: val < item.qty_dikirim ? 'jelek' : v.kondisi
+                              }
+                            }))
+                          }}
+                          className={`border-2 rounded-xl px-2 py-1 text-xs font-extrabold text-center w-16 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] transition-all ${
+                            isJelek || v.qty_terima < item.qty_dikirim ? 'border-[#ba1a1a]' : 'border-[#0a7d2c]'
+                          }`}
+                        />
+                        <span className="text-xs font-bold text-[#544437]/70">{item.bahan_baku?.satuan}</span>
+                      </div>
+                    </div>
+
+                    {/* Problem Notes (Required if Jelek or Qty received < Qty shipped) */}
+                    {(isJelek || v.qty_terima < item.qty_dikirim) && (
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-bold text-[#ba1a1a] block uppercase tracking-wider pl-1">
+                          Catatan Masalah / Alasan Selisih (Wajib)
+                        </label>
+                        <textarea
+                          value={v.catatan}
+                          onChange={(e) => {
+                            setVerifications(prev => ({
+                              ...prev,
+                              [item.id]: { ...v, catatan: e.target.value }
+                            }))
+                          }}
+                          placeholder="Sebutkan alasan (misal: 2 kg busuk, kemasan robek, pecah di jalan, dll)"
+                          rows={2}
+                          className="w-full border border-red-200 rounded-xl px-3 py-2 text-xs bg-red-50 focus:outline-none focus:ring-1 focus:ring-red-400 resize-none font-medium text-[#ba1a1a] min-h-[50px]"
+                        />
+                      </div>
+                    )}
                   </div>
                 )
               })}
             </div>
+          </div>
 
-            {jelekItems.length > 0 && (
-              <div className="mb-4 p-3.5 bg-red-50 border border-red-250 rounded-xl text-red-800 text-xs font-bold flex items-center gap-2">
-                <span>⚠️</span>
-                <span>{jelekItems.length} item bermasalah — detail terekam di catatan</span>
-              </div>
-            )}
+          {/* Warehouse signatures block from Pusat */}
+          <div className="border-t border-[#d9c2b2]/20 pt-5">
+            <SignatureBlock title="TTD Pengirim (Pusat)" sigs={data.signatures || []} />
+          </div>
 
+          {/* Verification finalize action button */}
+          <div className="border-t border-[#d9c2b2]/20 pt-5">
             <button
-              onClick={() => setStep('signature')}
-              className="w-full bg-[#701604] hover:opacity-95 text-white rounded-xl py-3.5 font-bold shadow-md transition-all cursor-pointer text-sm"
+              onClick={handleNextStep}
+              className="w-full py-3 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white font-bold uppercase tracking-wider text-xs shadow-md rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
             >
               Lanjut ke Tanda Tangan →
             </button>
-            <button
-              onClick={() => { setCurrentIndex(items.length - 1); setStep('cards') }}
-              className="w-full mt-2 border border-suka-brown/15 text-suka-brown font-semibold rounded-xl py-3.5 text-xs hover:bg-suka-cream bg-white transition-all cursor-pointer"
-            >
-              Kembali ke item terakhir
-            </button>
           </div>
         </div>
-      </div>
-    )
-  }
-
-  // Card step
-  const isJelekMode = currentVerif.kondisi === 'jelek'
-
-  return (
-    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
-      <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
-          <div className="flex flex-col">
-            <h2 className="text-xl font-bold text-[#701604] tracking-tight">Verifikasi Item</h2>
-            <p className="text-xs text-suka-brown/60 mt-0.5">Sistem Distribusi & Logistik</p>
-          </div>
-        </div>
-        <div>
-          <Link
-            href="/distribusi/terima"
-            className="px-4 py-2 border border-suka-brown/15 text-suka-brown font-semibold text-xs rounded-xl bg-white hover:bg-suka-cream transition-all"
-          >
-            ← Batal
-          </Link>
-        </div>
-      </header>
-
-      <div className="p-6 max-w-lg mx-auto mt-6">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-suka-brown uppercase tracking-wider">Progress Verifikasi</span>
-          <span className="text-xs font-bold text-suka-orange bg-white border border-suka-brown/10 px-2.5 py-1 rounded-lg">
-            {currentIndex + 1} / {items.length} Barang
-          </span>
-        </div>
-
-        <div className="w-full bg-[#faf2e9] border border-suka-brown/5 rounded-full h-2.5 mb-6 overflow-hidden">
-          <div
-            className="bg-suka-orange h-full rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        <div className="bg-white rounded-xl border border-suka-brown/10 p-6 mb-6 shadow-sm">
-          <p className="text-xs text-suka-orange/80 font-bold uppercase tracking-widest mb-1.5">
-            Kategori: {currentItem.bahan_baku?.kategori || 'BAHAN BAKU'}
-          </p>
-          <h2 className="text-xl font-extrabold text-suka-ink mb-6 border-b border-suka-brown/10 pb-3">{currentItem.bahan_baku?.nama}</h2>
-
-          <div className="flex items-center justify-center gap-6 mb-6 bg-[#fff8f1] p-4 rounded-xl border border-suka-brown/5">
-            <div>
-              <p className="text-xs text-suka-brown/60 font-bold uppercase tracking-wider mb-1.5 text-center">Dikirim</p>
-              <div className="bg-white border border-suka-brown/10 rounded-xl px-4 py-2.5 text-base font-bold text-suka-brown/70 min-w-[80px] text-center shadow-sm">
-                {currentItem.qty_dikirim} <span className="text-xs font-semibold">{currentItem.bahan_baku?.satuan}</span>
-              </div>
-            </div>
-            <span className="text-suka-brown/30 text-xl font-bold pt-4">→</span>
-            <div>
-              <p className="text-xs text-suka-brown/60 font-bold uppercase tracking-wider mb-1.5 text-center">Diterima</p>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="number"
-                  min={0}
-                  max={currentItem.qty_dikirim}
-                  value={currentVerif.qty_terima}
-                  onChange={(e) => setVerif({ qty_terima: parseInt(e.target.value) || 0, kondisi: 'jelek' })}
-                  className={`border-2 rounded-xl px-3 py-2 text-base font-bold text-center w-20 bg-white focus:outline-none focus:ring-1 focus:ring-suka-orange transition-all ${
-                    isJelekMode ? 'border-red-400' : 'border-suka-green'
-                  }`}
-                />
-                <span className="text-xs font-bold text-suka-brown/70">{currentItem.bahan_baku?.satuan}</span>
-              </div>
-            </div>
-          </div>
-
-          {isJelekMode && (
-            <div className="mb-4 space-y-1">
-              <label className="text-xs font-bold text-red-650 block">Catatan / Concern Masalah (Wajib)</label>
-              <textarea
-                value={currentVerif.catatan}
-                onChange={(e) => setVerif({ catatan: e.target.value })}
-                placeholder="Contoh: 2 kg busuk, kemasan berlubang, dll..."
-                rows={2}
-                className="w-full border border-red-200 rounded-xl px-4 py-3 text-xs bg-red-50 focus:outline-none focus:ring-1 focus:ring-red-400 resize-none"
-              />
-            </div>
-          )}
-        </div>
-
-        {!isJelekMode ? (
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={handleBaik}
-              className="bg-suka-green hover:opacity-95 text-white rounded-xl py-3.5 font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
-            >
-              ✓ Kondisi Baik
-            </button>
-            <button
-              onClick={() => setVerif({ kondisi: 'jelek', qty_terima: currentItem.qty_dikirim })}
-              className="border border-red-400 text-red-600 rounded-xl py-3.5 font-bold hover:bg-red-50 bg-white transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
-            >
-              ✗ Ada Masalah (Jelek)
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setVerif({ kondisi: 'baik', qty_terima: currentItem.qty_dikirim, catatan: '' })}
-              className="border border-suka-brown/15 text-suka-brown rounded-xl py-3.5 font-semibold hover:bg-suka-cream bg-white transition-all cursor-pointer text-sm"
-            >
-              ← Batalkan
-            </button>
-            <button
-              onClick={handleJelekConfirm}
-              className="bg-red-600 hover:opacity-95 text-white rounded-xl py-3.5 font-bold shadow-md transition-all cursor-pointer text-sm"
-            >
-              Konfirmasi Masalah →
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )

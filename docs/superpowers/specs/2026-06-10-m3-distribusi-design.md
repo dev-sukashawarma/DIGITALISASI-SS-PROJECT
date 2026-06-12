@@ -27,7 +27,7 @@ Master shipment order. One per physical shipment from warehouse.
 CREATE TABLE surat_jalan (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   outlet_id UUID NOT NULL REFERENCES outlets(id) ON DELETE CASCADE,
-  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','dikirim','diterima_sebagian','diterima_lengkap')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai')),
   created_by UUID REFERENCES outlet_staff(id),  -- SPV who created
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -204,12 +204,16 @@ All `SECURITY DEFINER SET search_path = public` to enforce RLS despite trigger c
 
 ### Pusat Side (SPV): `/apps/distribusi/src/app/distribusi/surat-jalan/`
 
-**Pages:**
+Pages:
 
 1. **`/distribusi/surat-jalan`** — List view
-   - Filter: status (draft, dikirim, selesai)
-   - Cards: outlet name, item count, status badge, created date
-   - Actions: click to detail; new button → `/new`
+   - Filter / Tabs: "Semua", "Hari Ini", "7 Hari", "1 Bulan", "Belum Verif" (status `diterima_lengkap` / `diterima_sebagian` waiting for Pusat verification), "Telah Diverif" (status `selesai`)
+   - Cards: outlet name, item count, status badge (Title Case without underscore: Draft, Dikirim, Selesai, Diterima Lengkap, Diterima Sebagian), created date
+   - Actions:
+     - Click card to open details.
+     - For items awaiting verification (`diterima_*`), an orange button **"Cek dan Verifikasi"** is displayed. Clicking this button redirects the user to the details page first instead of triggering verification directly.
+     - For sent or completed items, a red button **"Download Surat Jalan"** is displayed to print the PDF.
+     - New button → `/new` to create a new travel document.
 
 2. **`/distribusi/surat-jalan/new`** — Create form
    - Outlet select (dropdown)
@@ -217,19 +221,23 @@ All `SECURITY DEFINER SET search_path = public` to enforce RLS despite trigger c
    - Create button → POST create_surat_jalan RPC
    - Redirect to detail page
 
-3. **`/distribusi/surat-jalan/[id]`** — Detail + approve
-   - Header: outlet, status, created date
-   - Item table: bahan_baku_id, qty_dikirim, (qty_terima if verified)
-   - Signature section (if status=draft): 3 signature inputs (user dropdown + timestamp) → send button
-   - Button state: disabled until 3 sigs provided
+3. **`/distribusi/surat-jalan/[id]`** — Detail + approve + verify
+   - Header: outlet, status (Title Case without underscore), created date, PDF download shortcut (only for sent/completed documents)
+   - Item cards layout: displays name, qty_dikirim, qty_terima (with discrepancy highlighted in red if different), item condition (e.g. `rusak` status badge), and optional notes
+   - Signature block:
+     - If status=draft: 3 warehouse signature inputs (user dropdown + timestamp) → send button
+     - If status!=draft: renders physical signatures block (Sender Signatures and Receiver Signatures side-by-side)
+   - Pusat Verification action:
+     - Shown only for SPV Pusat (`kepala_outlet`) when the document status is received (`diterima_*`).
+     - Displays a confirmation guidelines block and a prominent button **"Verifikasi & Tutup Surat Jalan"** to update status to `selesai`.
 
 ### Outlet Side (Crew): `/apps/distribusi/src/app/distribusi/terima/`
 
-**Pages:**
+Pages:
 
 1. **`/distribusi/terima`** — Incoming Surat Jalan list
    - Filter: status (dikirim, done)
-   - Cards per SJ: outlet, item count, status, action button → verify
+   - Cards per SJ: outlet, item count, status, action button "Verifikasi" → redirects directly to the `/distribusi/terima/[id]` verification page.
 
 2. **`/distribusi/terima/[id]`** — Verification form
    - Header: SJ date, outlet, item count
@@ -282,3 +290,4 @@ All `SECURITY DEFINER SET search_path = public` to enforce RLS despite trigger c
 ✅ Finalize triggers atomic ledger creation → M2 balance updates  
 ✅ RLS: SPV sees all; crew sees own outlet only  
 ✅ Qty terverifikasi in M2 ledger matches what was received (source of truth)
+✅ SPV Pusat can perform two-way verification (redirects from "Cek dan Verifikasi" on list to detail view first, then verifies received items & signatures, transitioning status to 'selesai')

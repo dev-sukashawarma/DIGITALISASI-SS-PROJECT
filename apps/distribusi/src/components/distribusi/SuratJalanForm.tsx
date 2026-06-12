@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
+import { BottomNav } from './BottomNav'
 
 interface FormItem {
   bahanId: string
@@ -77,39 +78,40 @@ export function SuratJalanForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
+    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-32">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm">
+      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)] flex-shrink-0">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
-          <div className="flex flex-col">
-            <h2 className="text-xl font-bold text-[#701604] tracking-tight">Buat Surat Jalan</h2>
-            <p className="text-xs text-suka-brown/60 mt-0.5">Sistem Distribusi & Logistik</p>
-          </div>
-        </div>
-        <div>
           <Link
             href="/distribusi/surat-jalan"
-            className="px-4 py-2 border border-suka-brown/15 text-suka-brown font-semibold text-xs rounded-xl bg-white hover:bg-suka-cream transition-all flex items-center gap-1"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm"
+            title="Kembali"
           >
-            ← Kembali
+            <span className="text-base">←</span>
           </Link>
+          <div className="flex flex-col">
+            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Buat Surat Jalan</h1>
+            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">Sistem Distribusi & Logistik</p>
+          </div>
         </div>
       </header>
 
       {/* Main card */}
-      <div className="p-6 max-w-2xl mx-auto mt-6">
-        <div className="bg-white rounded-xl border border-suka-brown/10 p-6 shadow-[0px_4px_12px_rgba(112,22,4,0.04)]">
-          <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="p-4 max-w-2xl mx-auto mt-2">
+        <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-5 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Outlet Tujuan */}
             <div>
-              <label className="block text-sm font-bold text-suka-brown mb-1.5">Outlet Tujuan</label>
+              <label className="block text-[10px] font-bold text-[#544437]/60 uppercase tracking-wider pl-1 mb-1.5">
+                Outlet Tujuan
+              </label>
               {outletsLoading ? (
-                <p className="text-sm text-suka-brown/50">Memuat outlet...</p>
+                <p className="text-xs text-[#544437]/45 font-semibold pl-1">Memuat outlet...</p>
               ) : (
                 <select
                   value={outletId}
                   onChange={(e) => setOutletId(e.target.value)}
-                  className="w-full bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all"
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] font-semibold transition-all shadow-sm"
                 >
                   <option value="">Pilih outlet...</option>
                   {outlets.map((outlet) => (
@@ -121,48 +123,56 @@ export function SuratJalanForm() {
               )}
             </div>
 
-            <div className="border-t border-suka-brown/10 pt-4">
-              <label className="block text-sm font-bold text-suka-brown mb-2">Tambah Item Barang</label>
-              <div className="flex gap-2 mb-3">
+            {/* Tambah Item Barang */}
+            <div className="border-t border-[#d9c2b2]/15 pt-4">
+              <label className="block text-[10px] font-bold text-[#544437]/60 uppercase tracking-wider pl-1 mb-1.5">
+                Tambah Item Barang
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
                 {bahanLoading ? (
-                  <p className="text-sm text-suka-brown/50">Memuat barang...</p>
+                  <p className="text-xs text-[#544437]/45 font-semibold pl-1">Memuat barang...</p>
                 ) : (
                   <>
                     <select
                       value={selectedBahan}
                       onChange={(e) => setSelectedBahan(e.target.value)}
-                      className="flex-1 bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all"
+                      className="w-full sm:flex-1 px-4 py-2.5 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] font-semibold transition-all shadow-sm"
                     >
                       <option value="">Pilih barang...</option>
                       {bahanBaku.map((bahan) => (
                         <option key={bahan.id} value={bahan.id}>
-                          {bahan.nama} ({bahan.satuan})
+                          {bahan.nama.toUpperCase()} ({bahan.satuan})
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      value={qty}
-                      onChange={(e) => setQty(e.target.value)}
-                      placeholder="Qty"
-                      className="w-24 bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm text-center transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={addItem}
-                      className="px-4 py-2.5 bg-suka-orange text-white font-bold text-sm rounded-xl hover:bg-orange-600 active:bg-orange-700 shadow-sm transition-all cursor-pointer"
-                    >
-                      Tambah
-                    </button>
+                    <div className="flex gap-2 w-full sm:w-auto shrink-0">
+                      <input
+                        type="number"
+                        value={qty}
+                        onChange={(e) => setQty(e.target.value)}
+                        placeholder="Qty"
+                        className="flex-1 sm:w-24 px-4 py-2.5 rounded-xl border border-[#d9c2b2]/40 bg-white text-center focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-semibold transition-all shadow-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={addItem}
+                        className="flex-1 sm:flex-initial px-5 py-2.5 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                      >
+                        Tambah
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
             </div>
 
-            <div className="border-t border-suka-brown/10 pt-4">
-              <label className="block text-sm font-bold text-suka-brown mb-2">Item yang dipilih</label>
+            {/* Item yang dipilih */}
+            <div className="border-t border-[#d9c2b2]/15 pt-4">
+              <label className="block text-[10px] font-bold text-[#544437]/60 uppercase tracking-wider pl-1 mb-2">
+                Item yang dipilih
+              </label>
               {items.length === 0 ? (
-                <p className="text-sm text-suka-brown/50 bg-[#fff8f1]/50 border border-dashed border-suka-brown/10 p-4 rounded-xl text-center">
+                <p className="text-xs text-[#544437]/50 bg-[#fff8f1]/50 border border-dashed border-[#d9c2b2]/40 p-4 rounded-xl text-center font-bold">
                   Belum ada item ditambahkan
                 </p>
               ) : (
@@ -172,15 +182,15 @@ export function SuratJalanForm() {
                     return (
                       <div
                         key={idx}
-                        className="flex justify-between items-center bg-[#fff8f1] border border-suka-brown/10 px-4 py-3 rounded-xl"
+                        className="flex justify-between items-center bg-[#fff8f1] border border-[#d9c2b2]/40 px-4 py-3 rounded-xl shadow-xs"
                       >
-                        <span className="text-sm font-semibold text-suka-ink">
+                        <span className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide">
                           {bahan?.nama || 'Unknown'} - {item.qty} {bahan?.satuan}
                         </span>
                         <button
                           type="button"
                           onClick={() => removeItem(idx)}
-                          className="text-red-600 hover:text-red-700 text-xs font-bold transition-colors cursor-pointer"
+                          className="text-[#ba1a1a] hover:text-[#931313] text-xs font-extrabold uppercase tracking-wide transition-colors cursor-pointer"
                         >
                           ✕ Hapus
                         </button>
@@ -191,17 +201,18 @@ export function SuratJalanForm() {
               )}
             </div>
 
-            <div className="flex gap-3 border-t border-suka-brown/10 pt-4">
+            {/* Action Buttons */}
+            <div className="flex gap-3 border-t border-[#d9c2b2]/15 pt-4">
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 px-4 py-3 bg-[#701604] hover:opacity-95 text-white font-bold text-sm rounded-xl disabled:opacity-50 transition-all cursor-pointer"
+                className="flex-1 py-3 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white font-bold uppercase tracking-wider text-xs shadow-md active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
               >
                 {submitting ? 'Menyimpan...' : 'Simpan Surat Jalan'}
               </button>
               <Link
                 href="/distribusi/surat-jalan"
-                className="px-6 py-3 border border-suka-brown/15 text-suka-brown font-semibold text-sm rounded-xl bg-white hover:bg-suka-cream transition-all text-center"
+                className="px-6 py-3 border border-[#d9c2b2]/45 text-[#701604] hover:bg-[#fff8f1]/50 bg-white rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm transition-all active:scale-[0.98] text-center cursor-pointer flex items-center justify-center"
               >
                 Batal
               </Link>
@@ -209,6 +220,9 @@ export function SuratJalanForm() {
           </form>
         </div>
       </div>
+
+      {/* Bottom Navigation Bar */}
+      <BottomNav activeTab="surat-jalan" />
     </div>
   )
 }

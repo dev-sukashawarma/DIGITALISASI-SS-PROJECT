@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 
 export function QRScanner() {
@@ -14,25 +15,30 @@ export function QRScanner() {
   const detectorRef = useRef<any>(null)
   const animFrameRef = useRef<number | null>(null)
 
-  const navigateToVerifikasi = async (documentNumber: string) => {
+  const navigateToVerifikasi = async (code: string) => {
     // Stop scan loop immediately to prevent double-navigation race condition
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
     animFrameRef.current = null
+
+    const cleanedCode = code.trim().toUpperCase()
 
     const supabase = createClient()
     const { data, error } = await supabase
       .from('surat_jalan')
       .select('id, status')
-      .eq('document_number', documentNumber)
+      .eq('verification_code', cleanedCode)
       .single()
 
     if (error || !data) {
-      setError(`Surat Jalan "${documentNumber}" tidak ditemukan`)
+      setError(`Kode verifikasi "${cleanedCode}" tidak ditemukan`)
       return
     }
-    if (data.status === 'diterima') {
-      setError('Surat Jalan ini sudah diterima sebelumnya')
+    if (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian' || data.status === 'selesai' || data.status === 'diterima') {
+      setError('Surat Jalan ini sudah diterima/diverifikasi sebelumnya')
       return
+    }
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`unlocked_verification_${data.id}`, 'true')
     }
     stopCamera()
     router.push(`/distribusi/terima/${data.id}`)
@@ -95,44 +101,63 @@ export function QRScanner() {
   }
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold mb-2">Scan QR Surat Jalan</h1>
-      <p className="text-gray-500 text-sm mb-6">
-        Arahkan kamera ke QR code di Surat Jalan fisik
-      </p>
-
-      {cameraAvailable ? (
-        <div className="rounded-xl overflow-hidden border border-gray-200 mb-6 bg-black aspect-square">
-          <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
+      {/* Header Banner */}
+      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)] flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <Link href="/distribusi/terima" className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm" title="Kembali ke Inbox">
+            <span className="text-base">←</span>
+          </Link>
+          <div className="flex flex-col">
+            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Scan QR Surat Jalan</h1>
+            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">Sistem Distribusi & Logistik</p>
+          </div>
         </div>
-      ) : (
-        <div className="rounded-xl border border-gray-200 mb-6 p-8 text-center bg-gray-50">
-          <p className="text-gray-500 text-sm">Kamera tidak tersedia di browser ini</p>
-        </div>
-      )}
+      </header>
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          {error}
-        </div>
-      )}
+      {/* Main Container */}
+      <div className="p-4 max-w-lg mx-auto space-y-4 mt-2">
+        <p className="text-[#544437]/70 text-xs font-semibold px-1">
+          Arahkan kamera ke QR code di Surat Jalan fisik untuk memverifikasi.
+        </p>
 
-      <form onSubmit={handleManualSubmit} className="space-y-3">
-        <p className="text-sm text-gray-600 font-medium">Atau masukkan nomor manual:</p>
-        <input
-          type="text"
-          value={manualInput}
-          onChange={(e) => setManualInput(e.target.value)}
-          placeholder="SJ/KITCHEN/20260610/001"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-        />
-        <button
-          type="submit"
-          className="w-full bg-green-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-green-700"
-        >
-          Cari Surat Jalan
-        </button>
-      </form>
+        {cameraAvailable ? (
+          <div className="rounded-2xl overflow-hidden border border-[#d9c2b2]/45 bg-black aspect-square shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+            <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-[#d9c2b2]/45 p-8 text-center bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+            <span className="text-2xl">📷</span>
+            <p className="text-[#544437]/60 text-xs font-bold mt-2">Kamera tidak tersedia di browser ini</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold flex items-center gap-2">
+            <span>🚨</span>
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="bg-white border border-[#d9c2b2]/45 p-5 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+          <form onSubmit={handleManualSubmit} className="space-y-3">
+            <label className="text-[10px] font-bold text-[#544437]/60 uppercase tracking-wider pl-1 block">Atau masukkan kode verifikasi manual:</label>
+            <input
+              type="text"
+              value={manualInput}
+              onChange={(e) => setManualInput(e.target.value)}
+              placeholder="Contoh: A3F9D2"
+              className="w-full px-4 py-2.5 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-medium transition-all shadow-sm uppercase"
+            />
+            <button
+              type="submit"
+              className="w-full py-2.5 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white transition-all rounded-xl font-bold uppercase tracking-wider text-xs shadow-md active:scale-95 cursor-pointer mt-1"
+            >
+              Cari Surat Jalan
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }

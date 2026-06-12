@@ -37,7 +37,7 @@ export function useRiwayatList() {
         const query = supabase
           .from('surat_jalan')
           .select('id, outlet_id, status, created_at, document_number, outlets(name), surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
-          .in('status', ['diterima_lengkap', 'diterima_sebagian'])
+          .in('status', ['diterima_lengkap', 'diterima_sebagian', 'selesai'])
           .eq('outlet_id', outletStaff.outlet_id)
 
         const { data, error: err } = await query.order('created_at', { ascending: false })

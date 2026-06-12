@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Badge } from '@suka/design-system';
 import type { Opname } from '@/types/stok';
 
 const TIPE_LABEL: Record<string, string> = {
@@ -63,23 +62,23 @@ export function OpnameList({ items }: { items: Opname[] }) {
   }, [items, searchTerm, activeFilter]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Stats Summary Cards */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-white border border-suka-brown/10 rounded-2xl shadow-[0px_4px_12px_rgba(112,22,4,0.02)] flex flex-col justify-center">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-brown/50">
+        <div className="p-4 bg-white border border-[#d9c2b2]/45 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] flex flex-col justify-center">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#544437]/50">
             Selesai Hari Ini
           </span>
-          <span className="text-xl font-extrabold text-suka-green mt-1">
-            {finalToday} <span className="text-xs font-bold text-gray-400">laporan</span>
+          <span className="text-lg font-black text-[#0a7d2c] mt-1">
+            {finalToday} <span className="text-xs font-bold text-[#544437]/40">laporan</span>
           </span>
         </div>
-        <div className="p-4 bg-white border border-suka-brown/10 rounded-2xl shadow-[0px_4px_12px_rgba(112,22,4,0.02)] flex flex-col justify-center">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-brown/50">
+        <div className="p-4 bg-white border border-[#d9c2b2]/45 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] flex flex-col justify-center">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#544437]/50">
             Draft Tertunda
           </span>
-          <span className="text-xl font-extrabold text-suka-orange mt-1">
-            {draftCount} <span className="text-xs font-bold text-gray-400">draft</span>
+          <span className="text-lg font-black text-[#f29744] mt-1">
+            {draftCount} <span className="text-xs font-bold text-[#544437]/40">draft</span>
           </span>
         </div>
       </div>
@@ -90,16 +89,16 @@ export function OpnameList({ items }: { items: Opname[] }) {
         <div className="relative">
           <input
             type="text"
-            className="w-full px-4.5 py-3.5 pl-11 rounded-xl border border-suka-brown/10 bg-white focus:outline-none focus:ring-2 focus:ring-suka-orange focus:border-suka-orange text-xs font-medium text-suka-ink shadow-sm"
-            placeholder="Cari berdasarkan tanggal, tipe, atau catatan..."
+            className="w-full px-4 py-2.5 pl-9 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-medium transition-all shadow-sm"
+            placeholder="Cari berdasarkan tanggal, tipe, staf, atau catatan..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base">🔍</span>
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#544437]/40 text-xs">🔍</span>
         </div>
 
         {/* Status Filter Pills */}
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-thin">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
           {Object.entries(FILTER_LABELS).map(([key, label]) => {
             const isActive = activeFilter === key;
             return (
@@ -107,10 +106,10 @@ export function OpnameList({ items }: { items: Opname[] }) {
                 key={key}
                 type="button"
                 onClick={() => setActiveFilter(key)}
-                className={`px-4 py-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all border whitespace-nowrap shadow-sm ${
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border whitespace-nowrap cursor-pointer shadow-sm ${
                   isActive
-                    ? 'bg-suka-brown border-suka-brown text-white'
-                    : 'bg-white border-suka-brown/10 text-suka-brown/70 hover:bg-suka-cream/50'
+                    ? 'bg-[#701604] border-[#701604] text-white shadow-sm'
+                    : 'bg-white border-[#d9c2b2]/40 text-[#544437]/80 hover:bg-[#fff8f1]/50'
                 }`}
               >
                 {label}
@@ -132,35 +131,31 @@ export function OpnameList({ items }: { items: Opname[] }) {
 
           return (
             <Link key={o.id} href={`/stok/opname/${o.id}`}>
-              <div className={`bg-white rounded-2xl border p-5 flex justify-between items-center shadow-[0px_4px_12px_rgba(112,22,4,0.02)] transition-all duration-200 cursor-pointer mb-3 ${
-                isFinalized 
-                  ? 'border-suka-brown/10 hover:border-suka-green/30 hover:scale-[1.005]' 
-                  : 'border-suka-orange/30 bg-white hover:border-suka-orange hover:scale-[1.005]'
-              }`}>
+              <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 flex justify-between items-center shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer mb-2.5">
                 {/* Left Section */}
-                <div className="space-y-2.5 min-w-0 flex-1 pr-4">
+                <div className="space-y-2 min-w-0 flex-1 pr-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-suka-brown/60 bg-suka-cream px-2 py-0.5 rounded border border-suka-brown/5">
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
                       {TIPE_LABEL[o.tipe] || o.tipe}
                     </span>
                   </div>
                   
                   <div className="space-y-1">
-                    <h4 className="font-extrabold text-suka-brown text-sm tracking-wide uppercase">
+                    <h4 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide">
                       {formattedDate}
                     </h4>
 
                     {/* Metadata Info Row */}
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-gray-500 font-bold mt-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-[#544437]/65 font-bold mt-1">
                       {o.outlet_staff?.name && (
-                        <span className="flex items-center gap-1 bg-suka-cream text-suka-brown px-2 py-0.5 rounded border border-suka-brown/5">
+                        <span className="flex items-center gap-1 bg-[#faf2e9] text-[#701604] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
                           👤 {o.outlet_staff.name}
                         </span>
                       )}
                       
                       {o.opname_item && o.opname_item.length > 0 ? (
                         <>
-                          <span className="flex items-center gap-1 text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                          <span className="flex items-center gap-1 text-[#544437]/70 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
                             📦 {totalCounted} Bahan
                           </span>
                           {discrepancyCount > 0 && (
@@ -171,7 +166,7 @@ export function OpnameList({ items }: { items: Opname[] }) {
                             }`}>
                               ⚖️ {discrepancyCount} Selisih
                               {flaggedCount > 0 && (
-                                <span className="ml-1 px-1 py-0.2 text-[8px] bg-red-600 text-white font-extrabold rounded-full">
+                                <span className="ml-0.5 px-1.5 py-0.2 text-[7px] bg-[#ba1a1a] text-white font-extrabold rounded-full">
                                   {flaggedCount} Kritis
                                 </span>
                               )}
@@ -185,17 +180,23 @@ export function OpnameList({ items }: { items: Opname[] }) {
                   </div>
 
                   {o.notes && (
-                    <p className="text-[10px] text-gray-500 font-medium truncate mt-1 max-w-md">
+                    <p className="text-[9px] text-[#544437]/60 font-medium truncate mt-1 max-w-md">
                       📝 {o.notes}
                     </p>
                   )}
                 </div>
 
                 {/* Right Section: Status Badge */}
-                <div className="flex-shrink-0">
-                  <Badge variant={isFinalized ? 'success' : 'warning'}>
-                    {isFinalized ? 'Selesai' : 'Draft'}
-                  </Badge>
+                <div className="flex-shrink-0 pl-2">
+                  {isFinalized ? (
+                    <span className="bg-[#93f997]/15 text-[#006e24] border border-[#93f997]/25 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider">
+                      Selesai
+                    </span>
+                  ) : (
+                    <span className="bg-[#ffdcc2] text-[#904d00] border border-[#ffdcc2]/10 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider">
+                      Draft
+                    </span>
+                  )}
                 </div>
               </div>
             </Link>
@@ -203,7 +204,7 @@ export function OpnameList({ items }: { items: Opname[] }) {
         })}
 
         {filteredItems.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-2xl border border-[#701604]/10 p-8 shadow-sm">
+          <div className="text-center py-12 bg-white rounded-2xl border border-[#d9c2b2]/40 p-8 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
             <span className="text-3xl">📭</span>
             <p className="font-bold text-sm text-[#701604]/80 mt-2">Belum Ada Catatan Opname</p>
             <p className="text-xs text-gray-500 mt-1">Tidak ada opname yang cocok dengan pencarian atau filter.</p>

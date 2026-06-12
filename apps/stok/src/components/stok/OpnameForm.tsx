@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@suka/design-system';
 import { useBahanBaku } from '@/hooks/useBahanBaku';
 import { useStokBalance } from '@/hooks/useStokBalance';
 import { useOpnameActions } from '@/hooks/useOpname';
@@ -136,17 +135,17 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="w-10 h-10 border-4 border-[#701604] border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-[#701604]/70 font-bold uppercase tracking-wider text-xs mt-4">Memuat data inventaris...</p>
+        <p className="text-[#701604]/70 font-bold uppercase tracking-wider text-xs mt-4 animate-pulse">Memuat data inventaris...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 relative pb-24">
+    <div className="space-y-5 relative pb-24">
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 z-50 animate-bounce font-bold text-sm text-white transition-all ${
-          toast.type === 'success' ? 'bg-[#0a7d2c] border-green-500' : 'bg-orange-600 border-orange-500'
+          toast.type === 'success' ? 'bg-[#0a7d2c] border-[#93f997]/30 shadow-[0px_8px_24px_rgba(10,125,44,0.15)]' : 'bg-[#ba1a1a] border-[#ffdad6]/30 shadow-[0px_8px_24px_rgba(186,26,26,0.15)]'
         }`}>
           <span>{toast.type === 'success' ? '✅' : '🚨'}</span>
           <span>{toast.message}</span>
@@ -154,7 +153,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
       )}
 
       {/* Segmented Control for Tipe Opname */}
-      <div className="bg-white p-1.5 rounded-2xl border border-[#701604]/10 shadow-sm flex gap-1 w-full max-w-md mx-auto">
+      <div className="bg-white p-1 rounded-xl border border-[#d9c2b2]/40 shadow-[0_2px_8px_rgba(144,77,0,0.02)] flex gap-1 w-full max-w-md mx-auto">
         {['harian', 'mingguan', 'ad_hoc'].map((t) => {
           const isActive = tipe === t;
           const label = t === 'ad_hoc' ? 'Ad Hoc' : t.charAt(0).toUpperCase() + t.slice(1);
@@ -163,10 +162,10 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
               key={t}
               type="button"
               onClick={() => setTipe(t)}
-              className={`flex-1 py-3 text-center rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all ${
+              className={`flex-1 py-2 text-center rounded-lg text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-[#701604] text-white shadow-md scale-[1.02]'
-                  : 'text-[#701604]/60 hover:bg-[#faf2e9]/50 hover:text-[#701604]'
+                  ? 'bg-[#701604] text-white shadow-sm scale-[1.01]'
+                  : 'text-[#544437]/75 hover:bg-[#fff8f1] hover:text-[#701604]'
               }`}
             >
               {label}
@@ -176,21 +175,21 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
       </div>
 
       {/* Search and Filters */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* Search Input */}
         <div className="relative">
           <input
             type="text"
-            className="w-full px-5 py-4 pl-12 rounded-2xl border border-[#701604]/10 bg-white focus:outline-none focus:ring-2 focus:ring-[#f29744] focus:border-[#f29744] text-sm text-suka-ink placeholder-gray-400 font-medium shadow-sm transition-all"
+            className="w-full px-4 py-2.5 pl-9 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-medium transition-all shadow-sm"
             placeholder="Cari nama bahan baku di sini..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <span className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 text-lg">🔍</span>
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#544437]/40 text-xs">🔍</span>
         </div>
 
         {/* Category horizontal scrolling selector */}
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-thin">
+        <div className="flex gap-2 overflow-x-auto pb-1.5 -mx-4 px-4 no-scrollbar">
           {Object.entries(CATEGORY_LABELS).map(([key, label]) => {
             const isActive = activeCategory === key;
             return (
@@ -198,10 +197,10 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
                 key={key}
                 type="button"
                 onClick={() => setActiveCategory(key)}
-                className={`px-4.5 py-2.5 rounded-xl text-xs font-bold transition-all border whitespace-nowrap shadow-sm ${
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border whitespace-nowrap cursor-pointer shadow-sm ${
                   isActive
-                    ? 'bg-[#f29744] border-[#f29744] text-white'
-                    : 'bg-white border-[#701604]/10 text-[#701604]/70 hover:bg-[#faf2e9]/50'
+                    ? 'bg-[#f29744] border-[#f29744] text-white shadow-sm'
+                    : 'bg-white border-[#d9c2b2]/40 text-[#544437]/80 hover:bg-[#fff8f1]/50'
                 }`}
               >
                 {label}
@@ -212,7 +211,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
       </div>
 
       {/* Materials List (Responsive 2-Column Grid) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         {filteredBahan.map((b) => {
           const qtySystem = saldoOf[b.id] ?? 0;
           const val = fisik[b.id] ?? '';
@@ -230,49 +229,49 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
           return (
             <div
               key={b.id}
-              className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between min-h-[140px] ${
+              className={`p-4 rounded-xl border flex flex-col justify-between min-h-[135px] transition-all duration-200 ${
                 flagged
-                  ? 'border-2 border-red-500 bg-white shadow-[0px_6px_20px_rgba(239,68,68,0.12)] ring-2 ring-red-500/5 animate-pulse-subtle'
-                  : 'border-[#701604]/10 bg-white shadow-[0px_4px_12px_rgba(112,22,4,0.03)] hover:border-[#f29744]/30'
+                  ? 'border-2 border-[#ba1a1a] bg-white shadow-[0px_6px_20px_rgba(186,26,26,0.06)] ring-2 ring-[#ba1a1a]/5 animate-pulse-subtle'
+                  : 'border-[#d9c2b2]/45 bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45'
               }`}
             >
               {/* Card Top: Details */}
               <div className="flex justify-between items-start gap-3">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded-md border border-[#701604]/5">
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-1.5 py-0.5 rounded border border-[#d9c2b2]/30">
                       {CATEGORY_LABELS[b.kategori] || b.kategori}
                     </span>
                     {flagged && (
-                      <span className="text-[9px] font-extrabold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded-md border border-red-200">
-                        ⚠️ Selisih Tinggi
+                      <span className="text-[8px] font-bold uppercase bg-[#ffdad6] text-[#ba1a1a] px-1.5 py-0.5 rounded border border-[#ba1a1a]/15">
+                        ⚠️ Kritis
                       </span>
                     )}
                   </div>
-                  <h3 className="font-extrabold text-[#701604] text-sm tracking-wide mt-1 uppercase">
+                  <h3 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide mt-1.5 leading-tight truncate">
                     {b.nama}
                   </h3>
-                  <p className="text-[10px] text-gray-500 font-semibold">
-                    Stok Sistem: <span className="text-gray-700 font-bold">{qtySystem} {b.satuan}</span>
+                  <p className="text-[9px] text-[#544437]/60 font-semibold mt-0.5">
+                    Sistem: <span className="text-gray-700 font-bold">{qtySystem} {b.satuan}</span>
                   </p>
                 </div>
 
                 {/* Discrepancy indicator */}
-                <div className="text-right min-w-[70px]">
+                <div className="text-right min-w-[65px] flex-shrink-0">
                   {selisih !== null && (
                     <div className="space-y-0.5">
-                      <p className={`text-xs font-extrabold ${
+                      <p className={`text-xs font-black ${
                         flagged 
-                          ? 'text-red-600' 
+                          ? 'text-[#ba1a1a]' 
                           : selisih === 0 
                             ? 'text-gray-500' 
                             : selisih < 0 
-                              ? 'text-orange-600' 
-                              : 'text-green-700'
+                              ? 'text-[#ba1a1a]' 
+                              : 'text-[#0a7d2c]'
                       }`}>
-                        {selisih > 0 ? '+' : ''}{selisih} {b.satuan}
+                        {selisih > 0 ? '+' : ''}{selisih} <span className="text-[9px] font-medium text-[#544437]/50">{b.satuan}</span>
                       </p>
-                      <p className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">
+                      <p className="text-[7px] text-[#544437]/50 font-bold uppercase tracking-widest leading-none">
                         Selisih
                       </p>
                     </div>
@@ -281,19 +280,19 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
               </div>
 
               {/* Card Bottom: Input Actions */}
-              <div className="mt-4 flex items-center justify-end">
-                <div className="flex items-center bg-[#faf2e9]/40 border border-[#701604]/10 rounded-xl overflow-hidden p-0.5 shadow-inner">
+              <div className="mt-3.5 flex items-center justify-end">
+                <div className="flex items-center bg-[#faf2e9]/40 border border-[#d9c2b2]/45 rounded-lg overflow-hidden p-0.5 shadow-sm">
                   <button
                     type="button"
                     onClick={() => handleDecrement(b.id, step)}
-                    className="w-9 h-9 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-90 transition-all rounded-lg text-sm"
+                    className="w-8 h-8 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-90 transition-all rounded-md text-xs cursor-pointer"
                   >
                     —
                   </button>
                   <input
                     type="number"
                     inputMode="decimal"
-                    className="w-16 text-center bg-transparent border-none focus:outline-none focus:ring-0 font-extrabold text-xs text-[#701604]"
+                    className="w-14 text-center bg-transparent border-none focus:outline-none focus:ring-0 font-extrabold text-xs text-[#701604] focus:ring-transparent focus:border-transparent py-1 no-spinner"
                     placeholder="fisik"
                     value={val}
                     onChange={(e) => {
@@ -304,7 +303,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
                   <button
                     type="button"
                     onClick={() => handleIncrement(b.id, step)}
-                    className="w-9 h-9 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-90 transition-all rounded-lg text-sm"
+                    className="w-8 h-8 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-90 transition-all rounded-md text-xs cursor-pointer"
                   >
                     +
                   </button>
@@ -315,7 +314,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
         })}
 
         {filteredBahan.length === 0 && (
-          <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-[#701604]/10 p-8 shadow-sm">
+          <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-[#d9c2b2]/40 p-8 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
             <span className="text-3xl">🔍</span>
             <p className="font-bold text-sm text-[#701604]/80 mt-2">Bahan Baku Tidak Ditemukan</p>
             <p className="text-xs text-gray-500 mt-1">Coba gunakan kata kunci lain atau pilih kategori berbeda.</p>
@@ -324,23 +323,23 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
       </div>
 
       {/* Footer Notes and Finalize Button */}
-      <div className="bg-white border border-[#701604]/10 p-6 rounded-2xl shadow-sm space-y-4">
+      <div className="bg-white border border-[#d9c2b2]/45 p-5 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] space-y-4">
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-[#701604]/60 mb-2">
+          <label className="block text-[9px] font-bold uppercase tracking-wider text-[#544437]/60 mb-2 pl-1">
             Catatan Tambahan
           </label>
           <textarea
             placeholder="Masukkan keterangan atau penyebab selisih di sini (opsional)..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full px-4 py-3 border border-[#701604]/10 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#f29744] focus:border-[#f29744] text-xs font-medium text-suka-ink min-h-[80px] transition-all resize-y"
+            className="w-full px-4 py-3 border border-[#d9c2b2]/40 rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-medium min-h-[80px] transition-all resize-y"
           />
         </div>
 
-        <Button
+        <button
           disabled={busy}
           onClick={handleFinalize}
-          className="w-full py-4 bg-[#701604] text-white hover:bg-[#591002] transition-colors rounded-xl font-bold uppercase tracking-wider text-xs shadow-md disabled:opacity-50"
+          className="w-full py-3 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white transition-all rounded-xl font-bold uppercase tracking-wider text-xs shadow-md disabled:opacity-50 disabled:hover:bg-[#701604] active:scale-[0.99] cursor-pointer"
         >
           {busy ? (
             <span className="flex items-center justify-center gap-2">
@@ -350,7 +349,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
           ) : (
             'Finalisasi Opname & Simpan'
           )}
-        </Button>
+        </button>
       </div>
     </div>
   );

@@ -20,26 +20,24 @@ export default function NewOpnamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fff8f1] text-[#400a07] pb-12">
+    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
       {/* Header Banner */}
-      <header className="bg-white border-b border-[#701604]/10 px-8 py-5 flex items-center justify-between shadow-sm sticky top-0 z-40">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            <Link href="/stok/opname" className="text-[#701604]/60 hover:text-[#701604] transition-colors text-sm font-bold flex items-center gap-1">
-              ← Kembali ke Daftar
-            </Link>
+      <header className="bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex items-center justify-between shadow-[0_2px_8px_rgba(144,77,0,0.03)] sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          <Link href="/stok/opname" className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm" title="Kembali ke Riwayat Opname">
+            <span className="text-base">←</span>
+          </Link>
+          <div className="flex flex-col">
+            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Form Opname Baru</h1>
+            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">
+              Petugas: {outletStaff.name} • {outletStaff.role?.toUpperCase()}
+            </p>
           </div>
-          <h1 className="text-xl font-extrabold text-[#701604] tracking-tight uppercase mt-1">
-            FORM OPNAME BARU
-          </h1>
-        </div>
-        <div className="bg-[#faf2e9] border border-[#701604]/10 px-4 py-2 rounded-xl text-xs font-bold text-[#701604]/80 shadow-sm">
-          Petugas: <span className="text-[#701604] font-extrabold uppercase">{outletStaff.name}</span>
         </div>
       </header>
 
       {/* Main Form Container */}
-      <main className="max-w-3xl mx-auto px-4 mt-8">
+      <main className="max-w-3xl mx-auto px-4 mt-6">
         <OpnameForm outletId={outletStaff.outlet_id} createdBy={outletStaff.id} />
       </main>
     </div>

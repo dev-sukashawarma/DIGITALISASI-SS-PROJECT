@@ -26,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className={`${plusJakarta.variable} ${lilita.variable} antialiased`}>
+      <body className={`${plusJakarta.variable} ${lilita.variable} font-sans antialiased`}>
         <ErrorBoundary>
           <AuthProvider>{children}</AuthProvider>
         </ErrorBoundary>

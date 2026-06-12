@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { Badge } from '@suka/design-system';
 import type { Opname } from '@/types/stok';
 
 const TIPE_LABEL: Record<string, string> = {
@@ -65,19 +66,19 @@ export function OpnameList({ items }: { items: Opname[] }) {
     <div className="space-y-6">
       {/* Stats Summary Cards */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-white border border-[#701604]/10 rounded-2xl shadow-[0px_4px_12px_rgba(112,22,4,0.02)] flex flex-col justify-center">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#701604]/50">
+        <div className="p-4 bg-white border border-suka-brown/10 rounded-2xl shadow-[0px_4px_12px_rgba(112,22,4,0.02)] flex flex-col justify-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-brown/50">
             Selesai Hari Ini
           </span>
-          <span className="text-xl font-extrabold text-[#0a7d2c] mt-1">
+          <span className="text-xl font-extrabold text-suka-green mt-1">
             {finalToday} <span className="text-xs font-bold text-gray-400">laporan</span>
           </span>
         </div>
-        <div className="p-4 bg-white border border-[#701604]/10 rounded-2xl shadow-[0px_4px_12px_rgba(112,22,4,0.02)] flex flex-col justify-center">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#701604]/50">
+        <div className="p-4 bg-white border border-suka-brown/10 rounded-2xl shadow-[0px_4px_12px_rgba(112,22,4,0.02)] flex flex-col justify-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-brown/50">
             Draft Tertunda
           </span>
-          <span className="text-xl font-extrabold text-[#f29744] mt-1">
+          <span className="text-xl font-extrabold text-suka-orange mt-1">
             {draftCount} <span className="text-xs font-bold text-gray-400">draft</span>
           </span>
         </div>
@@ -89,7 +90,7 @@ export function OpnameList({ items }: { items: Opname[] }) {
         <div className="relative">
           <input
             type="text"
-            className="w-full px-4.5 py-3.5 pl-11 rounded-xl border border-[#701604]/10 bg-white focus:outline-none focus:ring-2 focus:ring-[#f29744] focus:border-[#f29744] text-xs font-medium text-suka-ink shadow-sm"
+            className="w-full px-4.5 py-3.5 pl-11 rounded-xl border border-suka-brown/10 bg-white focus:outline-none focus:ring-2 focus:ring-suka-orange focus:border-suka-orange text-xs font-medium text-suka-ink shadow-sm"
             placeholder="Cari berdasarkan tanggal, tipe, atau catatan..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -108,8 +109,8 @@ export function OpnameList({ items }: { items: Opname[] }) {
                 onClick={() => setActiveFilter(key)}
                 className={`px-4 py-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all border whitespace-nowrap shadow-sm ${
                   isActive
-                    ? 'bg-[#701604] border-[#701604] text-white'
-                    : 'bg-white border-[#701604]/10 text-[#701604]/70 hover:bg-[#faf2e9]/50'
+                    ? 'bg-suka-brown border-suka-brown text-white'
+                    : 'bg-white border-suka-brown/10 text-suka-brown/70 hover:bg-suka-cream/50'
                 }`}
               >
                 {label}
@@ -133,26 +134,26 @@ export function OpnameList({ items }: { items: Opname[] }) {
             <Link key={o.id} href={`/stok/opname/${o.id}`}>
               <div className={`bg-white rounded-2xl border p-5 flex justify-between items-center shadow-[0px_4px_12px_rgba(112,22,4,0.02)] transition-all duration-200 cursor-pointer mb-3 ${
                 isFinalized 
-                  ? 'border-[#701604]/10 hover:border-[#0a7d2c]/30 hover:scale-[1.005]' 
-                  : 'border-[#f29744]/30 bg-white hover:border-[#f29744] hover:scale-[1.005]'
+                  ? 'border-suka-brown/10 hover:border-suka-green/30 hover:scale-[1.005]' 
+                  : 'border-suka-orange/30 bg-white hover:border-suka-orange hover:scale-[1.005]'
               }`}>
                 {/* Left Section */}
                 <div className="space-y-2.5 min-w-0 flex-1 pr-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#701604]/5">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wide text-suka-brown/60 bg-suka-cream px-2 py-0.5 rounded border border-suka-brown/5">
                       {TIPE_LABEL[o.tipe] || o.tipe}
                     </span>
                   </div>
                   
                   <div className="space-y-1">
-                    <h4 className="font-extrabold text-[#701604] text-sm tracking-wide uppercase">
+                    <h4 className="font-extrabold text-suka-brown text-sm tracking-wide uppercase">
                       {formattedDate}
                     </h4>
 
                     {/* Metadata Info Row */}
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-gray-500 font-bold mt-1">
                       {o.outlet_staff?.name && (
-                        <span className="flex items-center gap-1 bg-[#faf2e9] text-[#701604] px-2 py-0.5 rounded border border-[#701604]/5">
+                        <span className="flex items-center gap-1 bg-suka-cream text-suka-brown px-2 py-0.5 rounded border border-suka-brown/5">
                           👤 {o.outlet_staff.name}
                         </span>
                       )}
@@ -192,13 +193,9 @@ export function OpnameList({ items }: { items: Opname[] }) {
 
                 {/* Right Section: Status Badge */}
                 <div className="flex-shrink-0">
-                  <span className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider border shadow-sm ${
-                    isFinalized
-                      ? 'bg-green-50 text-green-700 border-green-200'
-                      : 'bg-orange-50 text-[#f29744] border-orange-200'
-                  }`}>
+                  <Badge variant={isFinalized ? 'success' : 'warning'}>
                     {isFinalized ? 'Selesai' : 'Draft'}
-                  </span>
+                  </Badge>
                 </div>
               </div>
             </Link>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Badge } from '@suka/design-system'
 import { createClient } from '@/lib/supabase'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
 import { generatePDFContent, generateQRDataUrl, downloadPDF, downloadBarcode } from '@/utils/generatePDF'
@@ -116,15 +117,15 @@ export function SuratJalanList() {
                 className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all cursor-pointer ${
                   dateFilter === btn.key
                     ? 'bg-suka-orange text-white border-2 border-suka-orange shadow-sm'
-                    : 'bg-[#fff8f1] border border-suka-brown/10 text-suka-brown hover:bg-suka-cream'
+                    : 'bg-suka-cream border border-suka-brown/10 text-suka-brown hover:bg-suka-cream'
                 }`}
               >
                 {btn.label}
               </button>
             ))}
           </div>
-          <div className="text-sm font-semibold text-suka-brown/80 bg-[#fff7ed] border border-suka-brown/10 px-4 py-2 rounded-xl flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#f29744] animate-pulse" />
+          <div className="text-sm font-semibold text-suka-brown/80 bg-suka-cream border border-suka-brown/10 px-4 py-2 rounded-xl flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-suka-orange animate-pulse" />
             <span>{draftCount} draft · {sentCount} sedang dikirim</span>
           </div>
         </div>
@@ -151,17 +152,15 @@ export function SuratJalanList() {
                       {sj.outlet?.name || 'Unknown'}
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
-                          sj.status === 'draft'
-                            ? 'bg-yellow-50 text-yellow-850 border-yellow-250'
-                            : sj.status === 'dikirim'
-                              ? 'bg-blue-50 text-blue-800 border-blue-250'
-                              : 'bg-green-50 text-green-800 border-green-250'
-                        }`}
-                      >
+                      <Badge variant={
+                        sj.status === 'draft'
+                          ? 'warning'
+                          : sj.status === 'dikirim'
+                            ? 'info'
+                            : 'success'
+                      }>
                         {sj.status}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="px-6 py-4 text-sm text-suka-brown/70 font-medium">
                       {new Date(sj.created_at).toLocaleDateString('id-ID', {

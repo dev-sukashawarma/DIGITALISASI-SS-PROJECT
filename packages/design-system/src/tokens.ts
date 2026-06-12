@@ -23,8 +23,8 @@ export const COLORS = {
 
 export const TYPOGRAPHY = {
   fontFamily: {
-    display: '"Lilita One", sans-serif',
-    sans: '"Plus Jakarta Sans", system-ui, sans-serif',
+    display: 'var(--font-lilita), "Lilita One", sans-serif',
+    sans: 'var(--font-plus-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
   },
   fontSize: {
     xs: '0.75rem',   // 12px

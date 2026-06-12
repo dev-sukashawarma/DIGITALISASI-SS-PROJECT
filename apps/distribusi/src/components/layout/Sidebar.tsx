@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { Sidebar as SharedSidebar } from '@suka/design-system'
 import { usePathname } from 'next/navigation'
 
 const MENU_ITEMS = [
@@ -13,23 +13,5 @@ const MENU_ITEMS = [
 export const Sidebar = () => {
   const pathname = usePathname()
 
-  return (
-    <aside className="w-64 bg-suka-cream border-r border-suka-gray-200 p-6">
-      <nav className="space-y-2">
-        {MENU_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`block px-4 py-2 rounded-md transition-colors ${
-              pathname === item.href
-                ? 'bg-suka-orange text-white'
-                : 'text-suka-brown hover:bg-white'
-            }`}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-    </aside>
-  )
+  return <SharedSidebar menuItems={MENU_ITEMS} currentPathname={pathname} />
 }

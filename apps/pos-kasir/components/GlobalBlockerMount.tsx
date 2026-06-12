@@ -72,7 +72,7 @@ export default function GlobalBlockerMount() {
     })
 
     // Mengecek status secara berkala untuk amannya
-    const interval = setInterval(checkStatus, 30000)
+    const interval = setInterval(checkStatus, 15000)
 
     // Realtime listener agar pemblokiran instan tanpa harus menunggu 30 detik
     const channel = supabase.channel('global_blocker')
@@ -84,15 +84,13 @@ export default function GlobalBlockerMount() {
       })
       .subscribe()
 
-    // Realtime listener untuk menangkap sinyal instan saat kru absen di Kiosk
+    // Realtime listener untuk menangkap sinyal instan saat kru absen (masuk ATAU pulang)
     // Karena sekarang database sudah disatukan, kita bisa langsung listen ke tabel 'attendance'
     const attendanceChannel = supabase.channel('attendance_changes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance' }, () => {
-        // Jika ada data absensi baru masuk
-        // Kita langsung optimistik membuka blokiran
-        setIsBlocked(false)
-        // Lalu untuk amannya, kita fetch ulang dari API absensi
-        setTimeout(() => checkStatus(), 2000)
+        // Setiap ada data absensi baru (masuk/pulang), langsung cek ulang kehadiran
+        // JANGAN optimistik membuka — biarkan RPC get_outlet_presence yang menentukan
+        checkStatus()
       })
       .subscribe()
 

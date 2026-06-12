@@ -99,16 +99,16 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
         <div className="relative">
           <input
             type="text"
-            className="w-full px-4.5 py-3.5 pl-11 rounded-xl border border-[#701604]/10 bg-white focus:outline-none focus:ring-2 focus:ring-[#f29744] focus:border-[#f29744] text-xs font-medium text-suka-ink shadow-sm"
-            placeholder="Cari berdasarkan nama bahan baku atau ID referensi..."
+            className="w-full px-4 py-2.5 pl-9 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-medium transition-all shadow-sm"
+            placeholder="Cari nama bahan baku atau ID referensi..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base">🔍</span>
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#544437]/40 text-xs">🔍</span>
         </div>
 
         {/* Transaction Type Filter Pills */}
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-thin">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
           {Object.entries(FILTER_LABELS).map(([key, label]) => {
             const isActive = activeFilter === key;
             return (
@@ -116,10 +116,10 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
                 key={key}
                 type="button"
                 onClick={() => setActiveFilter(key)}
-                className={`px-4 py-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all border whitespace-nowrap shadow-sm ${
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border whitespace-nowrap cursor-pointer shadow-sm ${
                   isActive
-                    ? 'bg-[#701604] border-[#701604] text-white'
-                    : 'bg-white border-[#701604]/10 text-[#701604]/70 hover:bg-[#faf2e9]/50'
+                    ? 'bg-[#701604] border-[#701604] text-white shadow-sm'
+                    : 'bg-white border-[#d9c2b2]/40 text-[#544437]/80 hover:bg-[#fff8f1]/50'
                 }`}
               >
                 {label}
@@ -140,38 +140,38 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
 
           // Select icon and border accent
           let icon = '⚖️';
-          let bgClass = 'bg-amber-50 text-amber-700 border-amber-200';
+          let bgClass = 'bg-[#faf2e9] text-[#701604] border-[#d9c2b2]/40';
           if (l.tipe === 'terima_kiriman' || l.tipe === 'transfer_masuk') {
             icon = '📥';
-            bgClass = 'bg-green-50 text-green-700 border-green-200';
+            bgClass = 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25';
           } else if (l.tipe === 'waste' || l.tipe === 'pemakaian') {
             icon = '🗑️';
-            bgClass = 'bg-red-50 text-red-700 border-red-200';
+            bgClass = 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10';
           } else if (l.tipe === 'transfer_keluar') {
             icon = '📤';
-            bgClass = 'bg-orange-50 text-orange-700 border-orange-200';
+            bgClass = 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10';
           }
 
           return (
             <Link key={l.id} href={`/stok/ledger/${l.id}`}>
-              <div className="bg-white rounded-2xl border border-[#701604]/10 p-4 flex justify-between items-center shadow-[0px_4px_12px_rgba(112,22,4,0.02)] hover:border-[#f29744]/30 hover:scale-[1.005] transition-all duration-200 cursor-pointer mb-2.5">
+              <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 flex justify-between items-center shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer mb-2.5">
                 {/* Left Section: Icon and Details */}
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <span className={`w-10 h-10 rounded-xl border flex items-center justify-center text-lg shadow-inner flex-shrink-0 ${bgClass}`}>
+                  <span className={`w-10 h-10 rounded-xl border flex items-center justify-center text-lg flex-shrink-0 ${bgClass}`}>
                     {icon}
                   </span>
                   <div className="truncate space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-extrabold uppercase tracking-wide text-[#701604]/50 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#701604]/5">
+                      <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
                         {LABEL[l.tipe] ?? l.tipe}
                       </span>
-                      <span className="text-[10px] text-gray-400 font-semibold">{relativeTime}</span>
+                      <span className="text-[10px] text-[#544437]/50 font-medium">{relativeTime}</span>
                     </div>
-                    <h4 className="font-extrabold text-[#701604] text-sm tracking-wide uppercase truncate">
+                    <h4 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide truncate">
                       {name}
                     </h4>
                     {l.catatan && (
-                      <p className="text-[10px] text-gray-500 font-medium truncate mt-0.5">
+                      <p className="text-[9px] text-[#544437]/60 font-medium truncate mt-0.5">
                         📝 {l.catatan}
                       </p>
                     )}
@@ -179,11 +179,11 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
                 </div>
 
                 {/* Right Section: Quantity and Balance */}
-                <div className="text-right flex-shrink-0 space-y-1">
-                  <p className={`font-extrabold text-sm ${isPositive ? 'text-[#0a7d2c]' : 'text-red-650'}`}>
-                    {isPositive ? '+' : ''}{l.qty} <span className="text-[10px] font-semibold text-gray-400">{unit}</span>
+                <div className="text-right flex-shrink-0 space-y-0.5 pl-4">
+                  <p className={`font-bold text-sm ${isPositive ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
+                    {isPositive ? '+' : ''}{l.qty} <span className="text-[10px] font-medium text-[#544437]/50">{unit}</span>
                   </p>
-                  <p className="text-[10px] text-gray-400 font-semibold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#701604]/5 inline-block">
+                  <p className="text-[9px] text-[#544437]/60 font-bold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#d9c2b2]/20 inline-block mt-1">
                     Saldo: {l.saldo_sesudah} {unit}
                   </p>
                 </div>
@@ -193,7 +193,7 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
         })}
 
         {filteredItems.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-2xl border border-[#701604]/10 p-8 shadow-sm">
+          <div className="text-center py-12 bg-white rounded-2xl border border-[#d9c2b2]/40 p-8 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
             <span className="text-3xl">📭</span>
             <p className="font-bold text-sm text-[#701604]/80 mt-2">Belum Ada Catatan Pergerakan</p>
             <p className="text-xs text-gray-500 mt-1">Tidak ada transaksi yang cocok dengan pencarian atau filter.</p>

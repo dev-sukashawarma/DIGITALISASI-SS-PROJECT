@@ -7,7 +7,7 @@ import BlockedOverlay from './BlockedOverlay'
 export default function GlobalBlockerMount() {
   const [isBlocked, setIsBlocked] = useState(false)
   const [blockedReason, setBlockedReason] = useState('')
-  const [blockType, setBlockType] = useState<'user' | 'outlet'>('user')
+  const [blockType, setBlockType] = useState<'user' | 'outlet' | 'attendance'>('user')
 
   useEffect(() => {
     const supabase = createClient()
@@ -20,7 +20,7 @@ export default function GlobalBlockerMount() {
       }
       
       const { data: profile } = await supabase.from('profiles')
-        .select('role, is_active, inactive_reason, outlets(is_active, inactive_reason)')
+        .select('role, outlet_id, is_active, inactive_reason, outlets(is_active, inactive_reason)')
         .eq('id', currentUid).single()
         
       if (profile && profile.role !== 'admin') {
@@ -32,6 +32,27 @@ export default function GlobalBlockerMount() {
           setIsBlocked(true)
           setBlockType('outlet')
           setBlockedReason((profile.outlets as any).inactive_reason || 'Cabang tempat Anda bertugas sedang dinonaktifkan oleh Admin.')
+        } else if (profile.role === 'kasir' && profile.outlet_id) {
+          try {
+            // Cek kehadiran staff menggunakan RPC di database gabungan
+            const { data: hasPresence, error } = await supabase
+              .rpc('get_outlet_presence', { p_outlet_id: profile.outlet_id })
+              
+            if (error) throw error
+            
+            if (!hasPresence) {
+              setIsBlocked(true)
+              setBlockType('attendance')
+              setBlockedReason('Menunggu kru absen hadir.')
+            } else {
+              setIsBlocked(false)
+            }
+          } catch (err) {
+            console.error('Failed to check presence', err)
+            setIsBlocked(true)
+            setBlockType('attendance')
+            setBlockedReason('Mengecek status absensi...')
+          }
         } else {
           setIsBlocked(false)
         }
@@ -63,10 +84,23 @@ export default function GlobalBlockerMount() {
       })
       .subscribe()
 
+    // Realtime listener untuk menangkap sinyal instan saat kru absen di Kiosk
+    // Karena sekarang database sudah disatukan, kita bisa langsung listen ke tabel 'attendance'
+    const attendanceChannel = supabase.channel('attendance_changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance' }, () => {
+        // Jika ada data absensi baru masuk
+        // Kita langsung optimistik membuka blokiran
+        setIsBlocked(false)
+        // Lalu untuk amannya, kita fetch ulang dari API absensi
+        setTimeout(() => checkStatus(), 2000)
+      })
+      .subscribe()
+
     return () => { 
       sub.subscription.unsubscribe()
       clearInterval(interval)
       supabase.removeChannel(channel)
+      supabase.removeChannel(attendanceChannel)
     }
   }, [])
 

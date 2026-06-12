@@ -7,7 +7,7 @@ import { submitAttendance } from "./submit";
 import type { AttendancePayload } from "./types";
 
 // Item antrian: payload + selfie dataURL (diupload saat sync).
-type QueuedAbsen = { payload: AttendancePayload; selfieDataUrl: string | null };
+type QueuedAbsen = { payload: AttendancePayload; selfieDataUrl: string | null; outlet_id?: string; };
 
 const FUNCTION_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/submit-attendance`;
 
@@ -30,14 +30,14 @@ export function useAttendanceQueue() {
       selfiePath = await uploadSelfie(outletId, item.payload.id, item.selfieDataUrl);
     }
     return submitAttendance(
-      { ...item.payload, selfie_path: selfiePath, from_queue: true },
+      { ...item.payload, selfie_path: selfiePath, from_queue: true, outlet_id: item.outlet_id || '' },
       { functionUrl: FUNCTION_URL, accessToken: token },
     );
   }
 
   /** Tambah absen ke antrian (dipakai saat offline). */
-  function enqueue(payload: AttendancePayload, selfieDataUrl: string | null) {
-    return add({ payload, selfieDataUrl });
+  function enqueue(payload: AttendancePayload, selfieDataUrl: string | null, outlet_id?: string) {
+    return add({ payload, selfieDataUrl, outlet_id });
   }
 
   /** Flush semua antrian saat online. */

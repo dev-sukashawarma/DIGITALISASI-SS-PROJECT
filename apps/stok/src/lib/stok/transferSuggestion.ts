@@ -70,5 +70,12 @@ export function computeTransferSuggestions(
     }
   }
 
+  const severityRankOut = (s: 'below' | 'warning') => (s === 'below' ? 0 : 1)
+  suggestions.sort(
+    (a, b) =>
+      severityRankOut(a.recipientStatus) - severityRankOut(b.recipientStatus) ||
+      a.item_name.localeCompare(b.item_name)
+  )
+
   return suggestions
 }

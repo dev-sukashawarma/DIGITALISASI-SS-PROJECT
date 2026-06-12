@@ -74,4 +74,29 @@ describe('computeTransferSuggestions', () => {
     ]
     expect(computeTransferSuggestions(items)).toEqual([])
   })
+
+  it('orders below recipients by larger need first', () => {
+    // Two below recipients of the same item: need 8 and need 3, sharing one big donor
+    const items = [
+      makeItem({ outlet_id: 'big_need', outlet_name: 'BigNeed', current_qty: 2, threshold: 10, status: 'below' }),  // need 8
+      makeItem({ outlet_id: 'small_need', outlet_name: 'SmallNeed', current_qty: 7, threshold: 10, status: 'below' }), // need 3
+      makeItem({ outlet_id: 'donor', outlet_name: 'Donor', current_qty: 50, threshold: 10, status: 'ok' }),
+    ]
+    const result = computeTransferSuggestions(items)
+    expect(result[0].recipientOutletId).toBe('big_need')
+    expect(result[1].recipientOutletId).toBe('small_need')
+  })
+
+  it('sorts output by item name within the same severity', () => {
+    // Two different items, each with one below recipient and its own donor
+    const items = [
+      makeItem({ outlet_id: 'rD', outlet_name: 'RecipDaging', bahan_baku_id: 'bDaging', item_name: 'Daging', current_qty: 2, threshold: 10, status: 'below' }),
+      makeItem({ outlet_id: 'dD', outlet_name: 'DonorDaging', bahan_baku_id: 'bDaging', item_name: 'Daging', current_qty: 50, threshold: 10, status: 'ok' }),
+      makeItem({ outlet_id: 'rA', outlet_name: 'RecipAyam', bahan_baku_id: 'bAyam', item_name: 'Ayam', current_qty: 2, threshold: 10, status: 'below' }),
+      makeItem({ outlet_id: 'dA', outlet_name: 'DonorAyam', bahan_baku_id: 'bAyam', item_name: 'Ayam', current_qty: 50, threshold: 10, status: 'ok' }),
+    ]
+    const result = computeTransferSuggestions(items)
+    expect(result[0].item_name).toBe('Ayam')
+    expect(result[1].item_name).toBe('Daging')
+  })
 })

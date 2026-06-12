@@ -7,7 +7,7 @@ import BlockedOverlay from './BlockedOverlay'
 export default function GlobalBlockerMount() {
   const [isBlocked, setIsBlocked] = useState(false)
   const [blockedReason, setBlockedReason] = useState('')
-  const [blockType, setBlockType] = useState<'user' | 'outlet'>('user')
+  const [blockType, setBlockType] = useState<'user' | 'outlet' | 'attendance'>('user')
 
   useEffect(() => {
     const supabase = createClient()
@@ -20,7 +20,7 @@ export default function GlobalBlockerMount() {
       }
       
       const { data: profile } = await supabase.from('profiles')
-        .select('role, is_active, inactive_reason, outlets(is_active, inactive_reason)')
+        .select('role, outlet_id, is_active, inactive_reason, outlets(is_active, inactive_reason)')
         .eq('id', currentUid).single()
         
       if (profile && profile.role !== 'admin') {
@@ -32,6 +32,15 @@ export default function GlobalBlockerMount() {
           setIsBlocked(true)
           setBlockType('outlet')
           setBlockedReason((profile.outlets as any).inactive_reason || 'Cabang tempat Anda bertugas sedang dinonaktifkan oleh Admin.')
+        } else if (profile.role === 'kasir' && profile.outlet_id) {
+          const { data: hasPresence } = await supabase.rpc('get_outlet_presence', { p_outlet_id: profile.outlet_id })
+          if (!hasPresence) {
+            setIsBlocked(true)
+            setBlockType('attendance')
+            setBlockedReason('Menunggu kru absen hadir.')
+          } else {
+            setIsBlocked(false)
+          }
         } else {
           setIsBlocked(false)
         }
@@ -59,6 +68,9 @@ export default function GlobalBlockerMount() {
         checkStatus()
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'outlets' }, () => {
+        checkStatus()
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance' }, () => {
         checkStatus()
       })
       .subscribe()

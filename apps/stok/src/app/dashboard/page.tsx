@@ -210,19 +210,19 @@ function DashboardHub() {
             {/* Section: Quick Actions */}
             <section>
               <p className="text-[10px] font-black text-[#701604]/50 uppercase tracking-widest mb-3 px-1 lg:px-0">Aksi Cepat</p>
-              <div className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 no-scrollbar lg:grid lg:grid-cols-2 lg:gap-4 lg:overflow-x-visible lg:pb-0 lg:mx-0 lg:px-0">
+              <div className={`grid ${menu.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-2 lg:grid-cols-2 lg:gap-4`}>
                 {menu.map((item) => (
                   <button
                     key={item.href}
                     onClick={() => handleNavigate(item.href)}
-                    className="flex-shrink-0 w-32 lg:w-full bg-white border border-[#d9c2b2]/40 hover:border-[#f29744]/40 p-4 rounded-xl flex flex-col items-center justify-center text-center gap-2.5 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:shadow-md active:scale-95 transition-all cursor-pointer"
+                    className="w-full bg-white border border-[#d9c2b2]/40 hover:border-[#f29744]/40 px-2 py-3.5 rounded-xl flex flex-col items-center justify-center text-center gap-2 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:shadow-md active:scale-95 transition-all cursor-pointer"
                   >
-                    <div className="w-12 h-12 rounded-full bg-[#f29744]/10 flex items-center justify-center text-xl text-[#f29744] font-bold leading-none mb-1">
+                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-[#f29744]/10 flex items-center justify-center text-lg lg:text-xl text-[#f29744] font-bold leading-none mb-0.5 shrink-0">
                       {item.icon}
                     </div>
-                    <div className="space-y-1 w-full">
-                      <p className="font-bold text-[#701604] text-xs uppercase tracking-tight leading-tight w-full whitespace-normal text-center">{item.label}</p>
-                      <p className="text-[9px] text-[#544437]/60 font-bold uppercase w-full whitespace-normal leading-tight text-center">{item.desc}</p>
+                    <div className="space-y-0.5 w-full">
+                      <p className="font-bold text-[#701604] text-[10px] lg:text-xs uppercase tracking-tight leading-tight w-full whitespace-normal text-center">{item.label}</p>
+                      <p className="text-[8px] lg:text-[9px] text-[#544437]/60 font-bold uppercase w-full whitespace-normal leading-tight text-center">{item.desc}</p>
                     </div>
                   </button>
                 ))}

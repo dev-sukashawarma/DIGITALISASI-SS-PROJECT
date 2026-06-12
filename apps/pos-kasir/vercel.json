@@ -1,3 +1,0 @@
-{
-  "installCommand": "rm -rf node_modules && npm install --install-strategy=nested && rm -rf node_modules/@next"
-}

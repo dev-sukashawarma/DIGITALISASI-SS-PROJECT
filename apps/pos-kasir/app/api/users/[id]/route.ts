@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 async function verifyAdmin() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -21,13 +21,13 @@ async function verifyAdmin() {
   return true
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const isAdmin = await verifyAdmin()
   if (!isAdmin) {
     return NextResponse.json({ error: 'Akses ditolak. Harus Admin.' }, { status: 403 })
   }
 
-  const userId = params.id
+  const { id: userId } = await params
   if (!userId) {
     return NextResponse.json({ error: 'ID User tidak valid' }, { status: 400 })
   }
@@ -105,13 +105,13 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   return NextResponse.json({ success: true })
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const isAdmin = await verifyAdmin()
   if (!isAdmin) {
     return NextResponse.json({ error: 'Akses ditolak. Harus Admin.' }, { status: 403 })
   }
 
-  const userId = params.id
+  const { id: userId } = await params
   if (!userId) {
     return NextResponse.json({ error: 'ID User tidak valid' }, { status: 400 })
   }

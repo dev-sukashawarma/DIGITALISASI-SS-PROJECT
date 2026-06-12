@@ -11,10 +11,9 @@ const nextConfig = {
     ],
   },
   // Increase body size limit for ZIP uploads (default is 1MB)
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '50mb',
-    },
+  // serverActions graduated from `experimental` to top-level config in Next 15+
+  serverActions: {
+    bodySizeLimit: '50mb',
   },
 }
 

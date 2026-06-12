@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { AuthGuard } from '@/components/common/AuthGuard';
@@ -13,8 +13,6 @@ import { fetchOpnameStatus } from '@/lib/queries/monitoring';
 function DashboardHub() {
   const router = useRouter();
   const { outletStaff, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState<'all' | 'below' | 'warning' | 'ok'>('all');
-  const [searchTerm, setSearchTerm] = useState('');
 
   const { data: crewData, isLoading } = useCrewMonitoringData();
   const isSPV = outletStaff?.role === 'spv';
@@ -38,27 +36,17 @@ function DashboardHub() {
     }
   };
 
-  const getStorageLocation = (kategori: string): string => {
-    const kat = (kategori || '').toLowerCase();
-    if (kat === 'protein') return 'Frozen Storage';
-    if (['sayur', 'saus', 'minuman'].includes(kat)) return 'Chilled Storage';
-    if (['roti', 'bumbu', 'kemasan'].includes(kat)) return 'Dry Storage';
-    return 'Dry Storage';
-  };
-
   const items = crewData?.items || [];
 
   const criticalItems = useMemo(() => {
     return items.filter((item) => item.status === 'below');
   }, [items]);
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchesSearch = item.item_name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesTab = activeTab === 'all' || item.status === activeTab;
-      return matchesSearch && matchesTab;
-    });
-  }, [items, searchTerm, activeTab]);
+  const counts = useMemo(() => ({
+    below: items.filter((i) => i.status === 'below').length,
+    warning: items.filter((i) => i.status === 'warning').length,
+    ok: items.filter((i) => i.status === 'ok').length,
+  }), [items]);
 
   const alerts = useMemo(() => {
     const list: Array<{
@@ -231,125 +219,62 @@ function DashboardHub() {
 
           </div>
 
-          {/* Right Column: Real-time Stock Balance */}
+          {/* Right Column: Stock Summary (ringkasan, list lengkap di /stok/monitoring) */}
           <div className="lg:col-span-7 space-y-6">
-            
-            {/* Section: Real-time Stock Balance */}
+
             <section className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="font-bold text-[#701604] text-xs uppercase tracking-wider">Saldo Stok Real-time</h2>
+                <h2 className="font-bold text-[#701604] text-xs uppercase tracking-wider">Ringkasan Stok</h2>
                 <span className="text-[9px] font-black text-[#701604]/40 uppercase tracking-widest bg-[#701604]/5 px-2.5 py-1 rounded-lg">
                   Total: {items.length} bahan
                 </span>
               </div>
 
-              {/* Search and Filter Tabs */}
-              <div className="bg-white border border-[#d9c2b2]/40 rounded-2xl p-3 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] space-y-3">
-                {/* Search Input */}
-                <div className="relative">
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2.5 pl-9 rounded-xl border border-[#d9c2b2]/40 bg-[#fff8f1]/30 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/40 font-medium transition-all"
-                    placeholder="Cari bahan..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#544437]/40 text-xs">🔍</span>
-                </div>
-
-                {/* Filter Pills */}
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    onClick={() => setActiveTab('all')}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
-                      activeTab === 'all'
-                        ? 'bg-[#701604] border-[#701604] text-white shadow-sm'
-                        : 'bg-white border-[#d9c2b2]/40 text-[#544437]/80 hover:bg-[#fff8f1]/50'
-                    }`}
-                  >
-                    Semua
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('below')}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
-                      activeTab === 'below'
-                        ? 'bg-[#ba1a1a] border-[#ba1a1a] text-white shadow-sm'
-                        : 'bg-white border-[#ba1a1a]/15 text-[#ba1a1a] hover:bg-[#ba1a1a]/5'
-                    }`}
-                  >
-                    Kritis ({items.filter((i) => i.status === 'below').length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('warning')}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
-                      activeTab === 'warning'
-                        ? 'bg-[#f29744] border-[#f29744] text-white shadow-sm'
-                        : 'bg-white border-[#f29744]/20 text-[#f29744] hover:bg-[#f29744]/5'
-                    }`}
-                  >
-                    Warning ({items.filter((i) => i.status === 'warning').length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('ok')}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
-                      activeTab === 'ok'
-                        ? 'bg-[#0a7d2c] border-[#0a7d2c] text-white shadow-sm'
-                        : 'bg-white border-[#0a7d2c]/20 text-[#0a7d2c] hover:bg-[#0a7d2c]/5'
-                    }`}
-                  >
-                    Ready ({items.filter((i) => i.status === 'ok').length})
-                  </button>
-                </div>
+              {/* 3 Stat Cards (tap → stok lengkap) */}
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => handleNavigate('/stok/monitoring')}
+                  className="bg-white border-2 border-[#ba1a1a]/20 hover:border-[#ba1a1a]/50 rounded-2xl p-4 flex flex-col items-center gap-1 shadow-[0px_4px_12px_rgba(186,26,26,0.04)] active:scale-95 transition-all cursor-pointer"
+                >
+                  <span className="text-2xl lg:text-3xl font-black text-[#ba1a1a] leading-none">{isLoading ? '–' : counts.below}</span>
+                  <span className="text-[9px] font-black text-[#ba1a1a] uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#ba1a1a] animate-pulse"></span>Kritis
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleNavigate('/stok/monitoring')}
+                  className="bg-white border-2 border-[#f29744]/20 hover:border-[#f29744]/50 rounded-2xl p-4 flex flex-col items-center gap-1 shadow-[0px_4px_12px_rgba(242,151,68,0.04)] active:scale-95 transition-all cursor-pointer"
+                >
+                  <span className="text-2xl lg:text-3xl font-black text-[#f29744] leading-none">{isLoading ? '–' : counts.warning}</span>
+                  <span className="text-[9px] font-black text-[#f29744] uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#f29744]"></span>Menipis
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleNavigate('/stok/monitoring')}
+                  className="bg-white border-2 border-[#0a7d2c]/20 hover:border-[#0a7d2c]/50 rounded-2xl p-4 flex flex-col items-center gap-1 shadow-[0px_4px_12px_rgba(10,125,44,0.04)] active:scale-95 transition-all cursor-pointer"
+                >
+                  <span className="text-2xl lg:text-3xl font-black text-[#0a7d2c] leading-none">{isLoading ? '–' : counts.ok}</span>
+                  <span className="text-[9px] font-black text-[#0a7d2c] uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#0a7d2c]"></span>Aman
+                  </span>
+                </button>
               </div>
 
-              {/* Items List */}
-              <div className="bg-white rounded-2xl border border-[#d9c2b2]/40 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] divide-y divide-[#d9c2b2]/15 overflow-hidden">
-                {isLoading ? (
-                  <div className="py-12 text-center text-xs text-[#544437]/40 font-bold uppercase tracking-wider animate-pulse">
-                    Memuat Saldo Stok...
+              {/* CTA: lihat stok lengkap */}
+              <button
+                onClick={() => handleNavigate('/stok/monitoring')}
+                className="w-full bg-white border border-[#d9c2b2]/45 hover:border-[#f29744]/45 rounded-2xl p-4 flex items-center justify-between shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:shadow-md active:scale-[0.98] transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#701604]/10 text-[#701604] flex items-center justify-center text-lg group-hover:scale-105 transition-transform">📦</div>
+                  <div className="text-left">
+                    <p className="font-bold text-xs text-[#701604] uppercase tracking-wide leading-tight">Lihat Stok Lengkap</p>
+                    <p className="text-[10px] text-[#544437]/60 font-bold mt-0.5">Saldo real-time semua bahan + search & filter</p>
                   </div>
-                ) : filteredItems.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-[#544437]/40 font-bold uppercase tracking-wider">
-                    Tidak ada data bahan baku
-                  </div>
-                ) : (
-                  filteredItems.map((item) => {
-                    let dotColor = 'bg-[#0a7d2c] shadow-[0_0_8px_rgba(10,125,44,0.35)]';
-                    let badgeStyle = 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25';
-                    let label = 'Ready';
-
-                    if (item.status === 'below') {
-                      dotColor = 'bg-[#ba1a1a] shadow-[0_0_8px_rgba(186,26,26,0.45)]';
-                      badgeStyle = 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10';
-                      label = 'Kritis';
-                    } else if (item.status === 'warning') {
-                      dotColor = 'bg-[#f29744] shadow-[0_0_8px_rgba(242,151,68,0.45)]';
-                      badgeStyle = 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10';
-                      label = 'Warning';
-                    }
-
-                    return (
-                      <div key={item.bahan_baku_id} className="p-4 flex items-center justify-between hover:bg-[#fff8f1]/20 transition-colors">
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`}></span>
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-bold text-xs text-[#1e1b15] uppercase tracking-wide truncate leading-tight">{item.item_name}</span>
-                            <span className="text-[9px] text-[#544437]/50 font-bold uppercase mt-1 leading-none">{getStorageLocation(item.kategori)}</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end shrink-0 pl-4">
-                          <span className={`font-bold text-xs font-mono leading-none ${item.status === 'below' ? 'text-[#ba1a1a]' : item.status === 'warning' ? 'text-[#f29744]' : 'text-[#1e1b15]'}`}>
-                            {item.current_qty} <span className="text-[10px] font-sans font-medium text-[#544437]/50">{item.satuan}</span>
-                          </span>
-                          <span className={`text-[8px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border mt-1 leading-none ${badgeStyle}`}>
-                            {label}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+                </div>
+                <span className="text-[#f29744] text-lg font-bold group-hover:translate-x-1 transition-transform">→</span>
+              </button>
             </section>
 
           </div>

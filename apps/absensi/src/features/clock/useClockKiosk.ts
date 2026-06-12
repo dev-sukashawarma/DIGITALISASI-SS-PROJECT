@@ -210,17 +210,12 @@ export function useClockKiosk(outletId: string) {
       setPhase("result"); scheduleReset(2500); return;
     }
 
-    const path = `${outletId}/${id}.jpg`;
-    const blob = await (await fetch(dataUrl)).blob();
-    const { error: uploadErr } = await supabase.storage.from("selfies").upload(path, blob, { contentType: "image/jpeg", upsert: true });
-    if (uploadErr) console.error("Selfie upload err:", uploadErr);
-    
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const authHeaderToken = typeof window !== 'undefined' && localStorage.getItem('supabase-auth-token') 
       ? JSON.parse(localStorage.getItem('supabase-auth-token') || '{}')?.session?.access_token 
       : null;
     const token = authHeaderToken || anonKey;
-    const res = await submitAttendance({ ...payload, selfie_path: path }, { functionUrl: FUNCTION_URL, anonKey: token });
+    const res = await submitAttendance({ ...payload, selfie_base64: dataUrl }, { functionUrl: FUNCTION_URL, anonKey: token });
     setResult(res.ok
       ? { ok: true, message: action === "in" ? "Selamat bekerja!" : "Hati-hati di jalan!" }
       : { ok: false, message: gagalText(res.reason) });

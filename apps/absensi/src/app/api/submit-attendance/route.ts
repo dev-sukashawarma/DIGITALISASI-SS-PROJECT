@@ -18,7 +18,17 @@ export async function POST(req: Request) {
     if (target.outlet_id !== body.outlet_id) return NextResponse.json({ ok: false, reason: "cross_outlet" }, { status: 403 });
     if (!target.face_descriptor) return NextResponse.json({ ok: false, reason: "not_enrolled" }, { status: 422 });
 
-    if (body.selfie_path && !body.selfie_path.startsWith(`${body.outlet_id}/`)) {
+    if (body.selfie_base64) {
+      const base64Str = body.selfie_base64.split(",")[1];
+      const buffer = Buffer.from(base64Str, "base64");
+      const path = `${body.outlet_id}/${body.id}.jpg`;
+      const { error: uploadErr } = await admin.storage.from("selfies").upload(path, buffer, {
+        contentType: "image/jpeg",
+        upsert: true
+      });
+      if (uploadErr) console.error("Selfie upload err server:", uploadErr);
+      body.selfie_path = path;
+    } else if (body.selfie_path && !body.selfie_path.startsWith(`${body.outlet_id}/`)) {
       return NextResponse.json({ ok: false, reason: "selfie_path_mismatch" }, { status: 403 });
     }
 
@@ -48,12 +58,8 @@ export async function POST(req: Request) {
       status = local.getTime() <= deadline.getTime() ? "tepat" : "alpha";
     }
 
-    // Tolak absen masuk telat SEBELUM menyimpan — agar tidak membuat record
-    // "alpha" yang mengunci kiosk seharian (decideAction memblokir bila ada
-    // record in berstatus alpha). Status alpha tetap dihitung virtual di rekap.
-    if (status === "alpha" && body.type === "in") {
-      return NextResponse.json({ ok: false, reason: "terlambat_alpha", ts_server: tsServer, attendance_id: body.id }, { status: 200 });
-    }
+    // Status alpha tetap dihitung dan kini diizinkan masuk ke database
+    // karena bug penguncian kiosk akibat absen alpha sudah diperbaiki di sisi database.
 
     const { error } = await admin.from("attendance").upsert({
       id: body.id,

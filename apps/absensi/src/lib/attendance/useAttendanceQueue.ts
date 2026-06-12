@@ -25,13 +25,9 @@ export function useAttendanceQueue() {
   }
 
   async function syncOne(item: QueuedAbsen, outletId: string, token: string) {
-    let selfiePath = item.payload.selfie_path;
-    if (!selfiePath && item.selfieDataUrl) {
-      selfiePath = await uploadSelfie(outletId, item.payload.id, item.selfieDataUrl);
-    }
     return submitAttendance(
-      { ...item.payload, selfie_path: selfiePath, from_queue: true, outlet_id: item.outlet_id || '' },
-      { functionUrl: FUNCTION_URL, accessToken: token },
+      { ...item.payload, selfie_base64: item.selfieDataUrl || undefined, from_queue: true, outlet_id: item.outlet_id || '' },
+      { functionUrl: FUNCTION_URL, anonKey: token },
     );
   }
 

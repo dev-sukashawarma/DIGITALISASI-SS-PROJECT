@@ -7,6 +7,8 @@ import { AuthGuard } from '@/components/common/AuthGuard';
 import { getCrossAppUrl } from '@/lib/navigation';
 import { Button } from '@suka/design-system';
 import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
+import { useQuery } from '@tanstack/react-query';
+import { fetchOpnameStatus } from '@/lib/queries/monitoring';
 
 function DashboardHub() {
   const router = useRouter();
@@ -16,6 +18,16 @@ function DashboardHub() {
 
   const { data: crewData, isLoading } = useCrewMonitoringData();
   const isSPV = outletStaff?.role === 'spv';
+
+  const { data: opnameStatuses } = useQuery({
+    queryKey: ['monitoring', 'opnameStatus'],
+    queryFn: fetchOpnameStatus,
+  });
+
+  const outletOpnameStatus = useMemo(() => {
+    if (!opnameStatuses || !crewData?.outlet_id) return null;
+    return opnameStatuses.find((s) => s.outlet_id === crewData.outlet_id) || null;
+  }, [opnameStatuses, crewData]);
 
   const handleNavigate = (path: string) => {
     const resolvedUrl = getCrossAppUrl(path);
@@ -47,6 +59,39 @@ function DashboardHub() {
       return matchesSearch && matchesTab;
     });
   }, [items, searchTerm, activeTab]);
+
+  const alerts = useMemo(() => {
+    const list: Array<{
+      id: string;
+      title: string;
+      desc: string;
+      icon: string;
+    }> = [];
+
+    // Add critical items
+    for (const item of criticalItems.slice(0, 3)) {
+      list.push({
+        id: `stock-${item.bahan_baku_id}`,
+        title: item.item_name,
+        desc: `${item.current_qty} ${item.satuan} / Batas ${item.threshold} ${item.satuan}`,
+        icon: '📉',
+      });
+    }
+
+    // Add overdue opname alert
+    if (outletOpnameStatus?.is_overdue) {
+      list.push({
+        id: 'opname-overdue',
+        title: 'Opname Jatuh Tempo',
+        desc: outletOpnameStatus.days_since
+          ? `Terakhir ${outletOpnameStatus.days_since} hari lalu (Overdue)`
+          : 'Belum pernah opname',
+        icon: '📅',
+      });
+    }
+
+    return list;
+  }, [criticalItems, outletOpnameStatus]);
 
   const menu = useMemo(() => {
     const baseMenu = [
@@ -117,29 +162,24 @@ function DashboardHub() {
             {/* Section: Critical Alerts */}
             {!isLoading && (
               <section>
-                {criticalItems.length > 0 ? (
+                {alerts.length > 0 ? (
                   <div className="bg-white rounded-2xl border border-red-500/20 p-5 shadow-[0px_4px_12px_rgba(112,22,4,0.03)] flex flex-col gap-4">
                     <div className="flex items-center gap-2 text-[#ba1a1a]">
                       <span className="text-xl">⚠️</span>
-                      <h2 className="font-extrabold text-sm uppercase tracking-wide">Peringatan Kritis ({criticalItems.length})</h2>
+                      <h2 className="font-extrabold text-sm uppercase tracking-wide">Peringatan Kritis ({alerts.length})</h2>
                     </div>
                     <div className="space-y-2">
-                      {criticalItems.slice(0, 3).map((item) => (
-                        <div key={item.bahan_baku_id} className="flex justify-between items-center p-4 bg-[#ba1a1a]/5 rounded-xl border border-[#ba1a1a]/10">
+                      {alerts.map((alert) => (
+                        <div key={alert.id} className="flex justify-between items-center p-4 bg-[#ba1a1a]/5 rounded-xl border border-[#ba1a1a]/10">
                           <div className="flex flex-col">
-                            <span className="font-extrabold text-xs text-suka-ink uppercase tracking-wide leading-tight">{item.item_name}</span>
+                            <span className="font-extrabold text-xs text-suka-ink uppercase tracking-wide leading-tight">{alert.title}</span>
                             <span className="text-[11px] text-suka-brown/70 mt-1">
-                              {item.current_qty} {item.satuan} / <span className="font-bold text-[#ba1a1a]">Batas {item.threshold} {item.satuan}</span>
+                              {alert.desc}
                             </span>
                           </div>
-                          <span className="text-[#ba1a1a] font-bold text-lg leading-none">📉</span>
+                          <span className="text-[#ba1a1a] font-bold text-lg leading-none">{alert.icon}</span>
                         </div>
                       ))}
-                      {criticalItems.length > 3 && (
-                        <p className="text-[10px] font-black text-suka-brown/40 uppercase tracking-widest text-center mt-1.5">
-                          + {criticalItems.length - 3} item kritis lainnya
-                        </p>
-                      )}
                     </div>
                     <Button 
                       variant="primary" 
@@ -154,7 +194,7 @@ function DashboardHub() {
                     <span className="text-2xl leading-none">🟢</span>
                     <div className="leading-tight">
                       <h2 className="font-extrabold text-xs text-suka-green uppercase tracking-wide">Semua Aman</h2>
-                      <p className="text-[10px] text-suka-green/75 mt-1 font-bold uppercase tracking-wide">Ketersediaan bahan baku outlet terpenuhi</p>
+                      <p className="text-[10px] text-suka-green/75 mt-1 font-bold uppercase tracking-wide">Ketersediaan bahan baku & jadwal opname terpenuhi</p>
                     </div>
                   </div>
                 )}
@@ -309,6 +349,38 @@ function DashboardHub() {
           </div>
         </div>
       </main>
+
+      {/* Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white rounded-t-2xl shadow-[0px_-4px_12px_rgba(112,22,4,0.06)] border-t border-suka-brown/10 lg:hidden">
+        <button
+          onClick={() => handleNavigate('/dashboard')}
+          className="flex flex-col items-center justify-center text-suka-orange px-5 py-1 active:scale-95 transition-all duration-200 cursor-pointer"
+        >
+          <span className="text-xl">📊</span>
+          <span className="text-[9px] font-black uppercase tracking-wider mt-1 leading-none">Dashboard</span>
+        </button>
+        <button
+          onClick={() => handleNavigate('/stok/ledger')}
+          className="flex flex-col items-center justify-center text-suka-brown/60 hover:text-suka-orange px-4 py-1 active:scale-95 transition-all cursor-pointer"
+        >
+          <span className="text-xl">📒</span>
+          <span className="text-[9px] font-black uppercase tracking-wider mt-1 leading-none">Ledger</span>
+        </button>
+        <button
+          onClick={() => handleNavigate('/stok/opname')}
+          className="flex flex-col items-center justify-center text-suka-brown/60 hover:text-suka-orange px-4 py-1 active:scale-95 transition-all cursor-pointer"
+        >
+          <span className="text-xl">📋</span>
+          <span className="text-[9px] font-black uppercase tracking-wider mt-1 leading-none">Opname</span>
+        </button>
+        <button
+          onClick={() => handleNavigate('/distribusi/terima')}
+          className="flex flex-col items-center justify-center text-suka-brown/60 hover:text-suka-orange px-4 py-1 active:scale-95 transition-all cursor-pointer"
+        >
+          <span className="text-xl">🚚</span>
+          <span className="text-[9px] font-black uppercase tracking-wider mt-1 leading-none">Terima</span>
+        </button>
+      </nav>
     </div>
   );
 }
@@ -320,4 +392,3 @@ export default function DashboardPage() {
     </AuthGuard>
   );
 }
-

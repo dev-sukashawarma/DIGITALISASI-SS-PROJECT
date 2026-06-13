@@ -8,7 +8,7 @@ interface OutletStaffProfile {
   id: string
   outlet_id: string
   name: string
-  role: 'crew' | 'kasir' | 'spv' | 'kepala_outlet'
+  role: 'crew' | 'kasir' | 'spv' | 'kepala_outlet' | 'admin'
   status: 'active' | 'inactive' | 'on_leave'
   face_descriptor?: any
   ref_photo_url?: string

@@ -33,26 +33,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const supabase = createClient()
 
   useEffect(() => {
-    const loadStaff = async (userId: string | undefined) => {
-      if (!userId) {
-        setOutletStaff(null)
-        return
-      }
-      const { data: staff } = await supabase
-        .from('outlet_staff')
-        .select()
-        .eq('id', userId)
-        .single()
-      setOutletStaff(staff ?? null)
-    }
-
     const getSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
       setSession(session)
       setUser(session?.user ?? null)
-      await loadStaff(session?.user?.id)
+
+      if (session?.user.id) {
+        const { data: staff } = await supabase
+          .from('outlet_staff')
+          .select()
+          .eq('id', session.user.id)
+          .single()
+        setOutletStaff(staff ?? null)
+      }
+
       setLoading(false)
     }
 
@@ -60,12 +56,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
-      // Reload staff profile whenever auth state changes (login/logout),
-      // otherwise role + outlet_id stay null until a full page reload.
-      await loadStaff(session?.user?.id)
     })
 
     return () => subscription.unsubscribe()

@@ -56,7 +56,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="budi.jkt01"
+              placeholder="budi.jkt01 atau spv@sukashawarma.com"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-suka-orange"
             />
           </div>

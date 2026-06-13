@@ -8,9 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "react": "^19.0.0-rc.0",
@@ -19,21 +17,14 @@
     "@supabase/supabase-js": "^2.38.0",
     "@supabase/ssr": "^0.2.0",
     "@suka/design-system": "*",
-    "@suka/offline-queue": "*",
-    "@tanstack/react-query": "^5.28.0"
+    "@suka/offline-queue": "*"
   },
   "devDependencies": {
     "typescript": "^5.3.3",
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
-    "tailwindcss": "^3.4.17",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.32",
-    "vitest": "^2.1.0",
-    "@vitest/coverage-v8": "^2.1.0",
-    "@testing-library/react": "^14.1.2",
-    "@testing-library/jest-dom": "^6.1.5",
-    "jsdom": "^23.0.0"
+    "tailwindcss": "^4.0.0",
+    "postcss": "^8.4.32"
   }
 }

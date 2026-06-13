@@ -1,21 +1,9 @@
 import { AuthProvider } from '@/context/AuthContext'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
-import { Lilita_One, Plus_Jakarta_Sans } from 'next/font/google'
 import { Navbar } from '@/components/Navbar'
 import { AuthGuard } from '@/components/AuthGuard'
 import { ToastProvider } from '@/lib/feedback/toast'
 import './globals.css'
-
-const lilita = Lilita_One({
-  weight: '400',
-  subsets: ['latin'],
-  variable: '--font-lilita',
-})
-
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  variable: '--font-plus-jakarta',
-})
 
 export const metadata = {
   title: 'Absensi Outlet — Sukashawarma',
@@ -24,12 +12,12 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id" suppressHydrationWarning>
+    <html lang="id">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className={`${plusJakarta.variable} ${lilita.variable} antialiased bg-slate-50 text-slate-900 selection:bg-suka-orange selection:text-white min-h-screen`}>
+      <body className="antialiased bg-slate-50 text-slate-900 selection:bg-suka-orange selection:text-white min-h-screen">
         <ErrorBoundary>
           <AuthProvider>
             <ToastProvider>

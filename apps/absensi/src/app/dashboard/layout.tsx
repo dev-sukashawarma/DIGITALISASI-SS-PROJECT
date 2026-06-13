@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { LayoutDashboard, ClipboardList, Camera, LogOut, Store, Menu, X, Settings2, Users, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Camera, LogOut, Store, Menu, X, Settings2, Users, UserRound, ListChecks, ClipboardCheck, Clock } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { outletStaff, signOut, loading, staffError } = useAuth();
+  const { outletStaff, signOut, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -49,31 +49,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  // ── Akun login valid tapi tidak punya record outlet_staff ──
-  // Tampilkan pesan error yang informatif alih-alih loading selamanya
-  if (!outletStaff) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 p-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center">
-            <AlertTriangle size={32} className="text-amber-500" />
-          </div>
-          <h2 className="text-xl font-bold text-suka-ink">Profil Staff Tidak Ditemukan</h2>
-          <p className="text-sm text-gray-500 leading-relaxed">
-            {staffError || "Akun Anda belum terhubung dengan data staff outlet. Hubungi admin / SPV untuk mendaftarkan akun Anda ke outlet."}
-          </p>
-          <button
-            onClick={async () => { await signOut(); router.replace("/login"); }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors border border-red-200"
-          >
-            <LogOut size={18} />
-            Keluar & Login Ulang
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   async function handleLogout() {
     await signOut();
     router.replace("/login");
@@ -99,7 +74,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               SukaAbsen
             </h2>
             <p className="mt-2 text-sm text-gray-500 font-medium">
-              Cabang: <span className="text-suka-ink">{outletStaff?.outlets?.name || "–"}</span>
+              Cabang: <span className="text-suka-ink">{outletStaff?.outlets?.name || "Loading..."}</span>
             </p>
           </div>
 
@@ -173,4 +148,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
-

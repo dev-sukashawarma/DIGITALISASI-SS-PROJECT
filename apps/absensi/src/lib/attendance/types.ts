@@ -8,7 +8,6 @@ export type AttendancePayload = {
   gps_lng?: number | null;
   match_distance: number;
   selfie_path: string | null;
-  selfie_base64?: string;
   ts_client: string;
   from_queue: boolean;
 };

@@ -10,6 +10,15 @@ export interface ThresholdItem {
   outlet_threshold: number | null  // null = belum ada override
 }
 
+type RawThresholdRow = {
+  id: string
+  nama: string
+  satuan: string
+  kategori: string
+  default_reorder_point: number
+  outlet_reorder_point: Array<{ reorder_point: number }> | null
+}
+
 export async function fetchThresholds(outletId: string): Promise<ThresholdItem[]> {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -29,7 +38,7 @@ export async function fetchThresholds(outletId: string): Promise<ThresholdItem[]
 
   if (error) throw error
 
-  return (data || []).map((row: any) => ({
+  return (data || []).map((row: RawThresholdRow) => ({
     bahan_baku_id: row.id,
     nama: row.nama,
     satuan: row.satuan,

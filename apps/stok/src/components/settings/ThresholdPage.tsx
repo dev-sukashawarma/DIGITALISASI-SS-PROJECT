@@ -68,7 +68,7 @@ export function ThresholdPage() {
         >
           <option value="">-- pilih outlet --</option>
           {(outlets || []).map((o: any) => (
-            <option key={o.id} value={o.id}>{o.name}</option>
+            <option key={o.id} value={o.id}>{o.nama}</option>
           ))}
         </select>
       </div>

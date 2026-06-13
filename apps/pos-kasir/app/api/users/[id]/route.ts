@@ -15,7 +15,7 @@ async function verifyAdmin() {
   if (!user) return false
 
   const supabaseService = createServiceClient()
-  const { data: profile } = await supabaseService.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await supabaseService.from('outlet_staff').select('role').eq('id', user.id).single()
 
   if (!profile || profile.role !== 'admin') return false
   return true
@@ -61,7 +61,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 
   // Cek apakah username sudah digunakan
-  const { data: existingProfile } = await supabaseService.from('profiles').select('id').eq('username', username).single()
+  const { data: existingProfile } = await supabaseService.from('outlet_staff').select('id').eq('username', username).single()
   if (existingProfile && existingProfile.id !== userId) {
     return NextResponse.json({ error: 'Username sudah digunakan, silakan pilih username lain.' }, { status: 400 })
   }
@@ -89,7 +89,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 
   // Update Profile
-  const { error: profileError } = await supabaseService.from('profiles').update({
+  const { error: profileError } = await supabaseService.from('outlet_staff').update({
     role,
     outlet_id,
     username,

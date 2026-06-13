@@ -40,7 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   async function fetchOutletStaff(userId: string) {
     const { data: staff, error } = await supabase
       .from('outlet_staff')
-      .select('*, outlets(name)')
+      .select('*, outlets!outlet_staff_outlet_id_fkey(name)')
       .eq('id', userId)
       .maybeSingle()
 

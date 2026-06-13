@@ -38,7 +38,6 @@ export default function KruChecklistPage() {
 
   const [categories, setCategories] = useState<ChecklistCategory[]>([]);
   const [ticks, setTicks] = useState<TickRow[]>([]);
-  const [staffMap, setStaffMap] = useState<Record<string, string>>({}); // id -> name
   const [recordId, setRecordId] = useState<string | null>(null);
   const [hasClockedIn, setHasClockedIn] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,15 +67,13 @@ export default function KruChecklistPage() {
 
   async function init() {
     setLoading(true);
-    const supabase = supabaseRef.current;
     await Promise.all([
-      loadCategories(supabase),
-      loadStaffMap(supabase),
-      loadClockInStatus(supabase),
+      loadCategories(),
+      loadClockInStatus(),
     ]);
-    const rid = await ensureRecord(supabase);
+    const rid = await ensureRecord();
     if (rid) {
-      await loadTicks(supabase, rid);
+      await loadTicks(rid);
       subscribeRealtime(rid);
     }
     setLoading(false);
@@ -84,8 +81,9 @@ export default function KruChecklistPage() {
 
   // Cek apakah staf yang login sudah absen hadir (type "in") hari ini.
   // Gating: belum absen hadir → tidak boleh mencentang checklist.
-  async function loadClockInStatus(supabase: ReturnType<typeof createClient>) {
+  async function loadClockInStatus() {
     if (!outletStaff?.id) return;
+    const supabase = supabaseRef.current;
     const utcToday = new Date().toISOString().slice(0, 10);
     const { data } = await supabase
       .from("attendance")
@@ -98,60 +96,52 @@ export default function KruChecklistPage() {
     setHasClockedIn((data?.length ?? 0) > 0);
   }
 
-  async function loadStaffMap(supabase: ReturnType<typeof createClient>) {
-    const { data } = await supabase
-      .from("outlet_staff")
-      .select("id, name")
-      .eq("outlet_id", outletStaff!.outlet_id);
-    if (data) {
-      const map: Record<string, string> = {};
-      data.forEach((s: { id: string; name: string }) => { map[s.id] = s.name; });
-      setStaffMap(map);
+  async function loadCategories() {
+    try {
+      const res = await fetch('/api/checklist/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outlet_id: outletStaff!.outlet_id })
+      });
+      const json = await res.json();
+      if (json.data) setCategories(json.data);
+    } catch (err) {
+      console.error(err);
     }
   }
 
-  async function loadCategories(supabase: ReturnType<typeof createClient>) {
-    const { data, error } = await supabase
-      .from("checklist_categories")
-      .select("*, checklist_items(*)")
-      .eq("outlet_id", outletStaff!.outlet_id)
-      .order("created_at", { ascending: true });
-    if (!error && data) setCategories(data);
-  }
-
-  async function ensureRecord(supabase: ReturnType<typeof createClient>): Promise<string | null> {
-    // Upsert record harian — aman jika sudah ada (tidak throw error duplikat)
-    const { data: upserted, error } = await supabase
-      .from("daily_checklist_records")
-      .upsert(
-        { outlet_id: outletStaff!.outlet_id, date: today },
-        { onConflict: "outlet_id,date", ignoreDuplicates: false }
-      )
-      .select("id")
-      .single();
-
-    if (error || !upserted) {
-      // Fallback: coba ambil yang sudah ada
-      const { data: fallback } = await supabase
-        .from("daily_checklist_records")
-        .select("id")
-        .eq("outlet_id", outletStaff!.outlet_id)
-        .eq("date", today)
-        .single();
-      if (fallback) { setRecordId(fallback.id); return fallback.id; }
-      toast.show("err", "Gagal membuat sesi checklist hari ini");
-      return null;
+  async function ensureRecord(): Promise<string | null> {
+    try {
+      const res = await fetch('/api/checklist/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outlet_id: outletStaff!.outlet_id, date: today })
+      });
+      const data = await res.json();
+      if (data.id) {
+        setRecordId(data.id);
+        return data.id;
+      }
+    } catch (err: any) {
+      console.error(err);
     }
-    setRecordId(upserted.id);
-    return upserted.id;
+    toast.show("err", "Gagal membuat sesi checklist hari ini");
+    return null;
   }
 
-  async function loadTicks(supabase: ReturnType<typeof createClient>, rid: string) {
-    const { data } = await supabase
-      .from("daily_checklist_ticks")
-      .select("id, item_id, ticked_by, ticked_at, outlet_staff(name)")
-      .eq("record_id", rid);
-    setTicks((data as TickRow[]) || []);
+  async function loadTicks(rid: string) {
+    try {
+      const res = await fetch('/api/checklist/ticks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ record_id: rid })
+      });
+      const json = await res.json();
+      setTicks((json.data as TickRow[]) || []);
+    } catch (err) {
+      console.error(err);
+      setTicks([]);
+    }
   }
 
   function subscribeRealtime(rid: string) {
@@ -200,28 +190,31 @@ export default function KruChecklistPage() {
     const supabase = supabaseRef.current;
 
     const existing = ticks.find(t => t.item_id === itemId);
-    if (existing) {
-      // Un-tick — hanya bisa dibatalkan oleh yang mencentang
-      if (existing.ticked_by !== outletStaff.id) {
-        toast.show("err", `Hanya ${existing.outlet_staff?.name || "yang bersangkutan"} yang bisa membatalkan ini`);
-        setTicking(null);
-        return;
-      }
-      const { error } = await supabase
-        .from("daily_checklist_ticks")
-        .delete()
-        .eq("id", existing.id);
-      if (error) toast.show("err", "Gagal membatalkan centang");
-      else setTicks(prev => prev.filter(t => t.id !== existing.id));
-    } else {
-      // Tick
-      const { data, error } = await supabase
-        .from("daily_checklist_ticks")
-        .insert({ record_id: recordId, item_id: itemId, ticked_by: outletStaff.id })
-        .select("id, item_id, ticked_by, ticked_at")
-        .single();
-      if (error) toast.show("err", "Gagal mencentang tugas");
-      else setTicks(prev => [...prev, { ...data, outlet_staff: { name: outletStaff.name } }]);
+    const isTicked = existing !== undefined;
+
+    if (existing && existing.ticked_by !== outletStaff.id) {
+      toast.show("err", `Hanya ${existing.outlet_staff?.name || "yang bersangkutan"} yang bisa membatalkan ini`);
+      setTicking(null);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/checklist/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: isTicked ? 'delete' : 'insert',
+          item_id: itemId,
+          record_id: recordId,
+          staff_id: isTicked ? null : outletStaff.id,
+        })
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      await loadTicks(recordId);
+    } catch (err: any) {
+      toast.show("err", "Gagal menyimpan progress");
+      console.error(err);
     }
     setTicking(null);
   }
@@ -282,8 +275,8 @@ export default function KruChecklistPage() {
               const tick = ticks.find(t => t.item_id === item.id);
               const isTicked = !!tick;
               const isMe = tick?.ticked_by === outletStaff?.id;
-              // Ambil nama dari staffMap (lebih reliable dari join RLS)
-              const tickerName = tick ? (staffMap[tick.ticked_by] ?? tick.outlet_staff?.name ?? "Staf") : null;
+              // Ambil nama dari API join (admin bypass RLS)
+              const tickerName = tick ? (tick.outlet_staff?.name ?? "Staf") : null;
               const isProcessing = ticking === item.id;
               const locked = !hasClockedIn;
 

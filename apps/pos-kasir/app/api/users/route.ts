@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   const supabaseService = createServiceClient()
-  const { data: profile } = await supabaseService.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await supabaseService.from('outlet_staff').select('role').eq('id', user.id).single()
 
   if (!profile || profile.role !== 'admin') {
     return NextResponse.json({ error: 'Akses ditolak. Harus Admin.' }, { status: 403 })
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   }
 
   // Cek apakah username sudah digunakan
-  const { data: existingProfile } = await supabaseService.from('profiles').select('id').eq('username', username).single()
+  const { data: existingProfile } = await supabaseService.from('outlet_staff').select('id').eq('username', username).single()
   if (existingProfile) {
     return NextResponse.json({ error: 'Username sudah digunakan, silakan pilih username lain.' }, { status: 400 })
   }
@@ -79,12 +79,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: errMsg }, { status: 500 })
   }
 
-  // Tambahkan profile
-  const { error: profileError } = await supabaseService.from('profiles').insert({
+  // Tambahkan baris outlet_staff (identitas kanonik).
+  // name wajib (NOT NULL) → pakai username sebagai nama default.
+  const { error: profileError } = await supabaseService.from('outlet_staff').insert({
     id: authData.user.id,
+    name: username,
     role,
     outlet_id,
     username,
+    status: (is_active ?? true) ? 'active' : 'inactive',
     is_active: is_active ?? true,
     inactive_reason: inactive_reason || null
   })

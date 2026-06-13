@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
   async function fetchData() {
     setLoading(true)
     const [profilesRes, outletsRes] = await Promise.all([
-      supabase.from('profiles').select('*, outlets(name)').order('created_at', { ascending: false }),
+      supabase.from('outlet_staff').select('*, outlets!outlet_staff_outlet_id_fkey(name)').order('created_at', { ascending: false }),
       supabase.from('outlets').select('*').eq('is_active', true).order('name', { ascending: true })
     ])
     

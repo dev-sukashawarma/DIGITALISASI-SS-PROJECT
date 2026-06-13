@@ -211,8 +211,8 @@ export function useClockKiosk(outletId: string) {
     }
 
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const authHeaderToken = typeof window !== 'undefined' && localStorage.getItem('supabase-auth-token') 
-      ? JSON.parse(localStorage.getItem('supabase-auth-token') || '{}')?.session?.access_token 
+    const authHeaderToken = typeof window !== 'undefined' && localStorage.getItem('supabase-auth-token')
+      ? JSON.parse(localStorage.getItem('supabase-auth-token') || '{}')?.session?.access_token
       : null;
     const token = authHeaderToken || anonKey;
     const res = await submitAttendance({ ...payload, selfie_base64: dataUrl }, { functionUrl: FUNCTION_URL, anonKey: token });

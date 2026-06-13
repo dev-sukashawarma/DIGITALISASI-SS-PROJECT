@@ -9,6 +9,7 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookieOptions: {
+        name: 'sb-pos-kasir-auth-token',
         maxAge: 31536000,
         path: '/',
       },
@@ -36,7 +37,7 @@ export async function middleware(request: NextRequest) {
   
   if (user) {
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('outlet_staff')
       .select('role, outlet_id')
       .eq('id', user.id)
       .single()
@@ -60,6 +61,27 @@ export async function middleware(request: NextRequest) {
   if (path.startsWith('/kasir')) {
     if (!user || role !== 'kasir') {
       return NextResponse.redirect(new URL('/login', request.url))
+    }
+  }
+
+  // Proteksi Route Pelanggan (Self-Order Kiosk)
+  // Device self-order HARUS sudah di-login kan kasir via QR (role 'kiosk').
+  // Halaman pesan pelanggan ('/', menu, checkout, dst) tidak boleh dibuka
+  // kalau device belum punya sesi kiosk aktif.
+  const PUBLIC_PATHS = ['/login', '/kiosk/qr-login', '/panduan']
+  const isPublicPath = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + '/'))
+  const isApiPath = path.startsWith('/api')
+  const isDashboardPath = path.startsWith('/admin') || path.startsWith('/kasir')
+
+  if (!isPublicPath && !isApiPath && !isDashboardPath) {
+    // Belum login sama sekali → device belum di-aktifkan kasir
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+    // Sudah login tapi bukan device kiosk (admin diizinkan untuk preview).
+    // Kasir yang nyasar ke sini dikembalikan ke dashboard-nya.
+    if (role !== 'kiosk' && role !== 'admin') {
+      return NextResponse.redirect(new URL(role === 'kasir' ? '/kasir' : '/login', request.url))
     }
   }
 

@@ -20,8 +20,8 @@ export function useMyOutlet() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setLoaded(true); return }
       
-      const { data: profile } = await supabase.from('profiles')
-        .select('outlet_id, is_active, inactive_reason, outlets(name, is_active, inactive_reason)')
+      const { data: profile } = await supabase.from('outlet_staff')
+        .select('outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, is_active, inactive_reason)')
         .eq('id', user.id).single()
         
       if (profile) {

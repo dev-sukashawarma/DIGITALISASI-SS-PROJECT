@@ -17,14 +17,7 @@ export function useAttendanceQueue() {
   const { queue, add, flush, isOnline } = useOfflineQueue<QueuedAbsen>("ss-absensi-queue");
   const supabase = createClient();
 
-  async function uploadSelfie(outletId: string, id: string, dataUrl: string): Promise<string> {
-    const path = `${outletId}/${id}.jpg`;
-    const blob = await (await fetch(dataUrl)).blob();
-    await supabase.storage.from("selfies").upload(path, blob, { upsert: true, contentType: "image/jpeg" });
-    return path;
-  }
-
-  async function syncOne(item: QueuedAbsen, outletId: string, token: string) {
+  async function syncOne(item: QueuedAbsen, token: string) {
     return submitAttendance(
       { ...item.payload, selfie_base64: item.selfieDataUrl || undefined, from_queue: true, outlet_id: item.outlet_id || '' },
       { functionUrl: FUNCTION_URL, anonKey: token },
@@ -37,13 +30,13 @@ export function useAttendanceQueue() {
   }
 
   /** Flush semua antrian saat online. */
-  async function flushQueue(outletId: string) {
+  async function flushQueue(_outletId: string) {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) return;
     await flush(async (items: QueueItem<QueuedAbsen>[]) => {
       for (const it of items) {
-        const res = await syncOne(it.data, outletId, token);
+        const res = await syncOne(it.data, token);
         if (!res.ok) throw new Error(res.reason);
       }
     });

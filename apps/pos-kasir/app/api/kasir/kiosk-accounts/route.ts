@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     }
 
     const supabaseService = createServiceClient()
-    const { data: profile } = await supabaseService.from('profiles').select('role, outlet_id').eq('id', user.id).single()
+    const { data: profile } = await supabaseService.from('outlet_staff').select('role, outlet_id').eq('id', user.id).single()
 
     if (!profile || profile.role !== 'kasir') {
       return NextResponse.json({ error: 'Akses ditolak. Harus Kasir.' }, { status: 403 })
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
     // Ambil daftar akun kiosk di cabang ini
     const { data: kioskProfiles, error } = await supabaseService
-      .from('profiles')
+      .from('outlet_staff')
       .select('id, username')
       .eq('role', 'kiosk')
       .eq('outlet_id', profile.outlet_id)

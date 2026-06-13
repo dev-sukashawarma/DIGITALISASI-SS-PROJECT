@@ -6,7 +6,13 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 // Client-side Supabase instance
 export const createClient = () =>
-  createBrowserClient(supabaseUrl, supabaseAnonKey)
+  createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: {
+      name: 'sb-absensi-auth-token',
+      maxAge: 31536000,
+      path: '/',
+    }
+  })
 
 // Server-side (Edge Functions, API routes)
 export const createServerSupabaseClient = () =>

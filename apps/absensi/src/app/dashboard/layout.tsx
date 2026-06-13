@@ -4,30 +4,50 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { LayoutDashboard, ClipboardList, Camera, LogOut, Store, Menu, X, Settings2, Users, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Camera, LogOut, Store, X, Settings2, Users, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal } from "lucide-react";
+
+type NavItem = { href: string; label: string; mobileLabel?: string; icon: React.ReactNode };
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { outletStaff, signOut, loading, staffError } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const isSPV = outletStaff?.role === "spv" || outletStaff?.role === "kepala_outlet";
 
-  const navItems = isSPV ? [
+  const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },
     { href: "/dashboard/papan-kehadiran", label: "Papan Kehadiran", icon: <LayoutDashboard size={20} /> },
     { href: "/dashboard/manajemen-kru", label: "Manajemen Kru", icon: <Users size={20} /> },
     { href: "/dashboard/rekap", label: "Rekap & Riwayat", icon: <ClipboardList size={20} /> },
     { href: "/dashboard/checklist", label: "Manajemen Checklist", icon: <ListChecks size={20} /> },
     { href: "/dashboard/checklist-monitor", label: "Monitor Checklist", icon: <ClipboardCheck size={20} /> },
-    { href: "/dashboard/enroll", label: "Enroll Wajah Staf", icon: <Camera size={20} /> },
+    { href: "/dashboard/enroll", label: "Daftarkan Wajah", icon: <Camera size={20} /> },
     { href: "/dashboard/pengaturan", label: "Pengaturan Absensi", icon: <Settings2 size={20} /> },
   ] : [
     { href: "/dashboard/kru", label: "Beranda Saya", icon: <LayoutDashboard size={20} /> },
     { href: "/dashboard/kru-checklist", label: "Checklist Harian", icon: <ClipboardCheck size={20} /> },
     { href: "/dashboard/profil", label: "Profil & Password", icon: <UserRound size={20} /> },
   ];
+
+  // ── Bottom bar mobile: hanya menu utama, sisanya masuk sheet "Lainnya" ──
+  const mobileMainItems: NavItem[] = isSPV ? [
+    { href: "/dashboard", label: "Absen", icon: <Clock size={22} /> },
+    { href: "/dashboard/rekap", label: "Rekap", icon: <ClipboardList size={22} /> },
+    { href: "/dashboard/checklist-monitor", label: "Monitor", icon: <ClipboardCheck size={22} /> },
+    { href: "/dashboard/enroll", label: "Daftar Wajah", icon: <Camera size={22} /> },
+  ] : [
+    { href: "/dashboard/kru", label: "Beranda", icon: <LayoutDashboard size={22} /> },
+    { href: "/dashboard/kru-checklist", label: "Checklist", icon: <ClipboardCheck size={22} /> },
+    { href: "/dashboard/profil", label: "Profil", icon: <UserRound size={22} /> },
+  ];
+  const mobileMainHrefs = new Set(mobileMainItems.map((i) => i.href));
+  const mobileMoreItems: NavItem[] = navItems.filter((i) => !mobileMainHrefs.has(i.href));
+
+  const isActive = (href: string) =>
+    pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
+  const moreActive = mobileMoreItems.some((i) => isActive(i.href));
 
   // Redirect crew trying to access SPV-only routes
   // Gunakan WHITELIST rute kru (lebih aman dari blacklist yang bisa salah tangkap)
@@ -40,6 +60,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
     }
   }, [outletStaff, isSPV, loading, pathname, router]);
+
+  // Tutup sheet "Lainnya" tiap pindah halaman
+  React.useEffect(() => { setMoreOpen(false); }, [pathname]);
 
   if (loading) {
     return (
@@ -81,16 +104,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 lg:static lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      {/* Sidebar — hanya desktop. Di mobile diganti bottom navigation bar */}
+      <aside className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col shrink-0">
         <div className="h-full flex flex-col">
           {/* Logo / Outlet Info */}
           <div className="p-6 border-b border-gray-100">
@@ -107,13 +122,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
             {navItems.map((item) => {
               // Root dashboard hanya aktif saat persis; menu lain juga aktif di sub-halamannya
-              const active = pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+              const active = isActive(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                     active
                       ? "bg-suka-orange/10 text-suka-orange"
@@ -138,7 +151,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <p className="text-xs text-gray-500 capitalize truncate">{outletStaff?.role}</p>
               </div>
             </div>
-            
+
             <button
               onClick={handleLogout}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
@@ -152,25 +165,117 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Mobile Header */}
+        {/* Mobile Header — tanpa hamburger, navigasi pindah ke bottom bar */}
         <header className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur border-b border-gray-200">
           <h2 className="text-base font-bold text-suka-brown flex items-center gap-2 truncate">
             <Store size={20} className="shrink-0" />
             <span className="truncate">{outletStaff?.outlets?.name || "SukaAbsen"}</span>
           </h2>
-          <button onClick={() => setSidebarOpen(true)} className="p-2 -mr-2 text-gray-600 rounded-lg hover:bg-gray-50" aria-label="Buka menu">
-            <Menu size={24} />
-          </button>
+          <div className="w-7 h-7 rounded-full bg-suka-brown flex items-center justify-center text-white font-bold text-xs shrink-0">
+            {outletStaff?.name?.charAt(0) || "?"}
+          </div>
         </header>
 
-        {/* Content Scrollable */}
-        <main className="flex-1 overflow-y-auto bg-slate-50 px-4 py-5 sm:p-6 lg:p-8">
+        {/* Content Scrollable — beri ruang bawah untuk bottom bar di mobile */}
+        <main className="flex-1 overflow-y-auto bg-slate-50 px-4 pt-5 pb-28 sm:px-6 sm:pt-6 lg:p-8 lg:pb-8">
           <div className="max-w-4xl mx-auto">
             {children}
           </div>
         </main>
       </div>
+
+      {/* ── Sheet "Lainnya" (mobile) ── */}
+      {moreOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            onClick={() => setMoreOpen(false)}
+          />
+          <div className="fixed inset-x-0 bottom-0 z-50 lg:hidden bg-white rounded-t-2xl shadow-2xl border-t border-gray-200 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] animate-[slideUp_0.2s_ease-out]">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <span className="text-sm font-bold text-suka-ink">Menu Lainnya</span>
+              <button onClick={() => setMoreOpen(false)} className="p-1.5 text-gray-400 rounded-lg hover:bg-gray-50" aria-label="Tutup menu">
+                <X size={20} />
+              </button>
+            </div>
+
+            {mobileMoreItems.length > 0 && (
+              <nav className="px-3 pb-2 space-y-0.5 max-h-[50vh] overflow-y-auto">
+                {mobileMoreItems.map((item) => {
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMoreOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                        active
+                          ? "bg-suka-orange/10 text-suka-orange"
+                          : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      <span className={active ? "text-suka-orange" : "text-gray-400"}>{item.icon}</span>
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            )}
+
+            {/* User Profile & Logout */}
+            <div className="px-3 pt-2 border-t border-gray-100 mx-2">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <div className="w-9 h-9 rounded-full bg-suka-brown flex items-center justify-center text-white font-bold text-sm">
+                  {outletStaff?.name?.charAt(0) || "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-suka-ink truncate">{outletStaff?.name}</p>
+                  <p className="text-xs text-gray-500 capitalize truncate">{outletStaff?.role}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut size={16} />
+                  Keluar
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Bottom Navigation Bar (mobile only) ── */}
+      <nav className="lg:hidden fixed inset-x-0 bottom-0 z-30 bg-white/95 backdrop-blur border-t border-gray-200 pb-[env(safe-area-inset-bottom)]">
+        <div className={`grid ${mobileMainItems.length === 3 ? "grid-cols-4" : "grid-cols-5"}`}>
+          {mobileMainItems.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMoreOpen(false)}
+                className={`flex flex-col items-center justify-center gap-1 pt-2.5 pb-2 transition-colors ${
+                  active && !moreOpen ? "text-suka-orange" : "text-gray-400"
+                }`}
+              >
+                {item.icon}
+                <span className="text-[10px] font-semibold leading-none">{item.label}</span>
+              </Link>
+            );
+          })}
+          <button
+            onClick={() => setMoreOpen((v) => !v)}
+            className={`flex flex-col items-center justify-center gap-1 pt-2.5 pb-2 transition-colors ${
+              moreOpen || moreActive ? "text-suka-orange" : "text-gray-400"
+            }`}
+            aria-label="Menu lainnya"
+          >
+            <MoreHorizontal size={22} />
+            <span className="text-[10px] font-semibold leading-none">Lainnya</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }
-

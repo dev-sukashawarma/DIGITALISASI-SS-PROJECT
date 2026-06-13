@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Avatar, Button, Spinner } from "@suka/design-system";
 import { Users, UserPlus, KeyRound, Edit, Trash2, Check, X as XIcon, Power } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
 import { generateStaffEmail } from "@/lib/utils/email-generator";

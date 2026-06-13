@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button, Card, Spinner } from "@suka/design-system";
 import { KeyRound, UserRound, AlertTriangle } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
 import { PageHeader } from "@/components/PageHeader";

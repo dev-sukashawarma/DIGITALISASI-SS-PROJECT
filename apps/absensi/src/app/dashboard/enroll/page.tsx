@@ -5,7 +5,7 @@ import { Button, Card, Spinner } from "@suka/design-system";
 import { Camera, Save, ShieldCheck, CheckCircle2, UserRound, ArrowLeft, ArrowRight } from "lucide-react";
 import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { CameraCapture, captureFrame } from "@/components/CameraCapture";
 import { PageHeader } from "@/components/PageHeader";
 import { loadFaceModels } from "@/lib/face/recognizer";

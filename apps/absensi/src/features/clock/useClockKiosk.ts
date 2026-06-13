@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { createClient } from "@/lib/supabase";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { captureFrame } from "@/components/CameraCapture";
 import { identifyStaff, type Candidate } from "@/lib/face/identify";
 import {

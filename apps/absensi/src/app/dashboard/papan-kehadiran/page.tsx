@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Avatar, StatusPill, EmptyState, Spinner } from "@suka/design-system";
 import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { computeBoard, type BoardStaff, type BoardRecord, type BoardRow } from "@/features/board/board";
 import { PageHeader, InfoPill } from "@/components/PageHeader";
 import { DashboardSettings } from "../DashboardSettings";

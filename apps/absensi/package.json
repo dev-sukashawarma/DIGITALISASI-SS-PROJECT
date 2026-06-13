@@ -14,6 +14,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@suka/auth": "*",
     "@suka/design-system": "*",
     "@suka/offline-queue": "*",
     "@supabase/ssr": "^0.2.0",

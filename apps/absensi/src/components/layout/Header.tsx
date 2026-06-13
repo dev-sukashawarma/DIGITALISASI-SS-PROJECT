@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@suka/design-system'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@suka/auth'
 
 export const Header = () => {
   const { outletStaff, signOut } = useAuth()

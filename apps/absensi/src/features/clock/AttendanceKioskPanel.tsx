@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Card, Spinner } from "@suka/design-system";
 import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
 import "dayjs/locale/id";

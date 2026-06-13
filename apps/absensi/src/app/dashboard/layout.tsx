@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { LayoutDashboard, ClipboardList, Camera, LogOut, Store, Menu, X, Settings2, Users, UserRound, ListChecks, ClipboardCheck, Clock } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Avatar, StatusPill, EmptyState } from "@suka/design-system";
 import { Download, LogIn, LogOut, CalendarDays, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { attendanceToCsv, downloadCsv, type CsvRow } from "@/features/rekap/csv";
 import { PageHeader } from "@/components/PageHeader";
 

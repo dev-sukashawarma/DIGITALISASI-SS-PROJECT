@@ -20,12 +20,14 @@ export function ThresholdRow({ item, onSave, onReset }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const startEdit = () => {
+    setError(null)
     setInputVal(String(activeValue))
     setEditing(true)
     setTimeout(() => inputRef.current?.select(), 0)
   }
 
   const commitEdit = async () => {
+    if (saving) return
     const parsed = parseFloat(inputVal)
     if (isNaN(parsed) || parsed < 0) {
       setError('Angka tidak valid')
@@ -39,18 +41,18 @@ export function ThresholdRow({ item, onSave, onReset }: Props) {
     setError(null)
     try {
       await onSave(item.bahan_baku_id, parsed)
+      setEditing(false)
     } catch {
       setError('Gagal menyimpan')
       setInputVal(String(activeValue))
     } finally {
       setSaving(false)
-      setEditing(false)
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') commitEdit()
-    if (e.key === 'Escape') setEditing(false)
+    if (e.key === 'Escape') { setError(null); setEditing(false) }
   }
 
   const handleReset = async () => {

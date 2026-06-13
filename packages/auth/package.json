@@ -1,0 +1,31 @@
+{
+  "name": "@suka/auth",
+  "version": "0.0.1",
+  "description": "SSO identity, role access matrix, and Supabase clients for SUKA suite",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.5.1",
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vitest": "^2.0.0",
+    "@types/react": "^18.2.45"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

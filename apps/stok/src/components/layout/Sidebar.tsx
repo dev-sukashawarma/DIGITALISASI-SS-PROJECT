@@ -9,6 +9,7 @@ const MENU_ITEMS = [
   { label: 'Ledger', href: '/stok/ledger' },
   { label: 'Monitoring', href: '/stok/monitoring' },
   { label: 'Live Monitoring', href: '/stok/monitoring-live' },
+  { label: 'Threshold Stok', href: '/stok/settings/threshold' },
 ]
 
 export const Sidebar = () => {

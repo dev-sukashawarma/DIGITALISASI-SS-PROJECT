@@ -16,6 +16,7 @@
     "next": "^16.1.6",
     "@supabase/supabase-js": "^2.38.0",
     "@supabase/ssr": "^0.2.0",
+    "@suka/auth": "*",
     "@suka/design-system": "*",
     "@suka/offline-queue": "*"
   },

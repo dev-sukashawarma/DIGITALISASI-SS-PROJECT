@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@suka/auth';
 import { useOpnameList } from '@/hooks/useOpname';
 import { OpnameList } from '@/components/stok/OpnameList';
 import Link from 'next/link';

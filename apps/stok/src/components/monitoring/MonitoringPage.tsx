@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { SPVDashboard } from './SPVDashboard';
 import { CrewDashboard } from './CrewDashboard';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@suka/auth';
 
 export function MonitoringPage() {
   const { outletStaff, loading } = useAuth();

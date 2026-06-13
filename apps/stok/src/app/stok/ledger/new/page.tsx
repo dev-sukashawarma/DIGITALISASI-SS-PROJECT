@@ -1,5 +1,5 @@
 'use client'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@suka/auth'
 import { ManualEntryForm } from '@/components/stok/ManualEntryForm'
 import Link from 'next/link'
 

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // Mock the AuthContext
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@suka/auth', () => ({
   useAuth: vi.fn(),
   AuthProvider: ({ children }: any) => <>{children}</>,
 }));
@@ -22,7 +22,7 @@ vi.mock('../CrewDashboard', () => ({
 }));
 
 import { MonitoringPage } from '../MonitoringPage';
-import * as AuthContext from '@/context/AuthContext';
+import * as AuthContext from '@suka/auth';
 
 const queryClient = new QueryClient();
 

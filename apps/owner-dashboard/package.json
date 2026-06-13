@@ -17,7 +17,8 @@
     "@supabase/supabase-js": "^2.38.0",
     "@supabase/ssr": "^0.2.0",
     "@suka/design-system": "*",
-    "@suka/offline-queue": "*"
+    "@suka/offline-queue": "*",
+    "@suka/auth": "*"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

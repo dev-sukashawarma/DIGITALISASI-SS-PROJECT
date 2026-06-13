@@ -39,9 +39,9 @@ export default function AdminUsersPage() {
   const supabase = createClient()
 
   const filteredUsers = users.filter(u => 
-    u.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (u.username || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
     (u.outlets?.name && u.outlets.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    u.role.toLowerCase().includes(searchQuery.toLowerCase())
+    (u.role || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   useEffect(() => {

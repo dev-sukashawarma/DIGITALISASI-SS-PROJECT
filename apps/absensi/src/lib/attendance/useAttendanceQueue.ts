@@ -30,8 +30,8 @@ export function useAttendanceQueue() {
       selfiePath = await uploadSelfie(outletId, item.payload.id, item.selfieDataUrl);
     }
     return submitAttendance(
-      { ...item.payload, selfie_path: selfiePath, from_queue: true },
-      { functionUrl: FUNCTION_URL, accessToken: token },
+      { ...item.payload, outlet_id: outletId, selfie_path: selfiePath, from_queue: true },
+      { functionUrl: FUNCTION_URL, anonKey: token },
     );
   }
 

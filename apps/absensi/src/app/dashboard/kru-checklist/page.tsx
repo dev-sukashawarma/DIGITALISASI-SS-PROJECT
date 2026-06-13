@@ -151,7 +151,7 @@ export default function KruChecklistPage() {
       .from("daily_checklist_ticks")
       .select("id, item_id, ticked_by, ticked_at, outlet_staff(name)")
       .eq("record_id", rid);
-    setTicks((data as TickRow[]) || []);
+    setTicks((data as unknown as TickRow[]) || []);
   }
 
   function subscribeRealtime(rid: string) {
@@ -167,7 +167,7 @@ export default function KruChecklistPage() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "daily_checklist_ticks", filter: `record_id=eq.${rid}` },
-        async (payload) => {
+        async (payload: { new: Record<string, unknown> }) => {
           const { data: staffData } = await supabase
             .from("outlet_staff")
             .select("name")
@@ -182,7 +182,7 @@ export default function KruChecklistPage() {
       .on(
         "postgres_changes",
         { event: "DELETE", schema: "public", table: "daily_checklist_ticks", filter: `record_id=eq.${rid}` },
-        (payload) => {
+        (payload: { old: Record<string, unknown> }) => {
           setTicks(prev => prev.filter(t => t.id !== payload.old.id));
         }
       )

@@ -8,12 +8,6 @@ export const CHALLENGE_LABEL: Record<Challenge, string> = {
   "nod": "Anggukkan kepala",
 };
 
-const EAR_CLOSED = 0.23; // Ditingkatkan dari 0.18 agar lebih sensitif
-const EAR_OPEN = 0.26;
-const TURN_LO = 0.4;   // hidung geser ke kiri frame
-const TURN_HI = 0.6;   // hidung geser ke kanan frame
-const CENTER_LO = 0.45;
-const CENTER_HI = 0.55;
 const NOD_DOWN = 0.55;
 const NOD_UP = 0.50;
 

@@ -9,8 +9,8 @@ export function useOfflineQueue<T = any>(
   options: UseOfflineQueueOptions = {}
 ) {
   const {
-    maxRetries = 3,
-    retryDelay = 1000,
+    maxRetries: _maxRetries = 3,
+    retryDelay: _retryDelay = 1000,
   } = options
 
   const [state, setState] = useState<{

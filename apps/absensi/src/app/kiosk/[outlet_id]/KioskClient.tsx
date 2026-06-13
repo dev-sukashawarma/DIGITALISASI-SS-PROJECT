@@ -48,7 +48,7 @@ export function KioskClient({ outlet_id }: { outlet_id: string }) {
           <p className="text-sm text-gray-500 font-medium">Outlet: <span className="text-suka-ink">{outletStaff?.outlets?.name || "Loading..."}</span></p>
         </div>
 
-        <div className="relative overflow-hidden rounded-xl border-2 border-gray-100 bg-black min-h-[350px] flex justify-center items-center">
+        <div className={`relative overflow-hidden rounded-xl border-2 ${ringColor} bg-black min-h-[350px] flex justify-center items-center`}>
           <style dangerouslySetInnerHTML={{__html: `
             @keyframes scan-faceid {
               0%, 100% { transform: translateY(-50%); opacity: 0; }

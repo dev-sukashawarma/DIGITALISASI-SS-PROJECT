@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Button, Card, Spinner } from "@suka/design-system";
-import { Camera, Save, ShieldCheck, CheckCircle2, UserRound, ArrowLeft, ArrowRight } from "lucide-react";
+import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowLeft, ArrowRight } from "lucide-react";
 import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -29,7 +29,6 @@ export default function EnrollPage() {
   const shotsRef = useRef<number[][]>([]); // To access within loop
   
   const [consent, setConsent] = useState(false);
-  const [msg, setMsg] = useState("");
   const [phase, setPhase] = useState<EnrollPhase>("idle");
   const phaseRef = useRef<EnrollPhase>("idle");
   const busyRef = useRef(false);
@@ -216,7 +215,7 @@ export default function EnrollPage() {
 
           <div className="relative bg-black min-h-[350px] flex items-center justify-center">
             {phase !== "done" && (
-              <CameraCapture onReady={setVideo} onError={setMsg} />
+              <CameraCapture onReady={setVideo} onError={(e) => toast.show("err", e)} />
             )}
             
             {/* Guide Overlays */}

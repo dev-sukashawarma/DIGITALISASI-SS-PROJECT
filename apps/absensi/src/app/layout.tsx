@@ -1,6 +1,5 @@
 import { AuthProvider } from '@/context/AuthContext'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
-import { Navbar } from '@/components/Navbar'
 import { AuthGuard } from '@/components/AuthGuard'
 import { ToastProvider } from '@/lib/feedback/toast'
 import './globals.css'

@@ -19,6 +19,7 @@ export function ThresholdPage() {
   const [loading, setLoading] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   const { data: outlets } = useQuery({
     queryKey: ['outlets-list'],
@@ -33,12 +34,7 @@ export function ThresholdPage() {
       .then(setItems)
       .catch(() => setFetchError('Gagal memuat data threshold'))
       .finally(() => setLoading(false))
-  }, [selectedOutletId])
-
-  const showToast = (msg: string) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 2500)
-  }
+  }, [selectedOutletId, retryCount])
 
   const handleSave = useCallback(async (bahanBakuId: string, value: number) => {
     if (!outletStaff) return
@@ -46,16 +42,18 @@ export function ThresholdPage() {
     setItems(prev => prev.map(i =>
       i.bahan_baku_id === bahanBakuId ? { ...i, outlet_threshold: value } : i
     ))
-    showToast('Tersimpan')
-  }, [selectedOutletId, outletStaff])
+    setToast('Tersimpan')
+    setTimeout(() => setToast(null), 2500)
+  }, [selectedOutletId, outletStaff, setToast])
 
   const handleReset = useCallback(async (bahanBakuId: string) => {
     await resetThreshold(selectedOutletId, bahanBakuId)
     setItems(prev => prev.map(i =>
       i.bahan_baku_id === bahanBakuId ? { ...i, outlet_threshold: null } : i
     ))
-    showToast('Reset ke default')
-  }, [selectedOutletId])
+    setToast('Reset ke default')
+    setTimeout(() => setToast(null), 2500)
+  }, [selectedOutletId, setToast])
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -85,7 +83,7 @@ export function ThresholdPage() {
         <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded p-3">
           {fetchError}
           <button
-            onClick={() => setSelectedOutletId(v => v)}
+            onClick={() => setRetryCount(c => c + 1)}
             className="ml-3 underline"
           >
             Coba lagi

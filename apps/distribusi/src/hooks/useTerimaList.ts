@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@suka/auth'
 
 interface SuratJalan {
   id: string

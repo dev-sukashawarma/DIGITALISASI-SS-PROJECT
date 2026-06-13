@@ -1,5 +1,4 @@
-import { AuthProvider } from '@/context/AuthContext'
-import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { Providers } from './Providers'
 import './globals.css'
 
 export const metadata = {
@@ -15,9 +14,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body className="antialiased">
-        <ErrorBoundary>
-          <AuthProvider>{children}</AuthProvider>
-        </ErrorBoundary>
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   )

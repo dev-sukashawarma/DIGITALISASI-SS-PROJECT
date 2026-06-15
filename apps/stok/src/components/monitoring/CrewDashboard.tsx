@@ -11,7 +11,7 @@ import Link from 'next/link';
 
 export function CrewDashboard() {
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
-  const { data, isLoading, isError, lastFetched, refetch } = useCrewMonitoringData();
+  const { data, isLoading, isError, error, lastFetched, refetch } = useCrewMonitoringData();
   const { outletStaff } = useAuth();
 
   if (isLoading && !data) {

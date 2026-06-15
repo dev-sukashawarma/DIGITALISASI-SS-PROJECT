@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { Card, Button, Input } from '@suka/design-system'
 import type { SaranItem } from '@/hooks/usePermintaan'
 import { useSaranItem, usePermintaanActions } from '@/hooks/usePermintaan'
-import { useBahanBaku } from '@/hooks/useBahanBaku'
 
 interface Row { bahan_baku_id: string; nama: string; satuan: string; qty: string; checked: boolean }
 

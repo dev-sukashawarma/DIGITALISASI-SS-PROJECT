@@ -19,6 +19,14 @@ export default function NewOpnamePage() {
     );
   }
 
+  if (!outletStaff.outlet_id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fff8f1]">
+        <p className="text-[#701604] font-bold uppercase tracking-wider text-sm">Akun tidak terhubung ke outlet manapun</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
       {/* Header Banner */}

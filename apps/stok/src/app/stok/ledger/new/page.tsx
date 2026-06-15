@@ -6,6 +6,7 @@ import Link from 'next/link'
 export default function NewLedgerPage() {
   const { outletStaff } = useAuth()
   if (!outletStaff) return <div className="text-center py-20 text-xs font-bold text-gray-500 animate-pulse">Memuat…</div>
+  if (!outletStaff.outlet_id) return <div className="text-center py-20 text-xs font-bold text-gray-500">Akun tidak terhubung ke outlet manapun</div>
   return (
     <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
       <header className="bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex items-center justify-between shadow-[0_2px_8px_rgba(144,77,0,0.03)] sticky top-0 z-40">

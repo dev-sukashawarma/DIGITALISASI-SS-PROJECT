@@ -22,5 +22,6 @@ export interface OutletStaffProfile {
   name: string
   role: Role
   status: StaffStatus
+  ref_photo_url: string | null
   outlets?: { name: string } | null
 }

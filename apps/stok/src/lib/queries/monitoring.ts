@@ -30,16 +30,12 @@ export async function fetchSPVMonitoringData() {
   };
 }
 
-interface OutletStaffData {
-  outlet_id: string;
-  outlets: { nama: string };
-}
-
 /**
  * Fetch monitoring data for Crew (single-outlet view)
  * RLS enforced: Crew can only see own outlet
  */
 export async function fetchCrewMonitoringData(userId?: string) {
+  const supabase = createSupabaseBrowserClient();
   const actualUserId = userId || (await supabase.auth.getUser()).data.user?.id;
   if (!actualUserId) throw new Error('Not authenticated');
 
@@ -63,7 +59,6 @@ export async function fetchCrewMonitoringData(userId?: string) {
   if (outletError) throw outletError;
   const outletName = outletData?.name || 'Unknown';
 
-  const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('monitoring_view_crew')
     .select('*')
@@ -105,6 +100,7 @@ export async function fetchCrewMonitoringData(userId?: string) {
  * RLS enforced: SPV can see all outlets, crew can only see own outlet
  */
 export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
+  const supabase = createSupabaseBrowserClient();
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) throw new Error('Not authenticated');
 
@@ -332,6 +328,7 @@ export interface OutletDetailItem {
  * langsung karena RLS membatasi ke outlet milik user (SPV lihat outlet lain → kosong).
  */
 export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDetailItem[]> {
+  const supabase = createSupabaseBrowserClient();
   const { data: items, error } = await supabase
     .from('monitoring_view_spv')
     .select('*')

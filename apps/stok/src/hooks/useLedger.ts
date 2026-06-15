@@ -5,7 +5,7 @@ import type { LedgerStok, LedgerTipe } from '@/types/stok'
 
 const PAGE_SIZE = 50
 
-export function useLedgerList(outletId: string | undefined, page = 0) {
+export function useLedgerList(outletId: string | null | undefined, page = 0) {
   const [data, setData] = useState<LedgerStok[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

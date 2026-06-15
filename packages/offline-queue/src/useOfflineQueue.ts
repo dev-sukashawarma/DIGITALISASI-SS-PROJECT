@@ -6,13 +6,8 @@ import { QueueItem, UseOfflineQueueOptions } from './types'
 
 export function useOfflineQueue<T = any>(
   storageKey: string,
-  options: UseOfflineQueueOptions = {}
+  _options: UseOfflineQueueOptions = {}
 ) {
-  const {
-    maxRetries = 3,
-    retryDelay = 1000,
-  } = options
-
   const [state, setState] = useState<{
     items: QueueItem<T>[]
     isPending: boolean

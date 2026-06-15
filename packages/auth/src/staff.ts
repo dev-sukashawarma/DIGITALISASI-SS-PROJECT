@@ -11,7 +11,7 @@ export async function getOutletStaff(
     // Disambiguate the embed to the DIRECT FK (outlet_staff.outlet_id → outlets.id).
     // staff_outlets (many-to-many) adds a second outlet_staff↔outlets relationship,
     // so a bare `outlets(name)` errors: "more than one relationship was found".
-    .select('id, outlet_id, name, role, status, outlets!outlet_staff_outlet_id_fkey(name)')
+    .select('id, outlet_id, name, role, status, ref_photo_url, outlets!outlet_staff_outlet_id_fkey(name)')
     .eq('id', userId)
     .maybeSingle()
 
@@ -27,6 +27,7 @@ export async function getOutletStaff(
     name: data.name,
     role: data.role,
     status: data.status,
+    ref_photo_url: data.ref_photo_url,
     outlets: Array.isArray(data.outlets) && data.outlets.length > 0 ? data.outlets[0] : null,
   }
 

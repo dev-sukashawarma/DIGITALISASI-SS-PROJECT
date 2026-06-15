@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CrewList } from './CrewList';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
@@ -11,8 +11,36 @@ import Link from 'next/link';
 
 export function CrewDashboard() {
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
+  const [displayTime, setDisplayTime] = useState<string>('');
+  const [isOpnameOverdue, setIsOpnameOverdue] = useState(false);
+  const [opnameAgeText, setOpnameAgeText] = useState('');
   const { data, isLoading, isError, error, lastFetched, refetch } = useCrewMonitoringData();
   const { outletStaff } = useAuth();
+
+  useEffect(() => {
+    if (lastFetched) {
+      setDisplayTime(new Date(lastFetched).toLocaleTimeString('id-ID'));
+    }
+
+    // Calculate opname status client-side to avoid hydration mismatch
+    const items = data?.items || [];
+    const overdue = items.some((item) => {
+      if (!item.last_opname_date) return true;
+      const days = Math.floor((Date.now() - new Date(item.last_opname_date).getTime()) / (1000 * 60 * 60 * 24));
+      return days > 7;
+    });
+    setIsOpnameOverdue(overdue);
+
+    let oldestDate: Date | null = null;
+    for (const item of items) {
+      if (item.last_opname_date) {
+        const d = new Date(item.last_opname_date);
+        if (!oldestDate || d < oldestDate) oldestDate = d;
+      }
+    }
+    const ageText = !oldestDate ? 'Belum pernah opname' : `Terakhir ${Math.floor((Date.now() - oldestDate.getTime()) / (1000 * 60 * 60 * 24))} hari lalu`;
+    setOpnameAgeText(ageText);
+  }, [lastFetched, data?.items]);
 
   if (isLoading && !data) {
     return (
@@ -25,27 +53,6 @@ export function CrewDashboard() {
   }
 
   const criticalItems = (data?.items || []).filter((item) => item.status === 'below');
-
-  // Determine if opname is overdue (> 7 days)
-  const isOpnameOverdue = (data?.items || []).some((item) => {
-    if (!item.last_opname_date) return true;
-    const days = Math.floor((Date.now() - new Date(item.last_opname_date).getTime()) / (1000 * 60 * 60 * 24));
-    return days > 7;
-  });
-
-  const getOpnameAgeText = () => {
-    let oldestDate: Date | null = null;
-    for (const item of (data?.items || [])) {
-      if (item.last_opname_date) {
-        const d = new Date(item.last_opname_date);
-        if (!oldestDate || d < oldestDate) oldestDate = d;
-      }
-    }
-
-    if (!oldestDate) return 'Belum pernah opname';
-    const days = Math.floor((Date.now() - oldestDate.getTime()) / (1000 * 60 * 60 * 24));
-    return `Terakhir ${days} hari lalu`;
-  };
 
   const handleLogout = async () => {
     const supabase = createSupabaseBrowserClient()
@@ -103,13 +110,13 @@ export function CrewDashboard() {
               Outlet {data?.outlet_name || '...'}
             </span>
             <span className="text-[#544437] font-semibold">
-              SPV: Aris S. • Crew: {data?.items ? '4' : '0'}
+              Crew: {outletStaff?.name || '...'} • Items: {data?.items?.length || '0'}
             </span>
           </div>
           <div className="flex items-center justify-between text-[11px] text-[#544437]/80 font-medium">
             <span>Check stok status before shifts & opname</span>
             <span className="text-[#544437]/60">
-              Last updated: {lastFetched ? new Date(lastFetched).toLocaleTimeString('id-ID') : 'Never'}
+              Last updated: {displayTime || 'Never'}
             </span>
           </div>
         </div>
@@ -158,7 +165,7 @@ export function CrewDashboard() {
                     <div className="flex flex-col">
                       <span className="font-bold text-gray-900 text-sm">Opname Jatuh Tempo</span>
                       <p className="text-xs text-gray-600">
-                        {getOpnameAgeText()} (<span className="text-[#ba1a1a] font-bold uppercase text-[9px]">Overdue</span>)
+                        {opnameAgeText} (<span className="text-[#ba1a1a] font-bold uppercase text-[9px]">Overdue</span>)
                       </p>
                     </div>
                   </div>

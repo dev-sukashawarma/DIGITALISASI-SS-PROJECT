@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useOfflineQueue } from '@suka/offline-queue'
 import type { Opname, OpnameItem } from '@/types/stok'
 
-export function useOpnameList(outletId: string | undefined) {
+export function useOpnameList(outletId: string | null | undefined) {
   const [data, setData] = useState<Opname[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {

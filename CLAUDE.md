@@ -175,27 +175,38 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 7. **Permintaan link** — aksi cepat "Permintaan Bahan" di CrewDashboard (entry point yg hilang)
 8. **Outlet staff seeding** — insert Andi Empang (crew) ke outlet_staff table untuk testing
 
-### 🔧 In Progress / Issues Found
-**Problem:** Dashboard monitoring masih gagal query data (outlet 33 stok items ada, tapi "Connection unstable").
+### ✅ Session 2026-06-15 (Continuation): Type-check & Hydration Fixes
 
-**Root causes ditemukan & diperbaiki bertahap:**
-1. ❌ Auto-refresh infinite loop → disable `useAutoRefresh` demi isolasi
-2. ❌ "Not authenticated" error → pass `userId` dari `useAuth()` ke fetch, hindari re-query `auth.getUser()`
-3. ❌ Embed coerce error → query `outlet_staff` + `outlets` terpisah (embed return array)
-4. ❌ HTTP 406 "Not Acceptable" → ganti `createClient()` ke `createSupabaseBrowserClient()` dari @suka/auth (session proper)
-5. 🔴 **CURRENT:** Syntax error di monitoring.ts line 66 — double declaration `const supabase`
+**Problems solved:**
+1. **Syntax error di monitoring.ts** — fixed duplicate `const supabase` (line 9 & 66), added missing client init to `fetchItemDetail` + `fetchOutletItemsDetail`
+2. **Type-check failures (228→69→0):**
+   - `apps/stok/tsconfig.json` — added `"baseUrl": "."` to fix `@/*` path resolution, added `"types": ["vitest/globals", "@testing-library/jest-dom"]`
+   - `apps/stok/package.json` — install missing test deps (`vitest`, `jsdom`, `@testing-library/*`)
+   - `useLedger.ts` / `useOpname.ts` — widened `outletId` param to `string | null | undefined`
+   - `ledger/new` & `opname/new` pages — added guard for staff with no `outlet_id`
+   - `packages/auth` — added `ref_photo_url` field to `OutletStaffProfile` type & `getOutletStaff()` query
+   - `PermintaanForm.tsx` — removed unused `useBahanBaku` import
+   - `packages/offline-queue` — removed unused `maxRetries`/`retryDelay` destructure
+   - `StatusBadge.test.tsx` — updated test to match current "Operasional Minimalist" component design
 
-**File status:**
-- `apps/stok/src/lib/queries/monitoring.ts` — punya duplicate `const supabase` declaration (line 9 & 66)
-- Need to fix syntax error sebelum lanjut test
+3. **Hydration mismatch di CrewDashboard** — moved all `new Date()` / `Date.now()` calculations ke `useEffect` (client-only render) untuk hindari server/client mismatch
+4. **Hardcoded "Aris S." di header** — replaced dengan actual crew name dari `outletStaff.name` (sekarang tampil "Crew: Andi Empang")
+
+**Test status:** All 65 tests pass, `yarn type-check` clean (0 errors)
+
+### ✅ Completed (Overall)
+- Dashboard `/dashboard` render crew monitoring data tanpa "Connection unstable" error
+- Login via SSO works, crew name displays correctly
+- All type errors resolved
+- Tests running & passing
 
 ### 📝 Next Steps
-1. Fix syntax error di monitoring.ts (remove duplicate supabase declaration)
-2. Test `/dashboard` apakah data muncul atau error baru
-3. Enable auto-refresh kembali dengan proper error handling
-4. Push 9 commits ke GitHub & redeploy server `stok.sukashawarma.com`
+1. ✅ Type-check complete
+2. ✅ Tests passing
+3. Manual smoke test via browser ✅
+4. Push commits ke GitHub & redeploy `stok.sukashawarma.com`
 
 ---
 
-**Last updated:** 2026-06-15  
+**Last updated:** 2026-06-15 (continued)  
 **Owner:** Dev Suka Shawarma

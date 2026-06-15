@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@suka/auth';
 import type { SPVMonitoringData, CrewMonitoringData } from '@/lib/types/monitoring';
 import { fetchSPVMonitoringData, fetchCrewMonitoringData, fetchRecentLedger, fetchStockoutForecast, fetchWasteToday } from '@/lib/queries/monitoring';
 import { useAutoRefresh } from './useAutoRefresh';
@@ -101,12 +102,14 @@ export function useSPVMonitoringData() {
 export function useCrewMonitoringData() {
   const [isError, setIsError] = useState(false);
   const cachedDataRef = useRef<CrewMonitoringData | null>(null);
+  const { outletStaff } = useAuth();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['monitoring', 'crew'],
     queryFn: async () => {
       try {
-        const result = await fetchCrewMonitoringData();
+        // Pass authenticated user ID dari auth context (tidak perlu query auth lagi)
+        const result = await fetchCrewMonitoringData(outletStaff?.id);
         cachedDataRef.current = result;
         setIsError(false);
         return result;

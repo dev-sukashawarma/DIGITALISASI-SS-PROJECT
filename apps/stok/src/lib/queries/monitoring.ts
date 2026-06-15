@@ -42,9 +42,9 @@ interface OutletStaffData {
  * Fetch monitoring data for Crew (single-outlet view)
  * RLS enforced: Crew can only see own outlet
  */
-export async function fetchCrewMonitoringData() {
-  const { data: authData } = await supabase.auth.getUser();
-  if (!authData.user) throw new Error('Not authenticated');
+export async function fetchCrewMonitoringData(userId?: string) {
+  const actualUserId = userId || (await supabase.auth.getUser()).data.user?.id;
+  if (!actualUserId) throw new Error('Not authenticated');
 
   // Get user's outlet_id from outlet_staff
   const { data: staffData, error: staffError } = await supabase
@@ -53,7 +53,7 @@ export async function fetchCrewMonitoringData() {
     // staff_outlets (many-to-many) menambah relasi kedua, jadi `outlets(...)` polos
     // error: "more than one relationship was found". Selaras @suka/auth getOutletStaff.
     .select('outlet_id, outlets!outlet_staff_outlet_id_fkey(nama:name)')
-    .eq('id', authData.user.id)
+    .eq('id', actualUserId)
     .single<OutletStaffData>();
 
   if (staffError) throw staffError;

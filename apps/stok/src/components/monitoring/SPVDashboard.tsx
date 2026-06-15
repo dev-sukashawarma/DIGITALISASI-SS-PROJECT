@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { SPVTabs } from './SPVTabs';
 import { SPVTable } from './SPVTable';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
@@ -8,7 +8,6 @@ import { TransferModal } from './TransferModal';
 import { TransferSuggestionPanel } from './TransferSuggestionPanel';
 import type { TransferSuggestion } from '@/lib/stok/transferSuggestion';
 import { useSPVMonitoringData } from '@/hooks/useMonitoringData';
-import { useQuery } from '@tanstack/react-query';
 import { fetchOpnameStatus } from '@/lib/queries/monitoring';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
@@ -55,11 +54,13 @@ export function SPVDashboard() {
   const { data, isLoading, isError, lastFetched, refetch, autoRefresh } = useSPVMonitoringData();
 
   // Fetch compliance/opname status
-  const { data: opnameStatuses, isLoading: isOpnameLoading } = useQuery({
-    queryKey: ['monitoring', 'opnameStatus'],
-    queryFn: fetchOpnameStatus,
-    enabled: activeTab === 'compliance',
-  });
+  const [opnameStatuses, setOpnameStatuses] = useState<Awaited<ReturnType<typeof fetchOpnameStatus>> | undefined>(undefined);
+  const [isOpnameLoading, setIsOpnameLoading] = useState(false);
+  useEffect(() => {
+    if (activeTab !== 'compliance') return;
+    setIsOpnameLoading(true);
+    fetchOpnameStatus().then(setOpnameStatuses).finally(() => setIsOpnameLoading(false));
+  }, [activeTab]);
 
   // Local state override for edited thresholds to allow immediate UI response
   const [localThresholdOverrides, setLocalThresholdOverrides] = useState<Record<string, number>>({});

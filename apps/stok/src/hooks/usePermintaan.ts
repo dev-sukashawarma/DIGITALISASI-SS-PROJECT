@@ -76,27 +76,31 @@ export function useSaranItem(outletId: string | undefined) {
     const load = async () => {
       setLoading(true)
       try {
+        // monitoring_view_crew = SECURITY DEFINER view (bypass RLS stok_balance).
+        // Filter status di sisi klien — view mengembalikan semua item outlet.
         const { data, error } = await supabase
           .from('monitoring_view_crew')
           .select('bahan_baku_id, item_name, satuan, current_qty, threshold, status')
           .eq('outlet_id', outletId)
-          .in('status', ['below', 'warning'])
 
         if (error) throw error
         if (!cancelled) {
           setSaran(
-            (data ?? []).map((row: any) => ({
-              bahan_baku_id: row.bahan_baku_id,
-              item_name: row.item_name,
-              satuan: row.satuan,
-              current_qty: row.current_qty,
-              threshold: row.threshold,
-              status: row.status as 'below' | 'warning',
-            }))
+            (data ?? [])
+              .filter((row: any) => row.status === 'below' || row.status === 'warning')
+              .map((row: any) => ({
+                bahan_baku_id: row.bahan_baku_id,
+                item_name: row.item_name,
+                satuan: row.satuan,
+                current_qty: row.current_qty,
+                threshold: row.threshold,
+                status: row.status as 'below' | 'warning',
+              }))
           )
         }
-      } catch (_err) {
-        // silently ignore saran errors — non-critical
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[useSaranItem] gagal memuat saran:', err)
       } finally {
         if (!cancelled) setLoading(false)
       }

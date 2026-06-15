@@ -1,13 +1,10 @@
-import { AuthProvider, createSupabaseBrowserClient } from '@suka/auth'
-import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { Providers } from './Providers'
 import './globals.css'
 
 export const metadata = {
   title: 'Stok Bahan Baku — Sukashawarma',
   description: 'Opname, ledger, monitoring stok bahan baku',
 }
-
-const supabase = createSupabaseBrowserClient()
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,9 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body className="antialiased">
-        <ErrorBoundary>
-          <AuthProvider supabase={supabase}>{children}</AuthProvider>
-        </ErrorBoundary>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

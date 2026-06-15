@@ -11,8 +11,6 @@ interface Row { bahan_baku_id: string; nama: string; satuan: string; qty: string
 export function PermintaanForm({ outletId }: { outletId: string }) {
   const router = useRouter()
   const { saran } = useSaranItem(outletId)
-  // bahanBaku reserved for future manual add-item picker
-  const { bahanBaku: _bahanBaku } = useBahanBaku()
   const { buat } = usePermintaanActions()
   const [rows, setRows] = useState<Record<string, Row>>({})
   const [busy, setBusy] = useState(false)

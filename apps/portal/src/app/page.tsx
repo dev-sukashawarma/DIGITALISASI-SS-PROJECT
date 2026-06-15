@@ -1,7 +1,7 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { createSupabaseBrowserClient, getOutletStaff } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
 import { LogIn, AlertCircle, Loader2 } from 'lucide-react'
 
@@ -17,9 +17,24 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     const supabase = createSupabaseBrowserClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
-    if (error) { setError(error.message); return }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) { setLoading(false); setError('Email atau kata sandi salah.'); return }
+
+    // Verifikasi status staff sebelum masuk — akun nonaktif/cuti tidak boleh lanjut
+    const { staff } = await getOutletStaff(supabase, data.user.id)
+    if (!staff) {
+      await supabase.auth.signOut()
+      setLoading(false)
+      setError('Akun Anda belum terdaftar sebagai staff. Hubungi admin.')
+      return
+    }
+    if (staff.status !== 'active') {
+      await supabase.auth.signOut()
+      setLoading(false)
+      setError('Akun Anda nonaktif. Hubungi admin untuk mengaktifkan kembali.')
+      return
+    }
+
     router.push('/launcher')
   }
 

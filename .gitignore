@@ -41,3 +41,16 @@ Thumbs.db
 # Misc
 coverage/
 .turbo/
+
+# Development & Temporary
+.agents/
+.superpowers/
+.tmp_migrate/
+.claude/
+.claude/worktrees/
+plan_masa_depan/
+
+# Old setup scripts (now in DEPLOY-CPANEL.md)
+create-bucket.js
+setup-policy.js
+tugas_lanjutan.md

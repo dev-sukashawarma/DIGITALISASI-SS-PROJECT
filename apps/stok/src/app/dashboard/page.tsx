@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   return (
@@ -19,6 +20,13 @@ export default function DashboardPage() {
           <p className="text-sm text-gray-600">Version</p>
           <p className="text-2xl font-bold text-blue-900">M0</p>
         </div>
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Link href="/stok/permintaan" className="p-4 bg-suka-orange/10 rounded-lg border border-suka-orange hover:bg-suka-orange/20 transition">
+          <h3 className="font-semibold text-suka-brown mb-1">Permintaan Bahan Baku</h3>
+          <p className="text-sm text-gray-600">Kelola permintaan stok per outlet</p>
+        </Link>
       </div>
 
       <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">

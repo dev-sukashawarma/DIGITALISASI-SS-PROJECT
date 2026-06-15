@@ -46,20 +46,25 @@ export async function fetchCrewMonitoringData(userId?: string) {
   const actualUserId = userId || (await supabase.auth.getUser()).data.user?.id;
   if (!actualUserId) throw new Error('Not authenticated');
 
-  // Get user's outlet_id from outlet_staff
+  // Get user's outlet_id from outlet_staff (tidak pakai embed karena masalah coerce)
   const { data: staffData, error: staffError } = await supabase
     .from('outlet_staff')
-    // Disambiguate embed ke FK langsung (outlet_staff.outlet_id → outlets.id).
-    // staff_outlets (many-to-many) menambah relasi kedua, jadi `outlets(...)` polos
-    // error: "more than one relationship was found". Selaras @suka/auth getOutletStaff.
-    .select('outlet_id, outlets!outlet_staff_outlet_id_fkey(nama:name)')
+    .select('outlet_id')
     .eq('id', actualUserId)
-    .single<OutletStaffData>();
+    .single<{ outlet_id: string }>();
 
   if (staffError) throw staffError;
-  if (!staffData || !staffData.outlets) throw new Error('User not assigned to outlet');
+  if (!staffData?.outlet_id) throw new Error('User not assigned to outlet');
 
-  const outletName = staffData.outlets.nama;
+  // Get outlet name terpisah
+  const { data: outletData, error: outletError } = await supabase
+    .from('outlets')
+    .select('name')
+    .eq('id', staffData.outlet_id)
+    .single<{ name: string }>();
+
+  if (outletError) throw outletError;
+  const outletName = outletData?.name || 'Unknown';
 
   const { data, error } = await supabase
     .from('monitoring_view_crew')

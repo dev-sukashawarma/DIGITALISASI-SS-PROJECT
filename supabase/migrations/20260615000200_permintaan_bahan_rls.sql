@@ -27,6 +27,8 @@ CREATE POLICY "select_permintaan_bahan_accessible_outlets"
   );
 
 -- INSERT: only outlet staff can create for their outlets, must be the requester
+-- Kitchen staff can only approve requests, not create them.
+-- Requests are initiated by crew/outlet staff.
 CREATE POLICY "insert_permintaan_bahan_own_outlet"
   ON permintaan_bahan
   FOR INSERT
@@ -68,7 +70,7 @@ CREATE POLICY "select_permintaan_bahan_item_via_parent"
     )
   );
 
--- INSERT: only if parent permintaan is in accessible outlets
+-- INSERT: only if parent permintaan is in accessible outlets or user is kitchen staff
 CREATE POLICY "insert_permintaan_bahan_item_accessible_parent"
   ON permintaan_bahan_item
   FOR INSERT
@@ -77,7 +79,10 @@ CREATE POLICY "insert_permintaan_bahan_item_accessible_parent"
     EXISTS (
       SELECT 1 FROM permintaan_bahan pb
       WHERE pb.id = permintaan_bahan_item.permintaan_id
-        AND pb.outlet_id IN (SELECT accessible_outlet_ids())
+        AND (
+          pb.outlet_id IN (SELECT accessible_outlet_ids())
+          OR is_kitchen_staff()
+        )
     )
   );
 

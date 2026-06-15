@@ -118,8 +118,15 @@ export function CrewDashboard() {
       <main className="px-4 flex flex-col gap-6 mt-6 pb-28">
         {/* Connection unstable alert */}
         {isError && (
-          <div className="p-3.5 bg-[#ffdad6] text-[#ba1a1a] rounded-2xl border border-[#ba1a1a]/20 text-xs font-semibold flex items-center gap-2">
-            <span>⚠️</span> Connection unstable
+          <div className="p-3.5 bg-[#ffdad6] text-[#ba1a1a] rounded-2xl border border-[#ba1a1a]/20 text-xs font-semibold flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span>⚠️</span> Connection unstable
+            </div>
+            {error && (
+              <div className="text-[10px] font-mono bg-white/50 p-2 rounded border border-[#ba1a1a]/10 max-h-20 overflow-y-auto">
+                {String(error?.message || error)}
+              </div>
+            )}
           </div>
         )}
 

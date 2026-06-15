@@ -27,6 +27,7 @@
     "@types/react": "^18.2.45"
   },
   "peerDependencies": {
+    "next": ">=15",
     "react": "^19.0.0"
   }
 }

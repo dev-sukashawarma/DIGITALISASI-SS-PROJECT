@@ -1,36 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server'
-import { createSupabaseServerClient, hasAppAccess } from '@suka/auth'
+import { type NextRequest } from 'next/server'
+import { enforceAppAccess } from '@suka/auth'
 
-const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
-
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request })
-
-  const supabase = createSupabaseServerClient({
-    getAll: () => request.cookies.getAll(),
-    setAll: (cookies) => {
-      cookies.forEach(({ name, value, options }) =>
-        response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2])
-      )
-    },
-  })
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.redirect(new URL(PORTAL_URL, request.url))
-  }
-
-  const { data: staff } = await supabase
-    .from('outlet_staff')
-    .select('role, status')
-    .eq('id', user.id)
-    .single()
-
-  if (!staff || !hasAppAccess(staff.role, 'absensi') || staff.status !== 'active') {
-    return NextResponse.redirect(new URL(PORTAL_URL, request.url))
-  }
-
-  return response
+export function middleware(request: NextRequest) {
+  return enforceAppAccess(request, 'absensi')
 }
 
 export const config = {

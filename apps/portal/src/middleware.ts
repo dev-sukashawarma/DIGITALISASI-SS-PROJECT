@@ -29,7 +29,8 @@ export async function middleware(request: NextRequest) {
     if (staff && staff.status === 'active') {
       return NextResponse.redirect(new URL('/launcher', request.url))
     }
-    // If staff is inactive or on_leave, logout and redirect to login
+    // Inactive/on_leave: fall through to render the login page. The status gate
+    // (with user-facing message) is enforced in the login handler & launcher RSC.
   }
 
   // Not logged in → force to login

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@suka/auth";
 import { LayoutDashboard, ClipboardList, Camera, LogOut, Store, X, Settings2, Users, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal } from "lucide-react";
 
 type NavItem = { href: string; label: string; mobileLabel?: string; icon: React.ReactNode };

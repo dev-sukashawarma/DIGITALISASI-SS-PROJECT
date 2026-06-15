@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { CrewList } from './CrewList';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
-import { useAuth } from '@suka/auth';
+import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import { getCrossAppUrl } from '@/lib/navigation';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
@@ -47,6 +47,12 @@ export function CrewDashboard() {
     return `Terakhir ${days} hari lalu`;
   };
 
+  const handleLogout = async () => {
+    const supabase = createSupabaseBrowserClient()
+    await supabase.auth.signOut()
+    window.location.href = '/'
+  }
+
   return (
     <div className="min-h-screen bg-[#fff8f1]">
       {/* Top Header App Bar */}
@@ -73,13 +79,22 @@ export function CrewDashboard() {
               </h1>
             </div>
           </div>
-          <button
-            onClick={() => refetch()}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 border border-[#877365]/20 transition-all active:scale-95"
-            title="Refresh"
-          >
-            🔄
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => refetch()}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 border border-[#877365]/20 transition-all active:scale-95"
+              title="Refresh"
+            >
+              🔄
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-3 h-10 flex items-center justify-center rounded-full bg-white hover:bg-red-50 border border-[#ba1a1a]/30 text-[#ba1a1a] transition-all active:scale-95 font-semibold text-xs"
+              title="Logout"
+            >
+              Keluar
+            </button>
+          </div>
         </div>
         
         <div className="flex flex-col gap-1.5 mt-1 border-t border-[#d9c2b2]/20 pt-2.5">

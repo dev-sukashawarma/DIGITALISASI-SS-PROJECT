@@ -1,15 +1,12 @@
-// Use the shared browser client (@supabase/ssr) so the logged-in session
-// is carried on every request. A raw @supabase/supabase-js client does NOT
-// share the SSR session and causes "Not authenticated" errors.
-import { createClient } from '@/lib/supabase';
-
-const supabase = createClient();
+// Use @suka/auth browser client yang properly configure session untuk browser
+import { createSupabaseBrowserClient } from '@suka/auth';
 
 /**
  * Fetch monitoring data for SPV (multi-outlet view)
  * RLS enforced: SPV role can see all outlets
  */
 export async function fetchSPVMonitoringData() {
+  const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('monitoring_view_spv')
     .select('*')
@@ -66,6 +63,7 @@ export async function fetchCrewMonitoringData(userId?: string) {
   if (outletError) throw outletError;
   const outletName = outletData?.name || 'Unknown';
 
+  const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('monitoring_view_crew')
     .select('*')
@@ -177,6 +175,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
  * Fetch opname status per outlet (for Compliance tab)
  */
 export async function fetchOpnameStatus() {
+  const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('outlets')
     .select(
@@ -235,6 +234,7 @@ export interface LedgerFeedEntry {
  * the per-outlet RLS on ledger_stok.
  */
 export async function fetchRecentLedger(limit = 50): Promise<LedgerFeedEntry[]> {
+  const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('ledger_feed_spv')
     .select('*')
@@ -263,6 +263,7 @@ export interface StockoutForecastItem {
  * item hits the threshold. Backed by stockout_forecast_spv (definer view).
  */
 export async function fetchStockoutForecast(maxDays = 1, limit = 6): Promise<StockoutForecastItem[]> {
+  const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('stockout_forecast_spv')
     .select('*')
@@ -290,6 +291,7 @@ export async function fetchWasteToday(): Promise<WasteTodaySummary> {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
+  const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('ledger_feed_spv')
     .select('*')
@@ -385,6 +387,7 @@ export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDe
  * Fetch master list of all outlets
  */
 export async function fetchOutletsList() {
+  const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('outlets')
     .select('id, nama:name, slug, address, type')

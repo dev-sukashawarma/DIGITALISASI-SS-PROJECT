@@ -42,7 +42,7 @@ export default function UnifiedLoginPage() {
 
     // Fetch Profile Role to determine redirect
     const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
+      .from('outlet_staff')
       .select('role')
       .eq('id', authData.user.id)
       .single()

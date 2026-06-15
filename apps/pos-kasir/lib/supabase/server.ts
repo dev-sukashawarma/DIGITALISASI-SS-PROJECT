@@ -1,28 +1,36 @@
-// Re-export server client from @suka/auth for SSO cookie domain consistency
-export { createSupabaseServerClient } from '@suka/auth'
-
-import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
 import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
-/** Convenience wrapper for RSC/Server Actions using next/headers cookies. */
 export async function createClient() {
   const cookieStore = await cookies()
-  return createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: (cookiesToSet) => {
-      try {
-        cookiesToSet.forEach(({ name, value, options }) =>
-          cookieStore.set(name, value, { ...options as object, maxAge: 31536000 })
-        )
-      } catch {
-        // Server Component — cookie setting handled by middleware
-      }
-    },
-  })
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookieOptions: {
+        name: 'sb-pos-kasir-auth-token',
+        maxAge: 31536000,
+        path: '/',
+      },
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet: any[]) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, { ...options, maxAge: 31536000 })
+            )
+          } catch {
+            // Server Component - cookie setting handled by middleware
+          }
+        },
+      },
+    }
+  )
 }
 
-/** Service-role client (bypasses RLS). Use only in API Routes. */
+// Gunakan hanya di API Routes - bypasses RLS
 export function createServiceClient() {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

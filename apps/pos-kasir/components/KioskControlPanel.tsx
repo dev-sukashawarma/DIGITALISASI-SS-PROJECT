@@ -37,7 +37,7 @@ export default function KioskControlPanel() {
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setReady(true); return }
-      const { data: profile } = await supabase.from('profiles').select('outlet_id').eq('id', user.id).single()
+      const { data: profile } = await supabase.from('outlet_staff').select('outlet_id').eq('id', user.id).single()
       setOutletId(profile?.outlet_id ?? null)
       setReady(true)
     })

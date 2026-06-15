@@ -26,7 +26,7 @@ export default function KioskPresenceMount() {
         return
       }
       const { data: profile } = await supabase
-        .from('profiles')
+        .from('outlet_staff')
         .select('role, outlet_id, username')
         .eq('id', uid)
         .single()

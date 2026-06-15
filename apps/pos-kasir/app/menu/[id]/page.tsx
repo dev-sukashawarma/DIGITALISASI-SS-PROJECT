@@ -36,7 +36,7 @@ export default function ProductDetailPage() {
         return
       }
       
-      const { data: profile } = await supabase.from('profiles').select('outlet_id').eq('id', user.id).single()
+      const { data: profile } = await supabase.from('outlet_staff').select('outlet_id').eq('id', user.id).single()
       const currentOutletId = profile?.outlet_id || '11111111-1111-1111-1111-111111111111'
 
       // Fetch main item

@@ -25,7 +25,7 @@ export default function MenuPage() {
         return
       }
       
-      const { data: profile } = await supabase.from('profiles').select('outlet_id, role').eq('id', user.id).single()
+      const { data: profile } = await supabase.from('outlet_staff').select('outlet_id, role').eq('id', user.id).single()
       if (!profile || !profile.outlet_id || profile.role !== 'kiosk') {
         // Jika admin atau kasir membuka halaman ini, tetap izinkan tapi tanpa spesifik outlet (atau gunakan pusat)
         // Tapi idealnya redirect ke login jika bukan role kiosk. Untuk fleksibilitas admin lihat kiosk, kita izinkan.

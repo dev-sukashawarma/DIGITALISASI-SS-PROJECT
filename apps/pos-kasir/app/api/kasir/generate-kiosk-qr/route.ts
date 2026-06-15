@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     const supabaseService = createServiceClient()
-    const { data: profile } = await supabaseService.from('profiles').select('role, outlet_id').eq('id', user.id).single()
+    const { data: profile } = await supabaseService.from('outlet_staff').select('role, outlet_id').eq('id', user.id).single()
 
     if (!profile || profile.role !== 'kasir') {
       return NextResponse.json({ error: 'Akses ditolak. Harus Kasir.' }, { status: 403 })
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
     // 2. Cari user kiosk spesifik di outlet yang sama
     const { data: kioskProfile } = await supabaseService
-      .from('profiles')
+      .from('outlet_staff')
       .select('id, username')
       .eq('id', kiosk_id)
       .eq('role', 'kiosk')

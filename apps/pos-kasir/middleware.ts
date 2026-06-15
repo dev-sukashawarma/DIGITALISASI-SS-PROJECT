@@ -1,34 +1,47 @@
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { createSupabaseServerClient } from '@suka/auth'
-
-const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
-  const supabase = createSupabaseServerClient({
-    getAll: () => request.cookies.getAll(),
-    setAll: (cookiesToSet) => {
-      cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-      supabaseResponse = NextResponse.next({ request })
-      cookiesToSet.forEach(({ name, value, options }) =>
-        supabaseResponse.cookies.set(name, value, { ...(options as object), maxAge: 31536000 })
-      )
-    },
-  })
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookieOptions: {
+        name: 'sb-pos-kasir-auth-token',
+        maxAge: 31536000,
+        path: '/',
+      },
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet: any[]) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
+          supabaseResponse = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, { ...options, maxAge: 31536000 })
+          )
+        },
+      },
+    }
+  )
 
   const { data: { user } } = await supabase.auth.getUser()
-
+  
   let role = null
   let outlet_id = null
-
+  
   if (user) {
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('outlet_staff')
       .select('role, outlet_id')
       .eq('id', user.id)
       .single()
-
+      
     if (profile) {
       role = profile.role
       outlet_id = profile.outlet_id
@@ -37,22 +50,38 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname
 
-  // Unauthenticated: redirect to SSO portal
-  if (!user) {
-    return NextResponse.redirect(new URL(PORTAL_URL, request.url))
-  }
-
   // Proteksi Route Admin
   if (path.startsWith('/admin')) {
-    if (role !== 'admin') {
-      return NextResponse.redirect(new URL(PORTAL_URL, request.url))
+    if (!user || role !== 'admin') {
+      return NextResponse.redirect(new URL('/login', request.url))
     }
   }
 
   // Proteksi Route Kasir
   if (path.startsWith('/kasir')) {
-    if (role !== 'kasir') {
-      return NextResponse.redirect(new URL(PORTAL_URL, request.url))
+    if (!user || role !== 'kasir') {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+  }
+
+  // Proteksi Route Pelanggan (Self-Order Kiosk)
+  // Device self-order HARUS sudah di-login kan kasir via QR (role 'kiosk').
+  // Halaman pesan pelanggan ('/', menu, checkout, dst) tidak boleh dibuka
+  // kalau device belum punya sesi kiosk aktif.
+  const PUBLIC_PATHS = ['/login', '/kiosk/qr-login', '/panduan']
+  const isPublicPath = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + '/'))
+  const isApiPath = path.startsWith('/api')
+  const isDashboardPath = path.startsWith('/admin') || path.startsWith('/kasir')
+
+  if (!isPublicPath && !isApiPath && !isDashboardPath) {
+    // Belum login sama sekali → device belum di-aktifkan kasir
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+    // Sudah login tapi bukan device kiosk (admin diizinkan untuk preview).
+    // Kasir yang nyasar ke sini dikembalikan ke dashboard-nya.
+    if (role !== 'kiosk' && role !== 'admin') {
+      return NextResponse.redirect(new URL(role === 'kasir' ? '/kasir' : '/login', request.url))
     }
   }
 
@@ -63,7 +92,8 @@ export async function middleware(request: NextRequest) {
     if (role === 'kiosk') return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // Inject outlet-id header untuk Kiosk
+  // Inject session data untuk digunakan di App (khususnya untuk Kiosk)
+  // Ini membantu Kiosk UI tahu dia ada di outlet mana
   if (role === 'kiosk' && outlet_id) {
     supabaseResponse.headers.set('x-outlet-id', outlet_id)
   }
@@ -73,6 +103,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|kiosk|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization)
+     * - favicon.ico (favicon)
+     * - public files (images, etc.)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }

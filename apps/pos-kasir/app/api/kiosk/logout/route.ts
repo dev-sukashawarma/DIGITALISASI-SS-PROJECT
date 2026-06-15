@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   const service = createServiceClient()
   const { data: profile } = await service
-    .from('profiles')
+    .from('outlet_staff')
     .select('role, outlet_id')
     .eq('id', user.id)
     .single()
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
   // 2. Ambil semua akun kiosk di outlet requester (otoritatif dari server)
   const { data: kiosks } = await service
-    .from('profiles')
+    .from('outlet_staff')
     .select('id, outlet_id')
     .eq('role', 'kiosk')
     .eq('outlet_id', profile.outlet_id ?? '__none__')

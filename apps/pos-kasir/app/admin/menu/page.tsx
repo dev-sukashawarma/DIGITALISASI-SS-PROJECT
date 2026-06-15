@@ -55,6 +55,7 @@ export default function AdminMenuPage() {
   const [preview, setPreview]     = useState<string | null>(null)
   const [showZipModal, setShowZipModal] = useState(false)
   const [searchQuery, setSearchQuery]   = useState('')
+  const [deletingAll, setDeletingAll]   = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function fetchData() {
@@ -205,6 +206,23 @@ export default function AdminMenuPage() {
     fetchData()
   }
 
+  async function deleteAllItems() {
+    if (items.length === 0) return
+    if (!confirm(`Hapus SEMUA ${items.length} menu? Tindakan ini tidak bisa dibatalkan.`)) return
+    if (!confirm('Yakin? Semua data menu dan foto akan dihapus permanen.')) return
+
+    setDeletingAll(true)
+    const supabase = createClient()
+
+    for (const item of items) {
+      if (item.image_url) await deleteStorageImage(item.image_url)
+    }
+    await supabase.from('menu_items').delete().not('id', 'is', null)
+
+    setDeletingAll(false)
+    fetchData()
+  }
+
   const displayImage = preview ?? form.image_url
 
   const filteredItems = items.filter(item => {
@@ -245,6 +263,18 @@ export default function AdminMenuPage() {
           >
             <FileArchive className="w-4 h-4" />
             Import ZIP
+          </button>
+          <button
+            onClick={deleteAllItems}
+            disabled={deletingAll || items.length === 0}
+            className="py-2.5 px-5 text-sm font-semibold rounded-2xl flex items-center gap-2
+              bg-red-50 text-red-500 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed
+              transition-all duration-200 active:scale-[.98]"
+          >
+            {deletingAll
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <Trash2 className="w-4 h-4" />}
+            Hapus Semua
           </button>
           <button onClick={openAdd} className="btn-primary py-2.5 px-5 text-sm">
             <Plus className="w-4 h-4" />

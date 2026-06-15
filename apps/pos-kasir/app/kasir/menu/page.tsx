@@ -42,7 +42,7 @@ export default function KasirMenuPage() {
     // Get user outlet_id
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data: profile } = await supabase.from('profiles').select('outlet_id').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('outlet_staff').select('outlet_id').eq('id', user.id).single()
     const currentOutletId = profile?.outlet_id
     setOutletId(currentOutletId)
 

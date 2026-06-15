@@ -59,11 +59,15 @@ async function run() {
   const targetUser = allUsers.users.find(u => u.email === email);
   
   if (targetUser) {
-    // 4. Update profile role to kasir and set outlet_id
-    const { error: profileError } = await supabase.from('profiles').upsert({
+    // 4. Update outlet_staff (identitas kanonik) role kasir + outlet_id
+    const { error: profileError } = await supabase.from('outlet_staff').upsert({
       id: targetUser.id,
+      name: 'kasir_tes',
+      username: 'kasir_tes',
       role: 'kasir',
-      outlet_id: outletId
+      outlet_id: outletId,
+      status: 'active',
+      is_active: true
     });
     if (profileError) console.log('Error updating profile:', profileError);
     else {

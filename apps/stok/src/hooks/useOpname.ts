@@ -53,7 +53,7 @@ export function useOpnameActions() {
   }, [add])
 
   const flushFinalize = useCallback(async () => {
-    return flush(async (items) => {
+    return flush(async (items: Array<{ data: FinalizePayload }>) => {
       for (const it of items) {
         const { error } = await supabase.rpc('finalize_opname', { p_opname_id: it.data.opnameId })
         if (error) throw error

@@ -5,9 +5,12 @@
 
 ## Identitas & Orang
 
-- **Outlet Staff** — pegawai yang bekerja di satu outlet (≠ HQ Employee). **Identitas kanonik** suite ini; semua aksi outlet (absen, transaksi, stok, terima kiriman) ber-aktor Outlet Staff. Role: `crew | kasir | spv | kepala_outlet`. (lihat ADR-001)
+- **Outlet Staff** — pegawai/akun yang beraksi di lingkup outlet (≠ HQ Employee). **Identitas kanonik & SATU-SATUNYA tabel user** untuk seluruh suite (absensi, POS kasir, stok, dan sistem lain yang akan diintegrasikan); semua aksi (absen, transaksi POS, stok, terima kiriman) ber-aktor Outlet Staff. `id` = `auth.users.id`. Role: `crew | kasir | spv | kepala_outlet | admin | kiosk`. `outlet_id` nullable (khusus `admin` global). Sejak unifikasi (`20260613000100`), tabel `profiles` POS dilebur ke sini — lihat ADR-0007. (lihat ADR-001)
 - **HQ Employee** — karyawan pusat (domain SS-WEBAPP existing). **Di luar scope** suite ini.
 - **SPV / Kepala Outlet** — role Outlet Staff dengan wewenang enroll wajah, approve, dan supervisi outlet.
+- **Admin** — role global POS (tanpa outlet, `outlet_id` NULL): kelola user, menu, outlet, laporan lintas-cabang.
+- **Kiosk** — "user" yang mewakili satu device self-order pelanggan di sebuah outlet (bukan orang). Login via QR oleh kasir.
+- **Status Akun** — `is_active` (boolean) + `inactive_reason` menggate akses (dipakai blocker POS). Kolom lama `status` (`active|inactive|on_leave`) tetap untuk konteks absensi; `is_active` diselaraskan dengannya saat unifikasi.
 
 ## Bahan Baku & Stok
 
@@ -35,6 +38,12 @@
 ## Sistem & Hosting
 
 - **Ecosystem (project produksi)** — Supabase project existing dipakai TiktokGo + POS SS lama. Master `outlets`. **Read-only** dari sisi suite baru.
-- **shawarma-kiosk** — POS/self-service baru (Next.js+Supabase, multi-outlet, kasir+payment+reports). Project Supabase **terpisah**. **Sumber sales resmi** untuk Owner Dashboard. **Read-only** dari sisi suite baru. (akan dikonsolidasi nanti)
+- **shawarma-kiosk** (`apps/pos-kasir`) — POS/self-service (Next.js+Supabase, multi-outlet, kasir+payment+reports). **Sejak migration `20260612000001_merge_pos_schema.sql`, schema-nya digabung ke Outlet Suite DB** (`khpkoreaaucvyqfhynfq`, sama dengan `apps/absensi`) — bukan lagi project terpisah/read-only. **Sejak unifikasi `20260613000100`, tabel `profiles` di-DROP** dan identitas user POS dipindah ke `outlet_staff` (role `admin|kasir|kiosk` ikut ditambahkan ke sana). Satu tabel user untuk semua sistem. Lihat ADR-0007.
 - **Outlet Suite (project baru)** — Supabase project di **akun/org berbeda** untuk modul baru (M0–M4). (lihat ADR-004)
 - **Hosting app** — server **cPanel CloudLinux shared** (penyedia lokal), file **statis** (Next.js static export), subdomain per modul. Postgres bawaan cPanel tidak dipakai. (lihat ADR-005)
+
+## Operasional Harian Outlet & Gate Kasir
+
+- **Status Operasional Outlet** — status harian per outlet, dihitung real-time dari tabel `attendance` (bukan kolom tersimpan, lewat RPC `get_outlet_day_status`): `belum_mulai` (belum ada kru absen hadir hari ini), `buka` (ada kru dengan status hadir terakhir = masuk), `tutup` (semua kru yang pernah hadir hari ini sudah absen pulang). Record `status='alpha'` diabaikan (lihat fix di `20260612000300_fix_get_outlet_presence_alpha.sql`).
+- **Checklist Buka Toko / Tutup Toko** — kategori `checklist_categories` dengan `phase='buka'` atau `phase='tutup'`. **"Beres"** = 100% item (termasuk yang tidak wajib) pada fase tersebut sudah tercentang di `daily_checklist_ticks` untuk record hari ini.
+- **Dashboard Kasir Gate** — lapisan blocking di `apps/pos-kasir` (`GlobalBlockerMount`) yang mengontrol akses role `kasir` ke `/kasir`. Urutan: (1) Status Operasional = `buka` → (2) Checklist Buka Toko beres → dashboard kasir terbuka. Begitu Status Operasional menjadi `tutup` (semua kru absen pulang), dashboard terkunci lagi. Self-order kiosk pelanggan (role `kiosk`) tidak terpengaruh gate ini.

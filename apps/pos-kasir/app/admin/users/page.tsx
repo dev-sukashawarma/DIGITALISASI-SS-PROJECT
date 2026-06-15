@@ -39,9 +39,9 @@ export default function AdminUsersPage() {
   const supabase = createClient()
 
   const filteredUsers = users.filter(u => 
-    u.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (u.username || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
     (u.outlets?.name && u.outlets.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    u.role.toLowerCase().includes(searchQuery.toLowerCase())
+    (u.role || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
   async function fetchData() {
     setLoading(true)
     const [profilesRes, outletsRes] = await Promise.all([
-      supabase.from('profiles').select('*, outlets(name)').order('created_at', { ascending: false }),
+      supabase.from('outlet_staff').select('*, outlets!outlet_staff_outlet_id_fkey(name)').order('created_at', { ascending: false }),
       supabase.from('outlets').select('*').eq('is_active', true).order('name', { ascending: true })
     ])
     

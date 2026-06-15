@@ -161,7 +161,7 @@ export default function EnrollPage() {
     <div className="max-w-xl mx-auto space-y-5 pb-12">
       <PageHeader
         icon={<Camera size={20} />}
-        title="Enroll Wajah Staf"
+        title="Daftarkan Wajah Staf"
         subtitle="Sistem memandu pengambilan foto dari 3 sudut agar akurat"
       />
 

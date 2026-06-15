@@ -49,7 +49,10 @@ export async function fetchCrewMonitoringData() {
   // Get user's outlet_id from outlet_staff
   const { data: staffData, error: staffError } = await supabase
     .from('outlet_staff')
-    .select('outlet_id, outlets(nama:name)')
+    // Disambiguate embed ke FK langsung (outlet_staff.outlet_id → outlets.id).
+    // staff_outlets (many-to-many) menambah relasi kedua, jadi `outlets(...)` polos
+    // error: "more than one relationship was found". Selaras @suka/auth getOutletStaff.
+    .select('outlet_id, outlets!outlet_staff_outlet_id_fkey(nama:name)')
     .eq('id', authData.user.id)
     .single<OutletStaffData>();
 

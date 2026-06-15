@@ -3,7 +3,7 @@ import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
-import { Flame, LogIn, AlertCircle, Loader2 } from 'lucide-react'
+import { LogIn, AlertCircle, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -27,8 +27,8 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-suka-cream via-white to-suka-cream/30">
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center text-center space-y-2 mb-4">
-          <div className="w-16 h-16 rounded-2xl bg-suka-orange/10 flex items-center justify-center text-suka-orange shadow-inner shadow-suka-orange/5 animate-pulse">
-            <Flame size={36} fill="currentColor" />
+          <div className="w-20 h-20 flex items-center justify-center mb-1">
+            <img src="/logo.png" alt="Suka Shawarma Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-4xl font-extrabold text-suka-brown tracking-tight font-display">
             SUKA SHAWARMA

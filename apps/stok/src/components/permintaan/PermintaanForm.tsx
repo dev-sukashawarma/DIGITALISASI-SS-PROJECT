@@ -55,20 +55,24 @@ export function PermintaanForm({ outletId }: { outletId: string }) {
       )}
       <div className="space-y-2">
         {saranRows.map(r => (
-          <div key={r.bahan_baku_id} className="flex items-center gap-3 border border-[#d9c2b2]/40 rounded-xl px-3 py-2">
+          <label key={r.bahan_baku_id} className="flex items-center gap-3 border border-[#d9c2b2]/40 rounded-xl px-3 py-2 cursor-pointer">
             <input
               type="checkbox"
               checked={r.checked}
               onChange={e => setRow(r.bahan_baku_id, { checked: e.target.checked }, r)}
+              aria-label={`Request ${r.nama}`}
             />
             <span className="flex-1 text-xs font-semibold text-[#1e1b15]">{r.nama}</span>
             <Input
-              type="number" inputMode="decimal" value={r.qty}
+              type="number"
+              inputMode="decimal"
+              value={r.qty}
               onChange={e => setRow(r.bahan_baku_id, { qty: e.target.value }, r)}
               className="w-24 px-3 py-1.5 border border-[#d9c2b2]/40 rounded-lg text-xs"
+              aria-label={`Qty ${r.nama}`}
             />
             <span className="text-[10px] text-[#544437]/60 w-8">{r.satuan}</span>
-          </div>
+          </label>
         ))}
       </div>
 

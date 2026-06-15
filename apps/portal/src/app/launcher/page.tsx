@@ -19,7 +19,11 @@ export default async function LauncherPage() {
 
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
-    setAll: () => {},
+    setAll: (cookies) => {
+      cookies.forEach(({ name, value, options }) => {
+        cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
+      })
+    },
   })
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -27,6 +31,13 @@ export default async function LauncherPage() {
 
   const { staff, error } = await getOutletStaff(supabase, user.id)
   if (error || !staff) redirect('/')
+
+  // Check staff status
+  if (staff.status !== 'active') {
+    // Inactive or on_leave staff cannot access apps
+    await supabase.auth.signOut()
+    redirect('/')
+  }
 
   const apps = accessibleApps(staff.role)
 

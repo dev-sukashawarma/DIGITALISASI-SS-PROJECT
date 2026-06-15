@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createSupabaseServerClient, getOutletStaff } from '@suka/auth'
+import { createSupabaseServerClient, getOutletStaff, hasAppAccess } from '@suka/auth'
 
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
 
@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const { staff } = await getOutletStaff(supabase, user.id)
-  if (!staff || !['owner', 'admin'].includes(staff.role)) {
+  if (!staff || !hasAppAccess(staff.role, 'owner-dashboard')) {
     return NextResponse.redirect(new URL(PORTAL_URL, request.url))
   }
 

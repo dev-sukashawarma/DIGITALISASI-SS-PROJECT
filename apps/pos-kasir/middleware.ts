@@ -1,47 +1,32 @@
-import { createServerClient } from '@supabase/ssr'
+import { createSupabaseServerClient, hasAppAccess } from '@suka/auth'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookieOptions: {
-        name: 'sb-pos-kasir-auth-token',
-        maxAge: 31536000,
-        path: '/',
-      },
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet: any[]) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, { ...options, maxAge: 31536000 })
-          )
-        },
-      },
-    }
-  )
+export async function middleware(request: NextRequest) {
+  const response = NextResponse.next()
+
+  const supabase = createSupabaseServerClient({
+    getAll: () => request.cookies.getAll(),
+    setAll: (cookies) => {
+      cookies.forEach(({ name, value, options }) =>
+        response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2])
+      )
+    },
+  })
 
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   let role = null
   let outlet_id = null
-  
+
   if (user) {
     const { data: profile } = await supabase
       .from('outlet_staff')
       .select('role, outlet_id')
       .eq('id', user.id)
       .single()
-      
+
     if (profile) {
       role = profile.role
       outlet_id = profile.outlet_id
@@ -52,15 +37,15 @@ export async function middleware(request: NextRequest) {
 
   // Proteksi Route Admin
   if (path.startsWith('/admin')) {
-    if (!user || role !== 'admin') {
-      return NextResponse.redirect(new URL('/login', request.url))
+    if (!user || role !== 'admin' || !hasAppAccess(role, 'pos-kasir')) {
+      return NextResponse.redirect(new URL(PORTAL_URL, request.url))
     }
   }
 
   // Proteksi Route Kasir
   if (path.startsWith('/kasir')) {
-    if (!user || role !== 'kasir') {
-      return NextResponse.redirect(new URL('/login', request.url))
+    if (!user || role !== 'kasir' || !hasAppAccess(role, 'pos-kasir')) {
+      return NextResponse.redirect(new URL(PORTAL_URL, request.url))
     }
   }
 
@@ -83,6 +68,10 @@ export async function middleware(request: NextRequest) {
     if (role !== 'kiosk' && role !== 'admin') {
       return NextResponse.redirect(new URL(role === 'kasir' ? '/kasir' : '/login', request.url))
     }
+    // Kiosk harus memiliki valid session (role kiosk dengan outlet_id valid)
+    if (role === 'kiosk' && !outlet_id) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
   }
 
   // Redirect halaman login jika sudah auth
@@ -95,10 +84,10 @@ export async function middleware(request: NextRequest) {
   // Inject session data untuk digunakan di App (khususnya untuk Kiosk)
   // Ini membantu Kiosk UI tahu dia ada di outlet mana
   if (role === 'kiosk' && outlet_id) {
-    supabaseResponse.headers.set('x-outlet-id', outlet_id)
+    response.headers.set('x-outlet-id', outlet_id)
   }
 
-  return supabaseResponse
+  return response
 }
 
 export const config = {

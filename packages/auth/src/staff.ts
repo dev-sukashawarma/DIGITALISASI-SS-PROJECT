@@ -34,10 +34,23 @@ export async function getOutletStaff(
 export async function getAccessibleOutletIds(
   supabase: SupabaseClient
 ): Promise<string[]> {
-  const { data, error } = await supabase.rpc('accessible_outlet_ids')
-  if (error || !data) return []
-  // RPC SETOF uuid -> array of { accessible_outlet_ids: uuid } atau array uuid
-  return (data as unknown[]).map((row) =>
-    typeof row === 'string' ? row : (row as { accessible_outlet_ids: string }).accessible_outlet_ids
-  )
+  try {
+    const { data, error } = await supabase.rpc('accessible_outlet_ids')
+    if (error) {
+      console.error('[Auth] getAccessibleOutletIds RPC error:', error.message)
+      return []
+    }
+    if (!Array.isArray(data)) {
+      console.warn('[Auth] getAccessibleOutletIds returned non-array:', data)
+      return []
+    }
+    // RPC SETOF uuid -> array of { accessible_outlet_ids: uuid } atau array uuid
+    return (data as unknown[]).map((row) =>
+      typeof row === 'string' ? row : (row as { accessible_outlet_ids: string }).accessible_outlet_ids
+    )
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Auth] getAccessibleOutletIds exception:', errorMsg)
+    return []
+  }
 }

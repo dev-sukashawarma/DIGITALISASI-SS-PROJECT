@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, hasAppAccess } from '@suka/auth'
 
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
 
@@ -15,10 +15,21 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
     return NextResponse.redirect(new URL(PORTAL_URL, request.url))
   }
+
+  const { data: staff } = await supabase
+    .from('outlet_staff')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!staff || !hasAppAccess(staff.role, 'absensi')) {
+    return NextResponse.redirect(new URL(PORTAL_URL, request.url))
+  }
+
   return response
 }
 

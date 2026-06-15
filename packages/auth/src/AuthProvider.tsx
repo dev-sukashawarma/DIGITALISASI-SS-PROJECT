@@ -28,6 +28,7 @@ export const AuthProvider: React.FC<{
 
   useEffect(() => {
     let initialised = false
+    let abortController = new AbortController()
 
     async function loadStaff(userId: string | undefined) {
       if (!userId) {
@@ -35,38 +36,56 @@ export const AuthProvider: React.FC<{
         setStaffError(null)
         return
       }
-      const { staff, error } = await getOutletStaff(supabase, userId)
-      if (error) {
-        setStaffError(`Gagal memuat data staff: ${error}`)
-        setOutletStaff(null)
-      } else if (!staff) {
-        setStaffError('Akun Anda belum terhubung dengan data staff. Hubungi admin / SPV.')
-        setOutletStaff(null)
-      } else {
-        setStaffError(null)
-        setOutletStaff(staff)
+      try {
+        const { staff, error } = await getOutletStaff(supabase, userId)
+        if (abortController.signal.aborted) return
+        if (error) {
+          setStaffError(`Gagal memuat data staff: ${error}`)
+          setOutletStaff(null)
+        } else if (!staff) {
+          setStaffError('Akun Anda belum terhubung dengan data staff. Hubungi admin / SPV.')
+          setOutletStaff(null)
+        } else {
+          setStaffError(null)
+          setOutletStaff(staff)
+        }
+      } catch (err) {
+        if (!abortController.signal.aborted) {
+          setStaffError('Gagal memuat data staff')
+        }
       }
     }
 
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-      await loadStaff(session?.user?.id)
-      setLoading(false)
-      initialised = true
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (abortController.signal.aborted) return
+        setSession(session)
+        setUser(session?.user ?? null)
+        await loadStaff(session?.user?.id)
+        setLoading(false)
+        initialised = true
+      } catch (err) {
+        if (!abortController.signal.aborted) {
+          setLoading(false)
+        }
+      }
     }
     init()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'INITIAL_SESSION' && initialised) return
+        if (abortController.signal.aborted) return
         setSession(session)
         setUser(session?.user ?? null)
         await loadStaff(session?.user?.id)
       }
     )
-    return () => subscription.unsubscribe()
+    return () => {
+      abortController.abort()
+      subscription.unsubscribe()
+    }
   }, [supabase])
 
   const signOut = async () => {

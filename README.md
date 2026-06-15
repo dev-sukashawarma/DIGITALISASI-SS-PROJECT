@@ -1,36 +1,56 @@
 # DIGITALISASI SS — Sukashawarma Outlet Suite
 
-Suite digital **operasional outlet** Sukashawarma (19 outlet Jabodetabek). Sistem baru, terpisah dari HR pusat (SS-WEBAPP) dan dari app produksi existing (TiktokGo, POS).
+Suite digital **operasional outlet** Sukashawarma (19 outlet Jabodetabek). Sistem terintegrasi dengan **SSO login terpadu** di portal, dengan kontrol akses berbasis role (admin, owner, spv, kepala_outlet, kasir, crew, kiosk).
 
-> **Mulai dari sini:** [`docs/PRD.md`](docs/PRD.md) → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (diagram struktur) → [`docs/FLOWS.md`](docs/FLOWS.md) (alur proses) → [`CONTEXT.md`](CONTEXT.md) (glossary) → [`docs/adr/`](docs/adr/) (keputusan) → [`docs/PREFLIGHT.md`](docs/PREFLIGHT.md) (gerbang sebelum eksekusi).
+## 📋 Quick Links
 
-## Modul
+- **Setup & Deployment:** [`DEPLOY-CPANEL.md`](DEPLOY-CPANEL.md) (13-step cPanel deployment guide)
+- **Architecture:** [`CLAUDE.md`](CLAUDE.md) (system design, roles, deployment notes)
+- **Role Matrix:** [`docs/ROLE-JOBDESK.md`](docs/ROLE-JOBDESK.md) (7 roles, access matrix, responsibilities)
+- **SSO Design:** [`docs/superpowers/specs/2026-06-13-login-sso-per-role-design.md`](docs/superpowers/specs/2026-06-13-login-sso-per-role-design.md)
+- **Legacy Docs:** [`docs/PRD.md`](docs/PRD.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/FLOWS.md`](docs/FLOWS.md), [`docs/adr/`](docs/adr/)
 
-| Modul | Isi | Track |
-|-------|-----|-------|
-| **M0** Foundation | `outlets`, `outlet_staff`, auth/RLS, design-system, offline pattern | Dev B |
-| **M1** Absensi + Face Matching | clock-in wajah (face-api.js) + GPS + selfie | Dev A |
-| **M2** Stok Bahan Baku | opname + ledger + monitoring/alert | Dev B |
-| **M3** Supply Chain | Surat Jalan pusat→outlet + verifikasi terima | Dev A |
-| **M4** Owner Dashboard | reporting hub (revenue, COGS, waste, kehadiran) | Dev B |
+## 🏗️ Applications (6 Subdomains)
 
-## Stack
-- **DB/Backend:** Supabase Cloud (akun terpisah dari produksi) — Postgres + Auth + Storage + RLS + Edge Functions + pg_cron
-- **Frontend:** Next.js + TypeScript (**static export**) + Tailwind, deploy ke **cPanel shared** (static), subdomain per modul
-- **Sinkron data:** Supabase Edge Function + pg_cron (n8n opsional, hanya utk compliance MySQL fase lanjut)
-- **Design:** Design System SUKA (reuse)
+| App | Purpose | Users | URL |
+|-----|---------|-------|-----|
+| **Portal** | SSO login + app launcher | All roles | `app.sukashawarma.com` |
+| **Absensi** | Employee attendance + checklists | All roles | `absensi.sukashawarma.com` |
+| **Stok** | Stock monitoring & ledger | SPV, Kepala, Admin | `stok.sukashawarma.com` |
+| **Distribusi** | Shipment management & signatures | SPV, Kepala, Admin | `distribusi.sukashawarma.com` |
+| **Owner Dashboard** | Revenue & analytics reporting | Owner, Admin | `owner.sukashawarma.com` |
+| **POS Kasir** | Point-of-sale & kiosk | Kasir, Kiosk, Admin | `kasir.sukashawarma.com` |
 
-## Struktur
+## 🛠️ Tech Stack
+
+- **Database/Backend:** Supabase (Postgres + Auth + RLS + Edge Functions + pg_cron)
+- **Frontend:** Next.js 15 + TypeScript + TailwindCSS
+- **Shared Auth:** `@suka/auth` package (unified SSO, role matrix, JWT validation)
+- **Session:** Shared cookie domain (`.sukashawarma.com`) for seamless cross-app SSO
+- **Deployment:** cPanel + CloudLinux + LiteSpeed (Node.js 24.15.0)
+
+## 📁 Project Structure
+
 ```
-├── CONTEXT.md                 # glossary domain
-├── docs/                      # PRD, ADR, plan migrasi, preflight
-├── packages/design-system/    # token SUKA reusable
+├── CLAUDE.md                  # System design & architecture decisions
+├── DEPLOY-CPANEL.md           # Deployment guide (13 steps, troubleshooting)
+├── CONTEXT.md                 # Glossary & domain terminology
+├── docs/
+│   ├── ROLE-JOBDESK.md        # 7 roles, access matrix, responsibilities
+│   ├── adr/                   # Architecture Decision Records
+│   └── superpowers/           # Specs & implementation plans
+├── packages/
+│   ├── auth/                  # @suka/auth (shared, 13 exports)
+│   ├── design-system/         # SUKA design tokens
+│   └── offline-queue/         # Offline queueing pattern
 ├── apps/
-│   ├── absensi/               # M1 (Dev A)
-│   ├── stok/                  # M2 (Dev B)
-│   ├── distribusi/            # M3 (Dev A)
-│   └── owner-dashboard/       # M4 (Dev B)
-└── supabase/migrations/       # skema bersama
+│   ├── portal/                # SSO entry point
+│   ├── absensi/               # Attendance system
+│   ├── stok/                  # Stock management
+│   ├── distribusi/            # Shipment management
+│   ├── owner-dashboard/       # Analytics & reporting
+│   └── pos-kasir/             # Point-of-sale
+└── supabase/migrations/       # Database schema (8 SSO migrations)
 ```
 
 ## ⚠️ Keamanan

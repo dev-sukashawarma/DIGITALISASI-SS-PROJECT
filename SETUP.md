@@ -2,27 +2,17 @@
 
 ## 1. Environment Variables
 
-Copy `.env.local.example` → `.env.local` (gitignored):
+Create `.env.local` with Supabase credentials (not in git):
 
 ```bash
-cp .env.local.example .env.local
+# For each app, create apps/[app-name]/.env.local with:
+NEXT_PUBLIC_SUPABASE_URL=https://[your-project].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+NEXT_PUBLIC_PORTAL_URL=https://app.sukashawarma.com
+NEXT_PUBLIC_COOKIE_DOMAIN=           # Empty for local dev (per-port cookies)
 ```
 
-Isi values di `.env.local`:
-
-### Outlet Suite Supabase (akun BARU)
-1. Buka Supabase dashboard → project Outlet Suite
-2. Settings → API → copy:
-   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-   - **Anon Public Key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - **Service Role Key** → `SUPABASE_SERVICE_ROLE_KEY`
-
-### Ecosystem Supabase (read-only)
-Dapatkan dari owner — service key untuk read akses ke Ecosystem project:
-- **Project URL** → `ECOSYSTEM_SUPABASE_URL`
-- **Service Role Key (read-only)** → `ECOSYSTEM_SERVICE_ROLE_KEY`
-
-**⚠️ JANGAN paste keys di chat / commit ke git!** File `.env.local` sudah di `.gitignore`.
+**⚠️ JANGAN commit `.env.local`** — already in `.gitignore`.
 
 ## 2. Install Dependencies
 
@@ -31,51 +21,85 @@ yarn install
 # or: npm install
 ```
 
-## 3. Supabase Migrations
+## 3. Database Migrations
 
-Jalankan migration ke project Outlet Suite (setelah M0 tasks selesai):
+Initialize Supabase local (optional):
 
 ```bash
+# View migration status
+npx supabase migration list
+
+# Push migrations to remote (requires SUPABASE_ACCESS_TOKEN)
 npx supabase db push
 ```
 
-## 4. Verify Connection
+## 4. Run Local Dev Server
 
-Testing Supabase connection (dalam Next.js app):
+```bash
+# Start all apps in dev mode
+yarn dev
 
-```typescript
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-const { data, error } = await supabase.from('outlets').select().limit(1)
-console.log(data, error)
+# Or start specific app
+cd apps/stok && yarn dev
+# Runs on: http://localhost:3001 (stok)
 ```
+
+**Apps & ports:**
+- Portal: http://localhost:3000
+- Stok: http://localhost:3001
+- Absensi: http://localhost:3002
+- Distribusi: http://localhost:3003
+- Owner-Dashboard: http://localhost:3004
+- POS-Kasir: http://localhost:3005
+
+## 5. Test SSO Login Locally
+
+1. Navigate to http://localhost:3000 (portal)
+2. Login with Supabase test account
+3. Launcher shows role-filtered apps
+4. Click app → navigates to that app's localhost
+5. No re-login needed (shared session via cookies)
 
 ---
 
-## Struktur Monorepo
+## Project Structure
 
 ```
 ├── packages/
-│   ├── design-system/         # @suka/design-system — tokens + components
-│   └── offline-queue/         # @suka/offline-queue — utility reusable
+│   ├── auth/                  # @suka/auth (shared SSO, 13 exports)
+│   ├── design-system/         # @suka/design-system (tokens + components)
+│   └── offline-queue/         # @suka/offline-queue (utility)
 ├── apps/
-│   ├── absensi/               # M1
-│   ├── stok/                  # M2
-│   ├── distribusi/            # M3
-│   └── owner-dashboard/       # M4
+│   ├── portal/                # SSO login + app launcher
+│   ├── absensi/               # Attendance system
+│   ├── stok/                  # Stock management
+│   ├── distribusi/            # Shipment management
+│   ├── owner-dashboard/       # Analytics & reporting
+│   └── pos-kasir/             # Point-of-sale
 ├── supabase/
-│   ├── migrations/            # SQL migrations (outlets, outlet_staff, RLS, etc)
-│   └── seed.sql              # Initial data (outlets seed dari Ecosystem)
-└── .env.local                 # ⚠️ gitignored — setup lokal
+│   ├── migrations/            # Database schema (8 SSO migrations)
+│   └── functions/             # Edge functions
+└── docs/
+    ├── ROLE-JOBDESK.md        # Role definitions & access matrix
+    └── superpowers/           # Specs & implementation plans
 ```
 
-## Next Steps
+## Deployment
 
-1. ✅ Isi `.env.local` dgn Supabase keys
-2. ⏳ M0 implementation plan (akan di-output setelah ini)
-3. ⏳ Execute M0 tasks (setup monorepo, design-system, migrations, app shell)
+See [`DEPLOY-CPANEL.md`](DEPLOY-CPANEL.md) for production deployment to cPanel (13 steps).
+
+## Troubleshooting
+
+**Cookie domain issue locally?**
+- Leave `NEXT_PUBLIC_COOKIE_DOMAIN` empty for local dev
+- Each localhost:port gets its own cookies (per-port)
+- Set to `.sukashawarma.com` only in production (DEPLOY-CPANEL.md)
+
+**Type errors in build?**
+```bash
+yarn type-check
+```
+
+**Need to see live data?**
+- Supabase project must have migrations applied: `npx supabase db push`
+- Test data must be seeded in Supabase console

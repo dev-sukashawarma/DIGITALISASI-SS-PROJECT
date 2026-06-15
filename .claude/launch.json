@@ -12,6 +12,12 @@
       "runtimeExecutable": "yarn",
       "runtimeArgs": ["workspace", "@suka/distribusi", "dev"],
       "port": 3002
+    },
+    {
+      "name": "portal",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["workspace", "@suka/portal", "dev"],
+      "port": 3010
     }
   ]
 }

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePermintaanActions } from '@/hooks/usePermintaan'
 import type { PermintaanWithItems } from '@/types/permintaan'
 
@@ -11,6 +11,7 @@ interface Props {
 
 export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
   const { approve, tolak } = usePermintaanActions()
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   // qty_disetujui state keyed by bahan_baku_id
   const [qtys, setQtys] = useState<Record<string, number>>(() =>
@@ -18,11 +19,22 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
   )
   const [alasan, setAlasan] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [loading, onClose])
 
   const handleApprove = async () => {
     setLoading(true)
-    setError(null)
+    setErrorMsg(null)
     try {
       const items = permintaan.items.map(it => ({
         bahan_baku_id: it.bahan_baku_id,
@@ -31,7 +43,7 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
       await approve(permintaan.id, items)
       onDone()
     } catch (err: any) {
-      setError(err.message || String(err))
+      setErrorMsg(err.message || String(err))
     } finally {
       setLoading(false)
     }
@@ -39,27 +51,38 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
 
   const handleTolak = async () => {
     if (!alasan.trim()) {
-      setError('Alasan wajib diisi untuk menolak.')
+      setErrorMsg('Alasan wajib diisi untuk menolak.')
       return
     }
     setLoading(true)
-    setError(null)
+    setErrorMsg(null)
     try {
       await tolak(permintaan.id, alasan.trim())
       onDone()
     } catch (err: any) {
-      setError(err.message || String(err))
+      setErrorMsg(err.message || String(err))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5">
+    <div
+      ref={dialogRef}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5"
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        aria-modal="true"
+        aria-labelledby="approval-modal-title"
+        role="dialog"
+      >
         {/* Header */}
         <div>
-          <h2 className="text-base font-bold text-[#1e1b15]">
+          <h2 id="approval-modal-title" className="text-base font-bold text-[#1e1b15]">
             Permintaan — {permintaan.outlet_name ?? permintaan.outlet_id}
           </h2>
           <p className="text-[11px] text-[#544437]/60 mt-0.5">
@@ -79,9 +102,10 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
                 type="number"
                 min={0}
                 value={qtys[it.bahan_baku_id] ?? 0}
-                onChange={e =>
+                onChange={e => {
                   setQtys(prev => ({ ...prev, [it.bahan_baku_id]: Number(e.target.value) }))
-                }
+                  setErrorMsg(null)
+                }}
                 className="w-20 text-right border border-[#d9c2b2] rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#f29744]/50"
                 disabled={loading}
               />
@@ -98,7 +122,10 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
           <textarea
             rows={2}
             value={alasan}
-            onChange={e => setAlasan(e.target.value)}
+            onChange={e => {
+              setAlasan(e.target.value)
+              setErrorMsg(null)
+            }}
             placeholder="Wajib diisi jika menolak…"
             className="w-full border border-[#d9c2b2] rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#f29744]/50"
             disabled={loading}
@@ -106,7 +133,11 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
         </div>
 
         {/* Error */}
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {errorMsg && (
+          <p className="text-xs font-bold text-[#ba1a1a] bg-red-50 border border-red-200 p-2 rounded" role="alert">
+            {errorMsg}
+          </p>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 justify-end">

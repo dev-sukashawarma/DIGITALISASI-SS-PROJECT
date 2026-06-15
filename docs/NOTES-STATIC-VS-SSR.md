@@ -2,6 +2,8 @@
 
 > Dibuat: 2026-06-11 · Konteks: brainstorm fitur transfer stok M2
 
+> ⚠️ **OUTDATED (2026-06-15):** Keputusan "tetap static export" di bawah sudah **dibatalkan**. Premisnya ("cPanel shared tidak bisa run Node.js process") terbukti salah — CloudLinux **Node Selector** menjalankan Next.js Node server. Arsitektur resmi sekarang = **Node server** (lihat [ADR-008](adr/0008-pivot-nodejs-server-cloudlinux-node-selector.md)). Catatan di bawah dipertahankan sebagai konteks historis.
+
 ---
 
 ## Keputusan: Tetap Static Export

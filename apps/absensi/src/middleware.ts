@@ -22,11 +22,11 @@ export async function middleware(request: NextRequest) {
 
   const { data: staff } = await supabase
     .from('outlet_staff')
-    .select('role')
+    .select('role, status')
     .eq('id', user.id)
     .single()
 
-  if (!staff || !hasAppAccess(staff.role, 'absensi')) {
+  if (!staff || !hasAppAccess(staff.role, 'absensi') || staff.status !== 'active') {
     return NextResponse.redirect(new URL(PORTAL_URL, request.url))
   }
 

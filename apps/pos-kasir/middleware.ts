@@ -19,17 +19,22 @@ export async function middleware(request: NextRequest) {
 
   let role = null
   let outlet_id = null
+  let status = null
 
   if (user) {
     const { data: profile } = await supabase
       .from('outlet_staff')
-      .select('role, outlet_id')
+      .select('role, outlet_id, status')
       .eq('id', user.id)
       .single()
 
     if (profile) {
       role = profile.role
       outlet_id = profile.outlet_id
+      status = profile.status
+    } else {
+      // No staff profile found → redirect to portal
+      return NextResponse.redirect(new URL(PORTAL_URL, request.url))
     }
   }
 
@@ -37,14 +42,14 @@ export async function middleware(request: NextRequest) {
 
   // Proteksi Route Admin
   if (path.startsWith('/admin')) {
-    if (!user || role !== 'admin' || !hasAppAccess(role, 'pos-kasir')) {
+    if (!user || role !== 'admin' || !hasAppAccess(role, 'pos-kasir') || status !== 'active') {
       return NextResponse.redirect(new URL(PORTAL_URL, request.url))
     }
   }
 
   // Proteksi Route Kasir
   if (path.startsWith('/kasir')) {
-    if (!user || role !== 'kasir' || !hasAppAccess(role, 'pos-kasir')) {
+    if (!user || role !== 'kasir' || !hasAppAccess(role, 'pos-kasir') || status !== 'active') {
       return NextResponse.redirect(new URL(PORTAL_URL, request.url))
     }
   }
@@ -61,6 +66,10 @@ export async function middleware(request: NextRequest) {
   if (!isPublicPath && !isApiPath && !isDashboardPath) {
     // Belum login sama sekali → device belum di-aktifkan kasir
     if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+    // Status check: inactive/on_leave cannot use kiosk
+    if (status !== 'active') {
       return NextResponse.redirect(new URL('/login', request.url))
     }
     // Sudah login tapi bukan device kiosk (admin diizinkan untuk preview).

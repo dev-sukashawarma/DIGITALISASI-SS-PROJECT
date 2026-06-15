@@ -84,6 +84,7 @@ export function useSPVMonitoringData() {
   const autoRefresh = useAutoRefresh({
     interval: 30000,
     onRefresh: handleRefresh,
+    enabled: false, // TODO: debug infinite loop — disable untuk sekarang
   });
 
   return {
@@ -131,6 +132,7 @@ export function useCrewMonitoringData() {
   const autoRefresh = useAutoRefresh({
     interval: 30000,
     onRefresh: handleRefresh,
+    enabled: false, // TODO: debug infinite loop — disable untuk sekarang
   });
 
   return {

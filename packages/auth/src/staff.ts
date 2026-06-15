@@ -8,7 +8,10 @@ export async function getOutletStaff(
 ): Promise<{ staff: OutletStaffProfile | null; error: string | null }> {
   const { data, error } = await supabase
     .from('outlet_staff')
-    .select('id, outlet_id, name, role, status, outlets(name)')
+    // Disambiguate the embed to the DIRECT FK (outlet_staff.outlet_id → outlets.id).
+    // staff_outlets (many-to-many) adds a second outlet_staff↔outlets relationship,
+    // so a bare `outlets(name)` errors: "more than one relationship was found".
+    .select('id, outlet_id, name, role, status, outlets!outlet_staff_outlet_id_fkey(name)')
     .eq('id', userId)
     .maybeSingle()
 

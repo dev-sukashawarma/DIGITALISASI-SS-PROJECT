@@ -1,3 +1,37 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* Scan design-system & shared packages untuk class yang dipakai komponen */
+@source "../../../../packages";
+
+/* Palet Suka Shawarma (selaras tokens @suka/design-system) */
+@theme {
+  --color-suka-orange: #f29744;
+  --color-suka-brown: #701604;
+  --color-suka-ink: #400a07;
+  --color-suka-cream: #fff7ed;
+  --color-suka-green: #0a7d2c;
+  --color-suka-gray-50: #f9fafb;
+  --color-suka-gray-100: #f3f4f6;
+  --color-suka-gray-200: #e5e7eb;
+  --color-suka-gray-300: #d1d5db;
+  --color-suka-gray-400: #9ca3af;
+  --color-suka-gray-500: #6b7280;
+  --color-suka-gray-600: #4b5563;
+  --color-suka-gray-700: #374151;
+  --color-suka-gray-800: #1f2937;
+  --color-suka-gray-900: #111827;
+}
+
+@layer base {
+  html {
+    height: 100%;
+  }
+  body {
+    height: 100%;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    color: #400a07; /* Suka Ink */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

@@ -1,6 +1,8 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@suka/auth'
+import { Button } from '@suka/design-system'
+import { LogOut } from 'lucide-react'
 
 export default function LogoutButton() {
   const router = useRouter()
@@ -12,12 +14,14 @@ export default function LogoutButton() {
   }
 
   return (
-    <button
+    <Button
+      variant="secondary"
+      size="sm"
       onClick={handleLogout}
-      className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700
-                 hover:border-gray-400 hover:bg-gray-50"
+      className="flex items-center gap-1.5 active:scale-[0.98]"
     >
-      Keluar
-    </button>
+      <LogOut size={14} />
+      <span>Keluar</span>
+    </Button>
   )
 }

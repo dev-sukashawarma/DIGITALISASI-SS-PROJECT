@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button, Spinner } from "@suka/design-system";
 import { Clock, Timer, Settings2, Save, Lock, Unlock } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
 import { PageHeader } from "@/components/PageHeader";

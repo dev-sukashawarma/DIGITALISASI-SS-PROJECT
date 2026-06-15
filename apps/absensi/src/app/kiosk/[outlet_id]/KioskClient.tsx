@@ -5,7 +5,7 @@ import { Card, Spinner } from "@suka/design-system";
 import { UserRound, Eye, CircleCheck, CircleX, Store } from "lucide-react";
 import { CameraCapture } from "@/components/CameraCapture";
 import { loadFaceModels } from "@/lib/face/recognizer";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
 
 export function KioskClient({ outlet_id }: { outlet_id: string }) {

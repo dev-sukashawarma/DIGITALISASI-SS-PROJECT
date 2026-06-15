@@ -20,7 +20,8 @@
     "react-dom": "^19.0.0",
     "react-is": "^19.0.0",
     "recharts": "^3.8.1",
-    "zustand": "^4.5.4"
+    "zustand": "^4.5.4",
+    "@suka/auth": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -12,9 +12,6 @@ export function useOfflineQueue<T = any>(
     maxRetries = 3,
     retryDelay = 1000,
   } = options
-  // TODO: implement retry logic with maxRetries and retryDelay
-  void maxRetries
-  void retryDelay
 
   const [state, setState] = useState<{
     items: QueueItem<T>[]

@@ -19,12 +19,7 @@
       "Bash(bash scripts/verify-m0.sh)",
       "Bash(yarn --version)",
       "Bash(yarn install *)",
-      "Bash(supabase link *)",
-      "Bash(git push *)",
-      "Bash(supabase migration *)",
-      "Bash(supabase start *)",
-      "Bash(git checkout *)",
-      "Bash(yarn test *)"
+      "Bash(supabase link *)"
     ]
   }
 }

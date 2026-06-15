@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from "@suka/design-system";
 import { ClipboardCheck, CheckCircle2, Circle, ChevronDown, ChevronUp, User, RefreshCw, AlertTriangle, Sunrise, Sunset } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { PageHeader } from "@/components/PageHeader";
 import dayjs from "dayjs";

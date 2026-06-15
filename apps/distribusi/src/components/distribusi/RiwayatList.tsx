@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@suka/auth'
 import { useRiwayatList } from '@/hooks/useRiwayatList'
 import { BottomNav } from './BottomNav'
 

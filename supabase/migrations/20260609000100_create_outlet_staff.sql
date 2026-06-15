@@ -1,8 +1,4 @@
 -- outlet_staff table: canonical identity for all outlet workers
--- ⚠️ PROVISIONING RULE: outlet_staff.id MUST match auth.users.id.
--- Staff enrollment flow: (1) user created in Supabase auth, (2) outlet_staff
--- row inserted with id = auth_user_id. Never seed random UUIDs — they won't
--- be able to log in (auth session won't find matching outlet_staff.id).
 CREATE TABLE outlet_staff (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   outlet_id UUID NOT NULL REFERENCES outlets(id) ON DELETE CASCADE,

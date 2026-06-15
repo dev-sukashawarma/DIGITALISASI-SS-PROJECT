@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
 import { SignatureFlow } from './SignatureFlow'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
 

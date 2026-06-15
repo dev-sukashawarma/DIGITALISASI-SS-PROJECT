@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { CrewList } from './CrewList';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@suka/auth';
 import { getCrossAppUrl } from '@/lib/navigation';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';

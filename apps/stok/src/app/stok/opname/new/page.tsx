@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@suka/auth';
 import { OpnameForm } from '@/components/stok/OpnameForm';
 import Link from 'next/link';
 

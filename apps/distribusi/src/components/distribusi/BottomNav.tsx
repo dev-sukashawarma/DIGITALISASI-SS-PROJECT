@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@suka/auth'
 import { getCrossAppUrl } from '@/lib/navigation'
 
 interface BottomNavProps {

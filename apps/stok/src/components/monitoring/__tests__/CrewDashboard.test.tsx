@@ -10,7 +10,7 @@ vi.mock('@/lib/queries/monitoring', () => ({
 }));
 
 vi.mock('@/hooks/useMonitoringData');
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@suka/auth', () => ({
   useAuth: () => ({
     outletStaff: {
       id: '1',

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@suka/auth'
 import { ThresholdPage } from '@/components/settings/ThresholdPage'
 
 export default function ThresholdSettingsPage() {

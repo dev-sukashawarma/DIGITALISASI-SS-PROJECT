@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@suka/auth';
 import { Clock, Camera, ClipboardList, LayoutDashboard, LogOut } from 'lucide-react';
 
 export function Navbar() {

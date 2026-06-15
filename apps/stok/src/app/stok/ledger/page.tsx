@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@suka/auth';
 import { useLedgerList } from '@/hooks/useLedger';
 import { LedgerList } from '@/components/stok/LedgerList';
 import { getCrossAppUrl } from '@/lib/navigation';

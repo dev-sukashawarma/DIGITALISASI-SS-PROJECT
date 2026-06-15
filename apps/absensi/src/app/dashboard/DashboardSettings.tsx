@@ -2,7 +2,7 @@
 
 import { Trash2, ShieldAlert, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from '@suka/auth';
 import { useToast } from "@/lib/feedback/toast";
 
 // Pengaturan jam kerja sudah pindah sepenuhnya ke /dashboard/pengaturan

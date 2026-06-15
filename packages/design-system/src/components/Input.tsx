@@ -1,7 +1,7 @@
 import React from 'react'
 import { cn } from '../utils/cn'
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string
 }
 

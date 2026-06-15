@@ -10,7 +10,7 @@ import {
   type ThresholdItem
 } from '@/lib/queries/threshold'
 import { ThresholdTable } from './ThresholdTable'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@suka/auth'
 
 export function ThresholdPage() {
   const { outletStaff } = useAuth()

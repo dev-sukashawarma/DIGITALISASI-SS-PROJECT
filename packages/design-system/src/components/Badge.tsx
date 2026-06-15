@@ -1,7 +1,7 @@
 import React from 'react'
 import { cn } from '../utils/cn'
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: 'success' | 'warning' | 'error' | 'info'
 }
 

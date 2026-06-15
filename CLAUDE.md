@@ -163,5 +163,39 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 
 ---
 
-**Last updated:** 2026-06-12  
+## Session 2026-06-15: Dashboard & Auth Fixes (apps/stok)
+
+### ✅ Completed
+1. **Tailwind v4 syntax** — `@import "tailwindcss"` + `@theme` palet `suka-*`, hindari v3 directives
+2. **Dashboard route** — `/dashboard` sekarang render `MonitoringPage` (crew/SPV role-based), bukan launcher hub
+3. **QueryClientProvider** — kembalikan yang hilang saat refactor launcher (bikin infinite loading)
+4. **Casing fix** — `Providers.tsx` untuk Linux case-sensitive deploy
+5. **Embed disambiguation** — `outlets!outlet_staff_outlet_id_fkey(...)` di monitoring_view_crew query
+6. **Logout button** — "Keluar" di CrewDashboard header, call `signOut()` + redirect `/`
+7. **Permintaan link** — aksi cepat "Permintaan Bahan" di CrewDashboard (entry point yg hilang)
+8. **Outlet staff seeding** — insert Andi Empang (crew) ke outlet_staff table untuk testing
+
+### 🔧 In Progress / Issues Found
+**Problem:** Dashboard monitoring masih gagal query data (outlet 33 stok items ada, tapi "Connection unstable").
+
+**Root causes ditemukan & diperbaiki bertahap:**
+1. ❌ Auto-refresh infinite loop → disable `useAutoRefresh` demi isolasi
+2. ❌ "Not authenticated" error → pass `userId` dari `useAuth()` ke fetch, hindari re-query `auth.getUser()`
+3. ❌ Embed coerce error → query `outlet_staff` + `outlets` terpisah (embed return array)
+4. ❌ HTTP 406 "Not Acceptable" → ganti `createClient()` ke `createSupabaseBrowserClient()` dari @suka/auth (session proper)
+5. 🔴 **CURRENT:** Syntax error di monitoring.ts line 66 — double declaration `const supabase`
+
+**File status:**
+- `apps/stok/src/lib/queries/monitoring.ts` — punya duplicate `const supabase` declaration (line 9 & 66)
+- Need to fix syntax error sebelum lanjut test
+
+### 📝 Next Steps
+1. Fix syntax error di monitoring.ts (remove duplicate supabase declaration)
+2. Test `/dashboard` apakah data muncul atau error baru
+3. Enable auto-refresh kembali dengan proper error handling
+4. Push 9 commits ke GitHub & redeploy server `stok.sukashawarma.com`
+
+---
+
+**Last updated:** 2026-06-15  
 **Owner:** Dev Suka Shawarma

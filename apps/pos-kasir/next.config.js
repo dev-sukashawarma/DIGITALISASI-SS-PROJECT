@@ -13,11 +13,9 @@ const nextConfig = {
       },
     ],
   },
-  // Increase body size limit for ZIP uploads (default is 1MB)
-  // serverActions graduated from `experimental` to top-level config in Next 15+
-  serverActions: {
-    bodySizeLimit: '50mb',
-  },
+  // Catatan: upload ZIP ditangani via route handler App Router (/api/zip-upload),
+  // yang membaca body secara streaming tanpa batas 1MB — jadi tidak perlu
+  // `serverActions.bodySizeLimit` (key itu invalid di Next 16 & app ini tak punya server action).
 }
 
 module.exports = nextConfig

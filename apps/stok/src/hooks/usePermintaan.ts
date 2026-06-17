@@ -216,42 +216,44 @@ export function useApprovalList() {
 
 export function usePermintaanActions() {
   const { session } = useAuth()
-  const supabase = createClient()
 
   const buat = useCallback(
     async (outletId: string, items: BuatPermintaanItemInput[]) => {
       if (!session?.access_token) throw new Error('Belum login')
+      const supabase = createClient()
       const { error } = await supabase.rpc('buat_permintaan', {
         p_outlet_id: outletId,
         p_items: items,
       })
       if (error) throw new Error(error.message)
     },
-    [session, supabase]
+    [session]
   )
 
   const approve = useCallback(
     async (permintaanId: string, items: ApproveItemInput[]) => {
       if (!session?.access_token) throw new Error('Belum login')
+      const supabase = createClient()
       const { error } = await supabase.rpc('approve_permintaan', {
         p_permintaan_id: permintaanId,
         p_items: items,
       })
       if (error) throw new Error(error.message)
     },
-    [session, supabase]
+    [session]
   )
 
   const tolak = useCallback(
     async (permintaanId: string, alasan: string) => {
       if (!session?.access_token) throw new Error('Belum login')
+      const supabase = createClient()
       const { error } = await supabase.rpc('tolak_permintaan', {
         p_permintaan_id: permintaanId,
         p_alasan: alasan,
       })
       if (error) throw new Error(error.message)
     },
-    [session, supabase]
+    [session]
   )
 
   return { buat, approve, tolak }

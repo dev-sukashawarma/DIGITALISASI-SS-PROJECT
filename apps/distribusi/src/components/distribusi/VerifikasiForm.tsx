@@ -186,6 +186,7 @@ export function VerifikasiForm({ id }: { id: string }) {
             qty_terima: v.qty_terima,
             kondisi: v.kondisi === 'jelek' ? 'rusak' : 'baik',
             catatan: v.catatan || null,
+            flagged: v.qty_terima !== item.qty_dikirim || v.kondisi === 'jelek',
             verified_at: new Date().toISOString(),
           })
           .eq('id', item.id)

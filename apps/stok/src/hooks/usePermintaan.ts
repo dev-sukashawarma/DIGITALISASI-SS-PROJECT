@@ -39,7 +39,7 @@ async function loadPermintaan(filter: LoadFilter): Promise<PermintaanWithItems[]
 
   let query = supabase
     .from('permintaan_bahan')
-    .select('*, permintaan_bahan_item(*), outlets(name)')
+    .select('*, permintaan_bahan_item(*, bahan_baku(nama)), outlets(name)')
     .order('created_at', { ascending: false })
 
   if (filter.outletId) {
@@ -59,7 +59,10 @@ async function loadPermintaan(filter: LoadFilter): Promise<PermintaanWithItems[]
     const { outlets, permintaan_bahan_item, ...rest } = row
     return {
       ...rest,
-      items: permintaan_bahan_item ?? [],
+      items: (permintaan_bahan_item ?? []).map((it: any) => ({
+        ...it,
+        nama: it.bahan_baku?.nama ?? it.bahan_baku_id,
+      })),
       outlet_name,
     } as PermintaanWithItems
   })
@@ -128,13 +131,12 @@ export function useSaranItem(outletId: string | undefined) {
 // ---------------------------------------------------------------------------
 
 export function usePermintaanList(outletId: string | undefined) {
-  const { session } = useAuth()
   const [permintaan, setPermintaan] = useState<PermintaanWithItems[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    if (!outletId || !session) {
+    if (!outletId) {
       setLoading(false)
       return
     }
@@ -147,7 +149,7 @@ export function usePermintaanList(outletId: string | undefined) {
     } finally {
       setLoading(false)
     }
-  }, [outletId, session])
+  }, [outletId])
 
   // Initial load
   useEffect(() => {

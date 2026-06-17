@@ -34,7 +34,7 @@ export function PermintaanList({ outletId }: { outletId: string }) {
           <ul className="text-xs text-[#1e1b15] space-y-0.5">
             {p.items.map(it => (
               <li key={it.id} className="flex justify-between">
-                <span>{it.bahan_baku_id}</span>
+                <span>{it.nama ?? it.bahan_baku_id}</span>
                 <span>
                   {it.qty_diminta}
                   {it.qty_disetujui != null && it.qty_disetujui !== it.qty_diminta && (

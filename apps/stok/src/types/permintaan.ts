@@ -4,6 +4,7 @@ export interface PermintaanItem {
   id: string
   permintaan_id: string
   bahan_baku_id: string
+  nama?: string
   qty_diminta: number
   qty_disetujui: number | null
 }

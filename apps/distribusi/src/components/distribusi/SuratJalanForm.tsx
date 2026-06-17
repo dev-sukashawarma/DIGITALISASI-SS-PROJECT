@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { BottomNav } from './BottomNav'
@@ -42,7 +42,7 @@ export function SuratJalanForm() {
     }
 
     setSubmitting(true)
-    const supabase = createClient()
+    const supabase = createSupabaseBrowserClient()
 
     try {
       // Create surat jalan with formatted document number

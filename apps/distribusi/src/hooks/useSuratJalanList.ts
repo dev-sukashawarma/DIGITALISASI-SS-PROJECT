@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 
 interface SuratJalan {
   id: string
@@ -28,7 +28,7 @@ export function useSuratJalanList(dateFilter: DateFilter = 'all') {
       setLoading(true)
       setError(null)
 
-      const supabase = createClient()
+      const supabase = createSupabaseBrowserClient()
       let query = supabase
         .from('surat_jalan')
         .select('id, outlet_id, status, created_at, document_number, surat_jalan_item(qty_dikirim, qty_terima, kondisi)')

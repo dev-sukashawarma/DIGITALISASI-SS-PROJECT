@@ -4,10 +4,25 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
+import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { SignatureFlow } from './SignatureFlow'
 import { useAuth } from '@suka/auth'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
+
+function FormattedDate({ iso, extended }: { iso: string | null | undefined; extended?: boolean }) {
+  const text = useFormattedDate(iso, extended ? {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  } : {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+  return <>{text}</>
+}
 
 function SignatureBlock({ title, sigs }: { title: string; sigs: any[] }) {
   return (
@@ -89,7 +104,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
     setVerifying(true)
     try {
-      const supabase = createClient()
+      const supabase = createSupabaseBrowserClient()
       const { error } = await supabase
         .from('surat_jalan')
         .update({ status: 'selesai', updated_at: new Date().toISOString() })
@@ -271,12 +286,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
           <div className="bg-[#faf2e9]/40 p-4 rounded-xl border border-[#d9c2b2]/20 text-xs flex justify-between items-center">
             <span className="font-bold text-[#544437]/70 uppercase tracking-wider">Tanggal Dibuat</span>
             <span className="font-semibold text-[#1e1b15]">
-              {new Date(data.created_at).toLocaleDateString('id-ID', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-              })}
+              <FormattedDate iso={data.created_at} extended />
             </span>
           </div>
 

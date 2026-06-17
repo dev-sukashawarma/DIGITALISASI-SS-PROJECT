@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { useAuth } from '@suka/auth'
 import { SignatureCanvas } from './SignatureCanvas'
 
@@ -47,7 +47,7 @@ export function ReceiptSignatureStep({ suratJalanId, submitting, onFinalize, onB
     }
 
     setSigning(true)
-    const supabase = createClient()
+    const supabase = createSupabaseBrowserClient()
     try {
       const { data, error } = await supabase.rpc('sign_receipt_surat_jalan', {
         p_surat_jalan_id: suratJalanId,

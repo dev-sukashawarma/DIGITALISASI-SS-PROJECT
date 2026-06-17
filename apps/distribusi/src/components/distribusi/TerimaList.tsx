@@ -4,7 +4,18 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@suka/auth'
 import { useTerimaList } from '@/hooks/useTerimaList'
+import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { BottomNav } from './BottomNav'
+
+function FormattedDate({ iso }: { iso: string | null | undefined }) {
+  const text = useFormattedDate(iso, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+  return <>{text}</>
+}
 
 export function TerimaList() {
   const router = useRouter()
@@ -54,15 +65,7 @@ export function TerimaList() {
           </div>
         ) : (
           <div className="space-y-3">
-            {data.map((sj) => {
-              const formattedDate = new Date(sj.created_at).toLocaleDateString('id-ID', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              });
-
-              return (
+            {data.map((sj) => (
                 <div
                   key={sj.id}
                   onClick={() => router.push(`/distribusi/terima/${sj.id}`)}
@@ -78,7 +81,7 @@ export function TerimaList() {
                       No. SJ: {sj.document_number || sj.id.substring(0, 8).toUpperCase()}
                     </h4>
                     <p className="text-[9px] text-[#544437]/60 font-semibold">
-                      Tanggal Kirim: {formattedDate}
+                      Tanggal Kirim: <FormattedDate iso={sj.created_at} />
                     </p>
                   </div>
 
@@ -102,8 +105,7 @@ export function TerimaList() {
                     </span>
                   </div>
                 </div>
-              );
-            })}
+            ))}
           </div>
         )}
       </div>

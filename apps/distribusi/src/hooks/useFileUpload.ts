@@ -1,9 +1,9 @@
 'use client'
 import { useCallback } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 
 export function useFileUpload() {
-  const supabase = createClient()
+  const supabase = createSupabaseBrowserClient()
 
   const uploadFoto = useCallback(async (
     file: File,

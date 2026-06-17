@@ -1,7 +1,9 @@
 # ADR-005 — Next.js static export untuk deploy ke cPanel shared (penyedia lokal)
 
-- Status: Accepted
+- Status: **Superseded by [ADR-008](0008-pivot-nodejs-server-cloudlinux-node-selector.md)** (2026-06-15)
 - Tanggal: 2026-06-09
+
+> ⚠️ **Superseded:** Premis utama ADR ini ("cPanel shared tidak bisa run Node.js") terbukti salah — CloudLinux Node Selector menjalankan Node app. Arsitektur resmi sekarang = Next.js Node server. Lihat ADR-008.
 
 ## Konteks
 Hosting = **server cPanel CloudLinux shared** dari penyedia lokal (terkonfirmasi via metrik LVE: Entry Processes 40, Number of Processes 450, RAM 6GB, **no root access**). Postgres tersedia di server tapi **tidak dipakai** (DB = Supabase cloud, beda akun). App suite = tool internal (absensi, stok, distribusi, dashboard) yang datanya via Supabase. Karena shared (no root), SSR/Node app persisten berliku & rapuh; kapasitas server (39GB disk, ∞ bandwidth, ∞ subdomain) kegedean untuk static.

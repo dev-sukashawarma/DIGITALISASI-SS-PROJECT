@@ -28,7 +28,7 @@ subdomain_for() {
     stok)            echo "stok.sukashawarma.com" ;;
     distribusi)      echo "distribusi.sukashawarma.com" ;;
     owner-dashboard) echo "owner-dashboard.sukashawarma.com" ;;
-    pos-kasir)       echo "pos-kasir.sukashawarma.com" ;;
+    pos-kasir)       echo "pos.sukashawarma.com" ;;
     *)               echo "" ;;
   esac
 }

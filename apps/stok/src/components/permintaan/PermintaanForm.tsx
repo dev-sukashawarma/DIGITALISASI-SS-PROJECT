@@ -24,6 +24,7 @@ export function PermintaanForm({ outletId }: { outletId: string }) {
   const [pickId, setPickId] = useState('')
   const [busy, setBusy] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   // Seed baris dari saran (qty default = kekurangan ke threshold). Tidak menimpa
   // baris yang sudah diutak-atik user atau baris manual.
@@ -83,12 +84,17 @@ export function PermintaanForm({ outletId }: { outletId: string }) {
   const available = bahanBaku.filter(b => !rows[b.id])
 
   async function submit() {
-    setBusy(true); setErrorMsg(null)
+    setBusy(true); setErrorMsg(null); setSuccessMsg(null)
     try {
       await buat(outletId, selected.map(r => ({
         bahan_baku_id: r.bahan_baku_id, qty_diminta: Number(r.qty),
       })))
-      router.push('/stok/permintaan')
+      // eslint-disable-next-line no-console
+      console.log('[buat_permintaan] SUKSES, mereset form...')
+      // Reset form & tampilkan notif sukses
+      setRows({})
+      setSuccessMsg(`Permintaan berhasil dikirim (${selected.length} item). Menunggu persetujuan.`)
+      router.refresh() // paksa server components refresh agar list terupdate
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e))
     } finally { setBusy(false) }
@@ -164,6 +170,11 @@ export function PermintaanForm({ outletId }: { outletId: string }) {
         </div>
       </div>
 
+      {successMsg && (
+        <p className="text-xs font-bold text-[#1e6b3a] bg-[#d6f5e3] border border-[#1e6b3a]/20 p-3 rounded-xl">
+          ✅ {successMsg}
+        </p>
+      )}
       {errorMsg && <p className="text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-3 rounded-xl">{errorMsg}</p>}
 
       <Button

@@ -4,6 +4,14 @@ import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 
+// Helper: ambil access_token secara live (bukan dari React state yg mungkin belum ready)
+async function getLiveToken(): Promise<string> {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('Sesi tidak ditemukan. Silakan login ulang.')
+  return session.access_token
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -215,46 +223,38 @@ export function useApprovalList() {
 // ---------------------------------------------------------------------------
 
 export function usePermintaanActions() {
-  const { session } = useAuth()
+  const buat = async (outletId: string, items: BuatPermintaanItemInput[]) => {
+    await getLiveToken() // validasi sesi dulu
+    const supabase = createClient()
+    // eslint-disable-next-line no-console
+    console.log('[buat_permintaan] outletId:', outletId, 'items:', items)
+    const { error } = await supabase.rpc('buat_permintaan', {
+      p_outlet_id: outletId,
+      p_items: items,
+    })
+    // eslint-disable-next-line no-console
+    if (error) { console.error('[buat_permintaan] error:', error); throw new Error(error.message) }
+  }
 
-  const buat = useCallback(
-    async (outletId: string, items: BuatPermintaanItemInput[]) => {
-      if (!session?.access_token) throw new Error('Belum login')
-      const supabase = createClient()
-      const { error } = await supabase.rpc('buat_permintaan', {
-        p_outlet_id: outletId,
-        p_items: items,
-      })
-      if (error) throw new Error(error.message)
-    },
-    [session]
-  )
+  const approve = async (permintaanId: string, items: ApproveItemInput[]) => {
+    await getLiveToken()
+    const supabase = createClient()
+    const { error } = await supabase.rpc('approve_permintaan', {
+      p_permintaan_id: permintaanId,
+      p_items: items,
+    })
+    if (error) throw new Error(error.message)
+  }
 
-  const approve = useCallback(
-    async (permintaanId: string, items: ApproveItemInput[]) => {
-      if (!session?.access_token) throw new Error('Belum login')
-      const supabase = createClient()
-      const { error } = await supabase.rpc('approve_permintaan', {
-        p_permintaan_id: permintaanId,
-        p_items: items,
-      })
-      if (error) throw new Error(error.message)
-    },
-    [session]
-  )
-
-  const tolak = useCallback(
-    async (permintaanId: string, alasan: string) => {
-      if (!session?.access_token) throw new Error('Belum login')
-      const supabase = createClient()
-      const { error } = await supabase.rpc('tolak_permintaan', {
-        p_permintaan_id: permintaanId,
-        p_alasan: alasan,
-      })
-      if (error) throw new Error(error.message)
-    },
-    [session]
-  )
+  const tolak = async (permintaanId: string, alasan: string) => {
+    await getLiveToken()
+    const supabase = createClient()
+    const { error } = await supabase.rpc('tolak_permintaan', {
+      p_permintaan_id: permintaanId,
+      p_alasan: alasan,
+    })
+    if (error) throw new Error(error.message)
+  }
 
   return { buat, approve, tolak }
 }

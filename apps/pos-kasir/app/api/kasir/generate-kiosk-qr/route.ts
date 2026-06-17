@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     }
 
     const requestUrl = new URL(request.url)
-    const origin = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin || 'https://shawarma-order.vercel.app'
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || 'https://pos.sukashawarma.com'
 
     // ARSITEKTUR BARU: Auto-Login Tahan Banting (Anti-Supabase Config Error)
     const crypto = require('crypto')

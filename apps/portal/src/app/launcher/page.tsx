@@ -12,7 +12,7 @@ const APP_URL: Record<AppName, string> = {
   stok:              process.env.NEXT_PUBLIC_APP_URL_STOK            ?? 'https://stok.sukashawarma.com',
   absensi:           process.env.NEXT_PUBLIC_APP_URL_ABSENSI         ?? 'https://absensi.sukashawarma.com',
   distribusi:        process.env.NEXT_PUBLIC_APP_URL_DISTRIBUSI      ?? 'https://distribusi.sukashawarma.com',
-  'pos-kasir':       process.env.NEXT_PUBLIC_APP_URL_POS_KASIR       ?? 'https://kasir.sukashawarma.com',
+  'pos-kasir':       process.env.NEXT_PUBLIC_APP_URL_POS_KASIR       ?? 'https://pos.sukashawarma.com',
   'owner-dashboard': process.env.NEXT_PUBLIC_APP_URL_OWNER_DASHBOARD ?? 'https://owner.sukashawarma.com',
 }
 

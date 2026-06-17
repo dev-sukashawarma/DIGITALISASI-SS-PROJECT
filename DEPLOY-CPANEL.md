@@ -439,6 +439,26 @@ Set up uptime monitoring for production health:
 
 ---
 
+## PERFORMANCE — Optimasi Perpindahan Portal → App
+
+### Env optimasi auth (wajib untuk performa, opsional untuk fungsi)
+- `SUPABASE_JWT_SECRET` — JWT Secret dari Supabase Dashboard (Project Settings → API).
+  Membuat middleware memverifikasi token secara lokal (0 round-trip auth) alih-alih
+  memanggil `getUser()` tiap request. Bila tidak di-set, app tetap jalan (fallback
+  `getUser()`), hanya lebih lambat. Set di panel Node app tiap subdomain (stok,
+  distribusi, absensi, owner) → SAVE → RESTART. Jangan commit nilainya.
+
+### Anti cold-start
+Passenger spawn on-demand → klik pertama ke app idle harus spawn Node (lambat).
+Dua lapis pencegahan:
+1. **PassengerMinInstances 1** — di `.htaccess` docroot tiap subdomain tambahkan
+   `PassengerMinInstances 1` agar minimal 1 instance tetap hidup.
+2. **Cron keepalive** — `scripts/keepalive.sh` ping tiap subdomain tiap 5 menit
+   (cron: `*/5 * * * * /home/sukashaw/suka-app/scripts/keepalive.sh >/dev/null 2>&1`).
+   Test via IP publik (`--resolve`), bukan loopback.
+
+---
+
 ## SUCCESS CRITERIA
 
 ✅ Deployment is successful when:

@@ -221,8 +221,6 @@ export function usePermintaanActions() {
   const buat = useCallback(
     async (outletId: string, items: BuatPermintaanItemInput[]) => {
       if (!session?.access_token) throw new Error('Belum login')
-      // Ensure session is set on client before RPC
-      await supabase.auth.setSession(session)
       const { error } = await supabase.rpc('buat_permintaan', {
         p_outlet_id: outletId,
         p_items: items,
@@ -235,7 +233,6 @@ export function usePermintaanActions() {
   const approve = useCallback(
     async (permintaanId: string, items: ApproveItemInput[]) => {
       if (!session?.access_token) throw new Error('Belum login')
-      await supabase.auth.setSession(session)
       const { error } = await supabase.rpc('approve_permintaan', {
         p_permintaan_id: permintaanId,
         p_items: items,
@@ -248,7 +245,6 @@ export function usePermintaanActions() {
   const tolak = useCallback(
     async (permintaanId: string, alasan: string) => {
       if (!session?.access_token) throw new Error('Belum login')
-      await supabase.auth.setSession(session)
       const { error } = await supabase.rpc('tolak_permintaan', {
         p_permintaan_id: permintaanId,
         p_alasan: alasan,

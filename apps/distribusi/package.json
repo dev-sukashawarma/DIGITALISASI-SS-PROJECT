@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "react": "^19.0.0-rc.0",
@@ -28,6 +30,11 @@
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
     "@types/qrcode": "^1.5.2",
+    "vitest": "^2.1.0",
+    "jsdom": "^25.0.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/jest-dom": "^6.6.3",
     "tailwindcss": "^4.0.0",
     "postcss": "^8.4.32"
   }

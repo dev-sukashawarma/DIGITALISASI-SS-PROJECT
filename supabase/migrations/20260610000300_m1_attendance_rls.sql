@@ -56,3 +56,16 @@ CREATE POLICY oac_update_spv
 -- DROP POLICY IF EXISTS attendance_service_update ON attendance;
 -- DROP POLICY IF EXISTS oac_read_own_outlet ON outlet_attendance_config;
 -- DROP POLICY IF EXISTS oac_update_spv ON outlet_attendance_config;
+
+
+-- Merged from 20260610000300_surat_jalan_anon_insert.sql
+-- Allow unauthenticated users to insert surat jalan (for testing)
+create policy surat_jalan_insert_anon
+  on surat_jalan for insert
+  to anon
+  with check (true);
+
+create policy surat_jalan_item_insert_anon
+  on surat_jalan_item for insert
+  to anon
+  with check (true);

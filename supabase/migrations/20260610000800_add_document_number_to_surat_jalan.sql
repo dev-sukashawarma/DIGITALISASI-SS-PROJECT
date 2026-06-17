@@ -59,3 +59,7 @@ begin
   );
 end;
 $$;
+
+
+-- Merged from 20260610000800_add_jam_keluar.sql
+ALTER TABLE outlet_attendance_config ADD COLUMN jam_keluar TIME NOT NULL DEFAULT '17:00';

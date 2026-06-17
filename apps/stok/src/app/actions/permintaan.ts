@@ -1,5 +1,7 @@
 'use server'
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
+import { createSupabaseServerClient } from '@suka/auth'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 
 // ---------------------------------------------------------------------------
@@ -15,6 +17,22 @@ function makeServiceClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+async function getCurrentUserId(): Promise<string> {
+  const cookieStore = await cookies()
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (toSet) =>
+      toSet.forEach(({ name, value, options }) =>
+        cookieStore.set(name, value, options as any)
+      ),
+  })
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) {
+    throw new Error('Unauthorized: No active user session found')
+  }
+  return user.id
 }
 
 function mapRow(row: any): PermintaanWithItems {
@@ -72,9 +90,11 @@ export async function buatPermintaan(
   items: BuatPermintaanItemInput[]
 ): Promise<void> {
   const supabase = makeServiceClient()
-  const { error } = await supabase.rpc('buat_permintaan', {
+  const currentUserId = await getCurrentUserId()
+  const { error } = await supabase.rpc('buat_permintaan_svc', {
     p_outlet_id: outletId,
     p_items: items,
+    p_dibuat_oleh: currentUserId,
   })
   if (error) throw new Error(error.message)
 }
@@ -88,7 +108,7 @@ export async function approvePermintaan(
   items: ApproveItemInput[]
 ): Promise<void> {
   const supabase = makeServiceClient()
-  const { error } = await supabase.rpc('approve_permintaan', {
+  const { error } = await supabase.rpc('approve_permintaan_svc', {
     p_permintaan_id: permintaanId,
     p_items: items,
   })
@@ -104,7 +124,7 @@ export async function tolakPermintaan(
   alasan: string
 ): Promise<void> {
   const supabase = makeServiceClient()
-  const { error } = await supabase.rpc('tolak_permintaan', {
+  const { error } = await supabase.rpc('tolak_permintaan_svc', {
     p_permintaan_id: permintaanId,
     p_alasan: alasan,
   })

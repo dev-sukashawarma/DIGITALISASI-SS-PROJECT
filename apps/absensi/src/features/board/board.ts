@@ -2,17 +2,18 @@ export type BoardStaff = { id: string; name: string; role: string };
 export type BoardRecord = {
   outlet_staff_id: string;
   type: "in" | "out";
-  status: "tepat" | "telat" | "alpha";
+  status: "tepat" | "telat" | "alpha" | "lebih_awal" | "pulang_telat";
   ts_server: string;
   selfie_url?: string | null;
 };
 
 export type BoardConfig = {
   jam_masuk: string;
+  jam_keluar?: string;
   toleransi_menit: number;
 };
 
-export type BoardState = "masuk" | "telat" | "keluar" | "belum" | "alpha";
+export type BoardState = "masuk" | "telat" | "keluar" | "belum" | "alpha" | "lebih_awal" | "pulang_telat";
 export type BoardRow = { 
   id: string; 
   name: string; 
@@ -63,8 +64,17 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
     const inRec = recs.find((r) => r.type === "in");
     const outRec = recs.filter((r) => r.type === "out").pop();
     
-    if (outRec) return { id: s.id, name: s.name, role: s.role, state: "keluar", time: jam(outRec.ts_server), selfie_url: outRec.selfie_url || null, delay_minutes: null };
-    
+    if (outRec) {
+      let state: BoardState = "keluar";
+      if (outRec.status === "lebih_awal") state = "lebih_awal";
+      if (outRec.status === "pulang_telat") state = "pulang_telat";
+      
+      let delay_minutes = null;
+      if (config.jam_keluar && (state === "lebih_awal" || state === "pulang_telat")) {
+        delay_minutes = Math.abs(calculateDelayMinutes(outRec.ts_server, config.jam_keluar));
+      }
+      return { id: s.id, name: s.name, role: s.role, state, time: jam(outRec.ts_server), selfie_url: outRec.selfie_url || null, delay_minutes };
+    }    
     if (inRec) {
       const state: BoardState = inRec.status === "telat" ? "telat" : "masuk";
       const delay_minutes = state === "telat" ? calculateDelayMinutes(inRec.ts_server, config.jam_masuk) : null;

@@ -2,7 +2,7 @@ import React from 'react'
 import { cn } from '../utils/cn'
 
 export type StatusKind =
-  | 'tepat' | 'telat' | 'alpha' | 'belum' | 'masuk' | 'keluar'
+  | 'tepat' | 'telat' | 'alpha' | 'belum' | 'masuk' | 'keluar' | 'lebih_awal' | 'pulang_telat'
 
 interface StatusPillProps extends React.HTMLAttributes<HTMLSpanElement> {
   kind: StatusKind
@@ -15,6 +15,8 @@ const STYLES: Record<StatusKind, string> = {
   alpha:  'bg-[#fcebeb] text-[#a32d2d]',
   belum:  'bg-[#f1efe8] text-[#5f5e5a]',
   keluar: 'bg-[#eef0ff] text-[#26215c]',
+  lebih_awal: 'bg-[#e0f2fe] text-[#0369a1]', // Light blue background, dark blue text
+  pulang_telat: 'bg-[#ffedd5] text-[#9a3412]', // Light orange background, dark orange text
 }
 
 export const StatusPill: React.FC<StatusPillProps> = ({ kind, className, children, ...props }) => (

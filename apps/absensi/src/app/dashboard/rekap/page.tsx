@@ -12,7 +12,7 @@ type Row = {
   type: "in" | "out";
   ts_server: string;
   ts_client: string | null;
-  status: "tepat" | "telat" | "alpha";
+  status: "tepat" | "telat" | "alpha" | "lebih_awal" | "pulang_telat";
   selfie_url: string | null;
   outlet_staff: { name: string } | null;
   delay_minutes?: number | null;
@@ -38,6 +38,7 @@ export default function RekapPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [preview, setPreview] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>("semua");
 
   useEffect(() => {
     if (!outletStaff) return;
@@ -57,7 +58,7 @@ export default function RekapPage() {
         .eq("status", "active"),
       supabase
         .from("outlet_attendance_config")
-        .select("jam_masuk")
+        .select("jam_masuk,jam_keluar")
         .eq("outlet_id", outletStaff.outlet_id)
         .single()
     ]).then(([attRes, staffRes, cfgRes]) => {
@@ -69,6 +70,12 @@ export default function RekapPage() {
       dbRows.forEach(r => {
         if (r.status === "telat" && r.type === "in" && cfg?.jam_masuk) {
           r.delay_minutes = calculateDelayMinutes(r.ts_server, cfg.jam_masuk);
+        }
+        if (r.status === "pulang_telat" && r.type === "out" && cfg?.jam_keluar) {
+          r.delay_minutes = calculateDelayMinutes(r.ts_server, cfg.jam_keluar);
+        }
+        if (r.status === "lebih_awal" && r.type === "out" && cfg?.jam_keluar) {
+          r.delay_minutes = Math.abs(calculateDelayMinutes(r.ts_server, cfg.jam_keluar));
         }
       });
 
@@ -97,9 +104,12 @@ export default function RekapPage() {
 
   const summary = useMemo(() => ({
     tepat: rows.filter((r) => r.status === "tepat").length,
-    telat: rows.filter((r) => r.status === "telat").length,
+    telat: rows.filter((r) => r.status === "telat" || r.status === "pulang_telat").length,
     alpha: rows.filter((r) => r.status === "alpha").length,
+    lebih_awal: rows.filter((r) => r.status === "lebih_awal").length,
   }), [rows]);
+
+  const filteredRows = rows.filter(r => filterStatus === "semua" || r.status === filterStatus);
 
   function jam(ts: string) {
     return new Date(ts).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -113,6 +123,7 @@ export default function RekapPage() {
     { label: "Tepat", value: summary.tepat, cls: "text-suka-green" },
     { label: "Telat", value: summary.telat, cls: "text-[#854f0b]" },
     { label: "Alpha", value: summary.alpha, cls: "text-red-600" },
+    { label: "Awal", value: summary.lebih_awal, cls: "text-[#0369a1]" },
   ];
 
   return (
@@ -140,9 +151,25 @@ export default function RekapPage() {
         ))}
       </div>
 
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-suka-ink">Riwayat ({filteredRows.length})</span>
+        <select 
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="text-xs bg-white border border-suka-gray-300 rounded-lg px-2 py-1.5 outline-none text-gray-600"
+        >
+          <option value="semua">Semua Status</option>
+          <option value="tepat">Tepat</option>
+          <option value="telat">Masuk Telat</option>
+          <option value="alpha">Alpha</option>
+          <option value="lebih_awal">Pulang Lebih Awal</option>
+          <option value="pulang_telat">Pulang Telat</option>
+        </select>
+      </div>
+
       <div className="divide-y divide-suka-gray-200/70 overflow-hidden rounded-2xl border border-suka-gray-200 bg-white">
-        {rows.length === 0 && <EmptyState icon={<ClipboardList size={28} />} title="Belum ada data" description="Tidak ada absensi untuk tanggal ini." />}
-        {rows.map((r) => (
+        {filteredRows.length === 0 && <EmptyState icon={<ClipboardList size={28} />} title="Belum ada data" description="Tidak ada absensi untuk tanggal/filter ini." />}
+        {filteredRows.map((r) => (
           <div key={r.id} className="flex items-center gap-3 px-3.5 py-3 sm:px-4">
             {r.selfie_url ? (
               <img src={selfieUrl(r.selfie_url)} alt="selfie" onClick={() => setPreview(selfieUrl(r.selfie_url!))}

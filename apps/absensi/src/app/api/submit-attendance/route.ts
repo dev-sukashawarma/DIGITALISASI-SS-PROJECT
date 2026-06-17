@@ -40,7 +40,15 @@ export async function POST(req: Request) {
       const [hOut, mOut] = (cfg.jam_keluar || "17:00").split(":").map(Number);
       const deadlineOut = new Date(local);
       deadlineOut.setHours(hOut, mOut, 0, 0);
-      status = local.getTime() < deadlineOut.getTime() ? "telat" : "tepat";
+      
+      const diffMins = Math.floor((local.getTime() - deadlineOut.getTime()) / 60000);
+      if (diffMins < 0) {
+        status = "lebih_awal";
+      } else if (diffMins >= 1) {
+        status = "pulang_telat";
+      } else {
+        status = "tepat";
+      }
     } else {
       const [h, m] = cfg.jam_masuk.split(":").map(Number);
       

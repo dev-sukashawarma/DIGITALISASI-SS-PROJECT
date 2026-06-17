@@ -9,10 +9,12 @@ import { computeBoard, type BoardStaff, type BoardRecord, type BoardRow } from "
 import { PageHeader, InfoPill } from "@/components/PageHeader";
 import { DashboardSettings } from "../DashboardSettings";
 
-const PILL: Record<BoardRow["state"], { icon: React.ReactNode; label: (t: string | null) => string }> = {
+const PILL: Record<BoardRow["state"], { icon: React.ReactNode; label: (t: string | null, d: number | null) => string }> = {
   masuk:  { icon: <LogIn size={13} />,  label: (t, d) => `Masuk ${t}` },
   telat:  { icon: <Clock4 size={13} />, label: (t, d) => `Telat ${d ? d + ' mnt' : t}` },
   keluar: { icon: <LogOut size={13} />, label: (t, d) => `Keluar ${t}` },
+  lebih_awal: { icon: <LogOut size={13} />, label: (t, d) => `Lebih Awal ${t}` },
+  pulang_telat: { icon: <Clock4 size={13} />, label: (t, d) => `Pulang Telat ${d ? d + ' mnt' : t}` },
   belum:  { icon: <MoreHorizontal size={13} />, label: () => "Belum hadir" },
   alpha:  { icon: <MoreHorizontal size={13} />, label: () => "Alpha" },
 };
@@ -32,6 +34,7 @@ export default function PapanKehadiranPage() {
   const supabase = createClient();
   const [data, setData] = useState<ReturnType<typeof computeBoard> | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>("semua");
 
   function selfieUrl(path: string) {
     return supabase.storage.from(SELFIE_BUCKET).getPublicUrl(path).data.publicUrl;
@@ -45,7 +48,7 @@ export default function PapanKehadiranPage() {
         supabase.from("outlet_staff").select("id,name,role").eq("outlet_id", outletStaff.outlet_id).eq("status", "active"),
         supabase.from("attendance").select("outlet_staff_id,type,status,ts_server,selfie_url")
           .eq("outlet_id", outletStaff.outlet_id).gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
-        supabase.from("outlet_attendance_config").select("jam_masuk,toleransi_menit").eq("outlet_id", outletStaff.outlet_id).single()
+        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", outletStaff.outlet_id).single()
       ]);
       if (cfg) {
         setData(computeBoard((staff as BoardStaff[]) ?? [], (recs as BoardRecord[]) ?? [], cfg));
@@ -61,6 +64,8 @@ export default function PapanKehadiranPage() {
   const hadirPct = summary.total > 0 ? (summary.hadir / summary.total) * 100 : 0;
   const telatPct = summary.total > 0 ? (summary.telat / summary.total) * 100 : 0;
   const alphaPct = summary.total > 0 ? (summary.alpha / summary.total) * 100 : 0;
+
+  const filteredRows = data.rows.filter(r => filterStatus === "semua" || r.state === filterStatus);
 
   return (
     <div className="space-y-5">
@@ -99,12 +104,25 @@ export default function PapanKehadiranPage() {
 
       <div>
         <div className="mb-2 flex items-center justify-between px-1">
-          <span className="text-sm font-semibold text-suka-ink">Daftar staf</span>
-          <span className="text-xs text-gray-400">{data.rows.length} orang</span>
+          <span className="text-sm font-semibold text-suka-ink">Daftar staf ({filteredRows.length})</span>
+          <select 
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="text-xs bg-white border border-suka-gray-300 rounded-lg px-2 py-1 outline-none text-gray-600"
+          >
+            <option value="semua">Semua Status</option>
+            <option value="masuk">Masuk Tepat</option>
+            <option value="telat">Masuk Telat</option>
+            <option value="belum">Belum Hadir</option>
+            <option value="alpha">Alpha</option>
+            <option value="keluar">Keluar Tepat</option>
+            <option value="lebih_awal">Pulang Lebih Awal</option>
+            <option value="pulang_telat">Pulang Telat</option>
+          </select>
         </div>
         <div className="rounded-2xl border border-suka-gray-200 bg-white divide-y divide-suka-gray-200/70 overflow-hidden">
-          {data.rows.length === 0 && <EmptyState icon={<Users size={28} />} title="Belum ada staff aktif" />}
-          {data.rows.map((r) => {
+          {filteredRows.length === 0 && <EmptyState icon={<Users size={28} />} title="Belum ada staff" />}
+          {filteredRows.map((r) => {
             const p = PILL[r.state];
             return (
               <div key={r.id} className="flex items-center gap-3 px-3.5 py-3 sm:px-4">

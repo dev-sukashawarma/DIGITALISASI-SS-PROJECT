@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@suka/auth";
 import { LayoutDashboard, ClipboardList, Camera, LogOut, Store, X, Settings2, Users, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal } from "lucide-react";
+import { ModelPreloader } from "@/components/ModelPreloader";
 
 type NavItem = { href: string; label: string; mobileLabel?: string; icon: React.ReactNode };
 
@@ -104,6 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
+      <ModelPreloader />
       {/* Sidebar — hanya desktop. Di mobile diganti bottom navigation bar */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col shrink-0">
         <div className="h-full flex flex-col">

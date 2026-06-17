@@ -28,8 +28,7 @@ export const AuthProvider: React.FC<{
   const [staffError, setStaffError] = useState<string | null>(null)
 
   useEffect(() => {
-    let initialised = false
-    let abortController = new AbortController()
+    const abortController = new AbortController()
 
     async function loadStaff(userId: string | undefined) {
       if (!userId) {
@@ -68,8 +67,6 @@ export const AuthProvider: React.FC<{
           await loadStaff(session?.user?.id)
         }
         setLoading(false)
-        initialised = true
-        void initialised
       } catch (err) {
         if (!abortController.signal.aborted) {
           setLoading(false)

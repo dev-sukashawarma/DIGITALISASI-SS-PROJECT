@@ -4,7 +4,18 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@suka/auth'
 import { useRiwayatList } from '@/hooks/useRiwayatList'
+import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { BottomNav } from './BottomNav'
+
+function FormattedDate({ iso }: { iso: string | null | undefined }) {
+  const text = useFormattedDate(iso, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+  return <>{text}</>
+}
 
 export function RiwayatList() {
   const router = useRouter()
@@ -49,15 +60,7 @@ export function RiwayatList() {
           </div>
         ) : (
           <div className="space-y-3">
-            {data.map((sj) => {
-              const formattedDate = new Date(sj.created_at).toLocaleDateString('id-ID', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              });
-
-              return (
+            {data.map((sj) => (
                 <div
                   key={sj.id}
                   onClick={() => router.push(`/distribusi/surat-jalan/${sj.id}`)}
@@ -91,7 +94,7 @@ export function RiwayatList() {
                       Asal: {sj.outlets?.name || 'Gudang Pusat'}
                     </h4>
                     <p className="text-[9px] text-[#544437]/60 font-semibold">
-                      Tanggal Penerimaan: {formattedDate}
+                      Tanggal Penerimaan: <FormattedDate iso={sj.created_at} />
                     </p>
                   </div>
 
@@ -103,8 +106,7 @@ export function RiwayatList() {
                     </span>
                   </div>
                 </div>
-              );
-            })}
+            ))}
           </div>
         )}
       </div>

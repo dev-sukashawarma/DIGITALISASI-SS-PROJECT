@@ -1,3 +1,5 @@
+import { headers } from 'next/headers'
+import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { Providers } from './Providers'
 import './globals.css'
 
@@ -6,7 +8,8 @@ export const metadata = {
   description: 'Clock-in/out dengan face recognition untuk staff outlet',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const initialStaff = parseStaffHeader((await headers()).get(STAFF_HEADER))
   return (
     <html lang="id">
       <head>
@@ -14,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body className="antialiased bg-slate-50 text-slate-900 selection:bg-suka-orange selection:text-white min-h-screen">
-        <Providers>
+        <Providers initialStaff={initialStaff}>
           {children}
         </Providers>
       </body>

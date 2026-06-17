@@ -2,7 +2,7 @@ import { type NextRequest } from 'next/server'
 import { enforceAppAccess } from '@suka/auth'
 
 export function middleware(request: NextRequest) {
-  return enforceAppAccess(request, 'absensi')
+  return enforceAppAccess(request, 'absensi', { rootRewritePath: '/dashboard' })
 }
 
 export const config = {

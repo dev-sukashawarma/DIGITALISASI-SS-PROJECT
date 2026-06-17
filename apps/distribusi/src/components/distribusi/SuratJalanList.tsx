@@ -46,17 +46,28 @@ export function SuratJalanList() {
       .select('*')
       .eq('surat_jalan_id', sjId)
 
-    // Fetch bahan for each item
-    const itemsWithBahan = await Promise.all(
-      (items || []).map(async (item) => {
-        const { data: bahan } = await supabase
-          .from('bahan_baku')
-          .select('nama, satuan')
-          .eq('id', item.bahan_baku_id)
-          .single()
-        return { ...item, ...bahan }
-      })
-    )
+    // Get unique bahan_baku IDs
+    const bahanBakuIds = [...new Set((items || []).map(i => i.bahan_baku_id))];
+
+    // Batch fetch all bahan_baku in ONE query
+    const { data: bahanBakuList, error: bahanError } = await supabase
+      .from('bahan_baku')
+      .select('id, nama, satuan')
+      .in('id', bahanBakuIds);
+
+    if (bahanError) throw bahanError;
+
+    // Create lookup map
+    const bahanMap = new Map(
+      bahanBakuList?.map(b => [b.id, { nama: b.nama, satuan: b.satuan }]) ?? []
+    );
+
+    // Map items with bahan details
+    const itemsWithBahan = (items || []).map(item => ({
+      ...item,
+      bahan_nama: bahanMap.get(item.bahan_baku_id)?.nama || 'Unknown',
+      bahan_satuan: bahanMap.get(item.bahan_baku_id)?.satuan || '',
+    }))
 
     // Find outlet name from list data
     const outletData = data.find((d) => d.id === sjId)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { useAuth } from '@suka/auth'
 
 export interface RiwayatRow {
@@ -33,7 +33,7 @@ export function useRiwayatList() {
       }
 
       try {
-        const supabase = createClient()
+        const supabase = createSupabaseBrowserClient()
         const query = supabase
           .from('surat_jalan')
           .select('id, outlet_id, status, created_at, document_number, outlets(name), surat_jalan_item(qty_dikirim, qty_terima, kondisi)')

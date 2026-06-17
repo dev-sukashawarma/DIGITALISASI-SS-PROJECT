@@ -4,7 +4,17 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@suka/auth'
 import { usePengirimanList } from '@/hooks/usePengirimanList'
+import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { BottomNav } from './BottomNav'
+
+function FormattedDate({ iso }: { iso: string | null | undefined }) {
+  const text = useFormattedDate(iso, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+  return <>{text}</>
+}
 
 
 export function PengirimanList() {
@@ -105,11 +115,7 @@ export function PengirimanList() {
                   {/* Footer Stats */}
                   <div className="flex justify-between items-center pt-3 border-t border-[#d9c2b2]/15 text-[10px] text-[#544437]/60 font-semibold mt-1">
                     <span>
-                      {new Date(sj.created_at).toLocaleDateString('id-ID', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
+                      <FormattedDate iso={sj.created_at} />
                     </span>
 
                     {sj.status !== 'draft' && sj.status !== 'dikirim' && sj.status !== 'dikirim_lengkap' && (

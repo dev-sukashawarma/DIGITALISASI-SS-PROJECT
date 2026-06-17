@@ -3,10 +3,20 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
+import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
 import { BottomNav } from './BottomNav'
+
+function FormattedDate({ iso }: { iso: string | null | undefined }) {
+  const text = useFormattedDate(iso, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+  return <>{text}</>
+}
 
 type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif'
 
@@ -16,7 +26,7 @@ export function SuratJalanList() {
   const { data, loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter)
 
   const handleDownloadPDF = async (sjId: string) => {
-    const supabase = createClient()
+    const supabase = createSupabaseBrowserClient()
 
     // Fetch full surat jalan detail with items
     const { data: sj } = await supabase
@@ -184,11 +194,7 @@ export function SuratJalanList() {
                   <div className="pt-3 border-t border-[#d9c2b2]/15 mt-3 flex flex-col gap-2">
                     <div className="flex justify-between items-center text-[9px] text-[#544437]/60 font-bold uppercase pl-0.5">
                       <span>
-                        {new Date(sj.created_at).toLocaleDateString('id-ID', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                        <FormattedDate iso={sj.created_at} />
                       </span>
                       {sj.status !== 'draft' && sj.status !== 'dikirim' && (
                         sj.has_problem ? (

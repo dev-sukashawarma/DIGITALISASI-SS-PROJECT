@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import jsQR from 'jsqr'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 
 export function QRScanner() {
   const router = useRouter()
@@ -24,7 +24,7 @@ export function QRScanner() {
 
     const cleanedCode = code.trim().toUpperCase()
 
-    const supabase = createClient()
+    const supabase = createSupabaseBrowserClient()
     const { data, error } = await supabase
       .from('surat_jalan')
       .select('id, status')

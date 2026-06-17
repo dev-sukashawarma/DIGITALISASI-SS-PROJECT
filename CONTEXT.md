@@ -47,7 +47,7 @@
 - **Ecosystem (project produksi)** — Supabase project existing dipakai TiktokGo + POS SS lama. Master `outlets`. **Read-only** dari sisi suite baru.
 - **shawarma-kiosk** (`apps/pos-kasir`) — POS/self-service (Next.js+Supabase, multi-outlet, kasir+payment+reports). **Sejak migration `20260612000001_merge_pos_schema.sql`, schema-nya digabung ke Outlet Suite DB** (`khpkoreaaucvyqfhynfq`, sama dengan `apps/absensi`) — bukan lagi project terpisah/read-only. **Sejak unifikasi `20260613000100`, tabel `profiles` di-DROP** dan identitas user POS dipindah ke `outlet_staff` (role `admin|kasir|kiosk` ikut ditambahkan ke sana). Satu tabel user untuk semua sistem. Lihat ADR-0007.
 - **Outlet Suite (project baru)** — Supabase project di **akun/org berbeda** untuk modul baru (M0–M4). (lihat ADR-004)
-- **Hosting app** — server **cPanel CloudLinux shared** (penyedia lokal), file **statis** (Next.js static export), subdomain per modul. Postgres bawaan cPanel tidak dipakai. (lihat ADR-005)
+- **Hosting app** — server **cPanel CloudLinux shared** (penyedia lokal), tiap modul = **Next.js Node server** via **CloudLinux Node Selector + Passenger** (1 subdomain = 1 Node app), bukan static export. Postgres bawaan cPanel tidak dipakai. (lihat ADR-008 yang men-supersede ADR-005)
 
 ## Operasional Harian Outlet & Gate Kasir
 

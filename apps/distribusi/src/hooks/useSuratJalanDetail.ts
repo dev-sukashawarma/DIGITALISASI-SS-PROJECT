@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 
 interface Item {
   id: string
@@ -37,7 +37,7 @@ export function useSuratJalanDetail(id: string) {
     const fetchData = async () => {
       setLoading(true)
       setError(null)
-      const supabase = createClient()
+      const supabase = createSupabaseBrowserClient()
 
       try {
         const { data: sj, error: sjError } = await supabase

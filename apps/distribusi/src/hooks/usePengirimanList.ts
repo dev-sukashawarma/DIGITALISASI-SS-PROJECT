@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 
 export interface PengirimanRow {
   id: string
@@ -22,7 +22,7 @@ export function usePengirimanList() {
       setLoading(true)
       setError(null)
       try {
-        const supabase = createClient()
+        const supabase = createSupabaseBrowserClient()
         // Lintas-outlet: tanpa filter outlet_id. Semua status.
         const { data, error: err } = await supabase
           .from('surat_jalan')

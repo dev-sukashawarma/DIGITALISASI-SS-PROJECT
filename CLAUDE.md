@@ -208,5 +208,26 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 
 ---
 
-**Last updated:** 2026-06-15 (continued)  
+## Session 2026-06-17: Distribusi Hardening — Plan (brainstorm + grill-with-docs)
+
+**Status:** Plan tertulis & committed. **Belum dieksekusi** — akan dilanjut di sesi baru.
+
+### Hasil
+1. **Audit `apps/distribusi`** vs playbook stok — hampir kembar dengan kondisi stok pra-fix: 61 type errors (tsconfig tanpa `baseUrl`), auth pakai `createClient` lokal (tak set cookie domain → SSO bug laten), ~10 date render rawan hydration, no test infra.
+2. **🔑 Kontradiksi arsitektur di-resolve (grill-with-docs):** `output: 'export'` (ADR-005) bentrok dengan kenyataan distribusi LIVE sebagai **Node server** + pakai `middleware.ts` (yang static export matikan diam-diam). → **ADR-008 dibuat (supersede ADR-005)**: Node server resmi, premis "cPanel shared tak bisa Node.js" gugur (ada CloudLinux Node Selector). `output:'export'` = regresi tak sengaja (commit `cdd2fae`).
+3. **Docs diupdate:** ADR-008 (baru), ADR-005 (Superseded), `NOTES-STATIC-VS-SSR.md` (banner outdated), `CONTEXT.md` (term Hosting app).
+
+### Artefak (untuk sesi lanjut)
+- **Spec:** `docs/superpowers/specs/2026-06-15-distribusi-hardening-design.md`
+- **Plan (5 tasks, eksekusi-ready):** `docs/superpowers/plans/2026-06-17-distribusi-hardening.md`
+- **ADR:** `docs/adr/0008-pivot-nodejs-server-cloudlinux-node-selector.md`
+
+### 📝 Next Steps (sesi baru)
+1. Eksekusi plan distribusi (Task 1→5), pakai `superpowers:subagent-driven-development` atau `executing-plans`.
+2. Plan ini = **referensi saat re-upload distribusi ke production** (distribusi yang LIVE sekarang = baseline, jangan diutak-atik langsung).
+3. Pertimbangkan terapkan playbook hardening yang sama ke `apps/absensi` & `apps/owner-dashboard` (kemungkinan punya tsconfig/auth issue serupa).
+
+---
+
+**Last updated:** 2026-06-17  
 **Owner:** Dev Suka Shawarma

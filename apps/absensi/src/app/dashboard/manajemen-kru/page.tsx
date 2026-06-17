@@ -54,9 +54,9 @@ export default function ManajemenKruPage() {
 
   async function handleCreateStaff(e: React.FormEvent) {
     e.preventDefault();
-    if (!newName || !newPassword || !session?.access_token) return;
+    if (!newName || !newPassword || !session?.access_token || !outletStaff?.outlet_id) return;
 
-    const generatedEmail = generateStaffEmail(newName, outletStaff!.outlet_id);
+    const generatedEmail = generateStaffEmail(newName, outletStaff.outlet_id);
     setSubmitting(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-staff`, {

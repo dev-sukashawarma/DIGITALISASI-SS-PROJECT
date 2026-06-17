@@ -253,6 +253,7 @@ function QRISPaymentContent() {
       </div>
 
       {/* ── Custom CSS for scan animation ── */}
+      {/* @ts-expect-error */}
       <style jsx>{`
         @keyframes scan-line {
           0% { transform: translateY(-10px); opacity: 0; }

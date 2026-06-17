@@ -577,15 +577,15 @@ cPanel → `pos-kasir.sukashawarma.com`.
 
 ---
 
-### Task 12: Deploy portal to portal.sukashawarma.com
+### Task 12: Deploy portal to app.sukashawarma.com
 
 **Target:** New subdomain, first deployment.
 
-**Subdomain docroot:** `/home/sukashaw/portal.sukashawarma.com`
+**Subdomain docroot:** `/home/sukashaw/app.sukashawarma.com`
 
 - [ ] **Step 1: Create subdomain**
 
-cPanel → `portal.sukashawarma.com`.
+cPanel → `app.sukashawarma.com`.
 
 - [ ] **Step 2-8: Repeat Task 9 steps** but for portal
 
@@ -609,7 +609,7 @@ cPanel → `portal.sukashawarma.com`.
 - absensi.sukashawarma.com
 - owner-dashboard.sukashawarma.com
 - pos-kasir.sukashawarma.com
-- portal.sukashawarma.com
+- app.sukashawarma.com
 ```
 
 - [ ] **Step 2: Test each via curl**
@@ -653,7 +653,7 @@ Create/update `docs/DEPLOYMENT-LOG.md`:
 | absensi | absensi.sukashawarma.com | ✅ LIVE | New, tsconfig baseUrl added |
 | owner-dashboard | owner-dashboard.sukashawarma.com | ✅ LIVE | New, tsconfig baseUrl added |
 | pos-kasir | pos-kasir.sukashawarma.com | ✅ LIVE | New, type errors ignored (next.config) |
-| portal | portal.sukashawarma.com | ✅ LIVE | New, tsconfig clean |
+| portal | app.sukashawarma.com | ✅ LIVE | New, tsconfig clean |
 
 **Deployment timestamp:** 2026-06-17 (planned execution date)
 **Deployed by:** [user]

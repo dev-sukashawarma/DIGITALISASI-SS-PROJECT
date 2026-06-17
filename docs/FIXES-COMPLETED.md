@@ -41,7 +41,7 @@ All 4 apps are now **ready for deployment** to production:
 - stok.sukashawarma.com
 - distribusi.sukashawarma.com
 - owner-dashboard.sukashawarma.com
-- portal.sukashawarma.com
+- app.sukashawarma.com (portal)
 
 ## Notes for Team
 

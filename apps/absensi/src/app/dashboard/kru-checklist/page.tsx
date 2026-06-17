@@ -187,7 +187,6 @@ export default function KruChecklistPage() {
       return;
     }
     setTicking(itemId);
-    const supabase = supabaseRef.current;
 
     const existing = ticks.find(t => t.item_id === itemId);
     const isTicked = existing !== undefined;

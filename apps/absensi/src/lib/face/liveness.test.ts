@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createLivenessDetector, type LivenessFeatures } from "./liveness";
 
-const F = (ear: number, noseX = 0.5, noseY = 0.5): LivenessFeatures => ({ ear, noseX, noseY });
+const F = (ear: number, noseX = 0.5, noseY = 0.5, yawRatio = 0.5): LivenessFeatures => ({ ear, noseX, noseY, yawRatio });
 
 describe("liveness blink", () => {
   it("lolos saat mata terbuka→tertutup→terbuka", () => {

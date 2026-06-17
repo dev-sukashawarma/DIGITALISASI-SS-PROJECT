@@ -95,7 +95,7 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
           {permintaan.items.map(it => (
             <div key={it.bahan_baku_id} className="flex items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#1e1b15] truncate">{it.bahan_baku_id}</p>
+                <p className="text-sm font-medium text-[#1e1b15] truncate">{it.nama ?? it.bahan_baku_id}</p>
                 <p className="text-[11px] text-[#544437]/60">minta {it.qty_diminta}</p>
               </div>
               <input

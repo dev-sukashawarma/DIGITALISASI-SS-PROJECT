@@ -191,16 +191,11 @@ export function usePermintaanList(outletId: string | undefined) {
 // ---------------------------------------------------------------------------
 
 export function useApprovalList() {
-  const { session } = useAuth()
   const [permintaan, setPermintaan] = useState<PermintaanWithItems[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    if (!session) {
-      setLoading(false)
-      return
-    }
     setError(null)
     try {
       const data = await loadPermintaan({ pendingOnly: true })
@@ -210,7 +205,7 @@ export function useApprovalList() {
     } finally {
       setLoading(false)
     }
-  }, [session])
+  }, [])
 
   useEffect(() => {
     setLoading(true)

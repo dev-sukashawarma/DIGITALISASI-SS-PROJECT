@@ -220,38 +220,50 @@ export function usePermintaanActions() {
 
   const buat = useCallback(
     async (outletId: string, items: BuatPermintaanItemInput[]) => {
-      if (!session) throw new Error('Belum login')
+      if (!session?.access_token) throw new Error('Belum login')
       const { error } = await supabase.rpc('buat_permintaan', {
         p_outlet_id: outletId,
         p_items: items,
+      }, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       })
       if (error) throw new Error(error.message)
     },
-    [session]
+    [session, supabase]
   )
 
   const approve = useCallback(
     async (permintaanId: string, items: ApproveItemInput[]) => {
-      if (!session) throw new Error('Belum login')
+      if (!session?.access_token) throw new Error('Belum login')
       const { error } = await supabase.rpc('approve_permintaan', {
         p_permintaan_id: permintaanId,
         p_items: items,
+      }, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       })
       if (error) throw new Error(error.message)
     },
-    [session]
+    [session, supabase]
   )
 
   const tolak = useCallback(
     async (permintaanId: string, alasan: string) => {
-      if (!session) throw new Error('Belum login')
+      if (!session?.access_token) throw new Error('Belum login')
       const { error } = await supabase.rpc('tolak_permintaan', {
         p_permintaan_id: permintaanId,
         p_alasan: alasan,
+      }, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       })
       if (error) throw new Error(error.message)
     },
-    [session]
+    [session, supabase]
   )
 
   return { buat, approve, tolak }

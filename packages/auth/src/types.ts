@@ -10,18 +10,6 @@ export type Role =
 export type AppName =
   | 'pos-kasir'
   | 'absensi'
-export type Role =
-  | 'admin'
-  | 'owner'
-  | 'spv'
-  | 'kepala_outlet'
-  | 'kasir'
-  | 'crew'
-  | 'kiosk'
-
-export type AppName =
-  | 'pos-kasir'
-  | 'absensi'
   | 'stok'
   | 'distribusi'
   | 'owner-dashboard'

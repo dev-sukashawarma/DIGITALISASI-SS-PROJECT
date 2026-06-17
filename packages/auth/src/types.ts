@@ -10,18 +10,31 @@ export type Role =
 export type AppName =
   | 'pos-kasir'
   | 'absensi'
+export type Role =
+  | 'admin'
+  | 'owner'
+  | 'spv'
+  | 'kepala_outlet'
+  | 'kasir'
+  | 'crew'
+  | 'kiosk'
+
+export type AppName =
+  | 'pos-kasir'
+  | 'absensi'
   | 'stok'
   | 'distribusi'
   | 'owner-dashboard'
 
 export type StaffStatus = 'active' | 'inactive' | 'on_leave'
 
-export interface OutletStaffProfile {
+export type OutletStaffProfile = {
   id: string
   outlet_id: string | null
   name: string
   role: Role
   status: StaffStatus
+  username: string | null
   ref_photo_url: string | null
-  outlets?: { name: string } | null
+  outlets: { name: string } | null
 }

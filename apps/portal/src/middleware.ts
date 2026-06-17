@@ -17,17 +17,25 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  const getRedirect = (url: string | URL) => {
+    const redirectResponse = NextResponse.redirect(new URL(url, request.url))
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set({ ...cookie })
+    })
+    return redirectResponse
+  }
+
   // Already logged in → check staff status and redirect to launcher
   if (user && pathname === '/') {
     const { data: staff } = await supabase
       .from('outlet_staff')
       .select('status')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     // Allow access only if staff is active
     if (staff && staff.status === 'active') {
-      return NextResponse.redirect(new URL('/launcher', request.url))
+      return getRedirect('/launcher')
     }
     // Inactive/on_leave: fall through to render the login page. The status gate
     // (with user-facing message) is enforced in the login handler & launcher RSC.
@@ -35,7 +43,7 @@ export async function middleware(request: NextRequest) {
 
   // Not logged in → force to login
   if (!user && pathname !== '/') {
-    return NextResponse.redirect(new URL('/', request.url))
+    return getRedirect('/')
   }
 
   return response

@@ -20,6 +20,18 @@ type AttendanceRecord = {
   status: string;
 };
 
+function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
+  const [h, m] = jamMasuk.split(":").map(Number);
+  const serverTime = new Date(tsServer);
+  
+  const expectedTime = new Date(tsServer);
+  expectedTime.setHours(h, m, 0, 0);
+  
+  const diffMs = serverTime.getTime() - expectedTime.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.floor(diffMs / 60000);
+}
+
 export function AttendanceKioskPanel() {
   const { outletStaff } = useAuth();
   const supabase = createClient();
@@ -27,6 +39,7 @@ export function AttendanceKioskPanel() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [isOutletOpen, setIsOutletOpen] = useState(true);
   const [modelsReady, setModelsReady] = useState(false);
+  const [jamMasuk, setJamMasuk] = useState<string | null>(null);
 
   // Kiosk Integration
   const kiosk = useClockKiosk(outletStaff?.outlet_id || "");
@@ -39,6 +52,11 @@ export function AttendanceKioskPanel() {
       kiosk.loadCandidates();
       kiosk.flushQueue();
       loadRecords();
+      
+      supabase.from("outlet_attendance_config").select("jam_masuk").eq("outlet_id", outletStaff.outlet_id).single()
+        .then(({ data }) => {
+          if (data) setJamMasuk(data.jam_masuk);
+        });
     }
   }, [outletStaff?.outlet_id]);
 
@@ -312,7 +330,9 @@ export function AttendanceKioskPanel() {
             <div className="divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
               {loadingHistory ? (
                 <div className="p-8 flex justify-center"><Spinner /></div>
-              ) : records.map(r => (
+              ) : records.map(r => {
+                const delay = (r.status === 'telat' && r.type === 'in' && jamMasuk) ? calculateDelayMinutes(r.ts_server, jamMasuk) : null;
+                return (
                 <div key={r.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                   <div>
                     <p className="font-medium text-suka-ink flex items-center gap-2">
@@ -323,10 +343,10 @@ export function AttendanceKioskPanel() {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-suka-brown">{dayjs(r.ts_server).format("HH:mm")}</p>
-                    <p className="text-xs text-gray-400 capitalize">{r.status}</p>
+                    <p className="text-xs text-gray-400 capitalize">{r.status} {delay ? `${delay} mnt` : ""}</p>
                   </div>
                 </div>
-              ))}
+              )})}
               {!loadingHistory && records.length === 0 && (
                 <div className="p-8 text-center text-gray-500">Belum ada riwayat absensi.</div>
               )}

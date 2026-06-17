@@ -4,18 +4,44 @@ export type BoardRecord = {
   type: "in" | "out";
   status: "tepat" | "telat" | "alpha";
   ts_server: string;
+  selfie_url?: string | null;
 };
 
-export type BoardState = "masuk" | "telat" | "keluar" | "belum";
-export type BoardRow = { id: string; name: string; role: string; state: BoardState; time: string | null };
-export type BoardSummary = { hadir: number; telat: number; belum: number; total: number };
+export type BoardConfig = {
+  jam_masuk: string;
+  toleransi_menit: number;
+};
+
+export type BoardState = "masuk" | "telat" | "keluar" | "belum" | "alpha";
+export type BoardRow = { 
+  id: string; 
+  name: string; 
+  role: string; 
+  state: BoardState; 
+  time: string | null;
+  selfie_url: string | null;
+  delay_minutes: number | null;
+};
+export type BoardSummary = { hadir: number; telat: number; belum: number; alpha: number; total: number };
 
 function jam(ts: string): string {
   return new Date(ts).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 }
 
+function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
+  const [h, m] = jamMasuk.split(":").map(Number);
+  const serverTime = new Date(tsServer);
+  
+  const expectedTime = new Date(tsServer);
+  expectedTime.setHours(h, m, 0, 0);
+  
+  const diffMs = serverTime.getTime() - expectedTime.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.floor(diffMs / 60000);
+}
+
 /** Hitung papan kehadiran: status terbaru tiap staff + ringkasan. */
-export function computeBoard(staff: BoardStaff[], records: BoardRecord[]): {
+export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config: BoardConfig): {
   rows: BoardRow[];
   summary: BoardSummary;
 } {
@@ -26,22 +52,38 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[]): {
     byStaff.set(r.outlet_staff_id, arr);
   }
 
+  const now = new Date();
+  const [h, m] = config.jam_masuk.split(":").map(Number);
+  const deadline = new Date();
+  deadline.setHours(h, m + config.toleransi_menit, 0, 0);
+  const isPastDeadline = now.getTime() > deadline.getTime();
+
   const rows: BoardRow[] = staff.map((s) => {
     const recs = (byStaff.get(s.id) ?? []).slice().sort((a, b) => a.ts_server.localeCompare(b.ts_server));
     const inRec = recs.find((r) => r.type === "in");
     const outRec = recs.filter((r) => r.type === "out").pop();
-    if (outRec) return { id: s.id, name: s.name, role: s.role, state: "keluar", time: jam(outRec.ts_server) };
+    
+    if (outRec) return { id: s.id, name: s.name, role: s.role, state: "keluar", time: jam(outRec.ts_server), selfie_url: outRec.selfie_url || null, delay_minutes: null };
+    
     if (inRec) {
       const state: BoardState = inRec.status === "telat" ? "telat" : "masuk";
-      return { id: s.id, name: s.name, role: s.role, state, time: jam(inRec.ts_server) };
+      const delay_minutes = state === "telat" ? calculateDelayMinutes(inRec.ts_server, config.jam_masuk) : null;
+      return { id: s.id, name: s.name, role: s.role, state, time: jam(inRec.ts_server), selfie_url: inRec.selfie_url || null, delay_minutes };
     }
-    return { id: s.id, name: s.name, role: s.role, state: "belum", time: null };
+    
+    // Belum absen
+    if (isPastDeadline) {
+      return { id: s.id, name: s.name, role: s.role, state: "alpha", time: null, selfie_url: null, delay_minutes: null };
+    }
+    
+    return { id: s.id, name: s.name, role: s.role, state: "belum", time: null, selfie_url: null, delay_minutes: null };
   });
 
   const summary: BoardSummary = {
-    hadir: rows.filter((r) => r.state !== "belum").length,
+    hadir: rows.filter((r) => r.state === "masuk" || r.state === "keluar").length,
     telat: rows.filter((r) => r.state === "telat").length,
     belum: rows.filter((r) => r.state === "belum").length,
+    alpha: rows.filter((r) => r.state === "alpha").length,
     total: staff.length,
   };
   return { rows, summary };

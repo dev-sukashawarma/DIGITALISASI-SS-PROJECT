@@ -32,9 +32,9 @@ serve(async (req) => {
       throw new Error("Unauthorized: Only SPV can create staff");
     }
 
-    const { name, email, password, role } = await req.json();
+    const { name, email, password, role, username } = await req.json();
 
-    if (!name || !email || !password || !role) {
+    if (!name || !email || !password || !role || !username) {
       throw new Error("Missing required fields");
     }
 
@@ -59,6 +59,7 @@ serve(async (req) => {
       outlet_id: callerProfile.outlet_id,
       name,
       role,
+      username,
       status: "active"
     });
 

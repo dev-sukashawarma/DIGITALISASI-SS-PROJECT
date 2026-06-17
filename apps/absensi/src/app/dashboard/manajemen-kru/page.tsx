@@ -14,6 +14,7 @@ type StaffRow = {
   name: string;
   role: string;
   status: string;
+  username: string;
 };
 
 export default function ManajemenKruPage() {
@@ -28,6 +29,7 @@ export default function ManajemenKruPage() {
   // Add Form State (semua staf baru dibuat sebagai "crew"; role diubah lewat Edit)
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newUsername, setNewUsername] = useState("");
   const newRole = "crew";
   const [newPassword, setNewPassword] = useState("sukashawarma123");
 
@@ -45,7 +47,7 @@ export default function ManajemenKruPage() {
     setLoading(true);
     const { data } = await supabase
       .from("outlet_staff")
-      .select("id, name, role, status")
+      .select("id, name, role, status, username")
       .eq("outlet_id", outletStaff!.outlet_id)
       .order("created_at", { ascending: false });
     if (data) setStaff(data);
@@ -54,9 +56,9 @@ export default function ManajemenKruPage() {
 
   async function handleCreateStaff(e: React.FormEvent) {
     e.preventDefault();
-    if (!newName || !newPassword || !session?.access_token || !outletStaff?.outlet_id) return;
+    if (!newName || !newUsername || !newPassword || !session?.access_token) return;
 
-    const generatedEmail = generateStaffEmail(newName, outletStaff.outlet_id);
+    const generatedEmail = generateStaffEmail(newUsername);
     setSubmitting(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-staff`, {
@@ -69,14 +71,16 @@ export default function ManajemenKruPage() {
           name: newName,
           email: generatedEmail,
           password: newPassword,
-          role: newRole
+          role: newRole,
+          username: newUsername
         })
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Gagal membuat staf");
 
-      toast.show("ok", `Staf ${newName} berhasil dibuat! Email login: ${generatedEmail}`);
+      toast.show("ok", `Staf ${newName} berhasil dibuat! Username login: ${newUsername}`);
       setNewName("");
+      setNewUsername("");
       setNewPassword("sukashawarma123");
       setShowAddForm(false);
       loadStaff();
@@ -174,6 +178,19 @@ export default function ManajemenKruPage() {
                 />
               </div>
               <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Username Login</label>
+                <div className="flex">
+                  <span className="inline-flex items-center rounded-l-xl border border-r-0 border-gray-300 bg-gray-50 px-3 text-gray-500 text-sm">
+                    @
+                  </span>
+                  <input
+                    type="text" required value={newUsername} onChange={e => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                    className="w-full rounded-r-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/20"
+                    placeholder="budisantoso"
+                  />
+                </div>
+              </div>
+              <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Password Sementara</label>
                 <div className="flex">
                   <span className="inline-flex items-center rounded-l-xl border border-r-0 border-gray-300 bg-gray-50 px-3 text-gray-500">
@@ -228,7 +245,7 @@ export default function ManajemenKruPage() {
                         <span className="truncate text-sm font-semibold text-suka-ink">{s.name}</span>
                         {isMe && <span className="shrink-0 rounded-full bg-suka-brown px-1.5 py-0.5 text-[10px] text-white">Anda</span>}
                       </div>
-                      <div className="text-xs capitalize text-gray-500">{s.role}</div>
+                      <div className="text-xs capitalize text-gray-500">{s.role} &bull; {s.username || "belum_ada_username"}</div>
                     </div>
                     {statusBadge(s.status)}
                   </div>
@@ -298,7 +315,10 @@ export default function ManajemenKruPage() {
                         <option value="kepala_outlet">Kepala Outlet</option>
                       </select>
                     ) : (
-                      s.role
+                      <div>
+                        <div>{s.role}</div>
+                        <div className="text-xs text-gray-400 normal-case">@{s.username || "belum_ada_username"}</div>
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3">{statusBadge(s.status)}</td>

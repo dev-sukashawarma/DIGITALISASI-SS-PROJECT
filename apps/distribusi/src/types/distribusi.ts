@@ -1,4 +1,4 @@
-export type SuratJalanStatus = 'draft' | 'dikirim' | 'diterima_sebagian' | 'diterima_lengkap'
+export type SuratJalanStatus = 'draft' | 'dikirim' | 'dikirim_lengkap' | 'diterima_sebagian' | 'diterima_lengkap' | 'selesai'
 export type KondisiItem = 'baik' | 'rusak' | 'hilang_qty'
 
 export interface SuratJalan {
@@ -10,6 +10,7 @@ export interface SuratJalan {
   updated_at: string
   notes: string | null
   signatures: Array<{ user_id: string; timestamp: string; [key: string]: any }> | null
+  document_number?: string | null
 }
 
 export interface SuratJalanItem {

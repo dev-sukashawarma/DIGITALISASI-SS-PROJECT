@@ -53,6 +53,27 @@ export async function fetchPermintaanOutlet(outletId: string): Promise<Permintaa
 
 export async function fetchPermintaanPending(): Promise<PermintaanWithItems[]> {
   const supabase = await makeServerClient()
+
+  // --- DEBUG: cek auth uid di server ---
+  const { data: { user } } = await supabase.auth.getUser()
+  // eslint-disable-next-line no-console
+  console.log('[fetchPermintaanPending] server auth uid:', user?.id ?? 'ANON/NULL')
+
+  // --- DEBUG: service-role bypass RLS untuk lihat total semua permintaan ---
+  const { createClient: createServiceClient } = await import('@supabase/supabase-js')
+  const svc = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+  const { data: allData, error: allErr } = await svc
+    .from('permintaan_bahan')
+    .select('id, outlet_id, status, created_at')
+    .order('created_at', { ascending: false })
+    .limit(10)
+  // eslint-disable-next-line no-console
+  console.log('[fetchPermintaanPending] SERVICE ROLE - semua permintaan (max 10):', JSON.stringify(allData), 'err:', allErr?.message)
+
+  // --- Query normal via user session ---
   const { data, error } = await supabase
     .from('permintaan_bahan')
     .select('*, permintaan_bahan_item(*, bahan_baku(nama)), outlets(name)')
@@ -60,7 +81,7 @@ export async function fetchPermintaanPending(): Promise<PermintaanWithItems[]> {
     .order('created_at', { ascending: false })
 
   // eslint-disable-next-line no-console
-  console.log('[fetchPermintaanPending] count:', data?.length ?? 0, 'error:', error?.message ?? null)
+  console.log('[fetchPermintaanPending] user-session result count:', data?.length ?? 0, 'error:', error?.message ?? null)
 
   if (error) throw new Error(error.message)
   return (data ?? []).map(mapRow)

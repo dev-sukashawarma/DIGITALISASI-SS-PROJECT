@@ -19,10 +19,9 @@ export type KioskResult = { ok: boolean; message: string };
 type StaffRow = { id: string; name: string; face_descriptor: number[] | null };
 
 const FUNCTION_URL = "/api/submit-attendance";
-// inputSize 160 gagal mendeteksi wajah saat menoleh (liveness turn-left/turn-right)
-// karena resolusi terlalu rendah untuk wajah non-frontal. 224 + scoreThreshold lebih
-// rendah memberi cukup detail tanpa menambah beban berarti (deteksi tetap event-based).
-const DETECT_OPTS = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
+// SsdMobilenetv1 adalah standar industri untuk face-api.js yang jauh lebih akurat
+// mendeteksi wajah di berbagai kondisi cahaya dan kemiringan dibandingkan TinyFaceDetector.
+const DETECT_OPTS = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
 
 export function useClockKiosk(outletId: string) {
   const supabase = createClient();

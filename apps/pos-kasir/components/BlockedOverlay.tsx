@@ -1,7 +1,7 @@
 'use client'
 
-import type { ReactNode } from 'react'
-import { Ban, LogOut, ClipboardCheck, Moon, Clock } from 'lucide-react'
+import { useState, useEffect, type ReactNode } from 'react'
+import { Ban, LogOut, ClipboardCheck, Moon, Clock, Unlock, AlertTriangle, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -13,17 +13,58 @@ export default function BlockedOverlay({
   reason,
   type,
   progress,
+  onBypass,
 }: {
   reason: string
   type: BlockType
   progress?: ChecklistProgress
+  onBypass?: () => void
 }) {
   const router = useRouter()
   const supabase = createClient()
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  
+  // Bypass state
+  const [showBypassForm, setShowBypassForm] = useState(false)
+  const [password, setPassword] = useState('')
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [bypassError, setBypassError] = useState('')
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) setUserEmail(user.email)
+    })
+  }, [supabase])
 
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  async function handleVerifyBypass(e: React.FormEvent) {
+    e.preventDefault()
+    if (!password || !userEmail) return
+    
+    setIsVerifying(true)
+    setBypassError('')
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: password,
+      })
+      
+      if (error || !data.user) {
+        setBypassError('Password salah. Silakan coba lagi.')
+      } else {
+        // Password benar, picu bypass
+        if (onBypass) onBypass()
+      }
+    } catch (err) {
+      setBypassError('Terjadi kesalahan sistem.')
+    } finally {
+      setIsVerifying(false)
+    }
   }
 
   const TITLE: Record<BlockType, string> = {
@@ -65,64 +106,131 @@ export default function BlockedOverlay({
   const PULSE_LABEL: Record<string, string> = {
     attendance: 'Menunggu Sinyal Absensi...',
     checklist: 'Menunggu Checklist Diselesaikan...',
+    closed: 'Menunggu Sesi Baru...',
   }
+  
+  const canBypass = (type === 'attendance' || type === 'checklist' || type === 'closed') && onBypass
 
   return (
     <div className="fixed inset-0 z-[9999] bg-gray-900/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in text-center">
       <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl flex flex-col items-center animate-fade-up">
-        <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${ICON_BG[type]}`}>
-          {ICON[type]}
-        </div>
-        <h1 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">
-          {TITLE[type]}
-        </h1>
-        <p className="text-gray-500 font-medium mb-6">
-          {MESSAGE[type]}
-        </p>
-
-        {showProgress && (
-          <div className="w-full mb-6">
-            <div className="flex items-center justify-between text-sm font-bold text-gray-700 mb-2">
-              <span>Progress Checklist Buka Toko</span>
-              <span>{progress!.done}/{progress!.total} tugas</span>
+        {showBypassForm ? (
+          <div className="w-full flex flex-col items-center animate-fade-in">
+            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-red-100">
+              <AlertTriangle className="w-10 h-10 text-red-600" />
             </div>
-            <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full rounded-full bg-amber-500 transition-all duration-700 ease-out"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {showReasonBox ? (
-          <div className="bg-red-50 text-red-900 text-sm font-bold p-4 rounded-xl w-full mb-8 border border-red-100 text-left">
-            <span className="block text-red-400 text-xs font-semibold uppercase tracking-wider mb-1">Alasan Penonaktifan:</span>
-            "{reason}"
-          </div>
-        ) : (type === 'attendance' || type === 'checklist') ? (
-          <div className="w-full flex items-center justify-center p-4 bg-amber-50 rounded-xl mb-8 border border-amber-100">
-             <div className="animate-pulse flex items-center gap-2 text-amber-700 font-medium">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-                </span>
-                {PULSE_LABEL[type]}
-             </div>
+            <h2 className="text-2xl font-black text-gray-900 mb-2">Bypass Darurat</h2>
+            <p className="text-gray-500 font-medium mb-6 text-sm">
+              Sistem absensi bermasalah? Masukkan password login Anda untuk memaksa POS terbuka.
+            </p>
+            
+            <form onSubmit={handleVerifyBypass} className="w-full space-y-4 text-left">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full border-2 border-gray-200 rounded-xl p-3 text-lg focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  placeholder="Masukkan password Anda..."
+                  disabled={isVerifying}
+                  autoFocus
+                />
+                {bypassError && <p className="text-red-500 text-sm mt-2 font-medium">{bypassError}</p>}
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBypassForm(false)
+                    setPassword('')
+                    setBypassError('')
+                  }}
+                  className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-3.5 font-bold hover:bg-gray-200 transition-colors"
+                  disabled={isVerifying}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-[2] bg-red-600 text-white rounded-xl py-3.5 font-bold hover:bg-red-700 transition-colors flex justify-center items-center gap-2"
+                  disabled={isVerifying || !password}
+                >
+                  {isVerifying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Unlock className="w-5 h-5" />}
+                  Verifikasi Bypass
+                </button>
+              </div>
+            </form>
           </div>
         ) : (
-          <div className="w-full mb-8" />
-        )}
+          <>
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${ICON_BG[type]}`}>
+              {ICON[type]}
+            </div>
+            <h1 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">
+              {TITLE[type]}
+            </h1>
+            <p className="text-gray-500 font-medium mb-6">
+              {MESSAGE[type]}
+            </p>
 
-        {showReasonBox ? (
-          <button
-            onClick={handleLogout}
-            className="w-full bg-gray-900 text-white rounded-xl py-3.5 font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-          >
-            <LogOut className="w-5 h-5" />
-            Keluar / Logout
-          </button>
-        ) : null}
+            {showProgress && (
+              <div className="w-full mb-6">
+                <div className="flex items-center justify-between text-sm font-bold text-gray-700 mb-2">
+                  <span>Progress Checklist Buka Toko</span>
+                  <span>{progress!.done}/{progress!.total} tugas</span>
+                </div>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full bg-amber-500 transition-all duration-700 ease-out"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {showReasonBox ? (
+              <div className="bg-red-50 text-red-900 text-sm font-bold p-4 rounded-xl w-full mb-8 border border-red-100 text-left">
+                <span className="block text-red-400 text-xs font-semibold uppercase tracking-wider mb-1">Alasan Penonaktifan:</span>
+                "{reason}"
+              </div>
+            ) : (type === 'attendance' || type === 'checklist' || type === 'closed') ? (
+              <div className="w-full flex flex-col items-center mb-8 gap-4">
+                <div className="w-full flex items-center justify-center p-4 bg-amber-50 rounded-xl border border-amber-100">
+                   <div className="animate-pulse flex items-center gap-2 text-amber-700 font-medium">
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                      </span>
+                      {PULSE_LABEL[type]}
+                   </div>
+                </div>
+                
+                {canBypass && (
+                  <button 
+                    onClick={() => setShowBypassForm(true)}
+                    className="text-gray-400 hover:text-red-500 text-sm font-bold underline transition-colors underline-offset-4"
+                  >
+                    Gunakan Bypass Darurat
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="w-full mb-8" />
+            )}
+
+            {(showReasonBox || type === 'closed') ? (
+              <button
+                onClick={handleLogout}
+                className="w-full bg-gray-900 text-white rounded-xl py-3.5 font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-5 h-5" />
+                Keluar / Logout
+              </button>
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   )

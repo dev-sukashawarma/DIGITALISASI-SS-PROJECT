@@ -8,8 +8,10 @@
 
 export type Descriptor = readonly number[];
 
-/** Threshold euclidean default; di bawah ini dianggap cocok (ADR-003, kalibratable). */
-export const DEFAULT_MATCH_THRESHOLD = 0.40;
+/** Threshold euclidean default; di bawah ini dianggap cocok (ADR-003, kalibratable). 
+ * Diubah ke 0.55 agar lebih akurat dengan kondisi pencahayaan & gaya rambut berbeda.
+ */
+export const DEFAULT_MATCH_THRESHOLD = 0.55;
 
 function assertSameLength(a: Descriptor, b: Descriptor): void {
   if (a.length !== b.length) {

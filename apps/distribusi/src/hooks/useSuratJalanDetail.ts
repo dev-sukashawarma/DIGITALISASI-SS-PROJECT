@@ -60,34 +60,23 @@ export function useSuratJalanDetail(id: string) {
           .eq('id', sj.outlet_id)
           .single()
 
-        // Fetch items
-        const { data: items } = await supabase
+        // Fetch items with embedded relation
+        const { data: items, error: itemsError } = await supabase
           .from('surat_jalan_item')
-          .select('*')
+          .select('*, bahan_baku(id, nama, satuan, kategori)')
           .eq('surat_jalan_id', id)
 
-        // Batch fetch all bahan_baku for these items
-        const bahanIds = (items || []).map((item: any) => item.bahan_baku_id)
-        const { data: bahanList } = bahanIds.length > 0
-          ? await supabase
-              .from('bahan_baku')
-              .select('id, nama, satuan, kategori')
-              .in('id', bahanIds)
-          : { data: [] }
-
-        const bahanMap = new Map(
-          (bahanList || []).map((b: any) => [b.id, b])
-        )
-
-        const itemsWithBahan = (items || []).map((item: any) => ({
-          ...item,
-          bahan_baku: bahanMap.get(item.bahan_baku_id) || null,
-        }))
+        if (itemsError) {
+          setError(itemsError.message)
+          setData(null)
+          setLoading(false)
+          return
+        }
 
         setData({
           ...sj,
           outlets: outlet,
-          surat_jalan_item: itemsWithBahan,
+          surat_jalan_item: items || [],
         } as SuratJalanDetail)
       } catch (err: any) {
         setError(err?.message || 'Terjadi kesalahan')

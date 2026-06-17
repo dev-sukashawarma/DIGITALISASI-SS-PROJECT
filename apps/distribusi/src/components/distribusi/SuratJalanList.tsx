@@ -40,33 +40,19 @@ export function SuratJalanList() {
       return
     }
 
-    // Fetch items
-    const { data: items } = await supabase
+    // Fetch items with embedded relation
+    const { data: items, error: itemsError } = await supabase
       .from('surat_jalan_item')
-      .select('*')
+      .select('*, bahan_baku(id, nama, satuan)')
       .eq('surat_jalan_id', sjId)
 
-    // Get unique bahan_baku IDs
-    const bahanBakuIds = [...new Set((items || []).map(i => i.bahan_baku_id))];
-
-    // Batch fetch all bahan_baku in ONE query
-    const { data: bahanBakuList, error: bahanError } = await supabase
-      .from('bahan_baku')
-      .select('id, nama, satuan')
-      .in('id', bahanBakuIds);
-
-    if (bahanError) throw bahanError;
-
-    // Create lookup map
-    const bahanMap = new Map(
-      bahanBakuList?.map(b => [b.id, { nama: b.nama, satuan: b.satuan }]) ?? []
-    );
+    if (itemsError) throw itemsError
 
     // Map items with bahan details
     const itemsWithBahan = (items || []).map(item => ({
       ...item,
-      bahan_nama: bahanMap.get(item.bahan_baku_id)?.nama || 'Unknown',
-      bahan_satuan: bahanMap.get(item.bahan_baku_id)?.satuan || '',
+      nama: item.bahan_baku?.nama || 'Unknown',
+      satuan: item.bahan_baku?.satuan || '',
     }))
 
     // Find outlet name from list data

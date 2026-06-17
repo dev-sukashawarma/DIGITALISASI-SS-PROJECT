@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
+import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 
@@ -61,11 +62,12 @@ async function loadPermintaan(filter: LoadFilter): Promise<PermintaanWithItems[]
 // ---------------------------------------------------------------------------
 
 export function useSaranItem(outletId: string | undefined) {
+  const { session } = useAuth()
   const [saran, setSaran] = useState<SaranItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!outletId) {
+    if (!outletId || !session) {
       setLoading(false)
       return
     }
@@ -100,7 +102,7 @@ export function useSaranItem(outletId: string | undefined) {
         }
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.error('[useSaranItem] gagal memuat saran:', err)
+        console.error('[useSaranItem] gagal memload saran:', err)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -108,7 +110,7 @@ export function useSaranItem(outletId: string | undefined) {
 
     load()
     return () => { cancelled = true }
-  }, [outletId])
+  }, [outletId, session])
 
   return { saran, loading }
 }
@@ -118,12 +120,13 @@ export function useSaranItem(outletId: string | undefined) {
 // ---------------------------------------------------------------------------
 
 export function usePermintaanList(outletId: string | undefined) {
+  const { session } = useAuth()
   const [permintaan, setPermintaan] = useState<PermintaanWithItems[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    if (!outletId) {
+    if (!outletId || !session) {
       setLoading(false)
       return
     }
@@ -136,7 +139,7 @@ export function usePermintaanList(outletId: string | undefined) {
     } finally {
       setLoading(false)
     }
-  }, [outletId])
+  }, [outletId, session])
 
   // Initial load
   useEffect(() => {
@@ -178,11 +181,16 @@ export function usePermintaanList(outletId: string | undefined) {
 // ---------------------------------------------------------------------------
 
 export function useApprovalList() {
+  const { session } = useAuth()
   const [permintaan, setPermintaan] = useState<PermintaanWithItems[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
+    if (!session) {
+      setLoading(false)
+      return
+    }
     setError(null)
     try {
       const data = await loadPermintaan({ pendingOnly: true })
@@ -192,7 +200,7 @@ export function useApprovalList() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [session])
 
   useEffect(() => {
     setLoading(true)
@@ -207,42 +215,43 @@ export function useApprovalList() {
 // ---------------------------------------------------------------------------
 
 export function usePermintaanActions() {
+  const { session } = useAuth()
   const supabase = createClient()
 
   const buat = useCallback(
     async (outletId: string, items: BuatPermintaanItemInput[]) => {
+      if (!session) throw new Error('Belum login')
       const { error } = await supabase.rpc('buat_permintaan', {
         p_outlet_id: outletId,
         p_items: items,
       })
       if (error) throw new Error(error.message)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [session]
   )
 
   const approve = useCallback(
     async (permintaanId: string, items: ApproveItemInput[]) => {
+      if (!session) throw new Error('Belum login')
       const { error } = await supabase.rpc('approve_permintaan', {
         p_permintaan_id: permintaanId,
         p_items: items,
       })
       if (error) throw new Error(error.message)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [session]
   )
 
   const tolak = useCallback(
     async (permintaanId: string, alasan: string) => {
+      if (!session) throw new Error('Belum login')
       const { error } = await supabase.rpc('tolak_permintaan', {
         p_permintaan_id: permintaanId,
         p_alasan: alasan,
       })
       if (error) throw new Error(error.message)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [session]
   )
 
   return { buat, approve, tolak }

@@ -92,25 +92,27 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
 
         {/* Items */}
         <div className="space-y-3">
-          {permintaan.items.map(it => (
-            <div key={it.bahan_baku_id} className="flex items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#1e1b15] truncate">{it.nama ?? it.bahan_baku_id}</p>
-                <p className="text-[11px] text-[#544437]/60">minta {it.qty_diminta}</p>
+          <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-2">
+            {permintaan.items.map(it => (
+              <div key={it.bahan_baku_id} className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[#1e1b15] truncate">{it.nama ?? it.bahan_baku_id}</p>
+                  <p className="text-[11px] text-[#544437]/60">minta {it.qty_diminta}</p>
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  value={qtys[it.bahan_baku_id] ?? 0}
+                  onChange={e => {
+                    setQtys(prev => ({ ...prev, [it.bahan_baku_id]: Number(e.target.value) }))
+                    setErrorMsg(null)
+                  }}
+                  className="w-20 text-right border border-[#d9c2b2] rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#f29744]/50"
+                  disabled={loading}
+                />
               </div>
-              <input
-                type="number"
-                min={0}
-                value={qtys[it.bahan_baku_id] ?? 0}
-                onChange={e => {
-                  setQtys(prev => ({ ...prev, [it.bahan_baku_id]: Number(e.target.value) }))
-                  setErrorMsg(null)
-                }}
-                className="w-20 text-right border border-[#d9c2b2] rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#f29744]/50"
-                disabled={loading}
-              />
-            </div>
-          ))}
+            ))}
+          </div>
           <p className="text-[10px] text-[#544437]/50">Set qty 0 untuk menolak item tertentu</p>
         </div>
 

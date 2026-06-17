@@ -9,7 +9,8 @@
 - **HQ Employee** — karyawan pusat (domain SS-WEBAPP existing). **Di luar scope** suite ini.
 - **SPV / Kepala Outlet** — role Outlet Staff dengan wewenang enroll wajah, approve, dan supervisi outlet.
 - **Admin** — role global POS (tanpa outlet, `outlet_id` NULL): kelola user, menu, outlet, laporan lintas-cabang.
-- **Kiosk** — "user" yang mewakili satu device self-order pelanggan di sebuah outlet (bukan orang). Login via QR oleh kasir.
+- **Kiosk** — "user" yang mewakili satu device self-order pelanggan di sebuah outlet (bukan orang). Login via QR oleh kasir. **Pengecualian SSO**: device kiosk TIDAK login lewat Portal; diaktifkan kasir via scan QR lokal di `apps/pos-kasir` (`/kiosk/qr-login`). (lihat ADR-008)
+- **Pseudo-Email** — identitas login untuk Outlet Staff tanpa email asli (mis. kasir): username `kasir_sudirman` dipetakan ke `kasir_sudirman@outlet.local` sebelum `signInWithPassword`. Normalisasi terpusat di `@suka/auth` (`normalizeLoginIdentifier`) agar Portal & app konsisten.
 - **Status Akun** — `is_active` (boolean) + `inactive_reason` menggate akses (dipakai blocker POS). Kolom lama `status` (`active|inactive|on_leave`) tetap untuk konteks absensi; `is_active` diselaraskan dengannya saat unifikasi.
 
 ## Bahan Baku & Stok
@@ -34,6 +35,12 @@
 
 - **Reporting Hub** — Supabase (project Outlet Suite) sebagai sumber agregasi untuk Owner Dashboard (materialized views + pg_cron). Sales disinkron dari Ecosystem, bukan live cross-DB query. (lihat ADR-002, ADR-004)
 - **COGS** — Cost of Goods Sold; biaya bahan baku terpakai, dihitung dari ledger stok.
+
+## Auth & Akses
+
+- **Portal (Gerbang SSO Tunggal)** (`apps/portal`) — satu-satunya tempat Outlet Staff login. Setelah login, menampilkan **Launcher** (daftar app yang boleh diakses role-nya). Sesi disimpan sebagai cookie Supabase (`@supabase/ssr`) ber-nama default `sb-<project-ref>-auth-token`. Karena cookie host-only `localhost` dibagi lintas port, sesi Portal otomatis terbaca app lain di lokal; di prod dibagi lewat `NEXT_PUBLIC_COOKIE_DOMAIN=.sukashawarma.com`. (lihat ADR-008)
+- **Matriks Akses App** — `ROLE_APP_ACCESS` di `@suka/auth` (`access.ts`) — sumber tunggal role → daftar app. `hasAppAccess(role, app)` & `accessibleApps(role)`. Ref: `docs/ROLE-JOBDESK.md`.
+- **Model Gate** — penegakan akses bergantung runtime app: app **static export** (absensi, stok, distribusi — ADR-005) memakai **gate client-side** (`AuthGuard` + `@suka/auth`); app **SSR/Node** (pos-kasir, portal) memakai **middleware** (`enforceAppAccess`). Keduanya menolak ke Portal bila belum login / role tak punya akses / status bukan `active`. (lihat ADR-008)
 
 ## Sistem & Hosting
 

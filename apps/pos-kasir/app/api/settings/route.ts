@@ -3,8 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 // Menggunakan service role key untuk bypass RLS (hanya jika diperlukan)
 // Tapi karena kita menggunakan cookie-based client, kita bisa panggil server client biasa.
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
+import { createClient as createServerClientConfig } from '@/lib/supabase/server'
 
 export async function GET() {
   try {
@@ -28,18 +27,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-        },
-      }
-    )
+    const supabase = await createServerClientConfig()
 
     // Verifikasi role admin
     const { data: { user } } = await supabase.auth.getUser()

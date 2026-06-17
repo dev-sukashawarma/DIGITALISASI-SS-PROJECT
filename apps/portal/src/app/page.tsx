@@ -1,13 +1,13 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { createSupabaseBrowserClient, getOutletStaff } from '@suka/auth'
+import { createSupabaseBrowserClient, getOutletStaff, normalizeLoginIdentifier } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
 import { LogIn, AlertCircle, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -17,6 +17,7 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     const supabase = createSupabaseBrowserClient()
+    const email = normalizeLoginIdentifier(identifier)
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { setLoading(false); setError('Email atau kata sandi salah.'); return }
 
@@ -61,13 +62,13 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <Input
-              id="email"
-              type="email"
-              label="Email Staff"
+              id="identifier"
+              type="text"
+              label="Email atau Username"
               required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="nama@sukashawarma.com"
+              value={identifier}
+              onChange={e => setIdentifier(e.target.value)}
+              placeholder="nama@sukashawarma.com / kasir_sudirman"
               className="bg-suka-gray-50/50 focus:bg-white"
             />
 

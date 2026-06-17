@@ -18,11 +18,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{
   supabase: SupabaseClient
+  initialStaff?: OutletStaffProfile | null
   children: React.ReactNode
-}> = ({ supabase, children }) => {
+}> = ({ supabase, initialStaff = null, children }) => {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<Session['user'] | null>(null)
-  const [outletStaff, setOutletStaff] = useState<OutletStaffProfile | null>(null)
+  const [outletStaff, setOutletStaff] = useState<OutletStaffProfile | null>(initialStaff)
   const [loading, setLoading] = useState(true)
   const [staffError, setStaffError] = useState<string | null>(null)
 
@@ -62,9 +63,13 @@ export const AuthProvider: React.FC<{
         if (abortController.signal.aborted) return
         setSession(session)
         setUser(session?.user ?? null)
-        await loadStaff(session?.user?.id)
+        // Staff sudah disuplai server (header x-suka-staff) → hindari fetch ulang.
+        if (!initialStaff) {
+          await loadStaff(session?.user?.id)
+        }
         setLoading(false)
         initialised = true
+        void initialised
       } catch (err) {
         if (!abortController.signal.aborted) {
           setLoading(false)
@@ -75,7 +80,9 @@ export const AuthProvider: React.FC<{
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'INITIAL_SESSION' && initialised) return
+        // init() sudah menangani sesi awal; INITIAL_SESSION selalu di-skip
+        // agar tak ada fetch staff ganda (race `initialised`).
+        if (event === 'INITIAL_SESSION') return
         if (abortController.signal.aborted) return
         setSession(session)
         setUser(session?.user ?? null)

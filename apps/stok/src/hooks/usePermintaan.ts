@@ -3,14 +3,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
-
-// Helper: ambil access_token secara live (bukan dari React state yg mungkin belum ready)
-async function getLiveToken(): Promise<string> {
-  const supabase = createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.access_token) throw new Error('Sesi tidak ditemukan. Silakan login ulang.')
-  return session.access_token
-}
+import {
+  fetchPermintaanOutlet,
+  fetchPermintaanPending,
+  buatPermintaan,
+  approvePermintaan,
+  tolakPermintaan,
+} from '@/app/actions/permintaan'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,59 +24,8 @@ export interface SaranItem {
   status: 'below' | 'warning'
 }
 
-interface LoadFilter {
-  outletId?: string
-  pendingOnly?: boolean
-}
-
 // ---------------------------------------------------------------------------
-// Helper: shared fetch logic
-// ---------------------------------------------------------------------------
-
-async function loadPermintaan(filter: LoadFilter): Promise<PermintaanWithItems[]> {
-  const supabase = createClient()
-
-  // Debug: cek apakah session ada
-  const { data: { session: dbgSession } } = await supabase.auth.getSession()
-  // eslint-disable-next-line no-console
-  console.log('[loadPermintaan] filter:', filter, '| session uid:', dbgSession?.user?.id ?? 'ANON/NULL')
-
-  let query = supabase
-    .from('permintaan_bahan')
-    .select('*, permintaan_bahan_item(*, bahan_baku(nama)), outlets(name)')
-    .order('created_at', { ascending: false })
-
-  if (filter.outletId) {
-    query = query.eq('outlet_id', filter.outletId)
-  }
-
-  if (filter.pendingOnly) {
-    query = query.eq('status', 'menunggu')
-  }
-
-  const { data, error } = await query
-
-  // eslint-disable-next-line no-console
-  console.log('[loadPermintaan] result count:', data?.length ?? 0, '| error:', error?.message ?? null)
-
-  if (error) throw new Error(error.message)
-
-  return (data ?? []).map((row: any) => {
-    const outlet_name = row.outlets?.name ?? undefined
-    const { outlets, permintaan_bahan_item, ...rest } = row
-    return {
-      ...rest,
-      items: (permintaan_bahan_item ?? []).map((it: any) => ({
-        ...it,
-        nama: it.bahan_baku?.nama ?? it.bahan_baku_id,
-      })),
-      outlet_name,
-    } as PermintaanWithItems
-  })
-}
-
-// ---------------------------------------------------------------------------
-// Hook: useSaranItem
+// Hook: useSaranItem — pakai monitoring_view_crew (SECURITY DEFINER, bypass RLS)
 // ---------------------------------------------------------------------------
 
 export function useSaranItem(outletId: string | undefined) {
@@ -98,7 +46,6 @@ export function useSaranItem(outletId: string | undefined) {
       setLoading(true)
       try {
         // monitoring_view_crew = SECURITY DEFINER view (bypass RLS stok_balance).
-        // Filter status di sisi klien — view mengembalikan semua item outlet.
         const { data, error } = await supabase
           .from('monitoring_view_crew')
           .select('bahan_baku_id, item_name, satuan, current_qty, threshold, status')
@@ -135,7 +82,7 @@ export function useSaranItem(outletId: string | undefined) {
 }
 
 // ---------------------------------------------------------------------------
-// Hook: usePermintaanList
+// Hook: usePermintaanList — pakai Server Action (bypass refresh-token race)
 // ---------------------------------------------------------------------------
 
 export function usePermintaanList(outletId: string | undefined) {
@@ -144,13 +91,10 @@ export function usePermintaanList(outletId: string | undefined) {
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    if (!outletId) {
-      setLoading(false)
-      return
-    }
+    if (!outletId) { setLoading(false); return }
     setError(null)
     try {
-      const data = await loadPermintaan({ outletId })
+      const data = await fetchPermintaanOutlet(outletId)
       setPermintaan(data)
     } catch (err: any) {
       setError(err.message || String(err))
@@ -159,43 +103,27 @@ export function usePermintaanList(outletId: string | undefined) {
     }
   }, [outletId])
 
-  // Initial load
-  useEffect(() => {
-    setLoading(true)
-    refresh()
-  }, [refresh])
+  useEffect(() => { setLoading(true); refresh() }, [refresh])
 
-  // Realtime subscription
+  // Realtime: tetap pakai client-side subscription tapi trigger server action untuk fetch
   useEffect(() => {
     if (!outletId) return
-
     const supabase = createClient()
     const channel = supabase
       .channel(`permintaan_list_${outletId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'permintaan_bahan',
-          filter: `outlet_id=eq.${outletId}`,
-        },
-        () => {
-          refresh()
-        }
-      )
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'permintaan_bahan',
+        filter: `outlet_id=eq.${outletId}`,
+      }, () => { refresh() })
       .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return () => { supabase.removeChannel(channel) }
   }, [outletId, refresh])
 
   return { permintaan, loading, error, refresh }
 }
 
 // ---------------------------------------------------------------------------
-// Hook: useApprovalList
+// Hook: useApprovalList — pakai Server Action (bypass refresh-token race)
 // ---------------------------------------------------------------------------
 
 export function useApprovalList() {
@@ -206,7 +134,7 @@ export function useApprovalList() {
   const refresh = useCallback(async () => {
     setError(null)
     try {
-      const data = await loadPermintaan({ pendingOnly: true })
+      const data = await fetchPermintaanPending()
       setPermintaan(data)
     } catch (err: any) {
       setError(err.message || String(err))
@@ -215,50 +143,30 @@ export function useApprovalList() {
     }
   }, [])
 
-  useEffect(() => {
-    setLoading(true)
-    refresh()
-  }, [refresh])
+  useEffect(() => { setLoading(true); refresh() }, [refresh])
 
   return { permintaan, loading, error, refresh }
 }
 
 // ---------------------------------------------------------------------------
-// Hook: usePermintaanActions
+// Hook: usePermintaanActions — pakai Server Actions
 // ---------------------------------------------------------------------------
 
 export function usePermintaanActions() {
   const buat = async (outletId: string, items: BuatPermintaanItemInput[]) => {
-    await getLiveToken() // validasi sesi dulu
-    const supabase = createClient()
     // eslint-disable-next-line no-console
     console.log('[buat_permintaan] outletId:', outletId, 'items:', items)
-    const { error } = await supabase.rpc('buat_permintaan', {
-      p_outlet_id: outletId,
-      p_items: items,
-    })
+    await buatPermintaan(outletId, items)
     // eslint-disable-next-line no-console
-    if (error) { console.error('[buat_permintaan] error:', error); throw new Error(error.message) }
+    console.log('[buat_permintaan] SUKSES via server action')
   }
 
   const approve = async (permintaanId: string, items: ApproveItemInput[]) => {
-    await getLiveToken()
-    const supabase = createClient()
-    const { error } = await supabase.rpc('approve_permintaan', {
-      p_permintaan_id: permintaanId,
-      p_items: items,
-    })
-    if (error) throw new Error(error.message)
+    await approvePermintaan(permintaanId, items)
   }
 
   const tolak = async (permintaanId: string, alasan: string) => {
-    await getLiveToken()
-    const supabase = createClient()
-    const { error } = await supabase.rpc('tolak_permintaan', {
-      p_permintaan_id: permintaanId,
-      p_alasan: alasan,
-    })
-    if (error) throw new Error(error.message)
+    await tolakPermintaan(permintaanId, alasan)
   }
 
   return { buat, approve, tolak }

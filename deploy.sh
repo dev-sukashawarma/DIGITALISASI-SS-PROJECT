@@ -146,6 +146,12 @@ deploy_one() {
     sleep 3
   fi
 
+  # Clean build: hapus .next lama dulu. Next tidak menghapus chunk lama saat
+  # rebuild, jadi tanpa ini chunk hash bisa drift → HTML minta chunk yang sudah
+  # tak ada di disk → 400 ChunkLoadError (client-side exception di browser).
+  echo "   🧹 Bersihkan .next lama (cegah chunk drift)..."
+  rm -rf "$APP_DIR/.next"
+
   if command -v taskset >/dev/null 2>&1; then
     taskset -c 0,1 "$NODE" "$NPM" run build
     BUILD_EXIT=$?

@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // @suka/* di-ekspor sebagai TypeScript src → harus ditranspile Next. (ADR-008)
+  transpilePackages: ['@suka/auth'],
   typescript: {
     ignoreBuildErrors: true,
   },

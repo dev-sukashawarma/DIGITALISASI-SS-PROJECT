@@ -6,13 +6,23 @@ import LogoutButton from '@/components/LogoutButton'
 import AppCard from '@/components/AppCard'
 import { Avatar } from '@suka/design-system'
 
+// URL app: env-driven (NEXT_PUBLIC_APP_URL_<APP>) agar benar di lokal & prod,
+// fallback ke subdomain produksi bila env kosong. Lihat ADR-008.
+const APP_URL: Record<AppName, string> = {
+  stok:              process.env.NEXT_PUBLIC_APP_URL_STOK            ?? 'https://stok.sukashawarma.com',
+  absensi:           process.env.NEXT_PUBLIC_APP_URL_ABSENSI         ?? 'https://absensi.sukashawarma.com',
+  distribusi:        process.env.NEXT_PUBLIC_APP_URL_DISTRIBUSI      ?? 'https://distribusi.sukashawarma.com',
+  'pos-kasir':       process.env.NEXT_PUBLIC_APP_URL_POS_KASIR       ?? 'https://kasir.sukashawarma.com',
+  'owner-dashboard': process.env.NEXT_PUBLIC_APP_URL_OWNER_DASHBOARD ?? 'https://owner.sukashawarma.com',
+}
+
 // Metadata per app
 const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
-  stok:              { label: 'Stok',             url: 'http://localhost:3001',                  desc: 'Monitoring & ledger stok bahan baku' },
-  absensi:           { label: 'Absensi',          url: 'https://absensi.sukashawarma.com',       desc: 'Presensi karyawan dengan verifikasi wajah' },
-  distribusi:        { label: 'Distribusi',       url: 'https://distribusi.sukashawarma.com',    desc: 'Pengiriman bahan baku & surat jalan' },
-  'pos-kasir':       { label: 'POS Kasir',        url: 'https://kasir.sukashawarma.com',         desc: 'Transaksi penjualan & point of sale' },
-  'owner-dashboard': { label: 'Owner Dashboard',  url: 'https://owner.sukashawarma.com',         desc: 'Laporan omzet & analisis keuangan' },
+  stok:              { label: 'Stok',             url: APP_URL.stok,              desc: 'Monitoring & ledger stok bahan baku' },
+  absensi:           { label: 'Absensi',          url: APP_URL.absensi,           desc: 'Presensi karyawan dengan verifikasi wajah' },
+  distribusi:        { label: 'Distribusi',       url: APP_URL.distribusi,        desc: 'Pengiriman bahan baku & surat jalan' },
+  'pos-kasir':       { label: 'POS Kasir',        url: APP_URL['pos-kasir'],      desc: 'Transaksi penjualan & point of sale' },
+  'owner-dashboard': { label: 'Owner Dashboard',  url: APP_URL['owner-dashboard'], desc: 'Laporan omzet & analisis keuangan' },
 }
 
 export default async function LauncherPage() {

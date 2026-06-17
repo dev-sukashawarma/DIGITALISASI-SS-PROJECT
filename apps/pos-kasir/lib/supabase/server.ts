@@ -1,33 +1,28 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { createSupabaseServerClient } from '@suka/auth'
 
+/**
+ * Server Supabase client (RSC / Server Action) untuk pos-kasir.
+ *
+ * Delegasi ke `@suka/auth` agar cookie options + nama (default
+ * `sb-<project-ref>-auth-token`) identik dengan Portal & middleware — syarat
+ * SSO gerbang tunggal. JANGAN set cookie name custom di sini. Lihat ADR-008.
+ */
 export async function createClient() {
   const cookieStore = await cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookieOptions: {
-        name: 'sb-pos-kasir-auth-token',
-        maxAge: 31536000,
-        path: '/',
-      },
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet: any[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, { ...options, maxAge: 31536000 })
-            )
-          } catch {
-            // Server Component - cookie setting handled by middleware
-          }
-        },
-      },
-    }
-  )
+  return createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (cookiesToSet) => {
+      try {
+        cookiesToSet.forEach(({ name, value, options }) =>
+          cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
+        )
+      } catch {
+        // Server Component - cookie setting handled by middleware
+      }
+    },
+  })
 }
 
 // Gunakan hanya di API Routes - bypasses RLS

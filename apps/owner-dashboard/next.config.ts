@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  transpilePackages: ['@suka/auth', '@suka/design-system'],
   typescript: {
     tsconfigPath: './tsconfig.json',
     ignoreBuildErrors: true,

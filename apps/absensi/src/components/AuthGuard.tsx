@@ -1,33 +1,37 @@
 'use client';
 
 import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@suka/auth';
+import { usePathname } from 'next/navigation';
+import { useAuth, hasAppAccess } from '@suka/auth';
 
+const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com';
+
+// Rute yang tidak butuh gate. `/kiosk/*` adalah device kiosk (aktivasi lokal,
+// bukan SSO staff) — lihat ADR-008.
 const PUBLIC_ROUTES = ['/login', '/'];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
-  const router = useRouter();
+  const { session, outletStaff, loading } = useAuth();
   const pathname = usePathname();
 
   const isPublic = PUBLIC_ROUTES.includes(pathname) || pathname.startsWith('/kiosk');
 
+  // Gate client-side untuk app static-export (ADR-008): tolak ke Portal bila
+  // belum login / role tak punya akses 'absensi' / status bukan active.
+  const denied =
+    !session ||
+    !outletStaff ||
+    !hasAppAccess(outletStaff.role, 'absensi') ||
+    outletStaff.status !== 'active';
+
   useEffect(() => {
-    if (loading) return;
-
-    if (!session && !isPublic) {
-      // Belum login → paksa ke login, replace history supaya back button tidak bisa balik
-      router.replace('/login');
+    if (loading || isPublic) return;
+    if (denied) {
+      // Keamanan data tetap di RLS; ini hanya redirect UX ke gerbang tunggal.
+      window.location.replace(PORTAL_URL);
     }
+  }, [loading, isPublic, denied]);
 
-    if (session && pathname === '/login') {
-      // Sudah login tapi buka /login → redirect ke dashboard SPV
-      router.replace('/dashboard');
-    }
-  }, [session, loading, isPublic, pathname, router]);
-
-  // Tampilkan loading spinner saat cek auth
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -39,8 +43,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Jangan render halaman protected kalau belum login
-  if (!session && !isPublic) return null;
+  // Jangan render halaman protected saat akses ditolak (menunggu redirect).
+  if (!isPublic && denied) return null;
 
   return <>{children}</>;
 }

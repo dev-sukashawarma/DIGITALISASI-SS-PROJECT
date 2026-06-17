@@ -18,13 +18,16 @@
     "@supabase/ssr": "^0.2.0",
     "@suka/auth": "*",
     "@suka/design-system": "*",
-    "@suka/offline-queue": "*"
+    "@suka/offline-queue": "*",
+    "jsqr": "^1.4.0",
+    "qrcode": "^1.5.3"
   },
   "devDependencies": {
     "typescript": "^5.3.3",
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
+    "@types/qrcode": "^1.5.2",
     "tailwindcss": "^4.0.0",
     "postcss": "^8.4.32"
   }

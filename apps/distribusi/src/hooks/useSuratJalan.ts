@@ -10,21 +10,23 @@ export function useSuratJalanList(outlet_id?: string, status?: string) {
 
   useEffect(() => {
     const supabase = createClient()
-    let query = supabase.from('surat_jalan').select('*')
+    const fetchData = async () => {
+      try {
+        let query = supabase.from('surat_jalan').select('*')
+        if (outlet_id) query = query.eq('outlet_id', outlet_id)
+        if (status) query = query.eq('status', status)
 
-    if (outlet_id) query = query.eq('outlet_id', outlet_id)
-    if (status) query = query.eq('status', status)
-
-    query.order('created_at', { ascending: false })
-      .then(({ data, error }) => {
+        const { data, error } = await query.order('created_at', { ascending: false })
         if (error) throw error
         setData((data as SuratJalan[]) ?? [])
-      })
-      .catch(err => {
+      } catch (err: unknown) {
         console.error('Error fetching surat_jalan:', err)
         setData([])
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
   }, [outlet_id, status])
 
   return { suratJalanList: data, loading }
@@ -39,24 +41,27 @@ export function useSuratJalanDetail(suratJalanId: string | undefined) {
   useEffect(() => {
     if (!suratJalanId) return
     const supabase = createClient()
-    Promise.all([
-      supabase.from('surat_jalan').select('*').eq('id', suratJalanId).single(),
-      supabase.from('surat_jalan_item').select('*').eq('surat_jalan_id', suratJalanId)
-    ])
-      .then(([sjResult, itemsResult]) => {
+    const fetchDetail = async () => {
+      try {
+        const [sjResult, itemsResult] = await Promise.all([
+          supabase.from('surat_jalan').select('*').eq('id', suratJalanId).single(),
+          supabase.from('surat_jalan_item').select('*').eq('surat_jalan_id', suratJalanId)
+        ])
         const { data: sjData, error: sjError } = sjResult
         const { data: itemsData, error: itemsError } = itemsResult
         if (sjError) throw sjError
         if (itemsError) throw itemsError
         setSj(sjData as SuratJalan)
         setItems((itemsData as SuratJalanItem[]) ?? [])
-      })
-      .catch(err => {
+      } catch (err: unknown) {
         console.error('Error fetching detail:', err)
         setSj(null)
         setItems([])
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDetail()
   }, [suratJalanId])
 
   return { sj, items, loading }

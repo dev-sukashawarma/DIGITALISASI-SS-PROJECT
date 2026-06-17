@@ -43,9 +43,20 @@ export async function POST(req: Request) {
       status = local.getTime() < deadlineOut.getTime() ? "telat" : "tepat";
     } else {
       const [h, m] = cfg.jam_masuk.split(":").map(Number);
-      const deadline = new Date(local);
-      deadline.setHours(h, m + cfg.toleransi_menit, 0, 0);
-      status = local.getTime() <= deadline.getTime() ? "tepat" : "alpha";
+      
+      const jamMasukDeadline = new Date(local);
+      jamMasukDeadline.setHours(h, m, 0, 0);
+
+      const toleransiDeadline = new Date(local);
+      toleransiDeadline.setHours(h, m + cfg.toleransi_menit, 0, 0);
+
+      if (local.getTime() <= jamMasukDeadline.getTime()) {
+        status = "tepat";
+      } else if (local.getTime() <= toleransiDeadline.getTime()) {
+        status = "telat";
+      } else {
+        status = "alpha";
+      }
     }
 
     // Tolak absen masuk telat SEBELUM menyimpan — agar tidak membuat record

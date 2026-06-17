@@ -19,7 +19,12 @@ export default function LoginPage() {
     const supabase = createSupabaseBrowserClient()
     const email = normalizeLoginIdentifier(identifier)
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setLoading(false); setError('Email atau kata sandi salah.'); return }
+    if (error) {
+      setLoading(false)
+      const hint = !identifier.includes('@') ? ' Jika Anda admin/owner, gunakan email lengkap.' : ''
+      setError(`Email atau kata sandi salah.${hint}`)
+      return
+    }
 
     // Verifikasi status staff sebelum masuk — akun nonaktif/cuti tidak boleh lanjut
     const { staff } = await getOutletStaff(supabase, data.user.id)
@@ -57,7 +62,7 @@ export default function LoginPage() {
         <div className="bg-white border border-suka-orange/10 rounded-3xl p-8 shadow-xl shadow-suka-brown/5 space-y-6">
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-suka-brown">Masuk Sistem</h2>
-            <p className="text-sm text-suka-gray-500">Gunakan akun email terdaftar Anda</p>
+            <p className="text-sm text-suka-gray-500">Masuk dengan email atau username akun Anda</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">

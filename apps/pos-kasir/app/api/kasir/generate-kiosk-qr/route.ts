@@ -54,8 +54,8 @@ export async function POST(request: Request) {
     const origin = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin || 'https://shawarma-order.vercel.app'
 
     // ARSITEKTUR BARU: Auto-Login Tahan Banting (Anti-Supabase Config Error)
-    // 1. Generate password acak yang kuat
-    const newPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10)
+    const crypto = require('crypto')
+    const newPassword = crypto.randomBytes(16).toString('hex')
 
     // 2. Ubah password akun kiosk tersebut (tidak mengganggu Kiosk lain yang sudah login)
     const { error: updateError } = await supabaseService.auth.admin.updateUserById(

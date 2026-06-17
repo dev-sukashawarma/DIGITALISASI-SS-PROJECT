@@ -32,14 +32,22 @@ export async function enforceAppAccess(
     },
   })
 
+  const getRedirect = (url: string | URL) => {
+    const redirectResponse = NextResponse.redirect(new URL(url, request.url))
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set({ ...cookie })
+    })
+    return redirectResponse
+  }
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.redirect(new URL(PORTAL_URL, request.url))
+    return getRedirect(PORTAL_URL)
   }
 
   const { staff } = await getOutletStaff(supabase, user.id)
   if (!staff || !hasAppAccess(staff.role, app) || staff.status !== 'active') {
-    return NextResponse.redirect(new URL(PORTAL_URL, request.url))
+    return getRedirect(PORTAL_URL)
   }
 
   return response

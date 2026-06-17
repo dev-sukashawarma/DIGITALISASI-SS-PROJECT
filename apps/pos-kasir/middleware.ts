@@ -15,6 +15,14 @@ export async function middleware(request: NextRequest) {
     },
   })
 
+  const getRedirect = (url: string | URL) => {
+    const redirectResponse = NextResponse.redirect(new URL(url, request.url))
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set({ ...cookie })
+    })
+    return redirectResponse
+  }
+
   const { data: { user } } = await supabase.auth.getUser()
 
   let role = null
@@ -26,7 +34,7 @@ export async function middleware(request: NextRequest) {
       .from('outlet_staff')
       .select('role, outlet_id, status')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     if (profile) {
       role = profile.role
@@ -34,7 +42,7 @@ export async function middleware(request: NextRequest) {
       status = profile.status
     } else {
       // No staff profile found → redirect to portal
-      return NextResponse.redirect(new URL(PORTAL_URL, request.url))
+      return getRedirect(PORTAL_URL)
     }
   }
 
@@ -43,14 +51,14 @@ export async function middleware(request: NextRequest) {
   // Proteksi Route Admin
   if (path.startsWith('/admin')) {
     if (!user || role !== 'admin' || !hasAppAccess(role, 'pos-kasir') || status !== 'active') {
-      return NextResponse.redirect(new URL(PORTAL_URL, request.url))
+      return getRedirect(PORTAL_URL)
     }
   }
 
   // Proteksi Route Kasir
   if (path.startsWith('/kasir')) {
     if (!user || role !== 'kasir' || !hasAppAccess(role, 'pos-kasir') || status !== 'active') {
-      return NextResponse.redirect(new URL(PORTAL_URL, request.url))
+      return getRedirect(PORTAL_URL)
     }
   }
 
@@ -66,34 +74,49 @@ export async function middleware(request: NextRequest) {
   if (!isPublicPath && !isApiPath && !isDashboardPath) {
     // Belum login sama sekali → device belum di-aktifkan kasir
     if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      return getRedirect('/login')
     }
     // Status check: inactive/on_leave cannot use kiosk
     if (status !== 'active') {
-      return NextResponse.redirect(new URL('/login', request.url))
+      return getRedirect('/login')
     }
     // Sudah login tapi bukan device kiosk (admin diizinkan untuk preview).
     // Kasir yang nyasar ke sini dikembalikan ke dashboard-nya.
     if (role !== 'kiosk' && role !== 'admin') {
-      return NextResponse.redirect(new URL(role === 'kasir' ? '/kasir' : '/login', request.url))
+      return getRedirect(role === 'kasir' ? '/kasir' : '/login')
     }
     // Kiosk harus memiliki valid session (role kiosk dengan outlet_id valid)
     if (role === 'kiosk' && !outlet_id) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      return getRedirect('/login')
     }
   }
 
   // Redirect halaman login jika sudah auth
   if (path === '/login' && user && role) {
-    if (role === 'admin') return NextResponse.redirect(new URL('/admin', request.url))
-    if (role === 'kasir') return NextResponse.redirect(new URL('/kasir', request.url))
-    if (role === 'kiosk') return NextResponse.redirect(new URL('/', request.url))
+    if (role === 'admin') return getRedirect('/admin')
+    if (role === 'kasir') return getRedirect('/kasir')
+    if (role === 'kiosk') return getRedirect('/')
   }
 
   // Inject session data untuk digunakan di App (khususnya untuk Kiosk)
   // Ini membantu Kiosk UI tahu dia ada di outlet mana
   if (role === 'kiosk' && outlet_id) {
-    response.headers.set('x-outlet-id', outlet_id)
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-outlet-id', outlet_id)
+    
+    // Create new response with updated request headers for server components
+    const finalResponse = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    })
+    
+    // Copy cookies to final response
+    response.cookies.getAll().forEach((cookie) => {
+      finalResponse.cookies.set({ ...cookie })
+    })
+    
+    return finalResponse
   }
 
   return response

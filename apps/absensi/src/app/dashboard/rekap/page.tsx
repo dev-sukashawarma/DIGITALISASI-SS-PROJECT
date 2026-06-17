@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Avatar, StatusPill, EmptyState } from "@suka/design-system";
-import { Download, LogIn, LogOut, CalendarDays, ClipboardList } from "lucide-react";
+import { LogIn, LogOut, CalendarDays, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
-import { attendanceToCsv, downloadCsv, type CsvRow } from "@/features/rekap/csv";
 import { PageHeader } from "@/components/PageHeader";
 
 type Row = {
@@ -16,9 +15,22 @@ type Row = {
   status: "tepat" | "telat" | "alpha";
   selfie_url: string | null;
   outlet_staff: { name: string } | null;
+  delay_minutes?: number | null;
 };
 
 const SELFIE_BUCKET = "selfies";
+
+function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
+  const [h, m] = jamMasuk.split(":").map(Number);
+  const serverTime = new Date(tsServer);
+  
+  const expectedTime = new Date(tsServer);
+  expectedTime.setHours(h, m, 0, 0);
+  
+  const diffMs = serverTime.getTime() - expectedTime.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.floor(diffMs / 60000);
+}
 
 export default function RekapPage() {
   const { outletStaff } = useAuth();
@@ -42,10 +54,23 @@ export default function RekapPage() {
         .from("outlet_staff")
         .select("id,name")
         .eq("outlet_id", outletStaff.outlet_id)
-        .eq("status", "active")
-    ]).then(([attRes, staffRes]) => {
+        .eq("status", "active"),
+      supabase
+        .from("outlet_attendance_config")
+        .select("jam_masuk")
+        .eq("outlet_id", outletStaff.outlet_id)
+        .single()
+    ]).then(([attRes, staffRes, cfgRes]) => {
       const dbRows = (attRes.data as unknown as (Row & { outlet_staff_id: string })[]) || [];
       const activeStaff = staffRes.data || [];
+      const cfg = cfgRes.data;
+
+      // Calculate delay minutes for telat records
+      dbRows.forEach(r => {
+        if (r.status === "telat" && r.type === "in" && cfg?.jam_masuk) {
+          r.delay_minutes = calculateDelayMinutes(r.ts_server, cfg.jam_masuk);
+        }
+      });
 
       const inRecords = new Set(dbRows.filter(r => r.type === "in").map(r => r.outlet_staff_id));
 
@@ -84,13 +109,6 @@ export default function RekapPage() {
     return supabase.storage.from(SELFIE_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
-  function exportCsv() {
-    const data: CsvRow[] = rows.map((r) => ({
-      name: r.outlet_staff?.name ?? "-", type: r.type, jam: jam(r.ts_server), status: r.status,
-    }));
-    downloadCsv(`rekap-${date}.csv`, attendanceToCsv(data));
-  }
-
   const STAT = [
     { label: "Tepat", value: summary.tepat, cls: "text-suka-green" },
     { label: "Telat", value: summary.telat, cls: "text-[#854f0b]" },
@@ -109,9 +127,6 @@ export default function RekapPage() {
               <CalendarDays size={15} className="shrink-0 text-gray-400" />
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-transparent outline-none" />
             </label>
-            <button onClick={exportCsv} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-suka-brown px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-suka-ink">
-              <Download size={15} /> <span className="hidden sm:inline">Export</span> CSV
-            </button>
           </div>
         }
       />
@@ -140,7 +155,9 @@ export default function RekapPage() {
                 {r.type === "in" ? "Masuk" : "Keluar"} {r.status !== "alpha" && `· ${jam(r.ts_server)}`}
               </div>
             </div>
-            <StatusPill kind={r.status} className="capitalize">{r.status}</StatusPill>
+            <StatusPill kind={r.status} className="capitalize">
+              {r.status} {r.delay_minutes ? `${r.delay_minutes} mnt` : ""}
+            </StatusPill>
           </div>
         ))}
       </div>

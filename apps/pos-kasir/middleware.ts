@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
 
   // Proteksi Route Kasir
   if (path.startsWith('/kasir')) {
-    if (!user || role !== 'kasir' || !hasAppAccess(role, 'pos-kasir') || status !== 'active') {
+    if (!user || !['kasir', 'kepala_outlet'].includes(role as string) || !hasAppAccess(role as any, 'pos-kasir') || status !== 'active') {
       return getRedirect(PORTAL_URL)
     }
   }
@@ -80,10 +80,12 @@ export async function middleware(request: NextRequest) {
     if (status !== 'active') {
       return getRedirect('/login')
     }
-    // Sudah login tapi bukan device kiosk (admin diizinkan untuk preview).
-    // Kasir yang nyasar ke sini dikembalikan ke dashboard-nya.
-    if (role !== 'kiosk' && role !== 'admin') {
-      return getRedirect(role === 'kasir' ? '/kasir' : '/login')
+    // Sudah login tapi bukan device kiosk.
+    // Admin dan Kasir yang nyasar ke sini dikembalikan ke dashboard-nya.
+    if (role !== 'kiosk') {
+      if (role === 'admin') return getRedirect('/admin')
+      if (role === 'kasir' || role === 'kepala_outlet') return getRedirect('/kasir')
+      return getRedirect('/login')
     }
     // Kiosk harus memiliki valid session (role kiosk dengan outlet_id valid)
     if (role === 'kiosk' && !outlet_id) {
@@ -94,7 +96,7 @@ export async function middleware(request: NextRequest) {
   // Redirect halaman login jika sudah auth
   if (path === '/login' && user && role) {
     if (role === 'admin') return getRedirect('/admin')
-    if (role === 'kasir') return getRedirect('/kasir')
+    if (role === 'kasir' || role === 'kepala_outlet') return getRedirect('/kasir')
     if (role === 'kiosk') return getRedirect('/')
   }
 

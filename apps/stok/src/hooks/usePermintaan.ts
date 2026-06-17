@@ -37,6 +37,11 @@ interface LoadFilter {
 async function loadPermintaan(filter: LoadFilter): Promise<PermintaanWithItems[]> {
   const supabase = createClient()
 
+  // Debug: cek apakah session ada
+  const { data: { session: dbgSession } } = await supabase.auth.getSession()
+  // eslint-disable-next-line no-console
+  console.log('[loadPermintaan] filter:', filter, '| session uid:', dbgSession?.user?.id ?? 'ANON/NULL')
+
   let query = supabase
     .from('permintaan_bahan')
     .select('*, permintaan_bahan_item(*, bahan_baku(nama)), outlets(name)')
@@ -51,6 +56,9 @@ async function loadPermintaan(filter: LoadFilter): Promise<PermintaanWithItems[]
   }
 
   const { data, error } = await query
+
+  // eslint-disable-next-line no-console
+  console.log('[loadPermintaan] result count:', data?.length ?? 0, '| error:', error?.message ?? null)
 
   if (error) throw new Error(error.message)
 

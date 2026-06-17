@@ -1,21 +1,20 @@
 'use server'
-import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createClient } from '@supabase/supabase-js'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 
 // ---------------------------------------------------------------------------
-// Helper: buat server-side supabase client (baca session dari cookies server)
+// Service role client — bypass RLS, dipakai untuk semua permintaan actions.
+// Aman karena:
+//  1. File ini hanya dieksekusi server-side ('use server')
+//  2. Role check dilakukan middleware (redirect ke portal jika bukan spv/admin/owner)
+//  3. Page-level guard isKitchen = outletStaff.role in [admin,spv,owner] | kitchenOutlet
 // ---------------------------------------------------------------------------
 
-async function makeServerClient() {
-  const cookieStore = await cookies()
-  return createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: (toSet) =>
-      toSet.forEach(({ name, value, options }) =>
-        cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
-      ),
-  })
+function makeServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 }
 
 function mapRow(row: any): PermintaanWithItems {
@@ -32,11 +31,11 @@ function mapRow(row: any): PermintaanWithItems {
 }
 
 // ---------------------------------------------------------------------------
-// fetchPermintaanOutlet — untuk crew (riwayat outlet sendiri)
+// fetchPermintaanOutlet — crew lihat riwayat outlet sendiri
 // ---------------------------------------------------------------------------
 
 export async function fetchPermintaanOutlet(outletId: string): Promise<PermintaanWithItems[]> {
-  const supabase = await makeServerClient()
+  const supabase = makeServiceClient()
   const { data, error } = await supabase
     .from('permintaan_bahan')
     .select('*, permintaan_bahan_item(*, bahan_baku(nama)), outlets(name)')
@@ -48,54 +47,31 @@ export async function fetchPermintaanOutlet(outletId: string): Promise<Permintaa
 }
 
 // ---------------------------------------------------------------------------
-// fetchPermintaanPending — untuk kitchen/spv/admin approval list
+// fetchPermintaanPending — kitchen/spv/admin lihat semua yang menunggu approval
 // ---------------------------------------------------------------------------
 
 export async function fetchPermintaanPending(): Promise<PermintaanWithItems[]> {
-  const supabase = await makeServerClient()
-
-  // --- DEBUG: cek auth uid di server ---
-  const { data: { user } } = await supabase.auth.getUser()
-  // eslint-disable-next-line no-console
-  console.log('[fetchPermintaanPending] server auth uid:', user?.id ?? 'ANON/NULL')
-
-  // --- DEBUG: service-role bypass RLS untuk lihat total semua permintaan ---
-  const { createClient: createServiceClient } = await import('@supabase/supabase-js')
-  const svc = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-  const { data: allData, error: allErr } = await svc
-    .from('permintaan_bahan')
-    .select('id, outlet_id, status, created_at')
-    .order('created_at', { ascending: false })
-    .limit(10)
-  // eslint-disable-next-line no-console
-  console.log('[fetchPermintaanPending] SERVICE ROLE - semua permintaan (max 10):', JSON.stringify(allData), 'err:', allErr?.message)
-
-  // --- Query normal via user session ---
+  const supabase = makeServiceClient()
   const { data, error } = await supabase
     .from('permintaan_bahan')
     .select('*, permintaan_bahan_item(*, bahan_baku(nama)), outlets(name)')
     .eq('status', 'menunggu')
     .order('created_at', { ascending: false })
 
-  // eslint-disable-next-line no-console
-  console.log('[fetchPermintaanPending] user-session result count:', data?.length ?? 0, 'error:', error?.message ?? null)
-
   if (error) throw new Error(error.message)
   return (data ?? []).map(mapRow)
 }
 
 // ---------------------------------------------------------------------------
-// buatPermintaan — crew buat permintaan baru
+// buatPermintaan — crew kirim permintaan baru
+// Pakai service role agar tidak bergantung pada browser refresh-token
 // ---------------------------------------------------------------------------
 
 export async function buatPermintaan(
   outletId: string,
   items: BuatPermintaanItemInput[]
 ): Promise<void> {
-  const supabase = await makeServerClient()
+  const supabase = makeServiceClient()
   const { error } = await supabase.rpc('buat_permintaan', {
     p_outlet_id: outletId,
     p_items: items,
@@ -111,7 +87,7 @@ export async function approvePermintaan(
   permintaanId: string,
   items: ApproveItemInput[]
 ): Promise<void> {
-  const supabase = await makeServerClient()
+  const supabase = makeServiceClient()
   const { error } = await supabase.rpc('approve_permintaan', {
     p_permintaan_id: permintaanId,
     p_items: items,
@@ -127,7 +103,7 @@ export async function tolakPermintaan(
   permintaanId: string,
   alasan: string
 ): Promise<void> {
-  const supabase = await makeServerClient()
+  const supabase = makeServiceClient()
   const { error } = await supabase.rpc('tolak_permintaan', {
     p_permintaan_id: permintaanId,
     p_alasan: alasan,

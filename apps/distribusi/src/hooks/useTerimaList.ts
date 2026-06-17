@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { useAuth } from '@suka/auth'
 
 interface SuratJalan {
@@ -25,7 +25,7 @@ export function useTerimaList() {
       setError(null)
 
       try {
-        const supabase = createClient()
+        const supabase = createSupabaseBrowserClient()
         let query = supabase
           .from('surat_jalan')
           .select('id, outlet_id, status, created_at, document_number, outlets(name)')

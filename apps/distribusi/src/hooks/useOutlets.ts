@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 
 interface Outlet {
   id: string
@@ -20,7 +20,7 @@ export function useOutlets() {
       setError(null)
 
       try {
-        const supabase = createClient()
+        const supabase = createSupabaseBrowserClient()
         const { data, error: err } = await supabase
           .from('outlets')
           .select('id, name, address')

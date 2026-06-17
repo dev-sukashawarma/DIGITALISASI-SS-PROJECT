@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import type { SuratJalan, SuratJalanItem } from '@/types/distribusi'
 
 // List all Surat Jalan (SPV sees all; crew sees own outlet)
@@ -9,7 +9,7 @@ export function useSuratJalanList(outlet_id?: string, status?: string) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const supabase = createClient()
+    const supabase = createSupabaseBrowserClient()
     const fetchData = async () => {
       try {
         let query = supabase.from('surat_jalan').select('*')
@@ -40,7 +40,7 @@ export function useSuratJalanDetail(suratJalanId: string | undefined) {
 
   useEffect(() => {
     if (!suratJalanId) return
-    const supabase = createClient()
+    const supabase = createSupabaseBrowserClient()
     const fetchDetail = async () => {
       try {
         const [sjResult, itemsResult] = await Promise.all([
@@ -69,7 +69,7 @@ export function useSuratJalanDetail(suratJalanId: string | undefined) {
 
 // RPC: create_surat_jalan
 export function useSuratJalanActions() {
-  const supabase = createClient()
+  const supabase = createSupabaseBrowserClient()
 
   const create = useCallback(async (outlet_id: string, items: Array<{ bahan_baku_id: string; qty_dikirim: number }>) => {
     const { data, error } = await supabase.rpc('create_surat_jalan', {

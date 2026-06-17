@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
 import { ReceiptSignatureStep } from './ReceiptSignatureStep'
 
@@ -176,7 +176,7 @@ export function VerifikasiForm({ id }: { id: string }) {
 
   const handleSubmit = async () => {
     setSubmitting(true)
-    const supabase = createClient()
+    const supabase = createSupabaseBrowserClient()
     try {
       const updatePromises = items.map((item: any) => {
         const v = verifications[item.id] ?? { qty_terima: item.qty_dikirim, kondisi: 'baik' as const, catatan: '' }

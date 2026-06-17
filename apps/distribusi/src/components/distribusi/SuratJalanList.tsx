@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
 import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
 import { BottomNav } from './BottomNav'
@@ -16,7 +16,7 @@ export function SuratJalanList() {
   const { data, loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter)
 
   const handleDownloadPDF = async (sjId: string) => {
-    const supabase = createClient()
+    const supabase = createSupabaseBrowserClient()
 
     // Fetch full surat jalan detail with items
     const { data: sj } = await supabase

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { SignatureCanvas } from './SignatureCanvas'
 
 interface Signature {
@@ -60,7 +60,7 @@ export function SignatureFlow({
     }
 
     setSigning(true)
-    const supabase = createClient()
+    const supabase = createSupabaseBrowserClient()
 
     try {
       console.log('Signing with image size:', signatureImage.length, 'bytes')
@@ -103,7 +103,7 @@ export function SignatureFlow({
     }
 
     setSending(true)
-    const supabase = createClient()
+    const supabase = createSupabaseBrowserClient()
 
     try {
       const { error } = await supabase.rpc('send_surat_jalan_signed', {

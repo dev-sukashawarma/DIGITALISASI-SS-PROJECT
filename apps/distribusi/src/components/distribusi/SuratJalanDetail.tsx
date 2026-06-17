@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
 import { SignatureFlow } from './SignatureFlow'
 import { useAuth } from '@suka/auth'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
 
 function SignatureBlock({ title, sigs }: { title: string; sigs: any[] }) {
@@ -89,7 +89,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
     setVerifying(true)
     try {
-      const supabase = createClient()
+      const supabase = createSupabaseBrowserClient()
       const { error } = await supabase
         .from('surat_jalan')
         .update({ status: 'selesai', updated_at: new Date().toISOString() })

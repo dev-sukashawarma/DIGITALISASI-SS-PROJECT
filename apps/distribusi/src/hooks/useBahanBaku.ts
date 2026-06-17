@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@suka/auth'
 
 interface BahanBaku {
   id: string
@@ -21,7 +21,7 @@ export function useBahanBaku() {
       setError(null)
 
       try {
-        const supabase = createClient()
+        const supabase = createSupabaseBrowserClient()
         const { data, error: err } = await supabase
           .from('bahan_baku')
           .select('id, nama, satuan, kategori')

@@ -1,6 +1,6 @@
 # Fitur 1 — Permintaan Bahan Baku Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Outlet (crew) menginisiasi permintaan bahan baku; kepala_outlet kitchen approve/edit/tolak; approve otomatis membuat draft surat jalan yang terhubung.
 
@@ -37,7 +37,7 @@
 **Files:**
 - Create: `supabase/migrations/20260615000100_create_permintaan_bahan.sql`
 
-- [ ] **Step 1: Tulis migration**
+- [x] **Step 1: Tulis migration**
 
 ```sql
 -- Permintaan bahan baku: outlet menginisiasi, kitchen approve.
@@ -69,12 +69,12 @@ CREATE TABLE permintaan_bahan_item (
 CREATE INDEX idx_permintaan_item_permintaan ON permintaan_bahan_item(permintaan_id);
 ```
 
-- [ ] **Step 2: Verifikasi syntax lokal**
+- [x] **Step 2: Verifikasi syntax lokal**
 
 Run: `cd "D:/MIT/CLAUDE CODE PROJECT/SS DIGITAL PROJECT" && supabase db push --dry-run`
 Expected: tidak ada error parse pada file migration baru. (Kalau remote diverged, lihat catatan migration repair di CLAUDE.md — jangan db push polos.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/20260615000100_create_permintaan_bahan.sql
@@ -92,7 +92,7 @@ Aturan:
 - Outlet staff melihat/insert permintaan untuk outletnya sendiri (`accessible_outlet_ids()` sudah ada — meresolusi scope termasuk kepala_outlet multi-outlet, spv/admin/owner semua).
 - Kepala_outlet kitchen (akses ke outlet kitchen) melihat semua permintaan (untuk approval). Karena spv/admin/owner sudah dapat semua via `accessible_outlet_ids()`, satu policy SELECT berbasis itu cukup; tambah klausa khusus agar staff kitchen melihat lintas outlet.
 
-- [ ] **Step 1: Tulis migration**
+- [x] **Step 1: Tulis migration**
 
 ```sql
 ALTER TABLE permintaan_bahan ENABLE ROW LEVEL SECURITY;
@@ -139,12 +139,12 @@ CREATE POLICY permintaan_item_update ON permintaan_bahan_item
   FOR UPDATE USING (is_kitchen_staff());
 ```
 
-- [ ] **Step 2: Verifikasi `accessible_outlet_ids()` ada**
+- [x] **Step 2: Verifikasi `accessible_outlet_ids()` ada**
 
 Run: `grep -rn "accessible_outlet_ids" supabase/migrations/20260613000500_accessible_outlets_fn.sql`
 Expected: definisi fungsi muncul (return `uuid[]`). Kalau return type beda, sesuaikan pemakaian `= ANY(...)`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/20260615000200_permintaan_bahan_rls.sql
@@ -158,7 +158,7 @@ git commit -m "feat(db): RLS permintaan_bahan + is_kitchen_staff helper"
 **Files:**
 - Create: `supabase/migrations/20260615000300_permintaan_bahan_rpc.sql`
 
-- [ ] **Step 1: Tulis migration**
+- [x] **Step 1: Tulis migration**
 
 ```sql
 -- buat_permintaan(outlet_id, items jsonb) -> permintaan_bahan
@@ -300,12 +300,12 @@ END;
 $$;
 ```
 
-- [ ] **Step 2: Verifikasi tanda tangan `create_surat_jalan` cocok**
+- [x] **Step 2: Verifikasi tanda tangan `create_surat_jalan` cocok**
 
 Run: `grep -n "FUNCTION create_surat_jalan" supabase/migrations/20260609002100_create_surat_jalan_rpc.sql`
 Expected: `create_surat_jalan(p_outlet_id UUID, p_items JSONB) RETURNS surat_jalan`. Item shape `{bahan_baku_id, qty_dikirim}` cocok dengan `v_sj_items`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/20260615000300_permintaan_bahan_rpc.sql
@@ -319,7 +319,7 @@ git commit -m "feat(db): RPC buat/approve/tolak permintaan + auto draft surat ja
 **Files:**
 - Create: `supabase/migrations/20260615000400_permintaan_realtime.sql`
 
-- [ ] **Step 1: Tulis migration**
+- [x] **Step 1: Tulis migration**
 
 ```sql
 -- Aktifkan realtime agar crew mendapat notif perubahan status.
@@ -327,12 +327,12 @@ ALTER PUBLICATION supabase_realtime ADD TABLE permintaan_bahan;
 ALTER TABLE permintaan_bahan REPLICA IDENTITY FULL;
 ```
 
-- [ ] **Step 2: Verifikasi pola publication yang sudah dipakai**
+- [x] **Step 2: Verifikasi pola publication yang sudah dipakai**
 
 Run: `grep -rn "supabase_realtime ADD TABLE" supabase/migrations`
 Expected: ada preseden (mis. attendance). Kalau publication belum ada di proyek, ganti dengan pola yang dipakai migration `20260612000003_fix_realtime_attendance.sql`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add supabase/migrations/20260615000400_permintaan_realtime.sql
@@ -346,7 +346,7 @@ git commit -m "feat(db): realtime untuk permintaan_bahan"
 **Files:**
 - Create: `apps/stok/src/types/permintaan.ts`
 
-- [ ] **Step 1: Tulis tipe**
+- [x] **Step 1: Tulis tipe**
 
 ```typescript
 export type PermintaanStatus = 'menunggu' | 'disetujui' | 'ditolak'
@@ -388,12 +388,12 @@ export interface ApproveItemInput {
 }
 ```
 
-- [ ] **Step 2: Type check**
+- [x] **Step 2: Type check**
 
 Run: `cd apps/stok && yarn type-check`
 Expected: PASS (file baru, belum dipakai).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/stok/src/types/permintaan.ts
@@ -409,7 +409,7 @@ git commit -m "feat(stok): tipe permintaan bahan"
 
 Ikuti pola `useLedger.ts` (`createClient` dari `@/lib/supabase`). Sediakan: daftar permintaan outlet (crew), daftar approval (kitchen, status menunggu), saran item di bawah threshold (dari `monitoring_view_crew`), dan actions buat/approve/tolak via RPC.
 
-- [ ] **Step 1: Tulis hook**
+- [x] **Step 1: Tulis hook**
 
 ```typescript
 'use client'
@@ -541,12 +541,12 @@ export function usePermintaanActions() {
 }
 ```
 
-- [ ] **Step 2: Type check**
+- [x] **Step 2: Type check**
 
 Run: `cd apps/stok && yarn type-check`
 Expected: PASS. Kalau `createClient` path beda, samakan dengan import di `useLedger.ts` (`@/lib/supabase`).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/stok/src/hooks/usePermintaan.ts
@@ -563,7 +563,7 @@ git commit -m "feat(stok): hook usePermintaan (list, approval, saran, actions)"
 
 Form menampilkan saran item (centang + qty default = `threshold - current_qty`, dibulatkan ke atas, minimal 1) dan opsi tambah item manual dari `useBahanBaku`. Submit → `buat()`.
 
-- [ ] **Step 1: Tulis test gagal**
+- [x] **Step 1: Tulis test gagal**
 
 ```typescript
 import { render, screen } from '@testing-library/react'
@@ -587,12 +587,12 @@ describe('PermintaanForm', () => {
 })
 ```
 
-- [ ] **Step 2: Jalankan test, pastikan gagal**
+- [x] **Step 2: Jalankan test, pastikan gagal**
 
 Run: `cd apps/stok && yarn vitest run src/components/permintaan/__tests__/PermintaanForm.test.tsx`
 Expected: FAIL — `Cannot find module '../PermintaanForm'`.
 
-- [ ] **Step 3: Implementasi komponen**
+- [x] **Step 3: Implementasi komponen**
 
 ```tsx
 'use client'
@@ -681,12 +681,12 @@ export function PermintaanForm({ outletId }: { outletId: string }) {
 }
 ```
 
-- [ ] **Step 4: Jalankan test, pastikan lulus**
+- [x] **Step 4: Jalankan test, pastikan lulus**
 
 Run: `cd apps/stok && yarn vitest run src/components/permintaan/__tests__/PermintaanForm.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/stok/src/components/permintaan/PermintaanForm.tsx apps/stok/src/components/permintaan/__tests__/PermintaanForm.test.tsx
@@ -700,7 +700,7 @@ git commit -m "feat(stok): PermintaanForm dengan saran item threshold"
 **Files:**
 - Create: `apps/stok/src/components/permintaan/PermintaanList.tsx`
 
-- [ ] **Step 1: Implementasi**
+- [x] **Step 1: Implementasi**
 
 ```tsx
 'use client'
@@ -761,12 +761,12 @@ export function PermintaanList({ outletId }: { outletId: string }) {
 
 Catatan: nama bahan baku ditampilkan dari id; jika ingin nama, join `bahan_baku(nama)` di `loadPermintaan` select (`items:permintaan_bahan_item(*, bahan_baku(nama))`) dan map ke item. Opsional, tidak memblokir.
 
-- [ ] **Step 2: Type check**
+- [x] **Step 2: Type check**
 
 Run: `cd apps/stok && yarn type-check`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/stok/src/components/permintaan/PermintaanList.tsx
@@ -781,7 +781,7 @@ git commit -m "feat(stok): PermintaanList dengan status realtime"
 - Create: `apps/stok/src/components/permintaan/ApprovalModal.tsx`
 - Create: `apps/stok/src/components/permintaan/ApprovalList.tsx`
 
-- [ ] **Step 1: Implementasi ApprovalModal**
+- [x] **Step 1: Implementasi ApprovalModal**
 
 ```tsx
 'use client'
@@ -863,7 +863,7 @@ export function ApprovalModal({
 }
 ```
 
-- [ ] **Step 2: Implementasi ApprovalList**
+- [x] **Step 2: Implementasi ApprovalList**
 
 ```tsx
 'use client'
@@ -905,12 +905,12 @@ export function ApprovalList() {
 }
 ```
 
-- [ ] **Step 3: Type check**
+- [x] **Step 3: Type check**
 
 Run: `cd apps/stok && yarn type-check`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/stok/src/components/permintaan/ApprovalModal.tsx apps/stok/src/components/permintaan/ApprovalList.tsx
@@ -925,7 +925,7 @@ git commit -m "feat(stok): layar approval kitchen (list + modal edit qty)"
 - Create: `apps/stok/src/app/stok/permintaan/page.tsx`
 - Modify: `apps/stok/src/app/dashboard/page.tsx` (tambah link ke `/stok/permintaan`; baca file dulu untuk pola link/menu yang ada)
 
-- [ ] **Step 1: Tulis page**
+- [x] **Step 1: Tulis page**
 
 Crew lihat Form + List permintaan outletnya. Staff kitchen (akses outlet kitchen) lihat ApprovalList. Tentukan via `outletStaff` dari `useAuth` (pola sama `threshold/page.tsx`).
 
@@ -972,16 +972,16 @@ export default function PermintaanPage() {
 }
 ```
 
-- [ ] **Step 2: Tambah link navigasi**
+- [x] **Step 2: Tambah link navigasi**
 
 Baca `apps/stok/src/app/dashboard/page.tsx`, tambahkan kartu/menu "Permintaan Bahan" yang menaut ke `/stok/permintaan`, mengikuti pola menu yang sudah ada di file itu. (Konten persis menyesuaikan markup eksisting — jangan menebak struktur, ikuti yang ada.)
 
-- [ ] **Step 3: Type check + build**
+- [x] **Step 3: Type check + build**
 
 Run: `cd apps/stok && yarn type-check`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/stok/src/app/stok/permintaan/page.tsx apps/stok/src/app/dashboard/page.tsx
@@ -992,11 +992,11 @@ git commit -m "feat(stok): route /stok/permintaan + link navigasi"
 
 ## Task 11: Smoke test manual (end-to-end)
 
-- [ ] **Step 1: Jalankan dev server**
+- [x] **Step 1: Jalankan dev server**
 
 Run: `cd apps/stok && yarn dev` (http://localhost:3001)
 
-- [ ] **Step 2: Verifikasi alur**
+- [x] **Step 2: Verifikasi alur**
 
 1. Login sebagai crew outlet non-kitchen → buka `/stok/permintaan` → item di bawah threshold muncul → centang + submit → muncul di "Riwayat Permintaan" status **Menunggu**.
 2. Login sebagai kepala_outlet kitchen → buka `/stok/permintaan` → permintaan tadi muncul di "Menunggu Persetujuan" → buka modal → ubah satu qty → Setujui.

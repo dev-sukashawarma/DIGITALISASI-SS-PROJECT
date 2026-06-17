@@ -229,5 +229,24 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 
 ---
 
+## Session 2026-06-17: Permintaan Bahan RLS & Approval Fixes (apps/stok)
+
+**Status:** Completed.
+
+### Hasil
+1. **Penyebab Utama RLS SPV:** SPV Pusat memiliki data di `outlet_staff` dengan `role: 'kepala_outlet'` (bukan `'spv'`), dan `outlet_id` di kitchen. Saat memanggil RPC dari Server Action, client-side session Supabase mengalami kegagalan RLS karena `auth.uid() = null` jika dipanggil dari service role, atau gagal authorization check `is_kitchen_staff` jika dipanggil dengan regular user.
+2. **Perbaikan Database / Migration:**
+   - Membuat RPC versi bypass/layanan: `buat_permintaan_svc`, `approve_permintaan_svc`, dan `tolak_permintaan_svc` di `supabase/migrations/20260617140000_permintaan_svc_rpcs.sql`.
+   - RPC ini didefinisikan sebagai `SECURITY DEFINER` dan mem-bypass pengecekan `auth.uid()` di sisi PostgreSQL, mendelegasikan validasi keamanan ke application layer (Server Actions/Middleware).
+3. **Resolusi Migration History Drift**:
+   - Ditemukan duplikasi timestamp migration (17 pasang file migrasi lokal) yang memblokir `supabase db push`.
+   - Menggabungkan/merge semua migrasi duplikat tersebut ke dalam satu file tunggal per timestamp sehingga status migrasi sinkron sempurna.
+   - Sukses menerapkan seluruh sisa migrasi ke database remote via `supabase db push`.
+4. **Pembaruan Next.js Server Actions**:
+   - Memperbarui `apps/stok/src/app/actions/permintaan.ts` untuk menggunakan RPC `_svc` baru.
+   - Mengambil session ID (`currentUserId`) secara dinamis di server-side menggunakan Next.js `cookies()` dan `@suka/auth` client.
+
+---
+
 **Last updated:** 2026-06-17  
 **Owner:** Dev Suka Shawarma

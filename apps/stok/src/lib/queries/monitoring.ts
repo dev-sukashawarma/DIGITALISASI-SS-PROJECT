@@ -354,28 +354,36 @@ export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDe
     return (a.item_name || '').localeCompare(b.item_name || '');
   });
 
-  // Enrich each item with ledger history (definer view, bypass RLS)
-  const enriched = await Promise.all(
-    dedupedItems.map(async (it): Promise<OutletDetailItem> => {
-      const { data: ledger } = await supabase
-        .from('ledger_feed_spv')
-        .select('tipe, qty, catatan, created_at')
-        .eq('outlet_id', outletId)
-        .eq('bahan_baku_id', it.bahan_baku_id)
-        .order('created_at', { ascending: false })
-        .limit(5);
+  // Batch fetch all ledger entries for all items (single query instead of N+1)
+  const bahanBakuIds = dedupedItems.map(it => it.bahan_baku_id);
 
-      return {
-        bahan_baku_id: it.bahan_baku_id,
-        item_name: it.item_name,
-        current_qty: it.current_qty,
-        threshold: it.threshold,
-        satuan: it.satuan,
-        status: it.status,
-        recent_ledger: ledger || [],
-      };
-    })
-  );
+  const { data: allLedgers, error: ledgerError } = await supabase
+    .from('ledger_feed_spv')
+    .select('bahan_baku_id, tipe, qty, catatan, created_at')
+    .eq('outlet_id', outletId)
+    .in('bahan_baku_id', bahanBakuIds)
+    .order('created_at', { ascending: false });
+
+  if (ledgerError) throw ledgerError;
+
+  // Group ledger entries by bahan_baku_id on client
+  const ledgerMap = new Map<string, typeof allLedgers>();
+  allLedgers?.forEach(entry => {
+    const key = entry.bahan_baku_id;
+    if (!ledgerMap.has(key)) ledgerMap.set(key, []);
+    ledgerMap.get(key)!.push(entry);
+  });
+
+  // Map items with their ledger history (last 5 entries per item)
+  const enriched = dedupedItems.map((it): OutletDetailItem => ({
+    bahan_baku_id: it.bahan_baku_id,
+    item_name: it.item_name,
+    current_qty: it.current_qty,
+    threshold: it.threshold,
+    satuan: it.satuan,
+    status: it.status,
+    recent_ledger: ledgerMap.get(it.bahan_baku_id)?.slice(0, 5) || [],
+  }));
 
   return enriched;
 }

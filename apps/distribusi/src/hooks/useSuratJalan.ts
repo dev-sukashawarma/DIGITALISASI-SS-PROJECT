@@ -12,13 +12,17 @@ export function useSuratJalanList(outlet_id?: string, status?: string) {
     const supabase = createSupabaseBrowserClient()
     const fetchData = async () => {
       try {
-        let query = supabase.from('surat_jalan').select('*')
+        let query = supabase.from('surat_jalan').select('*, outlets(name)')
         if (outlet_id) query = query.eq('outlet_id', outlet_id)
         if (status) query = query.eq('status', status)
 
         const { data, error } = await query.order('created_at', { ascending: false })
         if (error) throw error
-        setData((data as SuratJalan[]) ?? [])
+        const formattedData = ((data || []) as any[]).map((sj) => ({
+          ...sj,
+          outlets: Array.isArray(sj.outlets) ? sj.outlets[0] : sj.outlets
+        }))
+        setData(formattedData as SuratJalan[])
       } catch (err: unknown) {
         console.error('Error fetching surat_jalan:', err)
         setData([])

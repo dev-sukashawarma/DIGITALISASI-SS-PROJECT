@@ -11,6 +11,7 @@ export interface SuratJalan {
   notes: string | null
   signatures: Array<{ user_id: string; timestamp: string; [key: string]: any }> | null
   document_number?: string | null
+  outlets?: { name: string } | null
 }
 
 export interface SuratJalanItem {

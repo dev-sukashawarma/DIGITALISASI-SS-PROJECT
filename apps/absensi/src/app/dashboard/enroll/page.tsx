@@ -63,7 +63,7 @@ export default function EnrollPage() {
       
       busyRef.current = true;
       try {
-        const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        const det = await faceapi.detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
           .withFaceLandmarks()
           .withFaceDescriptor();
 

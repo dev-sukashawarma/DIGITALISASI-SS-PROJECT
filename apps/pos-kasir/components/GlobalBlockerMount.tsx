@@ -10,6 +10,27 @@ export default function GlobalBlockerMount() {
   const [blockType, setBlockType] = useState<BlockType>('user')
   const [checklistProgress, setChecklistProgress] = useState<ChecklistProgress | undefined>(undefined)
 
+  // Bypass State
+  const [bypassedTypes, setBypassedTypes] = useState<string[]>([])
+
+  // Cek apakah pernah di-bypass di session ini
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem('pos_gate_bypassed_types')
+        if (stored) setBypassedTypes(JSON.parse(stored))
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [])
+
+  function handleBypass() {
+    const newTypes = [...bypassedTypes, blockType]
+    sessionStorage.setItem('pos_gate_bypassed_types', JSON.stringify(newTypes))
+    setBypassedTypes(newTypes)
+  }
+
   // Simpan outlet_id kasir agar bisa filter event attendance per outlet
   const outletIdRef = useRef<string | null>(null)
 
@@ -217,7 +238,19 @@ export default function GlobalBlockerMount() {
   }, [])
 
   if (isBlocked) {
-    return <BlockedOverlay reason={blockedReason} type={blockType} progress={checklistProgress} />
+    // Jika tipe blokir adalah karena absen/checklist/tutup, dan user sudah melakukan bypass untuk tipe ini
+    if ((blockType === 'attendance' || blockType === 'checklist' || blockType === 'closed') && bypassedTypes.includes(blockType)) {
+      return null
+    }
+    
+    return (
+      <BlockedOverlay 
+        reason={blockedReason} 
+        type={blockType} 
+        progress={checklistProgress} 
+        onBypass={handleBypass}
+      />
+    )
   }
 
   return null

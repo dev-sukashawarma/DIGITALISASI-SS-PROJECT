@@ -35,6 +35,11 @@ export default function DashboardPage() {
     )
   }
 
+  // Calculate metrics
+  const drafts = suratJalanList.filter((sj) => sj.status === 'draft')
+  const inTransit = suratJalanList.filter((sj) => sj.status === 'dikirim' || sj.status === 'dikirim_lengkap')
+  const completed = suratJalanList.filter((sj) => sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian' || sj.status === 'selesai')
+
   // Recent shipments (limit 3)
   const recentShipments = suratJalanList.slice(0, 3)
 
@@ -131,28 +136,38 @@ export default function DashboardPage() {
           {/* Status 1 */}
           <div className="bg-white rounded-2xl p-5 shadow-[0px_4px_20px_rgba(112,22,4,0.02)] border border-[#d9c2b2]/45 border-l-4 border-l-[#f29744] flex items-center justify-between">
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-[#544437]/50 leading-none">Status Distribusi</p>
-              <h3 className="text-sm font-extrabold text-[#701604] mt-2">Status: Ready / Aktif</h3>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-[#544437]/50 leading-none">
+                {isPusat ? 'Draft SJ (Siap Kirim)' : 'Kiriman Menuju Outlet'}
+              </p>
+              <h3 className="text-xl font-black text-[#701604] mt-2">
+                {listLoading ? '...' : (isPusat ? drafts.length : inTransit.length)} <span className="text-xs font-semibold text-[#544437]/75">Dokumen</span>
+              </h3>
             </div>
-            <span className="text-2xl">🟢</span>
+            <span className="text-2xl">{isPusat ? '📝' : '🚚'}</span>
           </div>
           {/* Status 2 */}
           <div className="bg-white rounded-2xl p-5 shadow-[0px_4px_20px_rgba(112,22,4,0.02)] border border-[#d9c2b2]/45 border-l-4 border-l-[#701604] flex items-center justify-between">
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-[#544437]/50 leading-none">Lingkungan Sistem</p>
-              <h3 className="text-sm font-extrabold text-[#701604] mt-2">
-                Mode: {process.env.NODE_ENV === 'production' ? 'Production' : 'Testing'}
+              <p className="text-[9px] font-bold uppercase tracking-wider text-[#544437]/50 leading-none">
+                {isPusat ? 'Dalam Transit (Aktif)' : 'Selesai Diverifikasi'}
+              </p>
+              <h3 className="text-xl font-black text-[#701604] mt-2">
+                {listLoading ? '...' : (isPusat ? inTransit.length : completed.length)} <span className="text-xs font-semibold text-[#544437]/75">Dokumen</span>
               </h3>
             </div>
-            <span className="text-2xl">💻</span>
+            <span className="text-2xl">🔄</span>
           </div>
           {/* Status 3 */}
           <div className="bg-white rounded-2xl p-5 shadow-[0px_4px_20px_rgba(112,22,4,0.02)] border border-[#d9c2b2]/45 border-l-4 border-l-[#0a7d2c] flex items-center justify-between">
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-[#544437]/50 leading-none">Build Manifest</p>
-              <h3 className="text-sm font-extrabold text-[#0a7d2c] mt-2">Versi Fitur: M3</h3>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-[#544437]/50 leading-none">
+                {isPusat ? 'Pengiriman Selesai' : 'Total Dokumen'}
+              </p>
+              <h3 className="text-xl font-black text-[#0a7d2c] mt-2">
+                {listLoading ? '...' : (isPusat ? completed.length : suratJalanList.length)} <span className="text-xs font-semibold text-[#544437]/75">Dokumen</span>
+              </h3>
             </div>
-            <span className="text-2xl">📦</span>
+            <span className="text-2xl">✅</span>
           </div>
         </section>
 
@@ -225,37 +240,77 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* M3 Foundation Checklist Card */}
+            {/* SOP & Operational Guide Card */}
             <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 shadow-[0px_4px_20px_rgba(112,22,4,0.02)] overflow-hidden">
               <div className="px-6 py-5 border-b border-[#701604]/10 bg-white">
-                <h2 className="font-extrabold text-sm text-[#701604] uppercase tracking-wide">M3 Foundation Checklist</h2>
+                <h2 className="font-extrabold text-sm text-[#701604] uppercase tracking-wide">
+                  {isPusat ? 'SOP & Alur Kerja Gudang Pusat' : 'SOP & Panduan Penerimaan Outlet'}
+                </h2>
               </div>
               <div className="divide-y divide-[#d9c2b2]/20">
-                {[
-                  { text: 'Monorepo setup (Yarn workspaces)', status: 'completed' },
-                  { text: 'Design System package (@suka/design-system)', status: 'completed' },
-                  { text: 'Offline Queue package (@suka/offline-queue)', status: 'completed' },
-                  { text: 'Supabase schema (outlets, outlet_staff, dll)', status: 'completed' },
-                  { text: 'Next.js app shells (absensi, stok, distribusi, portal)', status: 'completed' },
-                  { text: 'Alur Pengiriman & Pembuatan Surat Jalan', status: 'completed' },
-                  { text: 'Alur Penerimaan Parsial & Ledger Sinkronisasi', status: 'completed' },
-                  { text: 'Autentikasi & RLS Keamanan DB', status: 'completed' },
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`px-6 py-3.5 flex items-center justify-between gap-4 ${
-                      idx % 2 === 0 ? 'bg-white' : 'bg-[#fff8f1]/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-base text-green-700">✓</span>
-                      <span className="text-xs text-[#1e1b15] font-semibold">{item.text}</span>
+                {isPusat ? (
+                  <>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-white">
+                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">1</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-[#1e1b15]">Cek Pengajuan Permintaan</h4>
+                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Lihat daftar permintaan bahan baku masuk dari outlet di menu stok yang sudah disetujui supervisor.</p>
+                      </div>
                     </div>
-                    <span className="text-[9px] font-extrabold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                      Selesai
-                    </span>
-                  </div>
-                ))}
+                    <div className="px-6 py-4 flex items-start gap-4 bg-[#fff8f1]/30">
+                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">2</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-[#1e1b15]">Buat Surat Jalan Baru</h4>
+                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Klik tombol "Buat Surat Jalan" untuk mengisi Qty barang yang siap dikirimkan secara fisik.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-white">
+                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">3</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-[#1e1b15]">Serah Terima & Cetak QR</h4>
+                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Tanda tangani Surat Jalan digital, lalu serahkan fisik cetak QR Code beserta barang ke supir/kurir.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-[#fff8f1]/30">
+                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">4</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-[#1e1b15]">Pantau Status Pengiriman</h4>
+                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Monitor pengiriman hingga kurir tiba dan outlet menyelesaikan verifikasi penerimaan barang.</p>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-white">
+                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">1</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-[#1e1b15]">Scan QR Code Kedatangan</h4>
+                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Gunakan menu "Scan QR Penerimaan" saat kurir tiba dengan logistik untuk membuka form verifikasi.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-[#fff8f1]/30">
+                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">2</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-[#1e1b15]">Verifikasi Kuantitas & Kondisi</h4>
+                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Hitung fisik barang. Jika ada selisih/rusak, masukkan Qty riil dan tandai kondisi "Jelek" beserta catatannya.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-white">
+                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">3</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-[#1e1b15]">Tanda Tangan Penerima & Supir</h4>
+                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Bubuhkan tanda tangan digital penerima dan supir pengirim sebagai bukti serah terima resmi.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-[#fff8f1]/30">
+                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">4</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-[#1e1b15]">Pembaruan Kartu Stok Otomatis</h4>
+                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Sistem akan memotong/menambah saldo kartu stok outlet Anda secara real-time setelah verifikasi difinalisasi.</p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

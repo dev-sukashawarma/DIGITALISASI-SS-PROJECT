@@ -13,6 +13,7 @@ export type AppName =
   | 'stok'
   | 'distribusi'
   | 'owner-dashboard'
+  | 'admin-dashboard'
 
 export type StaffStatus = 'active' | 'inactive' | 'on_leave'
 

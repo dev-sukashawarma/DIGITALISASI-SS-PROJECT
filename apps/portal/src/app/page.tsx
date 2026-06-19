@@ -1,5 +1,5 @@
 'use client'
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient, getOutletStaff, normalizeLoginIdentifier } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
@@ -11,6 +11,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    // Mencegah scroll pada body & html di halaman login portal
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+    }
+  }, [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -45,27 +55,27 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-suka-cream via-white to-suka-cream/30">
-      <div className="w-full max-w-md space-y-6">
-        <div className="flex flex-col items-center text-center space-y-2 mb-4">
-          <div className="w-20 h-20 flex items-center justify-center mb-1">
+    <main className="flex h-screen w-screen items-center justify-center p-4 overflow-hidden bg-gradient-to-br from-suka-cream via-white to-suka-cream/30">
+      <div className="w-full max-w-md space-y-4 sm:space-y-6 flex flex-col justify-center">
+        <div className="flex flex-col items-center text-center space-y-1 sm:space-y-2 mb-2 sm:mb-4">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mb-1">
             <img src="/logo.png" alt="Suka Shawarma Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-4xl font-extrabold text-suka-brown tracking-tight font-display">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-suka-brown tracking-tight font-display">
             SUKA SHAWARMA
           </h1>
-          <p className="text-xs font-semibold text-suka-orange uppercase tracking-widest">
+          <p className="text-[10px] sm:text-xs font-semibold text-suka-orange uppercase tracking-widest">
             Portal Operasional Outlet
           </p>
         </div>
 
-        <div className="bg-white border border-suka-orange/10 rounded-3xl p-8 shadow-xl shadow-suka-brown/5 space-y-6">
+        <div className="bg-white border border-suka-orange/10 rounded-3xl p-6 sm:p-8 shadow-xl shadow-suka-brown/5 space-y-5 sm:space-y-6">
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-suka-brown">Masuk Sistem</h2>
             <p className="text-sm text-suka-gray-500">Masuk dengan email atau username akun Anda</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             <Input
               id="identifier"
               type="text"

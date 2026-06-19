@@ -2,6 +2,7 @@ import { type NextRequest } from 'next/server'
 import { enforceAppAccess } from '@suka/auth'
 
 export function middleware(request: NextRequest) {
+  // Skip enforceAppAccess untuk localhost development
   if (request.nextUrl.hostname === 'localhost') {
     return undefined
   }

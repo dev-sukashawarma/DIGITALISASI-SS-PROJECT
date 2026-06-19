@@ -24,7 +24,7 @@ Spec lama (2026-06-13) mengasumsikan: dashboard membaca **langsung** project Eco
 
 1. **Input food-app di `pos-kasir`, bukan owner-dashboard.** Crew yang jaga kasir meng-input order food-app **per-transaksi, item-level, realtime** (saat order masuk), persis seperti order POS biasa tetapi `sales_source` = nama app. Owner-dashboard **murni read-only**.
 2. **POS Outlet & Food Apps native di hub** (ditulis pos-kasir) — tanpa sinkron.
-3. **Order Online disinkron** dari Ecosystem → hub via Edge Function + pg_cron (ADR-006), dipetakan ke skema hub (status, amount, timestamp, item) dengan `sales_source='online'`.
+3. **Order Online disinkron** dari Ecosystem → hub via Edge Function + Database Webhooks (ADR-006) secara real-time tanpa polling, dipetakan ke skema hub (status, amount, timestamp, item) dengan `sales_source='online'`.
 4. **Omzet diakui** = `status='completed'` (item diterima customer). Tanggal omzet = tanggal `created_at` (aman: outlet beroperasi 13:00–22:00, tak pernah lewat tengah malam). Tidak perlu kolom `completed_at` untuk atribusi tanggal.
 5. **Nilai dicatat = harga kotor** (sebelum komisi food-app). Komisi = komponen biaya Fase 2 (margin), bukan pengurang omzet. `payment_method` untuk food-app = N/A.
 6. **"Menu terlaris" lintas-sumber** di-join via `menu_item_name` ter-normalisasi (lower+trim+rapatkan spasi). Varian ukuran (Jumbo/Sedang) = baris terpisah (produk berbeda). Rollup per-produk-induk = Fase 2.

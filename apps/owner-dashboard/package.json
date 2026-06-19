@@ -21,7 +21,12 @@
     "@supabase/ssr": "^0.2.0",
     "@suka/design-system": "*",
     "@suka/offline-queue": "*",
-    "@suka/auth": "*"
+    "@suka/auth": "*",
+    "lucide-react": "^0.300.0",
+    "zustand": "^4.5.4",
+    "sonner": "^1.4.0",
+    "framer-motion": "^11.0.3",
+    "react-countup": "^6.5.0"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

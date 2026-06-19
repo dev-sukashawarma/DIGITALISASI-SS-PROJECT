@@ -7,7 +7,7 @@
 Karena DB Outlet Suite di akun Supabase terpisah (ADR-004), perlu 2 sinkron lintas-akun: `outlets` (Ecosystem→Suite) dan agregat `sales` untuk reporting hub (ADR-002). Ekosistem sudah punya n8n (dipakai untuk CS chatbot), jadi sempat jadi kandidat default.
 
 ## Keputusan
-Sinkron data inti pakai **Supabase Edge Function (Deno) dijadwalkan pg_cron**, bukan n8n. Fungsi membaca REST project Ecosystem dengan read key lalu upsert ke project Outlet Suite. Contoh fungsi: `sync-outlets`, `sync-sales`. n8n **tidak** dipakai untuk pipa data inti; tetap boleh untuk hal lain (chatbot, broadcast WA). Compliance dari MySQL = fase lanjut/opsional (di situ n8n boleh dipertimbangkan karena konektor MySQL lebih mudah).
+Sinkron data inti pakai **Supabase Edge Function (Deno)**, bukan n8n. Untuk sinkron data periodik (seperti `outlets`) dijadwalkan menggunakan **pg_cron**. Untuk sinkronisasi transaksional (seperti pesanan online `orders`), digunakan **Database Webhooks** agar real-time tanpa polling. Fungsi membaca REST project Ecosystem dengan read key lalu upsert ke project Outlet Suite. Contoh fungsi: `sync-outlets`, `webhook-sync-order`. n8n **tidak** dipakai untuk pipa data inti; tetap boleh untuk hal lain (chatbot, broadcast WA). Compliance dari MySQL = fase lanjut/opsional (di situ n8n boleh dipertimbangkan karena konektor MySQL lebih mudah).
 
 ## Alternatif yang ditolak
 - **n8n untuk sinkron DB** — ditolak: ada instance/server n8n yang harus dijaga, workflow di luar repo (tak ter-version, tak ter-review). Surface ekstra untuk tim 2 dev.

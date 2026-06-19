@@ -152,222 +152,318 @@ export function AttendanceKioskPanel() {
   const hasOut = todayRecords.some(r => r.type === "out");
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-suka-gray-200 bg-white p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-suka-ink leading-tight">Halo, {outletStaff.name}!</h1>
-            <p className="mt-0.5 text-sm text-gray-500">Siap untuk shift hari ini?</p>
-          </div>
-          {!kiosk.isOnline && (
-            <span className="shrink-0 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700">
-              Offline · {kiosk.pending} sync
+    <div className="max-w-md mx-auto space-y-4">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between px-1">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold text-suka-orange uppercase tracking-wider">SukaAbsen Outlet</p>
+          <h1 className="text-xl font-extrabold text-suka-ink truncate">Halo, {outletStaff.name}!</h1>
+        </div>
+        <div className="shrink-0">
+          {!kiosk.isOnline ? (
+            <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[9px] font-bold text-amber-700 animate-pulse flex items-center gap-1">
+              <span className="w-1 h-1 rounded-full bg-amber-500" />
+              Offline
+            </span>
+          ) : (
+            <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[9px] font-bold text-emerald-700 flex items-center gap-1">
+              <span className="w-1 h-1 rounded-full bg-emerald-500 animate-ping" />
+              Online
             </span>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left Column: Camera (Absen) */}
-        <div>
-          <Card className="relative overflow-hidden p-0 h-full rounded-2xl flex flex-col justify-between">
-            <style dangerouslySetInnerHTML={{__html: `
-              @keyframes scan-faceid {
-                0% { top: 5%; opacity: 0; }
-                10% { opacity: 1; }
-                45% { top: 95%; opacity: 1; }
-                50% { top: 95%; opacity: 0; }
-                55% { top: 95%; opacity: 0; }
-                60% { top: 95%; opacity: 1; }
-                95% { top: 5%; opacity: 1; }
-                100% { top: 5%; opacity: 0; }
-              }
-              .animate-scan-faceid {
-                animation: scan-faceid 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-              }
-              @keyframes pulse-glow {
-                0%, 100% { box-shadow: 0 0 10px 2px rgba(59, 130, 246, 0.3); }
-                50% { box-shadow: 0 0 25px 8px rgba(59, 130, 246, 0.6); }
-              }
-              .face-id-corners {
-                background:
-                  linear-gradient(to right, currentColor 4px, transparent 4px) 0 0,
-                  linear-gradient(to bottom, currentColor 4px, transparent 4px) 0 0,
-                  linear-gradient(to left, currentColor 4px, transparent 4px) 100% 0,
-                  linear-gradient(to bottom, currentColor 4px, transparent 4px) 100% 0,
-                  linear-gradient(to right, currentColor 4px, transparent 4px) 0 100%,
-                  linear-gradient(to top, currentColor 4px, transparent 4px) 0 100%,
-                  linear-gradient(to left, currentColor 4px, transparent 4px) 100% 100%,
-                  linear-gradient(to top, currentColor 4px, transparent 4px) 100% 100%;
-                background-repeat: no-repeat;
-                background-size: 30px 30px;
-              }
-              @keyframes success-pop {
-                0% { transform: scale(0.5); opacity: 0; }
-                70% { transform: scale(1.1); opacity: 1; }
-                100% { transform: scale(1); opacity: 1; }
-              }
-              .animate-success-pop {
-                animation: success-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-              }
-              @keyframes stroke { 100% { stroke-dashoffset: 0; } }
-            `}} />
-            <div className="p-4 bg-suka-gray-50/60 border-b border-suka-gray-200 flex items-center gap-2">
-               <Camera className="text-suka-brown" size={18} />
-               <h2 className="font-bold text-suka-ink">Absen Wajah</h2>
+      {/* Camera (Absen) - POSISI ATAS */}
+      <Card className={`relative overflow-hidden p-0 rounded-3xl flex flex-col justify-between border transition-all duration-500 shadow-lg ${
+        (kiosk.phase === "liveness" || kiosk.phase === "identified")
+          ? "border-suka-orange/60 shadow-[0_0_25px_10px_rgba(242,151,68,0.2)]"
+          : kiosk.phase === "result" && kiosk.result?.ok
+            ? "border-suka-green/50 shadow-[0_0_25px_10px_rgba(10,125,44,0.15)]"
+            : kiosk.phase === "result" && !kiosk.result?.ok
+              ? "border-red-500/50 shadow-[0_0_25px_10px_rgba(239,68,68,0.15)]"
+              : "border-suka-gray-200"
+      }`}>
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes scan-faceid {
+            0% { top: 5%; opacity: 0; }
+            10% { opacity: 1; }
+            45% { top: 95%; opacity: 1; }
+            50% { top: 95%; opacity: 0; }
+            55% { top: 95%; opacity: 0; }
+            60% { top: 95%; opacity: 1; }
+            95% { top: 5%; opacity: 1; }
+            100% { top: 5%; opacity: 0; }
+          }
+          .animate-scan-faceid {
+            animation: scan-faceid 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          }
+          @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 10px 2px rgba(242, 151, 68, 0.3); }
+            50% { box-shadow: 0 0 25px 8px rgba(242, 151, 68, 0.6); }
+          }
+          .face-id-corners {
+            background:
+              linear-gradient(to right, currentColor 4px, transparent 4px) 0 0,
+              linear-gradient(to bottom, currentColor 4px, transparent 4px) 0 0,
+              linear-gradient(to left, currentColor 4px, transparent 4px) 100% 0,
+              linear-gradient(to bottom, currentColor 4px, transparent 4px) 100% 0,
+              linear-gradient(to right, currentColor 4px, transparent 4px) 0 100%,
+              linear-gradient(to top, currentColor 4px, transparent 4px) 0 100%,
+              linear-gradient(to left, currentColor 4px, transparent 4px) 100% 100%,
+              linear-gradient(to top, currentColor 4px, transparent 4px) 100% 100%;
+            background-repeat: no-repeat;
+            background-size: 30px 30px;
+          }
+          @keyframes success-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+          .animate-success-pop {
+            animation: success-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+          }
+          @keyframes stroke { 100% { stroke-dashoffset: 0; } }
+        `}} />
+        <div className="p-4 bg-suka-gray-50/60 border-b border-suka-gray-200 flex items-center gap-2">
+           <Camera className="text-suka-orange" size={18} />
+           <h2 className="font-bold text-suka-ink text-sm sm:text-base">Absen Wajah</h2>
+        </div>
+        <div className="relative flex justify-center items-center min-h-[320px] bg-black overflow-hidden shadow-inner">
+          {!isOutletOpen ? (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm">
+              <div className="p-5 bg-red-500/20 rounded-full mb-4">
+                <Lock size={48} className="text-red-500 animate-bounce" />
+              </div>
+              <h2 className="text-2xl font-bold text-center">Outlet Ditutup</h2>
+              <p className="text-gray-400 text-center mt-2 px-4 text-sm max-w-xs">
+                Absensi terkunci. Menunggu SPV untuk membuka outlet hari ini.
+              </p>
             </div>
-            <div className="relative flex justify-center items-center min-h-[300px] bg-black overflow-hidden">
-              {!isOutletOpen ? (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-900 text-white p-6 backdrop-blur-sm">
-                  <div className="p-5 bg-red-500/20 rounded-full mb-4">
-                    <Lock size={48} className="text-red-500" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-center">Outlet Ditutup</h2>
-                  <p className="text-gray-400 text-center mt-2 px-4">
-                    Absensi terkunci. Menunggu SPV untuk membuka outlet hari ini.
-                  </p>
+          ) : (
+            <CameraCapture onReady={(v) => (videoRef.current = v)} />
+          )}
+
+          {/* Background Backdrop to darken outside during liveness */}
+          {kiosk.phase !== "idle" && (
+            <div className="pointer-events-none absolute inset-0 bg-black/40 transition-opacity duration-500" />
+          )}
+
+          {/* Face ID style bracket corners */}
+          <div className={`pointer-events-none absolute w-64 h-64 transition-all duration-300 face-id-corners ${
+            kiosk.phase === "idle" ? "text-gray-400 opacity-60" :
+            kiosk.phase === "result" && !kiosk.result?.ok ? "text-red-500 scale-105 opacity-0" :
+            kiosk.phase === "result" && kiosk.result?.ok ? "text-suka-green scale-105 opacity-0" :
+            "text-suka-orange"
+          } ${(kiosk.phase === "liveness" || kiosk.phase === "identified") ? "animate-[pulse-glow_2s_infinite]" : ""}`} />
+
+          {/* Laser Scanner Line */}
+          {kiosk.phase !== "idle" && kiosk.phase !== "result" && (
+            <div className="pointer-events-none absolute w-64 h-64 overflow-hidden">
+               <div className="absolute left-0 w-full animate-scan-faceid flex flex-col items-center">
+                  <div className="w-full h-[12px] bg-gradient-to-t from-suka-orange/30 to-transparent" />
+                  <div className="w-full h-[3px] bg-suka-orange rounded-full shadow-[0_0_20px_5px_rgba(242,151,68,0.8)]" />
+                  <div className="w-full h-[12px] bg-gradient-to-b from-suka-orange/30 to-transparent" />
+               </div>
+            </div>
+          )}
+
+          {/* Success / Error Full Overlay */}
+          {kiosk.phase === "result" && kiosk.result && (
+            <div className="absolute inset-0 flex items-center justify-center z-10 transition-all duration-300">
+              <div className={`flex flex-col items-center justify-center p-6 ${
+                kiosk.result.ok ? "text-suka-green animate-success-pop" : "text-red-500 animate-success-pop"
+              }`}>
+                <div className="drop-shadow-[0_0_30px_currentColor]">
+                  {kiosk.result.ok ? (
+                    <svg className="w-32 h-32" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                      <circle className="stroke-current stroke-[2px] fill-none" cx="26" cy="26" r="25" style={{ strokeDasharray: 166, strokeDashoffset: 166, animation: 'stroke 0.4s cubic-bezier(0.65, 0, 0.45, 1) forwards' }} />
+                      <path className="stroke-current stroke-[3px] fill-none" d="M14.1 27.2l7.1 7.2 16.7-16.8" style={{ strokeDasharray: 48, strokeDashoffset: 48, animation: 'stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.3s forwards' }} />
+                    </svg>
+                  ) : (
+                    <CircleX size={100} strokeWidth={1.2} />
+                  )}
                 </div>
-              ) : (
-                <CameraCapture onReady={(v) => (videoRef.current = v)} />
-              )}
+              </div>
+            </div>
+          )}
+        </div>
 
-              {/* Background Backdrop to darken outside during liveness */}
-              {kiosk.phase !== "idle" && (
-                <div className="pointer-events-none absolute inset-0 bg-black/40 transition-opacity duration-500" />
-              )}
+        <div className="p-4 text-center min-h-[110px] flex flex-col items-center justify-center gap-3">
+          {kiosk.phase === "idle" && !modelsReady && (
+            <p className="flex items-center gap-2 text-gray-500 font-medium animate-pulse">
+              <Spinner size={18} /> Memuat model wajah…
+            </p>
+          )}
+          {kiosk.phase === "idle" && modelsReady && (
+            <div className="flex flex-col items-center gap-1 animate-in fade-in duration-300">
+              <UserRound size={28} className="text-gray-300" />
+              <p className="text-gray-500 font-semibold text-sm">Menghadap kamera untuk Absen…</p>
+            </div>
+          )}
+          {kiosk.phase === "identified" && (
+            <p className="text-xl font-bold text-suka-ink animate-in fade-in slide-in-from-bottom-2 duration-300">
+              Halo, {kiosk.who?.name}
+            </p>
+          )}
+          {kiosk.phase === "liveness" && (
+            <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-300">
+              <p className="text-sm font-medium text-gray-500">
+                Halo, <span className="font-bold text-suka-ink">{kiosk.who?.name}</span> · {kiosk.action === "in" ? "Clock-in" : "Clock-out"}
+              </p>
+              <div className="flex items-center gap-2 rounded-full border-2 border-suka-orange bg-suka-cream px-6 py-2.5 font-bold text-suka-brown shadow-md animate-pulse">
+                <Eye size={22} className="text-suka-orange" /> {kiosk.challengeLabel}
+              </div>
+            </div>
+          )}
+          {kiosk.phase === "submitting" && (
+            <div className="flex flex-col items-center gap-2">
+              <Spinner size={24} />
+              <p className="text-sm text-gray-500 font-semibold">Mengirim data absensi…</p>
+            </div>
+          )}
+          {kiosk.phase === "result" && kiosk.result && (
+            <div className={`flex flex-col items-center justify-center gap-1 p-3 w-full rounded-xl font-bold animate-in fade-in zoom-in-95 duration-500 shadow-sm ${
+              kiosk.result.ok 
+                ? "bg-suka-green/10 text-suka-green border border-suka-green/20" 
+                : "bg-red-50 text-red-600 border border-red-200"
+            }`}>
+               <div className="flex items-center gap-2 text-lg">
+                 {kiosk.result.ok ? <CircleCheck size={22} /> : <CircleX size={22} />} 
+                 {kiosk.result.ok ? "Berhasil!" : "Gagal"}
+               </div>
+               <span className="text-xs font-semibold opacity-90">{kiosk.result.message}</span>
+            </div>
+          )}
+        </div>
+      </Card>
 
-              {/* Face ID style bracket corners */}
-              <div className={`pointer-events-none absolute w-64 h-64 transition-all duration-300 face-id-corners ${
-                kiosk.phase === "idle" ? "text-gray-400 opacity-60" :
-                kiosk.phase === "result" && !kiosk.result?.ok ? "text-red-500 scale-105 opacity-0" :
-                kiosk.phase === "result" && kiosk.result?.ok ? "text-blue-500 scale-105 opacity-0" :
-                "text-blue-500"
-              } ${(kiosk.phase === "liveness" || kiosk.phase === "identified") ? "animate-[pulse-glow_2s_infinite]" : ""}`} />
+      {/* Status Hari Ini - PINDAH DI BAWAH KAMERA */}
+      <Card className={`p-5 rounded-3xl border transition-all duration-300 shadow-md ${
+        loadingHistory 
+          ? "bg-white border-suka-gray-200" 
+          : hasIn && hasOut 
+            ? "bg-emerald-50/30 border-emerald-100 border-l-4 border-l-suka-green" 
+            : hasIn 
+              ? "bg-orange-50/30 border-orange-100 border-l-4 border-l-suka-orange" 
+              : "bg-amber-50/25 border-amber-100 border-l-4 border-l-amber-500"
+      }`}>
+        <div className="flex items-center gap-4">
+          <div className={`p-3 rounded-2xl shadow-sm shrink-0 ${
+            loadingHistory 
+              ? "bg-gray-100 text-gray-400" 
+              : hasIn && hasOut 
+                ? "bg-suka-green text-white" 
+                : hasIn 
+                  ? "bg-suka-orange text-white" 
+                  : "bg-amber-500 text-white"
+          }`}>
+            <CheckCircle2 size={22} />
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status Hari Ini</p>
+            <h3 className="text-lg font-extrabold text-suka-ink leading-tight">
+              {loadingHistory ? "Memuat..." : hasIn && hasOut ? "Selesai Shift (Masuk & Keluar)" : hasIn ? "Sedang Bekerja" : "Belum Absen"}
+            </h3>
+            <p className="text-xs text-gray-500 font-semibold capitalize">
+              {dayjs().format("dddd, D MMMM YYYY")}
+            </p>
+          </div>
+        </div>
+      </Card>
 
-              {/* Laser Scanner Line */}
-              {kiosk.phase !== "idle" && kiosk.phase !== "result" && (
-                <div className="pointer-events-none absolute w-64 h-64 overflow-hidden">
-                   <div className="absolute left-0 w-full animate-scan-faceid flex flex-col items-center">
-                      <div className="w-full h-[12px] bg-gradient-to-t from-blue-400/30 to-transparent" />
-                      <div className="w-full h-[3px] bg-blue-400 rounded-full shadow-[0_0_20px_5px_rgba(59,130,246,0.8)]" />
-                      <div className="w-full h-[12px] bg-gradient-to-b from-blue-400/30 to-transparent" />
-                   </div>
-                </div>
-              )}
-
-              {/* Success / Error Full Overlay */}
-              {kiosk.phase === "result" && kiosk.result && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 transition-all duration-300">
-                  <div className={`flex flex-col items-center justify-center p-6 ${
-                    kiosk.result.ok ? "text-blue-500" : "text-red-500 animate-success-pop"
+      {/* Riwayat Absensi Terakhir */}
+      <Card className="p-0 overflow-hidden rounded-3xl border border-suka-gray-200 shadow-md flex flex-col min-h-[220px]">
+        <div className="p-4 border-b border-suka-gray-200 bg-suka-gray-50/60 flex items-center justify-between">
+          <h2 className="font-bold text-suka-ink flex items-center gap-2 text-sm sm:text-base">
+            <Clock size={18} className="text-suka-orange" /> Riwayat Absensi Terakhir
+          </h2>
+          {jamMasuk && (
+            <span className="text-[10px] bg-suka-cream border border-suka-orange/20 text-suka-brown font-bold px-2.5 py-1 rounded-full">
+              Target: {jamMasuk}
+            </span>
+          )}
+        </div>
+        <div className="divide-y divide-gray-100 overflow-y-auto max-h-[260px]">
+          {loadingHistory ? (
+            <div className="p-10 flex justify-center"><Spinner /></div>
+          ) : records.map(r => {
+            const delay = (r.status === 'telat' && r.type === 'in' && jamMasuk) ? calculateDelayMinutes(r.ts_server, jamMasuk) : null;
+            const isLate = r.status === 'telat';
+            
+            return (
+              <div key={r.id} className="p-3.5 flex items-center justify-between hover:bg-suka-cream/20 transition-colors duration-200">
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-xl font-bold text-xs ${
+                    r.type === 'in' 
+                      ? 'bg-emerald-50 text-suka-green border border-emerald-100' 
+                      : 'bg-red-50 text-red-600 border border-red-100'
                   }`}>
-                    <div className="drop-shadow-[0_0_30px_currentColor]">
-                      {kiosk.result.ok ? (
-                        <svg className="w-32 h-32" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-                          <circle className="stroke-current stroke-[2px] fill-none" cx="26" cy="26" r="25" style={{ strokeDasharray: 166, strokeDashoffset: 166, animation: 'stroke 0.4s cubic-bezier(0.65, 0, 0.45, 1) forwards' }} />
-                          <path className="stroke-current stroke-[3px] fill-none" d="M14.1 27.2l7.1 7.2 16.7-16.8" style={{ strokeDasharray: 48, strokeDashoffset: 48, animation: 'stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.3s forwards' }} />
-                        </svg>
-                      ) : (
-                        <CircleX size={100} strokeWidth={1.2} />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 text-center min-h-[92px] flex flex-col items-center justify-center gap-2">
-              {kiosk.phase === "idle" && !modelsReady && (
-                <p className="flex items-center gap-2 text-gray-500"><Spinner size={18} /> Memuat model wajah…</p>
-              )}
-              {kiosk.phase === "idle" && modelsReady && (
-                <p className="flex items-center gap-2 text-gray-500"><UserRound size={18} /> Menghadap kamera…</p>
-              )}
-              {kiosk.phase === "identified" && (
-                <p className="text-lg font-medium text-suka-ink">Halo, {kiosk.who?.name}</p>
-              )}
-              {kiosk.phase === "liveness" && (
-                <>
-                  <p className="text-sm text-gray-500">Halo, {kiosk.who?.name} · {kiosk.action === "in" ? "Clock-in" : "Clock-out"}</p>
-                  <p className="flex items-center gap-2 rounded-md border border-suka-orange bg-suka-cream px-3 py-2 font-medium text-suka-brown">
-                    <Eye size={18} /> {kiosk.challengeLabel}
-                  </p>
-                </>
-              )}
-              {kiosk.phase === "submitting" && <Spinner />}
-              {kiosk.phase === "result" && kiosk.result && (
-                <p className={`flex items-center gap-2 text-lg font-medium ${kiosk.result.ok ? "text-blue-500" : "text-red-600"}`}>
-                  {kiosk.result.ok ? <CircleCheck size={22} /> : <CircleX size={22} />} {kiosk.result.message}
-                </p>
-              )}
-            </div>
-          </Card>
-        </div>
-
-        {/* Right Column: Status & History */}
-        <div className="space-y-6">
-          <Card className="p-5 rounded-2xl">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-blue-50 rounded-xl text-blue-500">
-                <CheckCircle2 size={24} />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Status Hari Ini</p>
-                <h3 className="text-xl font-bold text-suka-ink mt-1">
-                  {loadingHistory ? "Memuat..." : hasIn && hasOut ? "Selesai Shift" : hasIn ? "Sedang Bekerja" : "Belum Absen"}
-                </h3>
-                <p className="text-xs text-gray-400 mt-1">{dayjs().format("dddd, D MMMM YYYY")}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-0 overflow-hidden rounded-2xl">
-            <div className="p-4 border-b border-suka-gray-200 bg-suka-gray-50/60">
-              <h2 className="font-bold text-suka-ink flex items-center gap-2">
-                <Clock size={18} className="text-suka-brown" /> Riwayat Absensi Terakhir
-              </h2>
-            </div>
-            <div className="divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
-              {loadingHistory ? (
-                <div className="p-8 flex justify-center"><Spinner /></div>
-              ) : records.map(r => {
-                const delay = (r.status === 'telat' && r.type === 'in' && jamMasuk) ? calculateDelayMinutes(r.ts_server, jamMasuk) : null;
-                return (
-                <div key={r.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                  <div>
-                    <p className="font-medium text-suka-ink flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${r.type === 'in' ? 'bg-suka-green' : 'bg-red-500'}`} />
-                      {r.type === 'in' ? 'Masuk' : 'Keluar'}
+                    {r.type === 'in' ? 'IN' : 'OUT'}
+                  </span>
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-suka-ink text-sm">
+                      {r.type === 'in' ? 'Absen Masuk' : 'Absen Keluar'}
                     </p>
-                    <p className="text-sm text-gray-500">{dayjs(r.ts_server).format("dddd, D MMM YYYY")}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-suka-brown">{dayjs(r.ts_server).format("HH:mm")}</p>
-                    <p className="text-xs text-gray-400 capitalize">{r.status} {delay ? `${delay} mnt` : ""}</p>
+                    <p className="text-[10px] text-gray-400 font-semibold">
+                      {dayjs(r.ts_server).format("dddd, D MMM YYYY")}
+                    </p>
                   </div>
                 </div>
-              )})}
-              {!loadingHistory && records.length === 0 && (
-                <div className="p-8 text-center text-gray-500">Belum ada riwayat absensi.</div>
-              )}
+                <div className="text-right space-y-1">
+                  <p className="text-base font-extrabold text-suka-brown leading-none">
+                    {dayjs(r.ts_server).format("HH:mm")}
+                  </p>
+                  <div className="flex justify-end">
+                    {r.type === 'in' ? (
+                      isLate ? (
+                        <span className="inline-block bg-red-50 text-red-600 px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-red-100">
+                          Telat {delay ? `${delay}m` : ""}
+                        </span>
+                      ) : (
+                        <span className="inline-block bg-emerald-50 text-suka-green px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-emerald-100">
+                          Tepat Waktu
+                        </span>
+                      )
+                    ) : (
+                      <span className="inline-block bg-gray-50 text-gray-500 px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-gray-100">
+                        Selesai
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {!loadingHistory && records.length === 0 && (
+            <div className="p-10 text-center text-gray-400 text-xs font-semibold">
+              Belum ada riwayat absensi.
             </div>
-          </Card>
+          )}
         </div>
-      </div>
+      </Card>
 
       {/* Alat testing — dilipat agar tidak membingungkan pemakaian sehari-hari */}
       <details className="group rounded-2xl border border-suka-gray-200 bg-white">
-        <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-3 text-sm font-medium text-gray-500 [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer select-none items-center gap-2 px-5 py-4 text-sm font-semibold text-gray-500 hover:bg-slate-50 transition-colors [&::-webkit-details-marker]:hidden rounded-2xl">
           Alat testing (developer)
-          <span className="ml-auto text-gray-400 transition-transform group-open:rotate-180">▾</span>
+          <span className="ml-auto text-gray-400 transition-transform duration-200 group-open:rotate-180">▾</span>
         </summary>
-        <div className="border-t border-suka-gray-200 px-4 py-4">
-          <p className="mb-3 text-xs text-red-600">Hanya untuk keperluan testing.</p>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <button onClick={handleResetLog} className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 transition-colors">
+        <div className="border-t border-suka-gray-200 px-5 py-5 space-y-4 bg-slate-50/50 rounded-b-2xl">
+          <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 p-2.5 rounded-lg">
+            PERINGATAN: Tombol di bawah hanya untuk keperluan pengujian lokal (developer).
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button 
+              onClick={handleResetLog} 
+              className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 hover:border-red-300 active:scale-95 transition-all shadow-sm"
+            >
               Reset Log Absensi Saya
             </button>
-            <button onClick={handleUnenroll} className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors">
+            <button 
+              onClick={handleUnenroll} 
+              className="inline-flex items-center justify-center rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-bold text-amber-600 hover:bg-amber-50 hover:border-amber-300 active:scale-95 transition-all shadow-sm"
+            >
               Hapus Data Wajah (Un-enroll)
             </button>
           </div>

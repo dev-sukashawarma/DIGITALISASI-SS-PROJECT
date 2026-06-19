@@ -9,6 +9,7 @@ import { Avatar } from '@suka/design-system'
 // URL app: env-driven (NEXT_PUBLIC_APP_URL_<APP>) agar benar di lokal & prod,
 // fallback ke subdomain produksi bila env kosong. Lihat ADR-008.
 const APP_URL: Record<AppName, string> = {
+  'admin-dashboard': process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD  ?? 'https://admin.sukashawarma.com',
   stok:              process.env.NEXT_PUBLIC_APP_URL_STOK            ?? 'https://stok.sukashawarma.com',
   absensi:           process.env.NEXT_PUBLIC_APP_URL_ABSENSI         ?? 'https://absensi.sukashawarma.com',
   distribusi:        process.env.NEXT_PUBLIC_APP_URL_DISTRIBUSI      ?? 'https://distribusi.sukashawarma.com',
@@ -18,6 +19,7 @@ const APP_URL: Record<AppName, string> = {
 
 // Metadata per app
 const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
+  'admin-dashboard': { label: 'Admin',            url: APP_URL['admin-dashboard'], desc: 'Administrasi staff, akun & sistem' },
   stok:              { label: 'Stok',             url: APP_URL.stok,              desc: 'Monitoring & ledger stok bahan baku' },
   absensi:           { label: 'Absensi',          url: APP_URL.absensi,           desc: 'Presensi karyawan dengan verifikasi wajah' },
   distribusi:        { label: 'Distribusi',       url: APP_URL.distribusi,        desc: 'Pengiriman bahan baku & surat jalan' },

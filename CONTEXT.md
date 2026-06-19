@@ -34,6 +34,12 @@
 ## Analitik
 
 - **Reporting Hub** — Supabase (project Outlet Suite) sebagai sumber agregasi untuk Owner Dashboard (materialized views + pg_cron). Sales disinkron dari Ecosystem, bukan live cross-DB query. (lihat ADR-002, ADR-004)
+- **Sumber Omzet (Revenue Source)** — kanal pemasukan outlet. Kanonik ada **3**:
+  1. **POS Outlet** — pelanggan datang langsung ke outlet, transaksi via POS baru (`apps/pos-kasir`). Data native di Outlet Suite `orders` begitu pos-kasir live. **Belum ada data** selama pos-kasir in-development.
+  2. **Order Online** — penjualan online (sebelumnya "TiktokGo SS"). Tinggal di **Ecosystem** (`orders`). **Satu-satunya sumber yang LIVE saat ini.** Istilah kanonik = **Order Online** (jangan pakai "TiktokGo" lagi di konteks owner-dashboard).
+  3. **Manual Food Apps** — omzet dari aplikasi food delivery (**ShopeeFood, TikTok, GrabFood, GoFood**) yang **diinput manual** (tidak ada integrasi API). Masing-masing app dilacak terpisah sebagai sub-kanal.
+  > POS SS legacy (POS lama di Ecosystem) sudah **dibuang dari scope** — bukan sumber omzet.
+- **Omzet Diakui (Recognized Revenue)** — nilai penjualan yang dihitung sebagai omzet di Owner Dashboard = order ber-status **`completed`** (item sudah diterima customer / order tuntas). Status `pending`/`preparing`/`ready` = masih jalan (tidak dihitung), `cancelled` = batal (tidak dihitung). Berlaku seragam untuk ketiga Sumber Omzet. Untuk Order Online yang di-sync dari Ecosystem, status sumber dipetakan ke enum hub saat sync.
 - **COGS** — Cost of Goods Sold; biaya bahan baku terpakai, dihitung dari ledger stok.
 
 ## Auth & Akses
@@ -44,7 +50,7 @@
 
 ## Sistem & Hosting
 
-- **Ecosystem (project produksi)** — Supabase project existing dipakai TiktokGo + POS SS lama. Master `outlets`. **Read-only** dari sisi suite baru.
+- **Ecosystem (project produksi)** — Supabase project existing; kini sumber **Order Online** (sebelumnya "TiktokGo SS"). Master `outlets`. **Read-only** dari sisi suite baru. (POS SS legacy yang dulu juga di sini sudah **dibuang dari scope** — tidak diintegrasikan ke owner-dashboard.)
 - **shawarma-kiosk** (`apps/pos-kasir`) — POS/self-service (Next.js+Supabase, multi-outlet, kasir+payment+reports). **Sejak migration `20260612000001_merge_pos_schema.sql`, schema-nya digabung ke Outlet Suite DB** (`khpkoreaaucvyqfhynfq`, sama dengan `apps/absensi`) — bukan lagi project terpisah/read-only. **Sejak unifikasi `20260613000100`, tabel `profiles` di-DROP** dan identitas user POS dipindah ke `outlet_staff` (role `admin|kasir|kiosk` ikut ditambahkan ke sana). Satu tabel user untuk semua sistem. Lihat ADR-0007.
 - **Outlet Suite (project baru)** — Supabase project di **akun/org berbeda** untuk modul baru (M0–M4). (lihat ADR-004)
 - **Hosting app** — server **cPanel CloudLinux shared** (penyedia lokal), tiap modul = **Next.js Node server** via **CloudLinux Node Selector + Passenger** (1 subdomain = 1 Node app), bukan static export. Postgres bawaan cPanel tidak dipakai. (lihat ADR-008 yang men-supersede ADR-005)

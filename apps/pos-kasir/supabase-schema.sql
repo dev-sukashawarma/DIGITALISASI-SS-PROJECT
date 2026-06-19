@@ -11,7 +11,11 @@ CREATE TABLE IF NOT EXISTS outlets (
   name       TEXT    NOT NULL,
   address    TEXT,
   phone      TEXT,
+  type       TEXT    DEFAULT 'owned' CHECK (type IN ('owned', 'mitra')),
+  open_hour  TIME    DEFAULT '09:00:00',
+  close_hour TIME    DEFAULT '22:00:00',
   is_active  BOOLEAN DEFAULT true,
+  inactive_reason TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

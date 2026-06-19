@@ -27,7 +27,9 @@ export default function LoginPage() {
     }
 
     // Verifikasi status staff sebelum masuk — akun nonaktif/cuti tidak boleh lanjut
-    const { staff } = await getOutletStaff(supabase, data.user.id)
+    const { staff, error: staffError } = await getOutletStaff(supabase, data.user.id)
+    if (staffError) console.error('getOutletStaff error:', staffError)
+    
     if (!staff) {
       await supabase.auth.signOut()
       setLoading(false)

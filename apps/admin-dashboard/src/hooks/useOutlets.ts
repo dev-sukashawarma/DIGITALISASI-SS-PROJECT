@@ -7,7 +7,10 @@ export function useOutlets() {
   return useQuery<Outlet[]>({
     queryKey: ['outlets'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('outlets').select('id, name').order('name')
+      const { data, error } = await supabase
+        .from('outlets')
+        .select('id, slug, name, address, lat, lng, type, is_active')
+        .order('name')
       if (error) throw error
       return data ?? []
     },

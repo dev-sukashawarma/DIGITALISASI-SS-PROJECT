@@ -4,8 +4,8 @@ import { StaffForm } from './StaffForm'
 import type { Outlet } from '@/lib/types'
 
 const outlets: Outlet[] = [
-  { id: 'o1', name: 'Empang' },
-  { id: 'o2', name: 'Sudirman' },
+  { id: 'o1', slug: 'empang', name: 'Empang', address: null, lat: 0, lng: 0, type: 'outlet', is_active: true },
+  { id: 'o2', slug: 'sudirman', name: 'Sudirman', address: null, lat: 0, lng: 0, type: 'outlet', is_active: true },
 ]
 
 describe('StaffForm', () => {

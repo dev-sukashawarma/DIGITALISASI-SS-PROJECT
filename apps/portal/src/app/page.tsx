@@ -1,5 +1,5 @@
 'use client'
-import { useState, FormEvent, useEffect } from 'react'
+import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient, getOutletStaff, normalizeLoginIdentifier } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
@@ -11,16 +11,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    // Mencegah scroll pada body & html di halaman login portal
-    document.body.style.overflow = 'hidden'
-    document.documentElement.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-      document.documentElement.style.overflow = ''
-    }
-  }, [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -57,8 +47,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex h-screen w-screen items-center justify-center p-4 overflow-hidden bg-gradient-to-br from-suka-cream via-white to-suka-cream/30">
-      <div className="w-full max-w-md space-y-4 sm:space-y-6 flex flex-col justify-center">
+    <main className="flex min-h-dvh w-screen items-center justify-center py-8 px-4 sm:px-6 bg-gradient-to-br from-suka-cream via-white to-suka-cream/30">
+      <div className="w-full max-w-md space-y-4 sm:space-y-6 flex flex-col justify-center my-auto">
         <div className="flex flex-col items-center text-center space-y-1 sm:space-y-2 mb-2 sm:mb-4">
           <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mb-1">
             <img src="/logo.png" alt="Suka Shawarma Logo" className="w-full h-full object-contain" />
@@ -67,7 +57,7 @@ export default function LoginPage() {
             SUKA SHAWARMA
           </h1>
           <p className="text-[10px] sm:text-xs font-semibold text-suka-orange uppercase tracking-widest">
-            Portal Operasional Outlet
+            Superapp
           </p>
         </div>
 
@@ -126,6 +116,11 @@ export default function LoginPage() {
             </Button>
           </form>
         </div>
+
+        {/* Trademark */}
+        <p className="text-center text-[10px] text-suka-gray-400 font-semibold pt-2">
+          DevAI Sukashawarma 2026
+        </p>
       </div>
     </main>
   )

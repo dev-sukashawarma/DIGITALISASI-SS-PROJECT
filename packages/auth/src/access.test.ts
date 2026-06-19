@@ -10,8 +10,16 @@ describe('ROLE_APP_ACCESS', () => {
     expect([...ROLE_APP_ACCESS.crew]).toEqual(['absensi'])
   })
 
-  it('admin semua 5 app', () => {
-    expect(ROLE_APP_ACCESS.admin.length).toBe(5)
+  it('admin semua 6 app termasuk admin-dashboard', () => {
+    expect(ROLE_APP_ACCESS.admin.length).toBe(6)
+    expect(ROLE_APP_ACCESS.admin).toContain('admin-dashboard')
+  })
+
+  it('hanya admin yang punya admin-dashboard', () => {
+    const roles = ['owner', 'spv', 'kepala_outlet', 'kasir', 'crew', 'kiosk'] as const
+    for (const r of roles) {
+      expect(ROLE_APP_ACCESS[r]).not.toContain('admin-dashboard')
+    }
   })
 
   it('owner hanya owner-dashboard', () => {

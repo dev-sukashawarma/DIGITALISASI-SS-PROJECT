@@ -4,6 +4,8 @@ import { Users } from 'lucide-react'
 import { useStaff } from '@/hooks/useStaff'
 import { useOutlets } from '@/hooks/useOutlets'
 
+export const dynamic = 'force-dynamic'
+
 export default function DashboardHome() {
   const { data: staff = [] } = useStaff()
   const { data: outlets = [] } = useOutlets()

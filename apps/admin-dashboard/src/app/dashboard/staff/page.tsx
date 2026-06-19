@@ -13,6 +13,8 @@ import { StaffForm } from '@/components/StaffForm'
 import { ResetPasswordDialog } from '@/components/ResetPasswordDialog'
 import type { StaffRow, StaffFilterValues, StaffStatus, StaffFormValues } from '@/lib/types'
 
+export const dynamic = 'force-dynamic'
+
 const EMPTY_FILTER: StaffFilterValues = { search: '', outletId: '', role: '', status: '' }
 
 export default function StaffPage() {

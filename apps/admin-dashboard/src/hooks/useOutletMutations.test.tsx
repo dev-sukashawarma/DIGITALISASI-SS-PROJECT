@@ -1,0 +1,56 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderHook, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import React from 'react'
+
+const insert = vi.fn().mockResolvedValue({ error: null })
+const update = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) })
+const del = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) })
+
+vi.mock('@/lib/supabase', () => ({
+  createClient: () => ({
+    from: () => ({ insert, update, delete: del }),
+  }),
+}))
+
+import { useOutletMutations } from './useOutletMutations'
+
+function wrapper(client: QueryClient) {
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  )
+}
+
+describe('useOutletMutations', () => {
+  beforeEach(() => { insert.mockClear(); update.mockClear(); del.mockClear() })
+
+  it('create inserts a row with a generated id and invalidates ["outlets"]', async () => {
+    const client = new QueryClient()
+    const spy = vi.spyOn(client, 'invalidateQueries')
+    const { result } = renderHook(() => useOutletMutations(), { wrapper: wrapper(client) })
+
+    await result.current.create.mutateAsync({
+      name: 'Empang', slug: 'empang', address: '', lat: -6.6, lng: 106.8, type: 'outlet', is_active: true,
+    })
+
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ slug: 'empang', name: 'Empang' }))
+    const arg = insert.mock.calls[0][0] as { id: string }
+    expect(typeof arg.id).toBe('string')
+    expect(arg.id.length).toBeGreaterThan(0)
+    await waitFor(() => expect(spy).toHaveBeenCalledWith({ queryKey: ['outlets'] }))
+  })
+
+  it('softDelete updates is_active=false', async () => {
+    const client = new QueryClient()
+    const { result } = renderHook(() => useOutletMutations(), { wrapper: wrapper(client) })
+    await result.current.softDelete.mutateAsync('o1')
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ is_active: false }))
+  })
+
+  it('hardDelete calls delete', async () => {
+    const client = new QueryClient()
+    const { result } = renderHook(() => useOutletMutations(), { wrapper: wrapper(client) })
+    await result.current.hardDelete.mutateAsync('o1')
+    expect(del).toHaveBeenCalled()
+  })
+})

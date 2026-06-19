@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.ts";
 
 @layer base {
   html {
@@ -62,7 +61,7 @@
   }
 
   .card-hover {
-    @apply card hover:shadow-card-hover hover:-translate-y-0.5
+    @apply bg-white rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover hover:-translate-y-0.5
            transition-all duration-200;
   }
 
@@ -85,12 +84,12 @@
            text-xs font-semibold rounded-full;
   }
 
-  .badge-amber  { @apply badge bg-amber-100 text-amber-700; }
-  .badge-green  { @apply badge bg-emerald-100 text-emerald-700; }
-  .badge-blue   { @apply badge bg-blue-100 text-blue-700; }
-  .badge-red    { @apply badge bg-red-100 text-red-600; }
-  .badge-gray   { @apply badge bg-gray-100 text-gray-600; }
-  .badge-yellow { @apply badge bg-yellow-100 text-yellow-700; }
+  .badge-amber  { @apply inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700; }
+  .badge-green  { @apply inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700; }
+  .badge-blue   { @apply inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700; }
+  .badge-red    { @apply inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-600; }
+  .badge-gray   { @apply inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600; }
+  .badge-yellow { @apply inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700; }
 
   /* ── Divider ─────────────────────────────────── */
   .divider {

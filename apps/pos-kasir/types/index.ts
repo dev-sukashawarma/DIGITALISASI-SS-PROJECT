@@ -52,15 +52,20 @@ export interface CartItem {
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
 export type PaymentMethod = 'cash' | 'qris' | 'card'
 
+export type OrderSource = 'pos' | 'online'
+
 export interface Order {
   id: string
   outlet_id: string
   order_number: number
   customer_name: string | null
+  customer_phone: string | null
   status: OrderStatus
   payment_method: PaymentMethod | null
   total_amount: number
   notes: string | null
+  source: OrderSource
+  external_order_id: string | null
   created_at: string
   updated_at: string
 }
@@ -73,6 +78,7 @@ export interface OrderItem {
   quantity: number
   unit_price: number
   subtotal: number
+  notes?: string | null
 }
 
 export interface OrderWithItems extends Order {

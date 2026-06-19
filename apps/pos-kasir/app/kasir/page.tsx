@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
-  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store
+  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -30,6 +30,7 @@ export default function CashierOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpand] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('all')
   const [now, setNow] = useState(() => Date.now())
   
   // Audio state
@@ -149,6 +150,14 @@ export default function CashierOrdersPage() {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'completed' } : o))
     await supabase.from('orders').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', id)
     fetchOrders()
+
+    // Kalau order ini berasal dari website order online, teruskan notifikasi
+    // ke order-system supaya WA "pesanan siap diambil" terkirim ke customer.
+    fetch('/api/orders/notify-online-done', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_id: id }),
+    }).catch((err) => console.error('Gagal mengirim notifikasi online ke order-system:', err))
   }
 
   // Cancel order
@@ -160,10 +169,17 @@ export default function CashierOrdersPage() {
     }
   }
 
-  const pendingOrders = orders.filter((o) => o.status === 'pending').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-  const preparingOrders = orders.filter((o) => o.status === 'preparing').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  const filteredOrders = orders.filter(o => {
+    if (sourceFilter === 'all') return true
+    if (sourceFilter === 'online') return o.source === 'online'
+    if (sourceFilter === 'offline') return o.source !== 'online'
+    return true
+  })
+
+  const pendingOrders = filteredOrders.filter((o) => o.status === 'pending').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  const preparingOrders = filteredOrders.filter((o) => o.status === 'preparing').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   
-  const completedOrders = orders.filter((o) => o.status === 'completed')
+  const completedOrders = filteredOrders.filter((o) => o.status === 'completed')
   const filteredCompletedOrders = completedOrders.filter(o => {
     if (!searchQuery) return true
     return o.order_number.toString().includes(searchQuery)
@@ -226,11 +242,18 @@ export default function CashierOrdersPage() {
               <span className="font-bold text-white text-xl leading-none">#{order.order_number}</span>
             </div>
             <div>
-              <p className="font-bold text-gray-900 flex items-center gap-2">
-                {formatRupiah(order.total_amount)}
+              <div className="flex items-center gap-2 mb-1">
+                {order.source === 'online' ? (
+                  <span className="text-[10px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1"><Globe className="w-3 h-3" /> Online</span>
+                ) : (
+                  <span className="text-[10px] font-bold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1"><Store className="w-3 h-3" /> Offline</span>
+                )}
                 <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md uppercase">
                   {order.payment_method}
                 </span>
+              </div>
+              <p className="font-bold text-gray-900 flex items-center gap-2">
+                {formatRupiah(order.total_amount)}
               </p>
               <p className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 flex-wrap">
                 <span className={`font-semibold ${isPreparing ? 'text-blue-600' : 'text-amber-600'}`}>{timeAgo(order.created_at, now)}</span>
@@ -335,7 +358,7 @@ export default function CashierOrdersPage() {
 
             {order.notes && (
               <div className={`rounded-xl p-3 text-sm border break-words whitespace-pre-wrap ${isPreparing ? 'bg-blue-100/50 border-blue-200/50 text-blue-800' : 'bg-amber-100/50 border-amber-200/50 text-amber-800'}`}>
-                <span className="font-bold">Catatan: </span>{order.notes}
+                <span className="font-bold">Catatan Pesanan: </span>{order.notes}
               </div>
             )}
 
@@ -387,6 +410,38 @@ export default function CashierOrdersPage() {
         {/* ── Column: PESANAN AKTIF ── */}
         <div className="space-y-6">
           
+          {/* Source Tabs */}
+          {(() => {
+            const activeOnlineCount = orders.filter(o => o.source === 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
+            return (
+              <div className="flex bg-gray-100/80 p-1 rounded-xl shadow-inner border border-gray-200/50 w-full sm:w-max mx-auto sm:mx-0">
+                <button
+                  onClick={() => setSourceFilter('all')}
+                  className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${sourceFilter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Semua
+                </button>
+                <button
+                  onClick={() => setSourceFilter('online')}
+                  className={`relative px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${sourceFilter === 'online' ? 'bg-blue-500 text-white shadow-sm shadow-blue-200' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  <Globe className="w-4 h-4" /> Online
+                  {activeOnlineCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border-2 border-white animate-pulse">
+                      {activeOnlineCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setSourceFilter('offline')}
+                  className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${sourceFilter === 'offline' ? 'bg-gray-800 text-white shadow-sm shadow-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  <Store className="w-4 h-4" /> Offline
+                </button>
+              </div>
+            );
+          })()}
+
           {/* Section: Preparing (Sedang Diproses) */}
           {preparingOrders.length > 0 && (
             <div className="space-y-4">
@@ -485,6 +540,15 @@ export default function CashierOrdersPage() {
                           <span className="w-1 h-1 bg-gray-300 rounded-full" />
                           {new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                           <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                          {order.source === 'online' ? (
+                            <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-blue-100 px-1.5 py-0.5 rounded text-blue-600">
+                              <Globe className="w-2.5 h-2.5" /> Online
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">
+                              <Store className="w-2.5 h-2.5" /> Offline
+                            </span>
+                          )}
                           <span className="uppercase font-bold text-[9px] tracking-wider bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
                             {order.payment_method}
                           </span>
@@ -580,10 +644,10 @@ export default function CashierOrdersPage() {
                     })()}
                   </div>
 
-                  {/* Notes */}
+                  {/* Notes Order */}
                   {order.notes && (
                     <div className="mt-3 bg-amber-50 rounded-lg p-2.5 text-xs text-amber-800 font-medium border border-amber-100 break-words whitespace-pre-wrap">
-                      <span className="font-bold">Catatan:</span> {order.notes}
+                      <span className="font-bold">Catatan Pesanan:</span> {order.notes}
                     </div>
                   )}
                 </div>

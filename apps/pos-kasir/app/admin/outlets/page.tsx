@@ -16,6 +16,9 @@ export default function AdminOutletsPage() {
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
+  const [type, setType] = useState('owned')
+  const [openHour, setOpenHour] = useState('13:00')
+  const [closeHour, setCloseHour] = useState('22:00')
   const [isActive, setIsActive] = useState(true)
   const [inactiveReason, setInactiveReason] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -44,6 +47,9 @@ export default function AdminOutletsPage() {
       setName(outlet.name)
       setAddress(outlet.address || '')
       setPhone(outlet.phone || '')
+      setType(outlet.type || 'owned')
+      setOpenHour(outlet.open_hour ? outlet.open_hour.substring(0, 5) : '13:00')
+      setCloseHour(outlet.close_hour ? outlet.close_hour.substring(0, 5) : '22:00')
       setIsActive(outlet.is_active)
       setInactiveReason(outlet.inactive_reason || '')
     } else {
@@ -51,6 +57,9 @@ export default function AdminOutletsPage() {
       setName('')
       setAddress('')
       setPhone('')
+      setType('owned')
+      setOpenHour('13:00')
+      setCloseHour('22:00')
       setIsActive(true)
       setInactiveReason('')
     }
@@ -66,6 +75,9 @@ export default function AdminOutletsPage() {
         name,
         address,
         phone,
+        type,
+        open_hour: openHour + ':00',
+        close_hour: closeHour + ':00',
         is_active: isActive,
         inactive_reason: !isActive ? inactiveReason : null
       }).eq('id', editingOutlet.id).select().single()
@@ -73,6 +85,7 @@ export default function AdminOutletsPage() {
       if (!error && data) {
         setOutlets(outlets.map(o => o.id === editingOutlet.id ? data : o))
         setIsModalOpen(false)
+        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: data }) }).catch(console.error)
       } else {
         console.error('Update outlet error:', error)
         alert('Gagal mengupdate cabang: ' + (error?.message || 'Unknown error'))
@@ -82,6 +95,9 @@ export default function AdminOutletsPage() {
         name,
         address,
         phone,
+        type,
+        open_hour: openHour + ':00',
+        close_hour: closeHour + ':00',
         is_active: isActive,
         inactive_reason: !isActive ? inactiveReason : null
       }).select().single()
@@ -89,6 +105,7 @@ export default function AdminOutletsPage() {
       if (!error && data) {
         setOutlets([...outlets, data])
         setIsModalOpen(false)
+        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: data }) }).catch(console.error)
       } else {
         console.error('Insert outlet error:', error)
         alert('Gagal menambahkan cabang: ' + (error?.message || 'Unknown error'))
@@ -104,6 +121,7 @@ export default function AdminOutletsPage() {
     const { error } = await supabase.from('outlets').delete().eq('id', id)
     if (!error) {
       setOutlets(outlets.filter(o => o.id !== id))
+      fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'delete', outlet: { id } }) }).catch(console.error)
     } else {
       console.error('Delete outlet error:', error)
       alert('Gagal menghapus cabang: ' + (error?.message || 'Unknown error'))
@@ -177,6 +195,32 @@ export default function AdminOutletsPage() {
                   placeholder="0812xxxxxx"
                 />
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Tipe Cabang</label>
+                  <select 
+                    value={type} onChange={(e) => setType(e.target.value)}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium appearance-none"
+                  >
+                    <option value="owned">Milik Sendiri</option>
+                    <option value="mitra">Mitra / Franchise</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Jam Buka</label>
+                  <input 
+                    type="time" value={openHour} onChange={(e) => setOpenHour(e.target.value)}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Jam Tutup</label>
+                  <input 
+                    type="time" value={closeHour} onChange={(e) => setCloseHour(e.target.value)}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium"
+                  />
+                </div>
+              </div>
               {editingOutlet && (
                 <div className="space-y-4">
                   <div>
@@ -226,7 +270,7 @@ export default function AdminOutletsPage() {
                 <tr className="border-b border-gray-100 text-gray-400 font-bold text-sm">
                   <th className="py-3 px-4 min-w-[200px]">Nama Cabang</th>
                   <th className="py-3 px-4 min-w-[200px]">Alamat</th>
-                  <th className="py-3 px-4 min-w-[150px]">Telepon</th>
+                  <th className="py-3 px-4 min-w-[120px]">Tipe & Jam</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Aksi</th>
                 </tr>
@@ -245,8 +289,22 @@ export default function AdminOutletsPage() {
                       </div>
                       {outlet.name}
                     </td>
-                    <td className="py-4 px-4 text-gray-600 font-medium text-sm">{outlet.address || '-'}</td>
-                    <td className="py-4 px-4 text-gray-600 font-medium text-sm">{outlet.phone || '-'}</td>
+                    <td className="py-4 px-4 text-gray-600 font-medium text-sm">
+                      <div>{outlet.address || '-'}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{outlet.phone || '-'}</div>
+                    </td>
+                    <td className="py-4 px-4 font-medium text-sm">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        {outlet.type === 'mitra' ? (
+                          <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Mitra</span>
+                        ) : (
+                          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Owned</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {outlet.open_hour?.substring(0,5) || '13:00'} - {outlet.close_hour?.substring(0,5) || '22:00'}
+                      </div>
+                    </td>
                     <td className="py-4 px-4">
                       {outlet.is_active ? (
                         <span className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap">Aktif</span>

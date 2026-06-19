@@ -116,7 +116,7 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 
 ### Status
 - ✅ `distribusi.sukashawarma.com` — LIVE (2026-06-12)
-- ⏳ `stok.sukashawarma.com` — subdomain + Node app dibuat, app belum di-build/deploy
+- ✅ `stok.sukashawarma.com` — LIVE (2026-06-19)
 
 ### Prasyarat (sekali setup)
 - Monorepo di-`git clone` ke `/home/sukashaw/suka-app` (repo public: `github.com/dev-sukashawarma/DIGITALISASI-SS-PROJECT`).
@@ -248,5 +248,24 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 
 ---
 
-**Last updated:** 2026-06-17  
+## Session 2026-06-19: Backlog Reconciliation & Housekeeping
+
+**Status:** Completed.
+
+### Hasil — verifikasi backlog (ternyata sudah dikerjakan, dokumen yang ketinggalan)
+1. **Distribusi Hardening** — ✅ dieksekusi penuh. `next.config.ts` bersih (tanpa `output:'export'`), `baseUrl:"."` ada di tsconfig, lib supabase lokal dihapus, vitest terpasang. Checkbox plan (`docs/superpowers/plans/2026-06-17-distribusi-hardening.md`) di-tick semua.
+2. **Migration `20260617120000`** (monitoring views respect outlet threshold/ORP) — ✅ sudah ter-push ke remote (`supabase migration list` sinkron s/d `20260617150000`).
+3. **Monitoring-Live Detail Drill-Down** — ✅ route sudah ada (`apps/stok/src/app/stok/monitoring-live/[outlet-id]/page.tsx`).
+4. **Deploy `stok.sukashawarma.com`** — ✅ LIVE (status di section Deployment diperbarui).
+
+### Housekeeping
+- `git rm --cached` dua file `tsconfig.tsbuildinfo` (sudah di `.gitignore` tapi terlanjur ter-track).
+
+### 📝 Backlog tersisa (belum digarap)
+- Transfer Antar-Outlet Suggestion
+- Waste & Shrinkage Dashboard
+
+---
+
+**Last updated:** 2026-06-19  
 **Owner:** Dev Suka Shawarma

@@ -1,123 +1,130 @@
 # Owner Dashboard — Modul Penjualan & Omzet (Fase 1)
 
-**Tanggal:** 2026-06-13
+**Tanggal:** 2026-06-13 · **Revisi besar:** 2026-06-19 (hasil grill-with-docs)
 **App:** `apps/owner-dashboard`
 **Status:** Design — disetujui untuk lanjut ke implementation plan
+**Keputusan arsitektur:** lihat **ADR-0009** (omzet terpusat di `orders` hub via `sales_source`).
+
+> ⚠️ **Catatan revisi:** versi awal (13 Jun) mengasumsikan dashboard baca langsung Ecosystem via 2 client, form input manual di owner-dashboard, dan food-app dicatat total harian. Ketiganya **dibatalkan** setelah grilling — lihat ADR-0009. Spec ini adalah versi yang berlaku.
 
 ---
 
 ## 1. Tujuan & Ruang Lingkup
 
 ### Tujuan
-Memberi pemilik 19 outlet Suka Shawarma satu layar untuk menjawab:
-*"Outlet mana yang perform, channel mana yang sehat, menu apa yang laku, dan bagaimana trennya."*
-Berbasis data transaksi nyata dari sistem order/POS.
+Memberi pemilik 19 outlet satu layar untuk menjawab:
+*"Outlet mana yang perform, sumber omzet mana yang sehat, menu apa yang laku, dan bagaimana trennya."*
 
 ### In-scope (Fase 1)
 - Omzet total & per outlet (Hari ini / 7 hari / 30 hari / custom range)
-- **Breakdown omzet per channel** (Online / POS / GoFood / ShopeeFood / TikTok)
-- Ranking/leaderboard outlet by omzet (dengan ▲▼ vs periode sebelumnya)
+- **Breakdown omzet per Sumber Omzet**: POS Outlet · Order Online · GoFood · GrabFood · ShopeeFood · TikTok
+- Ranking/leaderboard outlet by omzet (▲▼ vs periode sebelumnya yang sama panjang)
 - Tren omzet harian (line chart)
-- Menu terlaris (top items by qty & by revenue)
-- AOV (average order value), jumlah order, rasio order selesai vs batal/expired
-- Filter periode + filter outlet + filter channel
-- **Form manual entry** omzet food apps (GoFood/ShopeeFood/TikTok)
+- Menu terlaris (top items by qty & by revenue) — lintas sumber
+- AOV (average order value), jumlah order, % order `completed`
+- Filter periode + filter outlet + filter sumber omzet
 
-### Out-of-scope (ditunda)
-- Biaya / HPP / margin → **Fase 2** (butuh harga bahan baku diisi)
-- Absensi, monitoring stok (sudah ada di app `stok`), forecasting
-- Integrasi API langsung ke GoFood/ShopeeFood/TikTok (food app tetap manual entry di Fase 1)
+### Out-of-scope (Fase 2+)
+- Biaya / HPP / margin / **komisi food-app** (omzet Fase 1 = kotor)
+- Rollup menu per-produk-induk (Fase 1 = per-varian/ukuran)
+- Tabel mapping menu Ecosystem↔hub (Fase 1 = join nama)
+- Integrasi API langsung ke food apps (tetap input manual di pos-kasir)
+- Absensi, monitoring stok (sudah di app lain), forecasting
+
+### Bukan tanggung jawab app ini (dependency ke pos-kasir)
+**Form input order (POS & food-app) ada di `apps/pos-kasir`, bukan di sini** — crew tak punya akses owner-dashboard (ADR-0009). Owner-dashboard **murni read-only**.
 
 ---
 
 ## 2. Sumber Data & Definisi Metrik
 
-### Sumber tunggal omzet
-Satu Supabase (project order/POS bersama — dipakai TiktokGo SS *dan* POS SS). Ketiga
-channel omzet tinggal di **satu tabel `orders`** (+ `order_items` untuk rincian menu),
-dibedakan kolom `channel` / `payment_method`:
+### Model omzet terpusat (ADR-0009)
+Semua omzet = `orders` + `order_items` di **Outlet Suite (hub)**, dibedakan kolom **`orders.sales_source`**:
 
-| Channel | Cara dikenali sekarang |
-|---|---|
-| Order online (order.sukashawarma.com) | `channel = 'online'`, `payment_method` tripay_* |
-| POS / kasir outlet | `channel = 'pos'`, `payment_method` `cash`/`qris_static` (ada `cashier_id`, `cash_received`, `discount_amount`, `voided_at`) |
-| Manual food apps (GoFood/ShopeeFood/TikTok) | `payment_method = 'manual'` (saat ini ~27 row, belum terpisah per app) |
+| Sumber Omzet | `sales_source` | Masuk hub via | Live? |
+|---|---|---|---|
+| POS Outlet | `pos` | pos-kasir native | belum ada transaksi |
+| Order Online | `online` | **sync** Edge Function dari Ecosystem | ✅ live |
+| Food Apps | `gofood`/`grabfood`/`shopeefood`/`tiktok` | pos-kasir, per-order item-level | tergantung pos-kasir |
 
-### Perubahan skema yang dibutuhkan
-- Tambah kolom **`orders.sales_source`** TEXT, nilai: `online` / `pos` / `gofood` / `shopeefood` / `tiktok`.
-  - Backfill: `online`/`pos` di-derive dari `channel`.
-  - Row `payment_method='manual'` lama → tandai `tiktok` atau biarkan `manual`/`unknown` (dikonfirmasi saat implementasi; default aman: `unknown`).
-  - Entry manual baru wajib mengisi `sales_source`.
-- Migration ditaruh di repo **POS/TiktokGo** (pemilik skema `orders`), bukan di SS Digital. Additive-only, backward compatible (pola sama seperti `pos_alter_orders`).
+### Perubahan skema (di repo/skema pos-kasir, bukan owner-dashboard)
+- Tambah kolom **`orders.sales_source`** TEXT (default `pos`). Backfill order lama = `pos`.
+- Food-app: `payment_method` = N/A (atau nilai `foodapp`); yang bermakna `sales_source`.
+- Tidak perlu `completed_at` (atribusi tanggal pakai `created_at`, aman karena jam operasional 13:00–22:00).
+
+### Sinkron Order Online (ADR-006)
+Edge Function + pg_cron membaca `orders`/`order_items` Ecosystem → upsert ke hub dengan `sales_source='online'`. Pemetaan saat sync:
+- **Status** Ecosystem → enum hub (`done`/delivered → `completed`; `cancelled`/`expired` → `cancelled`; dll).
+- **Amount** Ecosystem `total` → `total_amount`.
+- **outlet_id** — 1:1 (uuid sama, ADR-004).
+- **Item** — bawa `menu_item_name` (kunci join menu lintas-sumber).
+- Cadence: "hari ini" ~2 menit, historis per jam (ADR-002).
 
 ### Definisi metrik (disepakati)
-- **Omzet diakui** = `SUM(orders.total)` dengan `status IN ('paid','preparing','ready','done')`.
-  `pending_payment`, `cancelled`, `expired`, dan order ber-`voided_at` **tidak** dihitung.
-- **Tanggal acuan** = `paid_at` (saat uang masuk). Untuk manual entry yang tak punya `paid_at`,
-  gunakan tanggal transaksi yang diinput. Timezone **Asia/Jakarta**.
-- **Jumlah order** = COUNT order diakui.
-- **AOV** = omzet diakui ÷ jumlah order diakui.
-- **% order selesai** = order `done` ÷ total order (semua status) pada periode.
-- **Menu terlaris** = agregasi `order_items.quantity` & `order_items.subtotal` dari order diakui.
-- **Breakdown channel** = group by `sales_source`.
+- **Omzet Diakui** = `SUM(total_amount)` untuk order `status='completed'`. `pending`/`preparing`/`ready` tidak dihitung; `cancelled` tidak dihitung. (lihat CONTEXT.md "Omzet Diakui")
+- **Tanggal omzet** = tanggal `created_at`, timezone **Asia/Jakarta**, batas hari kalender.
+- **Nilai** = harga **kotor** (komisi food-app = biaya Fase 2).
+- **Jumlah order** = COUNT order `completed`. **AOV** = omzet ÷ jumlah order.
+- **% Order Completed** = order `completed` ÷ total order (semua status) pada periode.
+- **Menu terlaris** = agregasi `order_items.quantity` & `subtotal` dari order `completed`, di-`GROUP BY` **nama ter-normalisasi** `lower(trim(regexp_replace(name,'\s+',' ','g')))`. Varian ukuran = baris terpisah.
+- **Breakdown sumber** = group by `sales_source`.
 
 ---
 
 ## 3. Arsitektur
 
-- **App:** lanjutkan `apps/owner-dashboard` (Next.js app router) yang sekarang masih placeholder M0.
-- **Dua Supabase client:**
-  - `supabaseSales` (project order/POS) — **satu-satunya sumber Fase 1**.
-  - `supabaseOps` (SS Digital, sudah ada) — disiapkan untuk Fase 2 (biaya), **tidak dipakai Fase 1**.
-  - Kredensial `supabaseSales` lewat env var (`NEXT_PUBLIC_SALES_SUPABASE_URL` + anon key). Anon key + RLS/view definer, bukan service role di client.
-- **Agregasi di DB, bukan di app.** Buat view/RPC di project order/POS, definer + `security_barrier`
-  (pola sama seperti `monitoring_view_spv`) agar owner lihat semua outlet, bypass RLS:
-  - `sales_summary_spv` — omzet, jumlah order, order selesai, per `outlet_id` × `sales_source` × tanggal.
-  - `menu_sales_spv` — qty & revenue per menu (per periode, optional per outlet).
-- **Pemetaan outlet:** kedua project punya tabel `outlets` ber-ID beda. Fase 1 hanya butuh `outlets`
-  dari project sales (label). Pemetaan slug ↔ ID disiapkan sebagai konstanta/util untuk Fase 2.
-- **Komponen UI kecil & fokus** (tiap komponen punya satu tujuan, data via props/hook sendiri, dapat diuji terpisah):
-  - `PeriodFilter` — pilih rentang (Hari ini / 7h / 30h / custom) + filter outlet + filter channel.
-  - `KpiCards` — Omzet, Jumlah Order, AOV, % Order Selesai.
-  - `ChannelBreakdown` — omzet per channel (kartu/donut).
+- **App:** `apps/owner-dashboard` (Next.js app router), saat ini placeholder M0 → diisi.
+- **Satu Supabase (hub Outlet Suite)** — dashboard baca **satu project**. Tidak ada client kedua ke Ecosystem (sync menangani Order Online di sisi DB).
+- **Agregasi di DB** lewat view definer (`security_barrier`, pola `monitoring_view_spv` — owner lihat semua outlet, bypass RLS):
+  - `sales_summary_spv` — omzet, jumlah order, order completed, per `outlet_id` × `sales_source` × tanggal.
+  - `menu_sales_spv` — qty & revenue per menu (nama ter-normalisasi), per periode, optional per outlet.
+- **Hardening app (fold ke plan):** auth via `@suka/auth` (buang `src/lib/supabase.ts` lokal + footgun service-role), tambah `baseUrl` di tsconfig, test infra (vitest) — mengikuti playbook stok/distribusi/absensi.
+- **Komponen UI kecil & fokus** (data via hook sendiri, dapat diuji terpisah):
+  - `PeriodFilter` — rentang (Hari ini / 7h / 30h / custom) + filter outlet + filter sumber.
+  - `KpiCards` — Omzet · Jumlah Order · AOV · % Completed.
+  - `SourceBreakdown` — omzet per Sumber Omzet (kartu/donut).
   - `RevenueTrendChart` — line chart omzet harian.
-  - `TopMenus` — daftar menu terlaris (toggle by qty / by revenue).
+  - `TopMenus` — menu terlaris (toggle by qty / by revenue).
   - `OutletLeaderboard` — tabel 19 outlet: omzet, order, AOV, ▲▼ vs periode lalu.
-  - `ManualSalesEntryForm` — input omzet food apps (outlet, tanggal, sales_source, total, optional rincian item).
-- **Data fetching:** custom hook (mis. `useSalesSummary(period, filters)`) yang panggil view/RPC, dengan state loading/error/empty.
-- **Charting:** satu lib ringan (Recharts sebagai default; dikonfirmasi di plan kalau belum terpasang).
+- **Data fetching:** hook (mis. `useSalesSummary(period, filters)`) panggil view, state loading/error/empty.
+- **Charting:** Recharts (konfirmasi terpasang di plan).
 
 ---
 
 ## 4. Layout Halaman
 
 ```
-Header: judul + PeriodFilter (Hari ini / 7h / 30h / custom) + filter outlet + filter channel
-Row KPI (4 kartu): Omzet | Jumlah Order | AOV | % Order Selesai
-Row channel: ChannelBreakdown (Online / POS / GoFood / ShopeeFood / TikTok)
+Header: judul + PeriodFilter (Hari ini / 7h / 30h / custom) + filter outlet + filter sumber
+Row KPI (4 kartu): Omzet | Jumlah Order | AOV | % Order Completed
+Row sumber: SourceBreakdown (POS Outlet / Order Online / GoFood / GrabFood / ShopeeFood / TikTok)
 Row tengah: RevenueTrendChart (kiri, lebar) | TopMenus (kanan)
 Row bawah: OutletLeaderboard (tabel 19 outlet, sortable, ▲▼ vs periode lalu)
-Aksi: tombol "Input Manual (Food Apps)" → ManualSalesEntryForm (modal/drawer)
 ```
 
-Alur pemilik: buka → lihat KPI agregat → cek breakdown channel → scan tren → lihat ranking outlet & menu.
+Default periode = "7 hari" (hari penuh). Sumber dengan nol data (mis. POS Outlet sebelum transaksi nyata) ditampilkan "belum ada transaksi", bukan error/0 menyesatkan.
 
 ---
 
 ## 5. Testing & Error Handling
 
 ### Testing
-- **Logika agregasi diuji di level SQL**: view/RPC mengembalikan angka benar untuk data seed
-  (beberapa outlet, beberapa channel, status campur termasuk void/expired untuk memastikan terfilter).
-- **Unit test** untuk fungsi transformasi/format di app (format rupiah, hitung AOV, %, delta periode).
+- **Logika agregasi diuji di level SQL**: view mengembalikan angka benar untuk data seed (beberapa outlet, beberapa sumber, status campur termasuk cancelled untuk memastikan terfilter, nama menu dengan beda kapital/spasi untuk memastikan join-normalisasi).
+- **Unit test** fungsi transformasi/format di app (format rupiah, AOV, %, delta periode, normalisasi nama menu).
 
 ### Error Handling
-- State **loading**, **empty** (belum ada order di periode → pesan ramah, bukan layar kosong),
-  dan **gagal konek** `supabaseSales` (tampilkan pesan, jangan crash — manfaatkan `ErrorBoundary`/`OfflineIndicator` yang sudah ada).
-- Manual entry: validasi sisi form (outlet & sumber wajib, total > 0) + tangani error simpan.
+- State **loading**, **empty** (periode tanpa order completed → pesan ramah), dan **gagal konek** hub (pesan, jangan crash — manfaatkan `ErrorBoundary`/`OfflineIndicator` yang sudah ada).
 
 ---
 
-## 6. Catatan Lanjutan (Fase 2 — bukan untuk diimplementasi sekarang)
-- Biaya/HPP: butuh harga bahan baku diisi di SS Digital (`bahan_baku`/`resep`), lalu margin = omzet − HPP per outlet/menu.
-- Saat itu `supabaseOps` mulai dipakai; pemetaan outlet slug ↔ ID jadi krusial untuk menyandingkan omzet (sales) dan biaya (ops).
+## 6. Dependency & Urutan
+1. **Skema:** tambah `orders.sales_source` (skema pos-kasir/hub).
+2. **Sync Order Online:** Edge Function + pg_cron (bisa paralel; ini yang membuat data live tersedia).
+3. **View hub:** `sales_summary_spv`, `menu_sales_spv`.
+4. **owner-dashboard:** hardening + UI baca view.
+5. **(pos-kasir, di luar plan ini):** input order ber-`sales_source` untuk POS Outlet & food-app → mengisi sumber non-online.
+
+Fase 1 dashboard bisa dirilis & bermakna **hanya dengan Order Online** (synced); sumber lain menyusul saat pos-kasir mengimplementasikan input.
+
+## 7. Catatan Fase 2 (bukan untuk sekarang)
+- Komisi food-app + HPP/margin (omzet kotor → laba). Saat itu `supabaseOps`/ledger stok dipakai untuk biaya.
+- Rollup menu per-produk-induk; tabel mapping menu bila nama divergen.

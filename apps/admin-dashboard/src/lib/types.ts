@@ -4,7 +4,28 @@ export type { Role, StaffStatus }
 
 export interface Outlet {
   id: string
+  slug: string
   name: string
+  address: string | null
+  lat: number
+  lng: number
+  type: string
+  is_active: boolean
+}
+
+export interface OutletFormValues {
+  name: string
+  slug: string
+  address: string
+  lat: number
+  lng: number
+  type: string
+  is_active: boolean
+}
+
+export interface OutletFilterValues {
+  search: string
+  status: string // '' = semua, 'active', 'inactive'
 }
 
 export interface StaffRow {

@@ -9,7 +9,7 @@ export function useStaff() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlet_staff')
-        .select('id, name, role, status, username, outlet_id, outlets(name), staff_outlets(outlet_id)')
+        .select('id, name, role, status, username, outlet_id, outlets!outlet_staff_outlet_id_fkey(name), staff_outlets(outlet_id)')
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []).map((r: any) => ({

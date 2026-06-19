@@ -520,6 +520,7 @@ export default function KruChecklistPage() {
             <div className="flex flex-col gap-2 sm:flex-row flex-wrap">
               <button onClick={async () => {
                 if (!outletStaff || !confirm("Yakin mereset semua wajah staff?")) return;
+                const supabase = supabaseRef.current;
                 const { error } = await supabase.from("outlet_staff")
                   .update({ face_descriptor: null, ref_photo_url: null, enrolled_at: null })
                   .eq("outlet_id", outletStaff.outlet_id);
@@ -530,6 +531,7 @@ export default function KruChecklistPage() {
               </button>
               <button onClick={async () => {
                 if (!outletStaff || !confirm("Yakin menghapus SEMUA log absensi hari ini?")) return;
+                const supabase = supabaseRef.current;
                 const today = new Date().toISOString().slice(0, 10);
                 const { error } = await supabase.from("attendance")
                   .delete()

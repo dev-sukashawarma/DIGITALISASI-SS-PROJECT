@@ -3,17 +3,17 @@ import { generateStaffEmail } from "./email-generator";
 
 describe("generateStaffEmail", () => {
   it("should format email correctly with standard inputs", () => {
-    const email = generateStaffEmail("Budi Santoso", "jkt01-xyz-123");
-    expect(email).toBe("budisantoso.jkt01@ss.com");
+    const email = generateStaffEmail("budi_santoso");
+    expect(email).toBe("budi_santoso@outlet.local");
   });
 
-  it("should remove special characters from name", () => {
-    const email = generateStaffEmail("Rini O'Connor!", "bdg02-123");
-    expect(email).toBe("rinioconnor.bdg02@ss.com");
+  it("should lowercase and strip special characters from username", () => {
+    const email = generateStaffEmail("Rini O'Connor!");
+    expect(email).toBe("rinioconnor@outlet.local");
   });
 
   it("should handle single word names", () => {
-    const email = generateStaffEmail("Siti", "outlet-1");
-    expect(email).toBe("siti.outlet@ss.com");
+    const email = generateStaffEmail("Siti");
+    expect(email).toBe("siti@outlet.local");
   });
 });

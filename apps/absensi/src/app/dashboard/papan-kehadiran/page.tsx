@@ -10,10 +10,10 @@ import { PageHeader, InfoPill } from "@/components/PageHeader";
 import { DashboardSettings } from "../DashboardSettings";
 
 const PILL: Record<BoardRow["state"], { icon: React.ReactNode; label: (t: string | null, d: number | null) => string }> = {
-  masuk:  { icon: <LogIn size={13} />,  label: (t, d) => `Masuk ${t}` },
+  masuk:  { icon: <LogIn size={13} />,  label: (t) => `Masuk ${t}` },
   telat:  { icon: <Clock4 size={13} />, label: (t, d) => `Telat ${d ? d + ' mnt' : t}` },
-  keluar: { icon: <LogOut size={13} />, label: (t, d) => `Keluar ${t}` },
-  lebih_awal: { icon: <LogOut size={13} />, label: (t, d) => `Lebih Awal ${t}` },
+  keluar: { icon: <LogOut size={13} />, label: (t) => `Keluar ${t}` },
+  lebih_awal: { icon: <LogOut size={13} />, label: (t) => `Lebih Awal ${t}` },
   pulang_telat: { icon: <Clock4 size={13} />, label: (t, d) => `Pulang Telat ${d ? d + ' mnt' : t}` },
   belum:  { icon: <MoreHorizontal size={13} />, label: () => "Belum hadir" },
   alpha:  { icon: <MoreHorizontal size={13} />, label: () => "Alpha" },

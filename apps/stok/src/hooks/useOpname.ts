@@ -1,25 +1,26 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { useOfflineQueue } from '@suka/offline-queue'
 import type { Opname, OpnameItem } from '@/types/stok'
 
 export function useOpnameList(outletId: string | null | undefined) {
-  const [data, setData] = useState<Opname[]>([])
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    if (!outletId) {
-      setLoading(false)
-      return
-    }
-    const supabase = createClient()
-    supabase.from('opname')
-      .select('*, outlet_staff(name), opname_item(qty_fisik, qty_system, selisih, flagged)')
-      .eq('outlet_id', outletId)
-      .order('tanggal', { ascending: false }).limit(60)
-      .then(({ data }) => { setData((data as Opname[]) ?? []); setLoading(false) })
-  }, [outletId])
-  return { opnameList: data, loading }
+  const { data, isLoading } = useQuery({
+    queryKey: ['opname', outletId],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data } = await supabase.from('opname')
+        .select('*, outlet_staff(name), opname_item(qty_fisik, qty_system, selisih, flagged)')
+        .eq('outlet_id', outletId)
+        .order('tanggal', { ascending: false }).limit(60)
+      return (data as Opname[]) ?? []
+    },
+    enabled: !!outletId,
+    staleTime: 25000,
+    gcTime: 60000,
+  })
+  return { opnameList: data ?? [], loading: isLoading }
 }
 
 interface FinalizePayload { opnameId: string }

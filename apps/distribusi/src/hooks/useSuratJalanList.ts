@@ -31,7 +31,7 @@ export function useSuratJalanList(dateFilter: DateFilter = 'all') {
       const supabase = createSupabaseBrowserClient()
       let query = supabase
         .from('surat_jalan')
-        .select('id, outlet_id, status, created_at, document_number, surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
+        .select('id, outlet_id, status, created_at, document_number, outlets(name), surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
         .order('created_at', { ascending: false })
 
       // Apply date filters
@@ -61,27 +61,16 @@ export function useSuratJalanList(dateFilter: DateFilter = 'all') {
           return
         }
 
-        // Batch fetch outlets
-        const outletIds = (sjList || []).map((sj: any) => sj.outlet_id)
-        const { data: outlets } = outletIds.length > 0
-          ? await supabase
-              .from('outlets')
-              .select('id, name')
-              .in('id', outletIds)
-          : { data: [] }
-
-        const outletMap = new Map(
-          (outlets || []).map((o: any) => [o.id, o])
-        )
-
         const result = (sjList || []).map((sj: any) => {
           const items = sj.surat_jalan_item || []
           const has_problem = items.some(
             (it: any) => it.kondisi === 'rusak' || (it.qty_terima != null && it.qty_terima < it.qty_dikirim)
           )
+          // outlets dari embed bisa array atau objek tergantung kardinalitas relasi
+          const outlet = Array.isArray(sj.outlets) ? sj.outlets[0] : sj.outlets
           return {
             ...sj,
-            outlet: outletMap.get(sj.outlet_id),
+            outlet,
             has_problem,
           }
         })

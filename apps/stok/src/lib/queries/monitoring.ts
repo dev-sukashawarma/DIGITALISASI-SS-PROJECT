@@ -147,7 +147,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
     .eq('bahan_baku_id', bahan_baku_id)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   const discrepancyDetails = opnameData?.flagged
     ? {

@@ -1,34 +1,27 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { LedgerStok, LedgerTipe } from '@/types/stok'
 
 const PAGE_SIZE = 50
 
 export function useLedgerList(outletId: string | null | undefined, page = 0) {
-  const [data, setData] = useState<LedgerStok[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
-    if (!outletId) { setLoading(false); return }
-    setError(null)
-    const supabase = createClient()
-    const load = async () => {
-      try {
-        const { data, error: err } = await supabase.from('ledger_stok').select('*').eq('outlet_id', outletId)
-          .order('created_at', { ascending: false })
-          .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
-        if (err) throw err
-        setData((data as LedgerStok[]) ?? [])
-      } catch (err: any) {
-        setError(err.message || err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [outletId, page])
-  return { ledger: data, loading, error }
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['ledger', outletId, page],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error: err } = await supabase.from('ledger_stok').select('*').eq('outlet_id', outletId)
+        .order('created_at', { ascending: false })
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
+      if (err) throw err
+      return (data as LedgerStok[]) ?? []
+    },
+    enabled: !!outletId,
+    staleTime: 25000,
+    gcTime: 60000,
+  })
+  return { ledger: data ?? [], loading: isLoading, error: error ? (error as Error).message : null }
 }
 
 export interface ManualEntryInput {

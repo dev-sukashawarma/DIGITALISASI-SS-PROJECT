@@ -12,7 +12,7 @@ import { loadFaceModels } from "@/lib/face/recognizer";
 import { averageDescriptors } from "@/lib/face/match";
 import { getHuman } from "@/lib/face/recognizer";
 
-type Staff = { id: string; name: string };
+type Staff = { id: string; name: string; enrolled_at: string | null };
 type EnrollPhase = "idle" | "center" | "left" | "right" | "saving" | "done";
 
 export default function EnrollPage() {
@@ -33,14 +33,18 @@ export default function EnrollPage() {
   const busyRef = useRef(false);
   const loopRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    loadFaceModels();
+  const loadStaff = () => {
     if (!outletStaff) return;
     supabase
       .from("outlet_staff")
-      .select("id,name")
+      .select("id,name,enrolled_at")
       .eq("outlet_id", outletStaff.outlet_id)
       .then(({ data }) => setStaff((data as Staff[]) ?? []));
+  };
+
+  useEffect(() => {
+    loadFaceModels();
+    loadStaff();
   }, [outletStaff]);
 
   // Sync state & ref
@@ -133,6 +137,7 @@ export default function EnrollPage() {
         
       if (error) throw error;
       setPhase("done");
+      loadStaff();
       toast.show("ok", "Enrollment Wajah Berhasil Tersimpan!");
     } catch (e: any) {
       toast.show("err", `Gagal menyimpan: ${e.message}`);
@@ -172,7 +177,9 @@ export default function EnrollPage() {
             >
               <option value="">-- Silakan pilih --</option>
               {staff.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>
+                  {s.name} {s.enrolled_at ? "✅ (Sudah Enroll)" : ""}
+                </option>
               ))}
             </select>
           </div>

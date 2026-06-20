@@ -7,6 +7,9 @@ navigasi, jangan ubah data operasional).
 **Sumber kebenaran:** `docs/ROLE-JOBDESK.md` (§ Matriks Akses) + `ROLE_APP_ACCESS`
 di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temuan bug.
 
+> **Tes fungsional detail per role** (langkah di dalam app sesuai jobdesk):
+> lihat [QA-CHECKLIST-ROLE-DETAIL.md](QA-CHECKLIST-ROLE-DETAIL.md).
+
 > **Lingkungan:** jalankan di subdomain produksi/staging (`*.sukashawarma.com`),
 > **bukan `localhost`** — guard `owner-dashboard` di-skip saat localhost.
 

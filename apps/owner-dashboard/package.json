@@ -17,6 +17,7 @@
     "react-dom": "^19.0.0-rc.0",
     "next": "^16.1.6",
     "recharts": "^3.8.1",
+    "react-is": "^19.0.0",
     "@supabase/supabase-js": "^2.38.0",
     "@supabase/ssr": "^0.2.0",
     "@suka/design-system": "*",

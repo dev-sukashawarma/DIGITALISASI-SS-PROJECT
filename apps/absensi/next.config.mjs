@@ -2,6 +2,7 @@
 
 const nextConfig = {
   transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/offline-queue'],
+  serverExternalPackages: ['@vladmandic/human'],
   typescript: {
     tsconfigPath: './tsconfig.json',
     ignoreBuildErrors: true,

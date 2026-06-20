@@ -16,7 +16,7 @@ describe('ROLE_APP_ACCESS', () => {
   })
 
   it('hanya admin yang punya admin-dashboard', () => {
-    const roles: Array<keyof typeof ROLE_APP_ACCESS> = ['owner', 'spv', 'kepala_outlet', 'kasir', 'crew', 'kiosk']
+    const roles: Array<keyof typeof ROLE_APP_ACCESS> = ['owner', 'spv', 'leader', 'kasir', 'crew', 'kiosk']
     roles.forEach(role => {
       expect(ROLE_APP_ACCESS[role]).not.toContain('admin-dashboard')
     })
@@ -32,8 +32,8 @@ describe('ROLE_APP_ACCESS', () => {
 })
 
 describe('hasAppAccess', () => {
-  it('kepala_outlet boleh stok', () => {
-    expect(hasAppAccess('kepala_outlet', 'stok')).toBe(true)
+  it('leader boleh stok', () => {
+    expect(hasAppAccess('leader', 'stok')).toBe(true)
   })
   it('crew tidak boleh pos-kasir', () => {
     expect(hasAppAccess('crew', 'pos-kasir')).toBe(false)

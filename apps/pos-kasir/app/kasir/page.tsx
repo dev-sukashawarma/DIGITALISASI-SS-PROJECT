@@ -36,7 +36,10 @@ export default function CashierOrdersPage() {
   // Audio state
   const [audioPermission, setAudioPermission] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const previousOrderCountRef = useRef<number>(0)
+  
+  // Ref untuk mendeteksi order baru secara akurat (berdasarkan ID, bukan cuma jumlah)
+  const knownOrderIds = useRef<Set<string>>(new Set())
+  const hasFetchedInitial = useRef<boolean>(false)
 
   const supabase = createClient()
   const { outletId, outletName, loaded: outletLoaded } = useMyOutlet()
@@ -102,14 +105,27 @@ export default function CashierOrdersPage() {
       setOrders(data)
       setLoading(false)
 
-      // Check if there's a NEW pending order
-      const currentPendingCount = data.filter(o => o.status === 'pending').length
-      if (currentPendingCount > previousOrderCountRef.current && audioPermission) {
-        playNotification()
+      let hasNewPendingOrder = false
+
+      if (!hasFetchedInitial.current) {
+        // Pemuatan pertama: catat semua ID tanpa membunyikan notifikasi
+        data.forEach(o => knownOrderIds.current.add(o.id))
+        hasFetchedInitial.current = true
+      } else {
+        // Pemuatan selanjutnya: cek apakah ada ID order 'pending' atau 'preparing' yang benar-benar baru
+        data.filter(o => o.status === 'pending' || o.status === 'preparing').forEach(o => {
+          if (!knownOrderIds.current.has(o.id)) {
+            hasNewPendingOrder = true
+            knownOrderIds.current.add(o.id)
+          }
+        })
+
+        if (hasNewPendingOrder) {
+          playNotification()
+        }
       }
-      previousOrderCountRef.current = currentPendingCount
     }
-  }, [supabase, playNotification, audioPermission, outletId])
+  }, [supabase, playNotification, outletId])
 
   // Jika kasir tidak terhubung ke outlet mana pun, jangan biarkan loading menggantung
   useEffect(() => {

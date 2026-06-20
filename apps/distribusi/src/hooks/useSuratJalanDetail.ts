@@ -40,9 +40,13 @@ export function useSuratJalanDetail(id: string) {
       const supabase = createSupabaseBrowserClient()
 
       try {
+        // Satu query embedded: header + outlet + item (+ bahan_baku) sekaligus,
+        // menggantikan 3 round-trip berurutan.
         const { data: sj, error: sjError } = await supabase
           .from('surat_jalan')
-          .select('id, outlet_id, status, created_at, signatures, receipt_signatures, document_number, verification_code')
+          .select(
+            'id, outlet_id, status, created_at, signatures, receipt_signatures, document_number, verification_code, outlets(name), surat_jalan_item(*, bahan_baku(id, nama, satuan, kategori))'
+          )
           .eq('id', id)
           .single()
 
@@ -53,30 +57,10 @@ export function useSuratJalanDetail(id: string) {
           return
         }
 
-        // Fetch outlet
-        const { data: outlet } = await supabase
-          .from('outlets')
-          .select('*')
-          .eq('id', sj.outlet_id)
-          .single()
-
-        // Fetch items with embedded relation
-        const { data: items, error: itemsError } = await supabase
-          .from('surat_jalan_item')
-          .select('*, bahan_baku(id, nama, satuan, kategori)')
-          .eq('surat_jalan_id', id)
-
-        if (itemsError) {
-          setError(itemsError.message)
-          setData(null)
-          setLoading(false)
-          return
-        }
-
         setData({
           ...sj,
-          outlets: outlet,
-          surat_jalan_item: items || [],
+          outlets: Array.isArray((sj as any).outlets) ? (sj as any).outlets[0] : (sj as any).outlets,
+          surat_jalan_item: (sj as any).surat_jalan_item || [],
         } as SuratJalanDetail)
       } catch (err: any) {
         setError(err?.message || 'Terjadi kesalahan')

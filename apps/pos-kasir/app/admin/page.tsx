@@ -38,8 +38,8 @@ export default function AdminOverviewPage() {
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
   const [loading, setLoading] = useState(true)
 
-  // Chart specific states
-  const [chartOrders, setChartOrders] = useState<OrderRow[]>([])
+  // Chart specific states — agregat harian dari view (bukan baris orders mentah)
+  const [chartDaily, setChartDaily] = useState<{ sales_date: string; omzet: number }[]>([])
   const [chartRange, setChartRange] = useState<ChartRange>('30days')
   const [customStartDate, setCustomStartDate] = useState<string>('')
   const [customEndDate, setCustomEndDate] = useState<string>('')
@@ -77,52 +77,51 @@ export default function AdminOverviewPage() {
     setLoading(false)
   }, [selectedOutlet])
 
-  // Fetch Chart Orders
+  // Fetch Chart Data — agregat harian (omzet completed per sales_date) dari view
+  // sales_summary_spv, BUKAN baris orders mentah. Ini menghapus risiko range
+  // 'all' menarik seluruh tabel orders (tumbuh tanpa batas) dan memanfaatkan
+  // GROUP BY di sisi DB.
   const fetchChartOrders = useCallback(async () => {
     setIsChartLoading(true)
     const supabase = createClient()
-    
+
+    // YYYY-MM-DD pakai tanggal lokal (≈ Asia/Jakarta, selaras sales_date view)
+    const fmt = (d: Date) => {
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${d.getFullYear()}-${m}-${day}`
+    }
+
     let q = supabase
-      .from('orders')
-      .select('id, status, total_amount, created_at, outlet_id')
-      .eq('status', 'completed')
-      .order('created_at', { ascending: true })
+      .from('sales_summary_spv')
+      .select('sales_date, omzet')
+      .order('sales_date', { ascending: true })
 
     if (selectedOutlet !== 'all') {
       q = q.eq('outlet_id', selectedOutlet)
     }
 
     if (chartRange === 'today') {
-      const d = new Date()
-      d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      q = q.eq('sales_date', fmt(new Date()))
     } else if (chartRange === 'yesterday') {
       const d = new Date()
       d.setDate(d.getDate() - 1)
-      d.setHours(0, 0, 0, 0)
-      const endD = new Date()
-      endD.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString()).lt('created_at', endD.toISOString())
+      q = q.eq('sales_date', fmt(d))
     } else if (chartRange === '7days') {
       const d = new Date()
       d.setDate(d.getDate() - 7)
-      d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      q = q.gte('sales_date', fmt(d))
     } else if (chartRange === '30days') {
       const d = new Date()
       d.setDate(d.getDate() - 30)
-      d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      q = q.gte('sales_date', fmt(d))
     } else if (chartRange === 'custom' && customStartDate && customEndDate) {
-      const start = new Date(customStartDate)
-      start.setHours(0, 0, 0, 0)
-      const end = new Date(customEndDate)
-      end.setHours(23, 59, 59, 999)
-      q = q.gte('created_at', start.toISOString()).lte('created_at', end.toISOString())
+      // input date sudah berformat YYYY-MM-DD, bandingkan langsung dgn sales_date
+      q = q.gte('sales_date', customStartDate).lte('sales_date', customEndDate)
     }
 
     const { data } = await q
-    setChartOrders(data ?? [])
+    setChartDaily((data as { sales_date: string; omzet: number }[]) ?? [])
     setIsChartLoading(false)
   }, [selectedOutlet, chartRange, customStartDate, customEndDate])
 
@@ -192,10 +191,11 @@ export default function AdminOverviewPage() {
   }, [orders, outlets])
 
   const chartData = useMemo(() => {
+    // View mengembalikan satu baris per (sales_date × sales_source); jumlahkan
+    // omzet per tanggal. omzet bisa datang sebagai string (NUMERIC) → Number().
     const dailyMap: Record<string, number> = {}
-    chartOrders.forEach(o => {
-      const dateKey = new Date(o.created_at).toISOString().split('T')[0]
-      dailyMap[dateKey] = (dailyMap[dateKey] || 0) + o.total_amount
+    chartDaily.forEach(r => {
+      dailyMap[r.sales_date] = (dailyMap[r.sales_date] || 0) + Number(r.omzet)
     })
     
     const dataList = Object.entries(dailyMap)
@@ -218,7 +218,7 @@ export default function AdminOverviewPage() {
     }
     
     return dataList
-  }, [chartOrders])
+  }, [chartDaily])
 
   const selectedOutletName = selectedOutlet === 'all' 
     ? 'Semua Cabang' 

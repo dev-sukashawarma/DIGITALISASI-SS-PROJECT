@@ -27,7 +27,7 @@ export function useExpenses(filter: PeriodFilterValue) {
 
     let q = supabase
       .from('expenses')
-      .select('*, outlets(name)')
+      .select('id, outlet_id, category, amount, description, expense_date, outlets(name)')
       .gte('expense_date', filter.from)
       .lte('expense_date', filter.to)
 

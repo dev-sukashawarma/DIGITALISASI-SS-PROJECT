@@ -180,7 +180,7 @@ const appDir = '/home/sukashaw/suka-app/apps/[APP_NAME]';
 
 process.chdir(appDir);
 
-const next = require(appDir + '/node_modules/next');
+const next = require('/home/sukashaw/suka-app/node_modules/next');
 const app = next({ dev: false, dir: appDir });
 const handle = app.getRequestHandler();
 
@@ -196,7 +196,7 @@ app.prepare().then(() => {
 const { createServer } = require('http');
 const appDir = '/home/sukashaw/suka-app/apps/portal';
 process.chdir(appDir);
-const next = require(appDir + '/node_modules/next');
+const next = require('/home/sukashaw/suka-app/node_modules/next');
 const app = next({ dev: false, dir: appDir });
 const handle = app.getRequestHandler();
 app.prepare().then(() => {
@@ -209,7 +209,7 @@ app.prepare().then(() => {
 const { createServer } = require('http');
 const appDir = '/home/sukashaw/suka-app/apps/stok';
 process.chdir(appDir);
-const next = require(appDir + '/node_modules/next');
+const next = require('/home/sukashaw/suka-app/node_modules/next');
 const app = next({ dev: false, dir: appDir });
 const handle = app.getRequestHandler();
 app.prepare().then(() => {

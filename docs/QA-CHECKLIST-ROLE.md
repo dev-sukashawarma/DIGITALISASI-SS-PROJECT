@@ -73,6 +73,9 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
 - [ ] Distribusi → **diizinkan**
 - [ ] Owner Dashboard → **diizinkan**
 
+**Catatan temuan:**
+> _(tulis di sini jika ada hasil tak sesuai)_
+
 ---
 
 ## 2. Role: `owner`
@@ -90,6 +93,9 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
 - [ ] Stok → **ditolak**
 - [ ] Distribusi → **ditolak**
 
+**Catatan temuan:**
+> _(tulis di sini jika ada hasil tak sesuai)_
+
 ---
 
 ## 3. Role: `spv`
@@ -106,6 +112,9 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
 - [ ] POS Kasir → **ditolak**
 - [ ] Owner Dashboard → **ditolak**
 - [ ] Admin Dashboard → **ditolak**
+
+**Catatan temuan:**
+> _(tulis di sini jika ada hasil tak sesuai)_
 
 ---
 
@@ -127,6 +136,9 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
 - [ ] Admin Dashboard → **ditolak**
 - [ ] (Scope) Saat di Stok/Absensi, data yang tampil **hanya outlet binaan**, bukan semua outlet.
 
+**Catatan temuan:**
+> _(tulis di sini jika ada hasil tak sesuai)_
+
 ---
 
 ## 5. Role: `kasir`
@@ -143,6 +155,9 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
 - [ ] Distribusi → **ditolak**
 - [ ] Owner Dashboard → **ditolak**
 - [ ] Admin Dashboard → **ditolak**
+
+**Catatan temuan:**
+> _(tulis di sini jika ada hasil tak sesuai)_
 
 ---
 
@@ -161,6 +176,9 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
 - [ ] Owner Dashboard → **ditolak**
 - [ ] Admin Dashboard → **ditolak**
 
+**Catatan temuan:**
+> _(tulis di sini jika ada hasil tak sesuai)_
+
 ---
 
 ## 7. Role: `kiosk` (device / QR)
@@ -174,6 +192,9 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
 - [ ] Buka pos-kasir alur `qr-login` di device kiosk → masuk **mode kiosk** (tampilan terbatas).
 - [ ] Sesi terikat ke `outlet_id` device yang benar.
 - [ ] Tidak bisa membuka app lain (absensi/stok/distribusi/owner/admin) dari device kiosk.
+
+**Catatan temuan:**
+> _(tulis di sini jika ada hasil tak sesuai)_
 
 ---
 

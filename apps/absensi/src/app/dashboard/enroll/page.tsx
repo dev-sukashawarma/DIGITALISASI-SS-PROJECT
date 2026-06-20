@@ -10,8 +10,7 @@ import { CameraCapture, captureFrame } from "@/components/CameraCapture";
 import { PageHeader } from "@/components/PageHeader";
 import { loadFaceModels } from "@/lib/face/recognizer";
 import { averageDescriptors } from "@/lib/face/match";
-import * as faceapi from "face-api.js";
-import { featuresFromLandmarks } from "@/lib/face/liveness";
+import { getHuman } from "@/lib/face/recognizer";
 
 type Staff = { id: string; name: string };
 type EnrollPhase = "idle" | "center" | "left" | "right" | "saving" | "done";
@@ -63,27 +62,25 @@ export default function EnrollPage() {
       
       busyRef.current = true;
       try {
-        const det = await faceapi.detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+        const human = await getHuman();
+        const res = await human.detect(video);
 
-        if (det) {
-          const features = featuresFromLandmarks(det as any);
-          const yaw = features.yawRatio;
+        if (res.face && res.face.length > 0 && res.face[0].embedding) {
+          const gList = res.gesture.map(g => g.gesture);
           const currentPhase = phaseRef.current;
 
           let shouldCapture = false;
           
-          if (currentPhase === "center" && yaw >= 0.38 && yaw <= 0.62) {
+          if (currentPhase === "center" && (gList.includes("facing center") || gList.includes("head down") || gList.includes("head up"))) {
             shouldCapture = true;
-          } else if (currentPhase === "left" && yaw > 0.65) {
+          } else if (currentPhase === "left" && gList.includes("facing left")) {
             shouldCapture = true;
-          } else if (currentPhase === "right" && yaw < 0.35) {
+          } else if (currentPhase === "right" && gList.includes("facing right")) {
             shouldCapture = true;
           }
 
           if (shouldCapture) {
-            const newShots = [...shotsRef.current, Array.from(det.descriptor)];
+            const newShots = [...shotsRef.current, Array.from(res.face[0].embedding)];
             setShots(newShots);
             
             if (currentPhase === "center") {

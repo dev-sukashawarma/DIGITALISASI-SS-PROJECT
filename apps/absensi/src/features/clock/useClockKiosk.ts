@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import * as faceapi from "face-api.js";
+import { getHuman } from "@/lib/face/recognizer";
 import { createClient } from "@/lib/supabase";
 import { captureFrame } from "@/components/CameraCapture";
 import { identifyStaff, type Candidate } from "@/lib/face/identify";
 import {
-  createLivenessDetector, featuresFromLandmarks, pickChallenge,
+  createLivenessDetector, pickChallenge,
   CHALLENGE_LABEL, type Challenge,
 } from "@/lib/face/liveness";
 import { submitAttendance } from "@/lib/attendance/submit";
@@ -19,9 +19,6 @@ export type KioskResult = { ok: boolean; message: string };
 type StaffRow = { id: string; name: string; face_descriptor: number[] | null };
 
 const FUNCTION_URL = "/api/submit-attendance";
-// SsdMobilenetv1 adalah standar industri untuk face-api.js yang jauh lebih akurat
-// mendeteksi wajah di berbagai kondisi cahaya dan kemiringan dibandingkan TinyFaceDetector.
-const DETECT_OPTS = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
 
 export function useClockKiosk(outletId: string) {
   const supabase = createClient();
@@ -50,13 +47,16 @@ export function useClockKiosk(outletId: string) {
 
   /** Tentukan aksi IN/OUT dari record hari ini. */
   const decideAction = useCallback(async (staffId: string): Promise<"in" | "out" | "done"> => {
-    const today = new Date().toISOString().slice(0, 10);
+    const todayLocalStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+    const start = new Date(`${todayLocalStr}T00:00:00+07:00`).toISOString();
+    const end = new Date(`${todayLocalStr}T23:59:59+07:00`).toISOString();
+
     const { data } = await supabase
       .from("attendance")
       .select("type, status")
       .eq("outlet_staff_id", staffId)
-      .gte("ts_server", `${today}T00:00:00`)
-      .lte("ts_server", `${today}T23:59:59`)
+      .gte("ts_server", start)
+      .lte("ts_server", end)
       .order("ts_server", { ascending: false });
 
     // Pakai record TERBARU per tipe (in/out) — bukan yang pertama ditemukan —
@@ -76,9 +76,10 @@ export function useClockKiosk(outletId: string) {
     if (busyRef.current || phase !== "idle" || !outletId) return;
     busyRef.current = true;
     try {
-      const det = await faceapi.detectSingleFace(video, DETECT_OPTS).withFaceLandmarks().withFaceDescriptor();
-      if (!det) return;
-      const found = identifyStaff(Array.from(det.descriptor), candidatesRef.current);
+      const human = await getHuman();
+      const res = await human.detect(video);
+      if (!res.face || res.face.length === 0 || !res.face[0].embedding) return;
+      const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
       if (!found) {
         setResult({ ok: false, message: "Wajah tidak dikenal / Belum terdaftar" });
         setPhase("result");
@@ -125,19 +126,23 @@ export function useClockKiosk(outletId: string) {
     if (!livenessRef.current) livenessRef.current = createLivenessDetector(challenge);
     const detector = livenessRef.current;
     try {
-      const det = await faceapi.detectSingleFace(video, DETECT_OPTS).withFaceLandmarks().withFaceDescriptor();
+      const human = await getHuman();
+      const res = await human.detect(video);
+      
       // Bila wajah hilang atau sesi sudah di-reset selama deteksi, berhenti diam-diam.
-      if (!det || livenessRef.current !== detector) return;
+      if (!res.face || res.face.length === 0 || livenessRef.current !== detector) return;
 
       // Identitas TIDAK dicek per-frame saat menoleh (descriptor melenceng di sudut
       // → salah tolak "wajah berubah"). Tantangan baru lolos ketika wajah kembali ke
       // posisi TENGAH/frontal — di frame itulah descriptor andal, jadi verifikasi
       // identitas dilakukan tepat saat lolos. Ini mencegah celah "ganti orang di
       // tengah liveness" tanpa memunculkan false-reject saat menoleh.
-      const passed = detector.feed(featuresFromLandmarks(det as any));
+      const passed = detector.feed(res.gesture);
       if (passed) {
         livenessRef.current = null;
-        const found = identifyStaff(Array.from(det.descriptor), candidatesRef.current, 0.55);
+        if (!res.face[0].embedding) return;
+        
+        const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
         if (!found || found.id !== who.id) {
           setResult({ ok: false, message: "Wajah harus orang yang sama. Silakan ulangi." });
           setPhase("result");

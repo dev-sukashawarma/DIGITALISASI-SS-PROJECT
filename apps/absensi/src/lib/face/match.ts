@@ -11,9 +11,9 @@ export type Descriptor = readonly number[];
 import { match } from "@vladmandic/human";
 
 /** Threshold similarity default; di atas ini dianggap cocok. 
- * Library Human (MobileFaceNet) menormalisasi skor sehingga > 0.5 = match.
+ * Diturunkan ke 0.25 berdasarkan testing di lapangan (lighting/kamera bervariasi).
  */
-export const DEFAULT_MATCH_THRESHOLD = 0.5;
+export const DEFAULT_MATCH_THRESHOLD = 0.25;
 
 function assertSameLength(a: Descriptor, b: Descriptor): void {
   if (a.length !== b.length) {

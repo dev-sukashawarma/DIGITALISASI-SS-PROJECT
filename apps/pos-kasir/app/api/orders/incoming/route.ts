@@ -93,7 +93,7 @@ export async function POST(request: Request) {
       notes: notes || null,
       payment_method: 'qris',
       total_amount,
-      status: 'pending',
+      status: 'preparing', // Langsung diproses karena dari website sudah dibayar
       source: 'online',
       external_order_id,
     })

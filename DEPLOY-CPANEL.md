@@ -3,7 +3,7 @@
 **Environment:** connectindo.net shared hosting (grace, IP: 103.77.106.237)  
 **Apps:** 6 subdomains (portal, stok, absensi, distribusi, owner, kasir)  
 **Stack:** Node.js 24.15.0 + LiteSpeed + CloudLinux  
-**Last Updated:** 2026-06-15
+**Last Updated:** 2026-06-20
 
 ---
 
@@ -382,6 +382,7 @@ curl -sI https://app.sukashawarma.com/ | grep -i set-cookie
 | "Redirect loop" | Portal config wrong | Verify `NEXT_PUBLIC_PORTAL_URL=https://app.sukashawarma.com` |
 | "Middleware takes long" | RPC query slow | Check Supabase RPC performance |
 | "SSL certificate error" | cPanel provisioning | Wait 10 min, retry (Let's Encrypt propagation) |
+| `Module not found` saat Build | Dependensi baru belum terinstal di server | Buka terminal cPanel di root `/home/sukashaw/suka-app`, jalankan `export PATH="/opt/alt/alt-nodejs24/root/usr/bin:$PATH"` lalu `npx yarn install` |
 
 ---
 

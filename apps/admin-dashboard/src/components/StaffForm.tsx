@@ -4,7 +4,7 @@ import { Button } from '@suka/design-system'
 import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role } from '@/lib/types'
 
-const ROLES: Role[] = ['admin', 'owner', 'spv', 'kepala_outlet', 'kasir', 'crew', 'kiosk']
+const ROLES: Role[] = ['admin', 'owner', 'spv', 'leader', 'kasir', 'crew', 'kiosk']
 
 export function StaffForm({
   outlets, onSubmit, submitting, initial,
@@ -56,7 +56,7 @@ export function StaffForm({
           {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
       </div>
-      {role === 'kepala_outlet' && (
+      {role === 'leader' && (
         <div>
           <label className={labelCls}>Outlet Binaan</label>
           <OutletMultiSelect outlets={outlets} selected={outletIds} onChange={setOutletIds} />

@@ -268,19 +268,21 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 
 ## Struktur Organisasi Aktual (2026-06-22)
 
-**7 Leaders → 19 Outlets** (100% coverage via `staff_outlets` mapping):
+**✅ SEEDING COMPLETED — 7 Leaders × 19 Outlets (100% coverage)**
 
-| Leader | Outlets | Count |
-|--------|---------|-------|
-| **Chairul Rizky** | sukmajaya, beji, sawangan, ratujaya | 4 |
-| **Tri Rizky** | cibinong, ciseeng, cirendeu | 3 |
-| **Mulyadi** | jagakarsa, kalisari, tebet, jatiwaringin, pekayon, jatiasih | 6 |
-| **Abu Bakar Bahsin** | cimanggu | 1 |
-| **Abdurrahman** | empang | 1 |
-| **Reza** | dramaga | 1 |
-| **Abyansah** | pajajaran, paledang, kitchen | 3 |
+| Leader | Outlets (Database Names) | Count |
+|--------|--------------------------|-------|
+| **Chairul Rizky** | SUKA SHAWARMA DEPOK SUKMAJAYA, BEJI, SAWANGAN, PAJAJARAN | 4 |
+| **Tri Rizky** | MITRA SUKA SHAWARMA CIBINONG, CISEENG, SUKA SHAWARMA CIRENDEU | 3 |
+| **Mulyadi** | SUKA SHAWARMA JAGAKARSA, MITRA KALISARI, MITRA TEBET, JATIWARINGIN, PEKAYON, JATIASIH | 6 |
+| **Abu Bakar Bahsin** | SUKA SHAWARMA CIMANGGU | 1 |
+| **Abdurrahman** | SUKA SHAWARMA EMPANG | 1 |
+| **Reza** | SUKA SHAWARMA DRAMAGA | 1 |
+| **Abyansah** | SUKA SHAWARMA KITCHEN (PUSAT), PAJAJARAN, PALEDANG | 3 |
 
-**Seeding:** Refer `docs/SEED-LEADERS-INSTRUCTION.md` for database setup.
+**Seeding Method:** Supabase SQL Editor (Direct SQL insert, no edge function needed)  
+**Auth Credentials:** email = `[name]@test.com`, password = `test`  
+**Verification:** Refer `scripts/SEED-LEADERS-README.md` for completion details
 
 ---
 

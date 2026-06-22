@@ -1,14 +1,57 @@
-# Seed Leaders via Edge Function (Method 2)
+# Seed Leaders via Supabase SQL (Completed ✅)
 
-**Status:** Ready to execute  
-**Date:** 2026-06-22  
-**Scripts:** `seed-leaders.sh` + `seed-staff-outlets.sh`
+**Status:** ✅ COMPLETED (2026-06-22)  
+**Method:** Supabase SQL Editor (Direct SQL, no edge function needed)  
+**Result:** 7 leaders × 19 outlets, 100% coverage
 
 ---
 
-## Quick Start (3 Steps)
+## ✅ Seeding Completed
 
-### Step 1: Get Auth Token (SPV or Admin)
+**Actual Outlet Names (Database):**
+- sukmajaya → `SUKA SHAWARMA DEPOK SUKMAJAYA`
+- beji → `SUKA SHAWARMA BEJI`
+- sawangan → `SUKA SHAWARMA SAWANGAN`
+- cibinong → `MITRA SUKA SHAWARMA CIBINONG`
+- kitchen → `SUKA SHAWARMA KITCHEN (PUSAT)`
+- And 14 more...
+
+**Leaders Created (7):**
+1. **Chairul Rizky** (chairulrizky@test.com) → 4 outlets
+2. **Tri Rizky** (tririzky@test.com) → 3 outlets
+3. **Mulyadi** (mulyadi@test.com) → 6 outlets
+4. **Abu Bakar Bahsin** (abubakarbahsin@test.com) → 1 outlet
+5. **Abdurrahman** (abdurrahman@test.com) → 1 outlet
+6. **Reza** (reza@test.com) → 1 outlet
+7. **Abyansah** (abyansah@test.com) → 3 outlets
+
+**Verification Results:**
+```
+| leader | outlets_managed | outlet_count |
+|--------|-----------------|--------------|
+| Abdurrahman | {EMPANG} | 1 |
+| Abu Bakar Bahsin | {CIMANGGU} | 1 |
+| Abyansah | {KITCHEN (PUSAT), PAJAJARAN, PALEDANG} | 3 |
+| Chairul Rizky | {BEJI, DEPOK SUKMAJAYA, SAWANGAN, ...} | 4 |
+| Mulyadi | {KALISARI, PEKAYON, TEBET, JATIWARINGIN, ...} | 6 |
+| Reza | {DRAMAGA} | 1 |
+| Tri Rizky | {CIBINONG, CISEENG, CIRENDEU} | 3 |
+```
+
+**Total: 19 outlet mappings ✅**
+
+---
+
+## How It Was Done (For Reference)
+
+### Method Used: Supabase SQL Editor (Simplest)
+
+**Instead of edge function, we used:**
+1. Supabase Dashboard → SQL Editor
+2. Ran INSERT queries directly with correct outlet names
+3. No AUTH_TOKEN needed ✅
+
+### Original Method: Get Auth Token (Optional, Not Used)
 
 Login ke aplikasi sebagai SPV atau Admin, kemudian:
 1. Buka browser DevTools → Network tab

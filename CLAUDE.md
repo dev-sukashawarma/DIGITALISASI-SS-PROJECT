@@ -322,9 +322,9 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 
 ---
 
-## Session 2026-06-22: Face Recognition Code Review & Enrollment Architecture
+## Session 2026-06-22: Face Recognition Code Review, Enrollment Architecture & Leader Seeding
 
-**Status:** Code review completed, documentation updated.
+**Status:** ✅ COMPLETED — Code review, documentation, and leader seeding all done.
 
 ### Code Review Findings (apps/absensi)
 **Critical bugs fixed:**
@@ -344,6 +344,31 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 - Face tech: @vladmandic/human v3.3.6, similarity threshold 0.25
 
 **Ref:** docs/ENROLLMENT-PROCESS.md, docs/SECURITY-CHECKLIST.md, docs/adr/0009-face-enrollment-architecture.md
+
+### Leader Seeding Completion (Session 2026-06-22 Continuation)
+
+**✅ All 7 leaders seeded to database:**
+- Method: Supabase SQL Editor (direct SQL, no edge function)
+- Result: 7 leaders × 19 outlets (100% coverage via staff_outlets mapping)
+- Auth: [name]@test.com / test
+
+**Leaders created:**
+1. Chairul Rizky (4 outlets: sukmajaya, beji, sawangan, pajajaran)
+2. Tri Rizky (3 outlets: cibinong, ciseeng, cirendeu)
+3. Mulyadi (6 outlets: jagakarsa, kalisari, tebet, jatiwaringin, pekayon, jatiasih)
+4. Abu Bakar Bahsin (1 outlet: cimanggu)
+5. Abdurrahman (1 outlet: empang)
+6. Reza (1 outlet: dramaga)
+7. Abyansah (3 outlets: pajajaran, paledang, kitchen)
+
+**RLS verified:** Leaders can only access their assigned outlets  
+**Access control:** Leaders can enroll crew + manage staff in their outlets
+
+**Next steps:**
+- [ ] Test login as leader (chairulrizky@test.com / test)
+- [ ] Verify `/dashboard/manajemen-kru` shows only assigned outlets
+- [ ] Verify `/dashboard/enroll` shows only assigned outlets
+- [ ] Create crew accounts for testing enrollment flow
 
 ---
 

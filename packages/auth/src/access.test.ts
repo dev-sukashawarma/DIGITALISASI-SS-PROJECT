@@ -6,8 +6,8 @@ describe('ROLE_APP_ACCESS', () => {
     expect([...ROLE_APP_ACCESS.kasir].sort()).toEqual(['absensi', 'pos-kasir'])
   })
 
-  it('crew hanya absensi', () => {
-    expect([...ROLE_APP_ACCESS.crew]).toEqual(['absensi'])
+  it('crew punya absensi, pos-kasir & stok', () => {
+    expect([...ROLE_APP_ACCESS.crew].sort()).toEqual(['absensi', 'pos-kasir', 'stok'])
   })
 
   it('admin semua 6 app termasuk admin-dashboard', () => {
@@ -35,8 +35,8 @@ describe('hasAppAccess', () => {
   it('leader boleh stok', () => {
     expect(hasAppAccess('leader', 'stok')).toBe(true)
   })
-  it('crew tidak boleh pos-kasir', () => {
-    expect(hasAppAccess('crew', 'pos-kasir')).toBe(false)
+  it('crew boleh pos-kasir', () => {
+    expect(hasAppAccess('crew', 'pos-kasir')).toBe(true)
   })
 })
 

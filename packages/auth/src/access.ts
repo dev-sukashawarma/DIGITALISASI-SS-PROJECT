@@ -8,7 +8,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   spv: ['absensi', 'stok', 'distribusi'],
   leader: ['pos-kasir', 'absensi', 'stok', 'distribusi'],
   kasir: ['pos-kasir', 'absensi'],
-  crew: ['absensi'],
+  crew: ['absensi', 'pos-kasir', 'stok'],
   kiosk: ['pos-kasir'],
 }
 

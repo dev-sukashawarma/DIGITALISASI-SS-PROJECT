@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, createSupabaseBrowserClient } from '@suka/auth'
 import type { OutletStaffProfile } from '@suka/auth'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { OutletScopeProvider } from '@/hooks/useOutletScope'
 
 export function Providers({
   children,
@@ -19,7 +20,9 @@ export function Providers({
   return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
-        <AuthProvider supabase={supabase} initialStaff={initialStaff}>{children}</AuthProvider>
+        <AuthProvider supabase={supabase} initialStaff={initialStaff}>
+          <OutletScopeProvider>{children}</OutletScopeProvider>
+        </AuthProvider>
       </ErrorBoundary>
     </QueryClientProvider>
   )

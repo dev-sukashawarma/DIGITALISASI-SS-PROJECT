@@ -23,7 +23,7 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'B
   return 'Jakarta'; // Default
 };
 
-export function SPVDashboard() {
+export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[] } = {}) {
   const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'compliance'>('overview');
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
   
@@ -67,7 +67,9 @@ export function SPVDashboard() {
 
   // Compute final items with local threshold overrides
   const items = useMemo(() => {
-    const originalItems = data?.items || [];
+    const originalItems = (data?.items || []).filter(
+      (item) => !allowedOutletIds || allowedOutletIds.includes(item.outlet_id)
+    );
     return originalItems.map(item => {
       const overrideKey = `${item.outlet_id}-${item.bahan_baku_id}`;
       if (localThresholdOverrides[overrideKey] !== undefined) {
@@ -89,7 +91,7 @@ export function SPVDashboard() {
       }
       return item;
     });
-  }, [data?.items, localThresholdOverrides]);
+  }, [data?.items, localThresholdOverrides, allowedOutletIds]);
 
   const alertCount = useMemo(() => {
     return items.filter((item) => item.status !== 'ok' || item.is_flagged).length;
@@ -299,7 +301,7 @@ export function SPVDashboard() {
             {/* Left panel: Outlets */}
             <aside className="w-[25%] bg-[#faf2e9] border-r border-[#d9c2b2] overflow-y-auto p-6 space-y-6">
               <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase border-b border-suka-brown/10 pb-2">
-                Daftar 19 Outlet
+                {allowedOutletIds ? `Outlet Binaan (${allowedOutletIds.length})` : 'Daftar 19 Outlet'}
               </h3>
               <div className="flex flex-col gap-6">
                 {['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang'].map((region) => (

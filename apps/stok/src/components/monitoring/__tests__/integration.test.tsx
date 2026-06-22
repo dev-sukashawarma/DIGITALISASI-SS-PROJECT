@@ -12,6 +12,9 @@ vi.mock('@suka/auth', () => ({
 // Mock the hooks
 vi.mock('@/hooks/useMonitoringData');
 
+const mockUseOutletScope = vi.fn();
+vi.mock('@/hooks/useOutletScope', () => ({ useOutletScope: () => mockUseOutletScope() }));
+
 // Mock the dashboard components
 vi.mock('../SPVDashboard', () => ({
   SPVDashboard: () => <div data-testid="spv-dashboard">SPV Monitoring Dashboard</div>,
@@ -35,6 +38,7 @@ const wrapper = ({ children }: any) => (
 describe('MonitoringPage Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseOutletScope.mockReturnValue({ boundOutlets: [], isMultiOutlet: false });
   });
 
   it('renders SPV dashboard for SPV role', async () => {
@@ -129,7 +133,7 @@ describe('MonitoringPage Integration', () => {
     });
   });
 
-  it('renders Crew dashboard for leader role', async () => {
+  it('renders SPV dashboard for leader role (scoped to bound outlets)', async () => {
     vi.mocked(AuthContext.useAuth).mockReturnValue({
       session: null,
       user: { id: 'user4' },
@@ -147,7 +151,7 @@ describe('MonitoringPage Integration', () => {
     render(<MonitoringPage />, { wrapper });
 
     await waitFor(() => {
-      expect(screen.getByTestId('crew-dashboard')).toBeInTheDocument();
+      expect(screen.getByTestId('spv-dashboard')).toBeInTheDocument();
     });
   });
 });

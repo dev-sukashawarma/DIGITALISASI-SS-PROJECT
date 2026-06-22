@@ -125,6 +125,8 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 
 **Boleh (di sistem digital):**
 - **absensi:** pantau & rekap absensi crew **lintas semua outlet**.
+  - **Manajemen Kru:** create/edit/deactivate crew akun lintas outlet (`/dashboard/manajemen-kru`)
+  - **Enrollment Wajah:** register crew wajah dengan capture 3 sudut (`/dashboard/enroll`) — dapat handle re-enrollment approval (future)
 - **stok:** monitoring-live, rekap stok/waste, lihat ledger & forecast **lintas outlet** (read-heavy; investigasi selisih).
 - **distribusi:** memantau kelancaran surat jalan/kiriman antar outlet.
 
@@ -156,6 +158,8 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 - **stok:** kelola stok & **opname** outlet sendiri.
 - **distribusi:** terima & verifikasi surat jalan/kiriman.
 - **absensi:** pantau & rekap absensi crew di outletnya.
+  - **Manajemen Kru:** create/edit crew akun di outlet binaan (`/dashboard/manajemen-kru`, RLS by outlet)
+  - **Enrollment Wajah:** register crew wajah di outlet binaan (`/dashboard/enroll`, RLS by outlet)
 - **pos-kasir:** transaksi & tutup shift (cover kasir bila perlu, pengawasan rekap).
 
 **Tidak boleh:**
@@ -237,11 +241,28 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 
 ---
 
+## Catatan Khusus — Face Enrollment (absensi M1)
+
+**Requirement:** Setiap crew **HARUS enroll wajah** sebelum bisa absen via kiosk. Workflow:
+1. SPV/Leader create akun crew di `/dashboard/manajemen-kru`
+2. Crew (atau SPV/Leader atas nama crew) enroll wajah di `/dashboard/enroll`
+   - Consent: tanda-tangan digital "Persetujuan UU PDP" → audit trail `consent_at`, `consent_by`
+   - Capture: 3 sudut otomatis (center, left, right)
+   - Result: `outlet_staff.face_descriptor` + `enrolled_at` tercatat
+3. Crew bisa clock in/out di kiosk (face match ≥ 0.25 similarity)
+
+**Access restriction:** `/dashboard/enroll` **SPV/Leader only** (role-based nav + page-level guard).
+
+**Privacy:** Data wajah (descriptor float32[128]) + ref photo tersimpan encrypted di database & storage dengan RLS `outlet_staff.outlet_id` scope.
+
+---
+
 ## Catatan / Backlog (di luar lingkup role saat ini)
 
 - **FoodApps (GoFood / GrabFood / ShopeeFood):** muncul kuat di SOP SPV & Leader (aktivasi, off menu habis, rating, komplain online) tetapi **belum ada modul di suite digital**. Dicatat sebagai kandidat fitur, bukan bagian dari sistem role/login.
 - **`spv` & owner-dashboard (lihat penjualan binaan):** ditunda, belum diputuskan.
 - **Penugasan SPV per-area:** saat ini SPV = semua 19 outlet. Bila kelak SPV dibagi regional, tambahkan pemetaan `spv ↔ outlet` tanpa mengubah daftar role.
+- **Face enrollment improvements:** re-enrollment approval, quality check on capture, password generation, onboarding alerts — lihat `docs/ENROLLMENT-PROCESS.md` (backlog section).
 
 ---
 

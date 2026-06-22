@@ -10,7 +10,7 @@ export type Descriptor = readonly number[];
 
 import { match } from "@vladmandic/human";
 
-/** Threshold similarity default; di atas ini dianggap cocok. 
+/** Threshold similarity default; di atas ini dianggap cocok.
  * Diturunkan ke 0.25 berdasarkan testing di lapangan (lighting/kamera bervariasi).
  */
 export const DEFAULT_MATCH_THRESHOLD = 0.25;
@@ -23,10 +23,21 @@ function assertSameLength(a: Descriptor, b: Descriptor): void {
   }
 }
 
+/** Euclidean distance (L2 norm) antara dua descriptor */
+export function euclideanDistance(a: Descriptor, b: Descriptor): number {
+  assertSameLength(a, b);
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) {
+    const diff = a[i]! - b[i]!;
+    sum += diff * diff;
+  }
+  return Math.sqrt(sum);
+}
+
 /** Menghitung kemiripan menggunakan fungsi bawaan Human (0 sampai 1) */
 export function faceSimilarity(a: Descriptor, b: Descriptor): number {
   assertSameLength(a, b);
-  return match.similarity(a, b);
+  return match.similarity(a as number[], b as number[]);
 }
 
 /** True bila kedua descriptor cocok (similarity >= threshold). */

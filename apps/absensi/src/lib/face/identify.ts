@@ -3,12 +3,12 @@ import { faceSimilarity, DEFAULT_MATCH_THRESHOLD, type Descriptor } from "./matc
 export type Candidate = { id: string; name: string; descriptor: Descriptor };
 export type IdentifyResult = { id: string; name: string; similarity: number; bestSimilarity: number };
 
-/** Cari kandidat terbaik (1:N) dengan kemiripan tertinggi. Null bila tak ada / semua di bawah threshold. */
+/** Cari kandidat terbaik (1:N) dengan kemiripan tertinggi. Fallback ke {id:"unknown"} jika tak ada match. */
 export function identifyStaff(
   live: Descriptor,
   candidates: Candidate[],
   threshold: number = DEFAULT_MATCH_THRESHOLD,
-): IdentifyResult | null {
+): IdentifyResult {
   let best: { id: string; name: string; similarity: number } | null = null;
   let maxSimilarity = -1;
 
@@ -21,7 +21,7 @@ export function identifyStaff(
       }
     }
   }
-  
+
   if (!best) return { id: "unknown", name: "Unknown", similarity: 0, bestSimilarity: maxSimilarity };
   return { ...best, bestSimilarity: maxSimilarity };
 }

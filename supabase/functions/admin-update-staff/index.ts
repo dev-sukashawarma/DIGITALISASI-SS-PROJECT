@@ -40,8 +40,8 @@ serve(async (req) => {
       if (error) throw error;
     }
 
-    // Sinkronkan staff_outlets bila kepala_outlet (delete-insert)
-    if (role === "kepala_outlet" && Array.isArray(outlet_ids)) {
+    // Sinkronkan staff_outlets bila leader (delete-insert)
+    if (role === "leader" && Array.isArray(outlet_ids)) {
       await admin.from("staff_outlets").delete().eq("staff_id", staff_id);
       if (outlet_ids.length > 0) {
         const rows = outlet_ids.map((oid: string) => ({ staff_id, outlet_id: oid }));

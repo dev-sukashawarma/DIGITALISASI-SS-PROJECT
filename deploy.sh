@@ -148,10 +148,10 @@ deploy_one() {
   fi
 
   if command -v taskset >/dev/null 2>&1; then
-    taskset -c 0,1 "$NODE" "$NPM" run build
+    taskset -c 0,1 npx yarn run build
     BUILD_EXIT=$?
   else
-    "$NODE" "$NPM" run build
+    npx yarn run build
     BUILD_EXIT=$?
   fi
 

@@ -37,13 +37,14 @@ Pemetaan istilah SOP → role sistem:
 
 | # | Role | Singkat | Cakupan data | Tipe |
 |---|------|---------|-------------|------|
-| 1 | `admin` | IT/Sistem + HR/Personalia | Semua outlet (19) | Manusia (pusat) |
-| 2 | `owner` | Pemilik usaha | Semua outlet, read-only | Manusia (pusat) |
-| 3 | `spv` | Supervisor pembina outlet | **Semua outlet (19)**, monitoring/evaluasi | Manusia (lapangan, lintas outlet) |
-| 4 | `leader` | Leader Outlet (PIC beberapa outlet) | **Beberapa outlet (subset)** via `staff_outlets` | Manusia (outlet) |
-| 5 | `kasir` | Kasir | 1 outlet | Manusia (outlet) |
-| 6 | `crew` | Kru produksi/operasional | 1 outlet, data diri | Manusia (outlet) |
-| 7 | `kiosk` | Device POS/antrian | 1 outlet (terikat device) | Mesin (bukan manusia) |
+| 1 | `admin` | IT/Sistem | Semua outlet (19) | Manusia (pusat) |
+| 2 | `admin_hr` | HR/Personalia | Semua outlet (19) | Manusia (pusat) |
+| 3 | `owner` | Pemilik usaha | Semua outlet, read-only | Manusia (pusat) |
+| 4 | `spv` | Supervisor pembina outlet | **Semua outlet (19)**, monitoring/evaluasi | Manusia (lapangan, lintas outlet) |
+| 5 | `leader` | Leader Outlet (PIC beberapa outlet) | **Beberapa outlet (subset)** via `staff_outlets` | Manusia (outlet) |
+| 6 | `kasir` | Kasir | 1 outlet | Manusia (outlet) |
+| 7 | `crew` | Kru produksi/operasional | 1 outlet, data diri | Manusia (outlet) |
+| 8 | `kiosk` | Device POS/antrian | 1 outlet (terikat device) | Mesin (bukan manusia) |
 
 > **Catatan `spv`:** satu role tunggal, **berada di atas Leader Outlet** dan **mengawasi seluruh 19 outlet** (bukan 1 outlet). Sifat aksesnya monitoring/evaluasi (read-heavy) lintas outlet, memakai view definer SPV yang sudah bypass RLS. Pembagian "produksi" vs "stok" adalah divisi/penugasan, bukan beda hak akses.
 
@@ -68,20 +69,33 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 
 ## Detail Jobdesk per Role
 
-### 1. `admin` — IT/Sistem + HR/Personalia
+### 1. `admin` — IT/Sistem
 
-**Posisi:** Tim pusat (IT & personalia). Super user sistem.
+**Posisi:** Tim pusat (IT). Super user sistem terkait infrastruktur dan konfigurasi.
+
+**Tanggung jawab:**
+- **Sistem:** konfigurasi threshold stok per outlet, pengaturan aplikasi, kelola data master (outlet, item).
+- **Pengawasan menyeluruh:** akses penuh semua app & laporan teknis lintas outlet.
+- *Catatan: Urusan kepegawaian kini dipisah ke role `admin_hr`.*
+
+**Boleh:**
+- Atur threshold/config, monitoring-live semua outlet
+- Akses System Health, Manajemen Outlet
+
+### 2. `admin_hr` — HR/Personalia
+
+**Posisi:** Tim pusat (Personalia/HR). Mengelola sumber daya manusia tanpa akses pengaturan sistem teknis.
 
 **Tanggung jawab:**
 - **HR/Personalia:** kelola database karyawan seluruh 19 outlet (tambah, edit, nonaktifkan staff via Edge Function `create-staff`/`delete-staff`), kelola akun login & reset kredensial, pantau **absensi harian lintas semua outlet**.
-- **Sistem:** konfigurasi threshold stok per outlet, pengaturan aplikasi, kelola data master (outlet, item).
-- **Pengawasan menyeluruh:** akses penuh semua app & semua laporan lintas outlet.
 
 **Boleh:**
 - CRUD staff & akun (semua outlet)
 - Lihat & ekspor absensi semua outlet
-- Atur threshold/config, monitoring-live semua outlet
-- Akses pos-kasir, absensi, stok, distribusi, owner-dashboard
+- Akses Admin Dashboard (View HR) dan absensi
+
+**Tidak boleh / hindari:**
+- Akses System Health, konfigurasi sistem teknis, atau mengubah master data (wewenang `admin`).
 
 **Tidak boleh / hindari:**
 - Dipakai untuk transaksi operasional harian (gunakan role operasional yang sesuai) — admin disediakan untuk administrasi, bukan kasir/produksi rutin.

@@ -4,6 +4,7 @@ import { Button } from '@suka/design-system'
 import { useAuth } from '@suka/auth'
 import { LogOut, User } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { useRole } from './RoleContext'
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Analisis Penjualan & Kinerja',
@@ -14,6 +15,7 @@ const PAGE_TITLES: Record<string, string> = {
 export const Header = () => {
   const { outletStaff, signOut } = useAuth()
   const pathname = usePathname()
+  const { role, setRole } = useRole()
   const title = PAGE_TITLES[pathname] ?? 'Dashboard Owner'
 
   return (
@@ -22,7 +24,7 @@ export const Header = () => {
         <h1 className="text-lg font-extrabold text-suka-brown tracking-tight">{title}</h1>
         {outletStaff && (
           <p className="text-xs font-bold text-suka-orange mt-0.5 uppercase tracking-wider">
-            Owner: {outletStaff.name}
+            User: {outletStaff.name}
           </p>
         )}
       </div>
@@ -37,6 +39,17 @@ export const Header = () => {
             <span className="text-xs font-bold text-suka-brown">{outletStaff.name}</span>
           </div>
         )}
+
+        <select 
+          value={role} 
+          onChange={(e) => setRole(e.target.value as any)}
+          className="text-sm border-gray-300 rounded-md py-1 px-2 focus:border-suka-orange focus:ring-suka-orange"
+        >
+          <option value="HR">HR (Legacy/Mock)</option>
+          <option value="ADMIN_HR">Admin HR</option>
+          <option value="OWNER">Owner</option>
+          <option value="ADMIN">Admin / System</option>
+        </select>
 
         <Button
           variant="secondary"

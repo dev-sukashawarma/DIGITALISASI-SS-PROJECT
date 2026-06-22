@@ -3,6 +3,7 @@ import type { AppName, Role } from './types'
 /** Sumber tunggal matriks akses role -> daftar app. Ref: docs/ROLE-JOBDESK.md */
 export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   admin: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'owner-dashboard', 'admin-dashboard'],
+  admin_hr: ['absensi', 'admin-dashboard'],
   owner: ['owner-dashboard'],
   spv: ['absensi', 'stok', 'distribusi'],
   leader: ['pos-kasir', 'absensi', 'stok', 'distribusi'],

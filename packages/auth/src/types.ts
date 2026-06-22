@@ -1,5 +1,6 @@
 export type Role =
   | 'admin'
+  | 'admin_hr'
   | 'owner'
   | 'spv'
   | 'leader'

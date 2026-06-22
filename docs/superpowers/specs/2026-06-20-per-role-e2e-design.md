@@ -8,7 +8,7 @@
 
 Checklist tes **manual** yang dijalankan tester lewat browser sendiri untuk
 memverifikasi **matriks akses role → aplikasi** untuk ke-7 role
-(`admin`, `owner`, `spv`, `kepala_outlet`, `kasir`, `crew`, `kiosk`).
+(`admin`, `owner`, `spv`, `leader`, `kasir`, `crew`, `kiosk`).
 
 Bukan tes otomatis. Tidak ada Playwright. Output = satu dokumen checklist berisi
 langkah + hasil yang diharapkan, dengan kotak centang per langkah.
@@ -34,7 +34,7 @@ selalu cocok dengan keduanya.
 | admin | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (auto-redirect) |
 | owner | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
 | spv | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| kepala_outlet | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| leader | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | kasir | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | crew | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | kiosk | ✅ (mode kiosk) | ❌ | ❌ | ❌ | ❌ | ❌ |

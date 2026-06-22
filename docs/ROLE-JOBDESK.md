@@ -17,7 +17,7 @@ Management / HRD        →  role: owner + admin
         ↓
 SPV (lintas outlet)     →  role: spv     — mengawasi & membina semua outlet
         ↓
-Leader Outlet (1 outlet)→  role: kepala_outlet — PIC operasional harian outlet
+Leader Outlet (1 outlet)→  role: leader — PIC operasional harian outlet
         ↓
 Crew / Kasir            →  role: crew, kasir
 ```
@@ -28,7 +28,7 @@ Pemetaan istilah SOP → role sistem:
 |-------------|------------|
 | Management / HRD | `admin` (+ `owner`) |
 | SPV | `spv` |
-| Leader Outlet | `kepala_outlet` |
+| Leader Outlet | `leader` |
 | Crew / Kasir / Kitchen | `crew`, `kasir` |
 
 ---
@@ -40,7 +40,7 @@ Pemetaan istilah SOP → role sistem:
 | 1 | `admin` | IT/Sistem + HR/Personalia | Semua outlet (19) | Manusia (pusat) |
 | 2 | `owner` | Pemilik usaha | Semua outlet, read-only | Manusia (pusat) |
 | 3 | `spv` | Supervisor pembina outlet | **Semua outlet (19)**, monitoring/evaluasi | Manusia (lapangan, lintas outlet) |
-| 4 | `kepala_outlet` | Leader Outlet (PIC beberapa outlet) | **Beberapa outlet (subset)** via `staff_outlets` | Manusia (outlet) |
+| 4 | `leader` | Leader Outlet (PIC beberapa outlet) | **Beberapa outlet (subset)** via `staff_outlets` | Manusia (outlet) |
 | 5 | `kasir` | Kasir | 1 outlet | Manusia (outlet) |
 | 6 | `crew` | Kru produksi/operasional | 1 outlet, data diri | Manusia (outlet) |
 | 7 | `kiosk` | Device POS/antrian | 1 outlet (terikat device) | Mesin (bukan manusia) |
@@ -56,7 +56,7 @@ Pemetaan istilah SOP → role sistem:
 | **admin** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **owner** | ❌ | ❌ | ❌ | ❌ | ✅ (read-only) |
 | **spv** | ❌ | ✅ semua outlet | ✅ semua outlet (monitor) | ✅ (monitor) | ⚠️ ditunda |
-| **kepala_outlet** | ✅ | ✅ (outlet binaan) | ✅ (outlet binaan) | ✅ | ❌ |
+| **leader** | ✅ | ✅ (outlet binaan) | ✅ (outlet binaan) | ✅ | ❌ |
 | **kasir** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **crew** | ❌ | ✅ | ❌ | ❌ | ❌ |
 | **kiosk** | ✅ (kiosk mode) | ❌ | ❌ | ❌ | ❌ |
@@ -139,7 +139,7 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 
 ---
 
-### 4. `kepala_outlet` — Leader Outlet (PIC Beberapa Outlet)
+### 4. `leader` — Leader Outlet (PIC Beberapa Outlet)
 
 **Posisi:** Pemimpin & penanggung jawab operasional harian **beberapa outlet** yang ditugaskan kepadanya, role model bagi crew. Melapor kepada SPV. (Ref: *SOP + JOBDESK LEADER OUTLET*.)
 
@@ -228,7 +228,7 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 
 1. **RLS per scope:**
    - `kasir`, `crew` → terikat **1 outlet** (`outlet_staff.outlet_id`).
-   - `kepala_outlet` → terikat **beberapa outlet** lewat tabel `staff_outlets` (RLS cek keanggotaan, bukan kolom tunggal).
+   - `leader` → terikat **beberapa outlet** lewat tabel `staff_outlets` (RLS cek keanggotaan, bukan kolom tunggal).
    - `spv` → **semua outlet** lewat view definer SPV (bypass RLS).
    - `admin`, `owner` → semua outlet (agregat/bypass).
 2. **Least privilege:** default tolak; akses hanya yang ada di matriks. Guard middleware menolak role di luar daftar app.
@@ -250,23 +250,23 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 ```
 outlet_staff (1 baris/user)
   ├─ id            → FK auth.users
-  ├─ role          → admin | owner | spv | kepala_outlet | kasir | crew | kiosk
+  ├─ role          → admin | owner | spv | leader | kasir | crew | kiosk
   ├─ outlet_id     → outlet "home" (dipakai kasir/crew/kiosk; opsional utk role multi-outlet)
   └─ status        → active | inactive | on_leave
 
-staff_outlets (many-to-many, HANYA untuk kepala_outlet)
+staff_outlets (many-to-many, HANYA untuk leader)
   ├─ staff_id      → FK outlet_staff.id
   └─ outlet_id     → FK outlets.id
 ```
 
 - `kasir`, `crew`, `kiosk`: scope dari `outlet_staff.outlet_id` tunggal.
-- `kepala_outlet`: scope dari baris-baris `staff_outlets` miliknya (1..N outlet).
+- `leader`: scope dari baris-baris `staff_outlets` miliknya (1..N outlet).
 - `spv`, `admin`, `owner`: semua outlet (tidak butuh pemetaan).
 
 ## Daftar Role Final (untuk enum/constraint `outlet_staff.role`)
 
 ```
-admin | owner | spv | kepala_outlet | kasir | crew | kiosk
+admin | owner | spv | leader | kasir | crew | kiosk
 ```
 
 ---

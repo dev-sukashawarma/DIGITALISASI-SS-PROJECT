@@ -36,7 +36,7 @@ Sukashawarma adalah usaha F&B (fokus shawarma) dengan **19 outlet se-Jabodetabek
 ## Keputusan Arsitektur (terkunci)
 
 1. **Stack modul baru:** Supabase (Postgres + Auth + Storage + RLS + Edge Functions + pg_cron) + **Next.js/TypeScript (static export `output: 'export'`)** + Tailwind, deploy ke **server cPanel CloudLinux shared (penyedia lokal)** sebagai file statis, subdomain per modul. Logika server & sinkron di Edge Functions/RLS/pg_cron (bukan SSR, bukan n8n). Reuse Design System SUKA sebagai package bersama. → ADR-005, ADR-006
-2. **Identitas terpadu `outlet_staff`** (role: `crew`, `kasir`, `spv`, `kepala_outlet`). Tidak kopling `pos_cashiers` lama. → ADR-001
+2. **Identitas terpadu `outlet_staff`** (role: `crew`, `kasir`, `spv`, `leader`). Tidak kopling `pos_cashiers` lama. → ADR-001
 3. **Face matching ringan:** face-api.js 1:1 di browser device outlet. Enroll oleh SPV. Anti-curang MVP = GPS radius + selfie audit + timestamp server. Liveness ditunda. → ADR-003
 4. **Stok bahan baku = SATU domain, 3 muka:** Inventarisasi (opname) · Manajemen (ledger) · Monitoring (alert). Mulai manual/opname, BOM auto-deduction fase lanjut.
 5. **Supply chain:** **1 Gudang Pusat** → Surat Jalan → outlet verifikasi terima → **stok masuk = qty terverifikasi**.

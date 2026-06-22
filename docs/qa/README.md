@@ -11,7 +11,7 @@ bagian **Kemungkinan masalah & troubleshooting** spesifik role tersebut.
 | admin | [e2e-admin.md](e2e-admin.md) |
 | owner | [e2e-owner.md](e2e-owner.md) |
 | spv | [e2e-spv.md](e2e-spv.md) |
-| kepala_outlet | [e2e-kepala-outlet.md](e2e-kepala-outlet.md) |
+| leader | [e2e-leader.md](e2e-leader.md) |
 | kasir | [e2e-kasir.md](e2e-kasir.md) |
 | crew | [e2e-crew.md](e2e-crew.md) |
 | kiosk | [e2e-kiosk.md](e2e-kiosk.md) |
@@ -48,7 +48,7 @@ Isi tabel ini sebelum mulai; tiap dokumen role menunjuk barisnya.
 | admin | | | (semua) | email lengkap |
 | owner | | | (semua) | |
 | spv | | | (semua) | |
-| kepala_outlet | | | (binaan ≥1) | butuh baris `staff_outlets` |
+| leader | | | (binaan ≥1) | butuh baris `staff_outlets` |
 | kasir | | | 1 outlet | |
 | crew | | | 1 outlet | wajah sudah ter-enroll |
 | kiosk | | | 1 outlet | login via QR device |

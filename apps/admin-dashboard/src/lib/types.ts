@@ -54,3 +54,18 @@ export interface StaffFilterValues {
   role: string // '' = semua
   status: string // '' = semua
 }
+
+export type HealthTargetType = 'app' | 'supabase' | 'cpanel'
+export type HealthStatus = 'up' | 'degraded' | 'down' | 'unconfigured'
+
+export interface SystemHealthLogRow {
+  id: number
+  target_type: HealthTargetType
+  target_name: string
+  status: HealthStatus
+  db_status: 'ok' | 'error' | null
+  last_activity_at: string | null
+  response_time_ms: number | null
+  detail: Record<string, unknown> | null
+  checked_at: string
+}

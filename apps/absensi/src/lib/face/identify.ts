@@ -1,20 +1,27 @@
-import { euclideanDistance, DEFAULT_MATCH_THRESHOLD, type Descriptor } from "./match";
+import { faceSimilarity, DEFAULT_MATCH_THRESHOLD, type Descriptor } from "./match";
 
 export type Candidate = { id: string; name: string; descriptor: Descriptor };
-export type IdentifyResult = { id: string; name: string; distance: number };
+export type IdentifyResult = { id: string; name: string; similarity: number; bestSimilarity: number };
 
-/** Cari kandidat terdekat (1:N). Null bila tak ada / semua di atas threshold. */
+/** Cari kandidat terbaik (1:N) dengan kemiripan tertinggi. Null bila tak ada / semua di bawah threshold. */
 export function identifyStaff(
   live: Descriptor,
   candidates: Candidate[],
   threshold: number = DEFAULT_MATCH_THRESHOLD,
 ): IdentifyResult | null {
-  let best: IdentifyResult | null = null;
+  let best: { id: string; name: string; similarity: number } | null = null;
+  let maxSimilarity = -1;
+
   for (const c of candidates) {
-    const distance = euclideanDistance(live, c.descriptor);
-    if (distance <= threshold && (best === null || distance < best.distance)) {
-      best = { id: c.id, name: c.name, distance };
+    const similarity = faceSimilarity(live, c.descriptor);
+    if (similarity > maxSimilarity) {
+      maxSimilarity = similarity;
+      if (similarity >= threshold) {
+        best = { id: c.id, name: c.name, similarity };
+      }
     }
   }
-  return best;
+  
+  if (!best) return { id: "unknown", name: "Unknown", similarity: 0, bestSimilarity: maxSimilarity };
+  return { ...best, bestSimilarity: maxSimilarity };
 }

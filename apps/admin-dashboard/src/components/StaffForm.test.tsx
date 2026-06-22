@@ -9,12 +9,12 @@ const outlets: Outlet[] = [
 ]
 
 describe('StaffForm', () => {
-  it('shows OutletMultiSelect only when role is kepala_outlet', () => {
+  it('shows OutletMultiSelect only when role is leader', () => {
     render(<StaffForm outlets={outlets} onSubmit={vi.fn()} submitting={false} />)
     // default role crew → no multi-select label
     expect(screen.queryByText('Outlet Binaan')).toBeNull()
-    // switch to kepala_outlet
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'kepala_outlet' } })
+    // switch to leader
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'leader' } })
     expect(screen.getByText('Outlet Binaan')).toBeInTheDocument()
   })
 })

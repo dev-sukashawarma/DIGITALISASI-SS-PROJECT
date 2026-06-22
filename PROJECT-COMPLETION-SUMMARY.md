@@ -1,8 +1,8 @@
 # Project Completion Summary — Suka Shawarma SSO Suite
 
 **Status:** ✅ **PRODUCTION READY**  
-**Date:** 2026-06-15  
-**Last Updated:** Commit 7892e24
+**Date:** 2026-06-20  
+**Last Updated:** Commit 19718e2
 
 ---
 
@@ -135,8 +135,8 @@ RLS Enforces Outlet Scope
 
 ### **Architecture**
 - [x] Outlet identity unified in outlet_staff table
-- [x] 7 roles defined (admin, owner, spv, kepala_outlet, kasir, crew, kiosk)
-- [x] Multi-outlet support for kepala_outlet via staff_outlets mapping
+- [x] 7 roles defined (admin, owner, spv, leader, kasir, crew, kiosk)
+- [x] Multi-outlet support for leader via staff_outlets mapping
 - [x] Shared @suka/auth package with dependency injection
 - [x] Next.js middleware guards on all routes
 
@@ -224,6 +224,12 @@ RLS Enforces Outlet Scope
 - Updated documentation for current architecture
 - Created deployment guide (13 steps)
 - Created pre-deployment checklist (verification tests)
+
+### **Phase 5: Performance Optimization (Face Recognition)** ✅
+- Migrated from legacy `face-api.js` to modern `@vladmandic/human` library
+- Solved heavy mobile-browser lag and unresponsiveness during liveness tests
+- Fixed UTC vs Local timezone bugs causing incorrect "Belum Absen" status
+- **BREAKING CHANGE:** Required all staff to completely re-enroll their faces due to new 1024-d descriptor format.
 
 ---
 

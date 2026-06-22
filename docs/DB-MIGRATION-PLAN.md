@@ -30,7 +30,7 @@ Semua dibuat via Supabase CLI migrations di repo suite. RLS per-outlet wajib di 
 
 ```
 outlets                 -- salinan sinkron dari Ecosystem (id sama)
-outlet_staff            -- M0: id, outlet_id FK, name, role(crew|kasir|spv|kepala_outlet),
+outlet_staff            -- M0: id, outlet_id FK, name, role(crew|kasir|spv|leader),
                         --     status, face_descriptor (jsonb/vector), ref_photo_url, created_at
 raw_materials           -- M2: id, name, unit(kg|pcs|liter), category, created_at
 outlet_material_config  -- M2: outlet_id, material_id, reorder_point  (UNIQUE outlet+material)

@@ -48,6 +48,7 @@ coverage/
 .tmp_migrate/
 .claude/
 .claude/worktrees/
+.worktrees/
 plan_masa_depan/
 
 # Old setup scripts (now in DEPLOY-CPANEL.md)

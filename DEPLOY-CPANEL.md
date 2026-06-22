@@ -3,7 +3,7 @@
 **Environment:** connectindo.net shared hosting (grace, IP: 103.77.106.237)  
 **Apps:** 6 subdomains (portal, stok, absensi, distribusi, owner, kasir)  
 **Stack:** Node.js 24.15.0 + LiteSpeed + CloudLinux  
-**Last Updated:** 2026-06-15
+**Last Updated:** 2026-06-20
 
 ---
 
@@ -125,49 +125,44 @@ dig +short app.sukashawarma.com @dns1.connectindo.net
 
 ## STEP 4: Install Dependencies
 
-**Important:** Use native Node.js, NOT CloudLinux wrapper.
+**Important:** Because this is a Yarn Workspace monorepo, you MUST use `yarn`, NOT `npm install`. To bypass cPanel permission limits for Node.js, export the path first.
 
 ```bash
 cd /home/sukashaw/suka-app
 
-/opt/alt/alt-nodejs24/root/usr/bin/node \
-  /opt/alt/alt-nodejs24/root/usr/lib/node_modules/npm/bin/npm-cli.js \
-  install
+# 1. Kenalkan jalur Node.js versi 24 ke sistem
+export PATH="/opt/alt/alt-nodejs24/root/usr/bin:$PATH"
+
+# 2. Hapus sisa cache/folder lama (wajib untuk clean install)
+rm -rf node_modules apps/*/node_modules packages/*/node_modules .next apps/*/.next package-lock.json
+
+# 3. Jalankan yarn install via npx
+npx yarn install
 ```
 
 **Expected:** Installs monorepo dependencies (root + all apps).  
 **Time:** ~2-3 minutes
 
-**If error "EACCES: permission denied":**
-- Check npm cache: `npm cache clean --force`
-- Retry with same command
-
 ---
 
 ## STEP 5: Build Each App
 
-For each of 6 apps, build Next.js output:
+For each of 6 apps, build Next.js output using the provided deploy script (safest method):
 
 ```bash
-cd /home/sukashaw/suka-app/apps/portal
+cd /home/sukashaw/suka-app
 
-/opt/alt/alt-nodejs24/root/usr/bin/node \
-  /opt/alt/alt-nodejs24/root/usr/lib/node_modules/npm/bin/npm-cli.js \
-  run build
-```
+# Build satu aplikasi
+./deploy.sh portal
 
-**Repeat for:** `stok`, `absensi`, `distribusi`, `owner-dashboard`, `pos-kasir`
-
-**Expected output:**
-```
-info  - Linting and checking validity of types
-info  - Creating an optimized production build
-info  - Compiled successfully
+# ATAU build semua aplikasi secara berurutan
+./deploy.sh all
 ```
 
 **If build error "Type error":**
-- Check `next.config.ts` for `typescript.ignoreBuildErrors: true` (should be set for Next 16)
+- Check `next.config.mjs` for `typescript: { ignoreBuildErrors: true }` (should be set for Next 15/16)
 - Verify `.env.local` has all NEXT_PUBLIC_* vars
+- If building manually without the script, make sure to `export PATH="/opt/alt/alt-nodejs24/root/usr/bin:$PATH"` first.
 
 ---
 
@@ -185,7 +180,7 @@ const appDir = '/home/sukashaw/suka-app/apps/[APP_NAME]';
 
 process.chdir(appDir);
 
-const next = require(appDir + '/node_modules/next');
+const next = require('module').createRequire(appDir + '/package.json')('next');
 const app = next({ dev: false, dir: appDir });
 const handle = app.getRequestHandler();
 
@@ -201,7 +196,7 @@ app.prepare().then(() => {
 const { createServer } = require('http');
 const appDir = '/home/sukashaw/suka-app/apps/portal';
 process.chdir(appDir);
-const next = require(appDir + '/node_modules/next');
+const next = require('module').createRequire(appDir + '/package.json')('next');
 const app = next({ dev: false, dir: appDir });
 const handle = app.getRequestHandler();
 app.prepare().then(() => {
@@ -214,7 +209,7 @@ app.prepare().then(() => {
 const { createServer } = require('http');
 const appDir = '/home/sukashaw/suka-app/apps/stok';
 process.chdir(appDir);
-const next = require(appDir + '/node_modules/next');
+const next = require('module').createRequire(appDir + '/package.json')('next');
 const app = next({ dev: false, dir: appDir });
 const handle = app.getRequestHandler();
 app.prepare().then(() => {
@@ -387,6 +382,7 @@ curl -sI https://app.sukashawarma.com/ | grep -i set-cookie
 | "Redirect loop" | Portal config wrong | Verify `NEXT_PUBLIC_PORTAL_URL=https://app.sukashawarma.com` |
 | "Middleware takes long" | RPC query slow | Check Supabase RPC performance |
 | "SSL certificate error" | cPanel provisioning | Wait 10 min, retry (Let's Encrypt propagation) |
+| `Module not found` saat Build | Dependensi baru belum terinstal di server | Buka terminal cPanel di root `/home/sukashaw/suka-app`, jalankan `export PATH="/opt/alt/alt-nodejs24/root/usr/bin:$PATH"` lalu `npx yarn install` |
 
 ---
 

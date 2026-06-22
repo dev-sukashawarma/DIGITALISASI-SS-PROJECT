@@ -1,6 +1,6 @@
-import type { NextConfig } from 'next'
+/** @type {import('next').NextConfig} */
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   transpilePackages: ['@suka/auth', '@suka/design-system'],
   typescript: {
     tsconfigPath: './tsconfig.json',
@@ -13,3 +13,4 @@ const nextConfig: NextConfig = {
 }
 
 export default nextConfig
+

@@ -10,10 +10,9 @@ import { CameraCapture, captureFrame } from "@/components/CameraCapture";
 import { PageHeader } from "@/components/PageHeader";
 import { loadFaceModels } from "@/lib/face/recognizer";
 import { averageDescriptors } from "@/lib/face/match";
-import * as faceapi from "face-api.js";
-import { featuresFromLandmarks } from "@/lib/face/liveness";
+import { getHuman } from "@/lib/face/recognizer";
 
-type Staff = { id: string; name: string };
+type Staff = { id: string; name: string; enrolled_at: string | null };
 type EnrollPhase = "idle" | "center" | "left" | "right" | "saving" | "done";
 
 export default function EnrollPage() {
@@ -34,14 +33,18 @@ export default function EnrollPage() {
   const busyRef = useRef(false);
   const loopRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    loadFaceModels();
+  const loadStaff = () => {
     if (!outletStaff) return;
     supabase
       .from("outlet_staff")
-      .select("id,name")
+      .select("id,name,enrolled_at")
       .eq("outlet_id", outletStaff.outlet_id)
       .then(({ data }) => setStaff((data as Staff[]) ?? []));
+  };
+
+  useEffect(() => {
+    loadFaceModels();
+    loadStaff();
   }, [outletStaff]);
 
   // Sync state & ref
@@ -63,27 +66,25 @@ export default function EnrollPage() {
       
       busyRef.current = true;
       try {
-        const det = await faceapi.detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+        const human = await getHuman();
+        const res = await human.detect(video);
 
-        if (det) {
-          const features = featuresFromLandmarks(det as any);
-          const yaw = features.yawRatio;
+        if (res.face && res.face.length > 0 && res.face[0].embedding) {
+          const gList = res.gesture.map(g => g.gesture);
           const currentPhase = phaseRef.current;
 
           let shouldCapture = false;
           
-          if (currentPhase === "center" && yaw >= 0.38 && yaw <= 0.62) {
+          if (currentPhase === "center" && (gList.includes("facing center") || gList.includes("head down") || gList.includes("head up"))) {
             shouldCapture = true;
-          } else if (currentPhase === "left" && yaw > 0.65) {
+          } else if (currentPhase === "left" && gList.includes("facing left")) {
             shouldCapture = true;
-          } else if (currentPhase === "right" && yaw < 0.35) {
+          } else if (currentPhase === "right" && gList.includes("facing right")) {
             shouldCapture = true;
           }
 
           if (shouldCapture) {
-            const newShots = [...shotsRef.current, Array.from(det.descriptor)];
+            const newShots = [...shotsRef.current, Array.from(res.face[0].embedding)];
             setShots(newShots);
             
             if (currentPhase === "center") {
@@ -136,6 +137,7 @@ export default function EnrollPage() {
         
       if (error) throw error;
       setPhase("done");
+      loadStaff();
       toast.show("ok", "Enrollment Wajah Berhasil Tersimpan!");
     } catch (e: any) {
       toast.show("err", `Gagal menyimpan: ${e.message}`);
@@ -175,7 +177,9 @@ export default function EnrollPage() {
             >
               <option value="">-- Silakan pilih --</option>
               {staff.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>
+                  {s.name} {s.enrolled_at ? "✅ (Sudah Enroll)" : ""}
+                </option>
               ))}
             </select>
           </div>

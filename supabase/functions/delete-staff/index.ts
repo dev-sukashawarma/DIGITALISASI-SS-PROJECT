@@ -28,7 +28,7 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
       
-    if (!callerProfile || !["spv", "kepala_outlet"].includes(callerProfile.role)) {
+    if (!callerProfile || !["spv", "leader"].includes(callerProfile.role)) {
       throw new Error("Unauthorized: Only SPV can delete staff");
     }
 

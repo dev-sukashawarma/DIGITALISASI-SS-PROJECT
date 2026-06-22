@@ -1,6 +1,6 @@
 # DIGITALISASI SS — Sukashawarma Outlet Suite
 
-Suite digital **operasional outlet** Sukashawarma (19 outlet Jabodetabek). Sistem terintegrasi dengan **SSO login terpadu** di portal, dengan kontrol akses berbasis role (admin, owner, spv, kepala_outlet, kasir, crew, kiosk).
+Suite digital **operasional outlet** Sukashawarma (19 outlet Jabodetabek). Sistem terintegrasi dengan **SSO login terpadu** di portal, dengan kontrol akses berbasis role (admin, owner, spv, leader, kasir, crew, kiosk).
 
 ## 📋 Quick Links
 

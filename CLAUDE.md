@@ -46,9 +46,9 @@ Grid: 18 outlet, 3 kolom, spacious cards (340px × 280px)
 ---
 
 ### 3. Outlet Model
-**Canonical:** `outlet_staff` (1 row per user, `id` = auth.users.id). Bukan `outlet_users`; `profiles` (lama POS) kini VIEW kompat di atas `outlet_staff`. Role: admin, owner, spv, kepala_outlet, kasir, crew, kiosk.
+**Canonical:** `outlet_staff` (1 row per user, `id` = auth.users.id). Bukan `outlet_users`; `profiles` (lama POS) kini VIEW kompat di atas `outlet_staff`. Role: admin, owner, spv, leader, kasir, crew, kiosk.
 
-**Multi-outlet:** `kepala_outlet` bisa membina beberapa outlet via tabel `staff_outlets` (many-to-many). `kasir`/`crew`/`kiosk` tetap 1 outlet (`outlet_staff.outlet_id`). `spv`/`admin`/`owner` akses semua outlet. Helper `accessible_outlet_ids()` meresolusi scope. Detail jobdesk & matriks akses: `docs/ROLE-JOBDESK.md`.
+**Multi-outlet:** `leader` bisa membina beberapa outlet via tabel `staff_outlets` (many-to-many). `kasir`/`crew`/`kiosk` tetap 1 outlet (`outlet_staff.outlet_id`). `spv`/`admin`/`owner` akses semua outlet. Helper `accessible_outlet_ids()` meresolusi scope. Detail jobdesk & matriks akses: `docs/ROLE-JOBDESK.md`.
 
 ---
 

@@ -129,7 +129,7 @@ describe('MonitoringPage Integration', () => {
     });
   });
 
-  it('renders Crew dashboard for kepala_outlet role', async () => {
+  it('renders Crew dashboard for leader role', async () => {
     vi.mocked(AuthContext.useAuth).mockReturnValue({
       session: null,
       user: { id: 'user4' },
@@ -137,7 +137,7 @@ describe('MonitoringPage Integration', () => {
         id: 'user4',
         outlet_id: 'outlet1',
         name: 'Alice Kepala',
-        role: 'kepala_outlet',
+        role: 'leader',
         status: 'active',
       },
       loading: false,

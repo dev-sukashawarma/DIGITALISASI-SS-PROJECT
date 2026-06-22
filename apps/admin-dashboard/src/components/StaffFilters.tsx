@@ -1,7 +1,7 @@
 'use client'
 import type { Outlet, StaffFilterValues } from '@/lib/types'
 
-const ROLES = ['admin', 'owner', 'spv', 'kepala_outlet', 'kasir', 'crew', 'kiosk']
+const ROLES = ['admin', 'owner', 'spv', 'leader', 'kasir', 'crew', 'kiosk']
 
 export function StaffFilters({
   value, onChange, outlets,

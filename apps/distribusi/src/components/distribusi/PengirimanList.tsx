@@ -31,7 +31,7 @@ export function PengirimanList() {
     )
   }
 
-  if (outletStaff?.role !== 'kepala_outlet') {
+  if (outletStaff?.role !== 'leader') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#fff8f1] text-center px-6">
         <span className="text-4xl mb-3">⚠️</span>

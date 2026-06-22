@@ -147,7 +147,7 @@ export function AttendanceKioskPanel() {
   if (!outletStaff) return <div className="p-8 flex justify-center"><Spinner /></div>;
 
   const today = dayjs().format("YYYY-MM-DD");
-  const todayRecords = records.filter(r => r.ts_server.startsWith(today));
+  const todayRecords = records.filter(r => dayjs(r.ts_server).format("YYYY-MM-DD") === today);
   const hasIn = todayRecords.some(r => r.type === "in");
   const hasOut = todayRecords.some(r => r.type === "out");
 

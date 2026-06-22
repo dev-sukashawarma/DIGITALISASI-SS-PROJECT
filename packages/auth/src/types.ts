@@ -2,7 +2,7 @@ export type Role =
   | 'admin'
   | 'owner'
   | 'spv'
-  | 'kepala_outlet'
+  | 'leader'
   | 'kasir'
   | 'crew'
   | 'kiosk'

@@ -8,10 +8,12 @@
 
 export type Descriptor = readonly number[];
 
-/** Threshold euclidean default; di bawah ini dianggap cocok (ADR-003, kalibratable). 
- * Diubah ke 0.55 agar lebih akurat dengan kondisi pencahayaan & gaya rambut berbeda.
+import { match } from "@vladmandic/human";
+
+/** Threshold similarity default; di atas ini dianggap cocok. 
+ * Diturunkan ke 0.25 berdasarkan testing di lapangan (lighting/kamera bervariasi).
  */
-export const DEFAULT_MATCH_THRESHOLD = 0.55;
+export const DEFAULT_MATCH_THRESHOLD = 0.25;
 
 function assertSameLength(a: Descriptor, b: Descriptor): void {
   if (a.length !== b.length) {
@@ -21,24 +23,19 @@ function assertSameLength(a: Descriptor, b: Descriptor): void {
   }
 }
 
-/** Jarak euclidean (L2) antara dua descriptor. */
-export function euclideanDistance(a: Descriptor, b: Descriptor): number {
+/** Menghitung kemiripan menggunakan fungsi bawaan Human (0 sampai 1) */
+export function faceSimilarity(a: Descriptor, b: Descriptor): number {
   assertSameLength(a, b);
-  let sum = 0;
-  for (let i = 0; i < a.length; i++) {
-    const diff = a[i]! - b[i]!;
-    sum += diff * diff;
-  }
-  return Math.sqrt(sum);
+  return match.similarity(a, b);
 }
 
-/** True bila kedua descriptor cocok (jarak <= threshold, inklusif). */
+/** True bila kedua descriptor cocok (similarity >= threshold). */
 export function isMatch(
   a: Descriptor,
   b: Descriptor,
   threshold: number = DEFAULT_MATCH_THRESHOLD,
 ): boolean {
-  return euclideanDistance(a, b) <= threshold;
+  return faceSimilarity(a, b) >= threshold;
 }
 
 /**

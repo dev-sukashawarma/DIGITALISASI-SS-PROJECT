@@ -48,8 +48,8 @@ serve(async (req) => {
       throw insertError;
     }
 
-    // 3. staff_outlets untuk kepala_outlet
-    if (role === "kepala_outlet" && Array.isArray(outlet_ids)) {
+    // 3. staff_outlets untuk leader
+    if (role === "leader" && Array.isArray(outlet_ids)) {
       const rows = outlet_ids.map((oid: string) => ({ staff_id: newUser.user.id, outlet_id: oid }));
       const { error: soError } = await admin.from("staff_outlets").insert(rows);
       if (soError) {

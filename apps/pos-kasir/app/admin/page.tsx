@@ -12,25 +12,10 @@ import {
 } from 'recharts'
 import type { Outlet } from '@/types'
 import BranchFilter from '@/components/BranchFilter'
-
-interface OrderRow {
-  id: string
-  status: string
-  total_amount: number
-  created_at: string
-  outlet_id: string
-}
-
-type ChartRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom'
-
-const CHART_RANGES: Record<ChartRange, string> = {
-  'today': 'Hari Ini',
-  'yesterday': 'Kemarin',
-  '7days': '7 Hari Terakhir',
-  '30days': '30 Hari Terakhir',
-  'all': 'Semua Waktu',
-  'custom': 'Custom Tanggal'
-}
+import {
+  CHART_RANGES, PERIOD_SHORT, resolveRange, computeAnalytics,
+  type ChartRange, type OrderRow
+} from '@/lib/admin-analytics'
 
 export default function AdminOverviewPage() {
   const [orders, setOrders] = useState<OrderRow[]>([])
@@ -46,27 +31,34 @@ export default function AdminOverviewPage() {
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [showChartRangeDropdown, setShowChartRangeDropdown] = useState(false)
 
+  // Rentang tanggal aktif (selaras dengan filter) + periode pembanding.
+  const dateRange = useMemo(
+    () => resolveRange(chartRange, customStartDate, customEndDate),
+    [chartRange, customStartDate, customEndDate]
+  )
+
   const fetchOutlets = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase.from('outlets').select('*').order('name')
     if (data) setOutlets(data)
   }, [])
 
-  // Fetch KPI Orders (always 30 days based on global branch filter)
+  // Fetch KPI Orders — mengikuti filter cabang DAN rentang tanggal terpilih.
+  // Menarik dari awal periode pembanding (prevStart) s/d akhir periode aktif
+  // (end) supaya growth bisa dihitung tanpa query kedua.
   const fetchOrders = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
-    
-    const d = new Date()
-    d.setDate(d.getDate() - 30)
-    d.setHours(0, 0, 0, 0)
 
     let q = supabase
       .from('orders')
       .select('id, status, total_amount, created_at, outlet_id')
       .eq('status', 'completed')
-      .gte('created_at', d.toISOString())
       .order('created_at', { ascending: true })
+
+    const lowerBound = dateRange.prevStart ?? dateRange.start
+    if (lowerBound) q = q.gte('created_at', lowerBound.toISOString())
+    if (dateRange.end) q = q.lte('created_at', dateRange.end.toISOString())
 
     if (selectedOutlet !== 'all') {
       q = q.eq('outlet_id', selectedOutlet)
@@ -75,7 +67,7 @@ export default function AdminOverviewPage() {
     const { data } = await q
     setOrders(data ?? [])
     setLoading(false)
-  }, [selectedOutlet])
+  }, [selectedOutlet, dateRange])
 
   // Fetch Chart Data — agregat harian (omzet completed per sales_date) dari view
   // sales_summary_spv, BUKAN baris orders mentah. Ini menghapus risiko range
@@ -129,66 +121,11 @@ export default function AdminOverviewPage() {
   useEffect(() => { fetchOrders() }, [fetchOrders])
   useEffect(() => { fetchChartOrders() }, [fetchChartOrders])
 
-  // ─── Derived Analytics ───
-  const analytics = useMemo(() => {
-    const now = new Date()
-    const todayStr = now.toISOString().split('T')[0]
-    
-    const yesterday = new Date(now)
-    yesterday.setDate(yesterday.getDate() - 1)
-    const yesterdayStr = yesterday.toISOString().split('T')[0]
-    
-    // Today stats
-    const todayOrders = orders.filter(o => o.created_at.startsWith(todayStr))
-    const todayRevenue = todayOrders.reduce((s, o) => s + o.total_amount, 0)
-    const totalOrdersCount = todayOrders.length
-    const avgOrderValue = totalOrdersCount > 0 ? Math.round(todayRevenue / totalOrdersCount) : 0
-
-    // Yesterday stats for Growth
-    const yesterdayOrders = orders.filter(o => o.created_at.startsWith(yesterdayStr))
-    const yesterdayRevenue = yesterdayOrders.reduce((s, o) => s + o.total_amount, 0)
-    const yesterdayCount = yesterdayOrders.length
-
-    const revenueGrowth = yesterdayRevenue === 0 
-      ? (todayRevenue > 0 ? 100 : 0) 
-      : Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100)
-      
-    const ordersGrowth = yesterdayCount === 0 
-      ? (totalOrdersCount > 0 ? 100 : 0) 
-      : Math.round(((totalOrdersCount - yesterdayCount) / yesterdayCount) * 100)
-
-    // Hourly peak (for today)
-    const hourly = Array(24).fill(0)
-    todayOrders.forEach(o => {
-      const hour = new Date(o.created_at).getHours()
-      hourly[hour]++
-    })
-    const peakHour = hourly.indexOf(Math.max(...hourly, 1))
-
-    // Leaderboard (Today)
-    const branchMap: Record<string, number> = {}
-    todayOrders.forEach(o => {
-      branchMap[o.outlet_id] = (branchMap[o.outlet_id] || 0) + o.total_amount
-    })
-    const leaderboard = Object.entries(branchMap)
-      .map(([id, rev]) => {
-        const out = outlets.find(x => x.id === id)
-        return { name: out ? out.name : 'Unknown', revenue: rev }
-      })
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5)
-
-    return {
-      todayRevenue,
-      revenueGrowth,
-      totalOrdersCount,
-      ordersGrowth,
-      avgOrderValue,
-      peakHour,
-      leaderboard,
-      yesterdayRevenue
-    }
-  }, [orders, outlets])
+  // ─── Derived Analytics (mengikuti rentang tanggal terpilih) ───
+  const analytics = useMemo(
+    () => computeAnalytics(orders, outlets, dateRange),
+    [orders, outlets, dateRange]
+  )
 
   const chartData = useMemo(() => {
     // View mengembalikan satu baris per (sales_date × sales_source); jumlahkan
@@ -345,25 +282,29 @@ export default function AdminOverviewPage() {
                 <div className="w-9 h-9 bg-white/20 rounded-2xl flex items-center justify-center mb-3 backdrop-blur-sm">
                   <Banknote className="w-4.5 h-4.5 text-white" strokeWidth={1.5} />
                 </div>
-                <div className="absolute top-0 right-0">
-                  <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold ${analytics.revenueGrowth > 0 ? 'text-emerald-100 bg-emerald-500/40' : (analytics.revenueGrowth === 0 ? 'text-white/50 bg-white/10' : 'text-red-100 bg-red-500/40')}`}>
-                    {analytics.revenueGrowth > 0 ? <TrendingUp className="w-3 h-3"/> : (analytics.revenueGrowth === 0 ? <span className="font-bold">-</span> : <TrendingDown className="w-3 h-3"/>)}
-                    {analytics.revenueGrowth > 0 ? '+' : ''}{analytics.revenueGrowth}%
+                {analytics.hasComparison && (
+                  <div className="absolute top-0 right-0">
+                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold ${analytics.revenueGrowth > 0 ? 'text-emerald-100 bg-emerald-500/40' : (analytics.revenueGrowth === 0 ? 'text-white/50 bg-white/10' : 'text-red-100 bg-red-500/40')}`}>
+                      {analytics.revenueGrowth > 0 ? <TrendingUp className="w-3 h-3"/> : (analytics.revenueGrowth === 0 ? <span className="font-bold">-</span> : <TrendingDown className="w-3 h-3"/>)}
+                      {analytics.revenueGrowth > 0 ? '+' : ''}{analytics.revenueGrowth}%
+                    </div>
                   </div>
-                </div>
-                <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest">Pendapatan Hari Ini</p>
+                )}
+                <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest">Pendapatan {PERIOD_SHORT[chartRange]}</p>
                 <p className="text-2xl font-bold mt-0.5 leading-tight">{formatRupiah(analytics.todayRevenue)}</p>
-                <p className="text-[10px] text-white/60 mt-1 font-medium">Kemarin: {formatRupiah(analytics.yesterdayRevenue)}</p>
+                {analytics.hasComparison && (
+                  <p className="text-[10px] text-white/60 mt-1 font-medium">Periode lalu: {formatRupiah(analytics.prevRevenue)}</p>
+                )}
               </div>
             </div>
 
             {/* Total Orders */}
             <div className="card p-5 shadow-sm border border-gray-100 relative">
-              <GrowthBadge value={analytics.ordersGrowth} />
+              {analytics.hasComparison && <GrowthBadge value={analytics.ordersGrowth} />}
               <div className="w-9 h-9 bg-blue-50 rounded-2xl flex items-center justify-center mb-3">
                 <ShoppingBag className="w-4.5 h-4.5 text-blue-500" strokeWidth={1.5} />
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pesanan Hari Ini</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pesanan {PERIOD_SHORT[chartRange]}</p>
               <p className="text-3xl font-bold text-gray-900 mt-0.5">{analytics.totalOrdersCount}</p>
             </div>
 
@@ -453,13 +394,13 @@ export default function AdminOverviewPage() {
                 <Store className="w-5 h-5 text-indigo-500" />
                 <div>
                   <h2 className="font-bold text-gray-900 text-lg">Top 5 Cabang</h2>
-                  <p className="text-gray-400 text-xs">Performa hari ini</p>
+                  <p className="text-gray-400 text-xs">Performa {PERIOD_SHORT[chartRange]}</p>
                 </div>
               </div>
 
               {analytics.leaderboard.length === 0 ? (
                 <div className="h-40 flex items-center justify-center text-gray-400 text-sm">
-                  Belum ada transaksi hari ini
+                  Belum ada transaksi pada periode ini
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -514,7 +455,7 @@ export default function AdminOverviewPage() {
                   })}
                   {selectedOutlet !== 'all' && (
                     <div className="mt-4 bg-indigo-50 text-indigo-700 text-xs p-3 rounded-xl border border-indigo-100 text-center font-medium">
-                      Leaderboard menghitung semua cabang untuk perbandingan.
+                      Hanya menampilkan cabang terpilih. Pilih &ldquo;Semua Cabang&rdquo; untuk perbandingan.
                     </div>
                   )}
                 </div>

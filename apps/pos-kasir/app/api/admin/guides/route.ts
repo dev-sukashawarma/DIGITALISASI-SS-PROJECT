@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
+// Buku Panduan adalah konten bantuan publik — dibaca lewat service client agar
+// selalu tampil untuk semua pengguna (termasuk yang belum login), tidak terhalang
+// RLS pada tabel `guides`. Tulis/ubah (POST/PUT/DELETE) tetap dibatasi admin.
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase
       .from('guides')
       .select('*')
       .order('category', { ascending: true })
       .order('sort_order', { ascending: true })
-      
+
     if (error) throw error
     return NextResponse.json(data)
   } catch (error: any) {
@@ -20,19 +23,21 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await createClient()
 
-    // Verify admin
-    const { data: { user } } = await supabase.auth.getUser()
+    // Verify admin (pakai user client untuk baca sesi & role)
+    const { data: { user } } = await auth.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await supabase.from('outlet_staff').select('role').eq('id', user.id).single()
+    const { data: profile } = await auth.from('outlet_staff').select('role').eq('id', user.id).single()
     if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json()
     const { category, title, content, image_url, sort_order } = body
 
-    const { data, error } = await supabase
+    // Tulis pakai service client agar tidak terhalang RLS tabel `guides`
+    const db = createServiceClient()
+    const { data, error } = await db
       .from('guides')
       .insert([{ category, title, content, image_url, sort_order }])
       .select()
@@ -47,19 +52,21 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await createClient()
 
-    // Verify admin
-    const { data: { user } } = await supabase.auth.getUser()
+    // Verify admin (pakai user client untuk baca sesi & role)
+    const { data: { user } } = await auth.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await supabase.from('outlet_staff').select('role').eq('id', user.id).single()
+    const { data: profile } = await auth.from('outlet_staff').select('role').eq('id', user.id).single()
     if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json()
     const { id, category, title, content, image_url, sort_order } = body
 
-    const { data, error } = await supabase
+    // Update pakai service client agar tidak terhalang RLS tabel `guides`
+    const db = createServiceClient()
+    const { data, error } = await db
       .from('guides')
       .update({ category, title, content, image_url, sort_order, updated_at: new Date().toISOString() })
       .eq('id', id)
@@ -75,13 +82,13 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const supabase = await createClient()
+    const auth = await createClient()
 
-    // Verify admin
-    const { data: { user } } = await supabase.auth.getUser()
+    // Verify admin (pakai user client untuk baca sesi & role)
+    const { data: { user } } = await auth.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await supabase.from('outlet_staff').select('role').eq('id', user.id).single()
+    const { data: profile } = await auth.from('outlet_staff').select('role').eq('id', user.id).single()
     if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { searchParams } = new URL(request.url)
@@ -89,7 +96,9 @@ export async function DELETE(request: Request) {
 
     if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 })
 
-    const { error } = await supabase.from('guides').delete().eq('id', id)
+    // Hapus pakai service client agar tidak terhalang RLS tabel `guides`
+    const db = createServiceClient()
+    const { error } = await db.from('guides').delete().eq('id', id)
     if (error) throw error
 
     return NextResponse.json({ success: true })

@@ -1,0 +1,100 @@
+<svg viewBox='0 0 1200 760' xmlns='http://www.w3.org/2000/svg'>
+    <rect width='1200' height='760' fill='#f9fafb'/>
+    <g>
+    <rect x='0' y='0' width='230' height='760' fill='#ffffff'/>
+    <line x1='230' y1='0' x2='230' y2='760' stroke='#e5e7eb' stroke-width='2'/>
+    <!-- brand -->
+    <rect x='24' y='34' width='42' height='42' rx='13' fill='#f59e0b'/>
+    <text x='45' y='61' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='22'>🥙</text>
+    <text x='80' y='52' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='16' font-weight='800' fill='#111827'>Hai, Kasir</text>
+    <g><circle cx='84' cy='66' r='4' fill='#10b981'/><text x='94' y='71' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='11' font-weight='800' fill='#f59e0b' letter-spacing='1'>CABANG EMPANG</text></g>
+    <g>
+      <rect x='16' y='150' width='198' height='44' rx='14' fill='#fffbeb'/>
+      <rect x='32' y='163' width='18' height='18' rx='5' fill='none' stroke='#f59e0b' stroke-width='2'/>
+      <text x='62' y='178' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='800' fill='#d97706'>Order</text>
+    </g><g>
+      <rect x='16' y='206' width='198' height='44' rx='14' fill='none'/>
+      <rect x='32' y='219' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
+      <text x='62' y='234' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Manajemen Menu</text>
+    </g><g>
+      <rect x='16' y='262' width='198' height='44' rx='14' fill='none'/>
+      <rect x='32' y='275' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
+      <text x='62' y='290' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Histori</text>
+    </g><g>
+      <rect x='16' y='318' width='198' height='44' rx='14' fill='none'/>
+      <rect x='32' y='331' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
+      <text x='62' y='346' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Kontrol Device</text>
+    </g><g>
+      <rect x='16' y='374' width='198' height='44' rx='14' fill='none'/>
+      <rect x='32' y='387' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
+      <text x='62' y='402' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Laporan</text>
+    </g><g>
+      <rect x='16' y='430' width='198' height='44' rx='14' fill='none'/>
+      <rect x='32' y='443' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
+      <text x='62' y='458' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Tampilan Layar</text>
+    </g><g>
+      <rect x='16' y='486' width='198' height='44' rx='14' fill='none'/>
+      <rect x='32' y='499' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
+      <text x='62' y='514' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Panduan</text>
+    </g>
+    <g><rect x='16' y='696' width='198' height='44' rx='14' fill='#fef2f2'/>
+    <text x='40' y='724' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='700' fill='#ef4444'>⎋  Keluar</text></g>
+  </g>
+    <g transform='translate(266,40)'>
+      <text x='0' y='28' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='30' font-weight='800' fill='#111827'>Halaman Order</text>
+      <text x='0' y='56' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='600' fill='#6b7280'>Pesanan bergerak dari kanan: Menunggu → Diproses → Selesai</text>
+    </g>
+    <g transform='translate(266,128)'>
+    <rect x='0' y='0' width='290' height='168' rx='18' fill='#eff6ff'/>
+    <rect x='14' y='16' width='262' height='40' rx='12' fill='#ffffff' stroke='#e5e7eb' stroke-width='2'/>
+    <text x='32' y='41' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='800' fill='#111827'>Sedang Diproses</text>
+    <g><rect x='210' y='24' width='52' height='24' rx='12' fill='#ffffff'/>
+    <text x='236' y='40.2' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12' font-weight='700' fill='#3b82f6'>1</text></g>
+    <rect x='14' y='70' width='262' height='78' rx='14' fill='#ffffff' stroke='#e5e7eb' stroke-width='2'/>
+      <rect x='28' y='86' width='46' height='46' rx='13' fill='#3b82f6'/>
+      <text x='51' y='108' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='9' font-weight='800' fill='#fff'>ANTRIAN</text>
+      <text x='51' y='126' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='16' font-weight='800' fill='#fff'>#101</text>
+      <text x='88' y='104' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='800' fill='#111827'>Rp 51.000</text>
+      <text x='88' y='126' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12' fill='#9ca3af'>2 menit lalu · QRIS</text>
+    <rect x='305' y='0' width='290' height='260' rx='18' fill='#fff7ed'/>
+    <rect x='319' y='16' width='262' height='40' rx='12' fill='#ffffff' stroke='#e5e7eb' stroke-width='2'/>
+    <text x='337' y='41' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='800' fill='#111827'>Menunggu</text>
+    <g><rect x='515' y='24' width='52' height='24' rx='12' fill='#ffffff'/>
+    <text x='541' y='40.2' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12' font-weight='700' fill='#f59e0b'>2</text></g>
+    <rect x='319' y='70' width='262' height='78' rx='14' fill='#ffffff' stroke='#e5e7eb' stroke-width='2'/>
+      <rect x='333' y='86' width='46' height='46' rx='13' fill='#f59e0b'/>
+      <text x='356' y='108' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='9' font-weight='800' fill='#fff'>ANTRIAN</text>
+      <text x='356' y='126' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='16' font-weight='800' fill='#fff'>#102</text>
+      <text x='393' y='104' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='800' fill='#111827'>Rp 36.000</text>
+      <text x='393' y='126' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12' fill='#9ca3af'>Baru saja · TUNAI</text><rect x='319' y='162' width='262' height='78' rx='14' fill='#ffffff' stroke='#e5e7eb' stroke-width='2'/>
+      <rect x='333' y='178' width='46' height='46' rx='13' fill='#f59e0b'/>
+      <text x='356' y='200' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='9' font-weight='800' fill='#fff'>ANTRIAN</text>
+      <text x='356' y='218' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='16' font-weight='800' fill='#fff'>#103</text>
+      <text x='393' y='196' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='800' fill='#111827'>Rp 28.000</text>
+      <text x='393' y='218' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12' fill='#9ca3af'>Baru saja · TUNAI</text>
+    <rect x='610' y='0' width='290' height='168' rx='18' fill='#ecfdf5'/>
+    <rect x='624' y='16' width='262' height='40' rx='12' fill='#ffffff' stroke='#e5e7eb' stroke-width='2'/>
+    <text x='642' y='41' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='800' fill='#111827'>Selesai / Lunas</text>
+    <g><rect x='820' y='24' width='52' height='24' rx='12' fill='#ffffff'/>
+    <text x='846' y='40.2' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12' font-weight='700' fill='#10b981'>8</text></g>
+    <rect x='624' y='70' width='262' height='78' rx='14' fill='#ffffff' stroke='#e5e7eb' stroke-width='2'/>
+      <rect x='638' y='86' width='46' height='46' rx='13' fill='#10b981'/>
+      <text x='661' y='108' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='9' font-weight='800' fill='#fff'>ANTRIAN</text>
+      <text x='661' y='126' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='16' font-weight='800' fill='#fff'>#100</text>
+      <text x='698' y='104' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='800' fill='#111827'>Rp 46.000</text>
+      <text x='698' y='126' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12' fill='#9ca3af'>5 menit lalu · LUNAS</text>
+  </g>
+  <g>
+    <circle cx='286' cy='152' r='21' fill='#ffffff' opacity='0.9'/>
+    <circle cx='286' cy='152' r='18' fill='#f59e0b' stroke='#ffffff' stroke-width='3'/>
+    <text x='286' y='158' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='19' font-weight='800' fill='#ffffff'>1</text>
+  </g> <g>
+    <circle cx='591' cy='152' r='21' fill='#ffffff' opacity='0.9'/>
+    <circle cx='591' cy='152' r='18' fill='#f59e0b' stroke='#ffffff' stroke-width='3'/>
+    <text x='591' y='158' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='19' font-weight='800' fill='#ffffff'>2</text>
+  </g> <g>
+    <circle cx='896' cy='152' r='21' fill='#ffffff' opacity='0.9'/>
+    <circle cx='896' cy='152' r='18' fill='#f59e0b' stroke='#ffffff' stroke-width='3'/>
+    <text x='896' y='158' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='19' font-weight='800' fill='#ffffff'>3</text>
+  </g>
+  </svg>

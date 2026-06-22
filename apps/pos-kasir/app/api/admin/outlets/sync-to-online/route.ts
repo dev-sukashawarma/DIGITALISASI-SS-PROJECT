@@ -17,6 +17,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: 'Not configured' })
     }
 
+    // Transform type for SS_ORDER compatibility
+    const syncOutlet = { ...outlet };
+    syncOutlet.type = outlet.type === 'mitra' ? 'partner' : 'owned';
+
     // Call SS_ORDER Edge Function
     const res = await fetch(`${SS_ORDER_URL}/functions/v1/sync-outlet`, {
       method: 'POST',
@@ -24,7 +28,7 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${KASIR_TO_ORDER_SECRET}`
       },
-      body: JSON.stringify({ action, outlet })
+      body: JSON.stringify({ action, outlet: syncOutlet })
     })
 
     if (!res.ok) {

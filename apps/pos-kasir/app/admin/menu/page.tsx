@@ -5,7 +5,7 @@ import Image from 'next/image'
 import {
   Plus, Pencil, Trash2, ImagePlus, X, Loader2,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  FileArchive, Search, Star, PlusCircle,
+  FileArchive, Search,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/validations'
@@ -43,8 +43,6 @@ async function deleteStorageImage(url: string) {
 export default function AdminMenuPage() {
   const [items, setItems]         = useState<MenuItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [bestsellers, setBestsellers] = useState<string[]>([])
-  const [upsells, setUpsells] = useState<string[]>([])
   const [loading, setLoading]     = useState(true)
   const [form, setForm]           = useState<FormState>(EMPTY)
   const [showForm, setShowForm]   = useState(false)
@@ -60,26 +58,12 @@ export default function AdminMenuPage() {
 
   async function fetchData() {
     const supabase = createClient()
-    const [{ data: m }, { data: c }, { data: b }, { data: u }] = await Promise.all([
+    const [{ data: m }, { data: c }] = await Promise.all([
       supabase.from('menu_items').select('*, categories(id,name,sort_order)').order('sort_order'),
       supabase.from('categories').select('*').order('sort_order'),
-      supabase.from('kiosk_settings').select('value').eq('key', 'bestseller_ids').maybeSingle(),
-      supabase.from('kiosk_settings').select('value').eq('key', 'upsell_ids').maybeSingle(),
     ])
     setItems(m ?? [])
     setCategories(c ?? [])
-    
-    try {
-      setBestsellers(b?.value ? JSON.parse(b.value) : [])
-    } catch {
-      setBestsellers([])
-    }
-
-    try {
-      setUpsells(u?.value ? JSON.parse(u.value) : [])
-    } catch {
-      setUpsells([])
-    }
 
     setLoading(false)
   }
@@ -166,36 +150,6 @@ export default function AdminMenuPage() {
     const supabase = createClient()
     await supabase.from('menu_items').update({ is_available: !item.is_available }).eq('id', item.id)
     fetchData()
-  }
-
-  async function toggleBestseller(item: MenuItem) {
-    const isBs = bestsellers.includes(item.id)
-    const newBs = isBs 
-      ? bestsellers.filter(id => id !== item.id)
-      : [...bestsellers, item.id]
-      
-    setBestsellers(newBs)
-    
-    const supabase = createClient()
-    await supabase.from('kiosk_settings').upsert({ 
-      key: 'bestseller_ids', 
-      value: JSON.stringify(newBs) 
-    })
-  }
-
-  async function toggleUpsell(item: MenuItem) {
-    const isUp = upsells.includes(item.id)
-    const newUp = isUp 
-      ? upsells.filter(id => id !== item.id)
-      : [...upsells, item.id]
-      
-    setUpsells(newUp)
-    
-    const supabase = createClient()
-    await supabase.from('kiosk_settings').upsert({ 
-      key: 'upsell_ids', 
-      value: JSON.stringify(newUp) 
-    })
   }
 
   async function deleteItem(item: MenuItem) {
@@ -561,18 +515,6 @@ export default function AdminMenuPage() {
                     {/* Actions */}
                     <td className="py-3.5 px-5">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => toggleUpsell(item)}
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors
-                            ${upsells.includes(item.id) ? 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100' : 'bg-gray-50 text-gray-300 hover:text-indigo-500 hover:bg-indigo-50'}`}
-                          title="Tandai sebagai Upsell Pop-up">
-                          <PlusCircle className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => toggleBestseller(item)}
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors
-                            ${bestsellers.includes(item.id) ? 'bg-yellow-50 text-yellow-500 hover:bg-yellow-100' : 'bg-gray-50 text-gray-300 hover:text-yellow-500 hover:bg-yellow-50'}`}
-                          title="Tandai Best Seller">
-                          <Star className="w-4 h-4" fill={bestsellers.includes(item.id) ? 'currentColor' : 'none'} />
-                        </button>
                         <button onClick={() => openEdit(item)}
                           className="w-8 h-8 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl
                             flex items-center justify-center transition-colors"

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
-  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle
+  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -36,8 +36,7 @@ export default function CashierOrdersPage() {
   const [now, setNow] = useState(() => Date.now())
   
   // Audio state
-  const [audioPermission, setAudioPermission] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [audioPermission, setAudioPermission] = useState(true)
   
   // Ref untuk mendeteksi order baru secara akurat (berdasarkan ID, bukan cuma jumlah)
   const knownOrderIds = useRef<Set<string>>(new Set())
@@ -46,27 +45,25 @@ export default function CashierOrdersPage() {
   const supabase = createClient()
   const { outletId, outletName, loaded: outletLoaded } = useMyOutlet()
 
-  // Initialize audio
-  useEffect(() => {
-    audioRef.current = new Audio(DING_SOUND)
-    audioRef.current.volume = 1.0
-  }, [])
-
-  // Unlock audio otomatis pada interaksi pertama user (tanpa perlu toast)
+  // Unlock audio otomatis
   useEffect(() => {
     const unlock = () => {
-      const a = audioRef.current
+      const a = document.getElementById('ding-sound') as HTMLAudioElement
       if (a) {
-        // Priming dalam konteks gesture user agar browser mengizinkan autoplay berikutnya
-        a.play().then(() => { a.pause(); a.currentTime = 0 }).catch(() => {})
+        a.play().then(() => {
+          a.pause()
+          a.currentTime = 0
+          setAudioPermission(true)
+          window.removeEventListener('click', unlock, true)
+        }).catch(() => {
+          setAudioPermission(false)
+        })
       }
-      setAudioPermission(true)
     }
-    window.addEventListener('pointerdown', unlock, { once: true })
-    window.addEventListener('keydown', unlock, { once: true })
+    // Gunakan click dengan capture phase agar dieksekusi lebih awal dan konsisten di semua browser
+    window.addEventListener('click', unlock, true)
     return () => {
-      window.removeEventListener('pointerdown', unlock)
-      window.removeEventListener('keydown', unlock)
+      window.removeEventListener('click', unlock, true)
     }
   }, [])
 
@@ -78,9 +75,11 @@ export default function CashierOrdersPage() {
 
   const playNotification = useCallback(async () => {
     try {
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0
-        await audioRef.current.play()
+      const a = document.getElementById('ding-sound') as HTMLAudioElement
+      if (a) {
+        a.currentTime = 0
+        await a.play()
+        setAudioPermission(true)
       }
     } catch (err) {
       console.warn('Audio blocked', err)
@@ -259,8 +258,8 @@ export default function CashierOrdersPage() {
               <span className="text-[10px] text-white/80 font-bold uppercase tracking-wider leading-none mb-0.5">Antrian</span>
               <span className="font-bold text-white text-xl leading-none">#{order.order_number}</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 {order.source === 'online' ? (
                   <span className="text-[10px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1"><Globe className="w-3 h-3" /> Online</span>
                 ) : order.channel ? (
@@ -399,26 +398,53 @@ export default function CashierOrdersPage() {
 
   return (
     <div className="space-y-6 relative min-h-screen">
+      <audio id="ding-sound" src={DING_SOUND} preload="auto" />
+      
+      {!audioPermission && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const a = document.getElementById('ding-sound') as HTMLAudioElement
+            if (a) {
+              a.volume = 1.0;
+              a.play().then(() => {
+                a.pause();
+                a.currentTime = 0;
+                setAudioPermission(true);
+              }).catch((err) => {
+                console.error('Audio manual play failed:', err);
+                setAudioPermission(true); // Force close to prevent being stuck
+              })
+            } else {
+              setAudioPermission(true);
+            }
+          }}
+          className="fixed top-0 left-0 right-0 z-[100] bg-red-500 text-white font-bold p-3.5 text-sm sm:text-base text-center shadow-lg animate-pulse flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <BellRing className="w-5 h-5" />
+          Browser memblokir suara notifikasi. Klik kotak merah ini untuk MENGAKTIFKAN SUARA!
+        </button>
+      )}
 
       {/* ── Header & Stats ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Order</h1>
           {outletName && (
-            <p className="text-sm font-medium text-gray-500 mt-1 flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-lg w-max border border-gray-200">
-              <Store className="w-4 h-4 text-amber-500" />
-              Anda berada di cabang: <span className="font-bold text-gray-700">{outletName}</span>
+            <p className="text-sm font-medium text-gray-500 mt-1 flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-lg w-max max-w-full border border-gray-200">
+              <Store className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="truncate">Anda berada di cabang: <strong className="text-gray-700">{outletName}</strong></span>
             </p>
           )}
         </div>
         
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
           <Link
             href="/kasir/order-manual"
             className="bg-gray-900 hover:bg-gray-800 text-white font-bold px-4 py-3 rounded-2xl flex items-center gap-2 transition-colors active:scale-95 shadow-sm flex-shrink-0"
           >
             <PlusCircle className="w-5 h-5" />
-            <span>Order Manual</span>
+            <span>Input Manual</span>
           </Link>
           <div className="bg-amber-50 border border-amber-100 px-5 py-3 rounded-2xl flex-1 sm:flex-none flex items-center gap-4">
             <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center">
@@ -432,7 +458,7 @@ export default function CashierOrdersPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1.2fr_1fr] gap-4 md:gap-6 xl:gap-8 items-start pb-20">
         
         {/* ── Column: PESANAN AKTIF ── */}
         <div className="space-y-6">
@@ -440,6 +466,7 @@ export default function CashierOrdersPage() {
           {/* Source Tabs */}
           {(() => {
             const activeOnlineCount = orders.filter(o => o.source === 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
+            const activeOfflineCount = orders.filter(o => o.source !== 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
             return (
               <div className="flex bg-gray-100/80 p-1 rounded-xl shadow-inner border border-gray-200/50 w-full sm:w-max mx-auto sm:mx-0">
                 <button
@@ -461,9 +488,14 @@ export default function CashierOrdersPage() {
                 </button>
                 <button
                   onClick={() => setSourceFilter('offline')}
-                  className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${sourceFilter === 'offline' ? 'bg-gray-800 text-white shadow-sm shadow-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
+                  className={`relative px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${sourceFilter === 'offline' ? 'bg-gray-800 text-white shadow-sm shadow-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   <Store className="w-4 h-4" /> Offline
+                  {activeOfflineCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border-2 border-white animate-pulse">
+                      {activeOfflineCount}
+                    </span>
+                  )}
                 </button>
               </div>
             );
@@ -560,7 +592,7 @@ export default function CashierOrdersPage() {
                         <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider leading-none mb-0.5">Antrian</span>
                         <span className="font-bold text-emerald-700 text-xl leading-none">#{order.order_number}</span>
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="font-bold text-gray-900">{formatRupiah(order.total_amount)}</p>
                         <p className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-emerald-600">{timeAgo(order.created_at, now)}</span>

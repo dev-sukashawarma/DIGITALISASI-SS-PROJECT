@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
+import ChannelBadge from '@/components/ChannelBadge'
 import { formatRupiah } from '@/lib/validations'
 import type { OrderWithItems, OrderStatus } from '@/types'
 
@@ -190,6 +191,9 @@ export default function AdminOrdersPage() {
                           <Icon className="w-3 h-3" />
                           {conf.label}
                         </span>
+                        {order.channel && (
+                          <ChannelBadge channel={order.channel} size="sm" />
+                        )}
                         {order.customer_name && (
                           <span className="text-sm font-semibold text-gray-700">{order.customer_name}</span>
                         )}

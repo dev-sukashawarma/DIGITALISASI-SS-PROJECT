@@ -168,34 +168,40 @@ export default function OrderManualPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-xl font-bold text-gray-900 leading-tight">Order Manual</h1>
+          <h1 className="text-xl font-bold text-gray-900 leading-tight">Input Manual</h1>
           <p className="text-sm text-gray-500 leading-tight">Input pesanan dari channel eksternal</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px] gap-4 md:gap-5 xl:gap-6 items-start min-w-0">
         {/* ══ KIRI: pilih channel + menu ══ */}
-        <div className="space-y-5">
+        <div className="space-y-4 xl:space-y-5 min-w-0">
           {/* Channel selector */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-4">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">1. Pilih Channel</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="bg-white rounded-xl xl:rounded-2xl border border-gray-200 p-3.5 xl:p-4 shadow-sm">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">1. Pilih Channel</p>
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
               {CHANNELS.map((c) => {
                 const selected = channel === c.id
                 return (
                   <button
                     key={c.id}
                     onClick={() => setChannel(c.id)}
-                    className={`relative flex items-center gap-2 px-3 py-3 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${
-                      selected ? 'shadow-md' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    className={`relative flex items-center gap-2 px-2.5 py-2 xl:py-2.5 rounded-lg xl:rounded-xl border font-bold text-xs xl:text-sm transition-all duration-200 active:scale-95 hover:shadow-sm ${
+                      selected ? 'shadow-md ring-2 ring-offset-1' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                     }`}
-                    style={selected ? { backgroundColor: c.bg, color: c.fg, borderColor: c.bg } : undefined}
+                    style={selected ? { backgroundColor: c.bg, color: c.fg, borderColor: c.bg, ringColor: c.bg } : undefined}
                   >
                     <span
-                      className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-extrabold flex-shrink-0"
-                      style={selected ? { backgroundColor: 'rgba(255,255,255,0.25)', color: c.fg } : { backgroundColor: c.bg, color: c.fg }}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-extrabold flex-shrink-0"
+                      style={selected ? { backgroundColor: 'rgba(255,255,255,0.3)', color: c.fg } : { backgroundColor: c.bg, color: c.fg }}
                     >
-                      {c.mark}
+                      {c.logoPath ? (
+                        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                          <path d={c.logoPath} />
+                        </svg>
+                      ) : (
+                        c.mark
+                      )}
                     </span>
                     <span className="truncate">{c.label}</span>
                     {selected && <CheckCircle2 className="w-4 h-4 ml-auto flex-shrink-0" />}
@@ -206,33 +212,35 @@ export default function OrderManualPage() {
           </div>
 
           {/* Search + kategori */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-3">
+          <div className="bg-white rounded-xl xl:rounded-2xl border border-gray-200 p-3.5 xl:p-4 shadow-sm space-y-3">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">2. Pilih Menu</p>
-            <div className="relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Cari menu..."
-                className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors text-sm"
-              />
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-              <button
-                onClick={() => setActiveCat('all')}
-                className={`px-3.5 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeCat === 'all' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              >
-                Semua
-              </button>
-              {categories.map((c) => (
+            <div className="flex flex-col gap-3 min-w-0">
+              <div className="relative w-full">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Cari menu..."
+                  className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all text-sm"
+                />
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-hide -mx-3.5 px-3.5 xl:mx-0 xl:px-0">
                 <button
-                  key={c.id}
-                  onClick={() => setActiveCat(c.id)}
-                  className={`px-3.5 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeCat === c.id ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  onClick={() => setActiveCat('all')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs xl:text-sm font-bold whitespace-nowrap transition-all ${activeCat === 'all' ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
                 >
-                  {c.name}
+                  Semua
                 </button>
-              ))}
+                {categories.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setActiveCat(c.id)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs xl:text-sm font-bold whitespace-nowrap transition-all ${activeCat === c.id ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -247,46 +255,49 @@ export default function OrderManualPage() {
               <p className="font-medium">Tidak ada menu yang cocok</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
               {visibleItems.map((it) => {
                 const qty = lines[it.id]?.quantity ?? 0
                 return (
-                  <div key={it.id} className={`bg-white rounded-2xl border-2 overflow-hidden transition-all ${qty > 0 ? 'border-amber-400 shadow-sm' : 'border-gray-100'}`}>
-                    <div className="aspect-square bg-gray-100 relative">
+                  <div key={it.id} className={`group bg-white rounded-xl border overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${qty > 0 ? 'border-amber-400 shadow-sm ring-1 ring-amber-400' : 'border-gray-200 hover:border-amber-300'}`}>
+                    <div className="h-24 bg-gray-50 relative overflow-hidden cursor-pointer" onClick={() => qty === 0 && addItem(it)}>
                       {it.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={it.image_url} alt={it.name} className="w-full h-full object-cover" />
+                        <img src={it.image_url} alt={it.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-300">
-                          <Sandwich className="w-10 h-10" />
+                          <Sandwich className="w-8 h-8" />
                         </div>
                       )}
                       {qty > 0 && (
-                        <span className="absolute top-2 right-2 bg-amber-500 text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center shadow-md">
+                        <span className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md ring-2 ring-white">
                           {qty}
                         </span>
                       )}
+                      {qty === 0 && (
+                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
+                      )}
                     </div>
-                    <div className="p-2.5">
-                      <p className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 min-h-[2.5rem]">{it.name}</p>
-                      <div className="flex items-center justify-between mt-1.5">
-                        <span className="font-bold text-amber-600 text-sm">{formatRupiah(it.price)}</span>
+                    <div className="p-2.5 flex flex-col justify-between">
+                      <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem] cursor-pointer" onClick={() => qty === 0 && addItem(it)}>{it.name}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(it.price)}</span>
                         {qty === 0 ? (
                           <button
                             onClick={() => addItem(it)}
-                            className="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center transition-colors active:scale-95"
+                            className="w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-500 text-amber-600 hover:text-white flex items-center justify-center transition-all active:scale-95"
                             aria-label={`Tambah ${it.name}`}
                           >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="w-3.5 h-3.5" />
                           </button>
                         ) : (
-                          <div className="flex items-center gap-1.5">
-                            <button onClick={() => setQty(it.id, qty - 1)} className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center transition-colors active:scale-95">
-                              <Minus className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
+                            <button onClick={() => setQty(it.id, qty - 1)} className="w-6 h-6 rounded-md bg-white shadow-sm text-gray-700 flex items-center justify-center transition-colors hover:bg-gray-100 active:scale-95">
+                              <Minus className="w-3 h-3" />
                             </button>
-                            <span className="font-bold text-gray-900 text-sm w-4 text-center">{qty}</span>
-                            <button onClick={() => setQty(it.id, qty + 1)} className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center transition-colors active:scale-95">
-                              <Plus className="w-3.5 h-3.5" />
+                            <span className="font-bold text-gray-900 text-xs w-3 text-center">{qty}</span>
+                            <button onClick={() => setQty(it.id, qty + 1)} className="w-6 h-6 rounded-md bg-amber-500 shadow-sm text-white flex items-center justify-center transition-colors hover:bg-amber-600 active:scale-95">
+                              <Plus className="w-3 h-3" />
                             </button>
                           </div>
                         )}
@@ -300,7 +311,7 @@ export default function OrderManualPage() {
         </div>
 
         {/* ══ KANAN: keranjang (desktop sticky) ══ */}
-        <div className="hidden lg:block sticky top-6">
+        <div className="hidden md:block sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto scrollbar-hide">
           <CartPanel
             lineList={lineList}
             totalItems={totalItems}
@@ -324,7 +335,7 @@ export default function OrderManualPage() {
       {totalItems > 0 && (
         <button
           onClick={() => setCartOpen(true)}
-          className="lg:hidden fixed bottom-4 left-4 right-4 z-40 bg-amber-500 text-white rounded-2xl shadow-xl shadow-amber-300/40 px-5 py-4 flex items-center justify-between font-bold active:scale-[0.98] transition-transform"
+          className="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-amber-500 text-white rounded-2xl shadow-xl shadow-amber-300/40 px-5 py-4 flex items-center justify-between font-bold active:scale-[0.98] transition-transform"
         >
           <span className="flex items-center gap-2">
             <span className="bg-white/25 rounded-lg px-2 py-0.5 text-sm">{totalItems}</span>
@@ -335,7 +346,7 @@ export default function OrderManualPage() {
       )}
 
       {cartOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
+        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40" onClick={() => setCartOpen(false)} />
           <div className="relative bg-gray-50 rounded-t-3xl max-h-[88vh] overflow-y-auto p-4 animate-[slideUp_.2s_ease-out]">
             <div className="flex items-center justify-between mb-3">
@@ -438,36 +449,36 @@ function CartPanel(props: {
 
         {/* Items */}
         {lineList.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl">
-            <ShoppingBag className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+            <ShoppingBag className="w-10 h-10 mx-auto mb-3 text-gray-300" />
             <p className="text-sm font-medium">Belum ada menu dipilih</p>
           </div>
         ) : (
-          <div className="space-y-2.5 max-h-[40vh] lg:max-h-[34vh] overflow-y-auto -mx-1 px-1">
+          <div className="space-y-3 max-h-[40vh] lg:max-h-[38vh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
             {lineList.map((l) => (
-              <div key={l.item.id} className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                <div className="flex items-start gap-2.5">
+              <div key={l.item.id} className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200">
+                <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 text-sm leading-snug">{l.item.name}</p>
-                    <p className="text-amber-600 font-bold text-xs mt-0.5">{formatRupiah(l.item.price * l.quantity)}</p>
+                    <p className="font-semibold text-gray-800 text-sm leading-snug">{l.item.name}</p>
+                    <p className="text-amber-600 font-bold text-sm mt-1">{formatRupiah(l.item.price * l.quantity)}</p>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button onClick={() => setQty(l.item.id, l.quantity - 1)} className="w-7 h-7 rounded-lg bg-white border border-gray-200 text-gray-700 flex items-center justify-center active:scale-95">
-                      {l.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-400" /> : <Minus className="w-3.5 h-3.5" />}
+                  <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-100 flex-shrink-0">
+                    <button onClick={() => setQty(l.item.id, l.quantity - 1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
+                      {l.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
                     </button>
-                    <span className="font-bold text-sm w-4 text-center">{l.quantity}</span>
-                    <button onClick={() => setQty(l.item.id, l.quantity + 1)} className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center active:scale-95">
+                    <span className="font-bold text-sm w-5 text-center text-gray-800">{l.quantity}</span>
+                    <button onClick={() => setQty(l.item.id, l.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-                <div className="relative mt-2">
-                  <StickyNote className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <div className="relative mt-2.5">
+                  <StickyNote className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     value={l.note}
                     onChange={(e) => setNote(l.item.id, e.target.value)}
-                    placeholder="Catatan (mis. tanpa bawang)"
-                    className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    placeholder="Catatan opsional..."
+                    className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white transition-colors"
                   />
                 </div>
               </div>
@@ -475,40 +486,42 @@ function CartPanel(props: {
           </div>
         )}
 
-        {/* Nama customer */}
-        <div>
-          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Nama Customer (opsional)</label>
-          <input
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="mis. Budi"
-            className="mt-1.5 w-full px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors text-sm"
-          />
-        </div>
+        <div className="bg-gray-50 -mx-4 p-4 border-t border-gray-200 space-y-4">
+          {/* Nama customer */}
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Nama Customer (opsional)</label>
+            <input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Misal: Budi"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors text-sm"
+            />
+          </div>
 
-        {/* Metode bayar */}
-        <div>
-          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">3. Metode Pembayaran</label>
-          <div className="grid grid-cols-2 gap-2.5 mt-1.5">
-            <button
-              onClick={() => setPayment('qris')}
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
-            >
-              <QrCode className="w-4 h-4" /> QRIS
-            </button>
-            <button
-              onClick={() => setPayment('cash')}
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
-            >
-              <Banknote className="w-4 h-4" /> Tunai
-            </button>
+          {/* Metode bayar */}
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">3. Metode Pembayaran</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setPayment('qris')}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+              >
+                <QrCode className="w-4 h-4" /> QRIS
+              </button>
+              <button
+                onClick={() => setPayment('cash')}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+              >
+                <Banknote className="w-4 h-4" /> Tunai
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Total */}
-        <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-          <span className="text-gray-500 font-medium">Total</span>
-          <span className="text-xl font-bold text-gray-900">{formatRupiah(totalPrice)}</span>
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-gray-500 font-bold">Total Pembayaran</span>
+          <span className="text-2xl font-black text-gray-900">{formatRupiah(totalPrice)}</span>
         </div>
 
         {error && (

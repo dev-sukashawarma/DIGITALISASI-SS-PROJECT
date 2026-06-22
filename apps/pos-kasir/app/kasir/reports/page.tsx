@@ -13,12 +13,14 @@ import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
+import ChannelBadge from '@/components/ChannelBadge'
 
 interface OrderRow {
   id: string
   order_number: number
   status: string
   payment_method: string | null
+  channel: string | null
   total_amount: number
   created_at: string
   order_items: {
@@ -680,6 +682,7 @@ export default function ReportsPage() {
                     <th className="px-5 py-4">No. Antrian</th>
                     <th className="px-5 py-4">Waktu</th>
                     <th className="px-5 py-4">Nama Item</th>
+                    <th className="px-5 py-4">Channel</th>
                     <th className="px-5 py-4">Metode Bayar</th>
                     <th className="px-5 py-4 text-right">Total Transaksi</th>
                   </tr>
@@ -703,6 +706,13 @@ export default function ReportsPage() {
                         </td>
                         <td className="px-5 py-4 text-gray-600 truncate max-w-[250px] font-medium" title={order.order_items.map(i => cleanItemName(i.menu_item_name)).join(', ')}>
                           {order.order_items.map(i => cleanItemName(i.menu_item_name)).join(', ')}
+                        </td>
+                        <td className="px-5 py-4">
+                          {order.channel ? (
+                            <ChannelBadge channel={order.channel} size="sm" />
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
                         </td>
                         <td className="px-5 py-4">
                           <span className="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold rounded-lg uppercase">

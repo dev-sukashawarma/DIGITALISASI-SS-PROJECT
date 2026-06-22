@@ -1,6 +1,39 @@
 // Use @suka/auth browser client yang properly configure session untuk browser
 import { createSupabaseBrowserClient } from '@suka/auth';
 
+type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
+
+/**
+ * Verify the current session is allowed to view `outletId`, using the same
+ * accessible_outlet_ids() function the server already uses for monitoring
+ * scoping (SECURITY DEFINER, scoped to auth.uid() — admin/owner/spv get all
+ * outlets, leader gets their bound outlets, kasir/crew/kiosk get only their
+ * own). Throws if not authenticated or the outlet isn't accessible.
+ *
+ * Used by detail/drill-down fetchers (fetchItemDetail, fetchOutletItemsDetail)
+ * which query monitoring_view_spv directly (unrestricted, RLS-bypassing) and
+ * therefore need this explicit check before reading data for a single outlet.
+ */
+async function assertOutletAccessible(supabase: SupabaseBrowserClient, outletId: string): Promise<void> {
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) throw new Error('Not authenticated');
+
+  const { data, error } = await supabase.rpc('accessible_outlet_ids');
+  if (error) throw error;
+
+  // PostgREST returns SETOF scalar results as an array of either plain
+  // values or single-key objects depending on client/version — handle both.
+  const allowed = new Set(
+    (data || []).map((row: unknown) =>
+      typeof row === 'string' ? row : (row as { accessible_outlet_ids?: string })?.accessible_outlet_ids
+    )
+  );
+
+  if (!allowed.has(outletId)) {
+    throw new Error('Access denied: cannot view this outlet');
+  }
+}
+
 /**
  * Fetch monitoring data for SPV (multi-outlet view)
  * RLS enforced: SPV role can see all outlets
@@ -96,29 +129,15 @@ export async function fetchCrewMonitoringData(userId?: string) {
 }
 
 /**
- * Fetch detail for a specific item
- * RLS enforced: SPV can see all outlets, crew can only see own outlet
+ * Fetch detail for a specific item, scoped to accessible_outlet_ids()
+ * (admin/owner/spv: all outlets; leader: their bound outlets; kasir/crew/
+ * kiosk: their own outlet only). Previously checked a hardcoded role list
+ * that didn't match the app's actual role values and silently blocked
+ * legitimate access — replaced with assertOutletAccessible().
  */
 export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
   const supabase = createSupabaseBrowserClient();
-  const { data: authData } = await supabase.auth.getUser();
-  if (!authData.user) throw new Error('Not authenticated');
-
-  // Get user's outlet_id and role to verify access
-  const { data: staffData, error: staffError } = await supabase
-    .from('outlet_staff')
-    .select('outlet_id, role')
-    .eq('id', authData.user.id)
-    .single();
-
-  if (staffError) throw staffError;
-  if (!staffData) throw new Error('User not assigned to outlet');
-
-  // Verify access: SPV can see all outlets, crew can only see own
-  const isSPV = ['spv_produksi', 'spv_stok', 'admin'].includes(staffData.role || '');
-  if (!isSPV && staffData.outlet_id !== outletId) {
-    throw new Error('Access denied: cannot view other outlets');
-  }
+  await assertOutletAccessible(supabase, outletId);
 
   const { data: itemData, error: itemError } = await supabase
     .from('monitoring_view_spv')
@@ -326,9 +345,14 @@ export interface OutletDetailItem {
  * Client-side via definer views (monitoring_view_spv + ledger_feed_spv) yang
  * bypass RLS — sama seperti papan utama. JANGAN query stok_balance/ledger_stok
  * langsung karena RLS membatasi ke outlet milik user (SPV lihat outlet lain → kosong).
+ * Karena monitoring_view_spv/ledger_feed_spv bypass RLS, akses ke outletId
+ * di-cek manual lewat assertOutletAccessible() (accessible_outlet_ids())
+ * sebelum query — tanpa ini siapa pun yang login bisa baca outlet manapun.
  */
 export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDetailItem[]> {
   const supabase = createSupabaseBrowserClient();
+  await assertOutletAccessible(supabase, outletId);
+
   const { data: items, error } = await supabase
     .from('monitoring_view_spv')
     .select('*')

@@ -14,15 +14,15 @@ type NavGroup = { title: string; items: NavItem[]; roles: string[] }
 const NAV_GROUPS: NavGroup[] = [
   {
     title: 'HR Dashboard',
-    roles: ['HR', 'ADMIN_HR', 'ADMIN', 'OWNER'],
+    roles: ['ADMIN_HR', 'ADMIN', 'OWNER'],
     items: [
-      { href: '/dashboard/hr', label: 'Ringkasan HR', icon: LayoutDashboard, roles: ['HR', 'ADMIN_HR', 'ADMIN', 'OWNER'] },
-      { href: '/dashboard/hr/staff', label: 'Database Karyawan', icon: Users, roles: ['HR', 'ADMIN_HR', 'ADMIN', 'OWNER'] },
-      { href: '/dashboard/hr/attendance', label: 'Absensi & Shift', icon: CalendarClock, roles: ['HR', 'ADMIN_HR', 'ADMIN', 'OWNER'] },
-      { href: '/dashboard/hr/leave', label: 'Cuti & Izin', icon: CalendarHeart, roles: ['HR', 'ADMIN_HR', 'ADMIN', 'OWNER'] },
-      { href: '/dashboard/hr/payroll', label: 'Payroll & Kasbon', icon: Banknote, roles: ['HR', 'ADMIN_HR', 'ADMIN', 'OWNER'] },
-      { href: '/dashboard/hr/recruitment', label: 'Rekrutmen', icon: Briefcase, roles: ['HR', 'ADMIN_HR', 'ADMIN', 'OWNER'] },
-      { href: '/dashboard/hr/kpi', label: 'KPI & SP', icon: Award, roles: ['HR', 'ADMIN_HR', 'ADMIN', 'OWNER'] },
+      { href: '/dashboard/hr', label: 'Ringkasan HR', icon: LayoutDashboard, roles: ['ADMIN_HR', 'ADMIN', 'OWNER'] },
+      { href: '/dashboard/hr/staff', label: 'Database Karyawan', icon: Users, roles: ['ADMIN_HR', 'ADMIN', 'OWNER'] },
+      { href: '/dashboard/hr/attendance', label: 'Absensi & Shift', icon: CalendarClock, roles: ['ADMIN_HR', 'ADMIN', 'OWNER'] },
+      { href: '/dashboard/hr/leave', label: 'Cuti & Izin', icon: CalendarHeart, roles: ['ADMIN_HR', 'ADMIN', 'OWNER'] },
+      { href: '/dashboard/hr/payroll', label: 'Payroll & Kasbon', icon: Banknote, roles: ['ADMIN_HR', 'ADMIN', 'OWNER'] },
+      { href: '/dashboard/hr/recruitment', label: 'Rekrutmen', icon: Briefcase, roles: ['ADMIN_HR', 'ADMIN', 'OWNER'] },
+      { href: '/dashboard/hr/kpi', label: 'KPI & SP', icon: Award, roles: ['ADMIN_HR', 'ADMIN', 'OWNER'] },
     ]
   },
   {

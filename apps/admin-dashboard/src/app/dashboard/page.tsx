@@ -12,7 +12,7 @@ export default function DashboardHome() {
   useEffect(() => {
     if (role === 'OWNER') {
       router.replace('/dashboard/owner')
-    } else if (role === 'ADMIN_HR' || role === 'HR') {
+    } else if (role === 'ADMIN_HR') {
       router.replace('/dashboard/hr')
     } else if (role === 'ADMIN') {
       router.replace('/dashboard/system-health')

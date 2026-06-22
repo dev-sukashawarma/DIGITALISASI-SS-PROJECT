@@ -6,7 +6,7 @@ import OnlineOrderSync from '@/components/OnlineOrderSync'
 
 export default function KasirLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gray-50 lg:flex print:block">
+    <div className="min-h-screen bg-[#fff8f1] lg:flex print:block">
       <OnlineOrderSync />
       <KasirNav />
       <main className="flex-1 min-w-0 print:w-full print:max-w-none">

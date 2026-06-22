@@ -3,7 +3,7 @@
 import { Human, Config } from "@vladmandic/human";
 
 const config: Partial<Config> = {
-  backend: "webgl",
+  // We remove hardcoded 'webgl' backend. Let human auto-detect (webgl -> wasm) to prevent crashes on older phones.
   // We can use jsdelivr as a CDN to avoid having to host models, or local path.
   // We'll use CDN for high availability and zero-config caching, which also avoids downloading 20MB of models locally for the dev.
   modelBasePath: "https://cdn.jsdelivr.net/npm/@vladmandic/human/models",

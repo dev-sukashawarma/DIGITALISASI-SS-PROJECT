@@ -40,13 +40,19 @@ export function AttendanceKioskPanel() {
   const [isOutletOpen, setIsOutletOpen] = useState(true);
   const [modelsReady, setModelsReady] = useState(false);
   const [jamMasuk, setJamMasuk] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [modelError, setModelError] = useState<string | null>(null);
 
   // Kiosk Integration
   const kiosk = useClockKiosk(outletStaff?.outlet_id || "");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const loopRef = useRef<number | null>(null);
 
-  useEffect(() => { loadFaceModels().then(() => setModelsReady(true)); }, []);
+  useEffect(() => { 
+    loadFaceModels()
+      .then(() => setModelsReady(true))
+      .catch((err) => setModelError(err.message || "Gagal memuat AI wajah. Coba refresh."));
+  }, []);
   useEffect(() => {
     if (outletStaff?.outlet_id) {
       kiosk.loadCandidates();
@@ -240,8 +246,17 @@ export function AttendanceKioskPanel() {
                 Absensi terkunci. Menunggu SPV untuk membuka outlet hari ini.
               </p>
             </div>
+          ) : cameraError || modelError ? (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 text-center">
+              <CircleX size={48} className="text-red-500 mb-4" />
+              <h2 className="text-xl font-bold text-red-400">Gagal Memuat Kamera/AI</h2>
+              <p className="text-gray-300 mt-2 text-sm">{cameraError || modelError}</p>
+            </div>
           ) : (
-            <CameraCapture onReady={(v) => (videoRef.current = v)} />
+            <CameraCapture 
+              onReady={(v) => (videoRef.current = v)} 
+              onError={(e) => setCameraError(e)}
+            />
           )}
 
           {/* Background Backdrop to darken outside during liveness */}

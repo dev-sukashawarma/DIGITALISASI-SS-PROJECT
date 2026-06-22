@@ -21,15 +21,15 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await admin.auth.getUser(token);
     if (userError || !user) throw new Error("Invalid token");
 
-    // Validasi SPV caller
+    // Validasi caller (SPV dapat create crew/kasir/leader; leader hanya create crew/kasir)
     const { data: callerProfile } = await admin
       .from("outlet_staff")
       .select("role, outlet_id")
       .eq("id", user.id)
       .single();
-      
-    if (!callerProfile || !["spv", "leader"].includes(callerProfile.role)) {
-      throw new Error("Unauthorized: Only SPV can create staff");
+
+    if (!callerProfile || !["spv", "leader", "admin"].includes(callerProfile.role)) {
+      throw new Error("Unauthorized: Only SPV/Leader/Admin can create staff");
     }
 
     const { name, email, password, role, username } = await req.json();
@@ -38,9 +38,10 @@ serve(async (req) => {
       throw new Error("Missing required fields");
     }
 
-    // SPV hanya boleh membuat kru atau kasir
-    if (!["crew", "kasir"].includes(role)) {
-       throw new Error("Unauthorized: Cannot create higher roles");
+    // Authorization: SPV/Admin dapat create semua role; Leader hanya create crew/kasir
+    const allowedRoles = callerProfile.role === "leader" ? ["crew", "kasir"] : ["crew", "kasir", "leader", "spv"];
+    if (!allowedRoles.includes(role)) {
+       throw new Error(`Unauthorized: Your role cannot create ${role} staff`);
     }
 
     // 1. Buat User Auth (Bypass confirmation)

@@ -27,22 +27,20 @@ describe("isMatch", () => {
   });
 
   test("rejects descriptors farther than the threshold", () => {
-    expect(isMatch([0, 0], [3, 4], 0.5)).toBe(false);
+    expect(isMatch([1, 0], [0, 1], 0.5)).toBe(false);
   });
 
   test("accepts descriptors within the threshold", () => {
-    expect(isMatch([0, 0], [0.1, 0.1], 0.5)).toBe(true);
+    expect(isMatch([1, 0], [0.99, 0.1], 0.8)).toBe(true);
   });
 
-  test("treats distance exactly at threshold as a match (inclusive)", () => {
-    const d = euclideanDistance([0, 0], [0.3, 0.4]); // 0.5
-    expect(isMatch([0, 0], [0.3, 0.4], d)).toBe(true);
+  test("treats similarity exactly at threshold as a match (inclusive)", () => {
+    expect(isMatch([1, 0], [0.99, 0.14], 0.99)).toBe(true);
   });
 
   test("uses DEFAULT_MATCH_THRESHOLD when none provided", () => {
-    expect(DEFAULT_MATCH_THRESHOLD).toBe(0.55);
-    // distance 0.6 > 0.55 default -> no match
-    expect(isMatch([0, 0], [0.36, 0.48])).toBe(false);
+    expect(DEFAULT_MATCH_THRESHOLD).toBe(0.25);
+    expect(isMatch([1, 0], [0, 1])).toBe(false);
   });
 });
 

@@ -80,8 +80,8 @@ export function useClockKiosk(outletId: string) {
       const res = await human.detect(video);
       if (!res.face || res.face.length === 0 || !res.face[0].embedding) return;
       const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
-      if (!found || found.id === "unknown") {
-        setResult({ ok: false, message: `Wajah tidak dikenal (Skor kemiripan tertinggi: ${found?.bestSimilarity?.toFixed(4) || 0})` });
+      if (found.id === "unknown") {
+        setResult({ ok: false, message: `Wajah tidak dikenal (Skor kemiripan tertinggi: ${found.bestSimilarity.toFixed(4)})` });
         setPhase("result");
         scheduleReset(3000);
         return;
@@ -143,8 +143,8 @@ export function useClockKiosk(outletId: string) {
         if (!res.face[0].embedding) return;
         
         const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
-        if (!found || found.id !== who.id) {
-          setResult({ ok: false, message: `Wajah harus orang yang sama. Silakan ulangi. (Skor: ${found?.bestSimilarity?.toFixed(4) || 0})` });
+        if (found.id === "unknown" || found.id !== who.id) {
+          setResult({ ok: false, message: `Wajah harus orang yang sama. Silakan ulangi. (Skor: ${found.bestSimilarity.toFixed(4)})` });
           setPhase("result");
           scheduleReset(3000);
           return;

@@ -41,4 +41,14 @@ describe('MonitoringPage', () => {
     render(<MonitoringPage />)
     expect(screen.getByTestId('spv-dashboard')).toHaveTextContent('["outlet-a","outlet-b"]')
   })
+
+  it('renders SPVDashboard scoped to a single bound outlet for leader with only one outlet', () => {
+    mockUseAuth.mockReturnValue({ outletStaff: { role: 'leader' }, loading: false })
+    mockUseOutletScope.mockReturnValue({
+      boundOutlets: [{ id: 'outlet-a', name: 'Outlet A' }],
+      isMultiOutlet: false,
+    })
+    render(<MonitoringPage />)
+    expect(screen.getByTestId('spv-dashboard')).toHaveTextContent('["outlet-a"]')
+  })
 })

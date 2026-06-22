@@ -8,7 +8,7 @@ import { useOutletScope } from '@/hooks/useOutletScope';
 
 export function MonitoringPage() {
   const { outletStaff, loading } = useAuth();
-  const { boundOutlets, isMultiOutlet } = useOutletScope();
+  const { boundOutlets } = useOutletScope();
 
   if (loading) {
     return <div className="text-center py-8">Loading...</div>;
@@ -26,7 +26,7 @@ export function MonitoringPage() {
   }
 
   if (isLeader) {
-    return <SPVDashboard allowedOutletIds={isMultiOutlet ? boundOutlets.map((o) => o.id) : undefined} />;
+    return <SPVDashboard allowedOutletIds={boundOutlets.map((o) => o.id)} />;
   }
 
   return <CrewDashboard />;

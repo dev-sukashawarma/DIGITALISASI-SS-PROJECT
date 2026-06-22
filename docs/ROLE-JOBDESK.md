@@ -266,6 +266,24 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 
 ---
 
+## Struktur Organisasi Aktual (2026-06-22)
+
+**7 Leaders → 19 Outlets** (100% coverage via `staff_outlets` mapping):
+
+| Leader | Outlets | Count |
+|--------|---------|-------|
+| **Chairul Rizky** | sukmajaya, beji, sawangan, ratujaya | 4 |
+| **Tri Rizky** | cibinong, ciseeng, cirendeu | 3 |
+| **Mulyadi** | jagakarsa, kalisari, tebet, jatiwaringin, pekayon, jatiasih | 6 |
+| **Abu Bakar Bahsin** | cimanggu | 1 |
+| **Abdurrahman** | empang | 1 |
+| **Reza** | dramaga | 1 |
+| **Abyansah** | pajajaran, paledang, kitchen | 3 |
+
+**Seeding:** Refer `docs/SEED-LEADERS-INSTRUCTION.md` for database setup.
+
+---
+
 ## Model Data Identitas & Scope
 
 ```

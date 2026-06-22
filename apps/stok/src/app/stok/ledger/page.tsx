@@ -4,15 +4,18 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@suka/auth';
+import { useOutletScope } from '@/hooks/useOutletScope';
 import { useLedgerList } from '@/hooks/useLedger';
 import { LedgerList } from '@/components/stok/LedgerList';
+import { OutletSwitcher } from '@/components/common/OutletSwitcher';
 import { getCrossAppUrl } from '@/lib/navigation';
 
 export default function LedgerPage() {
   const router = useRouter();
   const { outletStaff } = useAuth();
+  const { selectedOutletId } = useOutletScope();
   const [page, setPage] = useState(0);
-  const { ledger, loading, error } = useLedgerList(outletStaff?.outlet_id, page);
+  const { ledger, loading, error } = useLedgerList(selectedOutletId, page);
 
   const handleNavigate = (path: string) => {
     const resolvedUrl = getCrossAppUrl(path);
@@ -51,6 +54,7 @@ export default function LedgerPage() {
         </div>
         
         <div className="flex items-center gap-2">
+          <OutletSwitcher />
           <Link href="/stok/ledger/new">
             <button className="px-3.5 py-1.5 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm uppercase tracking-wider active:scale-95">
               + Entri Manual

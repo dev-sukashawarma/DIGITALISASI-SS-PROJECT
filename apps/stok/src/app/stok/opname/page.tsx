@@ -3,15 +3,18 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@suka/auth';
+import { useOutletScope } from '@/hooks/useOutletScope';
 import { useOpnameList } from '@/hooks/useOpname';
 import { OpnameList } from '@/components/stok/OpnameList';
+import { OutletSwitcher } from '@/components/common/OutletSwitcher';
 import Link from 'next/link';
 import { getCrossAppUrl } from '@/lib/navigation';
 
 export default function OpnamePage() {
   const router = useRouter();
   const { outletStaff } = useAuth();
-  const { opnameList, loading } = useOpnameList(outletStaff?.outlet_id);
+  const { selectedOutletId } = useOutletScope();
+  const { opnameList, loading } = useOpnameList(selectedOutletId);
 
   const handleNavigate = (path: string) => {
     const resolvedUrl = getCrossAppUrl(path);
@@ -50,6 +53,7 @@ export default function OpnamePage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <OutletSwitcher />
           <Link href="/stok/opname/new">
             <button className="px-3.5 py-1.5 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm uppercase tracking-wider active:scale-95">
               + Opname Baru

@@ -18,6 +18,16 @@ export const Header = () => {
   const { role, setRole } = useRole()
   const title = PAGE_TITLES[pathname] ?? 'Dashboard Owner'
 
+  const handleLogout = async () => {
+    await signOut()
+    const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+    let url = portalUrl
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      url = 'http://localhost:3010'
+    }
+    window.location.href = url
+  }
+
   return (
     <header className="bg-white border-b border-suka-gray-200 px-6 py-4 flex justify-between items-center shadow-sm flex-shrink-0">
       <div>
@@ -54,7 +64,7 @@ export const Header = () => {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => signOut()}
+          onClick={handleLogout}
           className="flex items-center gap-1.5 !px-3 !py-1.5 !rounded-full border border-suka-brown/20 hover:border-suka-brown text-suka-brown font-bold text-xs"
         >
           <LogOut className="w-3.5 h-3.5" />

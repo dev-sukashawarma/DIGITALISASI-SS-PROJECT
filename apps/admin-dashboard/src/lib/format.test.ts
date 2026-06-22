@@ -3,9 +3,9 @@ import { rupiah, aov, pct, deltaPct, normalizeMenuName } from './format'
 
 describe('rupiah', () => {
   it('format ribuan dengan pemisah titik', () => {
-    expect(rupiah(1500000)).toBe('Rp 1.500.000')
+    expect(rupiah(1500000)).toBe('Rp\u00A01.500.000')
   })
-  it('nol', () => expect(rupiah(0)).toBe('Rp 0'))
+  it('nol', () => expect(rupiah(0)).toBe('Rp\u00A00'))
 })
 
 describe('aov', () => {

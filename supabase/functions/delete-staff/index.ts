@@ -28,14 +28,14 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
       
-    if (!callerProfile || !["spv", "leader"].includes(callerProfile.role)) {
-      throw new Error("Unauthorized: Only SPV can delete staff");
+    if (!callerProfile || !["spv", "leader", "admin", "admin_hr", "owner"].includes(callerProfile.role)) {
+      throw new Error("Unauthorized: Only SPV/Leader or privileged roles can delete staff");
     }
 
     const { staff_id } = await req.json();
     if (!staff_id) throw new Error("Missing staff_id");
 
-    // Pastikan target staf ada di outlet yang sama
+    // Pastikan target staf ada di outlet yang sama (jika bukan role admin/admin_hr/owner)
     const { data: targetStaff } = await admin
       .from("outlet_staff")
       .select("outlet_id, role")
@@ -43,7 +43,9 @@ serve(async (req) => {
       .single();
 
     if (!targetStaff) throw new Error("Staff not found");
-    if (targetStaff.outlet_id !== callerProfile.outlet_id) {
+
+    const isPrivileged = ["admin", "admin_hr", "owner"].includes(callerProfile.role);
+    if (!isPrivileged && targetStaff.outlet_id !== callerProfile.outlet_id) {
       throw new Error("Unauthorized: Cannot delete staff from another outlet");
     }
 

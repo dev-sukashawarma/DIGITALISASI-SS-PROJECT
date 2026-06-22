@@ -37,15 +37,69 @@ export interface StaffRow {
   outlet_id: string | null
   outlets: { name: string } | null
   outlet_ids: string[] // dari staff_outlets (leader)
+  nik?: string | null
+  email?: string | null
+  phone?: string | null
+  address_ktp?: string | null
+  address_domicile?: string | null
+  birth_place?: string | null
+  birth_date?: string | null
+  gender?: 'male' | 'female' | null
+  religion?: string | null
+  emergency_name?: string | null
+  emergency_relationship?: string | null
+  emergency_phone?: string | null
+  nip?: string | null
+  contract_type?: 'permanent' | 'contract' | 'intern' | 'daily' | null
+  join_date?: string | null
+  resign_date?: string | null
+  leave_quota?: number | null
+  financials?: {
+    basic_salary: number
+    allowance_position: number
+    allowance_presence: number
+    bank_name: string
+    bank_account_number: string
+    bank_account_name: string
+    npwp?: string | null
+    bpjs_ketenagakerjaan?: string | null
+    bpjs_kesehatan?: string | null
+  } | null
 }
 
 export interface StaffFormValues {
   name: string
   username: string
-  password: string
+  password?: string
   role: Role
   outlet_id: string
   outlet_ids: string[]
+  nik?: string | null
+  email?: string | null
+  phone?: string | null
+  address_ktp?: string | null
+  address_domicile?: string | null
+  birth_place?: string | null
+  birth_date?: string | null
+  gender?: 'male' | 'female' | null
+  religion?: string | null
+  emergency_name?: string | null
+  emergency_relationship?: string | null
+  emergency_phone?: string | null
+  nip?: string | null
+  contract_type?: 'permanent' | 'contract' | 'intern' | 'daily' | null
+  join_date?: string | null
+  resign_date?: string | null
+  leave_quota?: number | null
+  basic_salary?: number
+  allowance_position?: number
+  allowance_presence?: number
+  bank_name?: string
+  bank_account_number?: string
+  bank_account_name?: string
+  npwp?: string | null
+  bpjs_ketenagakerjaan?: string | null
+  bpjs_kesehatan?: string | null
 }
 
 export interface StaffFilterValues {

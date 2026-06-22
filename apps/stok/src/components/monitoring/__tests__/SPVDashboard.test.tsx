@@ -6,6 +6,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 // Mock the Supabase queries module before importing hooks
 vi.mock('@/lib/queries/monitoring', () => ({
   fetchSPVMonitoringData: vi.fn(),
+  fetchLeaderMonitoringData: vi.fn(),
   fetchCrewMonitoringData: vi.fn(),
   fetchOpnameStatus: vi.fn(),
 }));
@@ -213,5 +214,57 @@ describe('SPVDashboard', () => {
 
     render(<SPVDashboard />, { wrapper });
     expect(screen.getByText('Resume (30s)')).toBeInTheDocument();
+  });
+
+  it('uses useSPVMonitoringData (enabled) and useLeaderMonitoringData (disabled) when rendered without allowedOutletIds', () => {
+    const spvReturn = {
+      data: { items: [], lastFetched: '2026-06-10T10:00:00Z' },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+      autoRefresh: { pause: vi.fn(), resume: vi.fn(), isPaused: () => false },
+      lastFetched: '2026-06-10T10:00:00Z',
+    } as any;
+    vi.mocked(hook.useSPVMonitoringData).mockReturnValue(spvReturn);
+    vi.mocked(hook.useLeaderMonitoringData).mockReturnValue({ ...spvReturn, data: { items: [{ outlet_id: 'should-not-be-used' }] } } as any);
+
+    render(<SPVDashboard />, { wrapper });
+
+    expect(hook.useSPVMonitoringData).toHaveBeenCalledWith(true);
+    expect(hook.useLeaderMonitoringData).toHaveBeenCalledWith(false);
+  });
+
+  it('uses useLeaderMonitoringData (enabled) and useSPVMonitoringData (disabled) when rendered with allowedOutletIds', () => {
+    const mockItems = [{
+      outlet_id: 'outlet-a',
+      outlet_name: 'Outlet A',
+      bahan_baku_id: 'bb1',
+      item_name: 'Minyak',
+      current_qty: 8,
+      threshold: 15,
+      status: 'below' as const,
+      is_flagged: false,
+      last_updated: '2026-06-10T10:00:00Z',
+      last_opname_date: null,
+    }];
+    const leaderReturn = {
+      data: { items: mockItems, lastFetched: '2026-06-10T10:00:00Z' },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+      autoRefresh: { pause: vi.fn(), resume: vi.fn(), isPaused: () => false },
+      lastFetched: '2026-06-10T10:00:00Z',
+    } as any;
+    vi.mocked(hook.useLeaderMonitoringData).mockReturnValue(leaderReturn);
+    vi.mocked(hook.useSPVMonitoringData).mockReturnValue({ ...leaderReturn, data: { items: [] } } as any);
+
+    render(<SPVDashboard allowedOutletIds={['outlet-a']} />, { wrapper });
+
+    expect(hook.useLeaderMonitoringData).toHaveBeenCalledWith(true);
+    expect(hook.useSPVMonitoringData).toHaveBeenCalledWith(false);
+    // Renders the leader query's data (1 item), not the disabled spv query's data (0 items)
+    expect(screen.getByTestId('spv-table')).toHaveTextContent('items: 1');
   });
 });

@@ -5,10 +5,11 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 vi.mock('@/lib/queries/monitoring', () => ({
   fetchSPVMonitoringData: vi.fn(),
+  fetchLeaderMonitoringData: vi.fn(),
   fetchCrewMonitoringData: vi.fn(),
 }));
 
-import { useSPVMonitoringData } from '../useMonitoringData';
+import { useSPVMonitoringData, useLeaderMonitoringData } from '../useMonitoringData';
 import * as monitoringQueries from '@/lib/queries/monitoring';
 
 const wrapper = ({ children }: any) => (
@@ -146,5 +147,54 @@ describe('useSPVMonitoringData', () => {
     result.current.refetch();
 
     await waitFor(() => expect(result.current.isError).toBe(false)); // Should reset
+  });
+});
+
+describe('useLeaderMonitoringData', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetches leader-scoped monitoring data via fetchLeaderMonitoringData (not fetchSPVMonitoringData)', async () => {
+    const mockData = {
+      items: [
+        {
+          outlet_id: 'outlet-a',
+          item_name: 'Minyak',
+          current_qty: 8,
+          threshold: 15,
+          status: 'below' as const,
+          is_flagged: false,
+          outlet_name: 'Outlet A',
+          bahan_baku_id: 'bb1',
+          last_updated: '2026-06-10T10:00:00Z',
+          last_opname_date: '2026-06-09T10:00:00Z',
+        },
+      ],
+      lastFetched: '2026-06-10T10:00:00Z',
+    };
+
+    vi.mocked(monitoringQueries.fetchLeaderMonitoringData).mockResolvedValue(mockData);
+
+    const { result } = renderHook(() => useLeaderMonitoringData(), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.data).toEqual(mockData);
+    expect(monitoringQueries.fetchLeaderMonitoringData).toHaveBeenCalled();
+    expect(monitoringQueries.fetchSPVMonitoringData).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch when enabled=false', async () => {
+    vi.mocked(monitoringQueries.fetchLeaderMonitoringData).mockResolvedValue({
+      items: [],
+      lastFetched: '2026-06-10T10:00:00Z',
+    });
+
+    const { result } = renderHook(() => useLeaderMonitoringData(false), { wrapper });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.data).toBeUndefined();
+    expect(monitoringQueries.fetchLeaderMonitoringData).not.toHaveBeenCalled();
   });
 });

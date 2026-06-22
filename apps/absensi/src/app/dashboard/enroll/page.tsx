@@ -33,6 +33,9 @@ export default function EnrollPage() {
   const busyRef = useRef(false);
   const loopRef = useRef<number | null>(null);
 
+  const [modelError, setModelError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
   const loadStaff = () => {
     if (!outletStaff) return;
     supabase
@@ -43,7 +46,7 @@ export default function EnrollPage() {
   };
 
   useEffect(() => {
-    loadFaceModels();
+    loadFaceModels().catch((err) => setModelError(err.message || "Gagal memuat AI wajah"));
     loadStaff();
   }, [outletStaff]);
 
@@ -100,6 +103,8 @@ export default function EnrollPage() {
             await new Promise(r => setTimeout(r, 800));
           }
         }
+      } catch (err: any) {
+         setModelError(err.message || "Deteksi wajah gagal");
       } finally {
         busyRef.current = false;
         if (phaseRef.current === "center" || phaseRef.current === "left" || phaseRef.current === "right") {
@@ -156,6 +161,8 @@ export default function EnrollPage() {
     setConsent(false);
     setShots([]);
     setPhase("idle");
+    setCameraError(null);
+    setModelError(null);
   }
 
   return (
@@ -168,6 +175,11 @@ export default function EnrollPage() {
 
       {phase === "idle" ? (
         <Card className="p-5 sm:p-6 space-y-5 rounded-2xl">
+          {modelError && (
+             <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-semibold">
+               Peringatan AI: {modelError}
+             </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-bold text-suka-ink">1. Pilih Staff yang Akan Didaftarkan</label>
             <select
@@ -218,8 +230,17 @@ export default function EnrollPage() {
           </div>
 
           <div className="relative bg-black min-h-[350px] flex items-center justify-center">
-            {phase !== "done" && (
-              <CameraCapture onReady={setVideo} onError={() => {}} />
+            {cameraError || modelError ? (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 text-center">
+                <h2 className="text-xl font-bold text-red-400">Gagal Memuat Kamera/AI</h2>
+                <p className="text-gray-300 mt-2 text-sm">{cameraError || modelError}</p>
+                <Button onClick={reset} className="mt-4 bg-white text-black font-bold">Kembali</Button>
+              </div>
+            ) : phase !== "done" && (
+              <CameraCapture 
+                onReady={setVideo} 
+                onError={(e) => setCameraError(e)} 
+              />
             )}
             
             {/* Guide Overlays */}

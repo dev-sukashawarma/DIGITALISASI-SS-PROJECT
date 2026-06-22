@@ -32,11 +32,11 @@ interface HealthLogRow {
   detail: Record<string, unknown> | null
 }
 
-async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+async function fetchWithTimeout(url: string, timeoutMs: number, init?: RequestInit): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    return await fetch(url, { signal: controller.signal })
+    return await fetch(url, { ...init, signal: controller.signal })
   } finally {
     clearTimeout(timer)
   }
@@ -144,6 +144,7 @@ async function checkCpanel(): Promise<HealthLogRow> {
     const res = await fetchWithTimeout(
       `https://${host}:2083/execute/Quota/get_quota_info`,
       FETCH_TIMEOUT_MS,
+      { headers: { Authorization: `cpanel ${user}:${token}` } },
     )
     const responseTimeMs = Date.now() - startedAt
     if (!res.ok) {

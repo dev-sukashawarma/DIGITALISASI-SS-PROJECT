@@ -36,7 +36,7 @@ export interface StaffRow {
   username: string | null
   outlet_id: string | null
   outlets: { name: string } | null
-  outlet_ids: string[] // dari staff_outlets (kepala_outlet)
+  outlet_ids: string[] // dari staff_outlets (leader)
 }
 
 export interface StaffFormValues {

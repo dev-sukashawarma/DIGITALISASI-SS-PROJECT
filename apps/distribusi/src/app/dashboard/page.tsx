@@ -11,7 +11,7 @@ export default function DashboardPage() {
   const { outletStaff, loading: authLoading, signOut } = useAuth()
 
   // Load shipments for metrics
-  const isPusat = outletStaff?.role === 'kepala_outlet'
+  const isPusat = outletStaff?.role === 'leader'
   const outletIdFilter = isPusat ? undefined : (outletStaff?.outlet_id ?? undefined)
 
   const { suratJalanList, loading: listLoading } = useSuratJalanList(outletIdFilter)

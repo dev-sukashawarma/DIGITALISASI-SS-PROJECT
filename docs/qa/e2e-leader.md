@@ -1,11 +1,11 @@
-# E2E Test — Role `kepala_outlet`
+# E2E Test — Role `leader`
 
-> Prasyarat bersama: lihat [README.md](README.md). Akun: baris **kepala_outlet**
+> Prasyarat bersama: lihat [README.md](README.md). Akun: baris **leader**
 > (wajib punya ≥1 baris di `staff_outlets`).
 > Jobdesk: Leader Outlet — PIC operasional harian **beberapa outlet binaan**.
 
 ## Cakupan
-kepala_outlet akses **pos-kasir, absensi, stok, distribusi** — terbatas ke
+leader akses **pos-kasir, absensi, stok, distribusi** — terbatas ke
 **outlet binaan** (via `staff_outlets`, ditegakkan RLS). Tidak akses owner/admin.
 
 ---
@@ -48,7 +48,7 @@ kepala_outlet akses **pos-kasir, absensi, stok, distribusi** — terbatas ke
 | Gejala | Penyebab mungkin | Tindakan |
 |--------|------------------|----------|
 | Launcher kosong / tak ada app meski role benar | `staff_outlets` belum ada baris untuk user ini | Tambah pemetaan `staff_id↔outlet_id`; cek `accessible_outlet_ids()` |
-| kepala_outlet melihat **semua** outlet (harusnya subset) | RLS tak cek `staff_outlets` / helper `accessible_outlet_ids()` salah | Verifikasi RLS pakai keanggotaan `staff_outlets`, bukan `outlet_id` tunggal |
+| leader melihat **semua** outlet (harusnya subset) | RLS tak cek `staff_outlets` / helper `accessible_outlet_ids()` salah | Verifikasi RLS pakai keanggotaan `staff_outlets`, bukan `outlet_id` tunggal |
 | Error PGRST200 saat buka staff/outlet terkait | FK `staff_outlets` drift | Lihat memory "Admin-Dashboard Deploy Chain" |
 | Opname/permintaan gagal diam-diam (tak tersimpan) | Browser client kedua tanpa cookieOptions → write jadi anon (RPC `auth.uid()=null`) | Lihat memory "Two-Factory Browser Client Gotcha"; pakai `@suka/auth` client; cek RPC `_svc` (lihat CLAUDE.md Permintaan RLS) |
 | Permintaan bahan ditolak RLS | `is_kitchen_staff`/`auth.uid()` check | Gunakan RPC `buat_permintaan_svc` (SECURITY DEFINER) — CLAUDE.md sesi 2026-06-17 |

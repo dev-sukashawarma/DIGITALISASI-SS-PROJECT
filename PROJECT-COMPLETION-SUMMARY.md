@@ -135,8 +135,8 @@ RLS Enforces Outlet Scope
 
 ### **Architecture**
 - [x] Outlet identity unified in outlet_staff table
-- [x] 7 roles defined (admin, owner, spv, kepala_outlet, kasir, crew, kiosk)
-- [x] Multi-outlet support for kepala_outlet via staff_outlets mapping
+- [x] 7 roles defined (admin, owner, spv, leader, kasir, crew, kiosk)
+- [x] Multi-outlet support for leader via staff_outlets mapping
 - [x] Shared @suka/auth package with dependency injection
 - [x] Next.js middleware guards on all routes
 

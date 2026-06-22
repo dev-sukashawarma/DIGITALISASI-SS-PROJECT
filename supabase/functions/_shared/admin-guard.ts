@@ -1,4 +1,4 @@
-const VALID_ROLES = ["admin", "owner", "spv", "kepala_outlet", "kasir", "crew", "kiosk"];
+const VALID_ROLES = ["admin", "owner", "spv", "leader", "kasir", "crew", "kiosk"];
 const VALID_STATUSES = ["active", "inactive", "on_leave"];
 
 export function assertAdmin(caller: { role: string } | null): void {
@@ -22,8 +22,8 @@ export function validateCreateInput(body: {
   if (!VALID_ROLES.includes(role)) {
     throw new Error(`Invalid role: ${role}`);
   }
-  if (role === "kepala_outlet" && (!outlet_ids || outlet_ids.length === 0)) {
-    throw new Error("kepala_outlet requires outlet_ids (minimal 1 outlet binaan)");
+  if (role === "leader" && (!outlet_ids || outlet_ids.length === 0)) {
+    throw new Error("leader requires outlet_ids (minimal 1 outlet binaan)");
   }
 }
 

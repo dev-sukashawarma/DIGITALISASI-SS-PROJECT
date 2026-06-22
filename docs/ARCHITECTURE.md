@@ -121,7 +121,7 @@ erDiagram
         uuid id PK
         uuid outlet_id FK
         text name
-        text role "crew|kasir|spv|kepala_outlet"
+        text role "crew|kasir|spv|leader"
         jsonb face_descriptor
         text ref_photo_url
         text status

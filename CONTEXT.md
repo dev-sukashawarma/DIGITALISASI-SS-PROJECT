@@ -5,9 +5,9 @@
 
 ## Identitas & Orang
 
-- **Outlet Staff** — pegawai/akun yang beraksi di lingkup outlet (≠ HQ Employee). **Identitas kanonik & SATU-SATUNYA tabel user** untuk seluruh suite (absensi, POS kasir, stok, dan sistem lain yang akan diintegrasikan); semua aksi (absen, transaksi POS, stok, terima kiriman) ber-aktor Outlet Staff. `id` = `auth.users.id`. Role: `crew | kasir | spv | kepala_outlet | admin | kiosk`. `outlet_id` nullable (khusus `admin` global). Sejak unifikasi (`20260613000100`), tabel `profiles` POS dilebur ke sini — lihat ADR-0007. (lihat ADR-001)
+- **Outlet Staff** — pegawai/akun yang beraksi di lingkup outlet (≠ HQ Employee). **Identitas kanonik & SATU-SATUNYA tabel user** untuk seluruh suite (absensi, POS kasir, stok, dan sistem lain yang akan diintegrasikan); semua aksi (absen, transaksi POS, stok, terima kiriman) ber-aktor Outlet Staff. `id` = `auth.users.id`. Role: `crew | kasir | spv | leader | admin | kiosk`. `outlet_id` nullable (khusus `admin` global). Sejak unifikasi (`20260613000100`), tabel `profiles` POS dilebur ke sini — lihat ADR-0007. (lihat ADR-001)
 - **HQ Employee** — karyawan pusat (domain SS-WEBAPP existing). **Di luar scope** suite ini.
-- **SPV / Kepala Outlet** — role Outlet Staff dengan wewenang enroll wajah, approve, dan supervisi outlet.
+- **SPV / Leader Outlet** — role Outlet Staff dengan wewenang enroll wajah, approve, dan supervisi outlet.
 - **Admin** — role global POS (tanpa outlet, `outlet_id` NULL): kelola user, menu, outlet, laporan lintas-cabang.
 - **Kiosk** — "user" yang mewakili satu device self-order pelanggan di sebuah outlet (bukan orang). Login via QR oleh kasir. **Pengecualian SSO**: device kiosk TIDAK login lewat Portal; diaktifkan kasir via scan QR lokal di `apps/pos-kasir` (`/kiosk/qr-login`). (lihat ADR-008)
 - **Pseudo-Email** — identitas login untuk Outlet Staff tanpa email asli (mis. kasir): username `kasir_sudirman` dipetakan ke `kasir_sudirman@outlet.local` sebelum `signInWithPassword`. Normalisasi terpusat di `@suka/auth` (`normalizeLoginIdentifier`) agar Portal & app konsisten.

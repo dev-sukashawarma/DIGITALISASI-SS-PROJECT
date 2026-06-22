@@ -42,7 +42,7 @@ Tidak akses pos-kasir, owner-dashboard, admin.
 |--------|------------------|----------|
 | Stok/absensi hanya menampilkan **1 outlet** untuk SPV | View definer SPV tak dipakai / SPV ter-set `outlet_id` + role salah | Pastikan query pakai `monitoring_view_spv`/`ledger_feed_spv` (definer, bypass RLS); cek `outlet_staff.role='spv'` |
 | SPV tak lihat outlet tertentu | Data `monitoring_view_spv` belum agregat outlet itu / threshold-ORP drift | Lihat memory "Monitoring Views Threshold & ORP Drift" |
-| SPV pernah ter-set role `kepala_outlet` (kasus lama) | Data outlet_staff salah role | Lihat catatan CLAUDE.md sesi 2026-06-17 (SPV punya role kepala_outlet di kitchen) |
+| SPV pernah ter-set role `leader` (kasus lama) | Data outlet_staff salah role | Lihat catatan CLAUDE.md sesi 2026-06-17 (SPV punya role leader di kitchen) |
 | Ledger lintas outlet error/kosong | Query langsung ke `ledger_stok` kena RLS `ledger_read` | Gunakan view definer, jangan query tabel mentah untuk cross-outlet |
 | Launcher kurang/lebih app | `ROLE_APP_ACCESS.spv` ≠ `['absensi','stok','distribusi']` | Cek `packages/auth/src/access.ts` |
 | Halaman lambat saat pindah app | `SUPABASE_JWT_SECRET` belum di-set | Set di env app |

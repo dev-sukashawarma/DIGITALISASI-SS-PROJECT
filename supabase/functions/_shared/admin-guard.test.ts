@@ -4,7 +4,7 @@ import { assertAdmin, validateCreateInput, validateStatus } from "./admin-guard.
 
 Deno.test("assertAdmin throws for non-admin role", () => {
   assertThrows(() => assertAdmin({ role: "spv" }), Error, "Unauthorized");
-  assertThrows(() => assertAdmin({ role: "kepala_outlet" }), Error, "Unauthorized");
+  assertThrows(() => assertAdmin({ role: "leader" }), Error, "Unauthorized");
   assertThrows(() => assertAdmin(null), Error, "Unauthorized");
 });
 
@@ -17,14 +17,14 @@ Deno.test("validateCreateInput requires core fields", () => {
   assertThrows(() => validateCreateInput({ name: "n", username: "u", password: "p", role: "crew" }), Error, "Missing");
 });
 
-Deno.test("validateCreateInput requires outlet_ids for kepala_outlet", () => {
+Deno.test("validateCreateInput requires outlet_ids for leader", () => {
   assertThrows(
-    () => validateCreateInput({ name: "n", username: "u", password: "p", role: "kepala_outlet", outlet_id: "o" }),
+    () => validateCreateInput({ name: "n", username: "u", password: "p", role: "leader", outlet_id: "o" }),
     Error,
     "outlet_ids",
   );
-  // valid kepala_outlet with outlet_ids does not throw
-  validateCreateInput({ name: "n", username: "u", password: "p", role: "kepala_outlet", outlet_id: "o", outlet_ids: ["a"] });
+  // valid leader with outlet_ids does not throw
+  validateCreateInput({ name: "n", username: "u", password: "p", role: "leader", outlet_id: "o", outlet_ids: ["a"] });
 });
 
 Deno.test("validateStatus only allows known statuses", () => {

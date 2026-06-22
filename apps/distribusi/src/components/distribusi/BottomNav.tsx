@@ -14,7 +14,7 @@ export function BottomNav({ activeTab }: BottomNavProps) {
 
   if (loading || !outletStaff) return null
 
-  const isPusat = outletStaff.role === 'kepala_outlet'
+  const isPusat = outletStaff.role === 'leader'
 
   const handleNavigate = (path: string) => {
     const resolvedUrl = getCrossAppUrl(path)

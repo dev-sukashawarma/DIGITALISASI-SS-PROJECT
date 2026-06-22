@@ -495,32 +495,7 @@ export default function CashierOrdersPage() {
       {/* Bento Grid columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-[calc(100vh-220px)] items-stretch pb-20">
         
-        {/* ── Column 1: SEDANG DIPROSES (Preparing) ── */}
-        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] lg:h-full">
-          <div className="flex items-center justify-between pb-4 border-b border-[#d9c2b2] mb-4 shrink-0">
-            <div className="flex items-center gap-2">
-              <ChefHat className="w-5 h-5 text-[#f29744]" />
-              <h2 className="font-bold text-[#701604] text-lg">Sedang Diproses</h2>
-            </div>
-            <span className="bg-[#f29744]/10 text-[#f29744] text-xs font-bold px-3 py-1 rounded-full">
-              {preparingOrders.length} Pesanan
-            </span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-            {preparingOrders.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-[#d9c2b2] rounded-xl bg-transparent">
-                <ChefHat className="w-12 h-12 text-[#877365]/20 mb-3" strokeWidth={1.5} />
-                <p className="font-bold text-[#544437]/60">Tidak ada pesanan diproses</p>
-                <p className="text-xs text-[#544437]/40 mt-1">Terima pesanan di kolom pembayaran untuk diproses.</p>
-              </div>
-            ) : (
-              preparingOrders.map((order) => renderActiveCard(order, 'preparing'))
-            )}
-          </div>
-        </div>
-
-        {/* ── Column 2: MENUNGGU PEMBAYARAN (Pending) ── */}
+        {/* ── Column 1: MENUNGGU PEMBAYARAN (Pending) ── */}
         <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] lg:h-full">
           <div className="flex items-center justify-between pb-4 border-b border-[#d9c2b2] mb-4 shrink-0">
             <div className="flex items-center gap-2">
@@ -543,6 +518,31 @@ export default function CashierOrdersPage() {
               </div>
             ) : (
               pendingOrders.map((order) => renderActiveCard(order, 'pending'))
+            )}
+          </div>
+        </div>
+
+        {/* ── Column 2: SEDANG DIPROSES (Preparing) ── */}
+        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] lg:h-full">
+          <div className="flex items-center justify-between pb-4 border-b border-[#d9c2b2] mb-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <ChefHat className="w-5 h-5 text-[#f29744]" />
+              <h2 className="font-bold text-[#701604] text-lg">Sedang Diproses</h2>
+            </div>
+            <span className="bg-[#f29744]/10 text-[#f29744] text-xs font-bold px-3 py-1 rounded-full">
+              {preparingOrders.length} Pesanan
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+            {preparingOrders.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-[#d9c2b2] rounded-xl bg-transparent">
+                <ChefHat className="w-12 h-12 text-[#877365]/20 mb-3" strokeWidth={1.5} />
+                <p className="font-bold text-[#544437]/60">Tidak ada pesanan diproses</p>
+                <p className="text-xs text-[#544437]/40 mt-1">Terima pesanan di kolom pembayaran untuk diproses.</p>
+              </div>
+            ) : (
+              preparingOrders.map((order) => renderActiveCard(order, 'preparing'))
             )}
           </div>
         </div>

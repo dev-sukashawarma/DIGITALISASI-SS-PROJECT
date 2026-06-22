@@ -247,7 +247,7 @@ export default function CashierOrdersPage() {
     }
 
     return (
-      <div key={order.id} className={`card overflow-hidden border-2 shadow-soft animate-fade-in transition-all duration-200 hover:shadow-md ${isPreparing ? 'border-[#f29744]/20 hover:border-[#f29744]' : 'border-[#701604]/20 hover:border-[#701604]'}`}>
+      <div key={order.id} className={`bg-white overflow-hidden border border-[#d9c2b2] suka-shadow rounded-2xl animate-fade-in transition-all duration-200 hover:shadow-md ${isPreparing ? 'hover:border-[#f29744]' : 'hover:border-[#701604]'}`}>
         {/* Header Row */}
         <div 
           className={`px-5 py-4 flex items-center justify-between cursor-pointer transition-colors ${isPreparing ? 'hover:bg-[#f29744]/5' : 'hover:bg-[#701604]/5'}`}
@@ -274,9 +274,9 @@ export default function CashierOrdersPage() {
               <p className="font-bold text-[#701604] flex items-center gap-2">
                 {formatRupiah(order.total_amount)}
               </p>
-              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 flex-wrap">
+              <p className="text-xs text-[#544437] mt-1 flex items-center gap-1.5 flex-wrap">
                 <span className={`font-semibold ${isPreparing ? 'text-[#f29744]' : 'text-[#701604]'}`}>{timeAgo(order.created_at, now)}</span>
-                <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                <span className="w-1 h-1 bg-[#d9c2b2] rounded-full" />
                 {new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                 {' · '}{getGroupedItems(order.order_items).rootItems.length} pesanan utama
               </p>
@@ -413,7 +413,7 @@ export default function CashierOrdersPage() {
                 setAudioPermission(true);
               }).catch((err) => {
                 console.error('Audio manual play failed:', err);
-                setAudioPermission(true); // Force close to prevent being stuck
+                setAudioPermission(true);
               })
             } else {
               setAudioPermission(true);
@@ -427,13 +427,13 @@ export default function CashierOrdersPage() {
       )}
 
       {/* ── Header & Stats ── */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 flex-wrap pb-4 border-b border-[#701604]/10">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 flex-wrap pb-4 border-b border-[#d9c2b2]">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-[#701604] tracking-tight">Order</h1>
           {outletName && (
-            <p className="text-sm font-medium text-[#701604]/80 mt-1 flex items-center gap-1.5 bg-[#701604]/5 px-3 py-1.5 rounded-lg w-max max-w-full border border-[#701604]/10">
+            <p className="text-sm font-medium text-[#544437] mt-1 flex items-center gap-1.5 bg-[#f5ede3] px-3 py-1.5 rounded-lg w-max max-w-full border border-[#d9c2b2]">
               <Store className="w-4 h-4 text-[#f29744] shrink-0" />
-              <span className="truncate">Anda berada di cabang: <strong className="text-[#701604]">{outletName}</strong></span>
+              <span className="truncate">Anda berada di cabang: <strong className="text-[#1e1b15]">{outletName}</strong></span>
             </p>
           )}
         </div>
@@ -446,12 +446,12 @@ export default function CashierOrdersPage() {
             <PlusCircle className="w-5 h-5" />
             <span>Input Manual</span>
           </Link>
-          <div className="bg-white border border-[#701604]/10 px-5 py-3 rounded-2xl flex-1 sm:flex-none flex items-center gap-4 shadow-sm shadow-[#701604]/5">
+          <div className="bg-white border border-[#d9c2b2] px-5 py-3 rounded-2xl flex-1 sm:flex-none flex items-center gap-4 suka-shadow">
             <div className="w-10 h-10 bg-[#f29744] rounded-xl flex items-center justify-center shadow-md shadow-[#f29744]/20">
               <Banknote className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-[#701604]/60 uppercase tracking-widest leading-none">Pendapatan Lunas</p>
+              <p className="text-[10px] font-bold text-[#544437] uppercase tracking-widest leading-none">Pendapatan Lunas</p>
               <p className="text-xl font-bold text-[#701604] mt-1 leading-none">{formatRupiah(todayRevenue)}</p>
             </div>
           </div>
@@ -463,16 +463,16 @@ export default function CashierOrdersPage() {
         {(() => {
           const activeOnlineCount = orders.filter(o => o.source === 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
           return (
-            <div className="flex bg-[#701604]/5 p-1 rounded-xl border border-[#701604]/10 w-full sm:w-max">
+            <div className="flex bg-[#f5ede3] p-1 rounded-xl border border-[#d9c2b2] w-full sm:w-max">
               <button
                 onClick={() => setSourceFilter('all')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${sourceFilter === 'all' ? 'bg-white text-[#701604] shadow-sm' : 'text-[#701604]/60 hover:text-[#701604]'}`}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${sourceFilter === 'all' ? 'bg-white text-[#701604] shadow-sm' : 'text-[#544437] hover:text-[#1e1b15]'}`}
               >
                 Semua
               </button>
               <button
                 onClick={() => setSourceFilter('online')}
-                className={`relative px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${sourceFilter === 'online' ? 'bg-[#f29744] text-white shadow-sm shadow-[#f29744]/20' : 'text-[#701604]/60 hover:text-[#701604]'}`}
+                className={`relative px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${sourceFilter === 'online' ? 'bg-[#f29744] text-white shadow-sm shadow-[#f29744]/20' : 'text-[#544437] hover:text-[#1e1b15]'}`}
               >
                 <Globe className="w-4 h-4" /> Online
                 {activeOnlineCount > 0 && (
@@ -483,7 +483,7 @@ export default function CashierOrdersPage() {
               </button>
               <button
                 onClick={() => setSourceFilter('offline')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${sourceFilter === 'offline' ? 'bg-[#701604] text-white shadow-sm shadow-[#701604]/20' : 'text-[#701604]/60 hover:text-[#701604]'}`}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${sourceFilter === 'offline' ? 'bg-[#701604] text-white shadow-sm shadow-[#701604]/20' : 'text-[#544437] hover:text-[#1e1b15]'}`}
               >
                 <Store className="w-4 h-4" /> Offline
               </button>
@@ -492,11 +492,12 @@ export default function CashierOrdersPage() {
         })()}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start pb-20">
+      {/* Bento Grid columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-[calc(100vh-220px)] items-stretch pb-20">
         
         {/* ── Column 1: SEDANG DIPROSES (Preparing) ── */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between bg-white px-5 py-4 rounded-2xl border border-[#701604]/10 shadow-sm sticky top-0 z-20">
+        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] lg:h-full">
+          <div className="flex items-center justify-between pb-4 border-b border-[#d9c2b2] mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <ChefHat className="w-5 h-5 text-[#f29744]" />
               <h2 className="font-bold text-[#701604] text-lg">Sedang Diproses</h2>
@@ -506,12 +507,12 @@ export default function CashierOrdersPage() {
             </span>
           </div>
 
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
             {preparingOrders.length === 0 ? (
-              <div className="card p-12 flex flex-col items-center text-center border-dashed border-2 border-[#701604]/10 bg-transparent shadow-none">
-                <ChefHat className="w-12 h-12 text-[#701604]/20 mb-3" strokeWidth={1.5} />
-                <p className="font-bold text-[#701604]/60">Tidak ada pesanan diproses</p>
-                <p className="text-xs text-[#701604]/40 mt-1">Terima pesanan di kolom pembayaran untuk diproses.</p>
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-[#d9c2b2] rounded-xl bg-transparent">
+                <ChefHat className="w-12 h-12 text-[#877365]/20 mb-3" strokeWidth={1.5} />
+                <p className="font-bold text-[#544437]/60">Tidak ada pesanan diproses</p>
+                <p className="text-xs text-[#544437]/40 mt-1">Terima pesanan di kolom pembayaran untuk diproses.</p>
               </div>
             ) : (
               preparingOrders.map((order) => renderActiveCard(order, 'preparing'))
@@ -520,8 +521,8 @@ export default function CashierOrdersPage() {
         </div>
 
         {/* ── Column 2: MENUNGGU PEMBAYARAN (Pending) ── */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between bg-white px-5 py-4 rounded-2xl border border-[#701604]/10 shadow-sm sticky top-0 z-20">
+        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] lg:h-full">
+          <div className="flex items-center justify-between pb-4 border-b border-[#d9c2b2] mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-[#701604]" />
               <h2 className="font-bold text-[#701604] text-lg">Menunggu Pembayaran</h2>
@@ -531,14 +532,14 @@ export default function CashierOrdersPage() {
             </span>
           </div>
 
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
             {loading ? (
-              <div className="card h-32 animate-pulse bg-gray-50" />
+              <div className="h-32 animate-pulse bg-gray-50 rounded-xl" />
             ) : pendingOrders.length === 0 ? (
-              <div className="card p-12 flex flex-col items-center text-center border-dashed border-2 border-[#701604]/10 bg-transparent shadow-none">
-                <ShoppingBag className="w-12 h-12 text-[#701604]/20 mb-3" strokeWidth={1.5} />
-                <p className="font-bold text-[#701604]/60">Tidak ada pesanan tertunda</p>
-                <p className="text-xs text-[#701604]/40 mt-1">Pesanan baru akan muncul otomatis di sini.</p>
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-[#d9c2b2] rounded-xl bg-transparent">
+                <ShoppingBag className="w-12 h-12 text-[#877365]/20 mb-3" strokeWidth={1.5} />
+                <p className="font-bold text-[#544437]/60">Tidak ada pesanan tertunda</p>
+                <p className="text-xs text-[#544437]/40 mt-1">Pesanan baru akan muncul otomatis di sini.</p>
               </div>
             ) : (
               pendingOrders.map((order) => renderActiveCard(order, 'pending'))
@@ -547,8 +548,8 @@ export default function CashierOrdersPage() {
         </div>
 
         {/* ── Column 3: COMPLETED (Selesai Hari Ini) ── */}
-        <div className="space-y-4">
-          <div className="bg-white px-5 py-4 rounded-2xl border border-[#701604]/10 shadow-sm sticky top-0 z-20 flex flex-col gap-3">
+        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] lg:h-full">
+          <div className="flex flex-col gap-3 pb-4 border-b border-[#d9c2b2] mb-4 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-[#0a7d2c]" />
@@ -562,11 +563,11 @@ export default function CashierOrdersPage() {
             {/* Search Input */}
             <div className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-[#701604]/40" />
+                <Search className="h-4 w-4 text-[#877365]" />
               </div>
               <input
                 type="text"
-                className="block w-full pl-9 pr-3 py-2 border border-[#701604]/10 rounded-xl leading-5 bg-[#fff8f1] placeholder-[#701604]/40 focus:outline-none focus:ring-2 focus:ring-[#f29744] focus:border-[#f29744] focus:bg-white transition-all text-sm text-[#701604]"
+                className="block w-full pl-9 pr-3 py-2 border border-[#d9c2b2] rounded-xl leading-5 bg-[#fff8f1] placeholder-[#877365] focus:outline-none focus:ring-2 focus:ring-[#f29744] focus:border-[#f29744] focus:bg-white transition-all text-sm text-[#1e1b15]"
                 placeholder="Cari antrian..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -574,17 +575,17 @@ export default function CashierOrdersPage() {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
             {completedOrders.length === 0 ? (
-              <p className="text-center text-sm text-[#701604]/40 py-8">Belum ada pesanan selesai hari ini</p>
+              <p className="text-center text-sm text-[#544437]/40 py-8">Belum ada pesanan selesai hari ini</p>
             ) : filteredCompletedOrders.length === 0 ? (
-              <p className="text-center text-sm text-[#701604]/40 py-8">Nomor antrian tidak ditemukan</p>
+              <p className="text-center text-sm text-[#544437]/40 py-8">Nomor antrian tidak ditemukan</p>
             ) : (
               filteredCompletedOrders.slice(0, 15).map((order) => (
-                <div key={order.id} className="card p-4 bg-white border border-[#701604]/10 shadow-sm hover:shadow-md transition-shadow animate-fade-in">
+                <div key={order.id} className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-4 hover:shadow-md transition-shadow animate-fade-in">
                   
                   {/* Header Row */}
-                  <div className="flex items-start justify-between border-b border-dashed border-[#701604]/10 pb-3 mb-3">
+                  <div className="flex items-start justify-between border-b border-dashed border-[#d9c2b2] pb-3 mb-3">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 bg-[#0a7d2c]/5 rounded-2xl flex flex-col items-center justify-center border border-[#0a7d2c]/10 shadow-sm flex-shrink-0">
                         <span className="text-[10px] text-[#0a7d2c] font-bold uppercase tracking-wider leading-none mb-0.5">Antrian</span>
@@ -592,11 +593,11 @@ export default function CashierOrdersPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-[#701604]">{formatRupiah(order.total_amount)}</p>
-                        <p className="text-xs text-[#701604]/60 mt-1 flex items-center gap-1.5 flex-wrap">
+                        <p className="text-xs text-[#544437]/60 mt-1 flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-[#0a7d2c]">{timeAgo(order.created_at, now)}</span>
-                          <span className="w-1 h-1 bg-[#701604]/10 rounded-full" />
+                          <span className="w-1 h-1 bg-[#d9c2b2] rounded-full" />
                           {new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                          <span className="w-1 h-1 bg-[#701604]/10 rounded-full" />
+                          <span className="w-1 h-1 bg-[#d9c2b2] rounded-full" />
                           {order.source === 'online' ? (
                             <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-blue-50 px-1.5 py-0.5 rounded text-blue-600">
                               <Globe className="w-2.5 h-2.5" /> Online
@@ -709,7 +710,7 @@ export default function CashierOrdersPage() {
             )}
             
             {filteredCompletedOrders.length > 15 && (
-              <p className="text-center text-xs font-medium text-[#701604]/40 py-2">
+              <p className="text-center text-xs font-medium text-[#544437]/40 py-2">
                 Menampilkan 15 pesanan terakhir (+{filteredCompletedOrders.length - 15} lainnya)
               </p>
             )}

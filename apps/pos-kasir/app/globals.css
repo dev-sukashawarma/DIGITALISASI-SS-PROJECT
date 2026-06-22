@@ -100,6 +100,10 @@
   .section-title {
     @apply text-xs font-bold uppercase tracking-widest text-gray-400;
   }
+
+  .suka-shadow {
+    box-shadow: 0px 4px 12px rgba(112, 22, 4, 0.08);
+  }
 }
 
 /* ── Scrollbar ───────────────────────────────────── */

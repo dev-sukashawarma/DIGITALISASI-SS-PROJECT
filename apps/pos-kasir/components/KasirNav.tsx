@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { useEffect } from 'react'
@@ -27,6 +27,25 @@ export default function KasirNav() {
   const [outletName, setOutletName] = useState('Kasir Outlet')
   const [cashierName, setCashierName] = useState('')
   const { brandName, brandLogo } = useBrand()
+
+  const [isCollapsed, setIsCollapsed] = useState(true)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('kasir_sidebar_collapsed')
+    if (stored !== null) {
+      setIsCollapsed(stored === 'true')
+    } else {
+      setIsCollapsed(true)
+    }
+  }, [])
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const newVal = !prev
+      localStorage.setItem('kasir_sidebar_collapsed', String(newVal))
+      return newVal
+    })
+  }
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -56,24 +75,22 @@ export default function KasirNav() {
   return (
     <>
       {/* Top bar mobile */}
-      <header className="print:hidden lg:hidden sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-white border-b border-gray-100 shadow-sm">
+      <header className="print:hidden lg:hidden sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-[#fff8f1] border-b border-[#d9c2b2] shadow-sm">
         <Link href="/kasir" className="flex items-center gap-2.5">
           {brandLogo ? (
-            <img src={brandLogo} alt="Logo" className="w-8 h-8 object-cover rounded-xl" />
+            <img src={brandLogo} alt="Logo" className="w-8 h-8 object-contain rounded-xl" />
           ) : (
-            <div className="w-8 h-8 bg-amber-500 rounded-xl flex items-center justify-center">
-              <Sandwich className="w-4 h-4 text-white" strokeWidth={2.5} />
-            </div>
+            <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain rounded-xl" />
           )}
           <div className="min-w-0 flex flex-col justify-center">
-            <p className="text-gray-900 font-bold text-sm tracking-tight truncate max-w-[120px]">
+            <p className="text-[#1e1b15] font-bold text-sm tracking-tight truncate max-w-[120px]">
               {cashierName ? cashierName : brandName}
             </p>
           </div>
         </Link>
         <button
           onClick={() => setOpen(true)}
-          className="w-10 h-10 flex items-center justify-center rounded-xl text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-xl text-[#544437] hover:bg-[#e9e1d8] hover:text-[#1e1b15] transition-colors"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -82,7 +99,7 @@ export default function KasirNav() {
       {/* Backdrop */}
       {open && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm animate-fade-in"
+          className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fade-in"
           onClick={() => setOpen(false)}
         />
       )}
@@ -90,42 +107,52 @@ export default function KasirNav() {
       {/* Sidebar */}
       <aside
         className={`print:hidden fixed lg:sticky top-0 left-0 z-50 lg:z-auto
-          h-screen w-64 shrink-0
-          bg-white border-r border-gray-100
+          h-screen shrink-0
+          bg-[#f5ede3] border-r border-[#d9c2b2]
           flex flex-col
-          transition-transform duration-300 ease-out
-          ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full'} lg:translate-x-0`}
+          transition-all duration-300 ease-in-out
+          ${isCollapsed ? 'lg:w-20' : 'lg:w-64'} w-64
+          ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}
       >
-        <div className="flex items-center justify-between h-[5.5rem] px-6 border-b border-gray-100 shrink-0">
-          <Link href="/kasir" className="flex items-center gap-3 min-w-0" onClick={() => setOpen(false)}>
+        {/* Collapse toggle button for desktop */}
+        <button
+          onClick={toggleCollapse}
+          className="hidden lg:flex absolute top-[2.25rem] -right-3.5 z-[60] w-7 h-7 bg-[#f29744] hover:bg-[#e08632] text-white rounded-full border border-[#d9c2b2] shadow-sm items-center justify-center cursor-pointer transition-transform duration-200 active:scale-95"
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+
+        <div className={`flex items-center justify-between h-[5.5rem] border-b border-[#d9c2b2] shrink-0 ${isCollapsed ? 'px-4 justify-center' : 'px-6'}`}>
+          <Link href="/kasir" className={`flex items-center min-w-0 ${isCollapsed ? 'gap-0 justify-center' : 'gap-3'}`} onClick={() => setOpen(false)}>
             {brandLogo ? (
-              <img src={brandLogo} alt="Logo" className="w-10 h-10 object-cover rounded-2xl shrink-0" />
+              <img src={brandLogo} alt="Logo" className="w-10 h-10 object-contain rounded-2xl shrink-0" />
             ) : (
-              <div className="w-10 h-10 bg-amber-500 rounded-2xl flex items-center justify-center shrink-0">
-                <Sandwich className="w-5 h-5 text-white" strokeWidth={2.5} />
+              <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain rounded-2xl shrink-0" />
+            )}
+            {!isCollapsed && (
+              <div className="min-w-0 flex flex-col justify-center animate-fade-in">
+                <p className="text-[#1e1b15] font-bold text-[15px] tracking-tight leading-none truncate mb-1">
+                  {cashierName ? `Hai, ${cashierName}` : brandName}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <p className="text-[#904d00] text-[11px] font-bold uppercase tracking-widest leading-none truncate">
+                    {outletName}
+                  </p>
+                </div>
               </div>
             )}
-            <div className="min-w-0 flex flex-col justify-center">
-              <p className="text-gray-900 font-bold text-[15px] tracking-tight leading-none truncate mb-1">
-                {cashierName ? `Hai, ${cashierName}` : brandName}
-              </p>
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                <p className="text-amber-500 text-[11px] font-bold uppercase tracking-widest leading-none truncate">
-                  {outletName}
-                </p>
-              </div>
-            </div>
           </Link>
           <button
             onClick={() => setOpen(false)}
-            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:bg-gray-50"
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl text-[#877365] hover:bg-[#e9e1d8]"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
+        <nav className={`flex-1 overflow-y-auto py-6 space-y-2 ${isCollapsed ? 'px-2.5' : 'px-4'}`}>
           {links.map(({ href, label, icon: Icon }) => {
             const active = href === '/kasir' ? pathname === '/kasir' : pathname.startsWith(href)
             return (
@@ -133,23 +160,29 @@ export default function KasirNav() {
                 key={href}
                 href={href}
                 onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[15px] font-bold transition-all
-                  ${active ? 'bg-amber-50 text-amber-600' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}
+                className={`flex items-center rounded-2xl text-[15px] font-bold transition-all
+                  ${isCollapsed ? 'justify-center p-3.5' : 'gap-3 px-4 py-3'}
+                  ${active 
+                    ? 'bg-[#f29744] text-[#643400] border-l-4 border-[#904d00] shadow-sm' 
+                    : 'text-[#544437] hover:text-[#1e1b15] hover:bg-[#e9e1d8]'}`}
+                title={isCollapsed ? label : undefined}
               >
-                <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-amber-500' : 'text-gray-400'}`} strokeWidth={active ? 2.5 : 2} />
-                {label}
+                <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-[#904d00]' : 'text-[#877365]'}`} strokeWidth={active ? 2.5 : 2} />
+                {!isCollapsed && <span className="animate-fade-in truncate">{label}</span>}
               </Link>
             )
           })}
         </nav>
 
-        <div className="px-4 py-6 border-t border-gray-100 space-y-2 shrink-0">
+        <div className={`py-6 border-t border-[#d9c2b2] space-y-2 shrink-0 ${isCollapsed ? 'px-2.5' : 'px-4'}`}>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[15px] font-bold text-red-500 hover:bg-red-50"
+            className={`w-full flex items-center rounded-2xl text-[15px] font-bold text-[#a43c26] hover:bg-[#e9e1d8]/50 transition-colors
+              ${isCollapsed ? 'justify-center p-3.5' : 'gap-3 px-4 py-3'}`}
+            title={isCollapsed ? "Keluar" : undefined}
           >
             <LogOut className="w-5 h-5 shrink-0" strokeWidth={2} />
-            Keluar
+            {!isCollapsed && <span className="animate-fade-in">Keluar</span>}
           </button>
         </div>
       </aside>

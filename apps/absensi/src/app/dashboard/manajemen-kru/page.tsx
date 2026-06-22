@@ -225,7 +225,7 @@ export default function ManajemenKruPage() {
                     <option value="crew">Crew</option>
                     <option value="kasir">Kasir</option>
                     <option value="spv">SPV</option>
-                    <option value="kepala_outlet">Kepala Outlet</option>
+                    <option value="leader">Leader Outlet</option>
                   </select>
                   <div className="flex gap-2">
                     <button onClick={() => setEditingId(null)} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-600">
@@ -312,7 +312,7 @@ export default function ManajemenKruPage() {
                         <option value="crew">Crew</option>
                         <option value="kasir">Kasir</option>
                         <option value="spv">SPV</option>
-                        <option value="kepala_outlet">Kepala Outlet</option>
+                        <option value="leader">Leader Outlet</option>
                       </select>
                     ) : (
                       <div>

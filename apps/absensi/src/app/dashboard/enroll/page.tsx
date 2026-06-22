@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Button, Card, Spinner } from "@suka/design-system";
-import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowLeft, ArrowRight, Info, AlertTriangle } from "lucide-react";
+import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowLeft, ArrowRight, AlertTriangle } from "lucide-react";
 import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';

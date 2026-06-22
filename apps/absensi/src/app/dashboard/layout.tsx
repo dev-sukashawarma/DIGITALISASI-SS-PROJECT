@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@suka/auth";
-import { LayoutDashboard, ClipboardList, Camera, LogOut, Store, X, Settings2, Users, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus } from "lucide-react";
+import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus } from "lucide-react";
 import { ModelPreloader } from "@/components/ModelPreloader";
 
 type NavItem = { href: string; label: string; mobileLabel?: string; icon: React.ReactNode };

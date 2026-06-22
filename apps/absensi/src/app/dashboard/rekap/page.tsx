@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Avatar, StatusPill, EmptyState } from "@suka/design-system";
-import { LogIn, LogOut, CalendarDays, ClipboardList } from "lucide-react";
+import { LogIn, LogOut, CalendarDays, ClipboardList, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { PageHeader } from "@/components/PageHeader";
+import { attendanceToCsv, downloadCsv, type CsvRow } from "@/features/rekap/csv";
 
 type Row = {
   id: string;
@@ -119,6 +120,16 @@ export default function RekapPage() {
     return supabase.storage.from(SELFIE_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
+  function exportCsv() {
+    const data: CsvRow[] = rows.map((r) => ({
+      name: r.outlet_staff?.name ?? "-",
+      type: r.type,
+      jam: r.status === "alpha" ? "-" : jam(r.ts_server),
+      status: r.status,
+    }));
+    downloadCsv(`rekap-${date}.csv`, attendanceToCsv(data));
+  }
+
   const STAT = [
     { label: "Tepat", value: summary.tepat, cls: "text-suka-green" },
     { label: "Telat", value: summary.telat, cls: "text-[#854f0b]" },
@@ -138,6 +149,12 @@ export default function RekapPage() {
               <CalendarDays size={15} className="shrink-0 text-gray-400" />
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-transparent outline-none" />
             </label>
+            <button
+              onClick={exportCsv}
+              className="flex items-center gap-1.5 rounded-xl bg-suka-brown px-3 py-2 text-sm font-semibold text-white hover:bg-suka-brown/90 transition-colors shadow-sm cursor-pointer"
+            >
+              <Download size={15} /> Export CSV
+            </button>
           </div>
         }
       />

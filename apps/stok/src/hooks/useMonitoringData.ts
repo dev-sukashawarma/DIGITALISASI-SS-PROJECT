@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@suka/auth';
 import type { SPVMonitoringData, CrewMonitoringData } from '@/lib/types/monitoring';
-import { fetchSPVMonitoringData, fetchCrewMonitoringData, fetchRecentLedger, fetchStockoutForecast, fetchWasteToday } from '@/lib/queries/monitoring';
+import { fetchSPVMonitoringData, fetchLeaderMonitoringData, fetchCrewMonitoringData, fetchRecentLedger, fetchStockoutForecast, fetchWasteToday } from '@/lib/queries/monitoring';
 import { useAutoRefresh } from './useAutoRefresh';
 
 /**
@@ -50,7 +50,7 @@ export function useWasteToday() {
   });
 }
 
-export function useSPVMonitoringData() {
+export function useSPVMonitoringData(enabled = true) {
   const [isError, setIsError] = useState(false);
   const cachedDataRef = useRef<SPVMonitoringData | null>(null);
 
@@ -71,8 +71,66 @@ export function useSPVMonitoringData() {
         throw err;
       }
     },
+    enabled,
     staleTime: 25000, // Consider stale after 25s (refresh at 30s)
     gcTime: 60000, // Keep in cache for 1 min
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+  });
+
+  const handleRefresh = useCallback(async () => {
+    setIsError(false);
+    await refetch();
+  }, [refetch]);
+
+  const autoRefresh = useAutoRefresh({
+    interval: 30000,
+    onRefresh: handleRefresh,
+    enabled: false, // TODO: debug infinite loop — disable untuk sekarang
+  });
+
+  return {
+    data,
+    isLoading,
+    error,
+    isError,
+    refetch: handleRefresh,
+    autoRefresh,
+    lastFetched: data?.lastFetched || cachedDataRef.current?.lastFetched,
+  };
+}
+
+/**
+ * Leader-scoped monitoring data — same shape as useSPVMonitoringData but
+ * backed by fetchLeaderMonitoringData(), which queries the server-side
+ * accessible_outlet_ids()-filtered view instead of the unrestricted
+ * monitoring_view_spv. Use this (not useSPVMonitoringData) when rendering
+ * SPVDashboard for a leader, so their browser never receives other outlets'
+ * data over the wire.
+ */
+export function useLeaderMonitoringData(enabled = true) {
+  const [isError, setIsError] = useState(false);
+  const cachedDataRef = useRef<SPVMonitoringData | null>(null);
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['monitoring', 'leader'],
+    queryFn: async () => {
+      try {
+        const result = await fetchLeaderMonitoringData();
+        cachedDataRef.current = result;
+        setIsError(false);
+        return result;
+      } catch (err) {
+        setIsError(true);
+        if (cachedDataRef.current) {
+          return cachedDataRef.current;
+        }
+        throw err;
+      }
+    },
+    enabled,
+    staleTime: 25000,
+    gcTime: 60000,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });

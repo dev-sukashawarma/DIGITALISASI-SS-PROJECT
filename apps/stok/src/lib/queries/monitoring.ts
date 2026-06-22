@@ -31,6 +31,38 @@ export async function fetchSPVMonitoringData() {
 }
 
 /**
+ * Fetch monitoring data scoped to the caller's accessible outlets
+ * (used for leader role — sees only their bound outlets, not all 19).
+ * Backed by monitoring_view_scoped, which filters monitoring_view_spv by
+ * accessible_outlet_ids() server-side, so the payload itself is already
+ * restricted before it leaves Postgres (not just filtered client-side).
+ */
+export async function fetchLeaderMonitoringData() {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from('monitoring_view_scoped')
+    .select('*')
+    .order('outlet_name')
+    .order('item_name');
+
+  if (error) throw error;
+
+  // Deduplicate by composite key (outlet_id, bahan_baku_id)
+  const seen = new Set<string>();
+  const dedupedItems = (data || []).filter((item) => {
+    const key = `${item.outlet_id}-${item.bahan_baku_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return {
+    items: dedupedItems,
+    lastFetched: new Date().toISOString(),
+  };
+}
+
+/**
  * Fetch monitoring data for Crew (single-outlet view)
  * RLS enforced: Crew can only see own outlet
  */
@@ -168,36 +200,32 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 }
 
 /**
- * Fetch opname status per outlet (for Compliance tab)
+ * Fetch opname status per outlet (for Compliance tab), scoped to the
+ * caller's accessible outlets via opname_compliance_view (filters by
+ * accessible_outlet_ids() server-side — admin/owner/spv still get all 19
+ * outlets since accessible_outlet_ids() returns everything for them; leader
+ * gets only their bound outlets instead of every outlet's compliance data).
  */
 export async function fetchOpnameStatus() {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
-    .from('outlets')
-    .select(
-      `
-      id,
-      nama:name,
-      opname(created_at)
-    `
-    )
-    .order('created_at', { ascending: false });
+    .from('opname_compliance_view')
+    .select('outlet_id, outlet_name, last_opname_date')
+    .order('outlet_name');
 
   if (error) throw error;
 
   return (
     data?.map((outlet) => {
-      // Safely handle opname as array (may be empty or single object depending on Supabase behavior)
-      const opnames = Array.isArray(outlet.opname) ? outlet.opname : (outlet.opname ? [outlet.opname] : []);
-      const lastOpname = opnames.length > 0 ? opnames[0]?.created_at : null;
+      const lastOpname = outlet.last_opname_date;
       const lastOpnameDate = lastOpname ? new Date(lastOpname) : null;
       const daysSince = lastOpnameDate
         ? Math.floor((Date.now() - lastOpnameDate.getTime()) / (1000 * 60 * 60 * 24))
         : null;
 
       return {
-        outlet_id: outlet.id,
-        outlet_name: outlet.nama,
+        outlet_id: outlet.outlet_id,
+        outlet_name: outlet.outlet_name,
         last_opname_date: lastOpname,
         days_since: daysSince,
         is_overdue: daysSince !== null && daysSince > 7,

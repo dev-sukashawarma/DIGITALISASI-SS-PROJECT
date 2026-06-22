@@ -7,7 +7,7 @@ import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { TransferModal } from './TransferModal';
 import { TransferSuggestionPanel } from './TransferSuggestionPanel';
 import type { TransferSuggestion } from '@/lib/stok/transferSuggestion';
-import { useSPVMonitoringData } from '@/hooks/useMonitoringData';
+import { useSPVMonitoringData, useLeaderMonitoringData } from '@/hooks/useMonitoringData';
 import { fetchOpnameStatus } from '@/lib/queries/monitoring';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
@@ -51,7 +51,10 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'warning' | 'ok'>('all');
 
-  const { data, isLoading, isError, lastFetched, refetch, autoRefresh } = useSPVMonitoringData();
+  const isLeaderScoped = !!allowedOutletIds;
+  const spvQuery = useSPVMonitoringData(!isLeaderScoped);
+  const leaderQuery = useLeaderMonitoringData(isLeaderScoped);
+  const { data, isLoading, isError, lastFetched, refetch, autoRefresh } = isLeaderScoped ? leaderQuery : spvQuery;
 
   // Fetch compliance/opname status
   const [opnameStatuses, setOpnameStatuses] = useState<Awaited<ReturnType<typeof fetchOpnameStatus>> | undefined>(undefined);

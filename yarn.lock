@@ -578,9 +578,16 @@
     "@suka/offline-queue" "*"
     "@supabase/ssr" "^0.2.0"
     "@supabase/supabase-js" "^2.38.0"
+    framer-motion "^11.0.3"
+    lucide-react "^0.300.0"
     next "^16.1.6"
     react "^19.0.0-rc.0"
+    react-countup "^6.5.0"
     react-dom "^19.0.0-rc.0"
+    react-is "^19.0.0"
+    recharts "^3.8.1"
+    sonner "^1.4.0"
+    zustand "^4.5.4"
 
 "@suka/portal@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\apps\\portal":
   version "0.1.0"

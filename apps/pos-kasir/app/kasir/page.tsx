@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
-  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe
+  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
+import ChannelBadge from '@/components/ChannelBadge'
 import type { OrderWithItems, OrderStatus } from '@/types'
 
 const DING_SOUND = '/sound-pesanan.mp3'
@@ -261,6 +263,8 @@ export default function CashierOrdersPage() {
               <div className="flex items-center gap-2 mb-1">
                 {order.source === 'online' ? (
                   <span className="text-[10px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1"><Globe className="w-3 h-3" /> Online</span>
+                ) : order.channel ? (
+                  <ChannelBadge channel={order.channel} />
                 ) : (
                   <span className="text-[10px] font-bold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1"><Store className="w-3 h-3" /> Offline</span>
                 )}
@@ -409,6 +413,13 @@ export default function CashierOrdersPage() {
         </div>
         
         <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Link
+            href="/kasir/order-manual"
+            className="bg-gray-900 hover:bg-gray-800 text-white font-bold px-4 py-3 rounded-2xl flex items-center gap-2 transition-colors active:scale-95 shadow-sm flex-shrink-0"
+          >
+            <PlusCircle className="w-5 h-5" />
+            <span>Order Manual</span>
+          </Link>
           <div className="bg-amber-50 border border-amber-100 px-5 py-3 rounded-2xl flex-1 sm:flex-none flex items-center gap-4">
             <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center">
               <Banknote className="w-5 h-5 text-white" />
@@ -560,6 +571,8 @@ export default function CashierOrdersPage() {
                             <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-blue-100 px-1.5 py-0.5 rounded text-blue-600">
                               <Globe className="w-2.5 h-2.5" /> Online
                             </span>
+                          ) : order.channel ? (
+                            <ChannelBadge channel={order.channel} />
                           ) : (
                             <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">
                               <Store className="w-2.5 h-2.5" /> Offline

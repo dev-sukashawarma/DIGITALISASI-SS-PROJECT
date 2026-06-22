@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { OutletScopeProvider, useOutletScope } from '../useOutletScope'
 
@@ -54,7 +54,9 @@ describe('useOutletScope', () => {
       outletStaff: { id: 'staff-1', role: 'kasir', outlet_id: 'outlet-home', outlets: { name: 'Outlet Home' } },
     })
     renderProbe()
-    expect(await screen.findByTestId('selected')).toHaveTextContent('outlet-home')
+    await waitFor(() => {
+      expect(screen.getByTestId('selected')).toHaveTextContent('outlet-home')
+    })
     expect(screen.getByTestId('multi')).toHaveTextContent('false')
     expect(screen.getByTestId('count')).toHaveTextContent('1')
   })
@@ -71,7 +73,9 @@ describe('useOutletScope', () => {
       outletStaff: { id: 'staff-leader', role: 'leader', outlet_id: null, outlets: null },
     })
     renderProbe()
-    expect(await screen.findByTestId('selected')).toHaveTextContent('outlet-a')
+    await waitFor(() => {
+      expect(screen.getByTestId('selected')).toHaveTextContent('outlet-a')
+    })
     expect(screen.getByTestId('multi')).toHaveTextContent('true')
     expect(screen.getByTestId('count')).toHaveTextContent('2')
   })
@@ -89,7 +93,9 @@ describe('useOutletScope', () => {
       outletStaff: { id: 'staff-leader', role: 'leader', outlet_id: null, outlets: null },
     })
     renderProbe()
-    expect(await screen.findByTestId('selected')).toHaveTextContent('outlet-b')
+    await waitFor(() => {
+      expect(screen.getByTestId('selected')).toHaveTextContent('outlet-b')
+    })
   })
 
   it('falls back to first bound outlet if stored selection is no longer bound', async () => {
@@ -102,7 +108,9 @@ describe('useOutletScope', () => {
       outletStaff: { id: 'staff-leader', role: 'leader', outlet_id: null, outlets: null },
     })
     renderProbe()
-    expect(await screen.findByTestId('selected')).toHaveTextContent('outlet-a')
+    await waitFor(() => {
+      expect(screen.getByTestId('selected')).toHaveTextContent('outlet-a')
+    })
   })
 
   it('setSelectedOutletId rejects ids outside boundOutlets and persists valid ones', async () => {
@@ -117,7 +125,9 @@ describe('useOutletScope', () => {
       outletStaff: { id: 'staff-leader', role: 'leader', outlet_id: null, outlets: null },
     })
     renderProbe()
-    await screen.findByTestId('selected')
+    await waitFor(() => {
+      expect(screen.getByTestId('selected')).toHaveTextContent('outlet-a')
+    })
 
     act(() => screen.getByText('pick-invalid').click())
     expect(screen.getByTestId('selected')).toHaveTextContent('outlet-a')

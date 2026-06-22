@@ -1,18 +1,9 @@
 'use client'
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useQuery, notifyManager } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
-
-// React Query batches notifications via `setTimeout(fn, 0)` by default, which
-// defers re-renders to a macrotask. That's an unnecessary delay for our case
-// (no high-frequency update storms to coalesce here) and forces consumers to
-// flush a macrotask in tests just to observe the resolved query state. Use a
-// microtask scheduler instead so state updates land within the same tick.
-notifyManager.setScheduler((callback) => {
-  Promise.resolve().then(callback)
-})
 
 export interface BoundOutlet {
   id: string

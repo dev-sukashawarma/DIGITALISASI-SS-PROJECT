@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@suka/auth";
-import { LayoutDashboard, ClipboardList, Camera, LogOut, Store, X, Settings2, Users, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Camera, LogOut, Store, X, Settings2, Users, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus } from "lucide-react";
 import { ModelPreloader } from "@/components/ModelPreloader";
 
 type NavItem = { href: string; label: string; mobileLabel?: string; icon: React.ReactNode };
@@ -20,11 +20,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },
     { href: "/dashboard/papan-kehadiran", label: "Papan Kehadiran", icon: <LayoutDashboard size={20} /> },
-    { href: "/dashboard/manajemen-kru", label: "Manajemen Kru", icon: <Users size={20} /> },
     { href: "/dashboard/rekap", label: "Rekap & Riwayat", icon: <ClipboardList size={20} /> },
     { href: "/dashboard/checklist", label: "Manajemen Checklist", icon: <ListChecks size={20} /> },
     { href: "/dashboard/checklist-monitor", label: "Monitor Checklist", icon: <ClipboardCheck size={20} /> },
-    { href: "/dashboard/enroll", label: "Daftarkan Wajah", icon: <Camera size={20} /> },
+    { href: "/dashboard/enroll", label: "Enrollment Crew", icon: <UserPlus size={20} /> },
     { href: "/dashboard/pengaturan", label: "Pengaturan Absensi", icon: <Settings2 size={20} /> },
   ] : [
     { href: "/dashboard/kru", label: "Beranda Saya", icon: <LayoutDashboard size={20} /> },
@@ -37,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard", label: "Absen", icon: <Clock size={22} /> },
     { href: "/dashboard/rekap", label: "Rekap", icon: <ClipboardList size={22} /> },
     { href: "/dashboard/checklist-monitor", label: "Monitor", icon: <ClipboardCheck size={22} /> },
-    { href: "/dashboard/enroll", label: "Daftar Wajah", icon: <Camera size={22} /> },
+    { href: "/dashboard/enroll", label: "Enroll", icon: <UserPlus size={22} /> },
   ] : [
     { href: "/dashboard/kru", label: "Beranda", icon: <LayoutDashboard size={22} /> },
     { href: "/dashboard/kru-checklist", label: "Checklist", icon: <ClipboardCheck size={22} /> },

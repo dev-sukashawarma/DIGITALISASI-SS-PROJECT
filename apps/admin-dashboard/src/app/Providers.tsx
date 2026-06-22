@@ -6,6 +6,8 @@ import { AuthProvider, createSupabaseBrowserClient } from '@suka/auth'
 import type { OutletStaffProfile } from '@suka/auth'
 import { Toaster } from 'sonner'
 
+import { RoleProvider } from '@/components/layout/RoleContext'
+
 export function Providers({
   children,
   initialStaff = null,
@@ -19,8 +21,10 @@ export function Providers({
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider supabase={supabase} initialStaff={initialStaff}>
-        {children}
-        <Toaster richColors position="top-center" />
+        <RoleProvider>
+          {children}
+          <Toaster richColors position="top-center" />
+        </RoleProvider>
       </AuthProvider>
     </QueryClientProvider>
   )

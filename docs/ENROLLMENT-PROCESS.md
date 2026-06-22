@@ -1,6 +1,6 @@
 # Face Enrollment Process — Suka Shawarma Absensi M1
 
-**Status:** Implemented (Session 2026-06-22)  
+**Status:** Implemented (Session 2026-06-22 Unified Flow)  
 **Tech Stack:** @vladmandic/human v3.3.6 (face detection/embedding), Supabase (storage + database), Next.js (UI/UX)  
 **Last Updated:** 2026-06-22
 
@@ -10,94 +10,54 @@
 
 **Goal:** Register crew wajah ke sistem absensi untuk identifikasi real-time 1:N (one-to-many) di kiosk.
 
-**Flow:** SPV/Leader manage akun → Crew (or admin) enroll wajah (3 sudut) → Descriptor tersimpan → Crew siap absen di kiosk
+**Flow:** Admin HR manage akun (via Admin Dashboard) → SPV/Leader enroll wajah (via Absensi App) → Descriptor tersimpan → Crew siap absen di kiosk
 
 ---
 
-## Tahap 1: Buat Akun Crew (Manajemen Kru)
+## Tahap 1: Buat Akun Crew (Manajemen Data Kru)
 
-**URL:** `/dashboard/manajemen-kru`  
-**Role:** SPV, Leader (outlet binaan)  
-**Access Control:** Role-based nav + page-level guard
+**URL:** `apps/admin-dashboard -> /dashboard/staff`  
+**Role:** Admin HR, Owner  
+**Access Control:** Admin Dashboard  
 
-### Form Input
-```
-[Input 1] Nama Lengkap      → string (required)
-[Input 2] Username Login    → string lowercase + alphanumeric only (required)
-[Input 3] Password Sementara → string (default: "sukashawarma123")
-[Select]  Role              → dropdown: crew | kasir | spv | leader
-          (Note: currently all created as "crew", role editable via Edit later)
-```
+> **Perubahan Penting (2026-06-22):** Pembuatan akun kru, edit role, dan penghapusan kru **tidak lagi dilakukan oleh Leader** melalui aplikasi absensi. Semua manajemen data master (CRUD) disentralisasi di Admin Dashboard oleh tim HR.
 
-### Backend: Edge Function `create-staff`
-Called via: POST `{SUPABASE_URL}/functions/v1/create-staff`
-
-**Headers:**
-```
-Authorization: Bearer {session.access_token}
-Content-Type: application/json
-```
-
-**Payload:**
-```json
-{
-  "name": "Budi Santoso",
-  "email": "budisantoso@sukashawarma.com",  // auto-generated via generateStaffEmail()
-  "password": "sukashawarma123",
-  "role": "crew",
-  "username": "budisantoso"
-}
-```
-
-**Response (success):**
-```json
-{
-  "staff_id": "uuid-here",
-  "email": "budisantoso@sukashawarma.com",
-  "username": "budisantoso"
-}
-```
-
-### Database Changes
-**Table: `outlet_staff`**
-- ✅ Insert new row with:
-  - `id` = UUID (PK, FK auth.users)
-  - `outlet_id` = SPV/Leader's outlet context
-  - `name` = "Budi Santoso"
-  - `username` = "budisantoso"
-  - `role` = "crew" (can edit later)
-  - `status` = "active"
-  - `face_descriptor` = NULL (waiting for enrollment)
-  - `ref_photo_url` = NULL
-  - `enrolled_at` = NULL
-  - `consent_at` = NULL
-  - `consent_by` = NULL
-
-**Table: `auth.users`**
-- ✅ Create user with email + password (Supabase Auth)
+### Proses HR
+1. Admin HR membuat akun crew baru.
+2. Mengisi Nama, Username, Password, Role, dan Outlet Penempatan.
+3. Data tersimpan di tabel `outlet_staff` dengan status `enrolled_at = NULL` (menandakan belum rekam wajah).
 
 ---
 
-## Tahap 2: Daftarkan Wajah (Enrollment)
+## Tahap 2: Daftarkan Wajah (Enrollment Crew)
 
-**URL:** `/dashboard/enroll`  
-**Role:** SPV, Leader (dapat enroll diri sendiri atau orang lain)  
-**Access Control:** Role-based nav + **page-level guard** `if (!["spv", "leader"].includes(role)) redirect("/dashboard/kru")`
+**URL:** `apps/absensi -> /dashboard/enroll`  
+**Role:** SPV, Leader (dapat enroll kru di outlet yang diawasinya)  
+**Access Control:** Role-based nav + **page-level guard**
 
-### Phase 1: Pilih Crew & Consent
+### Phase 1: Pilih Outlet & Crew (Mobile-first List)
 ```
-[Dropdown] Pilih Staff → list outlet_staff where enrolled_at IS NULL or editable
-           Tampil: "Name (✅ Sudah Enroll)" or "Name"
+[Outlet Switcher] Muncul jika Leader/SPV mengawasi >1 outlet (via staff_outlets).
+                  Otomatis default ke outlet tempat login.
 
-[Checkbox] Persetujuan UU PDP (required)
-           Teks: "Staff yang bersangkutan hadir di tempat dan dengan sadar 
-                  menyetujui perekaman serta pemrosesan data biometrik wajahnya 
-                  untuk keperluan absensi kerja internal Suka Shawarma."
+[Card List]       Menampilkan daftar kru dari outlet terpilih yang **belum enrolled wajah**
+                  (enrolled_at IS NULL AND status = 'active').
+                  Format: Card berisi inisial, nama, dan role.
 
-[Button]   "Mulai Perekaman Wajah" (disabled until all above filled)
+[Tap Card]        Memilih kru dan beralih ke layar Consent.
 ```
 
-### Phase 2: Auto-Capture 3 Angles
+### Phase 2: Persetujuan (Consent)
+```
+[Info Kru]        Menampilkan nama dan role kru yang dipilih.
+[Checkbox]        Persetujuan UU PDP (required)
+                  Teks: "Saya, [Nama Kru], menyetujui perekaman serta pemrosesan data 
+                         biometrik wajah saya secara digital untuk keperluan operasional 
+                         internal Suka Shawarma."
+[Button]          "Mulai Perekaman Kamera" (disabled until checkbox checked)
+```
+
+### Phase 3: Auto-Capture 3 Angles
 
 **UI Guidance:**
 1. **Center Phase** → "Tatap Lurus ke Kamera" 
@@ -126,24 +86,15 @@ Content-Type: application/json
 6. After 3 captures → saveAuto(shots)
 ```
 
-### Phase 3: Save to Database & Storage
+### Phase 4: Save & Lanjut (Selesai)
 
-**Descriptor Processing:**
+**Descriptor Processing & Storage:**
 ```typescript
-const descriptor = averageDescriptors([shot1, shot2, shot3]);
-// Result: float32[128] averaged vector
-```
+const descriptor = averageDescriptors([shot1, shot2, shot3]); // float32[128]
 
-**Storage Upload:**
-```typescript
 // Path: face-refs/{outlet_id}/{staff_id}.jpg
 const blob = await fetch(dataUrl).blob();
-await supabase.storage
-  .from("face-refs")
-  .upload(`${outlet_id}/${staff_id}.jpg`, blob, {
-    upsert: true,
-    contentType: "image/jpeg"
-  });
+await supabase.storage.from("face-refs").upload(`${outlet_id}/${staff_id}.jpg`, blob, ...);
 ```
 
 **Database Update:**
@@ -151,7 +102,7 @@ await supabase.storage
 await supabase
   .from("outlet_staff")
   .update({
-    face_descriptor: descriptor,        // float32[128]
+    face_descriptor: descriptor,
     ref_photo_url: `${outlet_id}/${staff_id}.jpg`,
     consent_at: new Date().toISOString(),
     consent_by: outletStaff.id,         // SPV/Leader who enrolled
@@ -162,10 +113,11 @@ await supabase
 
 **Success Screen:**
 ```
-✅ Perekaman Selesai!
-   Wajah {crew.name} berhasil didaftarkan secara akurat ke dalam sistem.
+✅ Enrollment Selesai!
+   Wajah {crew.name} berhasil didaftarkan.
    
-   [Button: "Daftarkan Staff Lain"]
+   [Button: "Lanjut Enroll Crew Berikutnya"] -> Otomatis memilih kru berikutnya di antrean
+   [Button: "Kembali ke Daftar"]
 ```
 
 ---
@@ -244,8 +196,8 @@ useEffect(() => {
 **Why:** Layout handles nav + redirect, but page itself also validates. If middleware down or redirect fails, page still protects.
 
 ### Data Scope (RLS)
-- **SPV:** Can enroll wajah lintas semua 19 outlet (view definer bypass)
-- **Leader:** Can enroll wajah hanya outlet binaan via `staff_outlets` mapping (RLS enforcement)
+- **SPV:** Can enroll wajah lintas semua outlet
+- **Leader:** Can enroll wajah hanya outlet binaan via `staff_outlets` mapping + OutletSwitcher
 
 ### Privacy (UU PDP)
 - ✅ Consent checkbox + audit trail (`consent_at`, `consent_by`)
@@ -263,29 +215,22 @@ useEffect(() => {
    - [ ] Force password change on first login
    - [ ] Email notification of login credentials
 
-2. **Role selection at creation:**
-   - [ ] Add role dropdown in `create-staff` form (not just default to "crew")
-
-3. **Onboarding guidance:**
-   - [ ] Dashboard alert: "Face enrollment BELUM selesai" if `enrolled_at` is null
-   - [ ] Quick link to `/dashboard/enroll`
-
 ### Medium Priority
-4. **Re-enrollment workflow:**
+2. **Re-enrollment workflow:**
    - [ ] Crew can "reset enrollment" to try again if quality poor
    - [ ] SPV approval gate (future) for re-enrollment updates
    - [ ] Quality metrics: blur detection, lighting check before save
 
-5. **Privacy audit trail:**
+3. **Privacy audit trail:**
    - [ ] Store hash/version of privacy policy consent (not just timestamp)
    - [ ] Digital signature/ID proof (future)
 
-6. **Email verification:**
+4. **Email verification:**
    - [ ] Optional email confirm on account create
    - [ ] Enables password reset flow
 
 ### Lower Priority
-7. **Cross-outlet transfer:**
+5. **Cross-outlet transfer:**
    - [ ] Policy: Can crew re-use enrollment if transferred to another outlet?
    - [ ] Or require re-enrollment for each outlet?
 
@@ -310,4 +255,4 @@ useEffect(() => {
 ---
 
 **Owner:** Dev Suka Shawarma  
-**Related:** `ROLE-JOBDESK.md`, `SECURITY-CHECKLIST.md`, `CLAUDE.md` (apps/absensi section)
+**Related:** `ROLE-JOBDESK.md`, `SECURITY-CHECKLIST.md`

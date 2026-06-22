@@ -2,53 +2,70 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Button, Card, Spinner } from "@suka/design-system";
-import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowLeft, ArrowRight } from "lucide-react";
+import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowLeft, ArrowRight, Info, AlertTriangle } from "lucide-react";
 import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { CameraCapture, captureFrame } from "@/components/CameraCapture";
 import { PageHeader } from "@/components/PageHeader";
-import { loadFaceModels } from "@/lib/face/recognizer";
+import { loadFaceModels, getHuman } from "@/lib/face/recognizer";
 import { averageDescriptors } from "@/lib/face/match";
-import { getHuman } from "@/lib/face/recognizer";
+import { OutletSwitcher } from "@/components/OutletSwitcher";
 
-type Staff = { id: string; name: string; enrolled_at: string | null };
-type EnrollPhase = "idle" | "center" | "left" | "right" | "saving" | "done";
+type Staff = { id: string; name: string; role: string; enrolled_at: string | null };
+type EnrollPhase = "list" | "consent" | "center" | "left" | "right" | "saving" | "done";
 
 export default function EnrollPage() {
   const { outletStaff } = useAuth();
   const supabase = createClient();
   const toast = useToast();
   
-  const [staff, setStaff] = useState<Staff[]>([]);
-  const [targetId, setTargetId] = useState("");
-  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
+  const [selectedOutletId, setSelectedOutletId] = useState<string>("");
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [targetStaff, setTargetStaff] = useState<Staff | null>(null);
   
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const [shots, setShots] = useState<number[][]>([]);
-  const shotsRef = useRef<number[][]>([]); // To access within loop
+  const shotsRef = useRef<number[][]>([]); 
   
   const [consent, setConsent] = useState(false);
-  const [phase, setPhase] = useState<EnrollPhase>("idle");
-  const phaseRef = useRef<EnrollPhase>("idle");
+  const [phase, setPhase] = useState<EnrollPhase>("list");
+  const phaseRef = useRef<EnrollPhase>("list");
   const busyRef = useRef(false);
   const loopRef = useRef<number | null>(null);
 
   const [modelError, setModelError] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  const loadStaff = () => {
-    if (!outletStaff) return;
+  // Initialize outlet ID from auth
+  useEffect(() => {
+    if (outletStaff?.outlet_id && !selectedOutletId) {
+      setSelectedOutletId(outletStaff.outlet_id);
+    }
+  }, [outletStaff]);
+
+  // Load staff when outlet changes
+  useEffect(() => {
+    if (!selectedOutletId) return;
+    setLoadingStaff(true);
     supabase
       .from("outlet_staff")
-      .select("id,name,enrolled_at")
-      .eq("outlet_id", outletStaff.outlet_id)
-      .then(({ data }) => setStaff((data as Staff[]) ?? []));
-  };
+      .select("id, name, role, enrolled_at")
+      .eq("outlet_id", selectedOutletId)
+      .eq("status", "active")
+      .is("enrolled_at", null)
+      .order("name")
+      .then(({ data }) => {
+        setStaffList((data as Staff[]) ?? []);
+        setLoadingStaff(false);
+      });
+  }, [selectedOutletId, supabase]);
 
+  // Pre-load models
   useEffect(() => {
     loadFaceModels().catch((err) => setModelError(err.message || "Gagal memuat AI wajah"));
-    loadStaff();
-  }, [outletStaff]);
+  }, []);
 
   // Sync state & ref
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -56,7 +73,7 @@ export default function EnrollPage() {
 
   // Auto capture loop
   useEffect(() => {
-    if (phase === "idle" || phase === "saving" || phase === "done") {
+    if (phase === "list" || phase === "consent" || phase === "saving" || phase === "done") {
       if (loopRef.current) clearTimeout(loopRef.current);
       return;
     }
@@ -99,7 +116,6 @@ export default function EnrollPage() {
               await saveAuto(newShots);
             }
             
-            // Give user time to see the success flash
             await new Promise(r => setTimeout(r, 800));
           }
         }
@@ -118,11 +134,11 @@ export default function EnrollPage() {
   }, [phase, video]);
 
   async function saveAuto(finalShots: number[][]) {
-    if (!targetId || finalShots.length !== 3 || !outletStaff || !video) return;
+    if (!targetStaff || finalShots.length !== 3 || !outletStaff || !video) return;
     try {
       const descriptor = averageDescriptors(finalShots);
       const { dataUrl } = captureFrame(video);
-      const refPath = `${outletStaff.outlet_id}/${targetId}.jpg`;
+      const refPath = `${selectedOutletId}/${targetStaff.id}.jpg`;
       const blob = await (await fetch(dataUrl)).blob();
       
       await supabase.storage
@@ -138,17 +154,25 @@ export default function EnrollPage() {
           consent_by: outletStaff.id,
           enrolled_at: new Date().toISOString(),
         })
-        .eq("id", targetId);
+        .eq("id", targetStaff.id);
         
       if (error) throw error;
+      
+      // Update local list to remove enrolled staff
+      setStaffList(prev => prev.filter(s => s.id !== targetStaff.id));
       setPhase("done");
-      loadStaff();
       toast.show("ok", "Enrollment Wajah Berhasil Tersimpan!");
     } catch (e: any) {
       toast.show("err", `Gagal menyimpan: ${e.message}`);
-      setPhase("idle");
+      setPhase("consent");
       setShots([]);
     }
+  }
+
+  function handleSelectCrew(s: Staff) {
+    setTargetStaff(s);
+    setConsent(false);
+    setPhase("consent");
   }
 
   function startEnroll() {
@@ -156,85 +180,163 @@ export default function EnrollPage() {
     setPhase("center");
   }
 
-  function reset() {
-    setTargetId("");
+  function handleCancel() {
+    setTargetStaff(null);
     setConsent(false);
     setShots([]);
-    setPhase("idle");
-    setCameraError(null);
-    setModelError(null);
+    setPhase("list");
+  }
+
+  function resetToNext() {
+    // If there's another crew to enroll, auto-select them, otherwise go back to list
+    if (staffList.length > 0) {
+      setTargetStaff(staffList[0]);
+      setConsent(false);
+      setShots([]);
+      setPhase("consent");
+    } else {
+      handleCancel();
+    }
   }
 
   return (
-    <div className="max-w-xl mx-auto space-y-5 pb-12">
+    <div className="max-w-2xl mx-auto space-y-5 pb-12">
       <PageHeader
         icon={<Camera size={20} />}
-        title="Daftarkan Wajah Staf"
-        subtitle="Sistem memandu pengambilan foto dari 3 sudut agar akurat"
+        title="Enrollment Crew"
+        subtitle="Daftarkan data biometrik wajah crew yang baru bergabung"
       />
 
-      {phase === "idle" ? (
-        <Card className="p-5 sm:p-6 space-y-5 rounded-2xl">
-          {modelError && (
-             <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-semibold">
-               Peringatan AI: {modelError}
-             </div>
-          )}
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-suka-ink">1. Pilih Staff yang Akan Didaftarkan</label>
-            <select
-              className="w-full border-2 border-gray-200 rounded-xl p-3 text-lg focus:border-suka-green focus:ring-2 focus:ring-suka-green/20 outline-none"
-              value={targetId}
-              onChange={(e) => setTargetId(e.target.value)}
-            >
-              <option value="">-- Silakan pilih --</option>
-              {staff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} {s.enrolled_at ? "✅ (Sudah Enroll)" : ""}
-                </option>
+      {selectedOutletId && (
+        <OutletSwitcher 
+          currentOutletId={selectedOutletId} 
+          onChange={(id) => {
+            setSelectedOutletId(id);
+            setPhase("list");
+            setTargetStaff(null);
+          }} 
+        />
+      )}
+
+      {modelError && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-semibold flex items-start gap-2 mb-4">
+          <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+          Peringatan AI: {modelError}
+        </div>
+      )}
+
+      {phase === "list" && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-suka-ink mb-2">Pilih Crew Belum Terdaftar</h3>
+          
+          {loadingStaff ? (
+            <div className="p-8 flex justify-center"><Spinner /></div>
+          ) : staffList.length === 0 ? (
+            <Card className="p-8 text-center space-y-4 border-dashed border-2">
+              <div className="mx-auto w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center">
+                <CheckCircle2 size={32} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-suka-ink">Semua Selesai!</h3>
+                <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+                  Semua crew di outlet ini sudah menyelesaikan enrollment wajah. Jika Anda butuh menambah crew baru, silakan minta Admin HR untuk mendaftarkannya terlebih dahulu.
+                </p>
+              </div>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {staffList.map((s) => (
+                <div 
+                  key={s.id} 
+                  onClick={() => handleSelectCrew(s)}
+                  className="bg-white p-4 rounded-2xl border-2 border-gray-200 hover:border-suka-orange hover:shadow-md transition-all cursor-pointer flex items-center gap-4 group"
+                >
+                  <div className="w-12 h-12 bg-suka-cream rounded-full flex items-center justify-center text-suka-brown font-bold shrink-0">
+                    {s.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-bold text-suka-ink truncate group-hover:text-suka-orange transition-colors">{s.name}</h4>
+                    <p className="text-xs text-gray-500 capitalize">{s.role}</p>
+                  </div>
+                  <div className="shrink-0 text-suka-orange/0 group-hover:text-suka-orange transition-colors">
+                    <ArrowRight size={20} />
+                  </div>
+                </div>
               ))}
-            </select>
+            </div>
+          )}
+        </div>
+      )}
+
+      {phase === "consent" && targetStaff && (
+        <Card className="p-5 sm:p-6 space-y-6 rounded-2xl animate-in fade-in slide-in-from-bottom-2">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+            <h3 className="font-bold text-lg text-suka-ink">Konfirmasi Perekaman</h3>
+            <button onClick={handleCancel} className="text-sm font-semibold text-gray-500 hover:text-gray-800 px-3 py-1 bg-gray-100 rounded-lg">
+              Kembali
+            </button>
           </div>
 
-          <div className="space-y-2 pt-2">
-            <label className="text-sm font-bold text-suka-ink">2. Persetujuan Privasi (Wajib)</label>
-            <label className={`flex items-start gap-3 p-4 border-2 rounded-xl cursor-pointer transition-colors ${consent ? 'border-suka-green bg-green-50/30' : 'border-gray-200'}`}>
+          <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-gray-100">
+            <div className="w-14 h-14 bg-suka-brown rounded-full flex items-center justify-center text-white text-xl font-bold">
+              {targetStaff.name.charAt(0)}
+            </div>
+            <div>
+              <p className="text-xs font-bold text-suka-orange uppercase tracking-wider mb-0.5">Crew Terpilih</p>
+              <h4 className="font-bold text-suka-ink text-lg">{targetStaff.name}</h4>
+              <p className="text-sm text-gray-500 capitalize">{targetStaff.role}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm font-bold text-suka-ink flex items-center gap-2">
+              <ShieldCheck size={18} className="text-suka-green" /> 
+              Persetujuan Privasi (Wajib)
+            </label>
+            <label className={`flex items-start gap-3 p-4 border-2 rounded-xl cursor-pointer transition-colors ${consent ? 'border-suka-green bg-green-50/30' : 'border-gray-200 hover:bg-gray-50'}`}>
               <input
                 type="checkbox"
-                className="mt-1 w-5 h-5 accent-suka-green"
+                className="mt-1 w-5 h-5 accent-suka-green shrink-0"
                 checked={consent}
                 onChange={(e) => setConsent(e.target.checked)}
               />
-              <span className="text-sm text-gray-600">
-                <strong className="text-suka-ink flex items-center gap-1"><ShieldCheck size={16} className="text-suka-green" /> Persetujuan UU PDP</strong>
-                Staff yang bersangkutan hadir di tempat dan dengan sadar menyetujui perekaman serta pemrosesan data biometrik wajahnya untuk keperluan absensi kerja internal Suka Shawarma.
+              <span className="text-sm text-gray-600 leading-relaxed">
+                <strong className="text-suka-ink">Persetujuan UU PDP: </strong>
+                Saya, <span className="font-semibold">{targetStaff.name}</span>, menyetujui perekaman serta pemrosesan data biometrik wajah saya secara digital untuk keperluan operasional internal Suka Shawarma.
               </span>
             </label>
           </div>
 
-          <div className="pt-4">
+          <div className="pt-2">
             <Button 
               onClick={startEnroll} 
-              disabled={!targetId || !consent}
+              disabled={!consent}
               className="w-full py-4 text-lg font-bold shadow-md"
             >
-              Mulai Perekaman Wajah
+              Mulai Perekaman Kamera
             </Button>
           </div>
         </Card>
-      ) : (
-        <Card className="p-0 overflow-hidden rounded-2xl border-2 border-suka-green/30">
-          <div className="p-4 bg-suka-green text-white text-center">
-            <h2 className="text-xl font-bold">Panduan Perekaman</h2>
-            <p className="text-sm opacity-90">Ikuti instruksi di layar. Sistem akan mengambil foto otomatis.</p>
+      )}
+
+      {(phase === "center" || phase === "left" || phase === "right" || phase === "saving" || phase === "done") && targetStaff && (
+        <Card className="p-0 overflow-hidden rounded-2xl border-2 border-suka-green/30 shadow-lg animate-in fade-in zoom-in-95">
+          <div className="p-4 bg-suka-ink text-white flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold">Perekaman: {targetStaff.name}</h2>
+              <p className="text-xs text-gray-400">Sistem mengambil gambar otomatis</p>
+            </div>
+            {phase !== "saving" && phase !== "done" && (
+              <button onClick={() => setPhase("consent")} className="text-sm font-medium bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">Batal</button>
+            )}
           </div>
 
-          <div className="relative bg-black min-h-[350px] flex items-center justify-center">
+          <div className="relative bg-black min-h-[400px] flex items-center justify-center">
             {cameraError || modelError ? (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 text-center">
                 <h2 className="text-xl font-bold text-red-400">Gagal Memuat Kamera/AI</h2>
                 <p className="text-gray-300 mt-2 text-sm">{cameraError || modelError}</p>
-                <Button onClick={reset} className="mt-4 bg-white text-black font-bold">Kembali</Button>
+                <Button onClick={() => setPhase("consent")} className="mt-4 bg-white text-black font-bold">Kembali</Button>
               </div>
             ) : phase !== "done" && (
               <CameraCapture 
@@ -244,14 +346,16 @@ export default function EnrollPage() {
             )}
             
             {/* Guide Overlays */}
-            <div className="absolute inset-x-0 top-8 flex justify-center z-20">
-              <div className="bg-white/90 backdrop-blur px-6 py-3 rounded-full shadow-xl flex items-center gap-3 text-suka-brown font-bold text-lg animate-bounce">
-                {phase === "center" && <><UserRound size={24} className="text-blue-500" /> Tatap Lurus ke Kamera</>}
-                {phase === "left" && <><ArrowLeft size={24} className="text-orange-500" /> Tolehkan Kepala ke Kiri</>}
-                {phase === "right" && <><ArrowRight size={24} className="text-purple-500" /> Tolehkan Kepala ke Kanan</>}
-                {phase === "saving" && <><Spinner className="w-5 h-5 text-suka-green" /> Menyimpan Data...</>}
+            {phase !== "done" && (
+              <div className="absolute inset-x-0 top-8 flex justify-center z-20">
+                <div className="bg-white/90 backdrop-blur px-6 py-3 rounded-full shadow-xl flex items-center gap-3 text-suka-brown font-bold text-lg animate-bounce">
+                  {phase === "center" && <><UserRound size={24} className="text-blue-500" /> Tatap Lurus ke Kamera</>}
+                  {phase === "left" && <><ArrowLeft size={24} className="text-orange-500" /> Tolehkan Kepala ke Kiri</>}
+                  {phase === "right" && <><ArrowRight size={24} className="text-purple-500" /> Tolehkan Kepala ke Kanan</>}
+                  {phase === "saving" && <><Spinner className="w-5 h-5 text-suka-green" /> Menyimpan Data...</>}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Progress indicators */}
             {phase !== "done" && phase !== "saving" && (
@@ -262,12 +366,29 @@ export default function EnrollPage() {
               </div>
             )}
 
+            {/* Done Overlay */}
             {phase === "done" && (
               <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-8 text-center z-30">
                 <CheckCircle2 size={80} className="text-suka-green mb-4" />
-                <h2 className="text-2xl font-bold text-suka-ink mb-2">Perekaman Selesai!</h2>
-                <p className="text-gray-500 mb-8">Wajah {staff.find(s => s.id === targetId)?.name} berhasil didaftarkan secara akurat ke dalam sistem.</p>
-                <Button onClick={reset} className="px-8 font-bold">Daftarkan Staff Lain</Button>
+                <h2 className="text-2xl font-bold text-suka-ink mb-2">Enrollment Selesai!</h2>
+                <p className="text-gray-500 mb-8 max-w-sm">Wajah <span className="font-bold text-suka-ink">{targetStaff.name}</span> berhasil didaftarkan. Crew sudah dapat melakukan absensi mulai sekarang.</p>
+                
+                <div className="flex flex-col w-full max-w-xs gap-3">
+                  {staffList.length > 0 ? (
+                    <>
+                      <Button onClick={resetToNext} className="w-full font-bold py-3 text-base">
+                        Lanjut Enroll Crew Berikutnya
+                      </Button>
+                      <Button variant="ghost" onClick={handleCancel} className="w-full font-semibold">
+                        Kembali ke Daftar
+                      </Button>
+                    </>
+                  ) : (
+                    <Button onClick={handleCancel} className="w-full font-bold py-3 text-base">
+                      Selesai (Semua Crew Terdaftar)
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </div>

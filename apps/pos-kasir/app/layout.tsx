@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import KioskPresenceMount from '@/components/KioskPresenceMount'
 import GlobalBlockerMount from '@/components/GlobalBlockerMount'
+import AudioUnlockMount from '@/components/AudioUnlockMount'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <BrandProvider>
           <KioskPresenceMount />
           <GlobalBlockerMount />
+          <AudioUnlockMount />
           {children}
         </BrandProvider>
       </body>

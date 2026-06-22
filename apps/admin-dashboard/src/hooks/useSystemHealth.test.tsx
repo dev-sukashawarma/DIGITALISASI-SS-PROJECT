@@ -1,0 +1,37 @@
+import { describe, it, expect, vi } from 'vitest'
+import { renderHook, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import React from 'react'
+import type { SystemHealthLogRow } from '@/lib/types'
+
+const rows: SystemHealthLogRow[] = [
+  { id: 1, target_type: 'app', target_name: 'stok', status: 'up', db_status: 'ok', last_activity_at: null, response_time_ms: 50, detail: null, checked_at: '2026-06-20T10:00:00Z' },
+]
+
+const order = vi.fn().mockResolvedValue({ data: rows, error: null })
+const gte = vi.fn().mockReturnValue({ order })
+const select = vi.fn().mockReturnValue({ gte })
+
+vi.mock('@/lib/supabase', () => ({
+  createClient: () => ({
+    from: () => ({ select }),
+  }),
+}))
+
+import { useSystemHealth } from './useSystemHealth'
+
+function wrapper(client: QueryClient) {
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  )
+}
+
+describe('useSystemHealth', () => {
+  it('fetches rows from system_health_log ordered by checked_at desc', async () => {
+    const client = new QueryClient()
+    const { result } = renderHook(() => useSystemHealth(), { wrapper: wrapper(client) })
+    await waitFor(() => expect(result.current.data).toEqual(rows))
+    expect(select).toHaveBeenCalledWith('*')
+    expect(order).toHaveBeenCalledWith('checked_at', { ascending: false })
+  })
+})

@@ -13,9 +13,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "next": "^15.1.3",
+    "react": "^19.0.0-rc.0",
+    "react-dom": "^19.0.0-rc.0",
+    "next": "^16.1.6",
     "@supabase/supabase-js": "^2.38.0",
     "@supabase/ssr": "^0.2.0",
     "@suka/design-system": "*",
@@ -34,7 +34,7 @@
     "vitest": "^2.1.0",
     "jsdom": "^25.0.0",
     "@vitejs/plugin-react": "^4.3.0",
-    "@testing-library/react": "^15.0.0",
+    "@testing-library/react": "^16.3.2",
     "@testing-library/jest-dom": "^6.4.0"
   }
 }

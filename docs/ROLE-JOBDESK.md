@@ -52,15 +52,16 @@ Pemetaan istilah SOP → role sistem:
 
 ## Matriks Akses Role → Aplikasi
 
-| Role | pos-kasir | absensi | stok | distribusi | owner-dashboard |
-|------|:---:|:---:|:---:|:---:|:---:|
-| **admin** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **owner** | ❌ | ❌ | ❌ | ❌ | ✅ (read-only) |
-| **spv** | ❌ | ✅ semua outlet | ✅ semua outlet (monitor) | ✅ (monitor) | ⚠️ ditunda |
-| **leader** | ✅ | ✅ (outlet binaan) | ✅ (outlet binaan) | ✅ | ❌ |
-| **kasir** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **crew** | ❌ | ✅ | ❌ | ❌ | ❌ |
-| **kiosk** | ✅ (kiosk mode) | ❌ | ❌ | ❌ | ❌ |
+| Role | pos-kasir | absensi | stok | distribusi | admin-dashboard (View Owner) | admin-dashboard (View HR & System) |
+|------|:---:|:---:|:---:|:---:|:---:|:---:|
+| **admin** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **admin_hr** | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ (HR saja) |
+| **owner** | ❌ | ❌ | ❌ | ❌ | ✅ (read-only) | ❌ |
+| **spv** | ❌ | ✅ semua outlet | ✅ semua outlet (monitor) | ✅ (monitor) | ❌ | ❌ |
+| **leader** | ✅ | ✅ (outlet binaan) | ✅ (outlet binaan) | ✅ | ❌ | ❌ |
+| **kasir** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **crew** | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **kiosk** | ✅ (kiosk mode) | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 Matriks ini adalah satu-satunya sumber untuk konstanta `ROLE_APP_ACCESS` dan guard middleware tiap app.
 Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / view definer, bukan oleh matriks ini.
@@ -112,12 +113,13 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 - Memantau kesehatan bisnis: omzet, penjualan, laba, tren agregat lintas outlet.
 
 **Boleh:**
-- Akses **owner-dashboard** secara **read-only** (laporan omzet/penjualan/agregat).
+- Akses **admin-dashboard** (khusus sub-modul **Owner Dashboard**) secara **read-only** (laporan omzet/penjualan/laba/pengeluaran agregat).
 
 **Tidak boleh:**
 - Mengubah data operasional (stok, transaksi, absensi).
 - Kelola akun/karyawan (itu wewenang `admin`).
 - Akses pos-kasir/absensi/stok/distribusi.
+- Akses sub-modul HR Dashboard dan System Admin di dalam `admin-dashboard` (otomatis dialihkan/guard di client-side).
 
 **Rasional pemisahan dari admin:** owner butuh *melihat angka*, bukan *mengubah sistem*. Memisahkan owner dari admin mencegah pemilik tak sengaja mengubah konfigurasi & menjaga prinsip least-privilege.
 
@@ -214,7 +216,8 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 - **absensi:** clock in/out (dengan face recognition).
 
 **Tidak boleh:**
-- Akses pos-kasir, stok, distribusi, owner-dashboard.
+- Akses pos-kasir, stok, distribusi, admin-dashboard/owner-dashboard.
+- Mengakses aplikasi `admin-dashboard` administrasi/HR sama sekali (otomatis di-guard dan di-redirect ke Portal).
 - Melihat data outlet lain.
 
 **Catatan:** role dengan akses paling sempit — disengaja agar permukaan risiko minimal.

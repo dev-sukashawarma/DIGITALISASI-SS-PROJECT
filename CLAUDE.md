@@ -385,5 +385,13 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 
 ---
 
+## Session 2026-06-22: POS Kasir Redesign & Collapsible Nav (Stitch integration)
+
+### ✅ Completed
+1. **Suka Kitchen System Design** — Menerapkan warna latar Cream `#fff8f1`/`#f5ede3`, Suka Orange `#f29744`, Suka Brown `#701604`, Suka Green `#0a7d2c`, dan outline `#d9c2b2`.
+2. **Bento Grid Layout** — Mendesain ulang 3 kolom order di `kasir/page.tsx` dengan tinggi penuh `h-[calc(100vh-220px)]` dan scroll internal independen, serta pembungkus dinamis di `kasir/layout.tsx` (lebar penuh untuk dashboard, max-w-6xl untuk sub-halaman).
+3. **Collapsible Sidebar** — Implementasi mode collapsible di `components/KasirNav.tsx` dengan pemicu melayang, default terciut (ketutup), tooltip menu, dan persistensi state di `localStorage` (SSR-safe).
+4. **Logo Brand Resmi** — Menyalin `logo.png` dari portal ke publik pos-kasir dan menjadikannya fallback utama logo navigasi.
+
 **Last updated:** 2026-06-22  
 **Owner:** Dev Suka Shawarma

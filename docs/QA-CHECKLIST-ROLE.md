@@ -50,9 +50,10 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
 
 ### Matriks acuan
 
-| Role | pos-kasir | absensi | stok | distribusi | owner-dash | admin-dash |
+| Role | pos-kasir | absensi | stok | distribusi | admin-dash (Owner view) | admin-dash (HR/System view) |
 |------|:---:|:---:|:---:|:---:|:---:|:---:|
-| admin | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (auto) |
+| admin | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| admin_hr | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ (HR saja) |
 | owner | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
 | spv | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | kepala_outlet | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
@@ -85,12 +86,13 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
 
 **Login & launcher**
 - [ ] Login portal → masuk launcher.
-- [ ] Launcher **hanya** menampilkan: **Owner Dashboard**.
-- [ ] Tidak ada kartu: pos-kasir, absensi, stok, distribusi, admin.
+- [ ] Launcher menampilkan: **Owner Dashboard** (mengarah ke `/dashboard/owner` di admin-dashboard).
+- [ ] Tidak ada kartu: pos-kasir, absensi, stok, distribusi.
 
 **Akses app**
-- [ ] Owner Dashboard → **diizinkan**
-- [ ] Admin Dashboard → **ditolak** (redirect portal)
+- [ ] Owner Dashboard (`/dashboard/owner`) → **diizinkan**
+- [ ] Admin Dashboard Rute HR (`/dashboard/hr` atau `/dashboard/hr/*`) → **ditolak** (otomatis dialihkan ke `/dashboard/owner`)
+- [ ] Admin Dashboard Rute Admin (`/dashboard/system-health` atau `/dashboard/outlets`) → **ditolak** (otomatis dialihkan ke `/dashboard/owner`)
 - [ ] POS Kasir → **ditolak**
 - [ ] Absensi → **ditolak**
 - [ ] Stok → **ditolak**
@@ -176,8 +178,7 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
 - [ ] POS Kasir → **ditolak**
 - [ ] Stok → **ditolak**
 - [ ] Distribusi → **ditolak**
-- [ ] Owner Dashboard → **ditolak**
-- [ ] Admin Dashboard → **ditolak**
+- [ ] Admin Dashboard (seluruh halaman) → **ditolak** (layar loading "Memuat Akses..." lalu otomatis diredirect ke Portal Utama)
 
 **Catatan temuan:**
 > _(tulis di sini jika ada hasil tak sesuai)_
@@ -208,7 +209,7 @@ di `packages/auth/src/access.ts`. Kalau hasil tes beda dari matriks → itu temu
   **tidak** muncul sebagai redirect otomatis. Verifikasi via: kartu pos-kasir tidak
   muncul di launcher role tsb + (kalau URL dibuka langsung) tidak ada fungsi kasir
   yang bisa dipakai. Catat sebagai temuan jika ternyata role bisa transaksi.
-- **owner-dashboard skip enforcement di `localhost`** — wajib tes di subdomain deploy.
+- **owner-dashboard & admin-dashboard role/route protection** aktif baik di `localhost` (melalui client-side guard di `RoleProvider`) maupun di subdomain deploy.
 - Kalau hasil aktual berbeda dari matriks acuan di atas → **laporkan sebagai bug**
   (cocokkan dengan `ROLE_APP_ACCESS`).
 

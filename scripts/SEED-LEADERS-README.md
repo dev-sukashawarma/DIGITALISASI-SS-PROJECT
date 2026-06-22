@@ -6,7 +6,35 @@
 
 ---
 
-## ✅ Seeding Completed
+## ⏳ Seeding In Progress — Auth User Linking
+
+**Status (2026-06-22):**
+- ✅ outlet_staff records: 7 leaders created
+- ✅ staff_outlets mappings: 19 outlet links, 100% coverage
+- ⏳ auth.users: Creating 7 auth users via Supabase Dashboard UI
+
+**Auth User Creation Progress:**
+```
+✅ 1/7 Chairul Rizky (ed8b6d15-abf5-49cc-9fa9-e6fc33c36edb)
+⏳ 2/7 Tri Rizky (awaiting)
+⏳ 3/7 Mulyadi (awaiting)
+⏳ 4/7 Abu Bakar Bahsin (awaiting)
+⏳ 5/7 Abdurrahman (awaiting)
+⏳ 6/7 Reza (awaiting)
+⏳ 7/7 Abyansah (awaiting)
+```
+
+**Process for each user:**
+1. Click "Add user" in Supabase Dashboard → Authentication → Users
+2. Email: `[name]@test.com`
+3. Password: `test`
+4. Auto confirm email: ON
+5. **IMPORTANT:** Copy the generated User ID
+6. Run SQL to delete staff_outlets, update outlet_staff.id, re-insert staff_outlets
+
+---
+
+## ✅ Seeding Completed (outlet_staff + staff_outlets)
 
 **Actual Outlet Names (Database):**
 - sukmajaya → `SUKA SHAWARMA DEPOK SUKMAJAYA`
@@ -39,6 +67,58 @@
 ```
 
 **Total: 19 outlet mappings ✅**
+
+---
+
+## SQL Template for Batch Update (Ready to use after auth users created)
+
+**After creating all 7 auth users, collect IDs then run:**
+
+```sql
+-- DELETE all staff_outlets mappings (FK constraint)
+DELETE FROM staff_outlets 
+WHERE staff_id IN (SELECT id FROM outlet_staff WHERE role = 'leader');
+
+-- UPDATE outlet_staff with auth user IDs
+UPDATE outlet_staff SET id = '[AUTH_ID_1]' WHERE username = 'chairulrizky';
+UPDATE outlet_staff SET id = '[AUTH_ID_2]' WHERE username = 'tririzky';
+UPDATE outlet_staff SET id = '[AUTH_ID_3]' WHERE username = 'mulyadi';
+UPDATE outlet_staff SET id = '[AUTH_ID_4]' WHERE username = 'abubakarbahsin';
+UPDATE outlet_staff SET id = '[AUTH_ID_5]' WHERE username = 'abdurrahman';
+UPDATE outlet_staff SET id = '[AUTH_ID_6]' WHERE username = 'reza';
+UPDATE outlet_staff SET id = '[AUTH_ID_7]' WHERE username = 'abyansah';
+
+-- RE-INSERT staff_outlets mappings with new auth IDs
+INSERT INTO staff_outlets (staff_id, outlet_id)
+SELECT '[AUTH_ID_1]'::uuid, id FROM outlets WHERE name IN ('SUKA SHAWARMA DEPOK SUKMAJAYA', 'SUKA SHAWARMA BEJI', 'SUKA SHAWARMA SAWANGAN', 'SUKA SHAWARMA PAJAJARAN')
+UNION ALL
+SELECT '[AUTH_ID_2]'::uuid, id FROM outlets WHERE name IN ('MITRA SUKA SHAWARMA CIBINONG', 'MITRA SUKA SHAWARMA CISEENG', 'SUKA SHAWARMA CIRENDEU')
+UNION ALL
+SELECT '[AUTH_ID_3]'::uuid, id FROM outlets WHERE name IN ('SUKA SHAWARMA JAGAKARSA', 'MITRA SUKA Shawarma Kalisari', 'MITRA SUKA SHAWARMA TEBET', 'SUKA SHAWARMA JATIWARINGIN', 'MITRA SUKA Shawarma Pekayon', 'SUKA SHAWARMA JATIASIH')
+UNION ALL
+SELECT '[AUTH_ID_4]'::uuid, id FROM outlets WHERE name = 'SUKA SHAWARMA CIMANGGU'
+UNION ALL
+SELECT '[AUTH_ID_5]'::uuid, id FROM outlets WHERE name = 'SUKA SHAWARMA EMPANG'
+UNION ALL
+SELECT '[AUTH_ID_6]'::uuid, id FROM outlets WHERE name = 'SUKA SHAWARMA DRAMAGA'
+UNION ALL
+SELECT '[AUTH_ID_7]'::uuid, id FROM outlets WHERE name IN ('SUKA SHAWARMA PAJAJARAN', 'SUKA SHAWARMA PALEDANG', 'SUKA SHAWARMA KITCHEN (PUSAT)')
+ON CONFLICT DO NOTHING;
+
+-- FINAL VERIFY
+SELECT
+  o1.name as leader,
+  ARRAY_AGG(DISTINCT o2.name ORDER BY o2.name) as outlets_managed,
+  COUNT(DISTINCT o2.id) as outlet_count
+FROM outlet_staff o1
+LEFT JOIN staff_outlets so ON so.staff_id = o1.id
+LEFT JOIN outlets o2 ON o2.id = so.outlet_id
+WHERE o1.role = 'leader'
+GROUP BY o1.id, o1.name
+ORDER BY o1.name;
+```
+
+**Fill in [AUTH_ID_1] through [AUTH_ID_7] with user IDs from Supabase Dashboard**
 
 ---
 

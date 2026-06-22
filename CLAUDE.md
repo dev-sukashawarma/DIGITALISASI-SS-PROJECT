@@ -345,30 +345,43 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 
 **Ref:** docs/ENROLLMENT-PROCESS.md, docs/SECURITY-CHECKLIST.md, docs/adr/0009-face-enrollment-architecture.md
 
-### Leader Seeding Completion (Session 2026-06-22 Continuation)
+### Leader Seeding — Auth Integration (Session 2026-06-22 Final Phase)
 
-**✅ All 7 leaders seeded to database:**
-- Method: Supabase SQL Editor (direct SQL, no edge function)
-- Result: 7 leaders × 19 outlets (100% coverage via staff_outlets mapping)
-- Auth: [name]@test.com / test
+**Status:** ⏳ IN PROGRESS — Auth users being created, outlet_staff linking in progress
 
-**Leaders created:**
-1. Chairul Rizky (4 outlets: sukmajaya, beji, sawangan, pajajaran)
-2. Tri Rizky (3 outlets: cibinong, ciseeng, cirendeu)
-3. Mulyadi (6 outlets: jagakarsa, kalisari, tebet, jatiwaringin, pekayon, jatiasih)
-4. Abu Bakar Bahsin (1 outlet: cimanggu)
-5. Abdurrahman (1 outlet: empang)
-6. Reza (1 outlet: dramaga)
-7. Abyansah (3 outlets: pajajaran, paledang, kitchen)
+**Completed:**
+- ✅ outlet_staff records created (7 leaders)
+- ✅ staff_outlets mappings created (19 outlet links, 100% coverage)
+- ✅ Chairul Rizky auth user created (ID: ed8b6d15-abf5-49cc-9fa9-e6fc33c36edb)
+- ✅ Chairul Rizky outlet_staff linked with auth ID
 
-**RLS verified:** Leaders can only access their assigned outlets  
-**Access control:** Leaders can enroll crew + manage staff in their outlets
+**In Progress:**
+- ⏳ Create 6 remaining auth users via Supabase Dashboard
+- ⏳ Link remaining outlet_staff records with auth user IDs
+- ⏳ Re-insert staff_outlets mappings after ID updates (FK constraint)
+
+**Leaders & Auth Status:**
+1. ✅ Chairul Rizky (chairulrizky@test.com / test) — AUTH CREATED
+2. ⏳ Tri Rizky (tririzky@test.com / test)
+3. ⏳ Mulyadi (mulyadi@test.com / test)
+4. ⏳ Abu Bakar Bahsin (abubakarbahsin@test.com / test)
+5. ⏳ Abdurrahman (abdurrahman@test.com / test)
+6. ⏳ Reza (reza@test.com / test)
+7. ⏳ Abyansah (abyansah@test.com / test)
+
+**Process:**
+1. Create auth user via Supabase Dashboard UI
+2. Catat auth user ID
+3. Delete staff_outlets mappings (FK constraint)
+4. Update outlet_staff.id with auth user ID
+5. Re-insert staff_outlets mappings with new ID
 
 **Next steps:**
+- [ ] Create 6 remaining auth users (dashboard UI)
+- [ ] Batch update all outlet_staff + staff_outlets with SQL
 - [ ] Test login as leader (chairulrizky@test.com / test)
-- [ ] Verify `/dashboard/manajemen-kru` shows only assigned outlets
-- [ ] Verify `/dashboard/enroll` shows only assigned outlets
-- [ ] Create crew accounts for testing enrollment flow
+- [ ] Verify RLS enforcement (leaders see only assigned outlets)
+- [ ] Test enrollment flow with created leaders
 
 ---
 

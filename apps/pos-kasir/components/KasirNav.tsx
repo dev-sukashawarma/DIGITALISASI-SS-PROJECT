@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { useEffect } from 'react'
@@ -22,6 +23,7 @@ const links = [
 export default function KasirNav() {
   const pathname = usePathname()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const { outletId } = useMyOutlet()
   const [outletName, setOutletName] = useState('Kasir Outlet')
@@ -69,6 +71,7 @@ export default function KasirNav() {
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
+    queryClient.removeQueries({ queryKey: ['my-outlet'] })
     router.push('/login')
   }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, type ReactNode } from 'react'
 import { Ban, LogOut, ClipboardCheck, Moon, Clock, Unlock, AlertTriangle, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 
 export type BlockType = 'user' | 'outlet' | 'attendance' | 'checklist' | 'closed'
 
@@ -21,6 +22,7 @@ export default function BlockedOverlay({
   onBypass?: () => void
 }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const supabase = createClient()
   const [userEmail, setUserEmail] = useState<string | null>(null)
   
@@ -38,6 +40,7 @@ export default function BlockedOverlay({
 
   async function handleLogout() {
     await supabase.auth.signOut()
+    queryClient.removeQueries({ queryKey: ['my-outlet'] })
     router.push('/login')
   }
 

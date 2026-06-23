@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { useMemo } from 'react'
 import { useDashboardStore } from '@/hooks/useDashboardStore'
+import { useOutlets } from '@/hooks/useOutlets'
 import { useSalesSummary } from '@/hooks/useSalesSummary'
 import { useExpenses } from '@/hooks/useExpenses'
 import { PeriodFilter } from '@/components/PeriodFilter'
@@ -14,17 +14,8 @@ import CountUp from 'react-countup'
 import { TrendingUp, Percent, ArrowLeftRight, TrendingDown } from 'lucide-react'
 
 export default function ProfitPage() {
-  const supabase = useMemo(() => createClient(), [])
-  const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([])
+  const { data: outlets = [] } = useOutlets()
   const { filter, setFilter } = useDashboardStore()
-
-  useEffect(() => {
-    supabase
-      .from('outlets')
-      .select('id,name')
-      .order('name')
-      .then(({ data }) => setOutlets(data ?? []))
-  }, [supabase])
 
   const sales = useSalesSummary(filter)
   const expenses = useExpenses(filter)

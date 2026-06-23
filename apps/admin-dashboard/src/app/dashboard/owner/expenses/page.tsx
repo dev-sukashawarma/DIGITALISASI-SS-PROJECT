@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { useMemo } from 'react'
 import { useDashboardStore } from '@/hooks/useDashboardStore'
+import { useOutlets } from '@/hooks/useOutlets'
 import { useExpenses } from '@/hooks/useExpenses'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { rupiah, pct, rupiahCompact } from '@/lib/format'
@@ -41,17 +41,8 @@ const CATEGORY_ICONS: Record<string, any> = {
 }
 
 export default function ExpensesPage() {
-  const supabase = useMemo(() => createClient(), [])
-  const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([])
+  const { data: outlets = [] } = useOutlets()
   const { filter, setFilter } = useDashboardStore()
-
-  useEffect(() => {
-    supabase
-      .from('outlets')
-      .select('id,name')
-      .order('name')
-      .then(({ data }) => setOutlets(data ?? []))
-  }, [supabase])
 
   const { rows, loading, error } = useExpenses(filter)
 

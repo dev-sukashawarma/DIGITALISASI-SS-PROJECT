@@ -1,12 +1,12 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { useMemo } from 'react'
 import { previousRange } from '@/lib/period'
 import { buildLeaderboard } from '@/lib/leaderboard'
 import { useSalesSummary } from '@/hooks/useSalesSummary'
 import { useSalesHourly } from '@/hooks/useSalesHourly'
 import { useMenuSales } from '@/hooks/useMenuSales'
 import { useDashboardStore } from '@/hooks/useDashboardStore'
+import { useOutlets } from '@/hooks/useOutlets'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { KpiCards } from '@/components/KpiCards'
 import { SourceBreakdown } from '@/components/SourceBreakdown'
@@ -17,14 +17,9 @@ import { OutletLeaderboard } from '@/components/OutletLeaderboard'
 import type { PeriodFilterValue } from '@/lib/types'
 
 export default function DashboardPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
-  const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([])
+  const { data: outlets = [] } = useOutlets()
   const { filter, setFilter } = useDashboardStore()
   const prevFilter = useMemo<PeriodFilterValue>(() => ({ ...filter, ...previousRange({ from: filter.from, to: filter.to }) }), [filter])
-
-  useEffect(() => {
-    supabase.from('outlets').select('id,name').order('name').then(({ data }) => setOutlets(data ?? []))
-  }, [supabase])
 
   const cur = useSalesSummary(filter)
   const prev = useSalesSummary(prevFilter)

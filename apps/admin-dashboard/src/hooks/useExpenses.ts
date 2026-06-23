@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue } from '@/lib/types'
 
 export interface ExpenseRow {
@@ -15,49 +16,34 @@ export interface ExpenseRow {
 }
 
 export function useExpenses(filter: PeriodFilterValue) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
-  const [rows, setRows] = useState<ExpenseRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const supabase = useMemo(() => createClient(), [])
+  const query = useQuery<ExpenseRow[]>({
+    queryKey: ['expenses', filter.from, filter.to, filter.outletId],
+    staleTime: 2 * 60_000,
+    queryFn: async () => {
+      let q = supabase
+        .from('expenses')
+        .select('id, outlet_id, category, amount, description, expense_date, outlets(name)')
+        .gte('expense_date', filter.from)
+        .lte('expense_date', filter.to)
 
-  useEffect(() => {
-    let active = true
-    setLoading(true)
-    setError(null)
-
-    let q = supabase
-      .from('expenses')
-      .select('id, outlet_id, category, amount, description, expense_date, outlets(name)')
-      .gte('expense_date', filter.from)
-      .lte('expense_date', filter.to)
-
-    if (filter.outletId !== 'all') {
-      q = q.eq('outlet_id', filter.outletId)
-    }
-
-    q.then(({ data, error }) => {
-      if (!active) return
-      if (error) {
-        setError(error.message)
-      } else {
-        const mapped = (data ?? []).map((row: any) => ({
-          id: row.id,
-          outlet_id: row.outlet_id,
-          outlet_name: row.outlets?.name ?? 'Outlet Tidak Dikenal',
-          category: row.category,
-          amount: Number(row.amount),
-          description: row.description,
-          expense_date: row.expense_date,
-        })) as ExpenseRow[]
-        setRows(mapped)
+      if (filter.outletId !== 'all') {
+        q = q.eq('outlet_id', filter.outletId)
       }
-      setLoading(false)
-    })
 
-    return () => {
-      active = false
-    }
-  }, [supabase, filter.from, filter.to, filter.outletId])
+      const { data, error } = await q
+      if (error) throw error
 
-  return { rows, loading, error }
+      return (data ?? []).map((row: any) => ({
+        id: row.id,
+        outlet_id: row.outlet_id,
+        outlet_name: row.outlets?.name ?? 'Outlet Tidak Dikenal',
+        category: row.category,
+        amount: Number(row.amount),
+        description: row.description,
+        expense_date: row.expense_date,
+      })) as ExpenseRow[]
+    },
+  })
+  return { rows: query.data ?? [], loading: query.isLoading, error: query.error ? (query.error as Error).message : null }
 }

@@ -98,7 +98,9 @@ async function checkApp(target: AppTarget): Promise<HealthLogRow> {
 async function checkSupabase(): Promise<HealthLogRow> {
   const startedAt = Date.now()
   try {
-    const res = await fetchWithTimeout(`${supabaseUrl}/rest/v1/`, FETCH_TIMEOUT_MS)
+    const res = await fetchWithTimeout(`${supabaseUrl}/rest/v1/`, FETCH_TIMEOUT_MS, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+    })
     const responseTimeMs = Date.now() - startedAt
     const status = deriveStatus({ reachable: res.ok, dbStatus: 'ok', responseTimeMs })
     return {

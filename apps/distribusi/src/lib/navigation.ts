@@ -7,12 +7,16 @@
  * - Dev: redirect ke port lokal masing-masing app.
  */
 export const getCrossAppUrl = (path: string): string => {
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    if (path.startsWith('/distribusi') || path === '/dashboard') {
-      return `http://localhost:3002${path}`;
-    }
-    if (path.startsWith('/stok') || path === '/login') {
-      return `http://localhost:3001${path}`;
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || window.location.port !== '';
+    if (isLocal) {
+      if (path.startsWith('/distribusi') || path === '/dashboard') {
+        return `http://${hostname}:3002${path}`;
+      }
+      if (path.startsWith('/stok') || path === '/login') {
+        return `http://${hostname}:3001${path}`;
+      }
     }
   }
 

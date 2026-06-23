@@ -20,15 +20,43 @@ const BRAND_COLORS: Record<SalesSource, string> = {
   tiktok: '#000000',      // TikTok Black
 }
 
-import { SiGojek, SiGrab, SiShopee, SiTiktok } from 'react-icons/si'
+import { getChannel } from '@/lib/channels'
 
 const ICONS: Record<SalesSource, any> = {
   pos: Store,
   online: Globe,
-  gofood: SiGojek,
-  grabfood: SiGrab,
-  shopeefood: SiShopee,
-  tiktok: SiTiktok,
+  gofood: ({ className, style }: any) => {
+    const ch = getChannel('gofood')
+    return ch?.logoPath ? (
+      <svg viewBox="0 0 24 24" className={className} style={{ fill: style?.color || ch.bg }}>
+        <path d={ch.logoPath} />
+      </svg>
+    ) : <Globe className={className} style={style} />
+  },
+  grabfood: ({ className, style }: any) => {
+    const ch = getChannel('grabfood')
+    return ch?.logoPath ? (
+      <svg viewBox="0 0 24 24" className={className} style={{ fill: style?.color || ch.bg }}>
+        <path d={ch.logoPath} />
+      </svg>
+    ) : <Globe className={className} style={style} />
+  },
+  shopeefood: ({ className, style }: any) => {
+    const ch = getChannel('shopeefood')
+    return ch?.logoPath ? (
+      <svg viewBox="0 0 24 24" className={className} style={{ fill: style?.color || ch.bg }}>
+        <path d={ch.logoPath} />
+      </svg>
+    ) : <Globe className={className} style={style} />
+  },
+  tiktok: ({ className, style }: any) => {
+    const ch = getChannel('tiktok')
+    return ch?.logoPath ? (
+      <svg viewBox="0 0 24 24" className={className} style={{ fill: style?.color || ch.bg }}>
+        <path d={ch.logoPath} />
+      </svg>
+    ) : <Globe className={className} style={style} />
+  },
 }
 
 export function SourceBreakdown({ rows }: { rows: SalesSummaryRow[] }) {

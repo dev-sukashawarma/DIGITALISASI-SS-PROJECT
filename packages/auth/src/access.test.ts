@@ -6,8 +6,8 @@ describe('ROLE_APP_ACCESS', () => {
     expect([...ROLE_APP_ACCESS.kasir].sort()).toEqual(['absensi', 'pos-kasir'])
   })
 
-  it('crew punya absensi, pos-kasir & stok', () => {
-    expect([...ROLE_APP_ACCESS.crew].sort()).toEqual(['absensi', 'pos-kasir', 'stok'])
+  it('crew punya absensi, pos-kasir, stok & distribusi', () => {
+    expect([...ROLE_APP_ACCESS.crew].sort()).toEqual(['absensi', 'distribusi', 'pos-kasir', 'stok'])
   })
 
   it('admin semua 6 app termasuk admin-dashboard', () => {

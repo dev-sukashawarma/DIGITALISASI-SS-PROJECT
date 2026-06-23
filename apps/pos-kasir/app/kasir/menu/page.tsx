@@ -1,29 +1,77 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import {
   Loader2,
   Sandwich, ToggleLeft, ToggleRight,
   FileArchive, Search, Star, PlusCircle, Globe, ThumbsUp, ChevronDown, Check
 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category } from '@/types'
 
 const BUCKET = 'menu-images'
 
+interface MenuQueryData {
+  items: MenuItem[]
+  categories: Category[]
+  bestsellers: string[]
+  upsells: string[]
+  recommendations: string[]
+  unavailableIds: string[]
+}
+
+async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
+  const supabase = createClient()
+
+  const [{ data: m }, { data: c }, { data: b }, { data: u }, { data: unav }, { data: rec }] = await Promise.all([
+    supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
+    supabase.from('categories').select('*').order('sort_order'),
+    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
+    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'upsell_ids').maybeSingle(),
+    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
+    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'recommendation_ids').maybeSingle(),
+  ])
+
+  const parseIds = (raw: string | null | undefined) => {
+    try { return raw ? JSON.parse(raw) : [] } catch { return [] }
+  }
+
+  return {
+    items: m ?? [],
+    categories: c ?? [],
+    bestsellers: parseIds(b?.value),
+    upsells: parseIds(u?.value),
+    recommendations: parseIds(rec?.value),
+    unavailableIds: parseIds(unav?.value),
+  }
+}
+
 export default function KasirMenuPage() {
-  const [items, setItems]         = useState<MenuItem[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [bestsellers, setBestsellers] = useState<string[]>([])
-  const [upsells, setUpsells] = useState<string[]>([])
-  const [recommendations, setRecommendations] = useState<string[]>([])
-  const [unavailableIds, setUnavailableIds] = useState<string[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [searchQuery, setSearchQuery]   = useState('')
-  const [outletId, setOutletId]   = useState<string | null>(null)
+  const { outletId } = useMyOutlet()
+  const queryClient = useQueryClient()
+  const [searchQuery, setSearchQuery] = useState('')
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['menu', outletId],
+    queryFn: () => fetchMenuData(outletId as string),
+    enabled: !!outletId,
+    staleTime: 30000,
+    retry: false,
+  })
+
+  const items = data?.items ?? []
+  const categories = data?.categories ?? []
+  const bestsellers = data?.bestsellers ?? []
+  const upsells = data?.upsells ?? []
+  const recommendations = data?.recommendations ?? []
+  const unavailableIds = data?.unavailableIds ?? []
+
+  const invalidateMenu = () => queryClient.invalidateQueries({ queryKey: ['menu', outletId] })
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -35,118 +83,73 @@ export default function KasirMenuPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  async function fetchData() {
-    setLoading(true)
-    const supabase = createClient()
-    
-    // Get user outlet_id
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: profile } = await supabase.from('outlet_staff').select('outlet_id').eq('id', user.id).single()
-    const currentOutletId = profile?.outlet_id
-    setOutletId(currentOutletId)
-
-    if (!currentOutletId) {
-      setLoading(false)
-      return // Should not happen for Kasir, but just in case
-    }
-
-    const [{ data: m }, { data: c }, { data: b }, { data: u }, { data: unav }, { data: rec }] = await Promise.all([
-      supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${currentOutletId}`).order('sort_order'),
-      supabase.from('categories').select('*').order('sort_order'),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', currentOutletId).eq('key', 'bestseller_ids').maybeSingle(),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', currentOutletId).eq('key', 'upsell_ids').maybeSingle(),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', currentOutletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', currentOutletId).eq('key', 'recommendation_ids').maybeSingle(),
-    ])
-    
-    setItems(m ?? [])
-    setCategories(c ?? [])
-    
-    try { setBestsellers(b?.value ? JSON.parse(b.value) : []) } catch { setBestsellers([]) }
-    try { setUpsells(u?.value ? JSON.parse(u.value) : []) } catch { setUpsells([]) }
-    try { setUnavailableIds(unav?.value ? JSON.parse(unav.value) : []) } catch { setUnavailableIds([]) }
-    try { setRecommendations(rec?.value ? JSON.parse(rec.value) : []) } catch { setRecommendations([]) }
-
-    setLoading(false)
-  }
-
-  useEffect(() => { fetchData() }, [])
-
-
   async function toggleAvail(item: MenuItem) {
     if (!outletId) return
     const supabase = createClient()
-    
+
     if (item.outlet_id === outletId) {
-      // Local menu item, just update the table
       await supabase.from('menu_items').update({ is_available: !item.is_available }).eq('id', item.id)
     } else {
-      // Global menu item, toggle via unavailable_menu_ids
       const isUnav = unavailableIds.includes(item.id)
       const newUnav = isUnav
         ? unavailableIds.filter(id => id !== item.id)
         : [...unavailableIds, item.id]
-        
-      setUnavailableIds(newUnav)
-      await supabase.from('kiosk_settings').upsert({ 
+
+      await supabase.from('kiosk_settings').upsert({
         outlet_id: outletId,
-        key: 'unavailable_menu_ids', 
-        value: JSON.stringify(newUnav) 
+        key: 'unavailable_menu_ids',
+        value: JSON.stringify(newUnav)
       })
     }
-    fetchData()
+    invalidateMenu()
   }
 
   async function toggleBestseller(item: MenuItem) {
     if (!outletId) return
     const isBs = bestsellers.includes(item.id)
-    const newBs = isBs 
+    const newBs = isBs
       ? bestsellers.filter(id => id !== item.id)
       : [...bestsellers, item.id]
-      
-    setBestsellers(newBs)
-    
+
     const supabase = createClient()
-    await supabase.from('kiosk_settings').upsert({ 
+    await supabase.from('kiosk_settings').upsert({
       outlet_id: outletId,
-      key: 'bestseller_ids', 
-      value: JSON.stringify(newBs) 
+      key: 'bestseller_ids',
+      value: JSON.stringify(newBs)
     })
+    invalidateMenu()
   }
 
   async function toggleUpsell(item: MenuItem) {
     if (!outletId) return
     const isUp = upsells.includes(item.id)
-    const newUp = isUp 
+    const newUp = isUp
       ? upsells.filter(id => id !== item.id)
       : [...upsells, item.id]
-      
-    setUpsells(newUp)
-    
+
     const supabase = createClient()
-    await supabase.from('kiosk_settings').upsert({ 
+    await supabase.from('kiosk_settings').upsert({
       outlet_id: outletId,
-      key: 'upsell_ids', 
-      value: JSON.stringify(newUp) 
+      key: 'upsell_ids',
+      value: JSON.stringify(newUp)
     })
+    invalidateMenu()
   }
 
   async function toggleRecommendation(item: MenuItem) {
     if (!outletId) return
     const isRec = recommendations.includes(item.id)
-    const newRec = isRec 
+    const newRec = isRec
       ? recommendations.filter(id => id !== item.id)
       : [...recommendations, item.id]
-      
-    setRecommendations(newRec)
-    
+
     const supabase = createClient()
-    await supabase.from('kiosk_settings').upsert({ 
+    await supabase.from('kiosk_settings').upsert({
       outlet_id: outletId,
-      key: 'recommendation_ids', 
-      value: JSON.stringify(newRec) 
+      key: 'recommendation_ids',
+      value: JSON.stringify(newRec)
     })
+    invalidateMenu()
   }
 
 

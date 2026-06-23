@@ -17,6 +17,9 @@ import {
 import { fetchOpnameStatus } from '@/lib/queries/monitoring';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
+import { useAuth } from '@suka/auth';
+import { useApprovalList } from '@/hooks/usePermintaan';
+import { ApprovalList } from '../permintaan/ApprovalList';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
   const name = outletName.toUpperCase();
@@ -48,6 +51,9 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   // Collapsible sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+  // Notification dropdown open state
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+
   React.useEffect(() => {
     setCurrentTime(new Date());
     const timer = setInterval(() => {
@@ -60,15 +66,21 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'warning' | 'ok'>('all');
 
+  // Auth context for username
+  const { outletStaff } = useAuth();
+
   const isLeaderScoped = !!allowedOutletIds;
   const spvQuery = useSPVMonitoringData(!isLeaderScoped);
   const leaderQuery = useLeaderMonitoringData(isLeaderScoped);
-  const { data, isLoading, isError, lastFetched, refetch, autoRefresh } = isLeaderScoped ? leaderQuery : spvQuery;
+  const { data, isLoading, isError, lastFetched } = isLeaderScoped ? leaderQuery : spvQuery;
 
   // Real-time and proactive hooks
   const recentLedgerQuery = useRecentLedger(15);
   const stockoutForecastQuery = useStockoutForecast(1, 6);
   const wasteTodayQuery = useWasteToday();
+
+  // Pending request approvals hook
+  const { permintaan: pendingApprovals } = useApprovalList();
 
   // Filter pro-active hooks data based on leader scoped access (allowedOutletIds)
   const recentLedger = useMemo(() => {
@@ -143,6 +155,13 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   const alertCount = useMemo(() => {
     return items.filter((item) => item.status !== 'ok' || item.is_flagged).length;
   }, [items]);
+
+  // Filter items that are critical globally for notifications
+  const criticalAlertItems = useMemo(() => {
+    return items.filter(it => it.status === 'below');
+  }, [items]);
+
+  const totalNotificationCount = criticalAlertItems.length + pendingApprovals.length;
 
   // Stats computations for the selected outlet
   const currentOutletItems = useMemo(() => {
@@ -275,7 +294,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
       )}
 
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm flex-shrink-0">
+      <header className="sticky top-0 z-45 bg-white border-b border-suka-brown/10 px-6 py-4 flex justify-between items-center shadow-sm flex-shrink-0">
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="w-8 h-8 flex items-center justify-center rounded-full bg-[#faf2e9] hover:bg-[#f5ede3] border border-[#d9c2b2]/50 text-[#701604] transition-colors" title="Kembali ke Dashboard">
             ←
@@ -283,8 +302,8 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
           <div className="flex flex-col">
             <h2 className="text-xl font-bold text-[#701604] tracking-tight">SPV Monitoring Dashboard</h2>
-            <p className="text-xs text-suka-brown/60 mt-0.5">
-              Last updated: {lastFetched ? new Date(lastFetched).toLocaleTimeString('id-ID') : 'Never'}
+            <p className="text-xs text-suka-brown/70 font-semibold mt-0.5">
+              Halo, {outletStaff?.name || 'Supervisor'} | Last updated: {lastFetched ? new Date(lastFetched).toLocaleTimeString('id-ID') : 'Never'}
             </p>
           </div>
         </div>
@@ -306,27 +325,66 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
             </span>
           )}
 
-          <button
-            onClick={() => refetch()}
-            className="px-4 py-1.5 bg-[#701604] text-white rounded-lg font-bold text-xs flex items-center gap-1 hover:opacity-90 transition-opacity shadow-sm"
-          >
-            Refresh
-          </button>
-          <button
-            onClick={autoRefresh.isPaused() ? autoRefresh.resume : autoRefresh.pause}
-            className="px-4 py-1.5 border-2 border-[#701604] text-[#701604] rounded-lg font-bold text-xs flex items-center gap-1 hover:bg-[#701604]/5 transition-colors"
-          >
-            {autoRefresh.isPaused() ? 'Resume (30s)' : 'Pause'}
-          </button>
           <div className="h-8 w-[1px] bg-suka-brown/10 mx-1"></div>
-          <button className="text-suka-brown/60 hover:text-suka-orange p-1 rounded-full transition-colors">
-            🔔
-          </button>
-          <img
-            alt="Supervisor Profile"
-            className="w-10 h-10 rounded-full border border-suka-brown/10"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVWynnJOG4uWIASz9z1mXUR7yeGBBv3iaaZfvHs8koWxn4-njsaLL3iEMb-PHlCLYm-PKpAfLgobkvjpqfDk9SuA0e-EfkqStMwrjzO5cUUGcP323bAAsOqR-uyK7syfe7I9te7WV1yx3h8Eqh2r2iADNA4IgKlibFmSY1u3tSW2PRwimIr5YIEcP_gex3lSZTSM_R2SDl26I19fWlfY0d9nfx9QZPwVySk5_KAcpohzFCWx2zWGOfYz0D5YbINtX5ZxFJxJWc4yXz"
-          />
+          
+          {/* Notification Bell Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+              className="text-suka-brown/60 hover:text-suka-orange p-2 rounded-full transition-colors relative flex items-center justify-center hover:bg-suka-brown/5"
+              title="Notifikasi"
+            >
+              <span className="text-xl">🔔</span>
+              {totalNotificationCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center font-bold border-2 border-white shadow-sm">
+                  {totalNotificationCount}
+                </span>
+              )}
+            </button>
+            
+            {isNotificationOpen && (
+              <div className="absolute right-0 mt-3 w-80 bg-white border border-[#d9c2b2] rounded-2xl shadow-xl z-50 p-4 space-y-3 text-sm text-[#1e1b15] animate-in fade-in slide-in-from-top-2 duration-150">
+                <h4 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2">
+                  Notifikasi ({totalNotificationCount})
+                </h4>
+                <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1">
+                  {totalNotificationCount === 0 ? (
+                    <p className="text-xs text-suka-brown/50 italic text-center py-6 font-medium">
+                      Tidak ada notifikasi baru
+                    </p>
+                  ) : (
+                    <>
+                      {/* Critical Stock Alerts */}
+                      {criticalAlertItems.map((alert) => (
+                        <div key={`${alert.outlet_id}-${alert.bahan_baku_id}`} className="p-2.5 bg-red-50/50 border border-red-200/60 rounded-xl flex items-start gap-2">
+                          <span className="text-xs">🚨</span>
+                          <div className="flex-1">
+                            <p className="text-xs font-black text-red-950 uppercase tracking-wide">{alert.item_name}</p>
+                            <p className="text-[10px] text-red-800 font-medium">
+                              Stok kritis di {alert.outlet_name.replace('SUKA SHAWARMA ', '')} ({alert.current_qty} {alert.satuan})
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Request Approvals Alerts */}
+                      {pendingApprovals.map((req) => (
+                        <div key={req.id} className="p-2.5 bg-[#ffdcc2]/20 border border-[#ffdcc2]/65 rounded-xl flex items-start gap-2">
+                          <span className="text-xs">⏳</span>
+                          <div className="flex-1">
+                            <p className="text-xs font-black text-[#6d3900] uppercase tracking-wide">Persetujuan Bahan</p>
+                            <p className="text-[10px] text-[#544437] font-medium">
+                              Permintaan dari {req.outlet_name ?? req.outlet_id} ({req.items.length} item)
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -486,7 +544,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                         />
                         <span className="group-hover:text-suka-orange transition-colors">Semua</span>
                       </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer group text-red-600">
+                      <label className="flex items-center gap-1.5 cursor-pointer group text-red-650">
                         <input
                           type="radio"
                           name="filter"
@@ -496,7 +554,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                         />
                         <span className="group-hover:opacity-80 transition-opacity">Kritis (Below)</span>
                       </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer group text-orange-600">
+                      <label className="flex items-center gap-1.5 cursor-pointer group text-orange-650">
                         <input
                           type="radio"
                           name="filter"
@@ -607,6 +665,16 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
             {/* Right Column: Action & Predictive Hub (Action Drawer) */}
             <aside className="w-full lg:w-[23%] bg-[#faf2e9] overflow-y-auto p-4 flex flex-col gap-6 flex-shrink-0 border-t lg:border-t-0 border-[#d9c2b2]">
+              {/* Widget 0: Approval Permintaan */}
+              <div className="bg-white p-4 rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)] space-y-3">
+                <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">
+                  <span>📝</span> Approval Permintaan
+                </h3>
+                <div className="max-h-[300px] overflow-y-auto pr-1">
+                  <ApprovalList />
+                </div>
+              </div>
+
               {/* Widget 1: Saran Transfer */}
               <div className="bg-white p-4 rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)] space-y-3">
                 <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">

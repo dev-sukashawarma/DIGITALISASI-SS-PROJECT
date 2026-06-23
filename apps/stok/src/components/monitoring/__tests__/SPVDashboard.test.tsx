@@ -12,6 +12,26 @@ vi.mock('@/lib/queries/monitoring', () => ({
 }));
 
 vi.mock('@/hooks/useMonitoringData');
+
+vi.mock('@suka/auth', () => ({
+  useAuth: () => ({
+    outletStaff: { name: 'Supervisor Test' },
+    loading: false,
+  }),
+}));
+
+vi.mock('@/hooks/usePermintaan', () => ({
+  useApprovalList: () => ({
+    permintaan: [],
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+  }),
+}));
+
+vi.mock('../permintaan/ApprovalList', () => ({
+  ApprovalList: () => <div data-testid="approval-list">ApprovalList Component</div>,
+}));
 vi.mock('../SPVTable', () => ({
   SPVTable: ({ items, tab, onRowClick: _onRowClick }: any) => (
     <div data-testid="spv-table">
@@ -93,7 +113,6 @@ describe('SPVDashboard', () => {
 
     render(<SPVDashboard />, { wrapper });
     expect(screen.getByText('SPV Monitoring Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Refresh')).toBeInTheDocument();
   });
 
   it('shows error message when connection fails', () => {
@@ -207,28 +226,6 @@ describe('SPVDashboard', () => {
 
     render(<SPVDashboard />, { wrapper });
     expect(screen.getByText(/Last updated:/)).toBeInTheDocument();
-  });
-
-  it('pause button text changes based on autoRefresh state', () => {
-    const pauseMock = vi.fn();
-    const resumeMock = vi.fn();
-
-    vi.mocked(hook.useSPVMonitoringData).mockReturnValue({
-      data: { items: [], lastFetched: '2026-06-10T10:00:00Z' },
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-      autoRefresh: {
-        pause: pauseMock,
-        resume: resumeMock,
-        isPaused: () => true,
-      },
-      lastFetched: '2026-06-10T10:00:00Z',
-    } as any);
-
-    render(<SPVDashboard />, { wrapper });
-    expect(screen.getByText('Resume (30s)')).toBeInTheDocument();
   });
 
   it('uses useSPVMonitoringData (enabled) and useLeaderMonitoringData (disabled) when rendered without allowedOutletIds', () => {

@@ -393,5 +393,36 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 3. **Collapsible Sidebar** — Implementasi mode collapsible di `components/KasirNav.tsx` dengan pemicu melayang, default terciut (ketutup), tooltip menu, dan persistensi state di `localStorage` (SSR-safe).
 4. **Logo Brand Resmi** — Menyalin `logo.png` dari portal ke publik pos-kasir dan menjadikannya fallback utama logo navigasi.
 
-**Last updated:** 2026-06-22  
+---
+
+## Session 2026-06-23: Admin-Dashboard Performance (caching, query layer, agregasi DB)
+
+**Status:** ✅ COMPLETED — merged ke `main` & ter-push ke remote; migration applied & history konsisten.
+
+### Masalah → Solusi
+1. **Caching React Query mati** (`QueryClient` tanpa `staleTime`) → set default `staleTime 60s`, `gcTime 5m`, `refetchOnWindowFocus:false`, `retry:1` di `apps/admin-dashboard/src/app/Providers.tsx`; staleTime master 5m (`useOutlets`, `useStaff`), agregat 2m.
+2. **4 hook pakai `useEffect`+`useState` manual** (`useSalesSummary`, `useMenuSales`, `useExpenses`, `useSalesHourly`) → migrasi ke React Query, return shape `{rows,loading,error}` dipertahankan (consumer tak berubah), queryKey berisi filter.
+3. **`useSalesHourly` tarik RAW `orders` ke browser** → view DB baru `sales_hourly_spv` (agregasi per-jam Asia/Jakarta, pola `sales_summary_spv`), migration `20260623123000`.
+4. **Query `outlets` duplikat** di owner pages → reuse `useOutlets()`.
+5. **`select('*')`** → kolom eksplisit di hook agregat.
+6. **Dua factory client tercampur** → semua hook/page admin-dashboard pakai `createClient()` dari `@/lib/supabase` (kecuali `Providers.tsx` & `lib/supabase.ts`).
+
+### Isolasi (tak ganggu app lain)
+`@suka/auth` tak diubah · DB hanya aditif (CREATE VIEW) · caching config app-local · verifikasi `type-check` + `build` admin-dashboard.
+
+### Catatan migration drift (RESOLVED)
+Saat push, dua migration remote-only `20260623140000`/`150000` memblokir → sempat di-`repair --status reverted`. Ternyata itu milik PR #11 dev lain (owner_messages & daily_sales_targets); file masuk via `git merge origin/main`, lalu di-`repair --status applied` lagi. History kini konsisten penuh. (`supabase db pull` butuh Docker — mati di mesin ini.)
+
+### Artefak
+- Spec: `docs/superpowers/specs/2026-06-23-admin-dashboard-performance-design.md`
+- Plan: `docs/superpowers/plans/2026-06-23-admin-dashboard-performance.md`
+- Ringkasan perubahan: `docs/superpowers/plans/2026-06-23-admin-dashboard-performance-changes.md`
+
+### 📝 Next (opsional)
+- Deploy ulang `admin-dashboard` ke produksi agar perubahan kode ikut live.
+- Fase 4 (ditunda): SSR prefetch first-paint & audit bundle (recharts dll).
+
+---
+
+**Last updated:** 2026-06-23  
 **Owner:** Dev Suka Shawarma

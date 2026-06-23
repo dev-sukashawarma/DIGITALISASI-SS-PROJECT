@@ -54,6 +54,12 @@ export function CrewDashboard() {
 
   const criticalItems = (data?.items || []).filter((item) => item.status === 'below');
 
+  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+  let resolvedPortalUrl = portalUrl
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    resolvedPortalUrl = 'http://localhost:3010'
+  }
+
   const handleLogout = async () => {
     const supabase = createSupabaseBrowserClient()
     await supabase.auth.signOut()
@@ -87,6 +93,13 @@ export function CrewDashboard() {
             </div>
           </div>
           <div className="flex gap-2">
+            <a
+              href={resolvedPortalUrl}
+              className="px-3 h-10 flex items-center justify-center rounded-full bg-white hover:bg-[#fff8f1] border border-[#d9c2b2]/50 text-[#701604] transition-all active:scale-95 font-semibold text-xs"
+              title="Kembali ke Portal"
+            >
+              ← Portal
+            </a>
             <button
               onClick={() => refetch()}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 border border-[#877365]/20 transition-all active:scale-95"

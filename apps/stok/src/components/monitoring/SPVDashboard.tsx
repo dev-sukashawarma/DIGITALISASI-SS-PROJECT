@@ -284,6 +284,12 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     return <div className="text-center py-8 text-suka-brown font-medium">Memuat data monitoring...</div>;
   }
 
+  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+  let resolvedPortalUrl = portalUrl
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    resolvedPortalUrl = 'http://localhost:3010'
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#fff8f1] text-[#1e1b15]">
       {/* Toast Notification */}
@@ -326,6 +332,13 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           )}
 
           <div className="h-8 w-[1px] bg-suka-brown/10 mx-1"></div>
+
+          <a
+            href={resolvedPortalUrl}
+            className="text-xs font-bold text-suka-brown/70 hover:text-suka-brown bg-white hover:bg-suka-cream px-3 py-1.5 rounded-lg border border-suka-brown/20 transition-all active:scale-95 flex items-center gap-1 shrink-0"
+          >
+            ← Portal
+          </a>
           
           {/* Notification Bell Dropdown */}
           <div className="relative">

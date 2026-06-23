@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, Users, Store, Activity, 
   CalendarClock, CalendarHeart, Banknote, Briefcase, Award,
-  PieChart, DollarSign
+  PieChart, DollarSign, ArrowLeft
 } from 'lucide-react'
 import { useRole } from './RoleContext'
 
@@ -47,6 +47,12 @@ const NAV_GROUPS: NavGroup[] = [
 export const Sidebar = () => {
   const pathname = usePathname()
   const { role } = useRole()
+
+  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+  let resolvedPortalUrl = portalUrl
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    resolvedPortalUrl = 'http://localhost:3010'
+  }
 
   return (
     <aside className="hidden w-64 shrink-0 border-r border-suka-gray-200 bg-white md:flex md:flex-col">
@@ -92,6 +98,16 @@ export const Sidebar = () => {
             </div>
           )
         })}
+      </div>
+
+      <div className="p-4 border-t border-suka-gray-100">
+        <a
+          href={resolvedPortalUrl}
+          className="flex items-center gap-3 px-3 py-2 rounded-xl font-bold text-xs text-suka-brown/70 hover:bg-suka-cream hover:text-suka-brown border border-suka-gray-200 hover:border-suka-brown/20 transition-all active:scale-95"
+        >
+          <ArrowLeft size={16} className="text-suka-brown/60" />
+          Kembali ke Portal
+        </a>
       </div>
     </aside>
   )

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useBrand } from '@/components/BrandContext'
 
@@ -23,6 +23,12 @@ export default function AdminNav() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const { brandName, brandLogo } = useBrand()
+
+  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+  let resolvedPortalUrl = portalUrl
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    resolvedPortalUrl = 'http://localhost:3010'
+  }
 
   async function handleLogout() {
     const supabase = createClient()
@@ -122,6 +128,14 @@ export default function AdminNav() {
 
         {/* Bawah: Logout */}
         <div className="px-4 py-6 border-t border-gray-100 space-y-2 shrink-0">
+          <a
+            href={resolvedPortalUrl}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[15px] font-bold
+              text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 shrink-0 text-gray-400" strokeWidth={2} />
+            Portal
+          </a>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[15px] font-bold

@@ -4,8 +4,16 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@suka/auth";
-import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus } from "lucide-react";
+import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus, ArrowLeft } from "lucide-react";
 import { ModelPreloader } from "@/components/ModelPreloader";
+
+const getPortalUrl = () => {
+  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com';
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:3010';
+  }
+  return portalUrl;
+};
 
 type NavItem = { href: string; label: string; mobileLabel?: string; icon: React.ReactNode };
 
@@ -153,6 +161,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
 
+            <a
+              href={getPortalUrl()}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mb-2 rounded-xl text-sm font-bold text-suka-brown hover:bg-slate-50 border border-gray-200 transition-colors"
+            >
+              <ArrowLeft size={18} />
+              Kembali ke Portal
+            </a>
+
             <button
               onClick={handleLogout}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
@@ -224,8 +240,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             {/* User Profile & Logout */}
-            <div className="px-3 pt-2 border-t border-gray-100 mx-2">
-              <div className="flex items-center gap-3 px-4 py-3">
+            <div className="px-3 pt-2 border-t border-gray-100 mx-2 flex flex-col gap-2">
+              <div className="flex items-center gap-3 px-2 py-1">
                 <div className="w-9 h-9 rounded-full bg-suka-brown flex items-center justify-center text-white font-bold text-sm">
                   {outletStaff?.name?.charAt(0) || "?"}
                 </div>
@@ -233,9 +249,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <p className="text-sm font-semibold text-suka-ink truncate">{outletStaff?.name}</p>
                   <p className="text-xs text-gray-500 capitalize truncate">{outletStaff?.role}</p>
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pb-2">
+                <a
+                  href={getPortalUrl()}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-suka-brown hover:bg-slate-50 border border-gray-200 transition-colors"
+                >
+                  <ArrowLeft size={16} />
+                  Portal
+                </a>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors border border-red-200"
                 >
                   <LogOut size={16} />
                   Keluar

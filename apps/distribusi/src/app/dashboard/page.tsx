@@ -10,6 +10,12 @@ export default function DashboardPage() {
   const router = useRouter()
   const { outletStaff, loading: authLoading, signOut } = useAuth()
 
+  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+  let resolvedPortalUrl = portalUrl
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    resolvedPortalUrl = 'http://localhost:3010'
+  }
+
   // Load shipments for metrics
   const isPusat = outletStaff?.role === 'leader'
   const outletIdFilter = isPusat ? undefined : (outletStaff?.outlet_id ?? undefined)
@@ -46,7 +52,7 @@ export default function DashboardPage() {
   const STATUS_LABELS: Record<string, { text: string; style: string }> = {
     draft: { text: 'Draft', style: 'bg-gray-100 text-gray-700 border-gray-200' },
     dikirim: { text: 'Dikirim', style: 'bg-blue-50 text-blue-700 border-blue-200' },
-    dikirim_lengkap: { text: 'Dikirim', style: 'bg-blue-50 text-blue-700 border-blue-200' },
+    dikirim_lengkap: { text: 'Dikirim', style: 'bg-blue-50 text-blue-700 border-blue-205' },
     diterima_lengkap: { text: 'Diterima Lengkap', style: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
     diterima_sebagian: { text: 'Diterima Sebagian', style: 'bg-orange-50 text-orange-700 border-orange-200' },
     selesai: { text: 'Selesai', style: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -120,6 +126,12 @@ export default function DashboardPage() {
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuClSWeYAIWV7ZDxlQkI1_dE72mSnuNWQlTwtx_7q9v840mleVjHA6VoIPDdjdv5iud0LIZ6DOeS-TcpR2spRfXoDw8TOA2EVMzAPPHomfTAcb-IoxBmR-hAqAg9f60GQyOtCWYzzKjEUOrdqXmwNjif9TAPm1qGRVIZ5RwzVFPB4jZ6Jk76yK8T_1mQMMxTR9wxYDY-MY2f_Fv2QpqTCqDfccMKsQUQKcCIjXlcKoj5fi1XY2xlAUdfAvK98U_Y959XG1Hn3f65nG1_"
             />
           </div>
+          <a
+            href={resolvedPortalUrl}
+            className="px-3 py-1.5 border border-[#d9c2b2] text-[#544437] font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-[#faf2e9] transition-all active:scale-95 flex items-center gap-1 shrink-0"
+          >
+            ← Portal
+          </a>
           <button
             onClick={signOut}
             className="px-3 py-1.5 border border-[#701604] text-[#701604] font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-[#701604] hover:text-white transition-all active:scale-95 cursor-pointer"

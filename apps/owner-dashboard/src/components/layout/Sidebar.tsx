@@ -13,6 +13,10 @@ const MENU_ITEMS = [
 export const Sidebar = () => {
   const pathname = usePathname()
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
+  let resolvedPortalUrl = portalUrl
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    resolvedPortalUrl = 'http://localhost:3010'
+  }
 
   return (
     <aside className="w-64 bg-white border-r border-suka-gray-200 p-6 flex flex-col justify-between h-full shadow-sm flex-shrink-0">
@@ -53,7 +57,7 @@ export const Sidebar = () => {
 
       {/* Footer link to Portal */}
       <a
-        href={portalUrl}
+        href={resolvedPortalUrl}
         className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-suka-brown/70 hover:bg-suka-cream hover:text-suka-brown border border-suka-gray-200 hover:border-suka-brown/20 transition-all active:scale-95"
       >
         <ArrowLeft className="w-5 h-5 text-suka-brown/60" />

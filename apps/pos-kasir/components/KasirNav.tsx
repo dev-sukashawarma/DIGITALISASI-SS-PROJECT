@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -31,6 +31,12 @@ export default function KasirNav() {
   const { brandName, brandLogo } = useBrand()
 
   const [isCollapsed, setIsCollapsed] = useState(true)
+
+  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+  let resolvedPortalUrl = portalUrl
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    resolvedPortalUrl = 'http://localhost:3010'
+  }
 
   useEffect(() => {
     const stored = localStorage.getItem('kasir_sidebar_collapsed')
@@ -178,6 +184,15 @@ export default function KasirNav() {
         </nav>
 
         <div className={`py-6 border-t border-[#d9c2b2] space-y-2 shrink-0 ${isCollapsed ? 'px-2.5' : 'px-4'}`}>
+          <a
+            href={resolvedPortalUrl}
+            className={`w-full flex items-center rounded-2xl text-[15px] font-bold text-[#544437] hover:text-[#1e1b15] hover:bg-[#e9e1d8] transition-colors
+              ${isCollapsed ? 'justify-center p-3.5' : 'gap-3 px-4 py-3'}`}
+            title={isCollapsed ? "Kembali ke Portal" : undefined}
+          >
+            <ArrowLeft className="w-5 h-5 shrink-0 text-[#877365]" strokeWidth={2} />
+            {!isCollapsed && <span className="animate-fade-in">Portal</span>}
+          </a>
           <button
             onClick={handleLogout}
             className={`w-full flex items-center rounded-2xl text-[15px] font-bold text-[#a43c26] hover:bg-[#e9e1d8]/50 transition-colors

@@ -4,6 +4,7 @@ import './globals.css'
 import KioskPresenceMount from '@/components/KioskPresenceMount'
 import GlobalBlockerMount from '@/components/GlobalBlockerMount'
 import AudioUnlockMount from '@/components/AudioUnlockMount'
+import { Providers } from '@/components/Providers'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -22,12 +23,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="id" className={inter.variable}>
       <body>
-        <BrandProvider>
-          <KioskPresenceMount />
-          <GlobalBlockerMount />
-          <AudioUnlockMount />
-          {children}
-        </BrandProvider>
+        <Providers>
+          <BrandProvider>
+            <KioskPresenceMount />
+            <GlobalBlockerMount />
+            <AudioUnlockMount />
+            {children}
+          </BrandProvider>
+        </Providers>
       </body>
     </html>
   )

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { createClient } from '@/lib/supabase'
 import { useDashboardStore } from '@/hooks/useDashboardStore'
 import { useExpenses } from '@/hooks/useExpenses'
 import { PeriodFilter } from '@/components/PeriodFilter'
@@ -41,7 +41,7 @@ const CATEGORY_ICONS: Record<string, any> = {
 }
 
 export default function ExpensesPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = useMemo(() => createClient(), [])
   const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([])
   const { filter, setFilter } = useDashboardStore()
 

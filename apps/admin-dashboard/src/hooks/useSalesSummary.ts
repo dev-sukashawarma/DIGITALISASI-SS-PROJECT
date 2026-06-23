@@ -1,10 +1,10 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { createClient } from '@/lib/supabase'
 import type { SalesSummaryRow, PeriodFilterValue } from '@/lib/types'
 
 export function useSalesSummary(filter: PeriodFilterValue) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = useMemo(() => createClient(), [])
   const [rows, setRows] = useState<SalesSummaryRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

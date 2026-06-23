@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { createClient } from '@/lib/supabase'
 import { previousRange } from '@/lib/period'
 import { buildLeaderboard } from '@/lib/leaderboard'
 import { useSalesSummary } from '@/hooks/useSalesSummary'
@@ -17,7 +17,7 @@ import { OutletLeaderboard } from '@/components/OutletLeaderboard'
 import type { PeriodFilterValue } from '@/lib/types'
 
 export default function DashboardPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = useMemo(() => createClient(), [])
   const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([])
   const { filter, setFilter } = useDashboardStore()
   const prevFilter = useMemo<PeriodFilterValue>(() => ({ ...filter, ...previousRange({ from: filter.from, to: filter.to }) }), [filter])

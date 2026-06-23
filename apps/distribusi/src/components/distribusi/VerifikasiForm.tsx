@@ -226,17 +226,17 @@ export function VerifikasiForm({ id }: { id: string }) {
     const jelekCount = items.filter((it: any) => verifications[it.id]?.kondisi === 'jelek').length
     return (
       <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-24">
-        <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex items-center gap-3 shadow-[0_2px_8px_rgba(144,77,0,0.03)]">
+        <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-3 sm:px-4 py-3 flex items-center gap-2 sm:gap-3 shadow-[0_2px_8px_rgba(144,77,0,0.03)] min-w-0">
           <button
             onClick={() => { setCurrentIndex(items.length - 1); setStep('cards') }}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm"
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm shrink-0"
             title="Kembali ke item terakhir"
           >
             <span className="text-base">←</span>
           </button>
-          <div className="flex flex-col">
-            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Ringkasan Verifikasi</h1>
-            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">{items.length} item selesai dikonfirmasi</p>
+          <div className="flex flex-col min-w-0">
+            <h1 className="font-bold text-xs sm:text-sm text-[#701604] uppercase tracking-tight leading-tight truncate">Ringkasan Verifikasi</h1>
+            <p className="text-[9px] sm:text-[10px] text-[#544437]/75 font-bold mt-0.5 truncate">{items.length} item selesai dikonfirmasi</p>
           </div>
         </header>
 
@@ -288,14 +288,14 @@ export function VerifikasiForm({ id }: { id: string }) {
   // ── Step: Cards (satu item per layar) ─────────────────────────────
   return (
     <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
-      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)]">
-        <div className="flex items-center gap-3">
-          <Link href="/distribusi/terima" className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm" title="Kembali ke Inbox">
+      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-3 sm:px-4 py-3 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)]">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Link href="/distribusi/terima" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm shrink-0" title="Kembali ke Inbox">
             <span className="text-base">←</span>
           </Link>
-          <div className="flex flex-col">
-            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Verifikasi Penerimaan</h1>
-            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">
+          <div className="flex flex-col min-w-0">
+            <h1 className="font-bold text-xs sm:text-sm text-[#701604] uppercase tracking-tight leading-tight truncate">Verifikasi Penerimaan</h1>
+            <p className="text-[9px] sm:text-[10px] text-[#544437]/75 font-bold mt-0.5 truncate max-w-[170px] sm:max-w-none">
               No. {data.document_number || id.substring(0, 8).toUpperCase()} &bull; {data.outlets?.name?.replace('SUKA SHAWARMA ', '') || ''}
             </p>
           </div>

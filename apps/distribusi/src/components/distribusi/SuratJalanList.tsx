@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
 import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
 import { BottomNav } from './BottomNav'
+import { ArrowLeft, Plus, Calendar, AlertCircle, FileDown, Eye, Check } from 'lucide-react'
 
 function FormattedDate({ iso }: { iso: string | null | undefined }) {
   const text = useFormattedDate(iso, {
@@ -22,6 +23,7 @@ type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_
 
 export function SuratJalanList() {
   const router = useRouter()
+  const { outletStaff } = useAuth()
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const { data, loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter)
 
@@ -75,10 +77,9 @@ export function SuratJalanList() {
     downloadPDF(`Surat-Jalan-${sj.id.substring(0, 8)}.html`, htmlContent)
   }
 
-
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen justify-center items-center bg-[#fff8f1] text-[#701604] font-medium">
+      <div className="flex flex-col min-h-screen justify-center items-center bg-[#fff8f1] text-[#701604] font-medium bg-grain relative">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#701604] mb-4"></div>
         <p className="text-xs font-bold uppercase tracking-wider animate-pulse">Memuat daftar surat jalan...</p>
       </div>
@@ -86,33 +87,39 @@ export function SuratJalanList() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-32">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)] flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm" title="Kembali ke Dashboard">
-            <span className="text-base">←</span>
+    <div className="min-h-screen bg-[#fff8f1]/50 text-[#1e1b15] pb-32 relative overflow-hidden bg-grain select-none">
+      {/* Drifting Background Blobs */}
+      <div className="absolute top-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-suka-orange/5 blur-[120px] pointer-events-none z-0 animate-blob-1" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-suka-brown/5 blur-[120px] pointer-events-none z-0 animate-blob-2" />
+
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-suka-brown/10 px-3 sm:px-4 py-3 flex justify-between items-center shadow-sm relative">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Link href="/dashboard" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl bg-white border border-suka-orange/15 text-suka-orange hover:bg-suka-orange/5 active:scale-95 transition-all shadow-sm shrink-0" title="Kembali ke Dashboard">
+            <ArrowLeft size={16} />
           </Link>
-          <div className="flex flex-col">
-            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Daftar Surat Jalan</h1>
-            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">Sistem Distribusi & Logistik</p>
+          <div className="flex flex-col min-w-0">
+            <h1 className="font-black text-xs sm:text-sm text-suka-brown uppercase tracking-wider font-display leading-none truncate">Daftar Surat Jalan</h1>
+            <p className="text-[9px] sm:text-[10px] text-suka-gray-500 font-bold mt-0.5">
+              {outletStaff?.name || 'Staff'} • {outletStaff?.outlets?.name ?? (outletStaff?.role === 'leader' || outletStaff?.role === 'kitchen' ? 'Gudang Pusat' : 'Outlet')}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/distribusi/surat-jalan/new"
-            className="px-3 py-1.5 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm uppercase tracking-wider active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-2 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-suka-orange/20 uppercase tracking-widest active:scale-95 flex items-center gap-1 cursor-pointer"
           >
-            <span>+</span> Buat SJ
+            <Plus size={14} /> <span>Buat SJ</span>
           </Link>
         </div>
       </header>
 
       {/* Content container */}
-      <div className="p-4 max-w-5xl mx-auto space-y-4">
+      <div className="p-4 max-w-5xl mx-auto space-y-5 relative z-10">
+        
         {/* Summary / Filter Bar */}
-        <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-sm">
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 md:pb-0">
             {[
               { key: 'all', label: 'Semua' },
               { key: 'today', label: 'Hari Ini' },
@@ -124,26 +131,26 @@ export function SuratJalanList() {
               <button
                 key={btn.key}
                 onClick={() => setDateFilter(btn.key as DateFilter)}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
+                className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border cursor-pointer ${
                   dateFilter === btn.key
-                    ? 'bg-[#701604] border-[#701604] text-white shadow-sm'
-                    : 'bg-white border-[#d9c2b2]/40 text-[#544437]/80 hover:bg-[#fff8f1]/50'
+                    ? 'bg-suka-brown border-suka-brown text-white shadow-sm'
+                    : 'bg-white border-suka-orange/10 text-suka-gray-600 hover:bg-suka-orange/5'
                 }`}
               >
                 {btn.label}
               </button>
             ))}
           </div>
-          <div className="text-[9px] font-extrabold text-[#701604]/80 bg-[#faf2e9] border border-[#d9c2b2]/40 px-3 py-1.5 rounded-lg flex items-center gap-1.5 uppercase tracking-wide">
-            <span className="w-2 h-2 rounded-full bg-[#f29744] animate-pulse shrink-0" />
+          <div className="text-[9px] font-extrabold text-suka-brown bg-suka-orange/10 border border-suka-orange/20 px-3 py-2 rounded-lg flex items-center gap-1.5 uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-suka-orange animate-pulse shrink-0" />
             <span>{draftCount} draft &bull; {sentCount} dikirim &bull; {diterimaCount} belum verif &bull; {selesaiCount} selesai</span>
           </div>
         </div>
 
         {data.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-12 text-center shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
-            <span className="text-3xl">📭</span>
-            <p className="text-[#544437]/50 font-bold text-sm mt-2">Belum ada Surat Jalan</p>
+          <div className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-16 text-center shadow-sm">
+            <span className="text-3xl block mb-2">📭</span>
+            <p className="text-suka-gray-500 font-extrabold text-sm uppercase tracking-wider">Belum ada Surat Jalan</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -151,16 +158,16 @@ export function SuratJalanList() {
               <div
                 key={sj.id}
                 onClick={() => router.push(`/distribusi/surat-jalan/${sj.id}`)}
-                className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 flex flex-col justify-between shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md active:scale-[0.99] transition-all duration-200 cursor-pointer"
+                className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-5 flex flex-col justify-between shadow-sm hover:border-suka-orange/45 hover:shadow-lg hover:-translate-y-1 active:scale-[0.99] transition-all duration-300 cursor-pointer group"
               >
-                <div className="space-y-3 flex-1 flex flex-col justify-between">
-                  <div className="space-y-2">
+                <div className="space-y-4 flex-1 flex flex-col justify-between">
+                  <div className="space-y-3">
                     {/* Header Info */}
                     <div className="flex justify-between items-start gap-2">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-[#701604]/70 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
+                      <span className="text-[9px] font-extrabold uppercase tracking-widest text-suka-brown bg-suka-orange/10 px-2.5 py-0.5 rounded border border-suka-orange/5">
                         SJ: {sj.document_number || sj.id.substring(0, 8).toUpperCase()}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-wider border ${
+                      <span className={`px-2.5 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider border ${
                         sj.status === 'draft'
                           ? 'bg-amber-50 text-amber-700 border-amber-200'
                           : sj.status === 'dikirim'
@@ -180,34 +187,35 @@ export function SuratJalanList() {
 
                     {/* Outlet Name */}
                     <div className="space-y-1">
-                      <p className="text-[8px] font-black text-[#544437]/40 uppercase tracking-widest pl-0.5">Tujuan Outlet</p>
-                      <h4 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide leading-tight">
+                      <p className="text-[8px] font-extrabold text-suka-gray-400 uppercase tracking-widest pl-0.5">Tujuan Outlet</p>
+                      <h4 className="font-extrabold text-suka-ink text-xs uppercase tracking-wide leading-tight group-hover:text-suka-orange transition-colors duration-200">
                         {sj.outlet?.name || 'Unknown Outlet'}
                       </h4>
                     </div>
                   </div>
 
                   {/* Footer Actions */}
-                  <div className="pt-3 border-t border-[#d9c2b2]/15 mt-3 flex flex-col gap-2">
-                    <div className="flex justify-between items-center text-[9px] text-[#544437]/60 font-bold uppercase pl-0.5">
-                      <span>
+                  <div className="pt-4 border-t border-suka-orange/10 mt-2 flex flex-col gap-2">
+                    <div className="flex justify-between items-center text-[9px] text-suka-gray-500 font-bold uppercase pl-0.5">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} className="text-suka-orange" />
                         <FormattedDate iso={sj.created_at} />
                       </span>
                       {sj.status !== 'draft' && sj.status !== 'dikirim' && (
                         sj.has_problem ? (
-                          <span className="px-2 py-0.5 rounded-lg text-[8px] font-bold bg-red-50 text-red-700 border border-red-200 flex items-center gap-1 shrink-0">
-                            <span>⚠️</span> Selisih
+                          <span className="px-2 py-0.5 rounded-lg text-[8px] font-black bg-red-50 text-red-700 border border-red-200 flex items-center gap-1 shrink-0">
+                            <AlertCircle size={10} /> Selisih
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-lg text-[8px] text-[#0a7d2c] font-bold uppercase flex items-center gap-1 bg-emerald-50 border border-emerald-250 shrink-0">
-                            <span>✓</span> Aman
+                          <span className="px-2 py-0.5 rounded-lg text-[8px] text-suka-green font-black uppercase flex items-center gap-1 bg-emerald-50 border border-emerald-250 shrink-0">
+                            <Check size={10} /> Aman
                           </span>
                         )
                       )}
                     </div>
 
                     {sj.status === 'draft' ? (
-                      <span className="w-full text-center py-2 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white font-bold text-[10px] uppercase tracking-wider rounded-xl shadow-xs transition-all active:scale-95 block mt-1">
+                      <span className="w-full text-center py-2.5 bg-suka-brown hover:bg-suka-ink text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 block mt-2">
                         Verifikasi & Kirim
                       </span>
                     ) : (sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian') ? (
@@ -217,9 +225,9 @@ export function SuratJalanList() {
                             e.stopPropagation();
                             router.push(`/distribusi/surat-jalan/${sj.id}`);
                           }}
-                          className="w-full py-2 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-[9px] uppercase tracking-wider rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 shadow-sm"
+                          className="w-full py-2.5 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-md shadow-suka-orange/20 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 mt-1 group-hover:scale-[1.01]"
                         >
-                          🔍 Cek dan Verifikasi
+                          <Eye size={12} /> Detail Verifikasi
                         </button>
                       </div>
                     ) : (
@@ -229,9 +237,9 @@ export function SuratJalanList() {
                             e.stopPropagation();
                             handleDownloadPDF(sj.id);
                           }}
-                          className="w-full py-2 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white font-bold text-[9px] uppercase tracking-wider rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 shadow-sm"
+                          className="w-full py-2.5 bg-suka-brown hover:bg-suka-ink text-white font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 mt-1 group-hover:scale-[1.01]"
                         >
-                          📥 Download Surat Jalan
+                          <FileDown size={12} /> Unduh PDF
                         </button>
                       </div>
                     )}
@@ -248,3 +256,4 @@ export function SuratJalanList() {
     </div>
   )
 }
+

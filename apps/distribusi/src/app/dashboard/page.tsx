@@ -5,6 +5,8 @@ import { useSuratJalanList } from '@/hooks/useSuratJalan'
 import { BottomNav } from '@/components/distribusi/BottomNav'
 import { useRouter } from 'next/navigation'
 import { getCrossAppUrl } from '@/lib/navigation'
+import { Avatar } from '@suka/design-system'
+import { FileText, ArrowLeftRight, CheckCircle2, Plus, Navigation, ListTodo, History, Layers, ChevronRight, LogOut, ShieldAlert, QrCode } from 'lucide-react'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -24,7 +26,7 @@ export default function DashboardPage() {
 
   if (authLoading) {
     return (
-      <div className="flex flex-col min-h-screen justify-center items-center bg-[#fff8f1] text-[#701604] font-medium">
+      <div className="flex flex-col min-h-screen justify-center items-center bg-[#fff8f1] text-[#701604] font-medium bg-grain relative">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#701604] mb-4"></div>
         <p className="text-xs font-bold uppercase tracking-wider animate-pulse">Memuat Profil Staff...</p>
       </div>
@@ -33,10 +35,14 @@ export default function DashboardPage() {
 
   if (!outletStaff) {
     return (
-      <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-4">
-        <p className="p-4 text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 rounded-xl">
-          Akses ditolak: Sesi tidak ditemukan.
-        </p>
+      <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-4 bg-grain">
+        <div className="bg-red-50/80 border border-red-200/50 backdrop-blur-md p-6 rounded-2xl flex items-center gap-3.5 max-w-md shadow-lg shadow-red-900/5">
+          <ShieldAlert className="text-red-600 shrink-0" size={24} />
+          <div>
+            <h3 className="font-extrabold text-sm text-red-900 uppercase tracking-wide">Akses Ditolak</h3>
+            <p className="text-xs text-red-700 font-semibold mt-1">Sesi login tidak ditemukan. Silakan masuk kembali melalui portal.</p>
+          </div>
+        </div>
       </div>
     )
   }
@@ -50,9 +56,9 @@ export default function DashboardPage() {
   const recentShipments = suratJalanList.slice(0, 3)
 
   const STATUS_LABELS: Record<string, { text: string; style: string }> = {
-    draft: { text: 'Draft', style: 'bg-gray-100 text-gray-700 border-gray-200' },
+    draft: { text: 'Draft', style: 'bg-amber-50 text-amber-700 border-amber-200' },
     dikirim: { text: 'Dikirim', style: 'bg-blue-50 text-blue-700 border-blue-200' },
-    dikirim_lengkap: { text: 'Dikirim', style: 'bg-blue-50 text-blue-700 border-blue-205' },
+    dikirim_lengkap: { text: 'Dikirim', style: 'bg-blue-50 text-blue-700 border-blue-200' },
     diterima_lengkap: { text: 'Diterima Lengkap', style: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
     diterima_sebagian: { text: 'Diterima Sebagian', style: 'bg-orange-50 text-orange-700 border-orange-200' },
     selesai: { text: 'Selesai', style: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -68,18 +74,34 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-32">
-      {/* TopNavBar */}
-      <header className="sticky top-0 z-50 bg-white border-b border-[#701604]/10 px-6 py-4 flex justify-between items-center shadow-[0px_4px_20px_rgba(112,22,4,0.04)]">
-        <div className="flex items-center gap-4">
-          <img
-            alt="Suka Shawarma Logo"
-            className="h-10 w-10 object-contain"
-            src="https://lh3.googleusercontent.com/aida/AP1WRLuBRxFAnNPICR01ME16F2BQlDq7WI81d4ZDXl8AXgzAEXM4jfSVhD8mRaegtjb-GgChL4MxP1CiIYujHzrmnoI31CBZstksX-j3IE-N86yH6Niv75FKPEfgXTGyRUHDq5-o2OYh0HWFQx_KcbQXLOqNyf26tTRx6crow2DhPNcSOKHOzuYqUZJ6BDSeDILSOV2wQSlBBBuITYqya7o9zIEE9LVv6Kg5cIBUmRBDMsNJaO-w49G8DFpsR04Z"
-          />
-          <div className="flex flex-col">
-            <h1 className="font-bold text-base text-[#701604] leading-tight">Distribusi Dashboard</h1>
-            <p className="text-[10px] text-[#544437]/70 font-semibold tracking-wide uppercase">Sistem Logistik Outlet</p>
+    <div className="min-h-screen bg-[#fff8f1]/50 text-[#1e1b15] pb-32 relative overflow-hidden bg-grain select-none">
+      {/* Drifting Background Blobs */}
+      <div className="absolute top-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-suka-orange/5 blur-[120px] pointer-events-none z-0 animate-blob-1" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-suka-brown/5 blur-[120px] pointer-events-none z-0 animate-blob-2" />
+
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 py-3 md:py-4 flex flex-col md:flex-row md:justify-between md:items-center shadow-sm relative gap-3 md:gap-0">
+        {/* Row 1: Logo & Title (left) & Avatar (right on mobile) */}
+        <div className="flex justify-between items-center w-full md:w-auto">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-xl sm:rounded-2xl p-1 shadow-sm border border-suka-orange/10 flex items-center justify-center shrink-0">
+              <img
+                alt="Suka Shawarma Logo"
+                className="w-full h-full object-contain"
+                src="/logo.png"
+              />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="font-black text-sm sm:text-base text-suka-brown leading-tight font-display tracking-wide">
+                Distribusi Dashboard
+              </h1>
+              <p className="text-[10px] text-suka-gray-500 font-extrabold tracking-widest uppercase mt-0.5">
+                Sistem Logistik Outlet
+              </p>
+            </div>
+          </div>
+          {/* Avatar visible on mobile right side only */}
+          <div className="md:hidden w-8 h-8 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0">
+            <Avatar name={outletStaff.name} size={32} />
           </div>
         </div>
 
@@ -87,99 +109,179 @@ export default function DashboardPage() {
         <nav className="hidden md:flex items-center gap-8">
           <button
             onClick={() => handleNavigate('/dashboard')}
-            className="text-xs font-bold text-[#f29744] border-b-2 border-[#f29744] px-1 py-1 transition-all"
+            className="text-xs font-extrabold text-suka-orange border-b-2 border-suka-orange px-1 py-1 transition-all cursor-pointer"
           >
             Dashboard
           </button>
           <button
             onClick={() => handleNavigate(isPusat ? '/distribusi/surat-jalan' : '/distribusi/terima')}
-            className="text-xs font-semibold text-[#544437] hover:text-[#f29744] px-1 py-1 transition-colors"
+            className="text-xs font-bold text-suka-gray-600 hover:text-suka-orange px-1 py-1 transition-colors cursor-pointer"
           >
             {isPusat ? 'Pengiriman' : 'Penerimaan'}
           </button>
           <button
             onClick={() => handleNavigate('/stok')}
-            className="text-xs font-semibold text-[#544437] hover:text-[#f29744] px-1 py-1 transition-colors"
+            className="text-xs font-bold text-suka-gray-600 hover:text-suka-orange px-1 py-1 transition-colors cursor-pointer"
           >
             Inventory
           </button>
           <button
             onClick={() => handleNavigate('/distribusi/riwayat')}
-            className="text-xs font-semibold text-[#544437] hover:text-[#f29744] px-1 py-1 transition-colors"
+            className="text-xs font-bold text-suka-gray-600 hover:text-suka-orange px-1 py-1 transition-colors cursor-pointer"
           >
             Riwayat
           </button>
         </nav>
 
-        {/* User Session Bar */}
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex flex-col text-right">
-            <span className="text-xs font-bold text-[#1e1b15]">{outletStaff.name}</span>
-            <span className="text-[9px] text-[#544437]/65 uppercase font-bold tracking-wider">
-              {isPusat ? 'SPV PUSAT' : `CREW OUTLET ${outletStaff.outlet_id?.slice(0, 4).toUpperCase()}`}
+        {/* User Session Bar - Stacks below on mobile, inline on desktop */}
+        <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-3 border-t md:border-t-0 border-suka-brown/5 pt-2.5 md:pt-0">
+          <div className="flex flex-col text-left">
+            <span className="text-xs font-extrabold text-[#1e1b15]">{outletStaff.name}</span>
+            <span className="text-[10px] text-suka-orange font-bold uppercase tracking-wider mt-0.5">
+              {isPusat ? 'SPV PUSAT' : (outletStaff.outlets?.name ?? 'OUTLET')}
             </span>
           </div>
-          <div className="w-8 h-8 rounded-full border-2 border-[#f29744]/20 overflow-hidden bg-gray-100 shrink-0">
-            <img
-              alt="Avatar"
-              className="w-full h-full object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuClSWeYAIWV7ZDxlQkI1_dE72mSnuNWQlTwtx_7q9v840mleVjHA6VoIPDdjdv5iud0LIZ6DOeS-TcpR2spRfXoDw8TOA2EVMzAPPHomfTAcb-IoxBmR-hAqAg9f60GQyOtCWYzzKjEUOrdqXmwNjif9TAPm1qGRVIZ5RwzVFPB4jZ6Jk76yK8T_1mQMMxTR9wxYDY-MY2f_Fv2QpqTCqDfccMKsQUQKcCIjXlcKoj5fi1XY2xlAUdfAvK98U_Y959XG1Hn3f65nG1_"
-            />
+
+          <div className="flex items-center gap-2">
+            {/* Avatar only on desktop */}
+            <div className="hidden md:block w-9 h-9 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0">
+              <Avatar name={outletStaff.name} size={36} />
+            </div>
+            <a
+              href={resolvedPortalUrl}
+              className="px-3 py-1.5 border border-[#d9c2b2] text-[#544437] font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-[#faf2e9] transition-all active:scale-95 flex items-center gap-1 shrink-0 bg-white shadow-sm"
+            >
+              ← Portal
+            </a>
+            <button
+              onClick={signOut}
+              className="px-3 py-1.5 border border-suka-brown text-suka-brown font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-suka-brown hover:text-white transition-all active:scale-95 cursor-pointer flex items-center gap-1 shrink-0 bg-white"
+              title="Keluar Aplikasi"
+            >
+              <LogOut size={12} />
+              <span>Keluar</span>
+            </button>
           </div>
-          <a
-            href={resolvedPortalUrl}
-            className="px-3 py-1.5 border border-[#d9c2b2] text-[#544437] font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-[#faf2e9] transition-all active:scale-95 flex items-center gap-1 shrink-0"
-          >
-            ← Portal
-          </a>
-          <button
-            onClick={signOut}
-            className="px-3 py-1.5 border border-[#701604] text-[#701604] font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-[#701604] hover:text-white transition-all active:scale-95 cursor-pointer"
-          >
-            Logout
-          </button>
         </div>
       </header>
-
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-6 py-8 flex flex-col gap-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6 relative z-10">
+        
         {/* Status Metrics Panel */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* Status 1 */}
-          <div className="bg-white rounded-2xl p-5 shadow-[0px_4px_20px_rgba(112,22,4,0.02)] border border-[#d9c2b2]/45 border-l-4 border-l-[#f29744] flex items-center justify-between">
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-[#544437]/50 leading-none">
+          <div className="bg-white/70 backdrop-blur-md rounded-2xl p-5 shadow-sm border border-suka-orange/10 border-l-4 border-l-suka-orange flex items-center justify-between hover:shadow-md transition-all duration-300">
+            <div className="space-y-1">
+              <p className="text-[9px] font-extrabold uppercase tracking-widest text-suka-gray-500 leading-none">
                 {isPusat ? 'Draft SJ (Siap Kirim)' : 'Kiriman Menuju Outlet'}
               </p>
-              <h3 className="text-xl font-black text-[#701604] mt-2">
-                {listLoading ? '...' : (isPusat ? drafts.length : inTransit.length)} <span className="text-xs font-semibold text-[#544437]/75">Dokumen</span>
+              <h3 className="text-xl font-black text-suka-brown pt-1">
+                {listLoading ? '...' : (isPusat ? drafts.length : inTransit.length)} <span className="text-xs font-bold text-suka-gray-500">Dokumen</span>
               </h3>
             </div>
-            <span className="text-2xl">{isPusat ? '📝' : '🚚'}</span>
+            <div className="w-10 h-10 rounded-xl bg-suka-orange/10 text-suka-orange flex items-center justify-center">
+              {isPusat ? <FileText size={20} /> : <Navigation size={20} />}
+            </div>
           </div>
+          
           {/* Status 2 */}
-          <div className="bg-white rounded-2xl p-5 shadow-[0px_4px_20px_rgba(112,22,4,0.02)] border border-[#d9c2b2]/45 border-l-4 border-l-[#701604] flex items-center justify-between">
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-[#544437]/50 leading-none">
+          <div className="bg-white/70 backdrop-blur-md rounded-2xl p-5 shadow-sm border border-suka-orange/10 border-l-4 border-l-suka-brown flex items-center justify-between hover:shadow-md transition-all duration-300">
+            <div className="space-y-1">
+              <p className="text-[9px] font-extrabold uppercase tracking-widest text-suka-gray-500 leading-none">
                 {isPusat ? 'Dalam Transit (Aktif)' : 'Selesai Diverifikasi'}
               </p>
-              <h3 className="text-xl font-black text-[#701604] mt-2">
-                {listLoading ? '...' : (isPusat ? inTransit.length : completed.length)} <span className="text-xs font-semibold text-[#544437]/75">Dokumen</span>
+              <h3 className="text-xl font-black text-suka-brown pt-1">
+                {listLoading ? '...' : (isPusat ? inTransit.length : completed.length)} <span className="text-xs font-bold text-suka-gray-500">Dokumen</span>
               </h3>
             </div>
-            <span className="text-2xl">🔄</span>
+            <div className="w-10 h-10 rounded-xl bg-suka-brown/10 text-suka-brown flex items-center justify-center">
+              <ArrowLeftRight size={20} />
+            </div>
           </div>
+          
           {/* Status 3 */}
-          <div className="bg-white rounded-2xl p-5 shadow-[0px_4px_20px_rgba(112,22,4,0.02)] border border-[#d9c2b2]/45 border-l-4 border-l-[#0a7d2c] flex items-center justify-between">
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider text-[#544437]/50 leading-none">
+          <div className="bg-white/70 backdrop-blur-md rounded-2xl p-5 shadow-sm border border-suka-orange/10 border-l-4 border-l-suka-green flex items-center justify-between hover:shadow-md transition-all duration-300">
+            <div className="space-y-1">
+              <p className="text-[9px] font-extrabold uppercase tracking-widest text-suka-gray-500 leading-none">
                 {isPusat ? 'Pengiriman Selesai' : 'Total Dokumen'}
               </p>
-              <h3 className="text-xl font-black text-[#0a7d2c] mt-2">
-                {listLoading ? '...' : (isPusat ? completed.length : suratJalanList.length)} <span className="text-xs font-semibold text-[#544437]/75">Dokumen</span>
+              <h3 className="text-xl font-black text-suka-green pt-1">
+                {listLoading ? '...' : (isPusat ? completed.length : suratJalanList.length)} <span className="text-xs font-bold text-suka-gray-500">Dokumen</span>
               </h3>
             </div>
-            <span className="text-2xl">✅</span>
+            <div className="w-10 h-10 rounded-xl bg-suka-green/10 text-suka-green flex items-center justify-center">
+              <CheckCircle2 size={20} />
+            </div>
+          </div>
+        </section>
+
+        {/* Quick Actions Grid (Now at the Top) */}
+        <section className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-5 shadow-sm">
+          <h2 className="font-extrabold text-xs text-suka-gray-500 uppercase tracking-widest pl-1 mb-4">Aksi Cepat</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {isPusat ? (
+              <>
+                <button
+                  onClick={() => handleNavigate('/distribusi/surat-jalan/new')}
+                  className="bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-md shadow-suka-orange/20 flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group animate-fade-in"
+                >
+                  <Plus size={20} className="group-hover:scale-110 transition-transform duration-200" />
+                  <span className="leading-tight">Buat Surat Jalan</span>
+                </button>
+                <button
+                  onClick={() => handleNavigate('/distribusi/pengiriman')}
+                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
+                >
+                  <Navigation size={20} className="group-hover:scale-110 transition-transform duration-200" />
+                  <span className="leading-tight">Pantau Pengiriman</span>
+                </button>
+                <button
+                  onClick={() => handleNavigate('/distribusi/surat-jalan')}
+                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
+                >
+                  <ListTodo size={20} className="group-hover:scale-110 transition-transform duration-200" />
+                  <span className="leading-tight">Daftar Surat Jalan</span>
+                </button>
+                <button
+                  onClick={() => handleNavigate('/distribusi/riwayat')}
+                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
+                >
+                  <History size={20} className="group-hover:scale-110 transition-transform duration-200" />
+                  <span className="leading-tight">Riwayat Pengiriman</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleNavigate('/distribusi/terima/scan')}
+                  className="bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-md shadow-suka-orange/20 flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
+                >
+                  <QrCode size={20} className="group-hover:scale-110 transition-transform duration-200" />
+                  <span className="leading-tight">Scan QR Penerimaan</span>
+                </button>
+                <button
+                  onClick={() => handleNavigate('/distribusi/terima')}
+                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
+                >
+                  <Navigation size={20} className="group-hover:scale-110 transition-transform duration-200" />
+                  <span className="leading-tight">Verifikasi Kiriman</span>
+                </button>
+                <button
+                  onClick={() => handleNavigate('/distribusi/riwayat')}
+                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
+                >
+                  <ListTodo size={20} className="group-hover:scale-110 transition-transform duration-200" />
+                  <span className="leading-tight">Riwayat Penerimaan</span>
+                </button>
+                <button
+                  onClick={() => handleNavigate('/stok/ledger')}
+                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
+                >
+                  <Layers size={20} className="group-hover:scale-110 transition-transform duration-200" />
+                  <span className="leading-tight">Cek Kartu Stok</span>
+                </button>
+              </>
+            )}
           </div>
         </section>
 
@@ -188,25 +290,25 @@ export default function DashboardPage() {
           {/* Left Column - 8 Cols */}
           <div className="lg:col-span-8 space-y-6">
             {/* Recent Shipments Card */}
-            <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 shadow-[0px_4px_20px_rgba(112,22,4,0.02)] overflow-hidden">
-              <div className="px-6 py-5 border-b border-[#701604]/10 flex justify-between items-center bg-white">
-                <h2 className="font-extrabold text-sm text-[#701604] uppercase tracking-wide">Aktivitas Distribusi Terkini</h2>
-                <span className="bg-[#faf2e9] border border-[#d9c2b2]/30 px-3 py-1 rounded-full text-[10px] font-bold text-[#701604]">
-                  {listLoading ? '...' : suratJalanList.length} Total SJ
+            <div className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 shadow-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-suka-brown/10 flex justify-between items-center bg-white/50">
+                <h2 className="font-extrabold text-sm text-suka-brown uppercase tracking-wider font-display">Aktivitas Distribusi Terkini</h2>
+                <span className="bg-suka-orange/10 border border-suka-orange/20 px-3 py-1 rounded-full text-[10px] font-extrabold text-suka-orange uppercase">
+                  {listLoading ? '...' : `${suratJalanList.length} Total`}
                 </span>
               </div>
 
               {listLoading ? (
-                <div className="p-8 text-center text-xs font-bold text-[#544437]/50 animate-pulse uppercase tracking-wider">
+                <div className="p-12 text-center text-xs font-bold text-suka-gray-400 animate-pulse uppercase tracking-wider">
                   Memuat data aktivitas...
                 </div>
               ) : recentShipments.length === 0 ? (
-                <div className="p-12 text-center text-[#544437]/65">
+                <div className="p-12 text-center text-suka-gray-500">
                   <span className="text-3xl block mb-2">📭</span>
-                  <p className="text-xs font-bold">Belum ada aktivitas surat jalan.</p>
+                  <p className="text-xs font-bold uppercase tracking-wider">Belum ada aktivitas surat jalan.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-[#d9c2b2]/20">
+                <div className="divide-y divide-suka-orange/10">
                   {recentShipments.map((sj, idx) => {
                     const statusInfo = STATUS_LABELS[sj.status] || { text: sj.status, style: 'bg-gray-100 text-gray-700' }
                     const formattedDate = new Date(sj.created_at).toLocaleDateString('id-ID', {
@@ -225,192 +327,110 @@ export default function DashboardPage() {
                             router.push(`/distribusi/terima/${sj.id}`)
                           }
                         }}
-                        className={`px-6 py-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-[#faf2e9] active:bg-[#f3e8dc]/60 transition-all ${
-                          idx % 2 === 0 ? 'bg-white' : 'bg-[#fff8f1]/30'
+                        className={`px-6 py-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-suka-orange/5 active:bg-suka-orange/10 transition-all group duration-200 ${
+                          idx % 2 === 0 ? 'bg-white/40' : 'bg-transparent'
                         }`}
                       >
                         <div className="min-w-0 space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] font-black text-[#701604] uppercase tracking-wide">
+                            <span className="text-[10px] font-black text-suka-brown uppercase tracking-wide group-hover:text-suka-orange transition-colors">
                               {sj.document_number || sj.id.substring(0, 8).toUpperCase()}
                             </span>
-                            <span className="text-[10px] text-[#544437]/60 font-semibold">• {formattedDate}</span>
+                            <span className="text-[10px] text-suka-gray-400 font-bold">• {formattedDate}</span>
                           </div>
-                          <p className="text-[11px] text-[#544437]/80 font-bold truncate">
+                          <p className="text-[11px] text-suka-gray-600 font-bold truncate">
                             {isPusat
                               ? `Tujuan: ${sj.outlets?.name || `Outlet ${sj.outlet_id.slice(0, 4).toUpperCase()}`}`
                               : 'Dari: Central Kitchen (Gudang Pusat)'}
                           </p>
                         </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shrink-0 ${statusInfo.style}`}>
-                          {statusInfo.text}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusInfo.style}`}>
+                            {statusInfo.text}
+                          </span>
+                          <ChevronRight size={14} className="text-suka-gray-400 group-hover:translate-x-0.5 transition-transform duration-200" />
+                        </div>
                       </div>
                     )
                   })}
                 </div>
               )}
             </div>
-
-            {/* SOP & Operational Guide Card */}
-            <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 shadow-[0px_4px_20px_rgba(112,22,4,0.02)] overflow-hidden">
-              <div className="px-6 py-5 border-b border-[#701604]/10 bg-white">
-                <h2 className="font-extrabold text-sm text-[#701604] uppercase tracking-wide">
-                  {isPusat ? 'SOP & Alur Kerja Gudang Pusat' : 'SOP & Panduan Penerimaan Outlet'}
-                </h2>
-              </div>
-              <div className="divide-y divide-[#d9c2b2]/20">
-                {isPusat ? (
-                  <>
-                    <div className="px-6 py-4 flex items-start gap-4 bg-white">
-                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">1</span>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-[#1e1b15]">Cek Pengajuan Permintaan</h4>
-                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Lihat daftar permintaan bahan baku masuk dari outlet di menu stok yang sudah disetujui supervisor.</p>
-                      </div>
-                    </div>
-                    <div className="px-6 py-4 flex items-start gap-4 bg-[#fff8f1]/30">
-                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">2</span>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-[#1e1b15]">Buat Surat Jalan Baru</h4>
-                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Klik tombol "Buat Surat Jalan" untuk mengisi Qty barang yang siap dikirimkan secara fisik.</p>
-                      </div>
-                    </div>
-                    <div className="px-6 py-4 flex items-start gap-4 bg-white">
-                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">3</span>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-[#1e1b15]">Serah Terima & Cetak QR</h4>
-                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Tanda tangani Surat Jalan digital, lalu serahkan fisik cetak QR Code beserta barang ke supir/kurir.</p>
-                      </div>
-                    </div>
-                    <div className="px-6 py-4 flex items-start gap-4 bg-[#fff8f1]/30">
-                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">4</span>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-[#1e1b15]">Pantau Status Pengiriman</h4>
-                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Monitor pengiriman hingga kurir tiba dan outlet menyelesaikan verifikasi penerimaan barang.</p>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="px-6 py-4 flex items-start gap-4 bg-white">
-                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">1</span>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-[#1e1b15]">Scan QR Code Kedatangan</h4>
-                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Gunakan menu "Scan QR Penerimaan" saat kurir tiba dengan logistik untuk membuka form verifikasi.</p>
-                      </div>
-                    </div>
-                    <div className="px-6 py-4 flex items-start gap-4 bg-[#fff8f1]/30">
-                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">2</span>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-[#1e1b15]">Verifikasi Kuantitas & Kondisi</h4>
-                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Hitung fisik barang. Jika ada selisih/rusak, masukkan Qty riil dan tandai kondisi "Jelek" beserta catatannya.</p>
-                      </div>
-                    </div>
-                    <div className="px-6 py-4 flex items-start gap-4 bg-white">
-                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">3</span>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-[#1e1b15]">Tanda Tangan Penerima & Supir</h4>
-                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Bubuhkan tanda tangan digital penerima dan supir pengirim sebagai bukti serah terima resmi.</p>
-                      </div>
-                    </div>
-                    <div className="px-6 py-4 flex items-start gap-4 bg-[#fff8f1]/30">
-                      <span className="text-xs font-bold text-[#f29744] bg-orange-50 w-6 h-6 flex items-center justify-center rounded-full shrink-0">4</span>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-[#1e1b15]">Pembaruan Kartu Stok Otomatis</h4>
-                        <p className="text-[10px] text-[#544437]/75 font-semibold leading-relaxed">Sistem akan memotong/menambah saldo kartu stok outlet Anda secara real-time setelah verifikasi difinalisasi.</p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Right Column - 4 Cols */}
           <div className="lg:col-span-4 space-y-6">
-            {/* Quick Actions Grid */}
-            <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-6 shadow-[0px_4px_20px_rgba(112,22,4,0.02)]">
-              <h2 className="font-extrabold text-xs text-[#544437]/70 uppercase tracking-widest pl-1 mb-4">Aksi Cepat</h2>
-              <div className="grid grid-cols-2 gap-3">
+            {/* SOP & Operational Guide Card */}
+            <div className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 shadow-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-suka-brown/10 bg-white/50">
+                <h2 className="font-extrabold text-sm text-suka-brown uppercase tracking-wider font-display">
+                  {isPusat ? 'SOP & Alur Kerja Gudang Pusat' : 'SOP & Panduan Penerimaan Outlet'}
+                </h2>
+              </div>
+              <div className="divide-y divide-suka-orange/10">
                 {isPusat ? (
                   <>
-                    <button
-                      onClick={() => handleNavigate('/distribusi/surat-jalan/new')}
-                      className="bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-sm flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <span className="text-xl">➕</span>
-                      <span className="leading-tight">Buat Surat Jalan</span>
-                    </button>
-                    <button
-                      onClick={() => handleNavigate('/distribusi/pengiriman')}
-                      className="bg-white border border-[#d9c2b2]/45 text-[#544437] hover:bg-[#faf2e9] active:bg-[#eee7e0] font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-sm flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <span className="text-xl">🚚</span>
-                      <span className="leading-tight">Pantau Pengiriman</span>
-                    </button>
-                    <button
-                      onClick={() => handleNavigate('/distribusi/surat-jalan')}
-                      className="bg-white border border-[#d9c2b2]/45 text-[#544437] hover:bg-[#faf2e9] active:bg-[#eee7e0] font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-sm flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <span className="text-xl">📋</span>
-                      <span className="leading-tight">Daftar Surat Jalan</span>
-                    </button>
-                    <button
-                      onClick={() => handleNavigate('/distribusi/riwayat')}
-                      className="bg-white border border-[#d9c2b2]/45 text-[#544437] hover:bg-[#faf2e9] active:bg-[#eee7e0] font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-sm flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <span className="text-xl">📚</span>
-                      <span className="leading-tight">Riwayat Pengiriman</span>
-                    </button>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-white/40">
+                      <span className="text-xs font-extrabold text-suka-orange bg-suka-orange/10 w-6 h-6 flex items-center justify-center rounded-lg shrink-0 border border-suka-orange/20">1</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-suka-ink">Cek Pengajuan Permintaan</h4>
+                        <p className="text-[10px] text-suka-gray-500 font-semibold leading-relaxed">Lihat daftar permintaan bahan baku masuk dari outlet di menu stok yang sudah disetujui supervisor.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-transparent">
+                      <span className="text-xs font-extrabold text-suka-orange bg-suka-orange/10 w-6 h-6 flex items-center justify-center rounded-lg shrink-0 border border-suka-orange/20">2</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-suka-ink">Buat Surat Jalan Baru</h4>
+                        <p className="text-[10px] text-suka-gray-500 font-semibold leading-relaxed">Klik tombol "Buat Surat Jalan" untuk mengisi Qty barang yang siap dikirimkan secara fisik.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-white/40">
+                      <span className="text-xs font-extrabold text-suka-orange bg-suka-orange/10 w-6 h-6 flex items-center justify-center rounded-lg shrink-0 border border-suka-orange/20">3</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-suka-ink">Serah Terima & Cetak QR</h4>
+                        <p className="text-[10px] text-suka-gray-500 font-semibold leading-relaxed">Tanda tangani Surat Jalan digital, lalu serahkan fisik cetak QR Code beserta barang ke supir/kurir.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-transparent">
+                      <span className="text-xs font-extrabold text-suka-orange bg-suka-orange/10 w-6 h-6 flex items-center justify-center rounded-lg shrink-0 border border-suka-orange/20">4</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-suka-ink">Pantau Status Pengiriman</h4>
+                        <p className="text-[10px] text-suka-gray-500 font-semibold leading-relaxed">Monitor pengiriman hingga kurir tiba dan outlet menyelesaikan verifikasi penerimaan barang.</p>
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <>
-                    <button
-                      onClick={() => handleNavigate('/distribusi/terima/scan')}
-                      className="bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-sm flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <span className="text-xl">📷</span>
-                      <span className="leading-tight">Scan QR Penerimaan</span>
-                    </button>
-                    <button
-                      onClick={() => handleNavigate('/distribusi/terima')}
-                      className="bg-white border border-[#d9c2b2]/45 text-[#544437] hover:bg-[#faf2e9] active:bg-[#eee7e0] font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-sm flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <span className="text-xl">🚚</span>
-                      <span className="leading-tight">Verifikasi Kiriman</span>
-                    </button>
-                    <button
-                      onClick={() => handleNavigate('/distribusi/riwayat')}
-                      className="bg-white border border-[#d9c2b2]/45 text-[#544437] hover:bg-[#faf2e9] active:bg-[#eee7e0] font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-sm flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <span className="text-xl">📋</span>
-                      <span className="leading-tight">Riwayat Penerimaan</span>
-                    </button>
-                    <button
-                      onClick={() => handleNavigate('/stok')}
-                      className="bg-white border border-[#d9c2b2]/45 text-[#544437] hover:bg-[#faf2e9] active:bg-[#eee7e0] font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-sm flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <span className="text-xl">📊</span>
-                      <span className="leading-tight">Cek Kartu Stok</span>
-                    </button>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-white/40">
+                      <span className="text-xs font-extrabold text-suka-orange bg-suka-orange/10 w-6 h-6 flex items-center justify-center rounded-lg shrink-0 border border-suka-orange/20">1</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-suka-ink">Scan QR Code Kedatangan</h4>
+                        <p className="text-[10px] text-suka-gray-500 font-semibold leading-relaxed">Gunakan menu "Scan QR Penerimaan" saat kurir tiba dengan logistik untuk membuka form verifikasi.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-transparent">
+                      <span className="text-xs font-extrabold text-suka-orange bg-suka-orange/10 w-6 h-6 flex items-center justify-center rounded-lg shrink-0 border border-suka-orange/20">2</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-suka-ink">Verifikasi Kuantitas & Kondisi</h4>
+                        <p className="text-[10px] text-suka-gray-500 font-semibold leading-relaxed">Hitung fisik barang. Jika ada selisih/rusak, masukkan Qty riil dan tandai kondisi "Jelek" beserta catatannya.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-white/40">
+                      <span className="text-xs font-extrabold text-suka-orange bg-suka-orange/10 w-6 h-6 flex items-center justify-center rounded-lg shrink-0 border border-suka-orange/20">3</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-suka-ink">Tanda Tangan Penerima & Supir</h4>
+                        <p className="text-[10px] text-suka-gray-500 font-semibold leading-relaxed">Bubuhkan tanda tangan digital penerima dan supir pengirim sebagai bukti serah terima resmi.</p>
+                      </div>
+                    </div>
+                    <div className="px-6 py-4 flex items-start gap-4 bg-transparent">
+                      <span className="text-xs font-extrabold text-suka-orange bg-suka-orange/10 w-6 h-6 flex items-center justify-center rounded-lg shrink-0 border border-suka-orange/20">4</span>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-suka-ink">Pembaruan Kartu Stok Otomatis</h4>
+                        <p className="text-[10px] text-suka-gray-500 font-semibold leading-relaxed">Sistem akan memotong/menambah saldo kartu stok outlet Anda secara real-time setelah verifikasi difinalisasi.</p>
+                      </div>
+                    </div>
                   </>
                 )}
-              </div>
-            </div>
-
-            {/* Decorative Banner */}
-            <div className="relative rounded-2xl overflow-hidden h-40 group shadow-[0px_4px_20px_rgba(112,22,4,0.04)] border border-[#d9c2b2]/30">
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#701604] to-[#f29744] opacity-90 z-10"></div>
-              <div
-                className="absolute inset-0 z-0 bg-center bg-cover transition-transform duration-500 group-hover:scale-105"
-                style={{
-                  backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuDAmKn9l9Wi3npnGoD4aPiC_Vc3lZAHBNNYMlwi-GI7cXvY9viWqHeouoGg8VASf3h83PSGwOIJNVQYgkCDML3cI-NvlId-gKHQmw4nO_WXuMsPD2bQah8QEeTlmu1s740twY9AZOyAT-4Gn0iHN-KE_G7kG7LXfPONHBMRGfaWC40QNYs6rQrb5c7RcPZi8udoNNZrdW-XAg28a6mZWKhzp_oBVybBgUMy6fdyaX5Dxcaeshnle88NOljaXgeAhUNQyYieB8WLC7e7')`,
-                }}
-              ></div>
-              <div className="relative z-20 h-full p-6 flex flex-col justify-end text-white">
-                <p className="text-white/80 text-[9px] font-bold uppercase tracking-widest">Update Logistik</p>
-                <h4 className="font-extrabold text-sm leading-snug mt-1">Optimasi Rute Distribusi Terpusat</h4>
               </div>
             </div>
           </div>

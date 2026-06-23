@@ -167,18 +167,20 @@ export function SuratJalanDetail({ id }: { id: string }) {
     return (
       <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-24">
         {/* Header Banner */}
-        <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)] flex-shrink-0">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-3 sm:px-4 py-3 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)] flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={() => router.back()}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm"
+              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm shrink-0"
               title="Kembali"
             >
               <span className="text-base">←</span>
             </button>
-            <div className="flex flex-col">
-              <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Detail Surat Jalan</h1>
-              <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">Sistem Distribusi & Logistik</p>
+            <div className="flex flex-col min-w-0">
+              <h1 className="font-bold text-xs sm:text-sm text-[#701604] uppercase tracking-tight leading-tight truncate">Detail Surat Jalan</h1>
+              <p className="text-[9px] sm:text-[10px] text-[#544437]/75 font-bold mt-0.5">
+                {outletStaff?.name || 'Staff'} • {outletStaff?.outlets?.name ?? 'Outlet'}
+              </p>
             </div>
           </div>
           
@@ -227,14 +229,16 @@ export function SuratJalanDetail({ id }: { id: string }) {
   return (
     <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-24">
       {/* Header Banner */}
-      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)] flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <Link href="/distribusi/surat-jalan" className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm" title="Kembali ke Daftar">
+      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-3 sm:px-4 py-3 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)] flex-shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Link href="/distribusi/surat-jalan" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm shrink-0" title="Kembali ke Daftar">
             <span className="text-base">←</span>
           </Link>
-          <div className="flex flex-col">
-            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Detail Surat Jalan</h1>
-            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">Sistem Distribusi & Logistik</p>
+          <div className="flex flex-col min-w-0">
+            <h1 className="font-bold text-xs sm:text-sm text-[#701604] uppercase tracking-tight leading-tight truncate">Detail Surat Jalan</h1>
+            <p className="text-[9px] sm:text-[10px] text-[#544437]/75 font-bold mt-0.5">
+              {outletStaff?.name || 'Staff'} • {outletStaff?.outlets?.name ?? 'Gudang Pusat'}
+            </p>
           </div>
         </div>
         {(data.status === 'selesai' || data.status === 'dikirim') && (

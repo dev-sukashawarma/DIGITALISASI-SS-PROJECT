@@ -70,11 +70,13 @@ export function ReceiptSignatureStep({ suratJalanId, submitting, onFinalize, onB
 
   return (
     <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
-      <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-6 py-4 flex items-center gap-3 shadow-sm">
-        <img src="/logo.png" alt="Logo Suka Shawarma" className="h-10 w-auto object-contain" />
-        <div className="flex flex-col">
-          <h2 className="text-xl font-bold text-[#701604] tracking-tight">Tanda Tangan Penerimaan</h2>
-          <p className="text-xs text-suka-brown/60 mt-0.5">Serah-terima Crew & Supir</p>
+      <header className="sticky top-0 z-40 bg-white border-b border-suka-brown/10 px-3 sm:px-6 py-3 flex items-center gap-2 sm:gap-3 shadow-sm min-w-0">
+        <img src="/logo.png" alt="Logo Suka Shawarma" className="h-8 sm:h-10 w-auto object-contain shrink-0" />
+        <div className="flex flex-col min-w-0">
+          <h2 className="text-sm sm:text-xl font-bold text-[#701604] tracking-tight truncate">Tanda Tangan Penerimaan</h2>
+          <p className="text-[9px] sm:text-xs text-suka-brown/60 mt-0.5">
+            {outletStaff?.name || 'Staff'} • {outletStaff?.outlets?.name ?? 'Outlet'}
+          </p>
         </div>
       </header>
 

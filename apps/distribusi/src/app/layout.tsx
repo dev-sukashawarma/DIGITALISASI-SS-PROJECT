@@ -16,7 +16,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className="antialiased">
+      <body className="min-h-screen bg-[#fff8f1] bg-grain antialiased">
         <Providers initialStaff={initialStaff}>
           {children}
         </Providers>

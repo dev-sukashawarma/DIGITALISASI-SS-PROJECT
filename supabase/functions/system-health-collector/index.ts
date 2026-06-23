@@ -10,7 +10,7 @@ const admin = createClient(supabaseUrl, serviceKey)
 const FETCH_TIMEOUT_MS = 8000
 
 interface AppTarget {
-  name: 'stok' | 'absensi' | 'pos-kasir' | 'distribusi' | 'owner-dashboard'
+  name: 'stok' | 'absensi' | 'pos-kasir' | 'distribusi'
   urlEnv: string
 }
 
@@ -19,11 +19,10 @@ const APP_TARGETS: AppTarget[] = [
   { name: 'absensi', urlEnv: 'ABSENSI_HEALTH_URL' },
   { name: 'pos-kasir', urlEnv: 'POS_KASIR_HEALTH_URL' },
   { name: 'distribusi', urlEnv: 'DISTRIBUSI_HEALTH_URL' },
-  { name: 'owner-dashboard', urlEnv: 'OWNER_DASHBOARD_HEALTH_URL' },
 ]
 
 interface HealthLogRow {
-  target_type: 'app' | 'supabase' | 'cpanel'
+  target_type: 'app' | 'supabase'
   target_name: string
   status: 'up' | 'degraded' | 'down' | 'unconfigured'
   db_status: 'ok' | 'error' | null
@@ -98,7 +97,9 @@ async function checkApp(target: AppTarget): Promise<HealthLogRow> {
 async function checkSupabase(): Promise<HealthLogRow> {
   const startedAt = Date.now()
   try {
-    const res = await fetchWithTimeout(`${supabaseUrl}/rest/v1/`, FETCH_TIMEOUT_MS)
+    const res = await fetchWithTimeout(`${supabaseUrl}/rest/v1/`, FETCH_TIMEOUT_MS, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+    })
     const responseTimeMs = Date.now() - startedAt
     const status = deriveStatus({ reachable: res.ok, dbStatus: 'ok', responseTimeMs })
     return {
@@ -123,69 +124,10 @@ async function checkSupabase(): Promise<HealthLogRow> {
   }
 }
 
-async function checkCpanel(): Promise<HealthLogRow> {
-  const token = Deno.env.get('CPANEL_UAPI_TOKEN')
-  const host = Deno.env.get('CPANEL_HOST')
-  const user = Deno.env.get('CPANEL_USER')
-  if (!token || !host || !user) {
-    return {
-      target_type: 'cpanel',
-      target_name: 'cpanel-server',
-      status: 'unconfigured',
-      db_status: null,
-      last_activity_at: null,
-      response_time_ms: null,
-      detail: { reason: 'CPANEL_UAPI_TOKEN / CPANEL_HOST / CPANEL_USER not all set' },
-    }
-  }
-
-  const startedAt = Date.now()
-  try {
-    const res = await fetchWithTimeout(
-      `https://${host}:2083/execute/Quota/get_quota_info`,
-      FETCH_TIMEOUT_MS,
-      { headers: { Authorization: `cpanel ${user}:${token}` } },
-    )
-    const responseTimeMs = Date.now() - startedAt
-    if (!res.ok) {
-      return {
-        target_type: 'cpanel',
-        target_name: 'cpanel-server',
-        status: 'down',
-        db_status: null,
-        last_activity_at: null,
-        response_time_ms: responseTimeMs,
-        detail: { httpStatus: res.status },
-      }
-    }
-    const body = await res.json()
-    return {
-      target_type: 'cpanel',
-      target_name: 'cpanel-server',
-      status: 'up',
-      db_status: null,
-      last_activity_at: null,
-      response_time_ms: responseTimeMs,
-      detail: body,
-    }
-  } catch (err) {
-    return {
-      target_type: 'cpanel',
-      target_name: 'cpanel-server',
-      status: 'down',
-      db_status: null,
-      last_activity_at: null,
-      response_time_ms: Date.now() - startedAt,
-      detail: { error: err instanceof Error ? err.message : String(err) },
-    }
-  }
-}
-
 serve(async (_req) => {
   const results = await Promise.allSettled([
     ...APP_TARGETS.map(checkApp),
     checkSupabase(),
-    checkCpanel(),
   ])
 
   const rows: HealthLogRow[] = results

@@ -1,42 +1,47 @@
-import type { SalesSummaryRow, MenuSalesRow } from '@/lib/types'
+import type { SalesSummaryRow } from '@/lib/types'
 import { aov, deltaPct } from '@/lib/format'
 import CountUp from 'react-countup'
-import { TrendingUp, ShoppingBag, DollarSign, Utensils } from 'lucide-react'
+import { TrendingUp, ShoppingBag, DollarSign, Clock } from 'lucide-react'
 
 interface KpiCardsProps {
   rows: SalesSummaryRow[]
   prevRows?: SalesSummaryRow[]
-  menuRows?: MenuSalesRow[]
-  prevMenuRows?: MenuSalesRow[]
+  hourlyRows?: { sales_hour: number; omzet: number; jumlah_order_completed: number }[]
 }
 
-export function KpiCards({ rows, prevRows = [], menuRows = [], prevMenuRows = [] }: KpiCardsProps) {
+export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps) {
   // Current values
   const omzet = rows.reduce((s, r) => s + r.omzet, 0)
   const completed = rows.reduce((s, r) => s + r.jumlah_order_completed, 0)
   const currentAov = aov(omzet, completed)
-  
-  const totalItems = menuRows.reduce((s, r) => s + r.qty, 0)
-  const currentBasketSize = completed > 0 ? totalItems / completed : 0
+
+  // Peak Hour calculation
+  let peakHourStr = '-'
+  let peakHourOrders = 0
+  if (hourlyRows.length > 0) {
+    const peak = [...hourlyRows].sort((a, b) => b.jumlah_order_completed - a.jumlah_order_completed || b.omzet - a.omzet)[0]
+    if (peak && peak.jumlah_order_completed > 0) {
+      const h = peak.sales_hour
+      peakHourStr = `${h.toString().padStart(2, '0')}:00`
+      peakHourOrders = peak.jumlah_order_completed
+    }
+  }
 
   // Previous values
   const prevOmzet = prevRows.reduce((s, r) => s + r.omzet, 0)
   const prevCompleted = prevRows.reduce((s, r) => s + r.jumlah_order_completed, 0)
   const prevAov = aov(prevOmzet, prevCompleted)
-  
-  const prevTotalItems = prevMenuRows.reduce((s, r) => s + r.qty, 0)
-  const prevBasketSize = prevCompleted > 0 ? prevTotalItems / prevCompleted : 0
 
   // Deltas
   const dOmzet = deltaPct(omzet, prevOmzet)
   const dCompleted = deltaPct(completed, prevCompleted)
   const dAov = deltaPct(currentAov, prevAov)
-  const dBasketSize = prevBasketSize > 0 ? Math.round(((currentBasketSize - prevBasketSize) / prevBasketSize) * 1000) / 10 : null
 
   const cards = [
     {
       label: 'Omzet Penjualan',
       value: omzet,
+      isString: false,
       isRupiah: true,
       delta: dOmzet,
       icon: TrendingUp,
@@ -46,6 +51,7 @@ export function KpiCards({ rows, prevRows = [], menuRows = [], prevMenuRows = []
     {
       label: 'Jumlah Order',
       value: completed,
+      isString: false,
       isRupiah: false,
       delta: dCompleted,
       icon: ShoppingBag,
@@ -55,6 +61,7 @@ export function KpiCards({ rows, prevRows = [], menuRows = [], prevMenuRows = []
     {
       label: 'AOV (Average Order Value)',
       value: currentAov,
+      isString: false,
       isRupiah: true,
       delta: dAov,
       icon: DollarSign,
@@ -62,15 +69,16 @@ export function KpiCards({ rows, prevRows = [], menuRows = [], prevMenuRows = []
       subtext: 'Rata-rata nilai per belanja',
     },
     {
-      label: 'Item per Transaksi',
-      value: currentBasketSize,
+      label: 'Jam Tersibuk',
+      value: peakHourStr,
+      isString: true,
       isRupiah: false,
       isPercent: false,
-      isDecimal: true,
-      delta: dBasketSize,
-      icon: Utensils,
+      isDecimal: false,
+      delta: null,
+      icon: Clock,
       color: '#4b5563', // Slate Gray
-      subtext: 'Rata-rata porsi tiap order',
+      subtext: peakHourOrders > 0 ? `${peakHourOrders} order diselesaikan` : 'Belum ada transaksi',
     },
   ]
 
@@ -78,7 +86,7 @@ export function KpiCards({ rows, prevRows = [], menuRows = [], prevMenuRows = []
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {cards.map((c) => {
         const Icon = c.icon
-        const hasDelta = c.delta !== null && c.delta !== 0
+        const hasDelta = c.delta !== null && c.delta !== 0 && c.delta !== undefined
         const isPositive = c.delta && c.delta > 0
         
         return (
@@ -99,15 +107,21 @@ export function KpiCards({ rows, prevRows = [], menuRows = [], prevMenuRows = []
             <div className="mt-6 flex items-baseline justify-between">
               <div>
                 <h3 className="text-2xl font-extrabold text-suka-brown tracking-tight">
-                  {c.isRupiah ? 'Rp ' : ''}
-                  <CountUp 
-                    end={c.value} 
-                    duration={1} 
-                    separator="." 
-                    decimals={c.isPercent || c.isDecimal ? 1 : 0}
-                    decimal=","
-                  />
-                  {c.isPercent ? '%' : ''}
+                  {c.isString ? (
+                    c.value
+                  ) : (
+                    <>
+                      {c.isRupiah ? 'Rp ' : ''}
+                      <CountUp 
+                        end={c.value as number} 
+                        duration={1} 
+                        separator="." 
+                        decimals={c.isPercent || c.isDecimal ? 1 : 0}
+                        decimal=","
+                      />
+                      {c.isPercent ? '%' : ''}
+                    </>
+                  )}
                 </h3>
               </div>
               
@@ -119,7 +133,7 @@ export function KpiCards({ rows, prevRows = [], menuRows = [], prevMenuRows = []
                       : 'text-red-700 bg-red-50'
                   }`}
                 >
-                  {isPositive ? '▲' : '▼'} {Math.abs(c.delta!).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%
+                  {isPositive ? '▲' : '▼'} {Math.abs(c.delta as number).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%
                 </span>
               )}
             </div>

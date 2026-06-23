@@ -30,11 +30,10 @@ export default function DashboardPage() {
   const prev = useSalesSummary(prevFilter)
   const hourly = useSalesHourly(filter)
   const menu = useMenuSales(filter)
-  const prevMenu = useMenuSales(prevFilter)
   const leaderboard = useMemo(() => buildLeaderboard(cur.rows, prev.rows), [cur.rows, prev.rows])
 
   const isOneDay = filter.from === filter.to
-  const isLoading = cur.loading || (isOneDay && hourly.loading) || menu.loading
+  const isLoading = cur.loading || hourly.loading || menu.loading
 
   return (
     <div className="space-y-6">
@@ -58,8 +57,7 @@ export default function DashboardPage() {
           <KpiCards 
             rows={cur.rows} 
             prevRows={prev.rows} 
-            menuRows={menu.rows} 
-            prevMenuRows={prevMenu.rows} 
+            hourlyRows={hourly.rows}
           />
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

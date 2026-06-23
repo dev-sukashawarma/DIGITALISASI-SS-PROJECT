@@ -16,13 +16,6 @@ export function useSalesHourly(filter: PeriodFilterValue) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Only fetch if exactly 1 day is selected
-    if (filter.from !== filter.to) {
-      setRows([])
-      setLoading(false)
-      return
-    }
-
     let active = true
     setLoading(true); setError(null)
 
@@ -31,7 +24,7 @@ export function useSalesHourly(filter: PeriodFilterValue) {
     // The simplest way without worrying about precise TZ boundaries if we just want a rough 1-day is
     // to query created_at >= fromT00:00:00+07:00 and <= fromT23:59:59+07:00
     const startStr = `${filter.from}T00:00:00+07:00`
-    const endStr = `${filter.from}T23:59:59+07:00`
+    const endStr = `${filter.to}T23:59:59+07:00`
 
     let q = supabase.from('orders')
       .select('outlet_id, sales_source, created_at, total_amount, status')

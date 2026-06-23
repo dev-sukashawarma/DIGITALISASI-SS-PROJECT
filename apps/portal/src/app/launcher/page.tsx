@@ -151,7 +151,7 @@ export default async function LauncherPage() {
   }
 
   return (
-    <main className="min-h-screen w-screen bg-suka-cream/50 relative overflow-hidden bg-grain select-none py-8 md:py-12 px-4 sm:px-6">
+    <main className="min-h-screen w-screen bg-suka-cream/50 relative overflow-y-auto overflow-x-hidden bg-grain select-none py-8 md:py-12 px-4 sm:px-6">
       {/* Background soft glowing blur blobs */}
       <div className="absolute top-[-10%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-suka-orange/5 blur-[120px] pointer-events-none z-0" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[45vw] h-[45vw] rounded-full bg-suka-brown/5 blur-[120px] pointer-events-none z-0" />

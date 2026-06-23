@@ -9,7 +9,7 @@ import { IncidentTimeline } from '@/components/IncidentTimeline'
 export const dynamic = 'force-dynamic'
 
 const APP_ORDER = ['stok', 'absensi', 'pos-kasir', 'distribusi']
-const INFRA_ORDER = ['supabase-db', 'cpanel-server']
+const INFRA_ORDER = ['supabase-db']
 
 export default function SystemHealthPage() {
   const { data: rows = [], isLoading } = useSystemHealth()

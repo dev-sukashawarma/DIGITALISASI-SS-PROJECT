@@ -135,10 +135,10 @@ export function CrewDashboard() {
         </div>
       </header>
 
-      <main className="px-4 flex flex-col gap-6 mt-6 pb-28">
+      <main className="px-4 flex flex-col md:grid md:grid-cols-12 md:gap-6 mt-6 pb-28 max-w-7xl mx-auto">
         {/* Connection unstable alert */}
         {isError && (
-          <div className="p-3.5 bg-[#ffdad6] text-[#ba1a1a] rounded-2xl border border-[#ba1a1a]/20 text-xs font-semibold flex flex-col gap-2">
+          <div className="col-span-12 p-3.5 bg-[#ffdad6] text-[#ba1a1a] rounded-2xl border border-[#ba1a1a]/20 text-xs font-semibold flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <span>⚠️</span> Connection unstable
             </div>
@@ -150,10 +150,26 @@ export function CrewDashboard() {
           </div>
         )}
 
-        {/* Section 1: Critical Alerts Widget */}
-        {(criticalItems.length > 0 || isOpnameOverdue) && (
-          <section>
-            <div className="bg-white rounded-xl border border-outline-variant/30 shadow-sm p-4 flex flex-col gap-4">
+        {/* Left Column: Real-time Stock Balance Grid */}
+        <div className="col-span-12 md:col-span-7 order-2 md:order-1 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900 uppercase tracking-wider">
+              Saldo Stok Real-time
+            </h2>
+            <button className="text-[#904d00] font-semibold text-xs flex items-center gap-1">
+              Filter <span>⚙️</span>
+            </button>
+          </div>
+          
+          {/* List */}
+          <CrewList items={data?.items || []} onItemClick={setSelectedItem} />
+        </div>
+
+        {/* Right Column: Alerts & Quick Actions */}
+        <div className="col-span-12 md:col-span-5 order-1 md:order-2 space-y-6">
+          {/* Section 1: Critical Alerts Widget */}
+          {(criticalItems.length > 0 || isOpnameOverdue) && (
+            <section className="bg-white rounded-xl border border-[#d9c2b2]/45 shadow-sm p-4 flex flex-col gap-4">
               <div className="flex items-center gap-2 text-[#ba1a1a]">
                 <span className="text-xl">⚠️</span>
                 <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Peringatan Kritis</h2>
@@ -191,54 +207,32 @@ export function CrewDashboard() {
               >
                 📋 Mulai Opname Baru
               </Link>
+            </section>
+          )}
+
+          {/* Section 2: Quick Actions Panel */}
+          <section className="bg-white border border-[#d9c2b2]/45 rounded-xl p-5 shadow-sm space-y-4">
+            <h3 className="font-bold text-xs text-[#544437] uppercase tracking-wider pl-0.5">Aksi Cepat</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/stok/permintaan" className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
+                <span className="text-xl">📝</span>
+                <span className="text-xs font-semibold text-[#544437]">Permintaan Bahan</span>
+              </Link>
+              <Link href="/stok/ledger/new" className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
+                <span className="text-xl">📒</span>
+                <span className="text-xs font-semibold text-[#544437]">Entri Ledger</span>
+              </Link>
+              <Link href="/stok/opname/new" className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
+                <span className="text-xl">📋</span>
+                <span className="text-xs font-semibold text-[#544437]">Mulai Opname</span>
+              </Link>
+              <a href={getCrossAppUrl('/distribusi/terima')} className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
+                <span className="text-xl">🚚</span>
+                <span className="text-xs font-semibold text-[#544437]">Terima Kiriman</span>
+              </a>
             </div>
           </section>
-        )}
-
-        {/* Section 2: Quick Actions Panel */}
-        <section className="-mx-4 overflow-x-auto pb-2 no-scrollbar">
-          <div className="flex gap-3 px-4 min-w-max">
-            <Link href="/stok/permintaan" className="flex-shrink-0 bg-white border border-[#d9c2b2]/45 rounded-xl p-4 flex flex-col items-center gap-2 w-28 shadow-sm hover:shadow transition-all active:scale-95">
-              <div className="w-12 h-12 rounded-full bg-[#f29744]/10 flex items-center justify-center">
-                <span className="text-xl">📝</span>
-              </div>
-              <span className="text-xs font-semibold text-[#544437]">Permintaan Bahan</span>
-            </Link>
-            <Link href="/stok/ledger/new" className="flex-shrink-0 bg-white border border-[#d9c2b2]/45 rounded-xl p-4 flex flex-col items-center gap-2 w-28 shadow-sm hover:shadow transition-all active:scale-95">
-              <div className="w-12 h-12 rounded-full bg-[#f29744]/10 flex items-center justify-center">
-                <span className="text-xl">📒</span>
-              </div>
-              <span className="text-xs font-semibold text-[#544437]">Entri Ledger</span>
-            </Link>
-            <Link href="/stok/opname/new" className="flex-shrink-0 bg-white border border-[#d9c2b2]/45 rounded-xl p-4 flex flex-col items-center gap-2 w-28 shadow-sm hover:shadow transition-all active:scale-95">
-              <div className="w-12 h-12 rounded-full bg-[#f29744]/10 flex items-center justify-center">
-                <span className="text-xl">📋</span>
-              </div>
-              <span className="text-xs font-semibold text-[#544437]">Mulai Opname</span>
-            </Link>
-            <a href={getCrossAppUrl('/distribusi/terima')} className="flex-shrink-0 bg-white border border-[#d9c2b2]/45 rounded-xl p-4 flex flex-col items-center gap-2 w-28 shadow-sm hover:shadow transition-all active:scale-95">
-              <div className="w-12 h-12 rounded-full bg-[#f29744]/10 flex items-center justify-center">
-                <span className="text-xl">🚚</span>
-              </div>
-              <span className="text-xs font-semibold text-[#544437]">Terima Kiriman</span>
-            </a>
-          </div>
-        </section>
-
-        {/* Section 3: Real-time Stock Balance Grid */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-gray-900 uppercase tracking-wider">
-              Saldo Stok Real-time
-            </h2>
-            <button className="text-[#904d00] font-semibold text-xs flex items-center gap-1">
-              Filter <span>⚙️</span>
-            </button>
-          </div>
-          
-          {/* List */}
-          <CrewList items={data?.items || []} onItemClick={setSelectedItem} />
-        </section>
+        </div>
       </main>
 
       {/* Bottom Navigation Bar */}

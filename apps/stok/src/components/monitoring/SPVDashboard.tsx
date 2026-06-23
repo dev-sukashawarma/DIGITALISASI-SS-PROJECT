@@ -410,9 +410,9 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
       <div className="flex-1 flex overflow-hidden relative">
         {/* Overview Tab - Split view */}
         {activeTab === 'overview' && (
-          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
             {/* Left Column: Outlets (Collapsible) */}
-            <aside className={`${isSidebarCollapsed ? 'w-full lg:w-[60px] p-2' : 'w-full lg:w-[22%] p-6'} bg-[#faf2e9] border-r border-[#d9c2b2] overflow-y-auto space-y-6 transition-all duration-300 flex-shrink-0`}>
+            <aside className={`${isSidebarCollapsed ? 'w-full md:w-[60px] p-2' : 'w-full md:w-[250px] lg:w-[22%] p-6'} bg-[#faf2e9] border-r border-[#d9c2b2] overflow-y-auto space-y-6 transition-all duration-300 flex-shrink-0`}>
               <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2">
                 {!isSidebarCollapsed && (
                   <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
@@ -677,7 +677,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
             </section>
 
             {/* Right Column: Action & Predictive Hub (Action Drawer) */}
-            <aside className="w-full lg:w-[23%] bg-[#faf2e9] overflow-y-auto p-4 flex flex-col gap-6 flex-shrink-0 border-t lg:border-t-0 border-[#d9c2b2]">
+            <aside className="w-full xl:w-[23%] lg:w-[28%] md:w-full bg-[#faf2e9] overflow-y-auto p-4 flex flex-col gap-6 flex-shrink-0 border-t md:border-t-0 border-[#d9c2b2]">
               {/* Widget 0: Approval Permintaan */}
               <div className="bg-white p-4 rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)] space-y-3">
                 <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">

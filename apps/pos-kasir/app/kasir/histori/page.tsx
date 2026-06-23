@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import {
   RefreshCw, ClipboardList, ChevronDown, ChevronUp,
   Clock, CheckCircle2, ChefHat, Banknote, XCircle, Store
 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import ChannelBadge from '@/components/ChannelBadge'
@@ -27,40 +28,35 @@ const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
   pending:   'Tandai Selesai',
 }
 
+async function fetchHistoriOrders(outletId: string, filter: OrderStatus | 'all'): Promise<OrderWithItems[]> {
+  const supabase = createClient()
+  const q = supabase.from('orders').select('*, order_items(*)')
+    .eq('outlet_id', outletId)
+    .order('created_at', { ascending: false }).limit(100)
+  if (filter !== 'all') q.eq('status', filter)
+  const { data } = await q
+  return data ?? []
+}
+
 export default function AdminOrdersPage() {
-  const [orders, setOrders]     = useState<OrderWithItems[]>([])
   const [filter, setFilter]     = useState<OrderStatus | 'all'>('all')
-  const [loading, setLoading]   = useState(true)
   const [expandedId, setExpand] = useState<string | null>(null)
-  const { outletId, outletName, loaded: outletLoaded } = useMyOutlet()
+  const { outletId, outletName } = useMyOutlet()
+  const queryClient = useQueryClient()
 
-  const fetchOrders = useCallback(async () => {
-    if (!outletId) return // hanya pesanan cabang kasir ini
-    const supabase = createClient()
-    const q = supabase.from('orders').select('*, order_items(*)')
-      .eq('outlet_id', outletId)
-      .order('created_at', { ascending: false }).limit(100)
-    if (filter !== 'all') q.eq('status', filter)
-    const { data } = await q
-    setOrders(data ?? [])
-    setLoading(false)
-  }, [filter, outletId])
-
-  useEffect(() => {
-    fetchOrders()
-    const iv = setInterval(fetchOrders, 15000)
-    return () => clearInterval(iv)
-  }, [fetchOrders])
-
-  // Jangan biarkan loading menggantung bila kasir tak terhubung outlet
-  useEffect(() => {
-    if (outletLoaded && !outletId) setLoading(false)
-  }, [outletLoaded, outletId])
+  const { data: orders = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['histori', outletId, filter],
+    queryFn: () => fetchHistoriOrders(outletId as string, filter),
+    enabled: !!outletId,
+    refetchInterval: 15000,
+    staleTime: 15000,
+    retry: false,
+  })
 
   async function updateStatus(id: string, status: OrderStatus) {
     const supabase = createClient()
     await supabase.from('orders').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
-    fetchOrders()
+    queryClient.invalidateQueries({ queryKey: ['histori', outletId] })
   }
 
   const todayRevenue = orders
@@ -90,7 +86,7 @@ export default function AdminOrdersPage() {
           </div>
         </div>
         <button
-          onClick={fetchOrders}
+          onClick={() => refetch()}
           className="btn-secondary py-2 px-4 text-sm"
         >
           <RefreshCw className="w-3.5 h-3.5" />

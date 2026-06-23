@@ -1,5 +1,6 @@
 import React from 'react'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { BottomNav } from '@/components/layout/BottomNav'
 import { Header } from '@/components/layout/Header'
 
 export const dynamic = 'force-dynamic'
@@ -11,9 +12,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">{children}</div>
+          {/* Bottom padding on mobile keeps content clear of the fixed BottomNav. */}
+          <div className="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-8">{children}</div>
         </main>
       </div>
+      <BottomNav />
     </div>
   )
 }

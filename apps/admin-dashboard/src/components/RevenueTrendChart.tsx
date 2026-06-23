@@ -2,34 +2,62 @@
 import { 
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid 
 } from 'recharts'
-import type { SalesSummaryRow } from '@/lib/types'
 import { rupiah, rupiahCompact } from '@/lib/format'
 
-export function RevenueTrendChart({ rows }: { rows: SalesSummaryRow[] }) {
-  const byDate = new Map<string, number>()
-  for (const r of rows) {
-    byDate.set(r.sales_date, (byDate.get(r.sales_date) ?? 0) + r.omzet)
+export function RevenueTrendChart({ 
+  rows, 
+  isHourly = false 
+}: { 
+  rows: any[], 
+  isHourly?: boolean 
+}) {
+  let data: any[] = []
+
+  if (isHourly) {
+    // rows are SalesHourlyRow
+    data = rows.map((r) => {
+      const hourStr = r.sales_hour.toString().padStart(2, '0') + ':00'
+      return {
+        date: hourStr,
+        fullDate: `Jam ${hourStr}`,
+        omzet: r.omzet
+      }
+    })
+  } else {
+    // rows are SalesSummaryRow
+    const byDate = new Map<string, number>()
+    for (const r of rows) {
+      byDate.set(r.sales_date, (byDate.get(r.sales_date) ?? 0) + r.omzet)
+    }
+    
+    data = [...byDate.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, omzet]) => ({
+        date: new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+        fullDate: new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+        omzet
+      }))
   }
-  
-  const data = [...byDate.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, omzet]) => ({
-      // Format tanggal ke 'DD MMM' (misal: 19 Jun) agar tidak terlalu panjang
-      date: new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
-      fullDate: new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
-      omzet
-    }))
 
   const hasData = data.length > 0
+  const totalOmzet = data.reduce((s, r) => s + r.omzet, 0)
+  
+  // If hourly but total omzet is 0 across all hours, we can consider it "No Data" or just show a flat line.
+  // Actually showing a flat line for 24h is fine, but if it's completely empty, maybe say no data.
+  const actuallyHasData = hasData && (!isHourly || totalOmzet > 0)
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4">
       <div>
-        <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Tren Omzet Harian</h3>
-        <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">Grafik grafik penjualan completed orders</p>
+        <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">
+          {isHourly ? 'Tren Omzet per Jam' : 'Tren Omzet Harian'}
+        </h3>
+        <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">
+          {isHourly ? 'Distribusi omzet sepanjang hari' : 'Grafik penjualan completed orders'}
+        </p>
       </div>
 
-      {!hasData ? (
+      {!actuallyHasData ? (
         <div className="h-64 flex items-center justify-center text-suka-gray-400 text-sm">
           Tidak ada data transaksi
         </div>
@@ -51,6 +79,7 @@ export function RevenueTrendChart({ rows }: { rows: SalesSummaryRow[] }) {
                 axisLine={false}
                 dy={8}
                 className="font-bold text-suka-gray-500"
+                minTickGap={20}
               />
               <YAxis 
                 tickFormatter={(v) => rupiahCompact(Number(v))} 

@@ -13,28 +13,29 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "react": "^19.0.0-rc.0",
-    "react-dom": "^19.0.0-rc.0",
-    "next": "^16.1.6",
-    "@supabase/supabase-js": "^2.38.0",
-    "@supabase/ssr": "^0.2.0",
-    "@suka/design-system": "*",
     "@suka/auth": "*",
+    "@suka/design-system": "*",
+    "@supabase/ssr": "^0.2.0",
+    "@supabase/supabase-js": "^2.38.0",
     "@tanstack/react-query": "^5.51.0",
     "lucide-react": "^0.300.0",
+    "next": "^16.1.6",
+    "react": "^19.0.0-rc.0",
+    "react-dom": "^19.0.0-rc.0",
+    "react-icons": "^5.6.0",
     "sonner": "^1.4.0"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
+    "@testing-library/jest-dom": "^6.4.0",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
-    "tailwindcss": "^4.0.0",
-    "postcss": "^8.4.32",
-    "vitest": "^2.1.0",
-    "jsdom": "^25.0.0",
     "@vitejs/plugin-react": "^4.3.0",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/jest-dom": "^6.4.0"
+    "jsdom": "^25.0.0",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.3.3",
+    "vitest": "^2.1.0"
   }
 }

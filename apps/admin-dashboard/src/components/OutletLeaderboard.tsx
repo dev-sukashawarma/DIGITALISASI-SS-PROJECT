@@ -1,13 +1,59 @@
 import type { LeaderboardEntry } from '@/lib/leaderboard'
 import { rupiah } from '@/lib/format'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useMemo } from 'react'
+import { Search } from 'lucide-react'
 
-export function OutletLeaderboard({ entries }: { entries: LeaderboardEntry[] }) {
+export function OutletLeaderboard({ entries, allOutlets }: { entries: LeaderboardEntry[], allOutlets: {id: string, name: string}[] }) {
+  const [query, setQuery] = useState('')
+  const [showAll, setShowAll] = useState(false)
+
+  const fullEntries = useMemo(() => {
+    const map = new Map<string, LeaderboardEntry>()
+    for (const e of entries) {
+      map.set(e.outlet_id, e)
+    }
+    
+    // Merge with all outlets to include those with 0 sales
+    const combined = allOutlets.map(o => {
+      if (map.has(o.id)) return map.get(o.id)!
+      return {
+        outlet_id: o.id,
+        outlet_name: o.name,
+        omzet: 0,
+        orders: 0,
+        aov: 0,
+        deltaPct: null
+      } as LeaderboardEntry
+    })
+    
+    // Sort by omzet descending
+    return combined.sort((a, b) => b.omzet - a.omzet)
+  }, [entries, allOutlets])
+
+  const displayedEntries = query.trim() === '' 
+    ? (showAll ? fullEntries : fullEntries.slice(0, 5))
+    : fullEntries.filter(e => e.outlet_name.toLowerCase().includes(query.toLowerCase()))
+
+  const hasMore = query.trim() === '' && fullEntries.length > 5
+
   return (
     <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4">
-      <div>
-        <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Leaderboard Kinerja Outlet</h3>
-        <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">Peringkat 19 outlet berdasarkan omzet penjualan terkomparasi</p>
+      <div className="flex flex-wrap gap-4 items-center justify-between">
+        <div>
+          <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Leaderboard Kinerja Outlet</h3>
+          <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">Peringkat outlet berdasarkan omzet penjualan terkomparasi</p>
+        </div>
+        
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-suka-gray-400" />
+          <input 
+            type="text" 
+            placeholder="Cari outlet..." 
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9 pr-4 py-2 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-sm outline-none transition-all w-64"
+          />
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -23,58 +69,73 @@ export function OutletLeaderboard({ entries }: { entries: LeaderboardEntry[] }) 
             </tr>
           </thead>
           <tbody className="font-medium divide-y divide-suka-gray-100">
-            <AnimatePresence mode="popLayout">
-              {entries.map((e, i) => {
-                const rankColor = i === 0 
-                  ? 'bg-yellow-500 text-white' 
-                  : i === 1 
-                  ? 'bg-slate-400 text-white' 
-                  : i === 2 
-                  ? 'bg-amber-600 text-white' 
-                  : 'bg-suka-gray-100 text-suka-gray-500'
+            {displayedEntries.map((e) => {
+              // Determine original rank by finding index in the full entries array
+              const originalIndex = fullEntries.findIndex(x => x.outlet_id === e.outlet_id)
+              const rankDisplay = originalIndex + 1
 
-                const deltaColor = e.deltaPct == null 
-                  ? 'text-suka-gray-400 bg-suka-gray-50' 
-                  : e.deltaPct >= 0 
-                  ? 'text-suka-green bg-green-50 border-green-200/50' 
-                  : 'text-red-700 bg-red-50 border-red-200/50'
+              const rankColor = originalIndex === 0 
+                ? 'bg-yellow-500 text-white' 
+                : originalIndex === 1 
+                ? 'bg-slate-400 text-white' 
+                : originalIndex === 2 
+                ? 'bg-amber-600 text-white' 
+                : 'bg-suka-gray-100 text-suka-gray-500'
 
-                const cleanOutletName = e.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase()
+              const deltaColor = e.deltaPct == null 
+                ? 'text-suka-gray-400 bg-suka-gray-50' 
+                : e.deltaPct >= 0 
+                ? 'text-suka-green bg-green-50 border-green-200/50' 
+                : 'text-red-700 bg-red-50 border-red-200/50'
 
-                return (
-                  <motion.tr 
-                    key={e.outlet_id}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 35 }}
-                    className="hover:bg-suka-cream/20 transition-colors"
-                  >
-                    <td className="py-4 px-6 text-center">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold ${rankColor}`}>
-                        {i + 1}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-suka-ink font-bold">{cleanOutletName}</td>
-                    <td className="py-4 px-6 text-right text-suka-brown font-extrabold">{rupiah(e.omzet)}</td>
-                    <td className="py-4 px-6 text-right text-suka-gray-600">{e.orders.toLocaleString('id-ID')}</td>
-                    <td className="py-4 px-6 text-right text-suka-gray-600">{rupiah(e.aov)}</td>
-                    <td className="py-4 px-6 text-center">
-                      <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${deltaColor}`}>
-                        {e.deltaPct == null 
-                          ? '—' 
-                          : `${e.deltaPct >= 0 ? '▲' : '▼'} ${Math.abs(e.deltaPct)}%`
-                        }
-                      </span>
-                    </td>
-                  </motion.tr>
-                )
-              })}
-            </AnimatePresence>
+              const cleanOutletName = e.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase()
+
+              return (
+                <tr 
+                  key={e.outlet_id}
+                  className="hover:bg-suka-cream/20 transition-colors"
+                >
+                  <td className="py-4 px-6 text-center">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold mx-auto ${rankColor}`}>
+                      {rankDisplay}
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 text-suka-ink font-bold">{cleanOutletName}</td>
+                  <td className="py-4 px-6 text-right text-suka-brown font-extrabold">{rupiah(e.omzet)}</td>
+                  <td className="py-4 px-6 text-right text-suka-gray-600">{e.orders.toLocaleString('id-ID')}</td>
+                  <td className="py-4 px-6 text-right text-suka-gray-600">{rupiah(e.aov)}</td>
+                  <td className="py-4 px-6 text-center">
+                    <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${deltaColor}`}>
+                      {e.deltaPct == null 
+                        ? '—' 
+                        : `${e.deltaPct >= 0 ? '▲' : '▼'} ${Math.abs(e.deltaPct).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`
+                      }
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+            {displayedEntries.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-8 text-center text-suka-gray-400 font-semibold">
+                  Tidak ada outlet yang sesuai pencarian
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
+      
+      {hasMore && (
+        <div className="flex justify-center pt-2">
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-sm font-bold text-suka-orange hover:text-suka-brown transition-colors hover:underline px-4 py-2"
+          >
+            {showAll ? 'Tampilkan Lebih Sedikit' : 'Tampilkan Lebih Banyak'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

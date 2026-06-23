@@ -1,33 +1,37 @@
-import type { SalesSummaryRow } from '@/lib/types'
-import { aov, pct, deltaPct } from '@/lib/format'
+import type { SalesSummaryRow, MenuSalesRow } from '@/lib/types'
+import { aov, deltaPct } from '@/lib/format'
 import CountUp from 'react-countup'
-import { TrendingUp, ShoppingBag, DollarSign, Percent } from 'lucide-react'
+import { TrendingUp, ShoppingBag, DollarSign, Utensils } from 'lucide-react'
 
 interface KpiCardsProps {
   rows: SalesSummaryRow[]
   prevRows?: SalesSummaryRow[]
+  menuRows?: MenuSalesRow[]
+  prevMenuRows?: MenuSalesRow[]
 }
 
-export function KpiCards({ rows, prevRows = [] }: KpiCardsProps) {
+export function KpiCards({ rows, prevRows = [], menuRows = [], prevMenuRows = [] }: KpiCardsProps) {
   // Current values
   const omzet = rows.reduce((s, r) => s + r.omzet, 0)
   const completed = rows.reduce((s, r) => s + r.jumlah_order_completed, 0)
-  const all = rows.reduce((s, r) => s + r.jumlah_order_all, 0)
   const currentAov = aov(omzet, completed)
-  const currentPct = pct(completed, all)
+  
+  const totalItems = menuRows.reduce((s, r) => s + r.qty, 0)
+  const currentBasketSize = completed > 0 ? totalItems / completed : 0
 
   // Previous values
   const prevOmzet = prevRows.reduce((s, r) => s + r.omzet, 0)
   const prevCompleted = prevRows.reduce((s, r) => s + r.jumlah_order_completed, 0)
-  const prevAll = prevRows.reduce((s, r) => s + r.jumlah_order_all, 0)
   const prevAov = aov(prevOmzet, prevCompleted)
-  const prevPct = pct(prevCompleted, prevAll)
+  
+  const prevTotalItems = prevMenuRows.reduce((s, r) => s + r.qty, 0)
+  const prevBasketSize = prevCompleted > 0 ? prevTotalItems / prevCompleted : 0
 
   // Deltas
   const dOmzet = deltaPct(omzet, prevOmzet)
   const dCompleted = deltaPct(completed, prevCompleted)
   const dAov = deltaPct(currentAov, prevAov)
-  const dPct = prevPct > 0 ? currentPct - prevPct : null
+  const dBasketSize = prevBasketSize > 0 ? Math.round(((currentBasketSize - prevBasketSize) / prevBasketSize) * 1000) / 10 : null
 
   const cards = [
     {
@@ -58,14 +62,15 @@ export function KpiCards({ rows, prevRows = [] }: KpiCardsProps) {
       subtext: 'Rata-rata nilai per belanja',
     },
     {
-      label: 'Rasio Order Completed',
-      value: currentPct,
+      label: 'Item per Transaksi',
+      value: currentBasketSize,
       isRupiah: false,
-      isPercent: true,
-      delta: dPct,
-      icon: Percent,
+      isPercent: false,
+      isDecimal: true,
+      delta: dBasketSize,
+      icon: Utensils,
       color: '#4b5563', // Slate Gray
-      subtext: 'Persen order sukses vs batal',
+      subtext: 'Rata-rata porsi tiap order',
     },
   ]
 
@@ -99,7 +104,7 @@ export function KpiCards({ rows, prevRows = [] }: KpiCardsProps) {
                     end={c.value} 
                     duration={1} 
                     separator="." 
-                    decimals={c.isPercent ? 1 : 0}
+                    decimals={c.isPercent || c.isDecimal ? 1 : 0}
                     decimal=","
                   />
                   {c.isPercent ? '%' : ''}
@@ -114,7 +119,7 @@ export function KpiCards({ rows, prevRows = [] }: KpiCardsProps) {
                       : 'text-red-700 bg-red-50'
                   }`}
                 >
-                  {isPositive ? '▲' : '▼'} {Math.abs(c.delta!)}%
+                  {isPositive ? '▲' : '▼'} {Math.abs(c.delta!).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%
                 </span>
               )}
             </div>

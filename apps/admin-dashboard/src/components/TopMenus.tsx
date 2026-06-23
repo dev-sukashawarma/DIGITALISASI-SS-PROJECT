@@ -10,10 +10,11 @@ export function TopMenus({ rows }: { rows: MenuSalesRow[] }) {
   const list = useMemo(() => {
     const agg = new Map<string, { name: string; qty: number; revenue: number }>()
     for (const r of rows) {
-      const cur = agg.get(r.menu_key) ?? { name: r.menu_name, qty: 0, revenue: 0 }
+      const cleanName = r.menu_name.split('|')[0].trim()
+      const cur = agg.get(cleanName) ?? { name: cleanName, qty: 0, revenue: 0 }
       cur.qty += r.qty
       cur.revenue += r.revenue
-      agg.set(r.menu_key, cur)
+      agg.set(cleanName, cur)
     }
     return [...agg.values()].sort((a, b) => b[mode] - a[mode]).slice(0, 10)
   }, [rows, mode])
@@ -25,7 +26,7 @@ export function TopMenus({ rows }: { rows: MenuSalesRow[] }) {
   }, [list, mode])
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4 h-full flex flex-col justify-between">
+    <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4 flex flex-col">
       <div>
         <div className="flex items-center justify-between">
           <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Menu Terlaris</h3>

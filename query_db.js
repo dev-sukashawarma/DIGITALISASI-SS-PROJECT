@@ -5,7 +5,7 @@ const supabase = createClient(
 );
 
 async function run() {
-  const { data, error } = await supabase.from('outlet_staff').select('*');
+  const { data, error } = await supabase.from('orders').select('id, status, sales_source, total_amount, created_at').order('created_at', { ascending: false }).limit(5);
   console.log("Error:", error);
   console.log("Data:", JSON.stringify(data, null, 2));
 }

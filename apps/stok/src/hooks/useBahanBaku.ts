@@ -1,26 +1,33 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { BahanBaku } from '@/types/stok'
 
+async function fetchBahanBaku(): Promise<BahanBaku[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('bahan_baku')
+    .select('*')
+    .eq('is_active', true)
+    .order('nama')
+  if (error) throw error
+  return (data as BahanBaku[]) ?? []
+}
+
+/**
+ * Master bahan baku (reference data, jarang berubah). Di-cache via react-query
+ * dengan staleTime panjang supaya tidak refetch tiap komponen mount/navigasi.
+ */
 export function useBahanBaku() {
-  const [data, setData] = useState<BahanBaku[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
-    const supabase = createClient()
-    const load = async () => {
-      try {
-        const { data, error: err } = await supabase.from('bahan_baku').select('*').eq('is_active', true).order('nama')
-        if (err) throw err
-        setData((data as BahanBaku[]) ?? [])
-      } catch (err: any) {
-        setError(err.message || err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [])
-  return { bahanBaku: data, loading, error }
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['bahan_baku', 'active'],
+    queryFn: fetchBahanBaku,
+    staleTime: 5 * 60 * 1000, // 5 menit
+    gcTime: 30 * 60 * 1000,
+  })
+  return {
+    bahanBaku: data ?? [],
+    loading: isLoading,
+    error: error ? (error as Error).message : null,
+  }
 }

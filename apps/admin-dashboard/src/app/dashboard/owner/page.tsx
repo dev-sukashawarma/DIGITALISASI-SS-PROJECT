@@ -39,9 +39,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header and Filter */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
         <div>
-          <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Kinerja Penjualan</h2>
+          <h2 className="text-lg sm:text-xl font-extrabold text-suka-brown tracking-tight">Kinerja Penjualan</h2>
           <p className="text-xs text-suka-gray-500 font-medium">Statistik penjualan riil dari sistem POS Kasir</p>
         </div>
         <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} />

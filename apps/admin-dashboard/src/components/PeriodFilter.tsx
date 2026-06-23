@@ -70,16 +70,17 @@ function CustomDateRangePopover({
 
   return (
     <div ref={rootRef} className="relative flex">
-      <button 
+      <button
         onClick={() => setOpen(!open)}
-        className={`px-3 py-2.5 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
-          isActive || open 
-            ? 'bg-suka-orange text-white shadow-md font-extrabold ring-1 ring-black/5' 
+        className={`px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
+          isActive || open
+            ? 'bg-suka-orange text-white shadow-md font-extrabold ring-1 ring-black/5'
             : 'text-suka-brown/70 hover:text-suka-brown hover:bg-suka-orange/5'
         }`}
+        title="Rentang tanggal kustom"
       >
-        <Calendar className="w-3.5 h-3.5" />
-        Kustom
+        <Calendar className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+        <span className="hidden sm:inline">Kustom</span>
       </button>
 
       {open && (
@@ -168,11 +169,11 @@ function OutletCombobox({
   }, [open])
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative w-full sm:w-auto">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 pl-9 pr-8 py-2 bg-suka-cream/30 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative min-w-[180px]"
+        className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-8 py-2.5 sm:py-2 bg-suka-cream/30 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative sm:min-w-[180px]"
       >
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50">
           <Store className="w-4 h-4" />
@@ -182,7 +183,7 @@ function OutletCombobox({
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1.5 w-64 bg-white border border-suka-gray-200 rounded-xl shadow-lg shadow-suka-brown/10 overflow-hidden">
+        <div className="absolute z-20 mt-1.5 w-full sm:w-64 bg-white border border-suka-gray-200 rounded-xl shadow-lg shadow-suka-brown/10 overflow-hidden">
           <div className="relative p-2 border-b border-suka-gray-100">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-brown/40" />
             <input
@@ -254,20 +255,20 @@ export function PeriodFilter({
   const currentPreset = activePreset()
 
   return (
-    <div className="flex flex-wrap gap-3 items-center">
-      {/* 1. Date Range Presets (Segmented control) */}
-      <div className="bg-suka-cream p-1 rounded-xl border border-suka-brown/5 flex gap-1 text-xs font-bold shadow-inner">
+    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center">
+      {/* 1. Date Range Presets (Segmented control) — equal-width on mobile, inline on desktop */}
+      <div className="bg-suka-cream p-1 rounded-xl border border-suka-brown/5 flex items-stretch gap-1 text-xs font-bold shadow-inner w-full sm:w-auto">
         {(['kemarin', 'today', '7d', '30d'] as const).map((pOrKemarin) => {
           const p = pOrKemarin === 'kemarin' ? 'yesterday' : pOrKemarin;
           const isActive = currentPreset === p
           const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : '30 Hari'
           return (
-            <button 
-              key={p} 
+            <button
+              key={p}
               onClick={() => setPreset(p)}
-              className={`px-4 py-2.5 rounded-lg transition-all active:scale-95 cursor-pointer ${
-                isActive 
-                  ? 'bg-suka-orange text-white shadow-md font-extrabold ring-1 ring-black/5' 
+              className={`flex-1 sm:flex-none px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-lg whitespace-nowrap transition-all active:scale-95 cursor-pointer ${
+                isActive
+                  ? 'bg-suka-orange text-white shadow-md font-extrabold ring-1 ring-black/5'
                   : 'text-suka-brown/70 hover:text-suka-brown hover:bg-suka-orange/5'
               }`}
             >
@@ -275,7 +276,7 @@ export function PeriodFilter({
             </button>
           )
         })}
-        <CustomDateRangePopover 
+        <CustomDateRangePopover
           from={value.from}
           to={value.to}
           onChange={(range) => onChange({ ...value, from: range.from, to: range.to })}
@@ -283,18 +284,18 @@ export function PeriodFilter({
         />
       </div>
 
-      {/* 2. Outlet Searchable Dropdown */}
-      <OutletCombobox
-        value={value.outletId}
-        outlets={outlets}
-        onChange={(outletId) => onChange({ ...value, outletId: outletId as PeriodFilterValue['outletId'] })}
-      />
-
-      {/* 3. Source Select Dropdown */}
-      <SourceCombobox
-        value={value.source}
-        onChange={(source) => onChange({ ...value, source: source as PeriodFilterValue['source'] })}
-      />
+      {/* 2 & 3. Dropdowns — stack to full width on mobile, inline on larger screens */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <OutletCombobox
+          value={value.outletId}
+          outlets={outlets}
+          onChange={(outletId) => onChange({ ...value, outletId: outletId as PeriodFilterValue['outletId'] })}
+        />
+        <SourceCombobox
+          value={value.source}
+          onChange={(source) => onChange({ ...value, source: source as PeriodFilterValue['source'] })}
+        />
+      </div>
     </div>
   )
 }
@@ -345,11 +346,11 @@ function SourceCombobox({
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative w-full sm:w-auto">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 pl-9 pr-8 py-2 bg-suka-cream/30 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative min-w-[160px]"
+        className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-8 py-2.5 sm:py-2 bg-suka-cream/30 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative sm:min-w-[160px]"
       >
         <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center justify-center">
           {renderIcon(value)}
@@ -359,7 +360,7 @@ function SourceCombobox({
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1.5 w-full min-w-[180px] right-0 bg-white border border-suka-gray-200 rounded-xl shadow-lg shadow-suka-brown/10 overflow-hidden">
+        <div className="absolute z-20 mt-1.5 w-full sm:min-w-[180px] right-0 bg-white border border-suka-gray-200 rounded-xl shadow-lg shadow-suka-brown/10 overflow-hidden">
           <ul className="max-h-64 overflow-y-auto py-1">
             {SOURCES.map((s) => {
               const isActive = s === value

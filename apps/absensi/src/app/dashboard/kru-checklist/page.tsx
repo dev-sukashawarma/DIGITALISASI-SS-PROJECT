@@ -84,14 +84,13 @@ export default function KruChecklistPage() {
   async function loadClockInStatus() {
     if (!outletStaff?.id) return;
     const supabase = supabaseRef.current;
-    const utcToday = new Date().toISOString().slice(0, 10);
     const { data } = await supabase
       .from("attendance")
       .select("type")
       .eq("outlet_staff_id", outletStaff.id)
       .eq("type", "in")
-      .gte("ts_server", `${utcToday}T00:00:00`)
-      .lte("ts_server", `${utcToday}T23:59:59`)
+      .gte("ts_server", `${today}T00:00:00`)
+      .lte("ts_server", `${today}T23:59:59`)
       .limit(1);
     setHasClockedIn((data?.length ?? 0) > 0);
   }
@@ -100,13 +99,15 @@ export default function KruChecklistPage() {
     try {
       const res = await fetch('/api/checklist/categories', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ outlet_id: outletStaff!.outlet_id })
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.data) setCategories(json.data);
     } catch (err) {
-      console.error(err);
+      console.error('[loadCategories]', err);
     }
   }
 
@@ -114,16 +115,18 @@ export default function KruChecklistPage() {
     try {
       const res = await fetch('/api/checklist/session', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ outlet_id: outletStaff!.outlet_id, date: today })
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.id) {
         setRecordId(data.id);
         return data.id;
       }
     } catch (err: any) {
-      console.error(err);
+      console.error('[ensureRecord]', err);
     }
     toast.show("err", "Gagal membuat sesi checklist hari ini");
     return null;
@@ -133,13 +136,15 @@ export default function KruChecklistPage() {
     try {
       const res = await fetch('/api/checklist/ticks', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ record_id: rid })
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setTicks((json.data as TickRow[]) || []);
     } catch (err) {
-      console.error(err);
+      console.error('[loadTicks]', err);
       setTicks([]);
     }
   }
@@ -200,6 +205,7 @@ export default function KruChecklistPage() {
     try {
       const res = await fetch('/api/checklist/toggle', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: isTicked ? 'delete' : 'insert',
@@ -208,12 +214,17 @@ export default function KruChecklistPage() {
           staff_id: isTicked ? null : outletStaff.id,
         })
       });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || `HTTP ${res.status}`);
+      }
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       await loadTicks(recordId);
     } catch (err: any) {
-      toast.show("err", "Gagal menyimpan progress");
-      console.error(err);
+      const errMsg = err?.message || "Gagal menyimpan progress";
+      toast.show("err", errMsg);
+      console.error("[toggleTick]", err);
     }
     setTicking(null);
   }

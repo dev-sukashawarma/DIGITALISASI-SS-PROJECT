@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { authorizeOutletAccess } from '../_authorizeOutlet';
 
 export async function POST(req: Request) {
   try {
@@ -7,6 +8,11 @@ export async function POST(req: Request) {
 
     if (!outlet_id || !date) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    }
+
+    const auth = await authorizeOutletAccess(outlet_id);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const supabaseAdmin = createClient(

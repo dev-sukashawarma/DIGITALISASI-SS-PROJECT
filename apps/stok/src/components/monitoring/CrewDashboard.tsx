@@ -92,24 +92,24 @@ export function CrewDashboard() {
               </h1>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
             <a
               href={resolvedPortalUrl}
-              className="px-3 h-10 flex items-center justify-center rounded-full bg-white hover:bg-[#fff8f1] border border-[#d9c2b2]/50 text-[#701604] transition-all active:scale-95 font-semibold text-xs"
+              className="px-2.5 sm:px-3 h-9 sm:h-10 flex items-center justify-center rounded-full bg-white hover:bg-[#fff8f1] border border-[#d9c2b2]/50 text-[#701604] transition-all active:scale-95 font-semibold text-[11px] sm:text-xs"
               title="Kembali ke Portal"
             >
               ← Portal
             </a>
             <button
               onClick={() => refetch()}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 border border-[#877365]/20 transition-all active:scale-95"
+              className="w-9 sm:w-10 h-9 sm:h-10 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 border border-[#877365]/20 transition-all active:scale-95 text-sm sm:text-base"
               title="Refresh"
             >
               🔄
             </button>
             <button
               onClick={handleLogout}
-              className="px-3 h-10 flex items-center justify-center rounded-full bg-white hover:bg-red-50 border border-[#ba1a1a]/30 text-[#ba1a1a] transition-all active:scale-95 font-semibold text-xs"
+              className="px-2.5 sm:px-3 h-9 sm:h-10 flex items-center justify-center rounded-full bg-white hover:bg-red-50 border border-[#ba1a1a]/30 text-[#ba1a1a] transition-all active:scale-95 font-semibold text-[11px] sm:text-xs"
               title="Logout"
             >
               Keluar

@@ -222,8 +222,8 @@ export function SPVTable({
               </th>
               <th className="p-4 text-right">Stok Aktual</th>
               <th className="p-4 text-right">Threshold</th>
-              <th className="p-4">Opname Terakhir</th>
-              <th className="p-4">
+              <th className="p-4 hidden md:table-cell">Opname Terakhir</th>
+              <th className="p-4 hidden sm:table-cell">
                 <button onClick={() => handleSort('status')} className="hover:text-suka-orange font-bold">
                   Status {sortField === 'status' && (sortDir === 'asc' ? '↑' : '↓')}
                 </button>
@@ -308,10 +308,10 @@ export function SPVTable({
                         </div>
                       )}
                     </td>
-                    <td className="p-4 text-xs font-medium text-suka-brown/80">
+                    <td className="p-4 text-xs font-medium text-suka-brown/80 hidden md:table-cell">
                       {getRelativeTimeString(item.last_opname_date)}
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 hidden sm:table-cell">
                       {item.status === 'below' && (
                         <span className="bg-red-50 text-red-700 border border-red-200/80 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase tracking-wide">
                           Below Threshold
@@ -329,18 +329,18 @@ export function SPVTable({
                       )}
                     </td>
                     <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2">
                         {item.status !== 'ok' ? (
                           <>
                             <button
                               onClick={() => onRestockRequest?.(item)}
-                              className="px-3 py-1.5 bg-[#701604] text-white text-xs font-bold rounded-lg hover:opacity-90 transition-all shadow-sm"
+                              className="w-full sm:w-auto px-2 py-1 bg-[#701604] text-white text-[10px] sm:text-xs font-bold rounded-lg hover:opacity-90 transition-all shadow-sm whitespace-nowrap"
                             >
                               Minta Pusat
                             </button>
                             <button
                               onClick={() => onTransferRequest?.(item)}
-                              className="px-3 py-1.5 border border-[#701604] text-[#701604] text-xs font-bold rounded-lg hover:bg-[#701604]/5 transition-colors"
+                              className="w-full sm:w-auto px-2 py-1 border border-[#701604] text-[#701604] text-[10px] sm:text-xs font-bold rounded-lg hover:bg-[#701604]/5 transition-colors whitespace-nowrap"
                             >
                               Transfer
                             </button>
@@ -349,13 +349,13 @@ export function SPVTable({
                           <>
                             <button
                               onClick={() => onRestockRequest?.(item)}
-                              className="px-3 py-1.5 text-suka-brown/60 hover:text-suka-orange text-xs font-bold hover:underline transition-all"
+                              className="w-full sm:w-auto px-2 py-1 text-suka-brown/60 hover:text-suka-orange text-[10px] sm:text-xs font-bold hover:underline transition-all whitespace-nowrap"
                             >
                               Minta Pusat
                             </button>
                             <button
                               onClick={() => onTransferRequest?.(item)}
-                              className="px-3 py-1.5 text-suka-brown/60 hover:text-suka-orange text-xs font-bold hover:underline transition-all"
+                              className="w-full sm:w-auto px-2 py-1 text-suka-brown/60 hover:text-suka-orange text-[10px] sm:text-xs font-bold hover:underline transition-all whitespace-nowrap"
                             >
                               Transfer
                             </button>

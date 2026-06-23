@@ -6,6 +6,7 @@ export function useStaff() {
   const supabase = createClient()
   return useQuery<StaffRow[]>({
     queryKey: ['staff'],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlet_staff')

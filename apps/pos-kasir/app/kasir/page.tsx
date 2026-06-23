@@ -6,6 +6,7 @@ import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
   Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing
 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
@@ -27,23 +28,47 @@ function timeAgo(iso: string, now: number): string {
   return `${day} hari yang lalu`
 }
 
+async function fetchTodayOrders(outletId: string): Promise<OrderWithItems[]> {
+  const supabase = createClient()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const { data } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('outlet_id', outletId)
+    .gte('created_at', today.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(200)
+
+  return data ?? []
+}
+
 export default function CashierOrdersPage() {
-  const [orders, setOrders] = useState<OrderWithItems[]>([])
-  const [loading, setLoading] = useState(true)
   const [expandedId, setExpand] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('all')
   const [now, setNow] = useState(() => Date.now())
-  
+
   // Audio state
   const [audioPermission, setAudioPermission] = useState(true)
-  
+
   // Ref untuk mendeteksi order baru secara akurat (berdasarkan ID, bukan cuma jumlah)
   const knownOrderIds = useRef<Set<string>>(new Set())
   const hasFetchedInitial = useRef<boolean>(false)
 
   const supabase = createClient()
-  const { outletId, outletName, loaded: outletLoaded } = useMyOutlet()
+  const queryClient = useQueryClient()
+  const { outletId, outletName } = useMyOutlet()
+
+  const { data: orders = [], isLoading: loading, isFetched: ordersFetched } = useQuery({
+    queryKey: ['orders', outletId],
+    queryFn: () => fetchTodayOrders(outletId as string),
+    enabled: !!outletId,
+    refetchInterval: 3000,
+    staleTime: 3000,
+    retry: false,
+  })
 
   // Unlock audio otomatis
   useEffect(() => {
@@ -87,86 +112,64 @@ export default function CashierOrdersPage() {
     }
   }, [])
 
-  // Fetch data
-  const fetchOrders = useCallback(async () => {
-    if (!outletId) return // hanya tampilkan pesanan cabang kasir ini
+  // Deteksi order baru dari data query terbaru (dipanggil tiap kali `orders` berubah,
+  // baik dari polling 3s maupun dari invalidate realtime di bawah).
+  useEffect(() => {
+    if (!ordersFetched) return // belum pernah fetch sungguhan (outletId masih null / query disabled)
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const { data } = await supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .eq('outlet_id', outletId)
-      .gte('created_at', today.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(200)
-
-    if (data) {
-      setOrders(data)
-      setLoading(false)
-
-      let hasNewPendingOrder = false
-
-      if (!hasFetchedInitial.current) {
-        // Pemuatan pertama: catat semua ID tanpa membunyikan notifikasi
-        data.forEach(o => knownOrderIds.current.add(o.id))
-        hasFetchedInitial.current = true
-      } else {
-        // Pemuatan selanjutnya: cek apakah ada ID order 'pending' atau 'preparing' yang benar-benar baru
-        data.filter(o => o.status === 'pending' || o.status === 'preparing').forEach(o => {
-          if (!knownOrderIds.current.has(o.id)) {
-            hasNewPendingOrder = true
-            knownOrderIds.current.add(o.id)
-          }
-        })
-
-        if (hasNewPendingOrder) {
-          playNotification()
-        }
-      }
+    if (!hasFetchedInitial.current) {
+      // Fetch pertama yang sungguhan terjadi: catat semua ID tanpa membunyikan notifikasi
+      orders.forEach(o => knownOrderIds.current.add(o.id))
+      hasFetchedInitial.current = true
+      return
     }
-  }, [supabase, playNotification, outletId])
 
-  // Jika kasir tidak terhubung ke outlet mana pun, jangan biarkan loading menggantung
+    let hasNewPendingOrder = false
+    orders.filter(o => o.status === 'pending' || o.status === 'preparing').forEach(o => {
+      if (!knownOrderIds.current.has(o.id)) {
+        hasNewPendingOrder = true
+        knownOrderIds.current.add(o.id)
+      }
+    })
+
+    if (hasNewPendingOrder) playNotification()
+  }, [orders, ordersFetched, playNotification])
+
+  // Realtime: invalidate cache instan saat ada perubahan order, jangan tunggu polling 3s
   useEffect(() => {
-    if (outletLoaded && !outletId) setLoading(false)
-  }, [outletLoaded, outletId])
-
-  // Short polling fallback + initial fetch
-  useEffect(() => {
-    fetchOrders()
-    const interval = setInterval(fetchOrders, 3000)
-
+    if (!outletId) return
     const channel = supabase
       .channel('orders_channel')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
         () => {
-          fetchOrders()
+          queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
         }
       )
       .subscribe()
 
     return () => {
-      clearInterval(interval)
       supabase.removeChannel(channel)
     }
-  }, [fetchOrders, supabase])
+  }, [supabase, queryClient, outletId])
 
   // Mark as Preparing
   async function markAsPreparing(id: string) {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'preparing' } : o))
+    queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
+      prev?.map(o => o.id === id ? { ...o, status: 'preparing' } : o)
+    )
     await supabase.from('orders').update({ status: 'preparing', updated_at: new Date().toISOString() }).eq('id', id)
-    fetchOrders()
+    queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
   }
 
   // Mark as Completed
   async function markAsCompleted(id: string) {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'completed' } : o))
+    queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
+      prev?.map(o => o.id === id ? { ...o, status: 'completed' } : o)
+    )
     await supabase.from('orders').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', id)
-    fetchOrders()
+    queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
 
     // Kalau order ini berasal dari website order online, teruskan notifikasi
     // ke order-system supaya WA "pesanan siap diambil" terkirim ke customer.
@@ -180,9 +183,11 @@ export default function CashierOrdersPage() {
   // Cancel order
   async function cancelOrder(id: string) {
     if (confirm('Batalkan pesanan ini secara permanen?')) {
-      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' } : o))
+      queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
+        prev?.map(o => o.id === id ? { ...o, status: 'cancelled' } : o)
+      )
       await supabase.from('orders').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id)
-      fetchOrders()
+      queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
     }
   }
 

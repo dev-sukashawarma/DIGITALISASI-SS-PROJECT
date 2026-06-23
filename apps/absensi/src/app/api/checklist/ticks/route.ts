@@ -35,14 +35,39 @@ export async function POST(req: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('daily_checklist_ticks')
-      .select('id, item_id, ticked_by, ticked_at, outlet_staff(name)')
+      .select('id, item_id, ticked_by, ticked_at')
       .eq('record_id', record_id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    // Fetch staff names for all ticked_by IDs (avoid embed to prevent schema cache issue)
+    const tickedByIds = Array.from(
+      new Set((data || []).map(t => t.ticked_by).filter(Boolean))
+    );
+
+    const staffMap: Record<string, { name: string }> = {};
+    if (tickedByIds.length > 0) {
+      const { data: staffData } = await supabaseAdmin
+        .from('outlet_staff')
+        .select('id, name')
+        .in('id', tickedByIds);
+
+      if (staffData) {
+        staffData.forEach(s => {
+          staffMap[s.id] = { name: s.name };
+        });
+      }
+    }
+
+    // Enrich ticks with staff info
+    const enrichedData = (data || []).map(tick => ({
+      ...tick,
+      outlet_staff: tick.ticked_by ? staffMap[tick.ticked_by] : null
+    }));
+
+    return NextResponse.json({ data: enrichedData });
   } catch (error: any) {
     console.error('[ticks route] exception:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });

@@ -21,7 +21,7 @@ export const getCrossAppUrl = (path: string): string => {
   }
 
   // Hanya route app LAIN (stok) yang di-eksternal-kan.
-  const stokUrl = process.env.NEXT_PUBLIC_STOK_URL;
+  const stokUrl = process.env.NEXT_PUBLIC_STOK_URL || 'https://stok.sukashawarma.com';
   if (path.startsWith('/stok') && stokUrl) {
     return `${stokUrl.replace(/\/$/, '')}${path}`;
   }

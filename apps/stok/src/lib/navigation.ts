@@ -21,7 +21,7 @@ export const getCrossAppUrl = (path: string): string => {
   }
 
   // Hanya route app LAIN (distribusi) yang di-eksternal-kan.
-  const distribusiUrl = process.env.NEXT_PUBLIC_DISTRIBUSI_URL;
+  const distribusiUrl = process.env.NEXT_PUBLIC_DISTRIBUSI_URL || 'https://distribusi.sukashawarma.com';
   if (path.startsWith('/distribusi') && distribusiUrl) {
     return `${distribusiUrl.replace(/\/$/, '')}${path}`;
   }

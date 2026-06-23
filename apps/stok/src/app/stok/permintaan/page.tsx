@@ -20,7 +20,7 @@ export default function PermintaanPage() {
   if (!outletStaff) return null
 
   const isKitchen = selectedOutletId === KITCHEN_OUTLET_ID
-    || ['admin', 'spv', 'owner'].includes(outletStaff.role)
+    || ['admin', 'spv', 'owner', 'kitchen'].includes(outletStaff.role)
 
   const handleSubmitSuccess = () => {
     setRefreshKey(k => k + 1)

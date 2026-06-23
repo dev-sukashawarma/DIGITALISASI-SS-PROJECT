@@ -23,7 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const isSPV = outletStaff?.role === "spv" || outletStaff?.role === "leader";
+  const isSPV = outletStaff?.role === "spv" || outletStaff?.role === "leader" || outletStaff?.role === "kitchen";
 
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },

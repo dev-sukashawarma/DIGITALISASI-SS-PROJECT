@@ -66,7 +66,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   useEffect(() => {
     const loadPdfHtml = async () => {
-      if (data && outletStaff?.role !== 'leader') {
+      if (data && outletStaff?.role !== 'leader' && outletStaff?.role !== 'kitchen') {
         const htmlContent = await generatePDFContent({
           id: data.id,
           document_number: data.document_number || `SJ-${data.id.substring(0, 8).toUpperCase()}`,
@@ -163,7 +163,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
     )
   }
 
-  if (outletStaff?.role !== 'leader') {
+  if (outletStaff?.role !== 'leader' && outletStaff?.role !== 'kitchen') {
     return (
       <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-24">
         {/* Header Banner */}
@@ -358,7 +358,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
           )}
 
           {/* Pusat Verification Action */}
-          {outletStaff?.role === 'leader' && (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian') && (
+          {(outletStaff?.role === 'leader' || outletStaff?.role === 'kitchen') && (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian') && (
             <div className="border-t border-[#d9c2b2]/20 pt-5 flex flex-col gap-3">
               <div className="bg-[#faf2e9] border border-[#d9c2b2]/40 rounded-xl p-4 text-xs font-semibold text-[#544437] space-y-2">
                 <p className="font-bold text-[#701604] uppercase">Konfirmasi Penerimaan Pusat</p>

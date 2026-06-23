@@ -21,7 +21,7 @@ export function MonitoringPage() {
   const role = outletStaff.role;
   const isLeader = role === 'leader';
 
-  if (role === 'spv') {
+  if (role === 'spv' || role === 'kitchen') {
     return <SPVDashboard />;
   }
 

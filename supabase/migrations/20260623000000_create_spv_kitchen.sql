@@ -22,7 +22,11 @@ SELECT
   'SPV Kitchen',
   'spv',
   'active'
-ON CONFLICT (id) DO NOTHING;
+WHERE NOT EXISTS (
+  SELECT 1 FROM outlet_staff 
+  WHERE id = '03bfa0ac-52f8-4d1f-9ef4-fa8f8d3c62f5'::uuid
+     OR (outlet_id = (SELECT id FROM outlets WHERE slug = 'outlet-kitchen') AND name = 'SPV Kitchen')
+);
 
 -- Verification query (run after migration):
 -- SELECT id, name, role, status FROM outlet_staff WHERE role = 'spv';

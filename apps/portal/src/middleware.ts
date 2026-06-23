@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, verifyAccessToken } from '@suka/auth'
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next()
@@ -13,7 +13,22 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Identitas via JWT lokal (tanpa network); fallback getUser() bila secret kosong (dev).
+  const jwtSecret = process.env.SUPABASE_JWT_SECRET
+  let userId: string | null = null
+  if (jwtSecret) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const claims = session?.access_token
+      ? await verifyAccessToken(session.access_token, jwtSecret)
+      : null
+    userId = claims?.sub ?? null
+  } else {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[perf] SUPABASE_JWT_SECRET unset in production — falling back to slow network getUser() per request')
+    }
+    const { data: { user } } = await supabase.auth.getUser()
+    userId = user?.id ?? null
+  }
 
   const { pathname } = request.nextUrl
 
@@ -26,11 +41,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // Already logged in → check staff status and redirect to launcher
-  if (user && pathname === '/') {
+  if (userId && pathname === '/') {
     const { data: staff } = await supabase
       .from('outlet_staff')
       .select('status')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle()
 
     // Allow access only if staff is active
@@ -42,7 +57,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Not logged in → force to login
-  if (!user && pathname !== '/') {
+  if (!userId && pathname !== '/') {
     return getRedirect('/')
   }
 

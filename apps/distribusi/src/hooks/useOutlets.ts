@@ -2,11 +2,23 @@
 
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
+import { cachedFetch } from '@/lib/refCache'
 
 interface Outlet {
   id: string
   name: string
   address?: string
+}
+
+async function fetchOutlets(): Promise<Outlet[]> {
+  const supabase = createSupabaseBrowserClient()
+  const { data, error } = await supabase
+    .from('outlets')
+    .select('id, name, address')
+    .eq('is_active', true)
+    .order('name')
+  if (error) throw new Error(error.message)
+  return data || []
 }
 
 export function useOutlets() {
@@ -15,33 +27,28 @@ export function useOutlets() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      setError(null)
+    let active = true
+    setLoading(true)
+    setError(null)
 
-      try {
-        const supabase = createSupabaseBrowserClient()
-        const { data, error: err } = await supabase
-          .from('outlets')
-          .select('id, name, address')
-          .eq('is_active', true)
-          .order('name')
-
-        if (err) {
-          setError(err.message)
-          setOutlets([])
-        } else {
-          setOutlets(data || [])
-        }
-      } catch (err: any) {
+    // Reference data: di-cache per-tab supaya tidak refetch tiap mount.
+    cachedFetch('outlets:active', fetchOutlets)
+      .then((data) => {
+        if (!active) return
+        setOutlets(data)
+      })
+      .catch((err: any) => {
+        if (!active) return
         setError(err?.message || 'Terjadi kesalahan')
         setOutlets([])
-      } finally {
-        setLoading(false)
-      }
-    }
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
 
-    fetchData()
+    return () => {
+      active = false
+    }
   }, [])
 
   return { outlets, loading, error }

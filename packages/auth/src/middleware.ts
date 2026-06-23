@@ -65,6 +65,9 @@ export async function enforceAppAccess(
       : null
     userId = claims?.sub ?? null
   } else {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[perf] SUPABASE_JWT_SECRET unset in production — falling back to slow network getUser() per request')
+    }
     const { data: { user } } = await supabase.auth.getUser()
     userId = user?.id ?? null
   }

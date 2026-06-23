@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { useAuth } from '@suka/auth'
 import { useOutletScope } from '@/hooks/useOutletScope'
 import { PermintaanForm } from '@/components/permintaan/PermintaanForm'
@@ -11,6 +12,7 @@ const KITCHEN_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 export default function PermintaanPage() {
   const { outletStaff, loading } = useAuth()
   const { selectedOutletId } = useOutletScope()
+  const [refreshKey, setRefreshKey] = useState(0)
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><p className="text-gray-500">Memuat…</p></div>
@@ -19,6 +21,10 @@ export default function PermintaanPage() {
 
   const isKitchen = selectedOutletId === KITCHEN_OUTLET_ID
     || ['admin', 'spv', 'owner'].includes(outletStaff.role)
+
+  const handleSubmitSuccess = () => {
+    setRefreshKey(k => k + 1)
+  }
 
   return (
     <div className="bg-[#fff8f1] min-h-screen">
@@ -37,10 +43,10 @@ export default function PermintaanPage() {
           </section>
         ) : (
           <>
-            {selectedOutletId && <PermintaanForm outletId={selectedOutletId} />}
+            {selectedOutletId && <PermintaanForm outletId={selectedOutletId} onSubmitSuccess={handleSubmitSuccess} />}
             <section className="space-y-3">
               <h2 className="text-xs font-bold uppercase tracking-wider text-[#f29744]">Riwayat Permintaan</h2>
-              {selectedOutletId && <PermintaanList outletId={selectedOutletId} />}
+              {selectedOutletId && <PermintaanList key={`${selectedOutletId}-${refreshKey}`} outletId={selectedOutletId} />}
             </section>
           </>
         )}

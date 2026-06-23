@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import type { SaranItem } from '@/hooks/usePermintaan'
 import { useSaranItem, usePermintaanActions } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
@@ -16,8 +15,7 @@ interface Row {
   threshold?: number
 }
 
-export function PermintaanForm({ outletId }: { outletId: string }) {
-  const router = useRouter()
+export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string; onSubmitSuccess?: () => void }) {
   const { saran } = useSaranItem(outletId)
   const { bahanBaku } = useBahanBaku()
   const { buat } = usePermintaanActions()
@@ -94,6 +92,10 @@ export function PermintaanForm({ outletId }: { outletId: string }) {
   // Item yang belum ada di form, untuk dropdown tambah manual
   const available = bahanBaku.filter(b => !rows[b.id])
 
+  const handleDismissSuccess = () => {
+    setSuccessMsg(null)
+  }
+
   async function submit() {
     setBusy(true); setErrorMsg(null); setSuccessMsg(null)
     try {
@@ -105,7 +107,14 @@ export function PermintaanForm({ outletId }: { outletId: string }) {
       // Reset form & tampilkan notif sukses
       setRows({})
       setSuccessMsg(`Permintaan berhasil dikirim (${selected.length} item). Menunggu persetujuan.`)
-      router.refresh() // paksa server components refresh agar list terupdate
+
+      // Trigger callback untuk refresh list
+      if (onSubmitSuccess) {
+        onSubmitSuccess()
+      }
+
+      // Scroll ke atas agar user lihat form yang ter-reset dan bisa tambah lagi
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e))
     } finally { setBusy(false) }
@@ -247,11 +256,31 @@ export function PermintaanForm({ outletId }: { outletId: string }) {
       </section>
 
       {successMsg && (
-        <p className="text-xs font-bold text-[#1e6b3a] bg-[#d6f5e3] border border-[#1e6b3a]/20 p-3 rounded-xl">
-          ✅ {successMsg}
-        </p>
+        <div className="text-xs font-bold text-[#1e6b3a] bg-[#d6f5e3] border border-[#1e6b3a]/20 p-3 rounded-xl flex items-center justify-between gap-3">
+          <span>✅ {successMsg}</span>
+          <button
+            type="button"
+            onClick={handleDismissSuccess}
+            className="text-[#1e6b3a] hover:opacity-70 transition flex-shrink-0"
+            aria-label="Tutup pesan sukses"
+          >
+            ✕
+          </button>
+        </div>
       )}
-      {errorMsg && <p className="text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-3 rounded-xl">{errorMsg}</p>}
+      {errorMsg && (
+        <div className="text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-3 rounded-xl flex items-center justify-between gap-3">
+          <span>{errorMsg}</span>
+          <button
+            type="button"
+            onClick={() => setErrorMsg(null)}
+            className="text-[#ba1a1a] hover:opacity-70 transition flex-shrink-0"
+            aria-label="Tutup pesan error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Kirim Button */}
       <div className="pt-2">

@@ -26,13 +26,21 @@ export async function authorizeOutletAccess(
       },
     });
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) {
+      console.error('[authorizeOutletAccess] auth.getUser error:', authError);
+      return { ok: false, status: 500, error: 'Failed to get user session' };
+    }
     if (!user) {
       return { ok: false, status: 401, error: 'Unauthorized: No active session' };
     }
 
     const { staff, error: staffError } = await getOutletStaff(supabase, user.id);
-    if (staffError || !staff) {
+    if (staffError) {
+      console.error('[authorizeOutletAccess] getOutletStaff error:', staffError);
+      return { ok: false, status: 500, error: 'Failed to fetch staff record' };
+    }
+    if (!staff) {
       return { ok: false, status: 403, error: 'Staff record not found' };
     }
 
@@ -43,7 +51,7 @@ export async function authorizeOutletAccess(
 
     return { ok: false, status: 403, error: 'Forbidden: outlet mismatch' };
   } catch (err: any) {
-    console.error('[authorizeOutletAccess]', err);
+    console.error('[authorizeOutletAccess] unexpected error:', err);
     return { ok: false, status: 500, error: 'Authorization check failed' };
   }
 }

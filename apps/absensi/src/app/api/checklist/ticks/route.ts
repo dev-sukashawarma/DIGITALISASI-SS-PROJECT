@@ -44,6 +44,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ data });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[ticks route] exception:', error);
+    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }

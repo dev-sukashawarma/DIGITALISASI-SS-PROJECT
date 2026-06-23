@@ -7,7 +7,13 @@ import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { TransferModal } from './TransferModal';
 import { TransferSuggestionPanel } from './TransferSuggestionPanel';
 import type { TransferSuggestion } from '@/lib/stok/transferSuggestion';
-import { useSPVMonitoringData, useLeaderMonitoringData } from '@/hooks/useMonitoringData';
+import {
+  useSPVMonitoringData,
+  useLeaderMonitoringData,
+  useRecentLedger,
+  useStockoutForecast,
+  useWasteToday
+} from '@/hooks/useMonitoringData';
 import { fetchOpnameStatus } from '@/lib/queries/monitoring';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
@@ -39,6 +45,9 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   // Live clock state
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
+  // Collapsible sidebar state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   React.useEffect(() => {
     setCurrentTime(new Date());
     const timer = setInterval(() => {
@@ -55,6 +64,41 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   const spvQuery = useSPVMonitoringData(!isLeaderScoped);
   const leaderQuery = useLeaderMonitoringData(isLeaderScoped);
   const { data, isLoading, isError, lastFetched, refetch, autoRefresh } = isLeaderScoped ? leaderQuery : spvQuery;
+
+  // Real-time and proactive hooks
+  const recentLedgerQuery = useRecentLedger(15);
+  const stockoutForecastQuery = useStockoutForecast(1, 6);
+  const wasteTodayQuery = useWasteToday();
+
+  // Filter pro-active hooks data based on leader scoped access (allowedOutletIds)
+  const recentLedger = useMemo(() => {
+    const raw = recentLedgerQuery.data || [];
+    if (!allowedOutletIds) return raw;
+    return raw.filter(entry => allowedOutletIds.includes(entry.outlet_id));
+  }, [recentLedgerQuery.data, allowedOutletIds]);
+
+  const stockoutForecast = useMemo(() => {
+    const raw = stockoutForecastQuery.data || [];
+    if (!allowedOutletIds) return raw;
+    return raw.filter(item => allowedOutletIds.includes(item.outlet_id));
+  }, [stockoutForecastQuery.data, allowedOutletIds]);
+
+  const wasteToday = useMemo(() => {
+    const raw = wasteTodayQuery.data?.entries || [];
+    if (!allowedOutletIds) return raw;
+    return raw.filter(entry => allowedOutletIds.includes(entry.outlet_id));
+  }, [wasteTodayQuery.data?.entries, allowedOutletIds]);
+
+  // Compute stats specifically for the selected outlet
+  const outletForecastCount = useMemo(() => {
+    if (!selectedOutletId) return 0;
+    return stockoutForecast.filter(f => f.outlet_id === selectedOutletId).length;
+  }, [stockoutForecast, selectedOutletId]);
+
+  const outletWasteCount = useMemo(() => {
+    if (!selectedOutletId) return 0;
+    return wasteToday.filter(w => w.outlet_id === selectedOutletId).length;
+  }, [wasteToday, selectedOutletId]);
 
   // Fetch compliance/opname status
   const [opnameStatuses, setOpnameStatuses] = useState<Awaited<ReturnType<typeof fetchOpnameStatus>> | undefined>(undefined);
@@ -108,10 +152,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
   const criticalCount = useMemo(() => {
     return currentOutletItems.filter(item => item.status === 'below').length;
-  }, [currentOutletItems]);
-
-  const pendingRequestsCount = useMemo(() => {
-    return currentOutletItems.filter(item => item.is_flagged).length;
   }, [currentOutletItems]);
 
   const healthScore = useMemo(() => {
@@ -193,7 +233,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   };
 
   const handleRestockRequest = (item: MonitoringItem) => {
-    // Generate request document detail
     showToast(`✅ Permintaan Pengisian Ulang dikirim ke Pusat: ${item.item_name} untuk ${item.outlet_name}`);
   };
 
@@ -300,96 +339,133 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
       <div className="flex-1 flex overflow-hidden relative">
         {/* Overview Tab - Split view */}
         {activeTab === 'overview' && (
-          <div className="flex-1 flex overflow-hidden">
-            {/* Left panel: Outlets */}
-            <aside className="w-[25%] bg-[#faf2e9] border-r border-[#d9c2b2] overflow-y-auto p-6 space-y-6">
-              <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase border-b border-suka-brown/10 pb-2">
-                {allowedOutletIds ? `Outlet Binaan (${allowedOutletIds.length})` : 'Daftar 19 Outlet'}
-              </h3>
+          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+            {/* Left Column: Outlets (Collapsible) */}
+            <aside className={`${isSidebarCollapsed ? 'w-full lg:w-[60px] p-2' : 'w-full lg:w-[22%] p-6'} bg-[#faf2e9] border-r border-[#d9c2b2] overflow-y-auto space-y-6 transition-all duration-300 flex-shrink-0`}>
+              <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2">
+                {!isSidebarCollapsed && (
+                  <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
+                    {allowedOutletIds ? `Outlet Binaan (${allowedOutletIds.length})` : 'Daftar 19 Outlet'}
+                  </h3>
+                )}
+                <button
+                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                  className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-suka-brown/15 text-suka-brown hover:bg-suka-brown/5 text-xs font-bold transition-all mx-auto"
+                  title={isSidebarCollapsed ? "Tampilkan Sidebar" : "Sembunyikan Sidebar"}
+                >
+                  {isSidebarCollapsed ? "→" : "←"}
+                </button>
+              </div>
+              
               <div className="flex flex-col gap-6">
-                {['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang'].map((region) => (
-                  outlets.byRegion[region] && outlets.byRegion[region].length > 0 && (
-                    <div key={region} className="flex flex-col gap-2">
-                      <h4 className="text-xs font-bold text-suka-orange/70 uppercase tracking-widest px-2">
-                        {region}
-                      </h4>
-                      <div className="flex flex-col gap-2">
-                        {outlets.byRegion[region].map((outlet) => {
-                  const isActive = selectedOutletId === outlet.outlet_id;
-                  const cleanName = outlet.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
+                {['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang'].map((region) => {
+                  const regionOutlets = outlets.byRegion[region] || [];
+                  if (regionOutlets.length === 0) return null;
                   
-                  let statusCircleColor = 'bg-suka-green';
-                  if (outlet.status === 'below') statusCircleColor = 'bg-red-600 animate-pulse';
-                  else if (outlet.status === 'warning') statusCircleColor = 'bg-suka-orange';
-
-                  // Location subdescription mapping
-                  const getSubLocation = (nameStr: string) => {
-                    if (nameStr.includes('KITCHEN')) return 'Suka Shawarma';
-                    if (nameStr.includes('SUDIRMAN')) return 'Sudirman Center';
-                    if (nameStr.includes('KEMANG')) return 'Kemang Raya';
-                    if (nameStr.includes('MENTENG')) return 'Menteng Raya';
-                    if (nameStr.includes('BINTARO')) return 'Bintaro Plaza';
-                    if (nameStr.includes('TEBET')) return 'Tebet Timur';
-                    
-                    const formatted = nameStr.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                    return `${formatted} Branch`;
-                  };
-
-                  const subLocation = getSubLocation(cleanName);
-
                   return (
-                    <button
-                      key={outlet.outlet_id}
-                      onClick={() => setSelectedOutletId(outlet.outlet_id)}
-                      className={`text-left p-4 rounded-xl border transition-all ${
-                        isActive
-                          ? 'border-2 border-suka-orange bg-white shadow-[0px_4px_12px_rgba(112,22,4,0.08)]'
-                          : 'border-suka-brown/10 bg-white hover:border-suka-orange/30'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className={`font-bold text-sm uppercase tracking-wide ${isActive ? 'text-suka-orange' : 'text-suka-ink'}`}>
-                          {cleanName}
+                    <div key={region} className="flex flex-col gap-2">
+                      {!isSidebarCollapsed && (
+                        <h4 className="text-xs font-bold text-suka-orange/70 uppercase tracking-widest px-2">
+                          {region}
                         </h4>
-                        <div className={`w-3 h-3 rounded-full ${statusCircleColor}`} />
-                      </div>
-                      <div className="flex items-center gap-2 text-xs font-semibold">
-                        {outlet.status === 'below' && (
-                          <span className="text-red-600">{outlet.kritisCount} Kritis</span>
-                        )}
-                        {outlet.status === 'warning' && (
-                          <span className="text-orange-600">{outlet.menipisCount} Menipis</span>
-                        )}
-                        {outlet.status === 'ok' && (
-                          <span className="text-green-700">Aman</span>
-                        )}
-                        <span className="text-suka-brown/30">•</span>
-                        <span className="text-suka-brown/60 font-medium">{subLocation}</span>
-                      </div>
-                    </button>
-                    );
-                  })}
+                      )}
+                      <div className="flex flex-col gap-2">
+                        {regionOutlets.map((outlet) => {
+                          const isActive = selectedOutletId === outlet.outlet_id;
+                          const cleanName = outlet.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
+                          const shortName = cleanName.slice(0, 3);
+                          
+                          let statusCircleColor = 'bg-suka-green';
+                          if (outlet.status === 'below') statusCircleColor = 'bg-red-650 animate-pulse';
+                          else if (outlet.status === 'warning') statusCircleColor = 'bg-suka-orange';
+
+                          const getSubLocation = (nameStr: string) => {
+                            if (nameStr.includes('KITCHEN')) return 'Suka Shawarma';
+                            if (nameStr.includes('SUDIRMAN')) return 'Sudirman Center';
+                            if (nameStr.includes('KEMANG')) return 'Kemang Raya';
+                            if (nameStr.includes('MENTENG')) return 'Menteng Raya';
+                            if (nameStr.includes('BINTARO')) return 'Bintaro Plaza';
+                            if (nameStr.includes('TEBET')) return 'Tebet Timur';
+                            
+                            const formatted = nameStr.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                            return `${formatted} Branch`;
+                          };
+
+                          const subLocation = getSubLocation(cleanName);
+
+                          if (isSidebarCollapsed) {
+                            return (
+                              <button
+                                key={outlet.outlet_id}
+                                onClick={() => setSelectedOutletId(outlet.outlet_id)}
+                                className={`flex items-center justify-center p-2 rounded-lg border relative transition-all ${
+                                  isActive
+                                    ? 'border-suka-orange bg-white shadow-sm'
+                                    : 'border-suka-brown/10 bg-white hover:border-suka-orange/30'
+                                }`}
+                                title={`${cleanName} (${outlet.status === 'below' ? 'Kritis' : outlet.status === 'warning' ? 'Menipis' : 'Aman'})`}
+                              >
+                                <span className={`w-3.5 h-3.5 rounded-full ${statusCircleColor} flex items-center justify-center text-[8px] text-white font-bold`}>
+                                  {outlet.status !== 'ok' ? (outlet.status === 'below' ? outlet.kritisCount : outlet.menipisCount) : ''}
+                                </span>
+                                <span className="absolute -top-1 -right-1 text-[8px] font-black text-suka-brown/40">{shortName}</span>
+                              </button>
+                            );
+                          }
+
+                          return (
+                            <button
+                              key={outlet.outlet_id}
+                              onClick={() => setSelectedOutletId(outlet.outlet_id)}
+                              className={`text-left p-4 rounded-xl border transition-all ${
+                                isActive
+                                  ? 'border-2 border-suka-orange bg-white shadow-[0px_4px_12px_rgba(112,22,4,0.08)]'
+                                  : 'border-suka-brown/10 bg-white hover:border-suka-orange/30'
+                              }`}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className={`font-bold text-sm uppercase tracking-wide ${isActive ? 'text-suka-orange' : 'text-suka-ink'}`}>
+                                  {cleanName}
+                                </h4>
+                                <div className={`w-3 h-3 rounded-full ${statusCircleColor}`} />
+                              </div>
+                              <div className="flex items-center gap-2 text-xs font-semibold">
+                                {outlet.status === 'below' && (
+                                  <span className="text-red-600 font-bold">{outlet.kritisCount} Kritis</span>
+                                )}
+                                {outlet.status === 'warning' && (
+                                  <span className="text-orange-600 font-bold">{outlet.menipisCount} Menipis</span>
+                                )}
+                                {outlet.status === 'ok' && (
+                                  <span className="text-green-700">Aman</span>
+                                )}
+                                <span className="text-suka-brown/30">•</span>
+                                <span className="text-suka-brown/60 font-medium">{subLocation}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
-                  )
-                ))}
+                  );
+                })}
               </div>
             </aside>
 
-            {/* Right panel: Details */}
-            <section className="flex-1 bg-white overflow-hidden flex flex-col">
+            {/* Middle Column: Details & Tables */}
+            <section className="flex-1 bg-white overflow-hidden flex flex-col border-r border-[#d9c2b2]">
               {selectedOutletId ? (
                 <div className="flex-1 flex flex-col overflow-hidden">
-                  {/* Sticky right pane sub-header */}
-                  <div className="p-6 border-b border-suka-brown/10 flex flex-col gap-4 bg-white z-10 flex-shrink-0">
+                  {/* Sub-header with search & filters */}
+                  <div className="p-6 border-b border-suka-brown/10 flex flex-col gap-4 bg-white z-10 flex-shrink-0 shadow-sm">
                     <div className="flex justify-between items-center flex-wrap gap-4">
-                      <h3 className="text-lg font-bold text-suka-brown uppercase tracking-tight">
-                        DETAIL STOK: {outlets.byOutlet.find(o => o.outlet_id === selectedOutletId)?.outlet_name}
+                      <h3 className="text-lg font-black text-[#701604] uppercase tracking-tight">
+                        DETAIL STOK: {outlets.byOutlet.find(o => o.outlet_id === selectedOutletId)?.outlet_name.replace('SUKA SHAWARMA ', '')}
                       </h3>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50 text-sm">🔍</span>
                         <input
-                          className="pl-9 pr-4 py-2 bg-suka-cream/30 border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-lg text-sm w-64 transition-all"
+                          className="pl-9 pr-4 py-2 bg-[#faf2e9]/40 border border-[#d9c2b2]/80 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-sm w-64 transition-all font-bold placeholder-suka-brown/40"
                           placeholder="Cari nama bahan..."
                           type="text"
                           value={searchTerm}
@@ -398,7 +474,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       </div>
                     </div>
 
-                    {/* Filter buttons exactly matching mockup */}
+                    {/* Filter buttons */}
                     <div className="flex items-center gap-6 text-sm font-bold text-suka-brown">
                       <label className="flex items-center gap-1.5 cursor-pointer group">
                         <input
@@ -443,55 +519,183 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                     </div>
                   </div>
 
-                  {/* Scrollable table and stats */}
+                  {/* Scrollable table & KPI Summary Grid */}
                   <div className="flex-1 p-6 overflow-y-auto space-y-6">
+                    {/* KPI Widgets Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {/* KPI 1: Stok Kritis */}
+                      <button
+                        onClick={() => setFilterStatus('below')}
+                        className={`bg-white border-2 rounded-2xl p-4 text-left shadow-[0px_4px_12px_rgba(112,22,4,0.04)] hover:scale-102 transition-all flex flex-col justify-between group h-24 ${
+                          filterStatus === 'below' ? 'border-[#ba1a1a] bg-[#ffdad6]/10' : 'border-[#d9c2b2]/40'
+                        }`}
+                      >
+                        <span className="text-[10px] font-black uppercase text-[#ba1a1a] tracking-wider flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-[#ba1a1a] animate-pulse"></span>
+                          Stok Kritis
+                        </span>
+                        <div className="flex items-baseline gap-1 mt-2">
+                          <span className="text-2xl font-black text-[#ba1a1a]">{criticalCount}</span>
+                          <span className="text-[10px] text-suka-brown/60 font-semibold">bahan</span>
+                        </div>
+                      </button>
+
+                      {/* KPI 2: Forecasted Stockouts */}
+                      <div className="bg-white border-2 border-[#d9c2b2]/40 rounded-2xl p-4 text-left shadow-[0px_4px_12px_rgba(112,22,4,0.04)] flex flex-col justify-between h-24">
+                        <span className="text-[10px] font-black uppercase text-suka-orange tracking-wider flex items-center gap-1">
+                          <span>⏳</span>
+                          Forecast 24j
+                        </span>
+                        <div className="flex items-baseline gap-1 mt-2">
+                          <span className="text-2xl font-black text-suka-orange">{outletForecastCount}</span>
+                          <span className="text-[10px] text-suka-brown/60 font-semibold">akan habis</span>
+                        </div>
+                      </div>
+
+                      {/* KPI 3: Waste Events Today */}
+                      <div className="bg-white border-2 border-[#d9c2b2]/40 rounded-2xl p-4 text-left shadow-[0px_4px_12px_rgba(112,22,4,0.04)] flex flex-col justify-between h-24">
+                        <span className="text-[10px] font-black uppercase text-[#701604] tracking-wider flex items-center gap-1">
+                          <span>🗑️</span>
+                          Waste Hari Ini
+                        </span>
+                        <div className="flex items-baseline gap-1 mt-2">
+                          <span className="text-2xl font-black text-[#701604]">{outletWasteCount}</span>
+                          <span className="text-[10px] text-suka-brown/60 font-semibold">kejadian</span>
+                        </div>
+                      </div>
+
+                      {/* KPI 4: Health Score */}
+                      <button
+                        onClick={() => setFilterStatus('ok')}
+                        className={`bg-white border-2 rounded-2xl p-4 text-left shadow-[0px_4px_12px_rgba(112,22,4,0.04)] hover:scale-102 transition-all flex flex-col justify-between group h-24 ${
+                          filterStatus === 'ok' ? 'border-suka-green bg-green-50/10' : 'border-[#d9c2b2]/40'
+                        }`}
+                      >
+                        <span className="text-[10px] font-black uppercase text-suka-green tracking-wider flex items-center gap-1">
+                          <span>✅</span>
+                          Health Score
+                        </span>
+                        <div className="flex items-baseline gap-1 mt-2">
+                          <span className="text-2xl font-black text-suka-green">{healthScore}%</span>
+                          <span className="text-[10px] text-suka-brown/60 font-semibold">optimal</span>
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Stock Detail Table */}
                     <SPVTable
                       items={items}
                       tab="overview"
                       selectedOutletId={selectedOutletId}
                       searchTerm={searchTerm}
                       filterStatus={filterStatus}
-                      hideFilters={true} // Hide internal filters inside SPVTable
+                      hideFilters={true}
                       onRowClick={setSelectedItem}
                       onThresholdChange={handleThresholdChange}
                       onRestockRequest={handleRestockRequest}
                       onTransferRequest={setTransferItem}
                     />
-
-                    {/* Quick Stats Cards below table */}
-                    <div className="grid grid-cols-3 gap-6 pt-4">
-                      <div className="bg-red-50 p-6 rounded-xl border border-red-200/60 flex flex-col justify-between shadow-sm">
-                        <div className="flex items-center gap-2 text-red-800 mb-2 font-bold text-xs uppercase tracking-wider">
-                          <span>⚠️</span>
-                          <span>Critical Stock</span>
-                        </div>
-                        <div className="text-xl font-bold text-red-950">{criticalCount} Materials</div>
-                      </div>
-
-                      <div className="bg-orange-50 p-6 rounded-xl border border-orange-200/60 flex flex-col justify-between shadow-sm">
-                        <div className="flex items-center gap-2 text-orange-850 mb-2 font-bold text-xs uppercase tracking-wider">
-                          <span>⏳</span>
-                          <span>Pending Requests</span>
-                        </div>
-                        <div className="text-xl font-bold text-orange-950">{pendingRequestsCount} Active</div>
-                      </div>
-
-                      <div className="bg-green-50 p-6 rounded-xl border border-green-200/60 flex flex-col justify-between shadow-sm">
-                        <div className="flex items-center gap-2 text-green-800 mb-2 font-bold text-xs uppercase tracking-wider">
-                          <span>✅</span>
-                          <span>Health Score</span>
-                        </div>
-                        <div className="text-xl font-bold text-green-950">{healthScore}% Optimal</div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-suka-brown/50 text-sm font-semibold bg-white">
-                  Pilih outlet di sebelah kiri untuk melihat detail bahan baku
+                <div className="flex-1 flex flex-col items-center justify-center text-suka-brown/50 text-sm font-semibold bg-white p-6 text-center gap-2">
+                  <span className="text-4xl">🥙</span>
+                  <p>Pilih outlet di sebelah kiri untuk melihat detail bahan baku</p>
                 </div>
               )}
             </section>
+
+            {/* Right Column: Action & Predictive Hub (Action Drawer) */}
+            <aside className="w-full lg:w-[23%] bg-[#faf2e9] overflow-y-auto p-4 flex flex-col gap-6 flex-shrink-0 border-t lg:border-t-0 border-[#d9c2b2]">
+              {/* Widget 1: Saran Transfer */}
+              <div className="bg-white p-4 rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)] space-y-3">
+                <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">
+                  <span>🔄</span> Saran Transfer
+                </h3>
+                <div className="max-h-[300px] overflow-y-auto pr-1">
+                  <TransferSuggestionPanel
+                    items={items ?? []}
+                    onTransfer={handleSuggestionTransfer}
+                  />
+                </div>
+              </div>
+
+              {/* Widget 2: Predictive Stockouts (Forecast) */}
+              <div className="bg-white p-4 rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)] space-y-3">
+                <h3 className="font-black text-xs text-[#701604] tracking-wider uppercase border-b border-[#701604]/10 pb-2 flex items-center gap-1.5">
+                  <span>🔮</span> Prediksi Habis (&lt;24j)
+                </h3>
+                <div className="space-y-2">
+                  {selectedOutletId ? (
+                    stockoutForecast.filter(f => f.outlet_id === selectedOutletId).length === 0 ? (
+                      <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
+                        Stok terpantau aman hingga 24 jam ke depan
+                      </p>
+                    ) : (
+                      stockoutForecast.filter(f => f.outlet_id === selectedOutletId).map((f) => (
+                        <div key={f.bahan_baku_id} className="p-2.5 bg-red-50 border border-red-200/80 rounded-xl flex items-center justify-between text-xs">
+                          <div>
+                            <p className="font-extrabold text-red-950 uppercase tracking-wide">{f.item_name}</p>
+                            <p className="text-[10px] text-red-800 font-medium">Sisa {f.days_left * 24} jam ({f.current_qty} {f.satuan})</p>
+                          </div>
+                          <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black uppercase">
+                            Warning
+                          </span>
+                        </div>
+                      ))
+                    )
+                  ) : (
+                    <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
+                      Pilih outlet untuk melihat forecast
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Widget 3: Live Activity Feed */}
+              <div className="bg-white p-4 rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)] space-y-3">
+                <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">
+                  <span>⚡</span> Live Activity
+                </h3>
+                <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                  {selectedOutletId ? (
+                    recentLedger.filter(l => l.outlet_id === selectedOutletId).slice(0, 5).length === 0 ? (
+                      <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
+                        Belum ada aktivitas hari ini
+                      </p>
+                    ) : (
+                      recentLedger.filter(l => l.outlet_id === selectedOutletId).slice(0, 5).map((l) => {
+                        const dateObj = new Date(l.created_at);
+                        const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                        const isAdd = l.qty > 0;
+                        return (
+                          <div key={l.id} className="p-2.5 bg-suka-cream/5 border border-suka-brown/10 rounded-xl flex flex-col gap-1 text-[11px]">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-suka-ink uppercase tracking-wide truncate max-w-[120px]">{l.item_name}</span>
+                              <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-black ${
+                                isAdd ? 'bg-suka-green/10 text-suka-green' : 'bg-red-50 text-[#ba1a1a]'
+                              }`}>
+                                {isAdd ? '+' : ''}{l.qty}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-[9px] text-suka-brown/50">
+                              <span className="bg-suka-brown/5 px-1.5 py-0.5 rounded uppercase font-semibold">
+                                {l.tipe.replace('_', ' ')}
+                              </span>
+                              <span className="font-mono">{timeStr}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )
+                  ) : (
+                    <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
+                      Pilih outlet untuk melihat log aktivitas
+                    </p>
+                  )}
+                </div>
+              </div>
+            </aside>
           </div>
         )}
 
@@ -618,17 +822,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           isOpen={!!selectedItem}
         />
       )}
-
-      {/* Transfer Suggestions */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-extrabold uppercase tracking-wider text-suka-brown/70">
-          Saran Transfer Antar-Outlet
-        </h2>
-        <TransferSuggestionPanel
-          items={items ?? []}
-          onTransfer={handleSuggestionTransfer}
-        />
-      </section>
 
       {/* Transfer Stock Modal */}
       <TransferModal

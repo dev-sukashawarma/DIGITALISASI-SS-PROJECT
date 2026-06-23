@@ -48,6 +48,21 @@ const wrapper = ({ children }: any) => (
 describe('SPVDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(hook.useRecentLedger).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    } as any);
+    vi.mocked(hook.useStockoutForecast).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    } as any);
+    vi.mocked(hook.useWasteToday).mockReturnValue({
+      data: { count: 0, entries: [] },
+      isLoading: false,
+      isError: false,
+    } as any);
   });
 
   it('renders loading state when loading', () => {
@@ -266,5 +281,70 @@ describe('SPVDashboard', () => {
     expect(hook.useSPVMonitoringData).toHaveBeenCalledWith(false);
     // Renders the leader query's data (1 item), not the disabled spv query's data (0 items)
     expect(screen.getByTestId('spv-table')).toHaveTextContent('items: 1');
+  });
+
+  it('renders KPI widgets and right sidebar widgets on Overview tab', () => {
+    const mockItems = [{
+      outlet_id: 'outlet-a',
+      outlet_name: 'SUKA SHAWARMA OUTLET A',
+      bahan_baku_id: 'bb1',
+      item_name: 'Minyak',
+      current_qty: 8,
+      threshold: 15,
+      status: 'below' as const,
+      is_flagged: false,
+      last_updated: '2026-06-10T10:00:00Z',
+      last_opname_date: null,
+    }];
+    vi.mocked(hook.useSPVMonitoringData).mockReturnValue({
+      data: { items: mockItems, lastFetched: '2026-06-10T10:00:00Z' },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+      autoRefresh: { pause: vi.fn(), resume: vi.fn(), isPaused: () => false },
+      lastFetched: '2026-06-10T10:00:00Z',
+    } as any);
+
+    vi.mocked(hook.useStockoutForecast).mockReturnValue({
+      data: [{
+        outlet_id: 'outlet-a',
+        outlet_name: 'SUKA SHAWARMA OUTLET A',
+        bahan_baku_id: 'bb1',
+        item_name: 'Minyak',
+        satuan: 'kg',
+        current_qty: 8,
+        threshold: 15,
+        daily_rate: 10,
+        days_left: 0.5,
+      }],
+      isLoading: false,
+      isError: false,
+    } as any);
+
+    vi.mocked(hook.useRecentLedger).mockReturnValue({
+      data: [{
+        id: 'log-1',
+        outlet_id: 'outlet-a',
+        outlet_name: 'SUKA SHAWARMA OUTLET A',
+        bahan_baku_id: 'bb1',
+        item_name: 'Minyak',
+        satuan: 'kg',
+        tipe: 'pemakaian',
+        qty: -5,
+        catatan: 'Pemakaian harian',
+        saldo_sesudah: 8,
+        created_at: new Date().toISOString(),
+      }],
+      isLoading: false,
+      isError: false,
+    } as any);
+
+    render(<SPVDashboard />, { wrapper });
+
+    // Verify presence of forecast widget headers/texts
+    expect(screen.getByText('Prediksi Habis (<24j)')).toBeInTheDocument();
+    expect(screen.getByText('Live Activity')).toBeInTheDocument();
+    expect(screen.getByText('Sisa 12 jam (8 kg)')).toBeInTheDocument();
   });
 });

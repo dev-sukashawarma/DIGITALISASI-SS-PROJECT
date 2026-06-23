@@ -69,66 +69,102 @@ export function CrewDashboard() {
   return (
     <div className="min-h-screen bg-[#fff8f1]">
       {/* Top Header App Bar */}
-      <header className="bg-[#fff8f1] sticky top-0 z-40 w-full px-4 py-4 flex flex-col gap-3 border-b border-[#d9c2b2]/30 shadow-[0px_4px_12px_rgba(144,77,0,0.06)]">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard" className="text-xl font-bold text-[#701604] hover:text-[#a43c26] transition-colors mr-1 flex-shrink-0" title="Kembali ke Dashboard">
-              ←
-            </Link>
-            <div className="w-10 h-10 rounded-full bg-[#fd7e62]/20 flex items-center justify-center overflow-hidden border border-[#fd7e62]/40 flex-shrink-0">
-              {outletStaff?.ref_photo_url ? (
-                <img src={outletStaff.ref_photo_url} alt="Staff Profile" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-xl">🧑‍🍳</span>
-              )}
-            </div>
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5">
-                <img src="/logo.png" alt="Suka Shawarma Logo" className="h-6 w-auto object-contain flex-shrink-0" />
-                <span className="text-[10px] font-bold text-[#701604]/40 uppercase tracking-widest flex-shrink-0">SS Digital</span>
-              </div>
-              <h1 className="text-base sm:text-lg font-bold text-[#701604] uppercase tracking-tight leading-tight truncate">
-                {data?.outlet_name || 'Outlet'} - Monitoring
-              </h1>
-            </div>
+      <header className="bg-white sticky top-0 z-40 w-full px-4 py-3 border-b border-[#d9c2b2]/30 shadow-[0px_4px_12px_rgba(144,77,0,0.04)]">
+        {/* Top Row: Navigation and Profile */}
+        <div className="flex items-center justify-between w-full">
+          <Link 
+            href="/dashboard" 
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-[#fff8f1] hover:bg-[#f5ede3] border border-[#d9c2b2]/45 text-[#701604] transition-all active:scale-95 flex-shrink-0"
+            title="Kembali ke Dashboard"
+          >
+            <span className="text-base font-bold">←</span>
+          </Link>
+
+          <div className="flex items-center gap-1.5">
+            <img 
+              src="/logo.png" 
+              alt="Suka Logo" 
+              className="h-6 w-auto object-contain" 
+              onError={(e) => { e.currentTarget.style.display = 'none'; }} 
+            />
+            <span className="text-xs font-black text-[#701604] tracking-wider uppercase">SS Digital</span>
           </div>
-          <div className="flex gap-1.5 sm:gap-2 self-end md:self-auto flex-shrink-0">
+
+          <div 
+            className="w-9 h-9 rounded-full bg-[#fd7e62]/20 flex items-center justify-center overflow-hidden border border-[#fd7e62]/40 flex-shrink-0 relative"
+            title={`Logged in as ${outletStaff?.name || 'Staff'}`}
+          >
+            {outletStaff?.ref_photo_url && (
+              <img 
+                src={outletStaff.ref_photo_url} 
+                alt="Staff Profile" 
+                className="absolute inset-0 w-full h-full object-cover z-10" 
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            )}
+            <span className="text-base">🧑‍🍳</span>
+          </div>
+        </div>
+
+        {/* Title and Outlet Name */}
+        <div className="mt-3 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+          <div>
+            <h1 className="text-base sm:text-lg font-black text-[#701604] uppercase tracking-tight leading-tight">
+              {data?.outlet_name || 'Outlet'} - Monitoring
+            </h1>
+            <p className="text-[10px] font-bold text-[#f29744] uppercase tracking-widest mt-0.5">
+              Stock Control Panel
+            </p>
+          </div>
+
+          {/* Actions Button Group */}
+          <div className="flex items-center gap-1.5 mt-1 md:mt-0 w-full md:w-auto">
             <a
               href={resolvedPortalUrl}
-              className="px-2.5 sm:px-3 h-9 sm:h-10 flex items-center justify-center rounded-full bg-white hover:bg-[#fff8f1] border border-[#d9c2b2]/50 text-[#701604] transition-all active:scale-95 font-semibold text-[11px] sm:text-xs"
-              title="Kembali ke Portal"
+              className="flex-1 md:flex-initial px-3 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-[#fff8f1] border border-[#d9c2b2]/50 text-[#701604] font-bold text-[11px] transition-all active:scale-95 shadow-sm"
+              title="Portal"
             >
-              ← Portal
+              Portal
             </a>
             <button
               onClick={() => refetch()}
-              className="w-9 sm:w-10 h-9 sm:h-10 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 border border-[#877365]/20 transition-all active:scale-95 text-sm sm:text-base"
+              className="px-3 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-[#fff8f1] border border-[#d9c2b2]/50 text-[#701604] font-bold text-[11px] transition-all active:scale-95 shadow-sm flex items-center gap-1"
               title="Refresh"
             >
-              🔄
+              🔄 Refresh
             </button>
             <button
               onClick={handleLogout}
-              className="px-2.5 sm:px-3 h-9 sm:h-10 flex items-center justify-center rounded-full bg-white hover:bg-red-50 border border-[#ba1a1a]/30 text-[#ba1a1a] transition-all active:scale-95 font-semibold text-[11px] sm:text-xs"
+              className="flex-1 md:flex-initial px-3 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-red-50 border border-red-200 text-red-600 font-bold text-[11px] transition-all active:scale-95 shadow-sm"
               title="Logout"
             >
               Keluar
             </button>
           </div>
         </div>
-        
-        <div className="flex flex-col gap-1.5 mt-1 border-t border-[#d9c2b2]/20 pt-2.5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
-            <span className="bg-[#a43c26] text-white px-2.5 py-0.5 rounded-full font-semibold self-start max-w-full truncate">
-              Outlet {data?.outlet_name || '...'}
-            </span>
-            <span className="text-[#544437] font-semibold">
-              Crew: {outletStaff?.name || '...'} • Items: {data?.items?.length || '0'}
+
+        {/* Meta Information Bar */}
+        <div className="mt-3 pt-3 border-t border-[#d9c2b2]/20 flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[11px] text-[#544437]">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="bg-[#a43c26] text-white px-2 py-0.5 rounded-full font-bold text-[9px] tracking-wide uppercase">
+                Outlet {data?.outlet_name ? 'Active' : '...'}
+              </span>
+              <span className="font-semibold">
+                Crew: <span className="font-bold text-gray-800">{outletStaff?.name || '...'}</span>
+              </span>
+            </div>
+            <span className="font-medium text-right">
+              Total Items: <span className="font-bold text-[#701604]">{data?.items?.length || '0'}</span>
             </span>
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-[#544437]/80 font-medium">
-            <span>Check stok status before shifts & opname</span>
-            <span className="text-[#544437]/60 mt-0.5 sm:mt-0">
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] text-[#544437]/60 font-semibold border-t border-[#d9c2b2]/10 pt-2">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+              Check stok status before shifts & opname
+            </span>
+            <span>
               Last updated: {displayTime || 'Never'}
             </span>
           </div>

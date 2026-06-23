@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import {
   BarChart3, TrendingUp, TrendingDown, ShoppingBag, Banknote,
   Calendar, ChevronDown, Award, Clock, CreditCard, QrCode,
@@ -9,6 +9,7 @@ import {
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { cleanItemName } from '@/lib/order-item-name'
@@ -43,79 +44,74 @@ const RANGE_LABELS: Record<DateRange, string> = {
   custom: 'Kustom Tanggal',
 }
 
+async function fetchReportOrders(outletId: string, range: DateRange, customStart: string, customEnd: string): Promise<OrderRow[]> {
+  const supabase = createClient()
+
+  let q = supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('outlet_id', outletId)
+    .order('created_at', { ascending: false })
+
+  if (range === 'today') {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    q = q.gte('created_at', today.toISOString())
+  } else if (range === 'yesterday') {
+    const yest = new Date()
+    yest.setDate(yest.getDate() - 1)
+    yest.setHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    q = q.gte('created_at', yest.toISOString()).lt('created_at', today.toISOString())
+  } else if (range === '7days') {
+    const d = new Date()
+    d.setDate(d.getDate() - 7)
+    d.setHours(0, 0, 0, 0)
+    q = q.gte('created_at', d.toISOString())
+  } else if (range === '30days') {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    d.setHours(0, 0, 0, 0)
+    q = q.gte('created_at', d.toISOString())
+  } else if (range === 'custom' && customStart && customEnd) {
+    const s = new Date(customStart)
+    s.setHours(0, 0, 0, 0)
+    const e = new Date(customEnd)
+    e.setHours(23, 59, 59, 999)
+    q = q.gte('created_at', s.toISOString()).lte('created_at', e.toISOString())
+  }
+
+  const { data } = await q
+  return data ?? []
+}
+
 export default function ReportsPage() {
-  const [orders, setOrders] = useState<OrderRow[]>([])
-  const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<DateRange>('today')
   const [showRangePicker, setShowRangePicker] = useState(false)
-  
+
   // Custom Date
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
 
-  // Outlet Data
-  const { outletId, loaded: outletLoaded } = useMyOutlet()
-  const [outletName, setOutletName] = useState<string>('Memuat...')
+  // Outlet Data (outletName sudah di-cache di useMyOutlet, tidak perlu query terpisah lagi)
+  const { outletId, outletName: rawOutletName } = useMyOutlet()
+  const outletName = rawOutletName || 'Memuat...'
 
   // Table State
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
-  const fetchOrders = useCallback(async () => {
-    if (!outletId) return // laporan hanya untuk cabang kasir ini
-    setLoading(true)
-    const supabase = createClient()
+  const isCustomReady = range !== 'custom' || (!!customStart && !!customEnd)
 
-    // Ambil nama cabang
-    const { data: outletData } = await supabase.from('outlets').select('name').eq('id', outletId).single()
-    if (outletData) setOutletName(outletData.name)
-
-    let q = supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .eq('outlet_id', outletId)
-      .order('created_at', { ascending: false })
-
-    if (range === 'today') {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', today.toISOString())
-    } else if (range === 'yesterday') {
-      const yest = new Date()
-      yest.setDate(yest.getDate() - 1)
-      yest.setHours(0, 0, 0, 0)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', yest.toISOString()).lt('created_at', today.toISOString())
-    } else if (range === '7days') {
-      const d = new Date()
-      d.setDate(d.getDate() - 7)
-      d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
-    } else if (range === '30days') {
-      const d = new Date()
-      d.setDate(d.getDate() - 30)
-      d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
-    } else if (range === 'custom' && customStart && customEnd) {
-      const s = new Date(customStart)
-      s.setHours(0, 0, 0, 0)
-      const e = new Date(customEnd)
-      e.setHours(23, 59, 59, 999)
-      q = q.gte('created_at', s.toISOString()).lte('created_at', e.toISOString())
-    }
-
-    const { data } = await q
-    setOrders(data ?? [])
-    setLoading(false)
-  }, [range, outletId, customStart, customEnd])
-
-  useEffect(() => { fetchOrders() }, [fetchOrders])
-
-  useEffect(() => {
-    if (outletLoaded && !outletId) setLoading(false)
-  }, [outletLoaded, outletId])
+  const { data: orders = [], isLoading: loading } = useQuery({
+    queryKey: ['reports', outletId, range, customStart, customEnd],
+    queryFn: () => fetchReportOrders(outletId as string, range, customStart, customEnd),
+    enabled: !!outletId && isCustomReady,
+    staleTime: 30000,
+    retry: false,
+  })
 
   // ─── Derived Analytics ───
   const analytics = useMemo(() => {

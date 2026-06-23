@@ -14,6 +14,7 @@ import { RevenueTrendChart } from '@/components/RevenueTrendChart'
 import { TopMenus } from '@/components/TopMenus'
 import { BottomMenus } from '@/components/BottomMenus'
 import { OutletLeaderboard } from '@/components/OutletLeaderboard'
+import { DailyTargetBoard } from '@/components/DailyTargetBoard'
 import type { PeriodFilterValue } from '@/lib/types'
 
 export default function DashboardPage() {
@@ -54,12 +55,15 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <KpiCards 
-            rows={cur.rows} 
-            prevRows={prev.rows} 
+          <KpiCards
+            rows={cur.rows}
+            prevRows={prev.rows}
             hourlyRows={hourly.rows}
           />
-          
+
+          {/* Indikator target harian realtime (semua outlet) */}
+          <DailyTargetBoard />
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <RevenueTrendChart 

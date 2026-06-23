@@ -126,7 +126,7 @@ export default function KasirNav() {
         {/* Collapse toggle button for desktop */}
         <button
           onClick={toggleCollapse}
-          className="hidden lg:flex absolute top-[2.25rem] -right-3.5 z-[60] w-7 h-7 bg-[#f29744] hover:bg-[#e08632] text-white rounded-full border border-[#d9c2b2] shadow-sm items-center justify-center cursor-pointer transition-transform duration-200 active:scale-95"
+          className="hidden lg:flex absolute top-1/2 -translate-y-1/2 -right-3.5 z-[60] w-7 h-7 bg-[#f29744] hover:bg-[#e08632] text-white rounded-full border border-[#d9c2b2] shadow-sm items-center justify-center cursor-pointer transition-transform duration-200 active:scale-95"
           title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}

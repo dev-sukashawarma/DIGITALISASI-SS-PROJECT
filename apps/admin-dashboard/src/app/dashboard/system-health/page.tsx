@@ -8,7 +8,7 @@ import { IncidentTimeline } from '@/components/IncidentTimeline'
 
 export const dynamic = 'force-dynamic'
 
-const APP_ORDER = ['stok', 'absensi', 'pos-kasir', 'distribusi', 'owner-dashboard']
+const APP_ORDER = ['stok', 'absensi', 'pos-kasir', 'distribusi']
 const INFRA_ORDER = ['supabase-db', 'cpanel-server']
 
 export default function SystemHealthPage() {
@@ -30,7 +30,7 @@ export default function SystemHealthPage() {
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-gray-500">Apps</h3>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {apps.map((row) => <AppHealthCard key={row.target_name} row={row} />)}
         </div>
       </section>

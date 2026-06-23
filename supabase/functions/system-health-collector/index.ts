@@ -10,7 +10,7 @@ const admin = createClient(supabaseUrl, serviceKey)
 const FETCH_TIMEOUT_MS = 8000
 
 interface AppTarget {
-  name: 'stok' | 'absensi' | 'pos-kasir' | 'distribusi' | 'owner-dashboard'
+  name: 'stok' | 'absensi' | 'pos-kasir' | 'distribusi'
   urlEnv: string
 }
 
@@ -19,7 +19,6 @@ const APP_TARGETS: AppTarget[] = [
   { name: 'absensi', urlEnv: 'ABSENSI_HEALTH_URL' },
   { name: 'pos-kasir', urlEnv: 'POS_KASIR_HEALTH_URL' },
   { name: 'distribusi', urlEnv: 'DISTRIBUSI_HEALTH_URL' },
-  { name: 'owner-dashboard', urlEnv: 'OWNER_DASHBOARD_HEALTH_URL' },
 ]
 
 interface HealthLogRow {

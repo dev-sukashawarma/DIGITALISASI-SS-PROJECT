@@ -41,7 +41,8 @@ export async function POST(req: Request) {
           record_id,
           ticked_by: staff_id || null,
         });
-      if (error) throw error;
+      // Ignore unique constraint violation (idempotent: tick sudah ada, itu OK)
+      if (error && error.code !== '23505') throw error;
     } else if (action === 'delete') {
       const { error } = await supabaseAdmin
         .from('daily_checklist_ticks')

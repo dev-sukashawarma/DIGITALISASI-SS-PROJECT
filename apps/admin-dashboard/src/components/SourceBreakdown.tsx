@@ -1,6 +1,6 @@
 import type { SalesSummaryRow, SalesSource } from '@/lib/types'
 import { rupiah, pct } from '@/lib/format'
-import { ShoppingBag, Store, Globe, AppWindow } from 'lucide-react'
+import { Store, Globe } from 'lucide-react'
 
 const LABELS: Record<SalesSource, string> = {
   pos: 'POS Kasir Outlet', 
@@ -14,19 +14,21 @@ const LABELS: Record<SalesSource, string> = {
 const BRAND_COLORS: Record<SalesSource, string> = {
   pos: '#701604',         // Suka Brown
   online: '#f29744',      // Suka Orange
-  gofood: '#06c270',      // GoJek Green
+  gofood: '#00aa13',      // GoJek Green
   grabfood: '#00b14f',    // Grab Green
-  shopeefood: '#f53d2d',  // Shopee Red-Orange
+  shopeefood: '#ee4d2d',  // Shopee Red-Orange
   tiktok: '#000000',      // TikTok Black
 }
+
+import { SiGojek, SiGrab, SiShopee, SiTiktok } from 'react-icons/si'
 
 const ICONS: Record<SalesSource, any> = {
   pos: Store,
   online: Globe,
-  gofood: ShoppingBag,
-  grabfood: ShoppingBag,
-  shopeefood: ShoppingBag,
-  tiktok: AppWindow,
+  gofood: SiGojek,
+  grabfood: SiGrab,
+  shopeefood: SiShopee,
+  tiktok: SiTiktok,
 }
 
 export function SourceBreakdown({ rows }: { rows: SalesSummaryRow[] }) {

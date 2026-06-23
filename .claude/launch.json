@@ -18,6 +18,12 @@
       "runtimeExecutable": "yarn",
       "runtimeArgs": ["workspace", "@suka/portal", "dev"],
       "port": 3010
+    },
+    {
+      "name": "owner-dashboard",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["workspace", "@suka/owner-dashboard", "dev"],
+      "port": 3003
     }
   ]
 }

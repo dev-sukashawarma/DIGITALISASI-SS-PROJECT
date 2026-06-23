@@ -10,7 +10,7 @@ const entries: LeaderboardEntry[] = [
 
 describe('OutletLeaderboard', () => {
   it('render baris terurut dengan omzet & delta', () => {
-    render(<OutletLeaderboard entries={entries} />)
+    render(<OutletLeaderboard entries={entries} allOutlets={[{ id: '1', name: 'Outlet 1' }, { id: '2', name: 'Outlet 2' }]} />)
     expect(screen.getByText('B')).toBeInTheDocument()
     expect(screen.getByText('Rp 200.000')).toBeInTheDocument()
     expect(screen.getByText('▼ 50%')).toBeInTheDocument()

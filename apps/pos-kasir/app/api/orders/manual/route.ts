@@ -126,6 +126,9 @@ export async function POST(request: Request) {
 
   // ── Buat order langsung status 'preparing' (Diproses) ───────────────────
   const customerName = (body.customer_name ?? '').trim()
+  const mappedSource = body.channel === 'tiktokgo' ? 'tiktok' : body.channel;
+  const validSalesSource = ['pos','online','gofood','grabfood','shopeefood','tiktok'].includes(mappedSource) ? mappedSource : 'pos';
+
   const { data: order, error: orderError } = await supabaseService
     .from('orders')
     .insert({
@@ -136,6 +139,7 @@ export async function POST(request: Request) {
       status: 'preparing',
       source: 'manual',
       channel: body.channel,
+      sales_source: validSalesSource,
     })
     .select('id, order_number')
     .single()

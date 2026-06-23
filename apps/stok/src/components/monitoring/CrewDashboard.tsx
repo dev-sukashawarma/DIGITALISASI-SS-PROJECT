@@ -69,30 +69,30 @@ export function CrewDashboard() {
   return (
     <div className="min-h-screen bg-[#fff8f1]">
       {/* Top Header App Bar */}
-      <header className="bg-[#fff8f1] sticky top-0 z-40 w-full px-4 py-4 flex flex-col gap-2 border-b border-[#d9c2b2]/30 shadow-sm">
-        <div className="flex items-center justify-between">
+      <header className="bg-[#fff8f1] sticky top-0 z-40 w-full px-4 py-4 flex flex-col gap-3 border-b border-[#d9c2b2]/30 shadow-[0px_4px_12px_rgba(144,77,0,0.06)]">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Link href="/dashboard" className="text-xl font-bold text-[#701604] hover:text-[#a43c26] transition-colors mr-1" title="Kembali ke Dashboard">
+            <Link href="/dashboard" className="text-xl font-bold text-[#701604] hover:text-[#a43c26] transition-colors mr-1 flex-shrink-0" title="Kembali ke Dashboard">
               ←
             </Link>
-            <div className="w-10 h-10 rounded-full bg-[#fd7e62]/20 flex items-center justify-center overflow-hidden border border-[#fd7e62]/40">
+            <div className="w-10 h-10 rounded-full bg-[#fd7e62]/20 flex items-center justify-center overflow-hidden border border-[#fd7e62]/40 flex-shrink-0">
               {outletStaff?.ref_photo_url ? (
                 <img src={outletStaff.ref_photo_url} alt="Staff Profile" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-xl">🧑‍🍳</span>
               )}
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5">
-                <img src="/logo.png" alt="Suka Shawarma Logo" className="h-6 w-auto object-contain" />
-                <span className="text-[10px] font-bold text-[#701604]/40 uppercase tracking-widest">SS Digital</span>
+                <img src="/logo.png" alt="Suka Shawarma Logo" className="h-6 w-auto object-contain flex-shrink-0" />
+                <span className="text-[10px] font-bold text-[#701604]/40 uppercase tracking-widest flex-shrink-0">SS Digital</span>
               </div>
-              <h1 className="text-lg font-bold text-[#701604] uppercase tracking-tight leading-tight">
+              <h1 className="text-base sm:text-lg font-bold text-[#701604] uppercase tracking-tight leading-tight truncate">
                 {data?.outlet_name || 'Outlet'} - Monitoring
               </h1>
             </div>
           </div>
-          <div className="flex gap-1.5 sm:gap-2">
+          <div className="flex gap-1.5 sm:gap-2 self-end md:self-auto flex-shrink-0">
             <a
               href={resolvedPortalUrl}
               className="px-2.5 sm:px-3 h-9 sm:h-10 flex items-center justify-center rounded-full bg-white hover:bg-[#fff8f1] border border-[#d9c2b2]/50 text-[#701604] transition-all active:scale-95 font-semibold text-[11px] sm:text-xs"
@@ -118,17 +118,17 @@ export function CrewDashboard() {
         </div>
         
         <div className="flex flex-col gap-1.5 mt-1 border-t border-[#d9c2b2]/20 pt-2.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="bg-[#a43c26] text-white px-2.5 py-0.5 rounded-full font-semibold">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
+            <span className="bg-[#a43c26] text-white px-2.5 py-0.5 rounded-full font-semibold self-start max-w-full truncate">
               Outlet {data?.outlet_name || '...'}
             </span>
             <span className="text-[#544437] font-semibold">
               Crew: {outletStaff?.name || '...'} • Items: {data?.items?.length || '0'}
             </span>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-[#544437]/80 font-medium">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-[#544437]/80 font-medium">
             <span>Check stok status before shifts & opname</span>
-            <span className="text-[#544437]/60">
+            <span className="text-[#544437]/60 mt-0.5 sm:mt-0">
               Last updated: {displayTime || 'Never'}
             </span>
           </div>
@@ -169,7 +169,7 @@ export function CrewDashboard() {
         <div className="col-span-12 md:col-span-5 order-1 md:order-2 space-y-6">
           {/* Section 1: Critical Alerts Widget */}
           {(criticalItems.length > 0 || isOpnameOverdue) && (
-            <section className="bg-white rounded-xl border border-[#d9c2b2]/45 shadow-sm p-4 flex flex-col gap-4">
+            <section className="bg-white rounded-xl border border-[#d9c2b2]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.06)] p-4 flex flex-col gap-4">
               <div className="flex items-center gap-2 text-[#ba1a1a]">
                 <span className="text-xl">⚠️</span>
                 <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Peringatan Kritis</h2>
@@ -211,7 +211,7 @@ export function CrewDashboard() {
           )}
 
           {/* Section 2: Quick Actions Panel */}
-          <section className="bg-white border border-[#d9c2b2]/45 rounded-xl p-5 shadow-sm space-y-4">
+          <section className="bg-white border border-[#d9c2b2]/45 rounded-xl p-5 shadow-[0px_4px_12px_rgba(144,77,0,0.06)] space-y-4">
             <h3 className="font-bold text-xs text-[#544437] uppercase tracking-wider pl-0.5">Aksi Cepat</h3>
             <div className="grid grid-cols-2 gap-3">
               <Link href="/stok/permintaan" className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
@@ -236,20 +236,20 @@ export function CrewDashboard() {
       </main>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-3 pb-safe bg-[#f5ede3] border-t border-[#877365]/20 shadow-lg rounded-t-xl">
-        <Link href="/dashboard" className="flex flex-col items-center justify-center bg-[#fd7e62] text-white rounded-full px-4 py-1.5 active:scale-95 transition-all">
+      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-[#f5ede3] border-t border-[#877365]/20 shadow-2xl rounded-t-2xl">
+        <Link href="/dashboard" className="flex flex-col items-center justify-center bg-[#f29744] text-[#643400] rounded-xl px-5 py-2 shadow-sm active:scale-95 transition-all">
           <span className="text-lg leading-none">📊</span>
           <span className="text-[10px] font-bold mt-0.5">Dashboard</span>
         </Link>
-        <Link href="/stok/ledger" className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8] px-4 py-1.5 rounded-full transition-all active:scale-95">
+        <Link href="/stok/ledger" className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8]/50 px-4 py-1.5 rounded-full transition-all active:scale-95">
           <span className="text-lg leading-none">📒</span>
           <span className="text-[10px] font-bold mt-0.5">Ledger</span>
         </Link>
-        <Link href="/stok/opname" className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8] px-4 py-1.5 rounded-full transition-all active:scale-95">
+        <Link href="/stok/opname" className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8]/50 px-4 py-1.5 rounded-full transition-all active:scale-95">
           <span className="text-lg leading-none">📋</span>
           <span className="text-[10px] font-bold mt-0.5">Opname</span>
         </Link>
-        <a href={getCrossAppUrl('/distribusi/terima')} className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8] px-4 py-1.5 rounded-full transition-all active:scale-95">
+        <a href={getCrossAppUrl('/distribusi/terima')} className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8]/50 px-4 py-1.5 rounded-full transition-all active:scale-95">
           <span className="text-lg leading-none">🚚</span>
           <span className="text-[10px] font-bold mt-0.5">Terima</span>
         </a>

@@ -47,7 +47,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-dvh w-screen flex flex-col md:flex-row relative bg-suka-cream overflow-y-auto md:overflow-hidden overflow-x-hidden bg-grain select-none">
+    <main className="h-dvh w-screen flex flex-col md:flex-row relative bg-suka-cream overflow-y-auto md:overflow-hidden overflow-x-hidden bg-grain select-none overscroll-y-none">
       {/* Floating Animated Blobs */}
       <div className="absolute top-[-15%] left-[-15%] w-[60vw] h-[60vw] rounded-full bg-suka-orange/15 blur-[120px] animate-blob-1 pointer-events-none z-0" />
       <div className="absolute bottom-[-15%] right-[-15%] w-[60vw] h-[60vw] rounded-full bg-suka-brown/10 blur-[120px] animate-blob-2 pointer-events-none z-0" />

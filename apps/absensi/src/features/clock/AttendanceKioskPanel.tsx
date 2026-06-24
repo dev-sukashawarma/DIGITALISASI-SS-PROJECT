@@ -43,8 +43,9 @@ export function AttendanceKioskPanel() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [modelError, setModelError] = useState<string | null>(null);
 
-  // Kiosk Integration
-  const kiosk = useClockKiosk(outletStaff?.outlet_id || "");
+  // Kiosk Integration — MODE 1:1: panel pribadi, kunci ke akun yang login.
+  // Wajah orang lain (walau ter-enroll) ditolak; hanya pemilik akun yang bisa absen.
+  const kiosk = useClockKiosk(outletStaff?.outlet_id || "", { lockToStaffId: outletStaff?.id });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const loopRef = useRef<number | null>(null);
 

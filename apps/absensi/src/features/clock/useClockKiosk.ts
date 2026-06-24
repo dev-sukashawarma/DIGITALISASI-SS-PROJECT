@@ -20,7 +20,15 @@ type StaffRow = { id: string; name: string; face_descriptor: number[] | null };
 
 const FUNCTION_URL = "/api/submit-attendance";
 
-export function useClockKiosk(outletId: string) {
+/**
+ * @param outletId outlet aktif
+ * @param options.lockToStaffId Bila diisi, kiosk bekerja MODE 1:1 — hanya cocok
+ *   dengan descriptor staff ini (akun yang sedang login). Wajah orang lain ditolak
+ *   walau ter-enroll. Dipakai di panel absen pribadi (AttendanceKioskPanel).
+ *   Bila kosong → MODE 1:N (kiosk bersama: kenali siapa pun yang ter-enroll).
+ */
+export function useClockKiosk(outletId: string, options?: { lockToStaffId?: string }) {
+  const lockToStaffId = options?.lockToStaffId;
   const supabase = createClient();
   const queue = useAttendanceQueue();
 
@@ -35,15 +43,18 @@ export function useClockKiosk(outletId: string) {
   /** Muat descriptor staff ter-enroll. */
   const loadCandidates = useCallback(async () => {
     if (!outletId) return;
-    const { data } = await supabase
+    let query = supabase
       .from("outlet_staff")
       .select("id,name,face_descriptor")
       .eq("outlet_id", outletId)
       .not("face_descriptor", "is", null);
+    // Mode 1:1 — batasi kandidat ke akun yang login saja (verifikasi, bukan identifikasi).
+    if (lockToStaffId) query = query.eq("id", lockToStaffId);
+    const { data } = await query;
     candidatesRef.current = ((data as StaffRow[]) ?? [])
       .filter((s) => s.face_descriptor)
       .map((s) => ({ id: s.id, name: s.name, descriptor: s.face_descriptor! }));
-  }, [outletId, supabase]);
+  }, [outletId, supabase, lockToStaffId]);
 
   /** Tentukan aksi IN/OUT dari record hari ini. */
   const decideAction = useCallback(async (staffId: string): Promise<"in" | "out" | "done"> => {
@@ -81,7 +92,10 @@ export function useClockKiosk(outletId: string) {
       if (!res.face || res.face.length === 0 || !res.face[0].embedding) return;
       const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
       if (found.id === "unknown") {
-        setResult({ ok: false, message: `Wajah tidak dikenal (Skor kemiripan tertinggi: ${found.bestSimilarity.toFixed(4)})` });
+        const msg = lockToStaffId
+          ? `Wajah tidak cocok dengan akun ini. Pastikan Anda yang absen. (Skor: ${found.bestSimilarity.toFixed(4)})`
+          : `Wajah tidak dikenal (Skor kemiripan tertinggi: ${found.bestSimilarity.toFixed(4)})`;
+        setResult({ ok: false, message: msg });
         setPhase("result");
         scheduleReset(3000);
         return;

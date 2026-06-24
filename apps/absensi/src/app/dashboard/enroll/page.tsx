@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { loadFaceModels, getHuman } from "@/lib/face/recognizer";
 import { averageDescriptors } from "@/lib/face/match";
 import { OutletSwitcher } from "@/components/OutletSwitcher";
+import { splitByEnrollment } from "@/lib/enroll/splitByEnrollment";
 
 type Staff = { id: string; name: string; role: string; enrolled_at: string | null };
 type EnrollPhase = "list" | "consent" | "center" | "left" | "right" | "saving" | "done";
@@ -30,6 +31,8 @@ export default function EnrollPage() {
   const shotsRef = useRef<number[][]>([]); 
   
   const [consent, setConsent] = useState(false);
+  const [isReEnroll, setIsReEnroll] = useState(false);
+  const [reEnrollReason, setReEnrollReason] = useState("");
   const [phase, setPhase] = useState<EnrollPhase>("list");
   const phaseRef = useRef<EnrollPhase>("list");
   const busyRef = useRef(false);
@@ -54,7 +57,6 @@ export default function EnrollPage() {
       .select("id, name, role, enrolled_at")
       .eq("outlet_id", selectedOutletId)
       .eq("status", "active")
-      .is("enrolled_at", null)
       .order("name")
       .then(({ data }) => {
         setStaffList((data as Staff[]) ?? []);
@@ -153,13 +155,20 @@ export default function EnrollPage() {
           consent_at: new Date().toISOString(),
           consent_by: outletStaff.id,
           enrolled_at: new Date().toISOString(),
+          ...(isReEnroll && {
+            re_enrolled_at: new Date().toISOString(),
+            re_enrolled_by: outletStaff.id,
+            re_enroll_reason: reEnrollReason.trim() || null,
+          }),
         })
         .eq("id", targetStaff.id);
         
       if (error) throw error;
       
-      // Update local list to remove enrolled staff
-      setStaffList(prev => prev.filter(s => s.id !== targetStaff.id));
+      // Tandai staff sebagai terdaftar (pindah ke section "Sudah Terdaftar")
+      setStaffList(prev => prev.map(s =>
+        s.id === targetStaff.id ? { ...s, enrolled_at: new Date().toISOString() } : s
+      ));
       setPhase("done");
       toast.show("ok", "Enrollment Wajah Berhasil Tersimpan!");
     } catch (e: any) {
@@ -172,6 +181,15 @@ export default function EnrollPage() {
   function handleSelectCrew(s: Staff) {
     setTargetStaff(s);
     setConsent(false);
+    setIsReEnroll(false);
+    setPhase("consent");
+  }
+
+  function handleReEnroll(s: Staff) {
+    setTargetStaff(s);
+    setConsent(false);
+    setIsReEnroll(true);
+    setReEnrollReason("");
     setPhase("consent");
   }
 
@@ -183,21 +201,27 @@ export default function EnrollPage() {
   function handleCancel() {
     setTargetStaff(null);
     setConsent(false);
+    setIsReEnroll(false);
+    setReEnrollReason("");
     setShots([]);
     setPhase("list");
   }
 
   function resetToNext() {
-    // If there's another crew to enroll, auto-select them, otherwise go back to list
-    if (staffList.length > 0) {
-      setTargetStaff(staffList[0]);
+    const next = staffList.find((s) => !s.enrolled_at && s.id !== targetStaff?.id);
+    if (next) {
+      setTargetStaff(next);
       setConsent(false);
+      setIsReEnroll(false);
+      setReEnrollReason("");
       setShots([]);
       setPhase("consent");
     } else {
       handleCancel();
     }
   }
+
+  const { unenrolled, enrolled } = splitByEnrollment(staffList);
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-12">
@@ -244,25 +268,62 @@ export default function EnrollPage() {
               </div>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {staffList.map((s) => (
-                <div 
-                  key={s.id} 
-                  onClick={() => handleSelectCrew(s)}
-                  className="bg-white p-4 rounded-2xl border-2 border-gray-200 hover:border-suka-orange hover:shadow-md transition-all cursor-pointer flex items-center gap-4 group"
-                >
-                  <div className="w-12 h-12 bg-suka-cream rounded-full flex items-center justify-center text-suka-brown font-bold shrink-0">
-                    {s.name.charAt(0)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-suka-ink truncate group-hover:text-suka-orange transition-colors">{s.name}</h4>
-                    <p className="text-xs text-gray-500 capitalize">{s.role}</p>
-                  </div>
-                  <div className="shrink-0 text-suka-orange/0 group-hover:text-suka-orange transition-colors">
-                    <ArrowRight size={20} />
+            <div className="space-y-8">
+              {/* Section: Belum Terdaftar */}
+              {unenrolled.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider">Belum Terdaftar ({unenrolled.length})</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {unenrolled.map((s) => (
+                      <div
+                        key={s.id}
+                        onClick={() => handleSelectCrew(s)}
+                        className="bg-white p-4 rounded-2xl border-2 border-gray-200 hover:border-suka-orange hover:shadow-md transition-all cursor-pointer flex items-center gap-4 group"
+                      >
+                        <div className="w-12 h-12 bg-suka-cream rounded-full flex items-center justify-center text-suka-brown font-bold shrink-0">
+                          {s.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-suka-ink truncate group-hover:text-suka-orange transition-colors">{s.name}</h4>
+                          <p className="text-xs text-gray-500 capitalize">{s.role}</p>
+                        </div>
+                        <div className="shrink-0 text-suka-orange/0 group-hover:text-suka-orange transition-colors">
+                          <ArrowRight size={20} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Section: Sudah Terdaftar (Enroll Ulang) */}
+              {enrolled.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-suka-green uppercase tracking-wider">Sudah Terdaftar ({enrolled.length})</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {enrolled.map((s) => (
+                      <div
+                        key={s.id}
+                        className="bg-white p-4 rounded-2xl border-2 border-gray-100 flex items-center gap-4"
+                      >
+                        <div className="w-12 h-12 bg-emerald-50 text-suka-green rounded-full flex items-center justify-center font-bold shrink-0">
+                          {s.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-suka-ink truncate">{s.name}</h4>
+                          <p className="text-xs text-gray-500 capitalize">{s.role} · <span className="text-suka-green font-semibold">Terdaftar</span></p>
+                        </div>
+                        <button
+                          onClick={() => handleReEnroll(s)}
+                          className="shrink-0 text-xs font-bold text-suka-brown bg-suka-cream border border-suka-orange/30 px-3 py-2 rounded-lg hover:bg-suka-orange hover:text-white transition-colors"
+                        >
+                          Enroll Ulang
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -288,9 +349,26 @@ export default function EnrollPage() {
             </div>
           </div>
 
+          {isReEnroll && (
+            <div className="space-y-2">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 font-semibold flex items-start gap-2">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                Enroll Ulang: data wajah lama {targetStaff.name} akan ditimpa dan tidak bisa dikembalikan.
+              </div>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Alasan (opsional)</label>
+              <input
+                type="text"
+                value={reEnrollReason}
+                onChange={(e) => setReEnrollReason(e.target.value)}
+                placeholder="mis. wajah sering gagal terdeteksi"
+                className="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-suka-orange outline-none"
+              />
+            </div>
+          )}
+
           <div className="space-y-3">
             <label className="text-sm font-bold text-suka-ink flex items-center gap-2">
-              <ShieldCheck size={18} className="text-suka-green" /> 
+              <ShieldCheck size={18} className="text-suka-green" />
               Persetujuan Privasi (Wajib)
             </label>
             <label className={`flex items-start gap-3 p-4 border-2 rounded-xl cursor-pointer transition-colors ${consent ? 'border-suka-green bg-green-50/30' : 'border-gray-200 hover:bg-gray-50'}`}>
@@ -374,7 +452,7 @@ export default function EnrollPage() {
                 <p className="text-gray-500 mb-8 max-w-sm">Wajah <span className="font-bold text-suka-ink">{targetStaff.name}</span> berhasil didaftarkan. Crew sudah dapat melakukan absensi mulai sekarang.</p>
                 
                 <div className="flex flex-col w-full max-w-xs gap-3">
-                  {staffList.length > 0 ? (
+                  {unenrolled.length > 0 ? (
                     <>
                       <Button onClick={resetToNext} className="w-full font-bold py-3 text-base">
                         Lanjut Enroll Crew Berikutnya

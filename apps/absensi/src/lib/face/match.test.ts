@@ -39,7 +39,7 @@ describe("isMatch", () => {
   });
 
   test("uses DEFAULT_MATCH_THRESHOLD when none provided", () => {
-    expect(DEFAULT_MATCH_THRESHOLD).toBe(0.80);
+    expect(DEFAULT_MATCH_THRESHOLD).toBe(0.725);
     expect(isMatch([1, 0], [0, 1])).toBe(false);
   });
 });

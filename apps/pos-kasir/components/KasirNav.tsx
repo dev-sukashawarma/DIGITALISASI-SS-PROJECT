@@ -3,10 +3,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
+import { useStockAlerts } from '@/lib/useStockAlerts'
+import { getStokUrl } from '@/lib/stokUrl'
 import { useEffect } from 'react'
 import { useBrand } from '@/components/BrandContext'
 
@@ -26,6 +28,7 @@ export default function KasirNav() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const { outletId } = useMyOutlet()
+  const { items: lowStockItems } = useStockAlerts(outletId)
   const [outletName, setOutletName] = useState('Kasir Outlet')
   const [cashierName, setCashierName] = useState('')
   const { brandName, brandLogo } = useBrand()
@@ -181,6 +184,24 @@ export default function KasirNav() {
               </Link>
             )
           })}
+
+          <a
+            href={`${getStokUrl()}/dashboard`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`relative flex items-center rounded-2xl text-[15px] font-bold transition-all text-[#544437] hover:text-[#1e1b15] hover:bg-[#e9e1d8]
+              ${isCollapsed ? 'justify-center p-3.5' : 'gap-3 px-4 py-3'}`}
+            title={isCollapsed ? 'Stok Outlet' : undefined}
+          >
+            <PackageSearch className="w-5 h-5 shrink-0 text-[#877365]" strokeWidth={2} />
+            {!isCollapsed && <span className="animate-fade-in truncate">Stok Outlet</span>}
+            {lowStockItems.length > 0 && (
+              <span className={`absolute bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-[#f5ede3] flex items-center justify-center
+                ${isCollapsed ? 'top-1 right-1 w-4 h-4' : 'top-2 right-3 min-w-[18px] h-[18px] px-1'}`}>
+                {lowStockItems.length}
+              </span>
+            )}
+          </a>
         </nav>
 
         <div className={`py-6 border-t border-[#d9c2b2] space-y-2 shrink-0 ${isCollapsed ? 'px-2.5' : 'px-4'}`}>

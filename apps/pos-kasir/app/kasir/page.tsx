@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import ChannelBadge from '@/components/ChannelBadge'
+import StockWidget from '@/components/StockWidget'
 import type { OrderWithItems, OrderStatus } from '@/types'
 
 const DING_SOUND = '/sound-pesanan.mp3'
@@ -463,8 +464,8 @@ export default function CashierOrdersPage() {
         </div>
       </div>
 
-      {/* Source Tabs Filter */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
+      {/* Source Tabs Filter + Widget Stok */}
+      <div className="flex justify-between items-start flex-wrap gap-4">
         {(() => {
           const activeOnlineCount = orders.filter(o => o.source === 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
           return (
@@ -495,6 +496,7 @@ export default function CashierOrdersPage() {
             </div>
           );
         })()}
+        <StockWidget />
       </div>
 
       {/* Bento Grid columns */}

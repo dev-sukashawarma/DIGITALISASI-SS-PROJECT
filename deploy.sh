@@ -170,6 +170,10 @@ deploy_one() {
   # Restart
   if [ "$DO_RESTART" = "1" ]; then
     echo "♻️  Restart $APP..."
+    # Force Phusion Passenger restart (cPanel standard)
+    mkdir -p "/home/sukashaw/$DOMAIN/tmp" 2>/dev/null
+    touch "/home/sukashaw/$DOMAIN/tmp/restart.txt" 2>/dev/null
+    # Fallback: Kill lsnode process
     pkill -f "lsnode:/home/sukashaw/$DOMAIN" 2>/dev/null
     sleep 5
     CODE=$(curl -sk --resolve "$DOMAIN:443:$SERVER_IP" "https://$DOMAIN/" -m 25 -o /dev/null -w "%{http_code}")

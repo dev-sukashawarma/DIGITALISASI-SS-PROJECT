@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     if (action === "unenroll") {
       const { error } = await supabaseAdmin
         .from("outlet_staff")
-        .update({ face_descriptor: null })
+        .update({ face_descriptor: null, enrolled_at: null, ref_photo_url: null })
         .eq("id", outlet_staff_id);
         
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Button, Card, Spinner } from "@suka/design-system";
-import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowLeft, ArrowRight, AlertTriangle } from "lucide-react";
+import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowRight, AlertTriangle } from "lucide-react";
 import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
@@ -95,15 +95,15 @@ export default function EnrollPage() {
           const gList = res.gesture.map(g => g.gesture);
           const currentPhase = phaseRef.current;
 
-          let shouldCapture = false;
-          
-          if (currentPhase === "center" && (gList.includes("facing center") || gList.includes("head down") || gList.includes("head up"))) {
-            shouldCapture = true;
-          } else if (currentPhase === "left" && gList.includes("facing left")) {
-            shouldCapture = true;
-          } else if (currentPhase === "right" && gList.includes("facing right")) {
-            shouldCapture = true;
-          }
+          // FRONTAL-ONLY: ambil 3 frame saat wajah menghadap depan (tidak menoleh).
+          // Descriptor frontal-tajam = referensi terbaik untuk absen (kiosk selalu
+          // frontal). Merata-rata depan+kiri+kanan dulu menumpulkan referensi → orang
+          // beda jadi saling mirip. Jeda 800ms antar-capture memberi variasi frontal sehat.
+          const facingLeft = gList.includes("facing left");
+          const facingRight = gList.includes("facing right");
+          const isFrontal = !facingLeft && !facingRight; // wajah terdeteksi & tidak menoleh
+          const shouldCapture =
+            (currentPhase === "center" || currentPhase === "left" || currentPhase === "right") && isFrontal;
 
           if (shouldCapture) {
             const newShots = [...shotsRef.current, Array.from(res.face[0].embedding)];
@@ -427,9 +427,9 @@ export default function EnrollPage() {
             {phase !== "done" && (
               <div className="absolute inset-x-0 top-8 flex justify-center z-20">
                 <div className="bg-white/90 backdrop-blur px-6 py-3 rounded-full shadow-xl flex items-center gap-3 text-suka-brown font-bold text-lg animate-bounce">
-                  {phase === "center" && <><UserRound size={24} className="text-blue-500" /> Tatap Lurus ke Kamera</>}
-                  {phase === "left" && <><ArrowLeft size={24} className="text-orange-500" /> Tolehkan Kepala ke Kiri</>}
-                  {phase === "right" && <><ArrowRight size={24} className="text-purple-500" /> Tolehkan Kepala ke Kanan</>}
+                  {phase === "center" && <><UserRound size={24} className="text-blue-500" /> Tatap Lurus ke Kamera (1/3)</>}
+                  {phase === "left" && <><UserRound size={24} className="text-blue-500" /> Tetap Tatap Lurus (2/3)</>}
+                  {phase === "right" && <><UserRound size={24} className="text-blue-500" /> Tetap Tatap Lurus (3/3)</>}
                   {phase === "saving" && <><Spinner className="w-5 h-5 text-suka-green" /> Menyimpan Data...</>}
                 </div>
               </div>

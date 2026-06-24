@@ -8,14 +8,16 @@
 
 export type Descriptor = readonly number[];
 
-import { match } from "@vladmandic/human";
-
-/** Threshold similarity default; di atas ini dianggap cocok.
- * Dinaikkan ke 0.45: 0.25 terlalu longgar → false-accept (wajah orang lain ikut
- * lolos). Orang sama biasanya skor ~0.55-0.85, orang beda ~0.30-0.50, jadi 0.45
- * memisahkan keduanya sambil tetap toleran ke variasi lighting/kamera.
+/** Threshold similarity default (COSINE). Di atas ini dianggap cocok.
+ *
+ * Pindah dari metrik euclidean Human (match.similarity) ke COSINE pada descriptor
+ * ter-L2-normalisasi: pengukuran lapangan menunjukkan magnitudo descriptor antar
+ * orang bervariasi (L2 norm 7.4–9.9) sehingga metrik berbasis euclidean tidak andal.
+ * Dengan cosine: orang SAMA ~0.94, orang BEDA ~0.81 (single-frontal). Threshold 0.88
+ * memisahkan keduanya. Angka ini DIKALIBRASI ulang setelah enrollment frontal-only
+ * diterapkan + re-enroll (lihat halaman /dashboard/face-debug).
  */
-export const DEFAULT_MATCH_THRESHOLD = 0.45;
+export const DEFAULT_MATCH_THRESHOLD = 0.88;
 
 function assertSameLength(a: Descriptor, b: Descriptor): void {
   if (a.length !== b.length) {
@@ -36,10 +38,18 @@ export function euclideanDistance(a: Descriptor, b: Descriptor): number {
   return Math.sqrt(sum);
 }
 
-/** Menghitung kemiripan menggunakan fungsi bawaan Human (0 sampai 1) */
+/** Cosine similarity (dot / (|a|·|b|)). Range -1..1; untuk wajah ~0..1.
+ * Tahan terhadap variasi magnitudo descriptor (tak seperti euclidean). */
 export function faceSimilarity(a: Descriptor, b: Descriptor): number {
   assertSameLength(a, b);
-  return match.similarity(a as number[], b as number[]);
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i]! * b[i]!;
+    na += a[i]! * a[i]!;
+    nb += b[i]! * b[i]!;
+  }
+  if (na === 0 || nb === 0) return 0;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }
 
 /** True bila kedua descriptor cocok (similarity >= threshold). */

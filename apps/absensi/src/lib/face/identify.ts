@@ -13,6 +13,10 @@ export function identifyStaff(
   let maxSimilarity = -1;
 
   for (const c of candidates) {
+    // Guard defensif: descriptor beda dimensi (mis. 128d face-api lama vs 1024d Human)
+    // tak bisa dibandingkan. Lewati alih-alih throw — satu record nyasar jangan
+    // mematikan identifikasi seluruh outlet.
+    if (c.descriptor.length !== live.length) continue;
     const similarity = faceSimilarity(live, c.descriptor);
     if (similarity > maxSimilarity) {
       maxSimilarity = similarity;

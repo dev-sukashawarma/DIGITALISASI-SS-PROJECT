@@ -15,10 +15,10 @@ export default function LogoutButton() {
   return (
     <button
       onClick={handleLogout}
-      className="flex items-center gap-2 px-4 py-2 border border-white/20 hover:bg-white/10 active:bg-white/20 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-sm shadow-black/5 active:scale-95"
+      className="flex items-center gap-2 px-3 py-2 sm:px-4 border border-white/20 hover:bg-white/10 active:bg-white/20 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-sm shadow-black/5 active:scale-95"
     >
       <LogOut size={14} />
-      <span>Keluar</span>
+      <span className="hidden sm:inline">Keluar</span>
     </button>
   )
 }

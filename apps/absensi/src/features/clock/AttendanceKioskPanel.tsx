@@ -202,7 +202,7 @@ export function AttendanceKioskPanel() {
            <Camera className="text-suka-orange" size={18} />
            <h2 className="font-bold text-suka-ink text-sm sm:text-base">Absen Wajah</h2>
         </div>
-        <div className="relative flex justify-center items-center min-h-[320px] bg-black overflow-hidden shadow-inner">
+        <div className="relative flex justify-center items-center h-[240px] sm:h-[320px] bg-black overflow-hidden shadow-inner">
           {!isOutletOpen ? (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm">
               <div className="p-5 bg-red-500/20 rounded-full mb-4">
@@ -223,6 +223,7 @@ export function AttendanceKioskPanel() {
             <CameraCapture 
               onReady={(v) => (videoRef.current = v)} 
               onError={(e) => setCameraError(e)}
+              className="w-full h-full object-cover rounded-lg"
             />
           )}
 
@@ -232,7 +233,7 @@ export function AttendanceKioskPanel() {
           )}
 
           {/* Face ID style bracket corners */}
-          <div className={`pointer-events-none absolute w-64 h-64 transition-all duration-300 face-id-corners ${
+          <div className={`pointer-events-none absolute w-48 h-48 sm:w-64 sm:h-64 transition-all duration-300 face-id-corners ${
             kiosk.phase === "idle" ? "text-gray-400 opacity-60" :
             kiosk.phase === "result" && !kiosk.result?.ok ? "text-red-500 scale-105 opacity-0" :
             kiosk.phase === "result" && kiosk.result?.ok ? "text-suka-green scale-105 opacity-0" :
@@ -241,7 +242,7 @@ export function AttendanceKioskPanel() {
 
           {/* Laser Scanner Line */}
           {kiosk.phase !== "idle" && kiosk.phase !== "result" && (
-            <div className="pointer-events-none absolute w-64 h-64 overflow-hidden">
+            <div className="pointer-events-none absolute w-48 h-48 sm:w-64 sm:h-64 overflow-hidden">
                <div className="absolute left-0 w-full animate-scan-faceid flex flex-col items-center">
                   <div className="w-full h-[12px] bg-gradient-to-t from-suka-orange/30 to-transparent" />
                   <div className="w-full h-[3px] bg-suka-orange rounded-full shadow-[0_0_20px_5px_rgba(242,151,68,0.8)]" />

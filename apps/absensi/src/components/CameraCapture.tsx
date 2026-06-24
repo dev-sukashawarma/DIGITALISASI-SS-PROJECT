@@ -5,10 +5,11 @@ import { useEffect, useRef } from "react";
 type Props = {
   onReady?: (video: HTMLVideoElement) => void;
   onError?: (e: string) => void;
+  className?: string;
 };
 
 /** Live camera (kamera depan) untuk face match & selfie. */
-export function CameraCapture({ onReady, onError }: Props) {
+export function CameraCapture({ onReady, onError, className = "w-full rounded-lg" }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export function CameraCapture({ onReady, onError }: Props) {
     return () => stream?.getTracks().forEach((t) => t.stop());
   }, []);
 
-  return <video ref={videoRef} playsInline muted className="w-full rounded-lg" style={{ transform: "scaleX(-1)" }} />;
+  return <video ref={videoRef} playsInline muted className={className} style={{ transform: "scaleX(-1)" }} />;
 }
 
 /** Ambil frame video → dataURL JPEG. */

@@ -10,10 +10,11 @@ describe("liveness blink", () => {
 });
 
 describe("liveness turn-left", () => {
-  it("lolos saat facing left", () => {
+  it("lolos hanya setelah menoleh kiri LALU kembali frontal", () => {
     const d = createLivenessDetector("turn-left");
-    expect(d.feed([{ gesture: "facing center" }])).toBe(false);
-    expect(d.feed([{ gesture: "facing left" }])).toBe(true);
+    expect(d.feed([{ gesture: "facing center" }])).toBe(false); // belum ada aksi
+    expect(d.feed([{ gesture: "facing left" }])).toBe(false);   // menoleh, tapi belum kembali frontal
+    expect(d.feed([{ gesture: "facing center" }])).toBe(true);  // kembali frontal → lolos
   });
 });
 

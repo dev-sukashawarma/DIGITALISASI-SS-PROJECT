@@ -19,40 +19,47 @@ export function pickChallenge(rng: () => number = Math.random): Challenge {
  * 'blink', 'facing left', 'facing right', 'head up', 'head down'
  */
 export function createLivenessDetector(challenge: Challenge) {
-  let phase = 0; // 0 = menunggu aksi, 1 = kembali ke tengah/lolos
+  // Dua fase:
+  //   fase 0 = menunggu GERAKAN tantangan (mis. menoleh kiri)
+  //   fase 1 = gerakan sudah dilakukan; menunggu wajah KEMBALI FRONTAL
+  // Lolos HANYA saat sudah kembali frontal. Penting: verifikasi identitas di
+  // pemanggil dilakukan tepat ketika feed() true — jadi harus di frame frontal,
+  // bukan saat wajah menoleh (descriptor menoleh skornya rendah terhadap
+  // enrollment frontal-only → salah-tolak "wajah harus orang yang sama").
+  let phase = 0;
+  let passed = false;
 
-  // feed() menerima array of gestures dari Human (res.gesture)
   function feed(gestures: { gesture: string }[]): boolean {
-    if (phase === 1) return true;
-    
-    // Konversi array object ke array of strings biar gampang dicek
-    const gList = gestures.map(g => g.gesture);
+    if (passed) return true;
 
-    switch (challenge) {
-      case "blink":
-        if (gList.includes("blink") || gList.includes("blink left eye") || gList.includes("blink right eye")) {
-          phase = 1;
-        }
-        break;
-      case "turn-left":
-        // facing left di Human artinya wajah menoleh ke kiri
-        if (gList.includes("facing left")) {
-          phase = 1;
-        }
-        break;
-      case "turn-right":
-        if (gList.includes("facing right")) {
-          phase = 1;
-        }
-        break;
-      case "nod":
-        // kombinasi menunduk / mengangguk
-        if (gList.includes("head down") || gList.includes("head up")) {
-          phase = 1;
-        }
-        break;
+    const gList = gestures.map(g => g.gesture);
+    const facingLeft = gList.includes("facing left");
+    const facingRight = gList.includes("facing right");
+    const isFrontal = !facingLeft && !facingRight; // wajah terdeteksi & tidak menoleh
+
+    if (phase === 0) {
+      let acted = false;
+      switch (challenge) {
+        case "blink":
+          acted = gList.includes("blink") || gList.includes("blink left eye") || gList.includes("blink right eye");
+          break;
+        case "turn-left":
+          acted = facingLeft;
+          break;
+        case "turn-right":
+          acted = facingRight;
+          break;
+        case "nod":
+          acted = gList.includes("head down") || gList.includes("head up");
+          break;
+      }
+      if (!acted) return false;
+      phase = 1; // gerakan terdeteksi → tunggu kembali frontal
     }
-    return phase === 1;
+
+    // fase 1: lolos saat wajah sudah frontal lagi (descriptor andal utk verifikasi)
+    if (isFrontal) passed = true;
+    return passed;
   }
   return { feed };
 }

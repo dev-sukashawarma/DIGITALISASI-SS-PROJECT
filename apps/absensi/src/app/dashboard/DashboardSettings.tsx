@@ -13,15 +13,6 @@ export function DashboardSettings() {
   const supabase = createClient();
   const toast = useToast();
 
-  async function resetFaces() {
-    if (!outletStaff || !confirm("Yakin mereset semua wajah staff?")) return;
-    const { error } = await supabase.from("outlet_staff")
-      .update({ face_descriptor: null, ref_photo_url: null, enrolled_at: null })
-      .eq("outlet_id", outletStaff.outlet_id);
-    if (error) toast.show("err", "Gagal reset wajah");
-    else toast.show("ok", "Semua wajah berhasil direset (belum terdaftar)");
-  }
-
   async function resetAttendance() {
     if (!outletStaff || !confirm("Yakin menghapus SEMUA log absensi hari ini?")) return;
     const today = new Date().toISOString().slice(0, 10);
@@ -47,9 +38,6 @@ export function DashboardSettings() {
       <div className="border-t border-suka-gray-200 px-4 py-4 space-y-3">
         <p className="text-xs text-red-600">Hanya untuk keperluan testing. Data yang dihapus tidak bisa dikembalikan.</p>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <button onClick={resetFaces} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 transition-colors">
-            <Trash2 size={15} /> Reset Wajah (Un-enroll)
-          </button>
           <button onClick={resetAttendance} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors">
             <Trash2 size={15} /> Reset Log Hari Ini
           </button>

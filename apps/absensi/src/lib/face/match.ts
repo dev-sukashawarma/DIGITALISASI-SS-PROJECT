@@ -11,9 +11,11 @@ export type Descriptor = readonly number[];
 import { match } from "@vladmandic/human";
 
 /** Threshold similarity default; di atas ini dianggap cocok.
- * Diturunkan ke 0.25 berdasarkan testing di lapangan (lighting/kamera bervariasi).
+ * Dinaikkan ke 0.45: 0.25 terlalu longgar → false-accept (wajah orang lain ikut
+ * lolos). Orang sama biasanya skor ~0.55-0.85, orang beda ~0.30-0.50, jadi 0.45
+ * memisahkan keduanya sambil tetap toleran ke variasi lighting/kamera.
  */
-export const DEFAULT_MATCH_THRESHOLD = 0.25;
+export const DEFAULT_MATCH_THRESHOLD = 0.45;
 
 function assertSameLength(a: Descriptor, b: Descriptor): void {
   if (a.length !== b.length) {

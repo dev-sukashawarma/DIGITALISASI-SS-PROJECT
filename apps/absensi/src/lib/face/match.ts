@@ -13,11 +13,11 @@ export type Descriptor = readonly number[];
  * Pindah dari metrik euclidean Human (match.similarity) ke COSINE pada descriptor
  * ter-L2-normalisasi: pengukuran lapangan menunjukkan magnitudo descriptor antar
  * orang bervariasi (L2 norm 7.4–9.9) sehingga metrik berbasis euclidean tidak andal.
- * Dengan cosine: orang SAMA ~0.94, orang BEDA ~0.81 (single-frontal). Threshold 0.88
- * memisahkan keduanya. Angka ini DIKALIBRASI ulang setelah enrollment frontal-only
- * diterapkan + re-enroll (lihat halaman /dashboard/face-debug).
+ * Dengan cosine: orang SAMA ~0.94, orang BEDA ~0.81 (single-frontal). Dikalibrasi
+ * lapangan ke 0.80 setelah enrollment frontal-only: 0.88 menolak orang asli
+ * (false-reject). 0.80 masih di atas skor orang-beda (~0.81 batasnya tipis — pantau).
  */
-export const DEFAULT_MATCH_THRESHOLD = 0.88;
+export const DEFAULT_MATCH_THRESHOLD = 0.80;
 
 function assertSameLength(a: Descriptor, b: Descriptor): void {
   if (a.length !== b.length) {

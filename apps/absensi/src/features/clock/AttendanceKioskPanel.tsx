@@ -81,40 +81,6 @@ export function AttendanceKioskPanel() {
     return () => clearInterval(interval);
   }, [outletStaff?.outlet_id]);
 
-  async function handleResetLog() {
-    if (!outletStaff) return;
-    if (!confirm("Hapus semua riwayat absensi Anda (hanya untuk testing)?")) return;
-    try {
-      const res = await fetch("/api/debug/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outlet_staff_id: outletStaff.id, action: "reset_log" })
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      loadRecords();
-      alert("Log absensi berhasil di-reset!");
-    } catch (e: any) {
-      alert("Gagal mereset log: " + e.message);
-    }
-  }
-
-  async function handleUnenroll() {
-    if (!outletStaff) return;
-    if (!confirm("Hapus data wajah Anda (Un-enroll)? Anda harus didaftarkan ulang oleh SPV nanti.")) return;
-    try {
-      const res = await fetch("/api/debug/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outlet_staff_id: outletStaff.id, action: "unenroll" })
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      kiosk.loadCandidates();
-      alert("Wajah berhasil di-unenroll!");
-    } catch (e: any) {
-      alert("Gagal un-enroll: " + e.message);
-    }
-  }
-
   function loadRecords() {
     if (!outletStaff) return;
     setLoadingHistory(true);
@@ -458,33 +424,6 @@ export function AttendanceKioskPanel() {
           )}
         </div>
       </Card>
-
-      {/* Alat testing — dilipat agar tidak membingungkan pemakaian sehari-hari */}
-      <details className="group rounded-2xl border border-suka-gray-200 bg-white">
-        <summary className="flex cursor-pointer select-none items-center gap-2 px-5 py-4 text-sm font-semibold text-gray-500 hover:bg-slate-50 transition-colors [&::-webkit-details-marker]:hidden rounded-2xl">
-          Alat testing (developer)
-          <span className="ml-auto text-gray-400 transition-transform duration-200 group-open:rotate-180">▾</span>
-        </summary>
-        <div className="border-t border-suka-gray-200 px-5 py-5 space-y-4 bg-slate-50/50 rounded-b-2xl">
-          <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 p-2.5 rounded-lg">
-            PERINGATAN: Tombol di bawah hanya untuk keperluan pengujian lokal (developer).
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button 
-              onClick={handleResetLog} 
-              className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 hover:border-red-300 active:scale-95 transition-all shadow-sm"
-            >
-              Reset Log Absensi Saya
-            </button>
-            <button 
-              onClick={handleUnenroll} 
-              className="inline-flex items-center justify-center rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-bold text-amber-600 hover:bg-amber-50 hover:border-amber-300 active:scale-95 transition-all shadow-sm"
-            >
-              Hapus Data Wajah (Un-enroll)
-            </button>
-          </div>
-        </div>
-      </details>
     </div>
   );
 }

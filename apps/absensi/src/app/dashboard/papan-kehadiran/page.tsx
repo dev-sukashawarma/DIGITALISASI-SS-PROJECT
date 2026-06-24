@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { computeBoard, type BoardStaff, type BoardRecord, type BoardRow } from "@/features/board/board";
 import { PageHeader, InfoPill } from "@/components/PageHeader";
-import { DashboardSettings } from "../DashboardSettings";
 
 const PILL: Record<BoardRow["state"], { icon: React.ReactNode; label: (t: string | null, d: number | null) => string }> = {
   masuk:  { icon: <LogIn size={13} />,  label: (t) => `Masuk ${t}` },
@@ -142,8 +141,6 @@ export default function PapanKehadiranPage() {
           })}
         </div>
       </div>
-
-      <DashboardSettings />
 
       {preview && (
         <div onClick={() => setPreview(null)} className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm transition-opacity">

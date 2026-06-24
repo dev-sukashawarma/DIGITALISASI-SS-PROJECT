@@ -424,5 +424,35 @@ Saat push, dua migration remote-only `20260623140000`/`150000` memblokir → sem
 
 ---
 
-**Last updated:** 2026-06-23  
+## Session 2026-06-24: Face Match Hardening & Re-enrollment (apps/absensi)
+
+**Status:** ✅ COMPLETED — kode ter-push ke `main`, migration applied & terverifikasi di remote.
+
+### Masalah → Solusi
+1. **False-accept (wajah orang lain ikit lolos)** — threshold matching `0.25` terlalu longgar. Orang sama ~0.55–0.85, orang beda ~0.30–0.50. → `DEFAULT_MATCH_THRESHOLD` dinaikkan ke **0.45** (`src/lib/face/match.ts`), test assertion disesuaikan.
+2. **Akun A bisa absen pakai wajah B** — panel absen pribadi (`AttendanceKioskPanel`) pakai identifikasi **1:N** (kenali siapa saja ter-enroll). → tambah opsi `lockToStaffId` di `useClockKiosk`: saat diisi, kandidat dibatasi ke akun login = **verifikasi 1:1**, wajah lain ditolak dgn pesan jelas. Panel pribadi pakai mode ini; kiosk bersama `/kiosk/[outlet_id]` tetap 1:N.
+3. **Re-enrollment tak ada** — halaman enroll cuma tampilkan `enrolled_at IS NULL`; re-enroll cuma lewat "alat testing" (bulk reset per-outlet berbahaya + bug endpoint `unenroll` cuma null-kan `face_descriptor` → crew "terjebak"). → bangun fitur re-enroll SPV-driven.
+
+### Fitur Re-enrollment (SPV-driven)
+- **Migration aditif** `20260624100000_outlet_staff_reenroll_audit.sql` — kolom `re_enrolled_at`, `re_enrolled_by`, `re_enroll_reason`.
+- **Halaman enroll dua section**: "Belum Terdaftar" (Daftarkan) + "Sudah Terdaftar" (Enroll Ulang). Query kini tarik semua staff aktif; dipisah via helper murni `splitByEnrollment` (+ unit test).
+- **Alur re-enroll**: konfirmasi timpa + input alasan opsional; `saveAuto` tulis kolom audit saat mode re-enroll; list lokal di-update (staff pindah ke section "Sudah Terdaftar", tak dihapus).
+- **Cleanup**: hapus tombol bulk "Reset Wajah" per-outlet (`DashboardSettings.tsx`); perbaiki endpoint debug `unenroll` agar null-kan `enrolled_at` + `ref_photo_url` (konsisten, hindari state terjebak).
+- Akses tetap SPV/leader-only (page guard existing).
+
+### Verifikasi
+`type-check` 0 error · **41/41 vitest pass** · migration applied & **kolom dicek nyata ada di remote** (REST query HTTP 200, bukan sekadar tercatat) · `migration list` sinkron, tanpa drift.
+
+### Artefak
+- Spec: `docs/superpowers/specs/2026-06-24-absensi-reenrollment-design.md`
+- Plan: `docs/superpowers/plans/2026-06-24-absensi-reenrollment.md`
+
+### 📝 Next (manual)
+- Smoke test kamera: re-enroll crew (cek kolom audit terisi) + absen 1:1 (akun A tolak wajah B).
+- Redeploy `absensi` ke produksi bila ingin perubahan live.
+- Kalibrasi threshold bila perlu (0.40 kalau sering false-reject, 0.50 kalau masih false-accept).
+
+---
+
+**Last updated:** 2026-06-24  
 **Owner:** Dev Suka Shawarma

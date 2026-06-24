@@ -170,6 +170,7 @@ Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106
 ### Status
 - ✅ `distribusi.sukashawarma.com` — LIVE (2026-06-12)
 - ✅ `stok.sukashawarma.com` — LIVE (2026-06-19)
+- ✅ `absensi.sukashawarma.com` — LIVE
 
 ### Prasyarat (sekali setup)
 - Monorepo di-`git clone` ke `/home/sukashaw/suka-app` (repo public: `github.com/dev-sukashawarma/DIGITALISASI-SS-PROJECT`).
@@ -451,6 +452,37 @@ Saat push, dua migration remote-only `20260623140000`/`150000` memblokir → sem
 - Smoke test kamera: re-enroll crew (cek kolom audit terisi) + absen 1:1 (akun A tolak wajah B).
 - Redeploy `absensi` ke produksi bila ingin perubahan live.
 - Kalibrasi threshold bila perlu (0.40 kalau sering false-reject, 0.50 kalau masih false-accept).
+
+---
+
+## Session 2026-06-24 (lanjutan): Akurasi Face Match — root cause & perbaikan tuntas
+
+**Status:** ✅ COMPLETED — ter-push ke `main`, terverifikasi lapangan. `absensi.sukashawarma.com` LIVE.
+
+### Gejala
+Mode 1:1 dibangun (akun A tolak wajah B), tapi user uji: akun "Mo Salah" di-re-enroll pakai wajah teman, lalu scan wajah sendiri → **tetap diterima**. Orang berbeda saling cocok.
+
+### Root cause (via halaman diagnostik sementara `/dashboard/face-debug`)
+Mengukur similarity di kamera nyata membuktikan **bukan averaging** yang dominan, melainkan kombinasi:
+1. **Threshold 0.45 jauh di bawah titik pisah** — rumus app `(0.8 − 0.05·eucl)/0.6` menerima apa pun eucl < 10.6; orang beda eucl 4–7.
+2. **Metrik euclidean Human sensitif magnitudo** — L2 norm descriptor bervariasi 7.4–9.9 antar orang → tak andal.
+3. **Enrollment rata-rata 3 sudut (depan+kiri+kanan)** menumpulkan referensi → descriptor enrolled antar orang beda bisa 0.98.
+
+Bukti penentu (single-frontal, cosine): orang **sama** 0.94 / eucl 3.9 vs orang **beda** 0.81 / eucl 6.8 → embedding SEBENARNYA diskriminatif, masalah di metrik+threshold+representasi.
+
+### Perbaikan
+- **Metrik → cosine** (L2-invariant) di `lib/face/match.ts` (`faceSimilarity`).
+- **Enrollment frontal-only** (`enroll/page.tsx`): 3 frame frontal dirata-rata, bukan depan+kiri+kanan. Terbukti menajamkan: skor orang-beda turun 0.81 → **0.53**, orang-sama tetap **0.86**.
+- **Threshold cosine final = 0.725** (titik tengah 0.53–0.86; 0.88 false-reject, 0.80 mepet).
+- **Liveness 2-fase** (`lib/face/liveness.ts`): lakukan gerakan → **kembali frontal** → baru lolos. Sebelumnya verifikasi identitas dijalankan saat wajah masih menoleh → dgn enrollment frontal-only skornya 0.4–0.5 → absen gagal. Kini verifikasi di frame frontal.
+- **Guard defensif `identifyStaff`**: lewati kandidat beda-dimensi (128d lama vs 1024d) alih-alih `throw` → satu record nyasar tak mematikan kiosk 1:N.
+- **Reset semua enrollment lama** (averaged + campur 128/1024d = buang) via service-role; crew re-enroll lewat flow frontal baru.
+- **Hapus tombol "Alat testing (developer)"** (AttendanceKioskPanel + komponen DashboardSettings). Halaman `face-debug` **dipertahankan** (atas permintaan).
+
+### Catatan
+- Threshold 0.725 = kalibrasi lapangan 1 sampel; pantau false-accept (orang mirip) / false-reject. Bisa disetel via halaman face-debug.
+- API `/api/debug/reset` masih ada (tanpa pemicu UI).
+- Halaman `face-debug` SENGAJA tetap ada untuk kalibrasi ulang.
 
 ---
 

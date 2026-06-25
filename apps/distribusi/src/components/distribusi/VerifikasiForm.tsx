@@ -17,7 +17,7 @@ type ItemVerification = {
   foto_preview: string | null
 }
 
-type Step = 'cards' | 'foto' | 'summary' | 'signature'
+type Step = 'cards' | 'summary' | 'signature'
 
 function SignatureBlock({ title, sigs }: { title: string; sigs: any[] }) {
   return (
@@ -59,6 +59,7 @@ export function VerifikasiForm({ id }: { id: string }) {
   const [step, setStep] = useState<Step>('cards')
   const [submitting, setSubmitting] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
+  const [kondisiConfirmed, setKondisiConfirmed] = useState(false)
 
   // Initialize verifications when data is loaded
   useEffect(() => {
@@ -155,26 +156,12 @@ export function VerifikasiForm({ id }: { id: string }) {
     }))
   }
 
-  const goToFoto = (v: ItemVerification) => {
-    setVerifications((prev) => ({ ...prev, [currentItem.id]: v }))
-    setStep('foto')
-  }
-
-  const advanceFromFoto = () => {
-    if (!verifications[currentItem.id]?.foto_path) {
-      alert('Foto wajib diambil sebelum lanjut ke item berikutnya')
-      return
-    }
-    if (currentIndex + 1 >= items.length) {
-      setStep('summary')
-    } else {
-      setCurrentIndex((i) => i + 1)
-      setStep('cards')
-    }
-  }
-
   const handleBaik = () => {
-    goToFoto({ qty_terima: currentItem.qty_dikirim, kondisi: 'baik', catatan: '', foto_path: currentVerif.foto_path, foto_preview: currentVerif.foto_preview })
+    setVerifications((prev) => ({
+      ...prev,
+      [currentItem.id]: { ...currentVerif, qty_terima: currentItem.qty_dikirim, kondisi: 'baik', catatan: '' },
+    }))
+    setKondisiConfirmed(true)
   }
 
   const handleJelekConfirm = () => {
@@ -186,7 +173,20 @@ export function VerifikasiForm({ id }: { id: string }) {
       alert('Wajib isi catatan alasan untuk item bermasalah')
       return
     }
-    goToFoto(currentVerif)
+    setKondisiConfirmed(true)
+  }
+
+  const handleAdvance = () => {
+    if (!currentVerif.foto_path) {
+      alert('Foto wajib diambil sebelum lanjut ke item berikutnya')
+      return
+    }
+    setKondisiConfirmed(false)
+    if (currentIndex + 1 >= items.length) {
+      setStep('summary')
+    } else {
+      setCurrentIndex((i) => i + 1)
+    }
   }
 
   const compressImage = (file: File, maxBytes: number): Promise<Blob> => {
@@ -274,75 +274,6 @@ export function VerifikasiForm({ id }: { id: string }) {
     } finally {
       setSubmitting(false)
     }
-  }
-
-  // ── Step: Foto ────────────────────────────────────────────────────
-  if (step === 'foto') {
-    const hasFoto = !!currentVerif.foto_path
-    return (
-      <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
-        <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-3 sm:px-4 py-3 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)]">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <button
-              onClick={() => setStep('cards')}
-              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm shrink-0"
-            >
-              <span className="text-base">←</span>
-            </button>
-            <div className="flex flex-col min-w-0">
-              <h1 className="font-bold text-xs sm:text-sm text-[#701604] uppercase tracking-tight leading-tight">Foto Bukti</h1>
-              <p className="text-[9px] sm:text-[10px] text-[#544437]/75 font-bold mt-0.5 truncate">{currentItem?.bahan_baku?.nama}</p>
-            </div>
-          </div>
-          <span className="text-xs font-black text-[#701604] bg-[#faf2e9] border border-[#d9c2b2]/40 px-3 py-1 rounded-full shrink-0">
-            {currentIndex + 1} / {items.length}
-          </span>
-        </header>
-
-        <div className="p-4 max-w-lg mx-auto mt-2 space-y-4">
-          <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 overflow-hidden shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
-            {currentVerif.foto_preview ? (
-              <img
-                src={currentVerif.foto_preview}
-                alt="Foto barang"
-                className="w-full object-cover"
-                style={{ maxHeight: '320px' }}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 py-14 bg-[#faf2e9]/50">
-                <div className="w-16 h-16 rounded-full bg-[#fff8f1] border border-[#d9c2b2]/40 flex items-center justify-center text-3xl">📷</div>
-                <p className="text-xs font-bold text-[#544437]/60 uppercase tracking-wide">Belum ada foto</p>
-              </div>
-            )}
-          </div>
-
-          <label className="block w-full cursor-pointer">
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFotoCapture}
-            />
-            <div className="w-full py-3 bg-[#f29744] hover:bg-orange-600 text-white font-bold uppercase tracking-wider text-xs shadow-md rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95">
-              {hasFoto ? '🔄 Ambil Ulang Foto' : '📷 Ambil Foto Barang'}
-            </div>
-          </label>
-
-          <button
-            onClick={advanceFromFoto}
-            disabled={!hasFoto}
-            className={`w-full py-3 font-bold uppercase tracking-wider text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
-              hasFoto
-                ? 'bg-[#701604] hover:bg-[#591002] text-white shadow-md cursor-pointer'
-                : 'bg-[#d9c2b2]/30 text-[#544437]/40 cursor-not-allowed'
-            }`}
-          >
-            {currentIndex + 1 >= items.length ? 'Lihat Ringkasan →' : 'Item Berikutnya →'}
-          </button>
-        </div>
-      </div>
-    )
   }
 
   // ── Step: Signature ───────────────────────────────────────────────
@@ -504,35 +435,97 @@ export function VerifikasiForm({ id }: { id: string }) {
           )}
         </div>
 
-        {/* Action buttons */}
-        {!isJelekMode ? (
-          <div className="grid grid-cols-2 gap-3">
+        {/* Action buttons — kondisi belum dikunci */}
+        {!kondisiConfirmed && (
+          <>
+            {!isJelekMode ? (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleBaik}
+                  className="bg-[#0a7d2c] hover:bg-green-700 active:bg-green-800 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  ✓ Baik
+                </button>
+                <button
+                  onClick={() => setVerif({ kondisi: 'jelek', qty_terima: currentItem?.qty_dikirim ?? 0 })}
+                  className="border-2 border-[#ba1a1a]/60 text-[#ba1a1a] rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-red-50 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  ✗ Jelek
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setVerif({ kondisi: 'baik', qty_terima: currentItem?.qty_dikirim ?? 0, catatan: '' })}
+                  className="border border-[#d9c2b2]/45 text-[#544437] bg-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-[#faf2e9] transition-all cursor-pointer active:scale-95"
+                >
+                  ← Batalkan
+                </button>
+                <button
+                  onClick={handleJelekConfirm}
+                  className="bg-[#ba1a1a] hover:bg-[#931313] active:bg-[#7a0f0f] text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95"
+                >
+                  Konfirmasi Jelek →
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Section foto inline — muncul setelah kondisi dikonfirmasi */}
+        {kondisiConfirmed && (
+          <div className="space-y-3">
+            <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl border ${
+              currentVerif.kondisi === 'jelek'
+                ? 'bg-[#ffdad6]/60 border-[#ba1a1a]/20 text-[#ba1a1a]'
+                : 'bg-green-50 border-green-200 text-green-700'
+            }`}>
+              <span className="text-xs font-bold uppercase tracking-wide">
+                {currentVerif.kondisi === 'jelek'
+                  ? `✗ Jelek · ${currentVerif.qty_terima}/${currentItem?.qty_dikirim} ${currentItem?.bahan_baku?.satuan}`
+                  : `✓ Baik · ${currentVerif.qty_terima} ${currentItem?.bahan_baku?.satuan}`}
+              </span>
+              <button
+                onClick={() => setKondisiConfirmed(false)}
+                className="text-[10px] font-bold underline opacity-70 cursor-pointer"
+              >
+                Ubah
+              </button>
+            </div>
+
+            {currentVerif.foto_preview && (
+              <div className="rounded-xl overflow-hidden border border-[#d9c2b2]/30">
+                <img src={currentVerif.foto_preview} alt="Foto barang" className="w-full object-cover max-h-52" />
+              </div>
+            )}
+
+            <label className="block w-full cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleFotoCapture}
+              />
+              <div className={`w-full py-3 font-bold uppercase tracking-wider text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-md ${
+                currentVerif.foto_path
+                  ? 'bg-white border border-[#d9c2b2]/45 text-[#544437]'
+                  : 'bg-[#f29744] text-white'
+              }`}>
+                {currentVerif.foto_path ? '🔄 Ambil Ulang Foto' : '📷 Foto Barang Sekarang'}
+              </div>
+            </label>
+
             <button
-              onClick={handleBaik}
-              className="bg-[#0a7d2c] hover:bg-green-700 active:bg-green-800 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+              onClick={handleAdvance}
+              disabled={!currentVerif.foto_path}
+              className={`w-full py-3 font-bold uppercase tracking-wider text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
+                currentVerif.foto_path
+                  ? 'bg-[#701604] hover:bg-[#591002] text-white shadow-md cursor-pointer'
+                  : 'bg-[#d9c2b2]/30 text-[#544437]/40 cursor-not-allowed'
+              }`}
             >
-              ✓ Baik
-            </button>
-            <button
-              onClick={() => setVerif({ kondisi: 'jelek', qty_terima: currentItem?.qty_dikirim ?? 0 })}
-              className="border-2 border-[#ba1a1a]/60 text-[#ba1a1a] rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-red-50 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
-            >
-              ✗ Jelek
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setVerif({ kondisi: 'baik', qty_terima: currentItem?.qty_dikirim ?? 0, catatan: '' })}
-              className="border border-[#d9c2b2]/45 text-[#544437] bg-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-[#faf2e9] transition-all cursor-pointer active:scale-95"
-            >
-              ← Batalkan
-            </button>
-            <button
-              onClick={handleJelekConfirm}
-              className="bg-[#ba1a1a] hover:bg-[#931313] active:bg-[#7a0f0f] text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95"
-            >
-              Konfirmasi Jelek →
+              {currentIndex + 1 >= items.length ? 'Lihat Ringkasan →' : 'Item Berikutnya →'}
             </button>
           </div>
         )}

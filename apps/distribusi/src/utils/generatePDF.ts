@@ -117,19 +117,18 @@ export async function generatePDFContent(
     ? `
       <tr>
         <th style="border: 1px solid #000; padding: 8px;">Nama Barang</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 50px;">Kirim</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 50px;">Terima</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 45px;">Sat.</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 70px;">Kondisi</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 60px;">Kirim</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 60px;">Terima</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 50px;">Sat.</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Kondisi</th>
         <th style="border: 1px solid #000; padding: 8px;">Catatan</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 90px;">Foto Bukti</th>
       </tr>
     `
     : `
       <tr>
         <th style="border: 1px solid #000; padding: 8px;">Nama Barang</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 50px;">Qty</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 45px;">Sat.</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Qty</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Satuan</th>
       </tr>
     `
 
@@ -142,9 +141,6 @@ export async function generatePDFContent(
           const qtyTerimaText = item.qty_terima !== undefined && item.qty_terima !== null ? item.qty_terima : '-'
           const kondisiText = item.kondisi || 'baik'
           const catatanText = item.catatan || '-'
-          const fotoCell = item.foto_base64
-            ? `<img src="${item.foto_base64}" style="width:80px; height:60px; object-fit:cover; border-radius:4px; display:block; margin:0 auto;" />`
-            : `<span style="font-size:11px; color:#aaa;">—</span>`
           return `
             <tr>
               <td style="border: 1px solid #000; padding: 8px;">${item.nama}</td>
@@ -153,7 +149,6 @@ export async function generatePDFContent(
               <td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.satuan}</td>
               <td style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; color: ${isRusak ? '#ba1a1a' : '#0a7d2c'};">${kondisiText.toUpperCase()}</td>
               <td style="border: 1px solid #000; padding: 8px; font-style: italic; color: #544437;">${catatanText}</td>
-              <td style="border: 1px solid #000; padding: 6px; text-align: center;">${fotoCell}</td>
             </tr>
           `
         } else {
@@ -460,6 +455,30 @@ export async function generatePDFContent(
           ${receiptSignatureRows}
         </tbody>
       </table>
+    </div>
+    ` : ''}
+
+    ${isReceivedOrSelesai && data.items.some(i => i.foto_base64) ? `
+    <div style="page-break-before: always; padding-top: 32px;">
+      <div class="section-title">📷 Lampiran Foto Bukti Penerimaan</div>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 16px;">
+        ${data.items.filter(i => i.foto_base64).map(item => {
+          const kondisiText = item.kondisi || 'baik'
+          const isRusak = item.kondisi === 'rusak'
+          const qtyText = item.qty_terima !== undefined && item.qty_terima !== null ? item.qty_terima : item.qty_dikirim
+          return `
+            <div style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+              <img src="${item.foto_base64}" style="width: 100%; height: 180px; object-fit: cover; display: block;" />
+              <div style="padding: 10px 12px; background: #fff7ed;">
+                <p style="font-weight: 700; font-size: 13px; color: #111827; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.3px;">${item.nama}</p>
+                <p style="font-size: 12px; color: #4b5563; margin: 0 0 4px;">Diterima: <strong>${qtyText} ${item.satuan}</strong> dari ${item.qty_dikirim} ${item.satuan}</p>
+                <span style="display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: ${isRusak ? '#ffdad6' : '#dcfce7'}; color: ${isRusak ? '#ba1a1a' : '#166534'};">${kondisiText.toUpperCase()}</span>
+                ${item.catatan ? `<p style="font-size: 11px; color: #ba1a1a; margin: 6px 0 0; font-style: italic;">${item.catatan}</p>` : ''}
+              </div>
+            </div>
+          `
+        }).join('')}
+      </div>
     </div>
     ` : ''}
 

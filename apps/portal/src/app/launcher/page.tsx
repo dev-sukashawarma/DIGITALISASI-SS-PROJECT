@@ -53,9 +53,9 @@ export default async function LauncherPage() {
     redirect('/')
   }
 
-  // Admin tidak punya menu operasional di launcher → langsung ke admin-dashboard.
+  // Admin dan Owner tidak punya menu operasional di launcher → langsung ke admin-dashboard.
   // Chokepoint tunggal: berlaku utk login baru, akses /launcher langsung, & revisit.
-  if (staff.role === 'admin') {
+  if (['admin', 'owner'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
   }
 

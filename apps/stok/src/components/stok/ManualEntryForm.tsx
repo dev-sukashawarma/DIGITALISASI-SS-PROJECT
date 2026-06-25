@@ -23,7 +23,13 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const needsReason = tipe === 'adjustment'
-  const isValidQty = qty !== '' && !isNaN(Number(qty)) && Number(qty) > 0
+  const qtyNum = Number(qty)
+  // Penyesuaian = delta bertanda, boleh negatif (asal bukan nol). Tipe lain
+  // (waste/transfer_keluar) selalu kuantitas positif.
+  const isValidQty =
+    qty !== '' &&
+    !isNaN(qtyNum) &&
+    (tipe === 'adjustment' ? qtyNum !== 0 : qtyNum > 0)
   const valid = bahanBakuId && isValidQty && (!needsReason || catatan.trim() !== '')
 
   async function submit() {

@@ -486,5 +486,32 @@ Bukti penentu (single-frontal, cosine): orang **sama** 0.94 / eucl 3.9 vs orang 
 
 ---
 
-**Last updated:** 2026-06-24  
+## Session 2026-06-25: Stok Bugfixes — Detail Modal, RSC 500, Validasi Penyesuaian, Tombol Nav
+
+**Status:** ✅ COMPLETED (kode di branch `fix/stok-detail-modal-crash`, ter-push). ⚠️ Perlu **redeploy** `stok.sukashawarma.com` agar live.
+
+### 1. Crash modal detail item + 400 `opname_item`
+**Gejala:** Klik bahan di halaman monitoring → error boundary "Oops!" (`Cannot read properties of undefined (reading 'replace')`).
+**Akar masalah** (`src/lib/queries/monitoring.ts` `fetchItemDetail`):
+- Ledger di-select sebagai `tipe`/`catatan`, tapi `MonitoringDetailModal` membaca `ledger.type`/`ledger.notes` → `undefined.replace()` crash saat item punya pergerakan stok. **Fix:** alias select `type:tipe, notes:catatan`.
+- `opname_item` tak punya kolom `created_at` (cek migration `20260609001500`), tapi query `.order('created_at')` → HTTP 400 ditelan diam-diam. **Fix:** urutkan via parent `opname` (`opname!inner(created_at)` + `referencedTable: 'opname'`).
+
+### 2. Ledger 500 massal (prefetch RSC)
+**Gejala:** Network penuh `_rsc` 500 di daftar ledger (prefetch tiap `<Link>` ke `/stok/ledger/{id}`).
+**Akar masalah:** route detail (`ledger/[id]`, `opname/[id]`, `monitoring-live/[outlet-id]`) punya `generateStaticParams() { return [] }` → ditandai **SSG** (prerender static) padahal daftar id kosong & data dimuat client-side; request id dinamis dalam mode statis → 500. Hanya muncul di **build produksi** (dev selalu dynamic → 200, makanya tak ketahuan).
+**Fix:** hapus `generateStaticParams` kosong → route jadi `ƒ Dynamic`. Diverifikasi: build menandai ketiganya Dynamic, prod server (`next start`) balas 200 untuk RSC ketiganya.
+**Catatan deploy:** produksi masih jalan kode lama (commit `f15165f` "remove dynamicParams=false" pun belum live) → wajib redeploy.
+
+### 3. Penyesuaian ledger tak bisa submit nilai negatif
+**Akar masalah** (`src/components/stok/ManualEntryForm.tsx`): `isValidQty` memaksa `qty > 0` untuk semua tipe, padahal `adjustment` = delta bertanda (placeholder sendiri bilang "boleh negatif") → tombol disabled. **Fix:** `adjustment` boleh negatif (asal ≠ 0); `waste`/`transfer_keluar` tetap wajib > 0.
+
+### 4. Tombol nav CrewDashboard
+Dua tombol "Terima Kiriman" (grid Aksi Cepat + bottom nav) diganti jadi "Permintaan Bahan" (link `/stok/permintaan`); import `getCrossAppUrl` yang nganggur dihapus.
+
+### 📝 Next
+- Buat PR `fix/stok-detail-modal-crash` → `main`, lalu **redeploy `stok.sukashawarma.com`** (semua fix di atas baru live setelah redeploy).
+
+---
+
+**Last updated:** 2026-06-25  
 **Owner:** Dev Suka Shawarma

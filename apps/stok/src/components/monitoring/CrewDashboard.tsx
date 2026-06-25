@@ -5,7 +5,6 @@ import { CrewList } from './CrewList';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
-import { getCrossAppUrl } from '@/lib/navigation';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
 
@@ -262,10 +261,10 @@ export function CrewDashboard() {
                 <span className="text-xl">📋</span>
                 <span className="text-xs font-semibold text-[#544437]">Mulai Opname</span>
               </Link>
-              <a href={getCrossAppUrl('/distribusi/terima')} className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
-                <span className="text-xl">🚚</span>
-                <span className="text-xs font-semibold text-[#544437]">Terima Kiriman</span>
-              </a>
+              <Link href="/stok/permintaan" className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
+                <span className="text-xl">📝</span>
+                <span className="text-xs font-semibold text-[#544437]">Permintaan Bahan</span>
+              </Link>
             </div>
           </section>
         </div>
@@ -285,10 +284,10 @@ export function CrewDashboard() {
           <span className="text-lg leading-none">📋</span>
           <span className="text-[10px] font-bold mt-0.5">Opname</span>
         </Link>
-        <a href={getCrossAppUrl('/distribusi/terima')} className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8]/50 px-4 py-1.5 rounded-full transition-all active:scale-95">
-          <span className="text-lg leading-none">🚚</span>
-          <span className="text-[10px] font-bold mt-0.5">Terima</span>
-        </a>
+        <Link href="/stok/permintaan" className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8]/50 px-4 py-1.5 rounded-full transition-all active:scale-95">
+          <span className="text-lg leading-none">📝</span>
+          <span className="text-[10px] font-bold mt-0.5">Permintaan</span>
+        </Link>
       </nav>
 
       {/* Detail Modal */}

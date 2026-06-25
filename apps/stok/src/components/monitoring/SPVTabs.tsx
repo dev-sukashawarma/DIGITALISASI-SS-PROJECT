@@ -3,16 +3,17 @@
 import React from 'react';
 
 interface SPVTabsProps {
-  activeTab: 'overview' | 'alerts' | 'compliance';
-  onTabChange: (tab: 'overview' | 'alerts' | 'compliance') => void;
+  activeTab: 'overview' | 'alerts' | 'approval';
+  onTabChange: (tab: 'overview' | 'alerts' | 'approval') => void;
   alertCount: number;
+  approvalCount: number;
 }
 
-export function SPVTabs({ activeTab, onTabChange, alertCount }: SPVTabsProps) {
+export function SPVTabs({ activeTab, onTabChange, alertCount, approvalCount }: SPVTabsProps) {
   const tabs = [
     { id: 'overview', label: 'Overview', count: null },
     { id: 'alerts', label: 'Alerts', count: alertCount },
-    { id: 'compliance', label: 'Compliance', count: null },
+    { id: 'approval', label: 'Approval Permintaan', count: approvalCount },
   ] as const;
 
   return (

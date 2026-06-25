@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { SPVTabs } from './SPVTabs';
 import { SPVTable } from './SPVTable';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
@@ -14,7 +14,6 @@ import {
   useStockoutForecast,
   useWasteToday
 } from '@/hooks/useMonitoringData';
-import { fetchOpnameStatus } from '@/lib/queries/monitoring';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
 import { useAuth } from '@suka/auth';
@@ -28,12 +27,14 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'B
   if (name.includes('CIRENDEU')) return 'Tangerang';
   if (name.includes('CIBINONG') || name.includes('CISEENG') || name.includes('CITAYAM') || name.includes('DRAMAGA') || name.includes('EMPANG') || name.includes('BEJI')) return 'Bogor';
   if (name.includes('DEPOK') || name.includes('SUKMAJAYA') || name.includes('PALEDANG') || name.includes('PAJA JARAN')) return 'Depok';
-  if (name.includes('TEBET') || name.includes('KALISARI') || name.includes('PEKAYON') || name.includes('JAGAKARSA') || name.includes('CIMANGGUL')) return 'Jakarta';
+  if (name.includes('PEKAYON') || name.includes('JATIASIH') || name.includes('JATIWANGIN')) return 'Bekasi';
+  if (name.includes('CIMANGGU')) return 'Bogor';
+  if (name.includes('TEBET') || name.includes('KALISARI') || name.includes('JAGAKARSA')) return 'Jakarta';
   return 'Jakarta'; // Default
 };
 
 export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[] } = {}) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'compliance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'approval'>('overview');
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
   
   // State for split view outlet selection
@@ -112,14 +113,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     return wasteToday.filter(w => w.outlet_id === selectedOutletId).length;
   }, [wasteToday, selectedOutletId]);
 
-  // Fetch compliance/opname status
-  const [opnameStatuses, setOpnameStatuses] = useState<Awaited<ReturnType<typeof fetchOpnameStatus>> | undefined>(undefined);
-  const [isOpnameLoading, setIsOpnameLoading] = useState(false);
-  useEffect(() => {
-    if (activeTab !== 'compliance') return;
-    setIsOpnameLoading(true);
-    fetchOpnameStatus().then(setOpnameStatuses).finally(() => setIsOpnameLoading(false));
-  }, [activeTab]);
 
   // Local state override for edited thresholds to allow immediate UI response
   const [localThresholdOverrides, setLocalThresholdOverrides] = useState<Record<string, number>>({});
@@ -430,11 +423,11 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
       {/* Tabs */}
       <div className="flex-shrink-0">
-        <SPVTabs activeTab={activeTab} onTabChange={setActiveTab} alertCount={alertCount} />
+        <SPVTabs activeTab={activeTab} onTabChange={setActiveTab} alertCount={alertCount} approvalCount={pendingApprovals.length} />
       </div>
 
       {/* Mobile Outlets Horizontal Strip */}
-      {(activeTab === 'overview' || activeTab === 'compliance') && (
+      {activeTab === 'overview' && (
         <div className="flex md:hidden overflow-x-auto gap-2 px-4 py-2.5 bg-[#faf2e9] border-b border-[#d9c2b2]/20 scrollbar-none flex-shrink-0 w-full">
           {outlets.byOutlet.map((outlet) => {
             const isActive = selectedOutletId === outlet.outlet_id;
@@ -859,91 +852,16 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           </main>
         )}
 
-        {/* Compliance Tab - Overdue lists & operational checklist */}
-        {activeTab === 'compliance' && (
-          <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-            {/* Left panel: Opname freshness status - Desktop Only */}
-            <aside className="hidden md:block md:w-[250px] lg:w-[22%] bg-[#faf2e9] border-r border-[#d9c2b2] overflow-y-auto p-4 md:p-6 space-y-4 flex-shrink-0">
-              <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase border-b border-suka-brown/10 pb-2">
-                Kepatuhan Opname Fisik
-              </h3>
-              {isOpnameLoading ? (
-                <p className="text-xs text-suka-brown/60">Memuat status opname...</p>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {opnameStatuses?.map((o) => {
-                    const isActive = selectedOutletId === o.outlet_id;
-                    const cleanName = o.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
-                    return (
-                      <button
-                        key={o.outlet_id}
-                        onClick={() => setSelectedOutletId(o.outlet_id)}
-                        className={`text-left p-4 rounded-xl border transition-all flex justify-between items-center ${
-                          isActive
-                            ? 'border-2 border-suka-orange bg-white shadow-md'
-                            : 'border-suka-brown/10 bg-white hover:border-suka-orange/30'
-                        }`}
-                      >
-                        <div>
-                          <p className={`font-bold text-sm uppercase tracking-wide ${isActive ? 'text-suka-orange' : 'text-suka-ink'}`}>
-                            {cleanName}
-                          </p>
-                          <p className="text-xs text-suka-brown/60 mt-1">
-                            Terakhir: {o.last_opname_date ? new Date(o.last_opname_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : 'Never'}
-                          </p>
-                        </div>
-                        <span className={`text-[11px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wide ${
-                          o.is_overdue
-                            ? 'bg-red-100 text-red-800 border border-red-200'
-                            : 'bg-green-100 text-green-800 border border-green-200'
-                        }`}>
-                          {o.is_overdue ? `Terlambat (${o.days_since} hari)` : 'OK'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </aside>
-
-            {/* Right panel: Operational compliance checklists */}
-            <section className="flex-1 bg-white overflow-visible md:overflow-y-auto p-4 md:p-6 space-y-6">
-              {selectedOutletId ? (
-                <div className="space-y-4">
-                  <h2 className="text-base md:text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">
-                    CHECKLIST OPERASIONAL OUTLET: {outlets.byOutlet.find(o => o.outlet_id === selectedOutletId)?.outlet_name}
-                  </h2>
-                  
-                  {/* Mock Compliance Checklist items */}
-                  <div className="space-y-3">
-                    {[
-                      { title: 'Kebersihan Area Dapur & Wastafel', status: 'Lengkap', desc: 'Dapur telah dibersihkan, wastafel steril' },
-                      { title: 'Suhu Chiller / Freezer (0°C - 4°C)', status: 'Lengkap', desc: 'Suhu chiller stabil pada 2.8°C' },
-                      { title: 'Kesesuaian Atribut SPV & Crew', status: 'Lengkap', desc: 'Apron, sarung tangan, dan hairnet dipakai lengkap' },
-                      { title: 'Enroll Wajah & PDP Consent Staf Baru', status: 'Kritis', desc: 'Staf baru a.n Rian belum enroll data biometrik wajah' },
-                      { title: 'Rekonsiliasi Kas POS vs Kas Fisik', status: 'Lengkap', desc: 'Total sales sinkron, tidak ada selisih kas' },
-                    ].map((chk, i) => (
-                      <div key={i} className="p-4 border border-suka-brown/10 rounded-xl flex justify-between items-start bg-suka-cream/5 hover:bg-suka-cream/10 transition-colors">
-                        <div className="space-y-1">
-                          <h3 className="font-bold text-sm text-suka-ink">{chk.title}</h3>
-                          <p className="text-xs text-suka-brown/70">{chk.desc}</p>
-                        </div>
-                        <span className={`text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wide ${
-                          chk.status === 'Kritis' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                        }`}>
-                          {chk.status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="h-full flex items-center justify-center text-suka-brown/50 text-sm font-semibold p-6 text-center">
-                  Pilih outlet untuk melihat kepatuhan operasional
-                </div>
-              )}
-            </section>
-          </div>
+        {/* Approval Tab */}
+        {activeTab === 'approval' && (
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#faf2e9]/30">
+            <div className="bg-white rounded-xl border border-suka-brown/10 shadow-sm p-4 md:p-6 max-w-4xl mx-auto space-y-4">
+              <h2 className="text-base md:text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">
+                Approval Permintaan Bahan
+              </h2>
+              <ApprovalList />
+            </div>
+          </main>
         )}
       </div>
 

@@ -316,20 +316,24 @@ export default function DashboardPage() {
                       month: 'short',
                       year: 'numeric',
                     })
+                    const sudahSelesai = ['selesai', 'diterima_lengkap', 'diterima_sebagian'].includes(sj.status)
+                    const isClickable = isPusat || !sudahSelesai
 
                     return (
                       <div
                         key={sj.id}
-                        onClick={() => {
+                        onClick={isClickable ? () => {
                           if (isPusat) {
                             router.push(`/distribusi/surat-jalan/${sj.id}`)
                           } else {
                             router.push(`/distribusi/terima/${sj.id}`)
                           }
-                        }}
-                        className={`px-6 py-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-suka-orange/5 active:bg-suka-orange/10 transition-all group duration-200 ${
-                          idx % 2 === 0 ? 'bg-white/40' : 'bg-transparent'
-                        }`}
+                        } : undefined}
+                        className={`px-6 py-4 flex items-center justify-between gap-4 transition-all duration-200 ${
+                          isClickable
+                            ? 'cursor-pointer hover:bg-suka-orange/5 active:bg-suka-orange/10 group'
+                            : 'cursor-default opacity-70'
+                        } ${idx % 2 === 0 ? 'bg-white/40' : 'bg-transparent'}`}
                       >
                         <div className="min-w-0 space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -348,7 +352,9 @@ export default function DashboardPage() {
                           <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusInfo.style}`}>
                             {statusInfo.text}
                           </span>
-                          <ChevronRight size={14} className="text-suka-gray-400 group-hover:translate-x-0.5 transition-transform duration-200" />
+                          {isClickable && (
+                            <ChevronRight size={14} className="text-suka-gray-400 group-hover:translate-x-0.5 transition-transform duration-200" />
+                          )}
                         </div>
                       </div>
                     )

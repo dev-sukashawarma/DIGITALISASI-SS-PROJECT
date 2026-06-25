@@ -10,6 +10,7 @@ interface Item {
   qty_terima?: number
   kondisi?: string
   catatan?: string | null
+  foto_path?: string | null
   bahan_baku?: { nama: string; satuan: string; kategori?: string }
 }
 

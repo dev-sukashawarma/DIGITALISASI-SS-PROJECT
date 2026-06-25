@@ -13,9 +13,11 @@ type ItemVerification = {
   qty_terima: number
   kondisi: Kondisi
   catatan: string
+  foto_path: string | null
+  foto_preview: string | null
 }
 
-type Step = 'cards' | 'summary' | 'signature'
+type Step = 'cards' | 'foto' | 'summary' | 'signature'
 
 function SignatureBlock({ title, sigs }: { title: string; sigs: any[] }) {
   return (
@@ -67,6 +69,8 @@ export function VerifikasiForm({ id }: { id: string }) {
           qty_terima: item.qty_dikirim ?? 0,
           kondisi: 'baik',
           catatan: '',
+          foto_path: null,
+          foto_preview: null,
         }
       })
       setVerifications(initial)
@@ -138,6 +142,8 @@ export function VerifikasiForm({ id }: { id: string }) {
     qty_terima: currentItem?.qty_dikirim ?? 0,
     kondisi: 'baik',
     catatan: '',
+    foto_path: null,
+    foto_preview: null,
   }
   const progress = items.length > 0 ? Math.round(((currentIndex + 1) / items.length) * 100) : 0
   const isJelekMode = currentVerif.kondisi === 'jelek'
@@ -149,17 +155,26 @@ export function VerifikasiForm({ id }: { id: string }) {
     }))
   }
 
-  const advance = (v: ItemVerification) => {
+  const goToFoto = (v: ItemVerification) => {
     setVerifications((prev) => ({ ...prev, [currentItem.id]: v }))
+    setStep('foto')
+  }
+
+  const advanceFromFoto = () => {
+    if (!verifications[currentItem.id]?.foto_path) {
+      alert('Foto wajib diambil sebelum lanjut ke item berikutnya')
+      return
+    }
     if (currentIndex + 1 >= items.length) {
       setStep('summary')
     } else {
       setCurrentIndex((i) => i + 1)
+      setStep('cards')
     }
   }
 
   const handleBaik = () => {
-    advance({ qty_terima: currentItem.qty_dikirim, kondisi: 'baik', catatan: '' })
+    goToFoto({ qty_terima: currentItem.qty_dikirim, kondisi: 'baik', catatan: '', foto_path: currentVerif.foto_path, foto_preview: currentVerif.foto_preview })
   }
 
   const handleJelekConfirm = () => {
@@ -171,7 +186,58 @@ export function VerifikasiForm({ id }: { id: string }) {
       alert('Wajib isi catatan alasan untuk item bermasalah')
       return
     }
-    advance(currentVerif)
+    goToFoto(currentVerif)
+  }
+
+  const compressImage = (file: File, maxBytes: number): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        let quality = 0.85
+        const canvas = document.createElement('canvas')
+        const MAX_DIM = 1280
+        let { width, height } = img
+        if (width > MAX_DIM || height > MAX_DIM) {
+          const ratio = Math.min(MAX_DIM / width, MAX_DIM / height)
+          width = Math.round(width * ratio)
+          height = Math.round(height * ratio)
+        }
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+        const tryCompress = () => {
+          canvas.toBlob((blob) => {
+            if (!blob) return reject(new Error('Gagal kompres foto'))
+            if (blob.size <= maxBytes || quality <= 0.2) return resolve(blob)
+            quality -= 0.1
+            tryCompress()
+          }, 'image/jpeg', quality)
+        }
+        tryCompress()
+      }
+      img.onerror = reject
+      img.src = url
+    })
+  }
+
+  const handleFotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const compressed = await compressImage(file, 200 * 1024)
+      const supabase = createSupabaseBrowserClient()
+      const path = `${id}/${currentItem.id}.jpg`
+      const { error: uploadError } = await supabase.storage
+        .from('verif-foto-bahan')
+        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })
+      if (uploadError) throw uploadError
+      const preview = URL.createObjectURL(compressed)
+      setVerif({ foto_path: path, foto_preview: preview })
+    } catch (err) {
+      alert(`Gagal upload foto: ${err instanceof Error ? err.message : 'Error'}`)
+    }
   }
 
   const handleSubmit = async () => {
@@ -179,7 +245,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     const supabase = createSupabaseBrowserClient()
     try {
       const updatePromises = items.map((item: any) => {
-        const v = verifications[item.id] ?? { qty_terima: item.qty_dikirim, kondisi: 'baik' as const, catatan: '' }
+        const v = verifications[item.id] ?? { qty_terima: item.qty_dikirim, kondisi: 'baik' as const, catatan: '', foto_path: null, foto_preview: null }
         return supabase
           .from('surat_jalan_item')
           .update({
@@ -187,6 +253,7 @@ export function VerifikasiForm({ id }: { id: string }) {
             kondisi: v.kondisi === 'jelek' ? 'rusak' : 'baik',
             catatan: v.catatan || null,
             flagged: v.qty_terima !== item.qty_dikirim || v.kondisi === 'jelek',
+            foto_path: v.foto_path || null,
             verified_at: new Date().toISOString(),
           })
           .eq('id', item.id)
@@ -207,6 +274,75 @@ export function VerifikasiForm({ id }: { id: string }) {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // ── Step: Foto ────────────────────────────────────────────────────
+  if (step === 'foto') {
+    const hasFoto = !!currentVerif.foto_path
+    return (
+      <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
+        <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-3 sm:px-4 py-3 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)]">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              onClick={() => setStep('cards')}
+              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm shrink-0"
+            >
+              <span className="text-base">←</span>
+            </button>
+            <div className="flex flex-col min-w-0">
+              <h1 className="font-bold text-xs sm:text-sm text-[#701604] uppercase tracking-tight leading-tight">Foto Bukti</h1>
+              <p className="text-[9px] sm:text-[10px] text-[#544437]/75 font-bold mt-0.5 truncate">{currentItem?.bahan_baku?.nama}</p>
+            </div>
+          </div>
+          <span className="text-xs font-black text-[#701604] bg-[#faf2e9] border border-[#d9c2b2]/40 px-3 py-1 rounded-full shrink-0">
+            {currentIndex + 1} / {items.length}
+          </span>
+        </header>
+
+        <div className="p-4 max-w-lg mx-auto mt-2 space-y-4">
+          <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 overflow-hidden shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+            {currentVerif.foto_preview ? (
+              <img
+                src={currentVerif.foto_preview}
+                alt="Foto barang"
+                className="w-full object-cover"
+                style={{ maxHeight: '320px' }}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 py-14 bg-[#faf2e9]/50">
+                <div className="w-16 h-16 rounded-full bg-[#fff8f1] border border-[#d9c2b2]/40 flex items-center justify-center text-3xl">📷</div>
+                <p className="text-xs font-bold text-[#544437]/60 uppercase tracking-wide">Belum ada foto</p>
+              </div>
+            )}
+          </div>
+
+          <label className="block w-full cursor-pointer">
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleFotoCapture}
+            />
+            <div className="w-full py-3 bg-[#f29744] hover:bg-orange-600 text-white font-bold uppercase tracking-wider text-xs shadow-md rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95">
+              {hasFoto ? '🔄 Ambil Ulang Foto' : '📷 Ambil Foto Barang'}
+            </div>
+          </label>
+
+          <button
+            onClick={advanceFromFoto}
+            disabled={!hasFoto}
+            className={`w-full py-3 font-bold uppercase tracking-wider text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
+              hasFoto
+                ? 'bg-[#701604] hover:bg-[#591002] text-white shadow-md cursor-pointer'
+                : 'bg-[#d9c2b2]/30 text-[#544437]/40 cursor-not-allowed'
+            }`}
+          >
+            {currentIndex + 1 >= items.length ? 'Lihat Ringkasan →' : 'Item Berikutnya →'}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // ── Step: Signature ───────────────────────────────────────────────
@@ -246,8 +382,13 @@ export function VerifikasiForm({ id }: { id: string }) {
               const v = verifications[item.id]
               const isJelek = v?.kondisi === 'jelek'
               return (
-                <div key={item.id} className="px-4 py-3 flex justify-between items-center gap-3">
-                  <div className="min-w-0">
+                <div key={item.id} className="px-4 py-3 flex items-center gap-3">
+                  {v?.foto_preview ? (
+                    <img src={v.foto_preview} alt={item.bahan_baku?.nama} className="w-12 h-12 rounded-lg object-cover shrink-0 border border-[#d9c2b2]/30" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-[#faf2e9] border border-[#d9c2b2]/30 flex items-center justify-center shrink-0 text-lg">📷</div>
+                  )}
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide truncate">{item.bahan_baku?.nama}</p>
                     {isJelek && v?.catatan && (
                       <p className="text-[10px] text-[#ba1a1a] mt-0.5 font-semibold truncate">{v.catatan}</p>

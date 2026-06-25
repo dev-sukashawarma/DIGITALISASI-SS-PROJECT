@@ -8,7 +8,7 @@ import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { SignatureFlow } from './SignatureFlow'
 import { useAuth } from '@suka/auth'
 import { createSupabaseBrowserClient } from '@suka/auth'
-import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
+import { generatePDFContent, downloadPDF, fetchFotoAsBase64 } from '@/utils/generatePDF'
 
 function FormattedDate({ iso, extended }: { iso: string | null | undefined; extended?: boolean }) {
   const text = useFormattedDate(iso, extended ? {
@@ -64,9 +64,22 @@ export function SuratJalanDetail({ id }: { id: string }) {
   const [verifying, setVerifying] = useState(false)
   const [pdfHtml, setPdfHtml] = useState<string | null>(null)
 
+  const buildItemsWithFoto = async (items: any[]) => {
+    return Promise.all(items.map(async (item: any) => {
+      const foto_base64 = item.foto_path ? await fetchFotoAsBase64(item.foto_path) : null
+      return {
+        ...item,
+        nama: item.bahan_baku?.nama,
+        satuan: item.bahan_baku?.satuan,
+        foto_base64,
+      }
+    }))
+  }
+
   useEffect(() => {
     const loadPdfHtml = async () => {
       if (data && outletStaff?.role !== 'leader' && outletStaff?.role !== 'kitchen') {
+        const items = await buildItemsWithFoto(data.surat_jalan_item)
         const htmlContent = await generatePDFContent({
           id: data.id,
           document_number: data.document_number || `SJ-${data.id.substring(0, 8).toUpperCase()}`,
@@ -76,11 +89,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
           created_at: data.created_at,
           verification_url: `${window.location.origin}/distribusi/terima/${data.id}`,
           verification_code: data.verification_code,
-          items: data.surat_jalan_item.map((item: any) => ({
-            ...item,
-            nama: item.bahan_baku?.nama,
-            satuan: item.bahan_baku?.satuan,
-          })),
+          items,
           signatures: data.signatures || [],
           receipt_signatures: data.receipt_signatures || [],
         }, { hideQR: true })
@@ -123,6 +132,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
   const handleDownloadPDF = async () => {
     if (!data) return
 
+    const items = await buildItemsWithFoto(data.surat_jalan_item)
     const htmlContent = await generatePDFContent({
       id: data.id,
       document_number: data.document_number || `SJ-${data.id.substring(0, 8).toUpperCase()}`,
@@ -132,11 +142,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
       created_at: data.created_at,
       verification_url: `${window.location.origin}/distribusi/terima/${data.id}`,
       verification_code: data.verification_code,
-      items: data.surat_jalan_item.map((item: any) => ({
-        ...item,
-        nama: item.bahan_baku?.nama,
-        satuan: item.bahan_baku?.satuan,
-      })),
+      items,
       signatures: data.signatures || [],
       receipt_signatures: data.receipt_signatures || [],
     })

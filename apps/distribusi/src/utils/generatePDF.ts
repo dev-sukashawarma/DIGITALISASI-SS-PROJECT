@@ -1,5 +1,24 @@
 import QRCode from 'qrcode'
 import { LOGO_BASE64 } from './logoBase64'
+import { createSupabaseBrowserClient } from '@suka/auth'
+
+export async function fetchFotoAsBase64(foto_path: string): Promise<string | null> {
+  try {
+    const supabase = createSupabaseBrowserClient()
+    const { data, error } = await supabase.storage
+      .from('verif-foto-bahan')
+      .download(foto_path)
+    if (error || !data) return null
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(data)
+    })
+  } catch {
+    return null
+  }
+}
 
 
 // SUKA Design System Tokens
@@ -36,6 +55,7 @@ interface SuratJalanData {
     qty_terima?: number | null
     kondisi?: string | null
     catatan?: string | null
+    foto_base64?: string | null
   }>
   signatures: Array<{
     signed_by: string
@@ -97,18 +117,19 @@ export async function generatePDFContent(
     ? `
       <tr>
         <th style="border: 1px solid #000; padding: 8px;">Nama Barang</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Qty Kirim</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Qty Terima</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 70px;">Satuan</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Kondisi</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 50px;">Kirim</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 50px;">Terima</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 45px;">Sat.</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 70px;">Kondisi</th>
         <th style="border: 1px solid #000; padding: 8px;">Catatan</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 90px;">Foto Bukti</th>
       </tr>
     `
     : `
       <tr>
         <th style="border: 1px solid #000; padding: 8px;">Nama Barang</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Qty</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Satuan</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 50px;">Qty</th>
+        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 45px;">Sat.</th>
       </tr>
     `
 
@@ -121,6 +142,9 @@ export async function generatePDFContent(
           const qtyTerimaText = item.qty_terima !== undefined && item.qty_terima !== null ? item.qty_terima : '-'
           const kondisiText = item.kondisi || 'baik'
           const catatanText = item.catatan || '-'
+          const fotoCell = item.foto_base64
+            ? `<img src="${item.foto_base64}" style="width:80px; height:60px; object-fit:cover; border-radius:4px; display:block; margin:0 auto;" />`
+            : `<span style="font-size:11px; color:#aaa;">—</span>`
           return `
             <tr>
               <td style="border: 1px solid #000; padding: 8px;">${item.nama}</td>
@@ -129,6 +153,7 @@ export async function generatePDFContent(
               <td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.satuan}</td>
               <td style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; color: ${isRusak ? '#ba1a1a' : '#0a7d2c'};">${kondisiText.toUpperCase()}</td>
               <td style="border: 1px solid #000; padding: 8px; font-style: italic; color: #544437;">${catatanText}</td>
+              <td style="border: 1px solid #000; padding: 6px; text-align: center;">${fotoCell}</td>
             </tr>
           `
         } else {

@@ -11,7 +11,7 @@ export function useOpnameList(outletId: string | null | undefined) {
     queryFn: async () => {
       const supabase = createClient()
       const { data } = await supabase.from('opname')
-        .select('*, opname_item(qty_fisik, qty_system, selisih, flagged)')
+        .select('*, outlet_staff!opname_created_by_fkey(name), opname_item(qty_fisik, qty_system, selisih, flagged)')
         .eq('outlet_id', outletId)
         .order('tanggal', { ascending: false }).limit(60)
       return (data as Opname[]) ?? []

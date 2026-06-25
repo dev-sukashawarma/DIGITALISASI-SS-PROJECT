@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Card, Button, Input } from '@suka/design-system'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useLedgerActions } from '@/hooks/useLedger'
+import { useStokBalance } from '@/hooks/useStokBalance'
 
 const TIPE_OPTIONS = [
   { value: 'waste', label: 'Waste (buang)' },
@@ -15,6 +16,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   const router = useRouter()
   const { bahanBaku } = useBahanBaku()
   const { addManual } = useLedgerActions()
+  const { balances } = useStokBalance(outletId)
   const [bahanBakuId, setBahanBakuId] = useState('')
   const [tipe, setTipe] = useState<'waste'|'adjustment'|'transfer_keluar'>('waste')
   const [qty, setQty] = useState('')
@@ -83,6 +85,19 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
           {bahanBaku.map(b => <option key={b.id} value={b.id}>{b.nama} ({b.satuan})</option>)}
         </select>
       </div>
+
+      {bahanBakuId && (() => {
+        const bal = balances.find(b => b.bahan_baku_id === bahanBakuId)
+        const satuan = bahanBaku.find(b => b.id === bahanBakuId)?.satuan ?? ''
+        const saldo = bal?.saldo ?? 0
+        const isLow = saldo <= 0
+        return (
+          <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs font-bold ${isLow ? 'bg-[#ffdad6] border-[#ba1a1a]/20 text-[#ba1a1a]' : 'bg-[#e8f5e9] border-[#93f997]/40 text-[#006e24]'}`}>
+            <span>Stok tersedia</span>
+            <span>{saldo} {satuan}</span>
+          </div>
+        )
+      })()}
 
       <div className="flex flex-col gap-2">
         <label className="text-xs font-bold text-[#544437]/75 uppercase tracking-wide">Kuantitas</label>

@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@suka/auth'
 import { useOutletScope } from '@/hooks/useOutletScope'
 import { PermintaanForm } from '@/components/permintaan/PermintaanForm'
@@ -29,10 +30,19 @@ export default function PermintaanPage() {
   return (
     <div className="bg-[#fff8f1] min-h-screen">
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-extrabold text-[#701604] tracking-tight">
-            Permintaan Bahan Baku
-          </h1>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link
+              href="/dashboard"
+              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm"
+              title="Kembali ke Dashboard"
+            >
+              <span className="text-base">←</span>
+            </Link>
+            <h1 className="text-xl font-extrabold text-[#701604] tracking-tight truncate">
+              Permintaan Bahan Baku
+            </h1>
+          </div>
           <OutletSwitcher />
         </div>
 

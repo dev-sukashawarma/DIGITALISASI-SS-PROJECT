@@ -65,11 +65,17 @@ export function TerimaList() {
           </div>
         ) : (
           <div className="space-y-3">
-            {data.map((sj) => (
+            {data.map((sj) => {
+              const sudahSelesai = ['selesai', 'diterima_lengkap', 'diterima_sebagian'].includes(sj.status)
+              return (
                 <div
                   key={sj.id}
-                  onClick={() => router.push(`/distribusi/terima/${sj.id}`)}
-                  className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 flex justify-between items-center shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer"
+                  onClick={() => !sudahSelesai && router.push(`/distribusi/terima/${sj.id}`)}
+                  className={`bg-white rounded-2xl border p-4 flex justify-between items-center shadow-[0px_4px_12px_rgba(144,77,0,0.03)] transition-all duration-200 ${
+                    sudahSelesai
+                      ? 'border-[#d9c2b2]/30 opacity-70 cursor-default'
+                      : 'border-[#d9c2b2]/45 hover:border-[#f29744]/45 hover:shadow-md active:scale-[0.98] cursor-pointer'
+                  }`}
                 >
                   <div className="space-y-1.5 min-w-0 flex-1 pr-4">
                     <div className="flex items-center gap-2">
@@ -98,14 +104,23 @@ export function TerimaList() {
                       {sj.status === 'diterima_lengkap' && 'Diterima Lengkap'}
                       {sj.status === 'diterima_sebagian' && 'Diterima Sebagian'}
                     </span>
-                    <span
-                      className="inline-flex px-3 py-1.5 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white font-bold text-[9px] uppercase tracking-wider rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
-                    >
-                      Verifikasi
-                    </span>
+                    {sudahSelesai ? (
+                      <Link
+                        href={`/distribusi/riwayat/${sj.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex px-3 py-1.5 bg-[#544437]/10 text-[#544437] font-bold text-[9px] uppercase tracking-wider rounded-xl border border-[#d9c2b2]/40 transition-all active:scale-95"
+                      >
+                        Lihat Detail
+                      </Link>
+                    ) : (
+                      <span className="inline-flex px-3 py-1.5 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white font-bold text-[9px] uppercase tracking-wider rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer">
+                        Verifikasi
+                      </span>
+                    )}
                   </div>
                 </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

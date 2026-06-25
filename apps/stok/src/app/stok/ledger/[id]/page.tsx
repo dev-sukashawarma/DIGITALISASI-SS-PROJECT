@@ -1,10 +1,6 @@
 import { LedgerDetail } from '@/components/stok/LedgerDetail'
 import Link from 'next/link'
 
-export function generateStaticParams() {
-  return []
-}
-
 export default async function LedgerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   return (

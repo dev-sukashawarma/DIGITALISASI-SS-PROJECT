@@ -1,10 +1,6 @@
 import { OpnameDetail } from '@/components/stok/OpnameDetail'
 import Link from 'next/link'
 
-export function generateStaticParams() {
-  return []
-}
-
 export default async function OpnameDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   return (

@@ -180,10 +180,13 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 
   if (itemError) throw itemError;
 
-  // Fetch recent ledger entries
+  // Fetch recent ledger entries. Alias tipe→type and catatan→notes so the
+  // returned shape matches what MonitoringDetailModal renders (it reads
+  // ledger.type / ledger.notes — the raw column names would be undefined and
+  // crash on .replace()).
   const { data: ledgerData, error: ledgerError } = await supabase
     .from('ledger_stok')
-    .select('tipe, qty, catatan, created_at')
+    .select('type:tipe, qty, notes:catatan, created_at')
     .eq('outlet_id', outletId)
     .eq('bahan_baku_id', bahan_baku_id)
     .order('created_at', { ascending: false })
@@ -191,12 +194,14 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 
   if (ledgerError) throw ledgerError;
 
-  // Fetch opname discrepancy if exists
+  // Fetch opname discrepancy if exists. opname_item has no created_at column,
+  // so recency is taken from the parent opname row (ordering directly by
+  // created_at returns HTTP 400).
   const { data: opnameData } = await supabase
     .from('opname_item')
-    .select('qty_system, qty_fisik, catatan, flagged')
+    .select('qty_system, qty_fisik, catatan, flagged, opname!inner(created_at)')
     .eq('bahan_baku_id', bahan_baku_id)
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: false, referencedTable: 'opname' })
     .limit(1)
     .maybeSingle();
 

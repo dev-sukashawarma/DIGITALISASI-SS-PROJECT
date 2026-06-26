@@ -39,6 +39,7 @@ export function AttendanceKioskPanel() {
   const [isOutletOpen, setIsOutletOpen] = useState(true);
   const [modelsReady, setModelsReady] = useState(false);
   const [jamMasuk, setJamMasuk] = useState<string | null>(null);
+  const [jamKeluar, setJamKeluar] = useState<string | null>(null);
   const [absenWindowMode, setAbsenWindowMode] = useState<"auto" | "manual">("auto");
   const [nowMinutes, setNowMinutes] = useState(() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); });
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -62,10 +63,11 @@ export function AttendanceKioskPanel() {
       kiosk.flushQueue();
       loadRecords();
       
-      supabase.from("outlet_attendance_config").select("jam_masuk,absen_window_mode").eq("outlet_id", outletStaff.outlet_id).single()
+      supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", outletStaff.outlet_id).single()
         .then(({ data }) => {
           if (data) {
             setJamMasuk(data.jam_masuk);
+            setJamKeluar(data.jam_keluar ?? null);
             setAbsenWindowMode(data.absen_window_mode ?? "auto");
           }
         });
@@ -124,12 +126,26 @@ export function AttendanceKioskPanel() {
   const hasOut = todayRecords.some(r => r.type === "out");
 
   function toMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
-  // Mode manual: is_active menjadi gate utama (perilaku lama), time window diabaikan.
-  // Mode auto: time window otomatis; is_active = emergency lock saja.
+
   const isManual = absenWindowMode === "manual";
+
+  // Logika window kamera (mode auto):
+  // - Belum clock-in  → buka 1 jam sebelum jam_masuk
+  // - Sudah clock-in, belum clock-out → tutup sampai 30 menit sebelum jam_keluar
+  // - Sudah clock-out → tutup (shift selesai)
   const clockInWindowOpen = isManual
-    ? isOutletOpen                                                          // manual: gate = is_active
-    : (!jamMasuk || hasIn || nowMinutes >= toMin(jamMasuk) - 60);          // auto: time window
+    ? isOutletOpen
+    : hasOut
+      ? false                                                              // shift selesai
+      : hasIn
+        ? (!jamKeluar || nowMinutes >= toMin(jamKeluar) - 30)             // clock-out window
+        : (!jamMasuk || nowMinutes >= toMin(jamMasuk) - 60);              // clock-in window
+
+  // Label jam kamera akan buka lagi (untuk overlay "sedang bekerja")
+  const clockOutWindowLabel = (!isManual && jamKeluar)
+    ? dayjs().startOf("day").add(toMin(jamKeluar) - 30, "minute").format("HH:mm")
+    : null;
+  // Label jam kamera buka untuk clock-in
   const windowOpenLabel = (!isManual && jamMasuk)
     ? dayjs().startOf("day").add(toMin(jamMasuk) - 60, "minute").format("HH:mm")
     : null;
@@ -250,7 +266,21 @@ export function AttendanceKioskPanel() {
                 Kiosk dikunci paksa oleh SPV. Hubungi SPV jika ada masalah.
               </p>
             </div>
+          ) : !clockInWindowOpen && hasIn && !hasOut ? (
+            // Sudah clock-in, belum waktunya clock-out — kamera tutup sementara
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm text-center">
+              <div className="p-5 bg-suka-green/20 rounded-full mb-4">
+                <CheckCircle2 size={48} className="text-suka-green" />
+              </div>
+              <h2 className="text-xl font-bold">Kamu Sedang Bekerja</h2>
+              <p className="text-gray-400 mt-2 text-sm max-w-xs">
+                Kamera absen akan aktif kembali pukul{" "}
+                <span className="font-bold text-suka-green">{clockOutWindowLabel ?? "30 mnt sebelum tutup"}</span>
+                {jamKeluar && <> untuk absen keluar (shift tutup {jamKeluar.slice(0, 5)})</>}.
+              </p>
+            </div>
           ) : !clockInWindowOpen ? (
+            // Belum waktunya clock-in
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm text-center">
               <div className="p-5 bg-amber-500/20 rounded-full mb-4">
                 <Timer size={48} className="text-amber-400" />

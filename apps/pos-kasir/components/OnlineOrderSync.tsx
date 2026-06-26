@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 
 export default function OnlineOrderSync() {
   useEffect(() => {
@@ -14,7 +14,7 @@ export default function OnlineOrderSync() {
       return
     }
 
-    const ssOrderDb = createClient(SS_ORDER_URL, SS_ORDER_KEY)
+    const ssOrderDb = createSupabaseClient(SS_ORDER_URL, SS_ORDER_KEY)
     const knownOrders = new Set<string>()
 
     console.log('OnlineOrderSync: Mendengarkan pesanan baru dari SS_ORDER...')
@@ -52,7 +52,7 @@ export default function OnlineOrderSync() {
           } else if (payload.new.status === 'done' || payload.new.status === 'cancelled') {
             console.log(`OnlineOrderSync: Pesanan ${payload.new.id} berubah jadi ${payload.new.status} di order-system!`)
             // Update db pos-kasir lokal
-            const posKasirDb = createClientComponentClient()
+            const posKasirDb = createClient()
             const mappedStatus = payload.new.status === 'done' ? 'completed' : 'cancelled'
             await posKasirDb
               .from('orders')

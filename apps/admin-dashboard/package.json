@@ -13,12 +13,12 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@suka/auth": "workspace:*",
-    "@suka/design-system": "workspace:*",
+    "@suka/auth": "*",
+    "@suka/design-system": "*",
     "@supabase/ssr": "^0.2.0",
     "@supabase/supabase-js": "^2.38.0",
     "@tanstack/react-query": "^5.51.0",
-    "@suka/pwa": "workspace:*",
+    "@suka/pwa": "*",
     "lucide-react": "^0.300.0",
     "next": "^16.1.6",
     "react": "^19.0.0-rc.0",

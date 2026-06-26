@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@serwist/next": "^9.0.11",
-    "@suka/auth": "workspace:*",
-    "@suka/design-system": "workspace:*",
-    "@suka/pwa": "workspace:*",
+    "@suka/auth": "*",
+    "@suka/design-system": "*",
+    "@suka/pwa": "*",
     "lucide-react": "^0.300.0",
     "next": "^15.0.0",
     "react": "^19.0.0",

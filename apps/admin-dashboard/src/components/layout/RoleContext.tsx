@@ -46,12 +46,19 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   }, [outletStaff, loading])
 
   // Route-guard: Redirect OWNER to /dashboard/owner if trying to access HR or Admin paths
+  // Route-guard: Redirect ADMIN_HR to /dashboard/hr if trying to access Owner or Admin paths
   useEffect(() => {
     if (role === 'OWNER') {
       const isHrRoute = pathname.startsWith('/dashboard/hr')
       const isAdminRoute = pathname.startsWith('/dashboard/system-health') || pathname.startsWith('/dashboard/outlets')
       if (isHrRoute || isAdminRoute) {
         router.replace('/dashboard/owner')
+      }
+    } else if (role === 'ADMIN_HR') {
+      const isOwnerRoute = pathname.startsWith('/dashboard/owner')
+      const isAdminRoute = pathname.startsWith('/dashboard/system-health') || pathname.startsWith('/dashboard/outlets')
+      if (isOwnerRoute || isAdminRoute) {
+        router.replace('/dashboard/hr')
       }
     }
   }, [role, pathname, router])

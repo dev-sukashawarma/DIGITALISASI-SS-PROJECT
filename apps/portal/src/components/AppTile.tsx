@@ -1,4 +1,6 @@
-import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield } from 'lucide-react'
+'use client'
+
+import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield, Download } from 'lucide-react'
 
 interface Props {
   label: string
@@ -69,15 +71,11 @@ export default function AppTile({ label, url, desc }: Props) {
   const { icon, accentClass, iconBgClass, glowClass } = getAppConfig()
 
   return (
-    <a
-      href={url}
-      className={`group relative flex flex-col justify-between overflow-hidden bg-white/70 backdrop-blur-md border border-suka-orange/10 rounded-2xl p-5 shadow-sm
-                 transition-all duration-300 hover:shadow-lg hover:bg-white/90 hover:-translate-y-1 ${accentClass}`}
-    >
+    <div className={`group relative flex flex-col justify-between overflow-hidden bg-white/70 backdrop-blur-md border border-suka-orange/10 rounded-2xl p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:bg-white/90 hover:-translate-y-1 ${accentClass}`}>
       {/* Background ambient radial glow */}
       <div className={`absolute -right-10 -top-10 w-24 h-24 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ${glowClass}`} />
-      
-      <div>
+
+      <a href={url} className="flex flex-col gap-0 flex-1">
         {/* Dynamic App Icon Container */}
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 border border-suka-orange/5 group-hover:text-white group-hover:scale-105 ${iconBgClass}`}>
           {icon}
@@ -90,13 +88,33 @@ export default function AppTile({ label, url, desc }: Props) {
         <p className="text-[11px] sm:text-xs text-suka-gray-500 font-medium leading-relaxed mt-1 line-clamp-2">
           {desc}
         </p>
-      </div>
 
-      {/* Action Prompt */}
-      <div className="mt-5 flex items-center gap-1.5 text-[10px] sm:text-[11px] font-extrabold text-suka-brown group-hover:text-suka-orange transition-colors uppercase tracking-wider">
-        <span>Buka Modul</span>
-        <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+        {/* Action Prompt — desktop only */}
+        <div className="hidden md:flex mt-5 items-center gap-1.5 text-[10px] font-extrabold text-suka-brown group-hover:text-suka-orange transition-colors uppercase tracking-wider">
+          <span>Buka Modul</span>
+          <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+        </div>
+      </a>
+
+      {/* Mobile only: two action buttons */}
+      <div className="md:hidden mt-4 flex gap-2">
+        <a
+          href={url}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-suka-orange/10 text-suka-orange text-[11px] font-extrabold uppercase tracking-wider active:scale-95 transition-all"
+        >
+          Buka
+        </a>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-suka-green/10 text-suka-green text-[11px] font-extrabold uppercase tracking-wider active:scale-95 transition-all"
+        >
+          <Download size={11} />
+          Install
+        </a>
       </div>
-    </a>
+    </div>
   )
 }

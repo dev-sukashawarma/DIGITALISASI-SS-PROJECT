@@ -272,11 +272,10 @@ export function AttendanceKioskPanel() {
               <div className="p-5 bg-suka-green/20 rounded-full mb-4">
                 <CheckCircle2 size={48} className="text-suka-green" />
               </div>
-              <h2 className="text-xl font-bold">Kamu Sedang Bekerja</h2>
+              <h2 className="text-xl font-bold">Kamu sudah Clock-in hari ini!</h2>
               <p className="text-gray-400 mt-2 text-sm max-w-xs">
-                Kamera absen akan aktif kembali pukul{" "}
-                <span className="font-bold text-suka-green">{clockOutWindowLabel ?? "30 mnt sebelum tutup"}</span>
-                {jamKeluar && <> untuk absen keluar (shift tutup {jamKeluar.slice(0, 5)})</>}.
+                Kamera absen pulang dibuka pukul{" "}
+                <span className="font-bold text-suka-green">{clockOutWindowLabel ?? "30 mnt sebelum tutup"}</span>.
               </p>
             </div>
           ) : !clockInWindowOpen ? (

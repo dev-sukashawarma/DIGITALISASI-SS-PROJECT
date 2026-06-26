@@ -78,7 +78,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   useEffect(() => {
     const loadPdfHtml = async () => {
-      if (data && outletStaff?.role !== 'leader' && outletStaff?.role !== 'kitchen') {
+      if (data) {
         const items = await buildItemsWithFoto(data.surat_jalan_item)
         const htmlContent = await generatePDFContent({
           id: data.id,
@@ -367,13 +367,24 @@ export function SuratJalanDetail({ id }: { id: string }) {
             </div>
           )}
 
-          {/* Pusat Verification Action */}
+          {/* Pusat Verification Action — hanya tampil saat status draft/dikirim */}
           {(outletStaff?.role === 'leader' || outletStaff?.role === 'kitchen') && (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian') && (
-            <div className="border-t border-[#d9c2b2]/20 pt-5 flex flex-col gap-3">
-              <div className="bg-[#faf2e9] border border-[#d9c2b2]/40 rounded-xl p-4 text-xs font-semibold text-[#544437] space-y-2">
-                <p className="font-bold text-[#701604] uppercase">Konfirmasi Penerimaan Pusat</p>
-                <p>Cabang telah memverifikasi kiriman ini. Silakan periksa item di atas beserta tanda tangan crew & supir, lalu klik tombol di bawah untuk menyelesaikan proses administrasi dan menutup dokumen ini.</p>
-              </div>
+            <div className="border-t border-[#d9c2b2]/20 pt-5">
+              <p className="text-[9px] font-bold text-[#544437]/50 uppercase tracking-wider mb-3">Hasil Verifikasi Cabang</p>
+              {pdfHtml ? (
+                <div className="rounded-xl overflow-hidden border border-[#d9c2b2]/45 mb-4">
+                  <iframe
+                    srcDoc={pdfHtml}
+                    className="w-full border-0"
+                    style={{ height: '600px' }}
+                    title="Surat Jalan PDF"
+                  />
+                </div>
+              ) : (
+                <div className="flex justify-center items-center h-40 text-xs font-bold text-[#544437]/50 animate-pulse bg-[#fff8f1] border border-[#d9c2b2]/30 rounded-xl mb-4">
+                  Memuat PDF...
+                </div>
+              )}
               <button
                 onClick={handleVerifyPusat}
                 disabled={verifying}

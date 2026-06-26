@@ -266,6 +266,17 @@ export function AttendanceKioskPanel() {
                 Kiosk dikunci paksa oleh SPV. Hubungi SPV jika ada masalah.
               </p>
             </div>
+          ) : !isManual && hasOut ? (
+            // Auto mode: shift selesai (sudah clock-in + clock-out)
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm text-center">
+              <div className="p-5 bg-suka-green/20 rounded-full mb-4">
+                <CheckCircle2 size={48} className="text-suka-green" />
+              </div>
+              <h2 className="text-xl font-bold">Shift Selesai!</h2>
+              <p className="text-gray-400 mt-2 text-sm max-w-xs">
+                Kamu sudah absen masuk dan pulang hari ini. Sampai jumpa besok!
+              </p>
+            </div>
           ) : !clockInWindowOpen && hasIn && !hasOut ? (
             // Sudah clock-in, belum waktunya clock-out — kamera tutup sementara
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm text-center">

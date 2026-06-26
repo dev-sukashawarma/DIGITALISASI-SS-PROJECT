@@ -47,7 +47,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="h-full w-full flex flex-col md:flex-row relative bg-suka-cream overflow-hidden bg-grain select-none">
+    <main className="h-full w-full flex flex-col md:flex-row relative bg-suka-cream overflow-y-auto md:overflow-hidden bg-grain select-none">
       {/* Floating Animated Blobs */}
       <div className="absolute top-[-15%] left-[-15%] w-[60vw] h-[60vw] rounded-full bg-suka-orange/15 blur-[120px] animate-blob-1 pointer-events-none z-0" />
       <div className="absolute bottom-[-15%] right-[-15%] w-[60vw] h-[60vw] rounded-full bg-suka-brown/10 blur-[120px] animate-blob-2 pointer-events-none z-0" />
@@ -119,7 +119,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Column - Login Form */}
-      <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-16 z-10">
+      <div className="w-full md:w-1/2 min-h-full flex flex-col justify-center items-center p-6 sm:p-12 lg:p-16 z-10">
         <div className="w-full max-w-md">
           {/* Mobile Header (Hidden on Desktop) */}
           <div className="flex flex-col items-center text-center space-y-2 md:hidden mb-8">

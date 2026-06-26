@@ -513,5 +513,82 @@ Dua tombol "Terima Kiriman" (grid Aksi Cepat + bottom nav) diganti jadi "Permint
 
 ---
 
-**Last updated:** 2026-06-25  
+## Session 2026-06-26: Absensi Performance & Time Window (apps/absensi)
+
+**Status:** ✅ COMPLETED — ter-push ke `main`. ⚠️ Perlu **redeploy** `absensi.sukashawarma.com` agar live.
+
+### 1. Nav Performance — React Query Caching
+
+**Masalah:** Perpindahan tab nav sangat lambat (tidak responsive) — setiap kunjungan ulang ke halaman refetch dari nol.
+
+**Root cause:** Tidak ada caching data (semua page pakai `useEffect`+`useState` manual), `supabase = createClient()` dipanggil ulang setiap render, loop face detection (WebGL) bersaing dengan UI event.
+
+**Fix:**
+- `Providers.tsx` — tambah `QueryClientProvider` dengan `staleTime: 60s`, `gcTime: 5m`, `refetchOnWindowFocus: false`, `retry: 1`.
+- **5 halaman** dimigrasi ke `useQuery` + `useMemo(() => createClient(), [])`:
+  - `papan-kehadiran/page.tsx` — 3 query paralel + `computeBoard`
+  - `rekap/page.tsx` — query dengan dep tanggal, hitung `virtualAlphas`
+  - `pengaturan/page.tsx` — `staleTime: 5m` (pengaturan jarang berubah)
+  - `checklist/page.tsx` — `useQueryClient.invalidateQueries` untuk refresh setelah mutasi
+  - `profil/page.tsx` — supabase memo saja
+- `AttendanceKioskPanel.tsx` — supabase memo, idle detection interval 500ms → 1000ms
+
+**Efek:** Halaman yang sudah pernah dibuka tampil instan saat kembali (dari cache); tidak ada refetch sampai staleTime habis.
+
+---
+
+### 2. Time Window Absensi (mode `auto`)
+
+**Feature:** Di mode otomatis, kiosk clock-in buka **1 jam sebelum jam masuk**, clock-out buka **30 menit sebelum jam keluar**. Crew tidak bisa absen di luar window ini.
+
+**Implementasi:**
+- `submit-attendance/route.ts` — validasi server-side: hitung `nowMinutes` vs `toTotalMinutes(jam_masuk) - 60` / `toTotalMinutes(jam_keluar) - 30`. Return `{ ok: false, reason: "too_early_in" | "too_early_out" }`.
+- `AttendanceKioskPanel.tsx`:
+  - State `nowMinutes` + ticker 1-menit untuk refresh window.
+  - `clockInWindowOpen` computed: `!jamMasuk || hasIn || nowMinutes >= toMin(jamMasuk) - 60`.
+  - Overlay "Belum Waktunya Absen" dengan label jam buka (`windowOpenLabel`).
+  - Loop deteksi wajah hanya jalan bila `clockInWindowOpen` true.
+- `useClockKiosk.ts` — pesan error `too_early_in` / `too_early_out` ditampilkan ke user.
+
+---
+
+### 3. Mode Absensi Per-Outlet: `absen_window_mode` (auto vs manual)
+
+**Feature:** SPV bisa memilih mode absensi per outlet di halaman Pengaturan.
+
+**Migration:** `20260626100000_absen_window_mode.sql`
+```sql
+ALTER TABLE outlet_attendance_config
+  ADD COLUMN IF NOT EXISTS absen_window_mode text NOT NULL DEFAULT 'auto'
+  CHECK (absen_window_mode IN ('auto', 'manual'));
+```
+Migration sudah di-push ke remote.
+
+**Mode:**
+| Mode | Perilaku |
+|------|----------|
+| `auto` (default) | Kiosk buka/tutup otomatis via time window. `is_active` = emergency lock saja. |
+| `manual` | SPV toggle `is_active` untuk buka/tutup kiosk (perilaku lama). Time window diabaikan. |
+
+**File yang diubah:**
+- `pengaturan/page.tsx` — card pemilih mode (Otomatis/Manual) + toggle `is_active` kontekstual (label "Status Kiosk" di manual, "🔒 Emergency Lock" di auto).
+- `outlet-config/route.ts` — simpan `absen_window_mode` ke DB.
+- `submit-attendance/route.ts` — skip time window validation bila `absen_window_mode === 'manual'`.
+- `AttendanceKioskPanel.tsx` — baca `absen_window_mode` dari config, `isManual` flag mengontrol `clockInWindowOpen` & urutan overlay.
+
+**Overlay kiosk (urutan prioritas):**
+1. `isManual && !isOutletOpen` → "Outlet Ditutup" (SPV mengunci manual)
+2. `!isManual && !isOutletOpen` → "Dikunci SPV" (emergency lock mode auto)
+3. `!clockInWindowOpen` → "Belum Waktunya Absen" + jam buka
+4. Error kamera/model
+5. Normal: `CameraCapture`
+
+### 📝 Next
+- **Redeploy `absensi.sukashawarma.com`** — semua perubahan sesi ini baru live setelah redeploy.
+- Smoke test: verifikasi overlay "Belum Waktunya Absen" muncul di luar window, dan hilang saat jam buka tiba.
+- Pertimbangkan: notifikasi push ke crew saat kiosk sudah dibuka (opsional).
+
+---
+
+**Last updated:** 2026-06-26  
 **Owner:** Dev Suka Shawarma

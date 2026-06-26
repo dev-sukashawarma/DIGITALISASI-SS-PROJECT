@@ -29,7 +29,7 @@ export default function AdminUsersPage() {
   // Form state
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('crew')
+  const role = 'kiosk'
   const [outletId, setOutletId] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [inactiveReason, setInactiveReason] = useState('')
@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
   async function fetchData() {
     setLoading(true)
     const [profilesRes, outletsRes] = await Promise.all([
-      supabase.from('outlet_staff').select('*, outlets!outlet_staff_outlet_id_fkey(name)').order('created_at', { ascending: false }),
+      supabase.from('outlet_staff').select('*, outlets!outlet_staff_outlet_id_fkey(name)').eq('role', 'kiosk').order('created_at', { ascending: false }),
       supabase.from('outlets').select('*').eq('is_active', true).order('name', { ascending: true })
     ])
     
@@ -113,8 +113,8 @@ export default function AdminUsersPage() {
           password: password || undefined,
           role,
           outlet_id: outletId,
-          is_active: role === 'kiosk' ? true : isActive,
-          inactive_reason: role === 'kiosk' ? null : (!isActive ? inactiveReason : null)
+          is_active: isActive,
+          inactive_reason: !isActive ? inactiveReason : null
         })
       })
       
@@ -157,8 +157,8 @@ export default function AdminUsersPage() {
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Manajemen Pengguna</h1>
-          <p className="text-gray-500 mt-1 text-sm sm:text-base font-medium">Kelola akun Kasir dan Kiosk cabang. Total: <span className="font-bold text-gray-900">{users.length}</span> pengguna.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Manajemen Mesin Kiosk</h1>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base font-medium">Kelola akun akses untuk Mesin Kiosk cabang. Total: <span className="font-bold text-gray-900">{users.length}</span> pengguna.</p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
           <div className="relative w-full sm:w-auto">
@@ -193,7 +193,7 @@ export default function AdminUsersPage() {
             >
               <X className="w-6 h-6" />
             </button>
-            <h2 className="text-xl font-bold text-gray-900 mb-6">{editingUser ? 'Edit Akun Cabang' : 'Tambah Akun Cabang'}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">{editingUser ? 'Edit Mesin Kiosk' : 'Tambah Mesin Kiosk'}</h2>
             
             {error && (
               <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-xl font-medium">
@@ -272,7 +272,7 @@ export default function AdminUsersPage() {
                 <input 
                   type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium"
-                  placeholder={role === 'crew' ? "Misal: crew_sudirman" : "Misal: kiosk_sudirman1"}
+                  placeholder={"Misal: kiosk_sudirman1"}
                 />
               </div>
               
@@ -285,7 +285,7 @@ export default function AdminUsersPage() {
                 />
               </div>
               
-              {editingUser && role !== 'kiosk' && (
+              {editingUser && (
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Status Akun</label>
@@ -334,7 +334,7 @@ export default function AdminUsersPage() {
               <thead>
                 <tr className="border-b border-gray-100 text-gray-400 font-bold text-sm">
                   <th className="py-3 px-4 min-w-[200px]">Username</th>
-                  <th className="py-3 px-4 min-w-[150px]">Peran (Role)</th>
+                  
                   <th className="py-3 px-4 min-w-[200px]">Cabang Terhubung</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Aksi</th>
@@ -354,15 +354,7 @@ export default function AdminUsersPage() {
                       </div>
                       {u.username || 'Tidak ada'}
                     </td>
-                    <td className="py-4 px-4">
-                      {u.role === 'admin' ? (
-                        <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide">Admin</span>
-                      ) : u.role === 'crew' ? (
-                        <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide">Crew</span>
-                      ) : (
-                        <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide">Kiosk</span>
-                      )}
-                    </td>
+                    
                     <td className="py-4 px-4 text-gray-600 font-medium text-sm flex items-center gap-2">
                       {u.role === 'admin' ? (
                         <span className="text-gray-400 italic">Semua Cabang</span>

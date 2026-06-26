@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState } from "@suka/design-system";
 import { LogIn, LogOut, CalendarDays, ClipboardList, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase";
@@ -35,39 +36,39 @@ function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
 
 export default function RekapPage() {
   const { outletStaff } = useAuth();
-  const supabase = createClient();
-  const [rows, setRows] = useState<Row[]>([]);
+  const supabase = useMemo(() => createClient(), []);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [preview, setPreview] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("semua");
 
-  useEffect(() => {
-    if (!outletStaff) return;
+  const { data: rows = [] } = useQuery({
+    queryKey: ["rekap", outletStaff?.outlet_id, date],
+    enabled: !!outletStaff?.outlet_id,
+    queryFn: async () => {
+      const [attRes, staffRes, cfgRes] = await Promise.all([
+        supabase
+          .from("attendance")
+          .select("id,type,ts_server,ts_client,status,selfie_url,outlet_staff_id,outlet_staff(name)")
+          .eq("outlet_id", outletStaff!.outlet_id)
+          .gte("ts_server", `${date}T00:00:00`)
+          .lte("ts_server", `${date}T23:59:59`)
+          .order("ts_server", { ascending: false }),
+        supabase
+          .from("outlet_staff")
+          .select("id,name")
+          .eq("outlet_id", outletStaff!.outlet_id)
+          .eq("status", "active"),
+        supabase
+          .from("outlet_attendance_config")
+          .select("jam_masuk,jam_keluar")
+          .eq("outlet_id", outletStaff!.outlet_id)
+          .single()
+      ]);
 
-    Promise.all([
-      supabase
-        .from("attendance")
-        .select("id,type,ts_server,ts_client,status,selfie_url,outlet_staff_id,outlet_staff(name)")
-        .eq("outlet_id", outletStaff.outlet_id)
-        .gte("ts_server", `${date}T00:00:00`)
-        .lte("ts_server", `${date}T23:59:59`)
-        .order("ts_server", { ascending: false }),
-      supabase
-        .from("outlet_staff")
-        .select("id,name")
-        .eq("outlet_id", outletStaff.outlet_id)
-        .eq("status", "active"),
-      supabase
-        .from("outlet_attendance_config")
-        .select("jam_masuk,jam_keluar")
-        .eq("outlet_id", outletStaff.outlet_id)
-        .single()
-    ]).then(([attRes, staffRes, cfgRes]) => {
       const dbRows = (attRes.data as unknown as (Row & { outlet_staff_id: string })[]) || [];
       const activeStaff = staffRes.data || [];
       const cfg = cfgRes.data;
 
-      // Calculate delay minutes for telat records
       dbRows.forEach(r => {
         if (r.status === "telat" && r.type === "in" && cfg?.jam_masuk) {
           r.delay_minutes = calculateDelayMinutes(r.ts_server, cfg.jam_masuk);
@@ -81,27 +82,21 @@ export default function RekapPage() {
       });
 
       const inRecords = new Set(dbRows.filter(r => r.type === "in").map(r => r.outlet_staff_id));
+      const virtualAlphas: Row[] = activeStaff
+        .filter(staff => !inRecords.has(staff.id))
+        .map(staff => ({
+          id: `virtual-alpha-${staff.id}`,
+          type: "in" as const,
+          ts_server: `${date}T23:59:59`,
+          ts_client: null,
+          status: "alpha" as const,
+          selfie_url: null,
+          outlet_staff: { name: staff.name },
+        }));
 
-      const virtualAlphas: Row[] = [];
-
-      // Staf tanpa absen masuk langsung ditampilkan sebagai Alpha agar real-time.
-      activeStaff.forEach(staff => {
-        if (!inRecords.has(staff.id)) {
-          virtualAlphas.push({
-            id: `virtual-alpha-${staff.id}`,
-            type: "in",
-            ts_server: `${date}T23:59:59`, // Dummy time
-            ts_client: null,
-            status: "alpha",
-            selfie_url: null,
-            outlet_staff: { name: staff.name }
-          });
-        }
-      });
-
-      setRows([...dbRows, ...virtualAlphas]);
-    });
-  }, [outletStaff, date]);
+      return [...dbRows, ...virtualAlphas];
+    },
+  });
 
   const summary = useMemo(() => ({
     tepat: rows.filter((r) => r.status === "tepat").length,

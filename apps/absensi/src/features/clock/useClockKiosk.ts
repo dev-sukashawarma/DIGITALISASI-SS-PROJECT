@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { getHuman } from "@/lib/face/recognizer";
 import { createClient } from "@/lib/supabase";
 import { captureFrame } from "@/components/CameraCapture";
@@ -29,7 +29,7 @@ const FUNCTION_URL = "/api/submit-attendance";
  */
 export function useClockKiosk(outletId: string, options?: { lockToStaffId?: string }) {
   const lockToStaffId = options?.lockToStaffId;
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const queue = useAttendanceQueue();
 
   const candidatesRef = useRef<Candidate[]>([]);
@@ -54,7 +54,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     candidatesRef.current = ((data as StaffRow[]) ?? [])
       .filter((s) => s.face_descriptor)
       .map((s) => ({ id: s.id, name: s.name, descriptor: s.face_descriptor! }));
-  }, [outletId, supabase, lockToStaffId]);
+  }, [outletId, lockToStaffId, supabase]);
 
   /** Tentukan aksi IN/OUT dari record hari ini. */
   const decideAction = useCallback(async (staffId: string): Promise<"in" | "out" | "done"> => {
@@ -80,7 +80,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     if (!inRecord) return "in";
     if (!outRecord) return "out";
     return "done";
-  }, [supabase]);
+  }, [supabase]); // supabase is memoized — stable reference
 
   /** Dipanggil per-frame oleh layar saat phase idle: deteksi + identify. */
   const tick = useCallback(async (video: HTMLVideoElement) => {

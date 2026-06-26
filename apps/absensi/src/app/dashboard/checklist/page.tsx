@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Spinner } from "@suka/design-system";
 import { ListChecks, Plus, Edit, Trash2, X as XIcon } from "lucide-react";
 import { useAuth } from '@suka/auth';
@@ -30,12 +31,14 @@ const PHASE_LABEL: Record<Phase, string> = {
   tutup: "Sebelum Pulang",
 };
 
+const CHECKLIST_KEY = (outletId: string) => ["checklist-management", outletId];
+
 export default function ChecklistManagementPage() {
   const { outletStaff } = useAuth();
+  const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
+  const qc = useQueryClient();
 
-  const [categories, setCategories] = useState<ChecklistCategory[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Phase>("buka");
 
   // Modal state
@@ -50,107 +53,77 @@ export default function ChecklistManagementPage() {
   const [itemRequired, setItemRequired] = useState(true);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
-  // Wrap in useCallback to satisfy lint rule (dep array)
-  const loadChecklists = useCallback(async () => {
-    if (!outletStaff?.outlet_id) {
-      setLoading(false);
-      return;
-    }
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("checklist_categories")
-      .select("*, checklist_items(*)")
-      .eq("outlet_id", outletStaff.outlet_id)
-      .order("created_at", { ascending: true });
+  const { data: categories = [], isLoading } = useQuery({
+    queryKey: CHECKLIST_KEY(outletStaff?.outlet_id ?? ""),
+    enabled: !!outletStaff?.outlet_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("checklist_categories")
+        .select("*, checklist_items(*)")
+        .eq("outlet_id", outletStaff!.outlet_id)
+        .order("created_at", { ascending: true });
+      if (error) { toast.show("err", "Gagal memuat checklist"); return []; }
+      return (data || []) as ChecklistCategory[];
+    },
+  });
 
-    if (error) {
-      toast.show("err", "Gagal memuat checklist");
-    } else {
-      setCategories(data || []);
-    }
-    setLoading(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outletStaff?.outlet_id]);
-
-  useEffect(() => {
-    if (!outletStaff?.outlet_id) { setLoading(false); return; }
-    loadChecklists();
-  }, [outletStaff?.outlet_id, loadChecklists]);
+  function refresh() {
+    if (outletStaff?.outlet_id) qc.invalidateQueries({ queryKey: CHECKLIST_KEY(outletStaff.outlet_id) });
+  }
 
   // CATEGORY ACTIONS
   async function handleSaveCategory(e: React.FormEvent) {
     e.preventDefault();
     if (!catName.trim()) return;
-    const supabase = createClient();
 
     if (editingCatId) {
-      const { error } = await supabase
-        .from("checklist_categories")
-        .update({ name: catName, phase: catPhase })
-        .eq("id", editingCatId);
+      const { error } = await supabase.from("checklist_categories").update({ name: catName, phase: catPhase }).eq("id", editingCatId);
       if (error) toast.show("err", "Gagal mengupdate kategori");
       else toast.show("ok", "Kategori diupdate");
     } else {
-      const { error } = await supabase
-        .from("checklist_categories")
-        .insert({ name: catName, phase: catPhase, outlet_id: outletStaff!.outlet_id });
+      const { error } = await supabase.from("checklist_categories").insert({ name: catName, phase: catPhase, outlet_id: outletStaff!.outlet_id });
       if (error) toast.show("err", "Gagal membuat kategori");
       else toast.show("ok", "Kategori dibuat");
     }
 
-    setShowCatModal(false);
-    setCatName("");
-    setCatPhase("buka");
-    setEditingCatId(null);
-    loadChecklists();
+    setShowCatModal(false); setCatName(""); setCatPhase("buka"); setEditingCatId(null);
+    refresh();
   }
 
   async function handleDeleteCategory(id: string, name: string) {
     if (!confirm(`Hapus kategori "${name}" beserta semua tugas di dalamnya?`)) return;
-    const supabase = createClient();
     const { error } = await supabase.from("checklist_categories").delete().eq("id", id);
     if (error) toast.show("err", "Gagal menghapus kategori");
-    else { toast.show("ok", "Kategori dihapus"); loadChecklists(); }
+    else { toast.show("ok", "Kategori dihapus"); refresh(); }
   }
 
   // ITEM ACTIONS
   async function handleSaveItem(e: React.FormEvent) {
     e.preventDefault();
     if (!itemName.trim() || !activeCatId) return;
-    const supabase = createClient();
 
     if (editingItemId) {
-      const { error } = await supabase
-        .from("checklist_items")
-        .update({ task_name: itemName, is_required: itemRequired })
-        .eq("id", editingItemId);
+      const { error } = await supabase.from("checklist_items").update({ task_name: itemName, is_required: itemRequired }).eq("id", editingItemId);
       if (error) toast.show("err", "Gagal mengupdate tugas");
       else toast.show("ok", "Tugas diupdate");
     } else {
-      const { error } = await supabase
-        .from("checklist_items")
-        .insert({ category_id: activeCatId, task_name: itemName, is_required: itemRequired });
+      const { error } = await supabase.from("checklist_items").insert({ category_id: activeCatId, task_name: itemName, is_required: itemRequired });
       if (error) toast.show("err", "Gagal membuat tugas");
       else toast.show("ok", "Tugas dibuat");
     }
 
-    setShowItemModal(false);
-    setItemName("");
-    setItemRequired(true);
-    setEditingItemId(null);
-    setActiveCatId(null);
-    loadChecklists();
+    setShowItemModal(false); setItemName(""); setItemRequired(true); setEditingItemId(null); setActiveCatId(null);
+    refresh();
   }
 
   async function handleDeleteItem(id: string, name: string) {
     if (!confirm(`Hapus tugas "${name}"?`)) return;
-    const supabase = createClient();
     const { error } = await supabase.from("checklist_items").delete().eq("id", id);
     if (error) toast.show("err", "Gagal menghapus tugas");
-    else { toast.show("ok", "Tugas dihapus"); loadChecklists(); }
+    else { toast.show("ok", "Tugas dihapus"); refresh(); }
   }
 
-  if (loading) return <div className="p-8 flex justify-center"><Spinner /></div>;
+  if (isLoading) return <div className="p-8 flex justify-center"><Spinner /></div>;
 
   return (
     <div className="space-y-5">

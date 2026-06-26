@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button, Spinner } from "@suka/design-system";
 import { Clock, Timer, Settings2, Save, Lock, Unlock } from "lucide-react";
 import { useAuth } from '@suka/auth';
@@ -17,20 +18,21 @@ type Config = {
 
 export default function PengaturanAbsensiPage() {
   const { outletStaff } = useAuth();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<Config>({ jam_masuk: "09:00", jam_keluar: "17:00", toleransi_menit: 15, is_active: false });
 
-  useEffect(() => {
-    if (!outletStaff?.outlet_id) return;
-
-    Promise.all([
-      supabase.from("outlet_attendance_config").select("jam_masuk, jam_keluar, toleransi_menit").eq("outlet_id", outletStaff.outlet_id).single(),
-      supabase.from("outlets").select("is_active").eq("id", outletStaff.outlet_id).single()
-    ]).then(([cfg, out]) => {
+  const { isLoading } = useQuery({
+    queryKey: ["pengaturan", outletStaff?.outlet_id],
+    enabled: !!outletStaff?.outlet_id,
+    staleTime: 5 * 60_000, // pengaturan jarang berubah, cache 5 menit
+    queryFn: async () => {
+      const [cfg, out] = await Promise.all([
+        supabase.from("outlet_attendance_config").select("jam_masuk, jam_keluar, toleransi_menit").eq("outlet_id", outletStaff!.outlet_id).single(),
+        supabase.from("outlets").select("is_active").eq("id", outletStaff!.outlet_id).single()
+      ]);
       if (cfg.data && out.data) {
         setConfig({
           jam_masuk: cfg.data.jam_masuk.slice(0, 5),
@@ -39,9 +41,9 @@ export default function PengaturanAbsensiPage() {
           is_active: out.data.is_active
         });
       }
-      setLoading(false);
-    });
-  }, [outletStaff]);
+      return cfg.data;
+    },
+  });
 
   const handleSave = async () => {
     if (!outletStaff?.outlet_id) return;
@@ -60,7 +62,7 @@ export default function PengaturanAbsensiPage() {
     setSaving(false);
   };
 
-  if (loading) return <div className="p-12 flex justify-center"><Spinner /></div>;
+  if (isLoading) return <div className="p-12 flex justify-center"><Spinner /></div>;
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-10">

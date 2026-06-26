@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState, Spinner } from "@suka/design-system";
 import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase";
@@ -30,8 +31,7 @@ const LEGEND = [
 
 export default function PapanKehadiranPage() {
   const { outletStaff } = useAuth();
-  const supabase = createClient();
-  const [data, setData] = useState<ReturnType<typeof computeBoard> | null>(null);
+  const supabase = useMemo(() => createClient(), []);
   const [preview, setPreview] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("semua");
 
@@ -39,23 +39,23 @@ export default function PapanKehadiranPage() {
     return supabase.storage.from(SELFIE_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
-  useEffect(() => {
-    if (!outletStaff) return;
-    const today = new Date().toISOString().slice(0, 10);
-    (async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, isLoading } = useQuery({
+    queryKey: ["papan-kehadiran", outletStaff?.outlet_id, today],
+    enabled: !!outletStaff?.outlet_id,
+    queryFn: async () => {
       const [{ data: staff }, { data: recs }, { data: cfg }] = await Promise.all([
-        supabase.from("outlet_staff").select("id,name,role").eq("outlet_id", outletStaff.outlet_id).eq("status", "active"),
+        supabase.from("outlet_staff").select("id,name,role").eq("outlet_id", outletStaff!.outlet_id).eq("status", "active"),
         supabase.from("attendance").select("outlet_staff_id,type,status,ts_server,selfie_url")
-          .eq("outlet_id", outletStaff.outlet_id).gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
-        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", outletStaff.outlet_id).single()
+          .eq("outlet_id", outletStaff!.outlet_id).gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
+        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", outletStaff!.outlet_id).single()
       ]);
-      if (cfg) {
-        setData(computeBoard((staff as BoardStaff[]) ?? [], (recs as BoardRecord[]) ?? [], cfg));
-      }
-    })();
-  }, [outletStaff]);
+      if (!cfg) return null;
+      return computeBoard((staff as BoardStaff[]) ?? [], (recs as BoardRecord[]) ?? [], cfg);
+    },
+  });
 
-  if (!data) return <div className="p-6 flex justify-center"><Spinner /></div>;
+  if (isLoading || !data) return <div className="p-6 flex justify-center"><Spinner /></div>;
 
   const { summary } = data;
   const present = summary.hadir + summary.telat;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Card, Spinner } from "@suka/design-system";
 import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock } from "lucide-react";
 import { useAuth } from '@suka/auth';
@@ -34,7 +34,6 @@ function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
 
 export function AttendanceKioskPanel() {
   const { outletStaff } = useAuth();
-  const supabase = createClient();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [isOutletOpen, setIsOutletOpen] = useState(true);
@@ -45,6 +44,7 @@ export function AttendanceKioskPanel() {
 
   // Kiosk Integration — MODE 1:1: panel pribadi, kunci ke akun yang login.
   // Wajah orang lain (walau ter-enroll) ditolak; hanya pemilik akun yang bisa absen.
+  const supabase = useMemo(() => createClient(), []);
   const kiosk = useClockKiosk(outletStaff?.outlet_id || "", { lockToStaffId: outletStaff?.id });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const loopRef = useRef<number | null>(null);
@@ -111,7 +111,7 @@ export function AttendanceKioskPanel() {
         if (kiosk.phase === "idle") kiosk.tick(v);
         else if (kiosk.phase === "liveness") kiosk.runLiveness(v);
       }
-      loopRef.current = window.setTimeout(loop, kiosk.phase === "liveness" ? 40 : 500);
+      loopRef.current = window.setTimeout(loop, kiosk.phase === "liveness" ? 40 : 1000);
     }
     loop();
     return () => { if (loopRef.current) clearTimeout(loopRef.current); };

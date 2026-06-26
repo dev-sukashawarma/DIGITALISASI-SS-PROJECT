@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Button, Card, Spinner } from "@suka/design-system";
 import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowRight, AlertTriangle } from "lucide-react";
 import { useToast } from "@/lib/feedback/toast";
@@ -18,7 +18,7 @@ type EnrollPhase = "list" | "consent" | "center" | "left" | "right" | "saving" |
 
 export default function EnrollPage() {
   const { outletStaff } = useAuth();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
   
   const [selectedOutletId, setSelectedOutletId] = useState<string>("");

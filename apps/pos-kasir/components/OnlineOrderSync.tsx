@@ -113,59 +113,17 @@ export default function OnlineOrderSync() {
     // Melacak pesanan yang sudah ditarik namun belum selesai, lalu mengecek status akhirnya di order system
     async function syncActiveOrderStatuses() {
       try {
-        const posKasirDb = createClient()
-        // 1. Ambil pesanan online yang masih gantung di kasir
-        const { data: localOrders } = await posKasirDb
-          .from('orders')
-          .select('id, external_order_id, status')
-          .eq('source', 'online')
-          .in('status', ['preparing', 'ready'])
-
-        if (!localOrders || localOrders.length === 0) return
-
-        // 2. Cek status terbarunya di SS Order System
-        const externalIds = localOrders.map(o => o.external_order_id).filter(Boolean)
-        if (externalIds.length === 0) return
-
-        const { data: remoteOrders } = await ssOrderDb
-          .from('orders')
-          .select('id, status')
-          .in('id', externalIds)
-
-        if (!remoteOrders || remoteOrders.length === 0) return
-
-        // 3. Bandingkan dan update jika perlu
-        let needsReload = false
-        for (const local of localOrders) {
-          const remote = remoteOrders.find(r => r.id === local.external_order_id)
-          if (remote) {
-            // Jika di remote sudah done/ready/cancelled tapi di lokal masih preparing/ready
-            if (remote.status === 'done' || remote.status === 'ready' || remote.status === 'cancelled') {
-              const mappedStatus = (remote.status === 'done' || remote.status === 'ready') ? 'completed' : 'cancelled'
-              
-              if (local.status !== mappedStatus) {
-                console.log(`OnlineOrderSync: Memperbaiki status pesanan nyangkut ${local.external_order_id} menjadi ${mappedStatus}`)
-                try {
-                  const res = await fetch('/api/orders/sync-internal', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ external_order_id: remote.id, status: mappedStatus })
-                  })
-                  if (res.ok) {
-                    needsReload = true
-                  }
-                } catch (e) {
-                  console.error('Gagal sync nyangkut', e)
-                }
-              }
-            }
+        const res = await fetch('/api/orders/sync-active', { method: 'POST' })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success && data.count > 0) {
+            console.log(`OnlineOrderSync: Memperbaiki ${data.count} pesanan nyangkut`)
+            // Jangan reload full, cukup invalidasi react-query agar UI update halus tanpa kedip
+            // Tetapi karena komponen ini tidak punya akses ke queryClient langsung dari context (karena terpisah),
+            // kita reload saja untuk aman, ATAU biarkan polling kasir/page.tsx yang akan menangkap datanya.
+            // Karena kasir/page.tsx mem-poll setiap 3 detik, otomatis data akan update!
           }
         }
-
-        if (needsReload) {
-          window.location.reload()
-        }
-
       } catch (err) {
         console.error('OnlineOrderSync: Error sync active statuses', err)
       }
@@ -174,9 +132,13 @@ export default function OnlineOrderSync() {
     // Panggil saat mount
     syncPendingPaidOrders()
     syncActiveOrderStatuses()
+    
+    // Polling setiap 10 detik agar kebal terhadap kegagalan realtime/webhook
+    const interval = setInterval(syncActiveOrderStatuses, 10000)
 
     return () => {
       ssOrderDb.removeChannel(channel)
+      clearInterval(interval)
     }
   }, [])
 

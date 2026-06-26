@@ -3,8 +3,10 @@
 import { useEffect } from 'react'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { useQueryClient } from '@tanstack/react-query'
 
 export default function OnlineOrderSync() {
+  const queryClient = useQueryClient()
   useEffect(() => {
     const SS_ORDER_URL = process.env.NEXT_PUBLIC_SS_ORDER_URL
     const SS_ORDER_KEY = process.env.NEXT_PUBLIC_SS_ORDER_ANON_KEY
@@ -60,7 +62,8 @@ export default function OnlineOrderSync() {
               body: JSON.stringify({ external_order_id: payload.new.id, status: mappedStatus })
             }).then(res => {
               if (res.ok) {
-                window.location.reload()
+                // Segarkan board kasir tanpa reload penuh (tidak mengganggu transaksi berjalan)
+                queryClient.invalidateQueries({ queryKey: ['orders'] })
               } else {
                 console.error('OnlineOrderSync: Gagal sync internal', res.statusText)
               }
@@ -118,10 +121,9 @@ export default function OnlineOrderSync() {
           const data = await res.json()
           if (data.success && data.count > 0) {
             console.log(`OnlineOrderSync: Memperbaiki ${data.count} pesanan nyangkut`)
-            // Jangan reload full, cukup invalidasi react-query agar UI update halus tanpa kedip
-            // Tetapi karena komponen ini tidak punya akses ke queryClient langsung dari context (karena terpisah),
-            // kita reload saja untuk aman, ATAU biarkan polling kasir/page.tsx yang akan menangkap datanya.
-            // Karena kasir/page.tsx mem-poll setiap 3 detik, otomatis data akan update!
+            // Invalidasi react-query agar pesanan yang baru selesai langsung pindah kolom
+            // tanpa menunggu polling 3 detik & tanpa kedip reload
+            queryClient.invalidateQueries({ queryKey: ['orders'] })
           }
         }
       } catch (err) {
@@ -132,15 +134,25 @@ export default function OnlineOrderSync() {
     // Panggil saat mount
     syncPendingPaidOrders()
     syncActiveOrderStatuses()
-    
+
     // Polling setiap 10 detik agar kebal terhadap kegagalan realtime/webhook
     const interval = setInterval(syncActiveOrderStatuses, 10000)
+
+    // Saat kasir kembali fokus/membuka tab, langsung tarik status terbaru.
+    // Menutup celah utama: event realtime yang terlewat selagi tab tidak aktif.
+    const onActive = () => {
+      if (document.visibilityState === 'visible') syncActiveOrderStatuses()
+    }
+    document.addEventListener('visibilitychange', onActive)
+    window.addEventListener('focus', onActive)
 
     return () => {
       ssOrderDb.removeChannel(channel)
       clearInterval(interval)
+      document.removeEventListener('visibilitychange', onActive)
+      window.removeEventListener('focus', onActive)
     }
-  }, [])
+  }, [queryClient])
 
   return null
 }

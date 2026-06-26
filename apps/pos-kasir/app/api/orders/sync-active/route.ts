@@ -13,7 +13,7 @@ export async function POST() {
       .from('orders')
       .select('id, external_order_id, status')
       .eq('source', 'online')
-      .in('status', ['preparing', 'ready'])
+      .in('status', ['pending', 'preparing', 'ready'])
 
     if (localErr) {
       console.error('sync-active: gagal get local orders', localErr)

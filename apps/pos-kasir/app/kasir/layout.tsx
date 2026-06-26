@@ -13,11 +13,11 @@ export default function KasirLayout({ children }: { children: React.ReactNode })
   const isDashboard = pathname === '/kasir'
 
   return (
-    <div className="min-h-screen bg-[#fff8f1] lg:flex print:block">
+    <div className="h-[100dvh] overflow-hidden bg-[#fff8f1] flex flex-col lg:flex-row print:block print:h-auto print:overflow-visible">
       <OnlineOrderSync />
       <OwnerMessagePopup />
       <KasirNav />
-      <main className="flex-1 min-w-0 print:w-full print:max-w-none">
+      <main className="flex-1 min-w-0 overflow-y-auto print:overflow-visible print:w-full print:max-w-none">
         {/* Indikator target harian realtime — selalu terlihat di atas konten */}
         <TargetProgressBar />
         <OwnerMessageBanner />

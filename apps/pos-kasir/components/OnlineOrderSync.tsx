@@ -49,11 +49,11 @@ export default function OnlineOrderSync() {
               knownOrders.add(payload.new.id)
               pullOrder(payload.new.id)
             }
-          } else if (payload.new.status === 'done' || payload.new.status === 'cancelled') {
+          } else if (payload.new.status === 'done' || payload.new.status === 'ready' || payload.new.status === 'cancelled') {
             console.log(`OnlineOrderSync: Pesanan ${payload.new.id} berubah jadi ${payload.new.status} di order-system!`)
             // Update db pos-kasir lokal
             const posKasirDb = createClient()
-            const mappedStatus = payload.new.status === 'done' ? 'completed' : 'cancelled'
+            const mappedStatus = (payload.new.status === 'done' || payload.new.status === 'ready') ? 'completed' : 'cancelled'
             await posKasirDb
               .from('orders')
               .update({ status: mappedStatus, updated_at: new Date().toISOString() })

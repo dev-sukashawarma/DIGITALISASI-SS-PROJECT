@@ -40,7 +40,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Username dan role harus diisi' }, { status: 400 })
   }
 
-  if (role !== 'kasir' && role !== 'kiosk') {
+  if (role !== 'crew' && role !== 'kiosk') {
     return NextResponse.json({ error: 'Role tidak valid' }, { status: 400 })
   }
 

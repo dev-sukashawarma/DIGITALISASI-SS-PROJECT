@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Username, password, dan role harus diisi' }, { status: 400 })
   }
 
-  if (role !== 'kasir' && role !== 'kiosk') {
+  if (role !== 'crew' && role !== 'kiosk') {
     return NextResponse.json({ error: 'Hanya bisa membuat user kasir atau kiosk' }, { status: 400 })
   }
 

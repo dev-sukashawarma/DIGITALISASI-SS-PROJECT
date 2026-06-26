@@ -35,7 +35,7 @@ export function resolveLogoutTargets(
   body: LogoutRequest,
   outletKiosks: KioskAccount[]
 ): ResolveResult {
-  if (requester.role !== 'kasir') {
+  if (requester.role !== 'crew') {
     return { ok: false, status: 403, targetUserIds: [], error: 'Hanya kasir yang dapat me-logout kiosk' }
   }
   if (!requester.outlet_id) {

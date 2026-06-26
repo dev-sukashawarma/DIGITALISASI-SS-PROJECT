@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const supabaseService = createServiceClient()
     const { data: profile } = await supabaseService.from('outlet_staff').select('role, outlet_id').eq('id', user.id).single()
 
-    if (!profile || profile.role !== 'kasir') {
+    if (!profile || profile.role !== 'crew') {
       return NextResponse.json({ error: 'Akses ditolak. Harus Kasir.' }, { status: 403 })
     }
 

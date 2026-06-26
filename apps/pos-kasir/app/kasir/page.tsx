@@ -38,7 +38,7 @@ async function fetchTodayOrders(outletId: string): Promise<OrderWithItems[]> {
     .from('orders')
     .select('*, order_items(*)')
     .eq('outlet_id', outletId)
-    .gte('created_at', today.toISOString())
+    .or(`created_at.gte.${today.toISOString()},status.in.(pending,preparing)`)
     .order('created_at', { ascending: false })
     .limit(200)
 
@@ -189,6 +189,15 @@ export default function CashierOrdersPage() {
       )
       await supabase.from('orders').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id)
       queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
+
+      const targetOrder = orders.find(o => o.id === id)
+      if (targetOrder && targetOrder.source === 'online' && targetOrder.external_order_id) {
+        fetch('/api/orders/notify-online-cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: id }),
+        }).catch((err) => console.error('Gagal mengirim notifikasi cancel ke order-system:', err))
+      }
     }
   }
 

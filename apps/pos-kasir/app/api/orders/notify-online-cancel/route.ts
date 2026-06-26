@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Dipanggil dari app/kasir saat kasir menekan "Tandai Selesai" pada order
+// Dipanggil dari app/kasir saat kasir membatalkan order (cancelOrder)
 // yang sumbernya online (source = 'online').
-// Mengupdate langsung status order-system ke 'done' via Supabase Service Key.
+// Mengupdate langsung status order-system ke 'cancelled' via Supabase Service Key.
 export async function POST(request: Request) {
   let body: { order_id: string }
   try {
@@ -44,8 +44,8 @@ export async function POST(request: Request) {
     const { error: updateErr } = await ssOrderDb
       .from('orders')
       .update({
-        status: 'done',
-        done_at: new Date().toISOString()
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString()
       })
       .eq('id', order.external_order_id)
 

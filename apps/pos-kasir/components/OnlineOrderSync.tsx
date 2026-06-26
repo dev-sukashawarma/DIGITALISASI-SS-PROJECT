@@ -41,13 +41,29 @@ export default function OnlineOrderSync() {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders' },
-        (payload) => {
+        async (payload) => {
           if (payload.new.status === 'paid') {
             if (!knownOrders.has(payload.new.id)) {
               console.log('OnlineOrderSync: Pesanan PAID terdeteksi!', payload.new)
               knownOrders.add(payload.new.id)
               pullOrder(payload.new.id)
             }
+          } else if (payload.new.status === 'done' || payload.new.status === 'cancelled') {
+            console.log(`OnlineOrderSync: Pesanan ${payload.new.id} berubah jadi ${payload.new.status} di order-system!`)
+            // Update db pos-kasir lokal
+            const posKasirDb = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            )
+            const mappedStatus = payload.new.status === 'done' ? 'completed' : 'cancelled'
+            await posKasirDb
+              .from('orders')
+              .update({ status: mappedStatus, updated_at: new Date().toISOString() })
+              .eq('external_order_id', payload.new.id)
+              .eq('source', 'online')
+              
+            // Refresh halaman agar UI Kasir terupdate
+            window.location.reload()
           }
         }
       )

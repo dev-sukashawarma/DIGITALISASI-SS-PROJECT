@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function OnlineOrderSync() {
   useEffect(() => {
@@ -51,10 +52,7 @@ export default function OnlineOrderSync() {
           } else if (payload.new.status === 'done' || payload.new.status === 'cancelled') {
             console.log(`OnlineOrderSync: Pesanan ${payload.new.id} berubah jadi ${payload.new.status} di order-system!`)
             // Update db pos-kasir lokal
-            const posKasirDb = createClient(
-              process.env.NEXT_PUBLIC_SUPABASE_URL!,
-              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            )
+            const posKasirDb = createClientComponentClient()
             const mappedStatus = payload.new.status === 'done' ? 'completed' : 'cancelled'
             await posKasirDb
               .from('orders')

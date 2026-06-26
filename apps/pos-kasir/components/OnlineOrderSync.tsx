@@ -51,17 +51,22 @@ export default function OnlineOrderSync() {
             }
           } else if (payload.new.status === 'done' || payload.new.status === 'ready' || payload.new.status === 'cancelled') {
             console.log(`OnlineOrderSync: Pesanan ${payload.new.id} berubah jadi ${payload.new.status} di order-system!`)
-            // Update db pos-kasir lokal
-            const posKasirDb = createClient()
+            // Update db pos-kasir lokal via internal API agar bypass RLS & bisa dilog
             const mappedStatus = (payload.new.status === 'done' || payload.new.status === 'ready') ? 'completed' : 'cancelled'
-            await posKasirDb
-              .from('orders')
-              .update({ status: mappedStatus, updated_at: new Date().toISOString() })
-              .eq('external_order_id', payload.new.id)
-              .eq('source', 'online')
-              
-            // Refresh halaman agar UI Kasir terupdate
-            window.location.reload()
+            
+            fetch('/api/orders/sync-internal', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ external_order_id: payload.new.id, status: mappedStatus })
+            }).then(res => {
+              if (res.ok) {
+                window.location.reload()
+              } else {
+                console.error('OnlineOrderSync: Gagal sync internal', res.statusText)
+              }
+            }).catch(err => {
+              console.error('OnlineOrderSync: Gagal memanggil API sync-internal', err)
+            })
           }
         }
       )

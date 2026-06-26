@@ -29,7 +29,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { user_id, outlet_id, title, body, url, app, broadcast } = await req.json()
+    const { user_id, outlet_id, title, body, url, app, broadcast, target_roles } = await req.json()
 
     if (!title || !body) {
       return new Response(
@@ -46,13 +46,16 @@ serve(async (req) => {
     }
 
     // Query subscriptions
-    let query = supabase.from('push_subscriptions').select('*, outlet_staff!inner(outlet_id)')
+    let query = supabase.from('push_subscriptions').select('*, outlet_staff!inner(outlet_id, role)')
 
     if (!broadcast) {
       if (user_id) {
         query = query.eq('user_id', user_id)
       } else if (outlet_id) {
         query = query.eq('outlet_staff.outlet_id', outlet_id)
+        if (target_roles && Array.isArray(target_roles) && target_roles.length > 0) {
+          query = query.in('outlet_staff.role', target_roles)
+        }
       }
     }
 

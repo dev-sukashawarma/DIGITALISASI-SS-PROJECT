@@ -20,14 +20,17 @@
     "react-is": "^19.0.0",
     "@supabase/supabase-js": "^2.38.0",
     "@supabase/ssr": "^0.2.0",
-    "@suka/design-system": "*",
-    "@suka/offline-queue": "*",
-    "@suka/auth": "*",
+    "@suka/design-system": "workspace:*",
+    "@suka/offline-queue": "workspace:*",
+    "@suka/auth": "workspace:*",
+    "@suka/pwa": "workspace:*",
     "lucide-react": "^0.300.0",
     "zustand": "^4.5.4",
     "sonner": "^1.4.0",
     "framer-motion": "^11.0.3",
-    "react-countup": "^6.5.0"
+    "react-countup": "^6.5.0",
+    "@serwist/next": "^9.0.11",
+    "serwist": "^9.0.11"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

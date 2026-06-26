@@ -1,11 +1,19 @@
-/** @type {import('next').NextConfig} */
+import withSerwistInit from "@serwist/next";
 
+const withSerwist = withSerwistInit({
+  swSrc: "src/app/sw.ts",
+  swDest: "public/sw.js",
+  disable: process.env.NODE_ENV === "development",
+});
+
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/offline-queue'],
+  turbopack: {},
+  transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/offline-queue', '@suka/pwa'],
   typescript: {
     ignoreBuildErrors: true,
   },
 }
 
-export default nextConfig
+export default withSerwist(nextConfig)
 

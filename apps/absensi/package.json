@@ -14,9 +14,11 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@suka/auth": "*",
-    "@suka/design-system": "*",
-    "@suka/offline-queue": "*",
+    "@serwist/next": "^9.0.11",
+    "@suka/auth": "workspace:*",
+    "@suka/design-system": "workspace:*",
+    "@suka/offline-queue": "workspace:*",
+    "@suka/pwa": "workspace:*",
     "@supabase/ssr": "^0.2.0",
     "@supabase/supabase-js": "^2.38.0",
     "@vladmandic/human": "^3.3.6",
@@ -24,7 +26,8 @@
     "lucide-react": "^1.17.0",
     "next": "^16.1.6",
     "react": "^19.0.0-rc.0",
-    "react-dom": "^19.0.0-rc.0"
+    "react-dom": "^19.0.0-rc.0",
+    "serwist": "^9.0.11"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

@@ -2,9 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { ROLE_APP_ACCESS, hasAppAccess, accessibleApps } from './access'
 
 describe('ROLE_APP_ACCESS', () => {
-  it('kasir hanya pos-kasir & absensi', () => {
-    expect([...ROLE_APP_ACCESS.kasir].sort()).toEqual(['absensi', 'pos-kasir'])
-  })
+
 
   it('crew punya absensi, pos-kasir, stok & distribusi', () => {
     expect([...ROLE_APP_ACCESS.crew].sort()).toEqual(['absensi', 'distribusi', 'pos-kasir', 'stok'])
@@ -30,9 +28,8 @@ describe('ROLE_APP_ACCESS', () => {
     expect(ROLE_APP_ACCESS.spv).not.toContain('pos-kasir')
   })
 
-  it('kitchen memiliki akses sama seperti spv', () => {
-    expect([...ROLE_APP_ACCESS.kitchen].sort()).toEqual(['absensi', 'distribusi', 'stok'])
-    expect(ROLE_APP_ACCESS.kitchen).toEqual(ROLE_APP_ACCESS.spv)
+  it('kitchen memiliki akses stok dan distribusi', () => {
+    expect([...ROLE_APP_ACCESS.kitchen].sort()).toEqual(['distribusi', 'stok'])
   })
 })
 

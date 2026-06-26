@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { UploadCloud, Loader2, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
+import { NotificationToggle, PushSubscriptionData } from '@suka/pwa'
 
 const BUCKET = 'kiosk-assets'
 const COVER_KEY = 'cover_image_url'
@@ -16,6 +17,31 @@ export default function KasirSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const { outletId, loaded } = useMyOutlet()
+
+  const handleSubscribe = async (data: PushSubscriptionData) => {
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.id) {
+         console.warn('Cannot subscribe: no authenticated user')
+         return
+      }
+      await supabase.from('push_subscriptions').upsert({
+        user_id: user.id,
+        app: 'pos-kasir',
+        endpoint: data.endpoint,
+        p256dh: data.keys.p256dh,
+        auth: data.keys.auth
+      }, { onConflict: 'user_id, app, endpoint' })
+    } catch (e) {
+      console.error('Failed to save push subscription', e)
+      throw e
+    }
+  }
+
+  const handleUnsubscribe = async () => {
+    console.log('Unsubscribed from push notifications')
+  }
 
   useEffect(() => {
     async function load() {
@@ -167,6 +193,16 @@ export default function KasirSettingsPage() {
           Format yang didukung: JPG, PNG, WebP. Gambar akan ditampilkan fullscreen di kiosk cabang ini.
           Rekomendasi rasio 16:9.
         </p>
+      </div>
+
+      <div className="card p-6 space-y-4 mt-6">
+        <h2 className="font-semibold text-gray-700">Notifikasi Pesanan</h2>
+        <p className="text-sm text-gray-500 mb-2">Aktifkan notifikasi untuk mendapat peringatan saat ada pesanan masuk dari Kiosk Mandiri.</p>
+        <NotificationToggle
+          appName="POS Kasir"
+          onSubscribe={handleSubscribe}
+          onUnsubscribe={handleUnsubscribe}
+        />
       </div>
     </div>
   )

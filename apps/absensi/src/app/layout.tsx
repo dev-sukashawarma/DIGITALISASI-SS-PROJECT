@@ -1,11 +1,23 @@
 import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { Providers } from './Providers'
+import { InstallPrompt, PwaUpdater } from '@suka/pwa'
 import './globals.css'
 
 export const metadata = {
   title: 'Absensi Outlet — Sukashawarma',
   description: 'Clock-in/out dengan face recognition untuk staff outlet',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Absensi',
+  },
+}
+
+export const viewport = {
+  themeColor: '#0a7d2c',
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -20,6 +32,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Providers initialStaff={initialStaff}>
           {children}
         </Providers>
+        <InstallPrompt appName="Absensi" />
+        <PwaUpdater />
       </body>
     </html>
   )

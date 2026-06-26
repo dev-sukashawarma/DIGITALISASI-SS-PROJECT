@@ -1,7 +1,16 @@
+const withSerwistInit = require("@serwist/next").default;
+
+const withSerwist = withSerwistInit({
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+  disable: process.env.NODE_ENV === "development",
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  turbopack: {},
   // @suka/* di-ekspor sebagai TypeScript src → harus ditranspile Next. (ADR-008)
-  transpilePackages: ['@suka/auth'],
+  transpilePackages: ['@suka/auth', '@suka/pwa'],
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -22,4 +31,4 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+module.exports = withSerwist(nextConfig)

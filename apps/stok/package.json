@@ -18,10 +18,13 @@
     "next": "^16.1.6",
     "@supabase/supabase-js": "^2.38.0",
     "@supabase/ssr": "^0.2.0",
-    "@suka/auth": "*",
-    "@suka/design-system": "*",
-    "@suka/offline-queue": "*",
-    "@tanstack/react-query": "^5.101.0"
+    "@suka/auth": "workspace:*",
+    "@suka/design-system": "workspace:*",
+    "@suka/offline-queue": "workspace:*",
+    "@suka/pwa": "workspace:*",
+    "@tanstack/react-query": "^5.101.0",
+    "@serwist/next": "^9.0.11",
+    "serwist": "^9.0.11"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

@@ -11,7 +11,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@suka/auth": "*",
+    "@serwist/next": "^9.0.11",
+    "@suka/auth": "workspace:*",
+    "@suka/pwa": "workspace:*",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-query": "^5.101.0",
@@ -25,6 +27,7 @@
     "react-dom": "^19.0.0",
     "react-is": "^19.0.0",
     "recharts": "^2.12.7",
+    "serwist": "^9.0.11",
     "zustand": "^4.5.4"
   },
   "devDependencies": {

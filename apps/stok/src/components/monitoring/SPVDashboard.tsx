@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { useAuth } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
 import { ApprovalList } from '../permintaan/ApprovalList';
+import { NotificationToggle } from '@suka/pwa';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
   const name = outletName.toUpperCase();
@@ -301,9 +302,12 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         
         {isNotificationOpen && (
           <div className="absolute right-0 mt-3 w-80 bg-white border border-[#d9c2b2] rounded-2xl shadow-xl z-50 p-4 space-y-3 text-sm text-[#1e1b15] animate-in fade-in slide-in-from-top-2 duration-150">
-            <h4 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2">
-              Notifikasi ({totalNotificationCount})
+            <h4 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex justify-between items-center">
+              <span>Notifikasi ({totalNotificationCount})</span>
             </h4>
+            <div className="py-1 border-b border-suka-brown/10 mb-2">
+              <NotificationToggle appName="stok" />
+            </div>
             <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1">
               {totalNotificationCount === 0 ? (
                 <p className="text-xs text-suka-brown/50 italic text-center py-6 font-medium">

@@ -39,6 +39,7 @@ export function AttendanceKioskPanel() {
   const [isOutletOpen, setIsOutletOpen] = useState(true);
   const [modelsReady, setModelsReady] = useState(false);
   const [jamMasuk, setJamMasuk] = useState<string | null>(null);
+  const [absenWindowMode, setAbsenWindowMode] = useState<"auto" | "manual">("auto");
   const [nowMinutes, setNowMinutes] = useState(() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); });
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [modelError, setModelError] = useState<string | null>(null);
@@ -61,9 +62,12 @@ export function AttendanceKioskPanel() {
       kiosk.flushQueue();
       loadRecords();
       
-      supabase.from("outlet_attendance_config").select("jam_masuk").eq("outlet_id", outletStaff.outlet_id).single()
+      supabase.from("outlet_attendance_config").select("jam_masuk,absen_window_mode").eq("outlet_id", outletStaff.outlet_id).single()
         .then(({ data }) => {
-          if (data) setJamMasuk(data.jam_masuk);
+          if (data) {
+            setJamMasuk(data.jam_masuk);
+            setAbsenWindowMode(data.absen_window_mode ?? "auto");
+          }
         });
     }
   }, [outletStaff?.outlet_id]);
@@ -119,12 +123,14 @@ export function AttendanceKioskPanel() {
   const hasIn = todayRecords.some(r => r.type === "in");
   const hasOut = todayRecords.some(r => r.type === "out");
 
-  // Window absen masuk: jam_masuk − 60 menit. Jika config belum dimuat, biarkan terbuka (true).
-  // Setelah crew absen masuk (hasIn), deteksi tetap berjalan untuk clock-out.
   function toMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
-  const clockInWindowOpen = !jamMasuk || hasIn || nowMinutes >= toMin(jamMasuk) - 60;
-  // Jam buka window absen masuk untuk ditampilkan di overlay
-  const windowOpenLabel = jamMasuk
+  // Mode manual: is_active menjadi gate utama (perilaku lama), time window diabaikan.
+  // Mode auto: time window otomatis; is_active = emergency lock saja.
+  const isManual = absenWindowMode === "manual";
+  const clockInWindowOpen = isManual
+    ? isOutletOpen                                                          // manual: gate = is_active
+    : (!jamMasuk || hasIn || nowMinutes >= toMin(jamMasuk) - 60);          // auto: time window
+  const windowOpenLabel = (!isManual && jamMasuk)
     ? dayjs().startOf("day").add(toMin(jamMasuk) - 60, "minute").format("HH:mm")
     : null;
 
@@ -223,14 +229,25 @@ export function AttendanceKioskPanel() {
            <h2 className="font-bold text-suka-ink text-sm sm:text-base">Absen Wajah</h2>
         </div>
         <div className="relative flex justify-center items-center h-[240px] sm:h-[320px] bg-black overflow-hidden shadow-inner">
-          {!isOutletOpen ? (
+          {/* Mode manual: outlet dikunci SPV */}
+          {isManual && !isOutletOpen ? (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm">
               <div className="p-5 bg-red-500/20 rounded-full mb-4">
                 <Lock size={48} className="text-red-500 animate-bounce" />
               </div>
               <h2 className="text-2xl font-bold text-center">Outlet Ditutup</h2>
               <p className="text-gray-400 text-center mt-2 px-4 text-sm max-w-xs">
-                Kiosk dikunci oleh SPV. Hubungi SPV jika ada masalah.
+                Absensi terkunci oleh SPV.
+              </p>
+            </div>
+          ) : /* Mode auto: emergency lock SPV */ !isManual && !isOutletOpen ? (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm">
+              <div className="p-5 bg-red-500/20 rounded-full mb-4">
+                <Lock size={48} className="text-red-500 animate-bounce" />
+              </div>
+              <h2 className="text-2xl font-bold text-center">Dikunci SPV</h2>
+              <p className="text-gray-400 text-center mt-2 px-4 text-sm max-w-xs">
+                Kiosk dikunci paksa oleh SPV. Hubungi SPV jika ada masalah.
               </p>
             </div>
           ) : !clockInWindowOpen ? (

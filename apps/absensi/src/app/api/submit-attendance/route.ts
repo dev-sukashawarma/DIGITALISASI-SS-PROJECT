@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
     const { data: cfg } = await admin
       .from("outlet_attendance_config")
-      .select("jam_masuk,jam_keluar,toleransi_menit")
+      .select("jam_masuk,jam_keluar,toleransi_menit,absen_window_mode")
       .eq("outlet_id", body.outlet_id).single();
 
     if (!cfg) return NextResponse.json({ ok: false, reason: "config_missing" }, { status: 500 });
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     // Status Logic
     const local = new Date(new Date(basis).toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
 
-    // ── Time window validation ──────────────────────────────────────────────
+    // ── Time window validation (hanya mode 'auto') ─────────────────────────
     // Hitung total menit dari jam config, lalu bandingkan dengan waktu lokal.
     function toTotalMinutes(timeStr: string) {
       const [h, m] = timeStr.split(":").map(Number);
@@ -43,19 +43,18 @@ export async function POST(req: Request) {
     }
     const nowMinutes = local.getHours() * 60 + local.getMinutes();
 
-    if (body.type === "in") {
-      // Window absen masuk: jam_masuk − 60 menit
-      const windowOpen = toTotalMinutes(cfg.jam_masuk) - 60;
-      if (nowMinutes < windowOpen) {
-        return NextResponse.json({ ok: false, reason: "too_early_in" }, { status: 200 });
+    if ((cfg.absen_window_mode ?? "auto") === "auto") {
+      if (body.type === "in") {
+        const windowOpen = toTotalMinutes(cfg.jam_masuk) - 60;
+        if (nowMinutes < windowOpen) {
+          return NextResponse.json({ ok: false, reason: "too_early_in" }, { status: 200 });
+        }
       }
-    }
-
-    if (body.type === "out") {
-      // Window absen pulang: jam_keluar − 30 menit
-      const windowOpen = toTotalMinutes(cfg.jam_keluar || "17:00") - 30;
-      if (nowMinutes < windowOpen) {
-        return NextResponse.json({ ok: false, reason: "too_early_out" }, { status: 200 });
+      if (body.type === "out") {
+        const windowOpen = toTotalMinutes(cfg.jam_keluar || "17:00") - 30;
+        if (nowMinutes < windowOpen) {
+          return NextResponse.json({ ok: false, reason: "too_early_out" }, { status: 200 });
+        }
       }
     }
     // ───────────────────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Spinner } from "@suka/design-system";
-import { Clock, Timer, Settings2, Save, Lock, Unlock } from "lucide-react";
+import { Clock, Timer, Settings2, Save, Lock, Unlock, Zap, ToggleLeft } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
@@ -14,6 +14,7 @@ type Config = {
   jam_keluar: string;
   toleransi_menit: number;
   is_active: boolean;
+  absen_window_mode: "auto" | "manual";
 };
 
 export default function PengaturanAbsensiPage() {
@@ -22,7 +23,7 @@ export default function PengaturanAbsensiPage() {
   const toast = useToast();
 
   const [saving, setSaving] = useState(false);
-  const [config, setConfig] = useState<Config>({ jam_masuk: "09:00", jam_keluar: "17:00", toleransi_menit: 15, is_active: false });
+  const [config, setConfig] = useState<Config>({ jam_masuk: "09:00", jam_keluar: "17:00", toleransi_menit: 15, is_active: false, absen_window_mode: "auto" });
 
   const { isLoading } = useQuery({
     queryKey: ["pengaturan", outletStaff?.outlet_id],
@@ -30,7 +31,7 @@ export default function PengaturanAbsensiPage() {
     staleTime: 5 * 60_000, // pengaturan jarang berubah, cache 5 menit
     queryFn: async () => {
       const [cfg, out] = await Promise.all([
-        supabase.from("outlet_attendance_config").select("jam_masuk, jam_keluar, toleransi_menit").eq("outlet_id", outletStaff!.outlet_id).single(),
+        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit,absen_window_mode").eq("outlet_id", outletStaff!.outlet_id).single(),
         supabase.from("outlets").select("is_active").eq("id", outletStaff!.outlet_id).single()
       ]);
       if (cfg.data && out.data) {
@@ -38,7 +39,8 @@ export default function PengaturanAbsensiPage() {
           jam_masuk: cfg.data.jam_masuk.slice(0, 5),
           jam_keluar: cfg.data.jam_keluar?.slice(0, 5) || "17:00",
           toleransi_menit: cfg.data.toleransi_menit,
-          is_active: out.data.is_active
+          is_active: out.data.is_active,
+          absen_window_mode: (cfg.data.absen_window_mode as "auto" | "manual") ?? "auto",
         });
       }
       return cfg.data;
@@ -72,28 +74,77 @@ export default function PengaturanAbsensiPage() {
         subtitle="Kelola status kiosk, jam kerja, dan toleransi keterlambatan"
       />
 
-      {/* Status kiosk (buka/tutup absen) */}
-      <div className="rounded-2xl border border-suka-gray-200 bg-white p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3.5">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${config.is_active ? "bg-green-50 text-suka-green" : "bg-red-50 text-red-500"}`}>
-              {config.is_active ? <Unlock size={22} /> : <Lock size={22} />}
+      {/* Mode Absensi */}
+      <div className="rounded-2xl border border-suka-gray-200 bg-white p-4 sm:p-5 space-y-4">
+        <h2 className="flex items-center gap-2 text-base font-bold text-suka-ink">
+          <ToggleLeft size={18} className="text-suka-brown" /> Mode Absensi Kiosk
+        </h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* Otomatis */}
+          <button
+            type="button"
+            onClick={() => setConfig({ ...config, absen_window_mode: "auto" })}
+            className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+              config.absen_window_mode === "auto"
+                ? "border-suka-orange bg-orange-50"
+                : "border-gray-200 bg-white hover:border-gray-300"
+            }`}
+          >
+            <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${config.absen_window_mode === "auto" ? "bg-suka-orange text-white" : "bg-gray-100 text-gray-400"}`}>
+              <Zap size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-suka-ink">Otomatis (Time Window)</p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Kiosk buka sendiri 1 jam sebelum masuk & tutup 30 mnt sebelum pulang. SPV tidak perlu toggle tiap hari.
+              </p>
+            </div>
+          </button>
+          {/* Manual */}
+          <button
+            type="button"
+            onClick={() => setConfig({ ...config, absen_window_mode: "manual" })}
+            className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+              config.absen_window_mode === "manual"
+                ? "border-suka-orange bg-orange-50"
+                : "border-gray-200 bg-white hover:border-gray-300"
+            }`}
+          >
+            <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${config.absen_window_mode === "manual" ? "bg-suka-orange text-white" : "bg-gray-100 text-gray-400"}`}>
+              <ToggleLeft size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-suka-ink">Manual (Toggle SPV)</p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                SPV buka dan tutup kiosk secara manual. Fleksibel untuk jadwal tidak tetap.
+              </p>
+            </div>
+          </button>
+        </div>
+
+        {/* Toggle is_active — hanya tampil di mode manual ATAU sebagai emergency lock di mode auto */}
+        <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${config.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-amber-50 border border-amber-200"}`}>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${config.is_active ? "bg-green-100 text-suka-green" : "bg-red-100 text-red-500"}`}>
+              {config.is_active ? <Unlock size={18} /> : <Lock size={18} />}
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm font-bold text-suka-ink sm:text-base">
-                Kiosk Absensi: {config.is_active ? "Terbuka" : "Terkunci"}
-              </h2>
-              <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
-                {config.is_active
-                  ? "Kru bisa melakukan absen wajah sekarang."
-                  : "Kru tidak bisa absen. Layar kiosk terkunci."}
+              <p className="text-sm font-bold text-suka-ink">
+                {config.absen_window_mode === "manual" ? "Status Kiosk" : "🔒 Emergency Lock"}
+                {" "}<span className={`text-xs font-medium ${config.is_active ? "text-suka-green" : "text-red-500"}`}>
+                  {config.is_active ? "Terbuka" : "Terkunci"}
+                </span>
+              </p>
+              <p className="text-xs text-gray-500">
+                {config.absen_window_mode === "manual"
+                  ? "Toggle untuk buka/tutup kiosk absensi manual."
+                  : "Paksa kunci kiosk di luar siklus normal. Gunakan untuk kondisi darurat."}
               </p>
             </div>
           </div>
           <button
             role="switch"
             aria-checked={config.is_active}
-            aria-label="Buka/kunci kiosk absensi"
             onClick={() => setConfig({ ...config, is_active: !config.is_active })}
             className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-suka-orange/30 ${config.is_active ? "bg-suka-green" : "bg-gray-300"}`}
           >

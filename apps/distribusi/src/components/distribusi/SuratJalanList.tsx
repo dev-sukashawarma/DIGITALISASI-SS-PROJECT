@@ -100,7 +100,7 @@ export function SuratJalanList() {
           <div className="flex flex-col min-w-0">
             <h1 className="font-black text-xs sm:text-sm text-suka-brown uppercase tracking-wider font-display leading-none truncate">Daftar Surat Jalan</h1>
             <p className="text-[9px] sm:text-[10px] text-suka-gray-500 font-bold mt-0.5">
-              {outletStaff?.name || 'Staff'} • {outletStaff?.outlets?.name ?? (outletStaff?.role === 'leader' || outletStaff?.role === 'kitchen' ? 'Gudang Pusat' : 'Outlet')}
+              {outletStaff?.name || 'Staff'} • {outletStaff?.outlets?.name ?? (['leader', 'kitchen', 'admin', 'admin_hr'].includes(outletStaff?.role || '') ? 'Gudang Pusat' : 'Outlet')}
             </p>
           </div>
         </div>

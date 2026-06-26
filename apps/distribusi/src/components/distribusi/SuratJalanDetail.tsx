@@ -368,7 +368,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
           )}
 
           {/* Pusat Verification Action — hanya tampil saat status draft/dikirim */}
-          {(outletStaff?.role === 'leader' || outletStaff?.role === 'kitchen') && (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian') && (
+          {(['leader', 'kitchen', 'admin', 'admin_hr'].includes(outletStaff?.role || '')) && (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian') && (
             <div className="border-t border-[#d9c2b2]/20 pt-5">
               <p className="text-[9px] font-bold text-[#544437]/50 uppercase tracking-wider mb-3">Hasil Verifikasi Cabang</p>
               {pdfHtml ? (

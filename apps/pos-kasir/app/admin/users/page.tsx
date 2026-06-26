@@ -29,7 +29,7 @@ export default function AdminUsersPage() {
   // Form state
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('kasir')
+  const [role, setRole] = useState('crew')
   const [outletId, setOutletId] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [inactiveReason, setInactiveReason] = useState('')
@@ -87,7 +87,7 @@ export default function AdminUsersPage() {
       setEditingUser(null)
       setUsername('')
       setPassword('')
-      setRole('kasir')
+      setRole('crew')
       if (outlets.length > 0) setOutletId(outlets[0].id)
       setIsActive(true)
       setInactiveReason('')
@@ -257,8 +257,8 @@ export default function AdminUsersPage() {
                 <label className="block text-sm font-bold text-gray-700 mb-1">Peran (Role)</label>
                 <div className="flex gap-4">
                   <label className="flex-1 flex items-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
-                    <input type="radio" name="role" value="kasir" checked={role === 'kasir'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
-                    <span className="font-bold text-gray-700 text-sm">Akun Kasir</span>
+                    <input type="radio" name="role" value="crew" checked={role === 'crew'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
+                    <span className="font-bold text-gray-700 text-sm">Akun Crew</span>
                   </label>
                   <label className="flex-1 flex items-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
                     <input type="radio" name="role" value="kiosk" checked={role === 'kiosk'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
@@ -272,7 +272,7 @@ export default function AdminUsersPage() {
                 <input 
                   type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium"
-                  placeholder={role === 'kasir' ? "Misal: kasir_sudirman" : "Misal: kiosk_sudirman1"}
+                  placeholder={role === 'crew' ? "Misal: crew_sudirman" : "Misal: kiosk_sudirman1"}
                 />
               </div>
               
@@ -357,8 +357,8 @@ export default function AdminUsersPage() {
                     <td className="py-4 px-4">
                       {u.role === 'admin' ? (
                         <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide">Admin</span>
-                      ) : u.role === 'kasir' ? (
-                        <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide">Kasir</span>
+                      ) : u.role === 'crew' ? (
+                        <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide">Crew</span>
                       ) : (
                         <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide">Kiosk</span>
                       )}

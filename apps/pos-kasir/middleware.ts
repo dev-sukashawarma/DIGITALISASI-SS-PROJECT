@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
 
   // Proteksi Route Kasir
   if (path.startsWith('/kasir')) {
-    if (!user || !['kasir', 'leader', 'crew'].includes(role as string) || !hasAppAccess(role as any, 'pos-kasir') || status !== 'active') {
+    if (!user || !['leader', 'crew'].includes(role as string) || !hasAppAccess(role as any, 'pos-kasir') || status !== 'active') {
       return getRedirect(PORTAL_URL)
     }
   }
@@ -84,7 +84,7 @@ export async function middleware(request: NextRequest) {
     // Admin dan Kasir yang nyasar ke sini dikembalikan ke dashboard-nya.
     if (role !== 'kiosk') {
       if (role === 'admin') return getRedirect('/admin')
-      if (role === 'kasir' || role === 'leader' || role === 'crew') return getRedirect('/kasir')
+      if (role === 'leader' || role === 'crew') return getRedirect('/kasir')
       return getRedirect('/login')
     }
     // Kiosk harus memiliki valid session (role kiosk dengan outlet_id valid)
@@ -96,7 +96,7 @@ export async function middleware(request: NextRequest) {
   // Redirect halaman login jika sudah auth
   if (path === '/login' && user && role) {
     if (role === 'admin') return getRedirect('/admin')
-    if (role === 'kasir' || role === 'leader' || role === 'crew') return getRedirect('/kasir')
+    if (role === 'leader' || role === 'crew') return getRedirect('/kasir')
     if (role === 'kiosk') return getRedirect('/')
   }
 

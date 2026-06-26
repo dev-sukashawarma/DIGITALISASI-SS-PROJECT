@@ -60,7 +60,7 @@ export default function GlobalBlockerMount() {
           setIsBlocked(true)
           setBlockType('outlet')
           setBlockedReason((profile.outlets as any).inactive_reason || 'Cabang tempat Anda bertugas sedang dinonaktifkan oleh Admin.')
-        } else if (profile.role === 'kasir' && profile.outlet_id) {
+        } else if (profile.role === 'crew' && profile.outlet_id) {
           await checkKasirGate(profile.outlet_id)
         } else {
           setIsBlocked(false)

@@ -4,7 +4,6 @@ export type Role =
   | 'owner'
   | 'spv'
   | 'leader'
-  | 'kasir'
   | 'crew'
   | 'kiosk'
   | 'kitchen'

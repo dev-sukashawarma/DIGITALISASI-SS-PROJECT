@@ -4,7 +4,7 @@ import type { StaffRow } from './types'
 
 const rows: StaffRow[] = [
   { id: '1', name: 'Andi', role: 'crew', status: 'active', username: 'andi', outlet_id: 'o1', outlets: { name: 'Empang' }, outlet_ids: [] },
-  { id: '2', name: 'Budi', role: 'kasir', status: 'inactive', username: 'budi', outlet_id: 'o2', outlets: { name: 'Sudirman' }, outlet_ids: [] },
+  { id: '2', name: 'Budi', role: 'crew', status: 'inactive', username: 'budi', outlet_id: 'o2', outlets: { name: 'Sudirman' }, outlet_ids: [] },
   { id: '3', name: 'Citra', role: 'crew', status: 'active', username: 'citra', outlet_id: 'o2', outlets: { name: 'Sudirman' }, outlet_ids: [] },
 ]
 

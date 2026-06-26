@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS outlets (
 -- 2. Buat Tabel Profiles
 CREATE TABLE IF NOT EXISTS profiles (
   id         UUID    PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  role       TEXT    NOT NULL CHECK (role IN ('admin', 'kasir', 'kiosk')),
+  role       TEXT    NOT NULL CHECK (role IN ('admin', 'crew', 'leader', 'kiosk')),
   outlet_id  UUID    REFERENCES outlets(id) ON DELETE SET NULL,
   username   TEXT    UNIQUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -74,11 +74,11 @@ CREATE POLICY "profiles_all_admin" ON profiles FOR ALL USING (get_user_role() = 
 
 CREATE POLICY "orders_select_public" ON orders FOR SELECT USING (true);
 CREATE POLICY "orders_insert_public" ON orders FOR INSERT WITH CHECK (true);
-CREATE POLICY "orders_update_kasir" ON orders FOR UPDATE USING (outlet_id = get_user_outlet_id() AND get_user_role() = 'kasir');
+CREATE POLICY "orders_update_kasir" ON orders FOR UPDATE USING (outlet_id = get_user_outlet_id() AND get_user_role() IN ('crew', 'leader'));
 CREATE POLICY "orders_all_admin" ON orders FOR ALL USING (get_user_role() = 'admin');
 
 CREATE POLICY "kiosk_settings_select_public" ON kiosk_settings FOR SELECT USING (true);
 CREATE POLICY "kiosk_settings_all_admin" ON kiosk_settings FOR ALL USING (get_user_role() = 'admin');
-CREATE POLICY "kiosk_settings_all_kasir" ON kiosk_settings FOR ALL USING (outlet_id = get_user_outlet_id() AND get_user_role() = 'kasir');
+CREATE POLICY "kiosk_settings_all_kasir" ON kiosk_settings FOR ALL USING (outlet_id = get_user_outlet_id() AND get_user_role() IN ('crew', 'leader'));
 
 -- SELESAI. Data lama Anda aman 100%.

@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS outlets (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS profiles (
   id         UUID    PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  role       TEXT    NOT NULL CHECK (role IN ('admin', 'kasir', 'kiosk')),
+  role       TEXT    NOT NULL CHECK (role IN ('admin', 'crew', 'leader', 'kiosk')),
   outlet_id  UUID    REFERENCES outlets(id) ON DELETE SET NULL,
   username   TEXT    UNIQUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -146,13 +146,13 @@ CREATE POLICY "menu_items_all_admin" ON menu_items FOR ALL USING (get_user_role(
 -- Orders
 CREATE POLICY "orders_select_public" ON orders FOR SELECT USING (true);
 CREATE POLICY "orders_insert_public" ON orders FOR INSERT WITH CHECK (true);
-CREATE POLICY "orders_update_kasir" ON orders FOR UPDATE USING (outlet_id = get_user_outlet_id() AND get_user_role() = 'kasir');
+CREATE POLICY "orders_update_kasir" ON orders FOR UPDATE USING (outlet_id = get_user_outlet_id() AND get_user_role() IN ('crew', 'leader'));
 CREATE POLICY "orders_all_admin" ON orders FOR ALL USING (get_user_role() = 'admin');
 
 -- Order Items
 CREATE POLICY "order_items_select_public" ON order_items FOR SELECT USING (true);
 CREATE POLICY "order_items_insert_public" ON order_items FOR INSERT WITH CHECK (true);
-CREATE POLICY "order_items_all_admin_kasir" ON order_items FOR ALL USING (get_user_role() IN ('admin', 'kasir'));
+CREATE POLICY "order_items_all_admin_kasir" ON order_items FOR ALL USING (get_user_role() IN ('admin', 'crew', 'leader'));
 
 -- ============================================================
 -- 6. SUPABASE STORAGE — BUCKET "menu-images"
@@ -215,7 +215,7 @@ DROP POLICY IF EXISTS "kiosk_settings_all_kasir" ON kiosk_settings;
 
 CREATE POLICY "kiosk_settings_select_public" ON kiosk_settings FOR SELECT USING (true);
 CREATE POLICY "kiosk_settings_all_admin" ON kiosk_settings FOR ALL USING (get_user_role() = 'admin');
-CREATE POLICY "kiosk_settings_all_kasir" ON kiosk_settings FOR ALL USING (outlet_id = get_user_outlet_id() AND get_user_role() = 'kasir');
+CREATE POLICY "kiosk_settings_all_kasir" ON kiosk_settings FOR ALL USING (outlet_id = get_user_outlet_id() AND get_user_role() IN ('crew', 'leader'));
 
 -- Seed baris default untuk Outlet Pusat
 INSERT INTO kiosk_settings (outlet_id, key, value)
@@ -234,4 +234,4 @@ DROP POLICY IF EXISTS "Public can view kiosk assets" ON storage.objects;
 DROP POLICY IF EXISTS "Admin can upload kiosk assets" ON storage.objects;
 
 CREATE POLICY "Public can view kiosk assets" ON storage.objects FOR SELECT USING (bucket_id = 'kiosk-assets');
-CREATE POLICY "Admin can upload kiosk assets" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'kiosk-assets' AND get_user_role() IN ('admin', 'kasir'));
+CREATE POLICY "Admin can upload kiosk assets" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'kiosk-assets' AND get_user_role() IN ('admin', 'crew', 'leader'));

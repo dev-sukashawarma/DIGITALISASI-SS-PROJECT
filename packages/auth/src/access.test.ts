@@ -16,7 +16,7 @@ describe('ROLE_APP_ACCESS', () => {
   })
 
   it('hanya admin, admin_hr, dan owner yang punya admin-dashboard', () => {
-    const roles: Array<keyof typeof ROLE_APP_ACCESS> = ['spv', 'kitchen', 'leader', 'kasir', 'crew', 'kiosk']
+    const roles: Array<keyof typeof ROLE_APP_ACCESS> = ['spv', 'kitchen', 'leader', 'crew', 'kiosk']
     roles.forEach(role => {
       expect(ROLE_APP_ACCESS[role]).not.toContain('admin-dashboard')
     })

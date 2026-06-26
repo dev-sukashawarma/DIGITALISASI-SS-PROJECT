@@ -119,7 +119,7 @@ describe('MonitoringPage Integration', () => {
         id: 'user3',
         outlet_id: 'outlet1',
         name: 'Bob Kasir',
-        role: 'kasir',
+        role: 'crew',
         status: 'active',
       },
       loading: false,

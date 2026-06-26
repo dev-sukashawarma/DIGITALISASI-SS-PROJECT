@@ -42,7 +42,7 @@ CREATE POLICY "order_items_admin_all" ON order_items FOR ALL USING (
 );
 
 CREATE POLICY "order_items_kasir_scoped" ON order_items FOR ALL USING (
-  get_user_role() = 'kasir'
+  get_user_role() IN ('crew', 'leader')
   AND EXISTS (
     SELECT 1 FROM orders o
     WHERE o.id = order_items.order_id

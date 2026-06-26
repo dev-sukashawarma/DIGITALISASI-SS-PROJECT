@@ -51,7 +51,7 @@ describe('useOutletScope', () => {
 
   it('fixes single-outlet role (kasir) to outlet_staff.outlet_id, switcher hidden', async () => {
     mockUseAuth.mockReturnValue({
-      outletStaff: { id: 'staff-1', role: 'kasir', outlet_id: 'outlet-home', outlets: { name: 'Outlet Home' } },
+      outletStaff: { id: 'staff-1', role: 'crew', outlet_id: 'outlet-home', outlets: { name: 'Outlet Home' } },
     })
     renderProbe()
     await waitFor(() => {

@@ -35,8 +35,8 @@ export function resolveLogoutTargets(
   body: LogoutRequest,
   outletKiosks: KioskAccount[]
 ): ResolveResult {
-  if (requester.role !== 'crew') {
-    return { ok: false, status: 403, targetUserIds: [], error: 'Hanya kasir yang dapat me-logout kiosk' }
+  if (!['crew', 'leader'].includes(requester.role)) {
+    return { ok: false, status: 403, targetUserIds: [], error: 'Hanya kru/leader cabang yang dapat me-logout kiosk' }
   }
   if (!requester.outlet_id) {
     return { ok: false, status: 403, targetUserIds: [], error: 'Akun Anda tidak terhubung ke cabang' }

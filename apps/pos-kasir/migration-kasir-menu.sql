@@ -15,7 +15,7 @@ CREATE POLICY "menu_items_all_admin" ON menu_items FOR ALL USING (get_user_role(
 
 -- Kasir hanya bisa mengatur menu yang outlet_id nya sama dengan outlet_id profil mereka
 CREATE POLICY "menu_items_all_kasir" ON menu_items FOR ALL USING (
-  get_user_role() = 'kasir' AND outlet_id = get_user_outlet_id()
+  get_user_role() IN ('crew', 'leader') AND outlet_id = get_user_outlet_id()
 );
 
 -- Update RLS Storage "menu-images" bucket
@@ -24,11 +24,11 @@ DROP POLICY IF EXISTS "Admin can update menu images" ON storage.objects;
 DROP POLICY IF EXISTS "Admin can delete menu images" ON storage.objects;
 
 CREATE POLICY "Admin and Kasir can upload menu images" ON storage.objects FOR INSERT WITH CHECK (
-  bucket_id = 'menu-images' AND get_user_role() IN ('admin', 'kasir')
+  bucket_id = 'menu-images' AND get_user_role() IN ('admin', 'crew', 'leader')
 );
 CREATE POLICY "Admin and Kasir can update menu images" ON storage.objects FOR UPDATE USING (
-  bucket_id = 'menu-images' AND get_user_role() IN ('admin', 'kasir')
+  bucket_id = 'menu-images' AND get_user_role() IN ('admin', 'crew', 'leader')
 );
 CREATE POLICY "Admin and Kasir can delete menu images" ON storage.objects FOR DELETE USING (
-  bucket_id = 'menu-images' AND get_user_role() IN ('admin', 'kasir')
+  bucket_id = 'menu-images' AND get_user_role() IN ('admin', 'crew', 'leader')
 );

@@ -9,7 +9,7 @@ export interface Outlet {
   updated_at: string
 }
 
-export type UserRole = 'admin' | 'kasir' | 'kiosk'
+export type UserRole = 'admin' | 'crew' | 'leader' | 'kiosk'
 
 export interface UserProfile {
   id: string

@@ -64,7 +64,7 @@ async function run() {
       id: targetUser.id,
       name: 'kasir_tes',
       username: 'kasir_tes',
-      role: 'kasir',
+      role: 'crew',
       outlet_id: outletId,
       status: 'active',
       is_active: true

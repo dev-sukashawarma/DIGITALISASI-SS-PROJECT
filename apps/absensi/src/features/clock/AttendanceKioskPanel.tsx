@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Card, Spinner } from "@suka/design-system";
-import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock } from "lucide-react";
+import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
@@ -39,6 +39,7 @@ export function AttendanceKioskPanel() {
   const [isOutletOpen, setIsOutletOpen] = useState(true);
   const [modelsReady, setModelsReady] = useState(false);
   const [jamMasuk, setJamMasuk] = useState<string | null>(null);
+  const [nowMinutes, setNowMinutes] = useState(() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); });
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [modelError, setModelError] = useState<string | null>(null);
 
@@ -81,6 +82,15 @@ export function AttendanceKioskPanel() {
     return () => clearInterval(interval);
   }, [outletStaff?.outlet_id]);
 
+  // Update nowMinutes setiap menit agar window overlay refresh otomatis
+  useEffect(() => {
+    const tick = setInterval(() => {
+      const n = new Date();
+      setNowMinutes(n.getHours() * 60 + n.getMinutes());
+    }, 60_000);
+    return () => clearInterval(tick);
+  }, []);
+
   function loadRecords() {
     if (!outletStaff) return;
     setLoadingHistory(true);
@@ -103,11 +113,26 @@ export function AttendanceKioskPanel() {
     }
   }, [kiosk.phase, kiosk.result?.ok]);
 
+  // Hitung hasIn di sini (sebelum useEffect) agar bisa dipakai di clockInWindowOpen
+  const today = dayjs().format("YYYY-MM-DD");
+  const todayRecords = records.filter(r => dayjs(r.ts_server).format("YYYY-MM-DD") === today);
+  const hasIn = todayRecords.some(r => r.type === "in");
+  const hasOut = todayRecords.some(r => r.type === "out");
+
+  // Window absen masuk: jam_masuk − 60 menit. Jika config belum dimuat, biarkan terbuka (true).
+  // Setelah crew absen masuk (hasIn), deteksi tetap berjalan untuk clock-out.
+  function toMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
+  const clockInWindowOpen = !jamMasuk || hasIn || nowMinutes >= toMin(jamMasuk) - 60;
+  // Jam buka window absen masuk untuk ditampilkan di overlay
+  const windowOpenLabel = jamMasuk
+    ? dayjs().startOf("day").add(toMin(jamMasuk) - 60, "minute").format("HH:mm")
+    : null;
+
   useEffect(() => {
     function loop() {
       const v = videoRef.current;
-      // Jangan jalankan deteksi wajah jika outlet ditutup atau model belum siap
-      if (v && v.readyState >= 2 && isOutletOpen && modelsReady) {
+      // Jangan jalankan deteksi wajah jika outlet ditutup, model belum siap, atau di luar window absen
+      if (v && v.readyState >= 2 && isOutletOpen && modelsReady && clockInWindowOpen) {
         if (kiosk.phase === "idle") kiosk.tick(v);
         else if (kiosk.phase === "liveness") kiosk.runLiveness(v);
       }
@@ -115,14 +140,9 @@ export function AttendanceKioskPanel() {
     }
     loop();
     return () => { if (loopRef.current) clearTimeout(loopRef.current); };
-  }, [kiosk.phase, kiosk.tick, kiosk.runLiveness, isOutletOpen, modelsReady]);
+  }, [kiosk.phase, kiosk.tick, kiosk.runLiveness, isOutletOpen, modelsReady, clockInWindowOpen]);
 
   if (!outletStaff) return <div className="p-8 flex justify-center"><Spinner /></div>;
-
-  const today = dayjs().format("YYYY-MM-DD");
-  const todayRecords = records.filter(r => dayjs(r.ts_server).format("YYYY-MM-DD") === today);
-  const hasIn = todayRecords.some(r => r.type === "in");
-  const hasOut = todayRecords.some(r => r.type === "out");
 
   return (
     <div className="max-w-md mx-auto space-y-4">
@@ -210,7 +230,18 @@ export function AttendanceKioskPanel() {
               </div>
               <h2 className="text-2xl font-bold text-center">Outlet Ditutup</h2>
               <p className="text-gray-400 text-center mt-2 px-4 text-sm max-w-xs">
-                Absensi terkunci. Menunggu SPV untuk membuka outlet hari ini.
+                Kiosk dikunci oleh SPV. Hubungi SPV jika ada masalah.
+              </p>
+            </div>
+          ) : !clockInWindowOpen ? (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm text-center">
+              <div className="p-5 bg-amber-500/20 rounded-full mb-4">
+                <Timer size={48} className="text-amber-400" />
+              </div>
+              <h2 className="text-xl font-bold">Belum Waktunya Absen</h2>
+              <p className="text-gray-400 mt-2 text-sm max-w-xs">
+                Absen masuk dibuka mulai <span className="font-bold text-amber-400">{windowOpenLabel}</span>
+                {jamMasuk && <> (1 jam sebelum shift {jamMasuk.slice(0, 5)})</>}.
               </p>
             </div>
           ) : cameraError || modelError ? (

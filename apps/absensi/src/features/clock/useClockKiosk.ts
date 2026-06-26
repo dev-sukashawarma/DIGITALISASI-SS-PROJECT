@@ -268,6 +268,8 @@ function gagalText(reason: string): string {
     cross_outlet: "Staff beda outlet",
     unauthenticated: "API key salah",
     terlambat_alpha: "Lewat Batas Waktu (Alpha)",
+    too_early_in: "Belum waktunya absen masuk",
+    too_early_out: "Belum waktunya absen pulang",
   };
   return map[reason] ?? `Gagal: ${reason}`;
 }

@@ -517,10 +517,10 @@ export default function CashierOrdersPage() {
       </div>
 
       {/* Bento Grid columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-[calc(100vh-220px)] items-stretch pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-auto md:h-[calc(100vh-220px)] items-stretch pb-20">
         
         {/* ── Column 1: MENUNGGU PEMBAYARAN (Pending) ── */}
-        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] lg:h-full">
+        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] md:h-full">
           <div className="flex items-center justify-between pb-4 border-b border-[#d9c2b2] mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-[#701604]" />
@@ -547,7 +547,7 @@ export default function CashierOrdersPage() {
         </div>
 
         {/* ── Column 2: SEDANG DIPROSES (Preparing) ── */}
-        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] lg:h-full">
+        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] md:h-full">
           <div className="flex items-center justify-between pb-4 border-b border-[#d9c2b2] mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <ChefHat className="w-5 h-5 text-[#f29744]" />
@@ -572,7 +572,7 @@ export default function CashierOrdersPage() {
         </div>
 
         {/* ── Column 3: COMPLETED (Selesai Hari Ini) ── */}
-        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] lg:h-full">
+        <div className="bg-white border border-[#d9c2b2] suka-shadow rounded-2xl p-5 flex flex-col h-[600px] md:h-full">
           <div className="flex flex-col gap-3 pb-4 border-b border-[#d9c2b2] mb-4 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

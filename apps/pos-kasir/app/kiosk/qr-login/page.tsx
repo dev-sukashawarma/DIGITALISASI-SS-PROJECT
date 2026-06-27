@@ -1,60 +1,103 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Loader2, CheckCircle2, AlertCircle, ScanLine } from 'lucide-react'
+import { Scanner } from '@yudiel/react-qr-scanner'
 
 function QRLoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [status, setStatus] = useState<'scanning' | 'loading' | 'success' | 'error'>('loading')
   const [errorMsg, setErrorMsg] = useState('')
+  const isLoggingIn = useRef(false)
 
   useEffect(() => {
-    async function doLogin() {
-      const u = searchParams.get('u')
-      const p = searchParams.get('p')
+    const u = searchParams.get('u')
+    const p = searchParams.get('p')
 
-      if (!u || !p) {
-        setStatus('error')
-        setErrorMsg('Tautan QR Code tidak valid atau rusak.')
-        return
-      }
+    if (u && p) {
+      doLogin(u, p)
+    } else {
+      setStatus('scanning')
+    }
+  }, [searchParams])
 
-      // SECURITY: Segera hapus username dan password dari URL bar dan riwayat (history)
-      // agar tidak bisa dilihat oleh pelanggan jika mereka membongkar browser Kiosk.
-      window.history.replaceState(null, '', '/kiosk/qr-login')
+  async function doLogin(u: string, p: string) {
+    if (isLoggingIn.current) return;
+    isLoggingIn.current = true;
+    
+    setStatus('loading')
+    window.history.replaceState(null, '', '/kiosk/qr-login')
+    const supabase = createClient()
+    
+    // Auto login using the provided credentials
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: `${u}@outlet.local`,
+      password: p
+    })
 
-      const supabase = createClient()
-      
-      // Auto login using the provided credentials
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: `${u}@outlet.local`,
-        password: p
-      })
-
-      if (error || !data.user) {
-        console.error('QR Login error:', error)
-        setStatus('error')
-        setErrorMsg('Gagal masuk. Kode QR mungkin sudah kedaluwarsa, silakan buat QR baru dari Kasir.')
-        return
-      }
-
-      setStatus('success')
-      
-      // Beri sedikit jeda agar user melihat animasi sukses
-      setTimeout(() => {
-        router.push('/')
-        router.refresh()
-      }, 1500)
+    if (error || !data.user) {
+      console.error('QR Login error:', error)
+      setStatus('error')
+      setErrorMsg('Gagal masuk. Kode QR mungkin sudah kedaluwarsa, silakan buat QR baru dari Kasir.')
+      isLoggingIn.current = false;
+      return
     }
 
-    doLogin()
-  }, [router, searchParams])
+    setStatus('success')
+    
+    // Beri sedikit jeda agar user melihat animasi sukses
+    setTimeout(() => {
+      router.push('/')
+      router.refresh()
+    }, 1500)
+  }
+
+  const handleScan = (result: any) => {
+    if (result && result.length > 0) {
+      const text = result[0].rawValue;
+      if (text) {
+        try {
+          const url = new URL(text);
+          const u = url.searchParams.get('u');
+          const p = url.searchParams.get('p');
+          if (u && p) {
+            doLogin(u, p);
+          } else {
+            setErrorMsg('Kode QR tidak mengandung data login yang valid.');
+            setStatus('error');
+          }
+        } catch(e) {
+          setErrorMsg('Format Kode QR tidak dikenali (bukan URL).');
+          setStatus('error');
+        }
+      }
+    }
+  }
 
   return (
     <div className="flex flex-col items-center text-center max-w-sm w-full mx-auto animate-fade-up">
+      {status === 'scanning' && (
+        <>
+          <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+            <ScanLine className="w-10 h-10 text-amber-500" />
+          </div>
+          <h1 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">Scan QR Login</h1>
+          <p className="text-gray-500 font-medium mb-6">Arahkan kamera ke QR Code yang ada di layar Kasir/Admin.</p>
+          <div className="w-full aspect-square rounded-2xl overflow-hidden border-4 border-amber-100 shadow-inner relative mb-4">
+            <Scanner onScan={handleScan} />
+          </div>
+          <button
+            onClick={() => router.push('/login')}
+            className="text-gray-500 font-bold py-2 hover:text-gray-800 transition-colors"
+          >
+            Kembali ke Login Manual
+          </button>
+        </>
+      )}
+
       {status === 'loading' && (
         <>
           <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
@@ -83,8 +126,17 @@ function QRLoginContent() {
           <h1 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">Login Gagal</h1>
           <p className="text-red-600 font-medium mb-8">{errorMsg}</p>
           <button
+            onClick={() => {
+              setStatus('scanning');
+              setErrorMsg('');
+            }}
+            className="bg-amber-500 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-amber-600 transition-colors w-full mb-3"
+          >
+            Coba Scan Lagi
+          </button>
+          <button
             onClick={() => router.push('/login')}
-            className="bg-gray-900 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-gray-800 transition-colors w-full"
+            className="bg-gray-100 text-gray-700 font-bold py-3.5 px-8 rounded-xl hover:bg-gray-200 transition-colors w-full"
           >
             Kembali ke Login Manual
           </button>

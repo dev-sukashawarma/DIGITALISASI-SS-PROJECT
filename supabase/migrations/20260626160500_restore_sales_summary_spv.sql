@@ -1,17 +1,13 @@
 -- ============================================================
--- Fix/RESTORE: view sales_summary_spv versi LENGKAP.
+-- RESTORE view sales_summary_spv ke definisi LENGKAP.
 --
--- ⚠️ Versi LAMA file ini hanya menghasilkan 3 kolom
--- (sales_date, omzet, outlet_id) dan, saat dijalankan ke remote,
--- MENIMPA definisi lengkap dari migrasi
--- 20260619100100_sales_summary_spv.sql. Akibatnya dashboard
--- admin/owner error: "column sales_summary_spv.outlet_name does
--- not exist". File ini sekarang memulihkan definisi lengkap.
---
--- Jalankan di Supabase SQL Editor (sekali) untuk memperbaiki remote.
--- Definisi ini identik dengan migrasi resmi (definer + security_barrier,
--- bypass RLS — owner/admin lihat semua outlet).
+-- Remote sempat tertimpa versi 3-kolom (sales_date, omzet, outlet_id)
+-- oleh script apps/pos-kasir/fix_sales_summary_spv.sql versi lama,
+-- menyebabkan dashboard error "column sales_summary_spv.outlet_name
+-- does not exist". Migrasi ini memulihkan kolom lengkap (idempoten).
 -- ============================================================
+
+DROP VIEW IF EXISTS public.sales_summary_spv;
 
 CREATE OR REPLACE VIEW public.sales_summary_spv
 WITH (security_barrier = true) AS

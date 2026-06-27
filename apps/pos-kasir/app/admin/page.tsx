@@ -69,8 +69,8 @@ export default function AdminOverviewPage() {
     setLoading(false)
   }, [selectedOutlet, dateRange])
 
-  // Fetch Chart Data — agregat harian (omzet completed per sales_date) dari view
-  // sales_summary_spv, BUKAN baris orders mentah. Ini menghapus risiko range
+  // Fetch Chart Data — agregat harian dari view
+  // sales_hourly_spv, BUKAN baris orders mentah. Ini menghapus risiko range
   // 'all' menarik seluruh tabel orders (tumbuh tanpa batas) dan memanfaatkan
   // GROUP BY di sisi DB.
   const fetchChartOrders = useCallback(async () => {
@@ -85,8 +85,8 @@ export default function AdminOverviewPage() {
     }
 
     let q = supabase
-      .from('sales_summary_spv')
-      .select('sales_date, omzet')
+      .from('sales_hourly_spv')
+      .select('sales_date, revenue')
       .order('sales_date', { ascending: true })
 
     if (selectedOutlet !== 'all') {
@@ -113,7 +113,15 @@ export default function AdminOverviewPage() {
     }
 
     const { data } = await q
-    setChartDaily((data as { sales_date: string; omzet: number }[]) ?? [])
+    
+    // Karena kita pakai sales_hourly_spv, kolomnya adalah 'revenue' bukan 'omzet'.
+    // Kita petakan ke format omzet agar tidak mengubah logic chart di bawahnya.
+    const mappedData = (data as any[])?.map(row => ({
+      sales_date: row.sales_date,
+      omzet: row.revenue
+    })) || []
+    
+    setChartDaily(mappedData)
     setIsChartLoading(false)
   }, [selectedOutlet, chartRange, customStartDate, customEndDate])
 

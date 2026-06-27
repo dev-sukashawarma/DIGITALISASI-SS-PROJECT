@@ -54,11 +54,10 @@ export function useOpnameActions() {
   }, [add])
 
   const flushFinalize = useCallback(async () => {
-    return flush(async (items: Array<{ data: FinalizePayload }>) => {
-      for (const it of items) {
-        const { error } = await supabase.rpc('finalize_opname', { p_opname_id: it.data.opnameId })
-        if (error) throw error
-      }
+    return flush(async (data: FinalizePayload) => {
+      // A thrown error is treated as 'retry' by flush; a clean resolve is 'done'.
+      const { error } = await supabase.rpc('finalize_opname', { p_opname_id: data.opnameId })
+      if (error) throw error
     })
   }, [flush])
 

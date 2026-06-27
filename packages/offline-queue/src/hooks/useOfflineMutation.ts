@@ -7,24 +7,13 @@ export function useOfflineMutation<T = any>(
 ) {
   const { queue, add, flush, isPending, isOnline } = useOfflineQueue<T>(storageKey)
 
-  // Automatically flush when coming back online or when background sync triggers
+  // Automatically flush when online with pending items.
   useEffect(() => {
-    const handleFlush = () => {
-      flush(async (items) => {
-        // Execute mutations sequentially or in parallel depending on requirements
-        for (const item of items) {
-          await mutationFn(item.data)
-        }
-      })
-    }
-
     if (isOnline && queue.length > 0) {
-      handleFlush()
-    }
-
-    window.addEventListener(`flush-queue-${storageKey}`, handleFlush)
-    return () => {
-      window.removeEventListener(`flush-queue-${storageKey}`, handleFlush)
+      // A thrown mutation is treated as `retry` by flush; a clean resolve is `done`.
+      flush(async (data) => {
+        await mutationFn(data)
+      })
     }
   }, [isOnline, queue.length, flush, storageKey, mutationFn])
 

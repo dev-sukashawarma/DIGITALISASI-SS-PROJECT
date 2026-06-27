@@ -9,7 +9,7 @@ export type SubmitOptions = {
 export async function submitAttendance(
   payload: AttendancePayload & { outlet_id: string },
   opts: SubmitOptions,
-): Promise<SubmitResult> {
+): Promise<SubmitResult & { httpStatus: number }> {
   const f = opts.fetchImpl ?? fetch;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -23,5 +23,6 @@ export async function submitAttendance(
     headers,
     body: JSON.stringify(payload),
   });
-  return (await res.json()) as SubmitResult;
+  const json = (await res.json()) as SubmitResult;
+  return { ...json, httpStatus: res.status };
 }

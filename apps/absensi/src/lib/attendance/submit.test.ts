@@ -32,13 +32,15 @@ describe("submitAttendance", () => {
     expect((init as RequestInit).headers).toMatchObject({ "Authorization": "Bearer anon-xyz" });
   });
 
-  test("meneruskan hasil outside_radius apa adanya", async () => {
+  test("meneruskan hasil outside_radius apa adanya, plus httpStatus", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: false, reason: "outside_radius", distance_m: 320 }), { status: 200 }),
     );
     const res = await submitAttendance(payload, {
       functionUrl: "u", anonKey: "t", fetchImpl: fetchMock,
     });
-    expect(res).toEqual({ ok: false, reason: "outside_radius", distance_m: 320 });
+    // Body diteruskan apa adanya; httpStatus ditambahkan agar queue bisa
+    // membedakan 5xx (retry) dari penolakan bisnis/4xx (drop).
+    expect(res).toEqual({ ok: false, reason: "outside_radius", distance_m: 320, httpStatus: 200 });
   });
 });

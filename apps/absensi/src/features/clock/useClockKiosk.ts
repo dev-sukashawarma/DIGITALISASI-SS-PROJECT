@@ -12,6 +12,7 @@ import {
 import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
+import { postToNative } from "@suka/design-system";
 
 export type KioskPhase = "idle" | "identified" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
@@ -223,6 +224,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
 
     if (!navigator.onLine) {
       queue.enqueue(payload, dataUrl);
+      postToNative({ type: "haptic", style: "success" }); // no-op di luar WebView
       setResult({ ok: true, message: action === "in" ? "Selamat bekerja! (Offline)" : "Hati-hati di jalan! (Offline)" });
       setPhase("result"); scheduleReset(2500); return;
     }
@@ -238,6 +240,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       : null;
     const token = authHeaderToken || anonKey;
     const res = await submitAttendance({ ...payload, selfie_path: path }, { functionUrl: FUNCTION_URL, anonKey: token });
+    postToNative({ type: "haptic", style: res.ok ? "success" : "error" }); // no-op di luar WebView
     setResult(res.ok
       ? { ok: true, message: action === "in" ? "Selamat bekerja!" : "Hati-hati di jalan!" }
       : { ok: false, message: gagalText(res.reason) });

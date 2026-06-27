@@ -100,7 +100,15 @@ Dengan kontrak Task 1 ini sudah aman (item → `'retry'`, tetap di queue), tapi 
 hindari thrash: debounce flush + bounded backoff di provider, jangan fire tiap raw
 `online` event.
 
-## Task 4 — WebView bridge: tambah `onMessage` dulu (keystone)
+## Task 4 — WebView bridge: tambah `onMessage` dulu (keystone) ✅ DONE (2026-06-27)
+
+> Dikerjakan di `mobile/superapp/App.tsx`: tambah prop `onMessage` (router pesan
+> web→native), pindah flag `__SUKASHAWARMA_NATIVE_APP__` + intercept PWA ke
+> `injectedJavaScriptBeforeContentLoaded`. Haptic diimplementasikan via `Vibration`
+> core RN (tanpa dependensi baru); `sound` masih TODO (butuh `npx expo install
+> expo-audio`). Type-check `tsc --noEmit` mobile: exit 0.
+> ⚠️ Bukti runtime (haptic getar di device) butuh build Expo — belum dijalankan.
+
 
 Docs react-native-webview (`^14.0.1`): `postMessage` tak di-inject tanpa `onMessage`;
 `injectedJavaScript` pun butuh `onMessage`. `App.tsx` sekarang tak punya keduanya.
@@ -110,7 +118,16 @@ Docs react-native-webview (`^14.0.1`): `postMessage` tak di-inject tanpa `onMess
 2. **Pindah `__SUKASHAWARMA_NATIVE_APP__` ke `injectedJavaScriptBeforeContentLoaded`**
    agar ada sebelum hydration (hindari render-flash).
 
-## Task 5 — Deteksi WebView dipisah per use case (matikan risiko hydration)
+## Task 5 — Deteksi WebView dipisah per use case (matikan risiko hydration) 🟡 SEBAGIAN (2026-06-27)
+
+> Fondasi helper sudah dibuat di `@suka/design-system` (`src/utils/webview.ts`):
+> `isWebViewUserAgent(ua)` (server-side, untuk layout gating tanpa hydration
+> mismatch), `isRunningInWebView()` (client), `postToNative(msg)` (bridge, no-op
+> di luar WebView), + tipe `NativeBridgeMessage`. Konsumen nyata pertama: haptic
+> sukses clock-in di `useClockKiosk` (online & offline). 
+> ⬜ Sisa: gating UI per-app (mis. sembunyikan header portal via `isWebViewUserAgent`
+> server-side, safe-area padding) — follow-up saat dibutuhkan, pakai helper ini.
+
 
 - **Layout gating** (sembunyikan header portal, safe-area) → **UA sniff server-side**
   pada `applicationNameForUserAgent="SukashawarmaApp/1.0"` (`App.tsx:181`).

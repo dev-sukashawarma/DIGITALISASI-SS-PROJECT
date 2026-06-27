@@ -90,6 +90,52 @@ async function processIcons() {
   
   await newAdaptive.write(adaptiveIconPath);
   console.log('Saved resized adaptive-icon.png');
+  // 3. Process splash.png (Splash Screen Image)
+  console.log('Processing splash.png...');
+  const splashPath = path.join(assetsDir, 'splash.png');
+  const backupSplashPath = path.join(assetsDir, 'splash-original-backup.png');
+  
+  if (!fs.existsSync(backupSplashPath)) {
+    if (fs.existsSync(splashPath)) {
+      fs.copyFileSync(splashPath, backupSplashPath);
+      console.log('Backed up original splash.png to splash-original-backup.png');
+    } else {
+      console.warn('splash.png not found, skipping splash processing.');
+    }
+  }
+
+  if (fs.existsSync(backupSplashPath)) {
+    const splashImg = await Jimp.read(backupSplashPath);
+    splashImg.autocrop();
+    
+    // Expo splash screen standard size: 1242x2436
+    // Safe zone for logo inside splash screen is usually around 800px wide
+    const targetSplashSize = 800;
+    const aspectSplash = splashImg.width / splashImg.height;
+    let newSplashW, newSplashH;
+    if (aspectSplash >= 1) {
+      newSplashW = targetSplashSize;
+      newSplashH = Math.round(targetSplashSize / aspectSplash);
+    } else {
+      newSplashH = targetSplashSize;
+      newSplashW = Math.round(targetSplashSize * aspectSplash);
+    }
+    
+    splashImg.resize({ w: newSplashW, h: newSplashH });
+    
+    const newSplash = new Jimp({
+      width: 1242,
+      height: 2436,
+      color: 0x00000000 // transparent
+    });
+    
+    const splashX = Math.round((1242 - newSplashW) / 2);
+    const splashY = Math.round((2436 - newSplashH) / 2);
+    newSplash.composite(splashImg, splashX, splashY);
+    
+    await newSplash.write(splashPath);
+    console.log('Saved resized splash.png');
+  }
 }
 
 processIcons().catch(err => {

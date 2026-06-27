@@ -93,24 +93,17 @@ async function processIcons() {
   // 3. Process splash.png (Splash Screen Image)
   console.log('Processing splash.png...');
   const splashPath = path.join(assetsDir, 'splash.png');
-  const backupSplashPath = path.join(assetsDir, 'splash-original-backup.png');
   
-  if (!fs.existsSync(backupSplashPath)) {
-    if (fs.existsSync(splashPath)) {
-      fs.copyFileSync(splashPath, backupSplashPath);
-      console.log('Backed up original splash.png to splash-original-backup.png');
-    } else {
-      console.warn('splash.png not found, skipping splash processing.');
-    }
-  }
-
-  if (fs.existsSync(backupSplashPath)) {
-    const splashImg = await Jimp.read(backupSplashPath);
+  // We use the icon-original-backup.png (which contains the mascot) 
+  // as the source for the splash screen artwork, because the original splash.png 
+  // might just be the default Expo image without the mascot!
+  if (fs.existsSync(backupIconPath)) {
+    const splashImg = await Jimp.read(backupIconPath);
     splashImg.autocrop();
     
     // Expo splash screen standard size: 1242x2436
-    // Safe zone for logo inside splash screen is usually around 800px wide
-    const targetSplashSize = 800;
+    // Safe zone for logo inside splash screen is usually around 500-600px wide for a clean look
+    const targetSplashSize = 600;
     const aspectSplash = splashImg.width / splashImg.height;
     let newSplashW, newSplashH;
     if (aspectSplash >= 1) {
@@ -126,7 +119,7 @@ async function processIcons() {
     const newSplash = new Jimp({
       width: 1242,
       height: 2436,
-      color: 0x00000000 // transparent
+      color: 0xFFFFFFFF // Use solid white background for splash screen to match the React Native View!
     });
     
     const splashX = Math.round((1242 - newSplashW) / 2);
@@ -134,7 +127,9 @@ async function processIcons() {
     newSplash.composite(splashImg, splashX, splashY);
     
     await newSplash.write(splashPath);
-    console.log('Saved resized splash.png');
+    console.log('Saved resized splash.png using mascot logo!');
+  } else {
+    console.warn('Backup icon not found, cannot generate mascot splash!');
   }
 }
 

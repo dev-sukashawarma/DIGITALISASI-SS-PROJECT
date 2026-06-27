@@ -4,6 +4,8 @@
   "main": "index.ts",
   "dependencies": {
     "expo": "~56.0.12",
+    "expo-device": "~56.0.4",
+    "expo-notifications": "~56.0.18",
     "expo-splash-screen": "^56.0.10",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",

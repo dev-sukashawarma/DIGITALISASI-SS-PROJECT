@@ -11,6 +11,10 @@
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
+    "notification": {
+      "icon": "./assets/android-icon-monochrome.png",
+      "color": "#F59E0B"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sukashawarma.app"

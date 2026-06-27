@@ -17,6 +17,20 @@ import WebView, {
   type WebViewMessageEvent,
 } from 'react-native-webview';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+
+// ─── Push Notification Handler ─────────────────────────────────
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 // ─── Konfigurasi ───────────────────────────────────────────────
 const PORTAL_URL = 'https://app.sukashawarma.com';
@@ -37,12 +51,55 @@ const ALLOWED_DOMAINS = [
 // Tahan Splash Screen sampai web selesai dimuat
 SplashScreen.preventAutoHideAsync();
 
+// ─── Registrasi Push Notification Native ──────────────────────
+async function registerForPushNotificationsAsync() {
+  let token;
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#F59E0B',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.warn('Failed to get push token for push notification!');
+      return;
+    }
+    try {
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId;
+      if (!projectId) {
+        throw new Error('Project ID not found in Constants.expoConfig.extra.eas.projectId');
+      }
+      token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    } catch (e) {
+      console.error('Error fetching Expo Push Token:', e);
+    }
+  } else {
+    console.warn('Must use physical device for Push Notifications');
+  }
+
+  return token;
+}
+
 export default function App() {
   // eslint-disable-next-line @typescript-eslint/ban-types
   const webViewRef = useRef<WebView<{}> | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [expoPushToken, setExpoPushToken] = useState<string | undefined>(undefined);
+  const [initialUri, setInitialUri] = useState(PORTAL_URL);
 
   // State untuk custom animated splash overlay
   const [isSplashActive, setIsSplashActive] = useState(true);
@@ -65,6 +122,60 @@ export default function App() {
 
     return () => backHandler.remove();
   }, [canGoBack]);
+
+  // ─── Bridge Helper: Kirim Token ke WebView ───────────────────
+  const sendTokenToWebView = useCallback((token: string) => {
+    if (!webViewRef.current) return;
+    const jsCode = `
+      (function() {
+        window.__SUKASHAWARMA_NATIVE_PUSH_TOKEN__ = "${token}";
+        window.dispatchEvent(new CustomEvent('nativePushToken', { detail: "${token}" }));
+        window.postMessage({ type: 'push-token', token: "${token}" }, '*');
+        true;
+      })();
+    `;
+    webViewRef.current.injectJavaScript(jsCode);
+  }, []);
+
+  // ─── Setup Push Notifications & Click Handlers ────────────────
+  useEffect(() => {
+    // 1. Ambil token push secara asinkron
+    registerForPushNotificationsAsync().then(token => {
+      if (token) {
+        setExpoPushToken(token);
+        console.log('Expo Push Token:', token);
+      }
+    });
+
+    // 2. Cek apakah app dibuka dari keadaan tertutup (cold launch) via klik notifikasi
+    Notifications.getLastNotificationResponseAsync().then(response => {
+      const url = response?.notification.request.content.data?.url as string | undefined;
+      if (url) {
+        const targetUrl = url.startsWith('http') ? url : `${PORTAL_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+        setInitialUri(targetUrl);
+      }
+    });
+
+    // 3. Listener untuk menangani klik notifikasi saat app sedang aktif (foreground/background)
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      const url = response.notification.request.content.data?.url as string | undefined;
+      if (url) {
+        const targetUrl = url.startsWith('http') ? url : `${PORTAL_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+        webViewRef.current?.injectJavaScript(`window.location.href = "${targetUrl}";`);
+      }
+    });
+
+    return () => {
+      responseListener.remove();
+    };
+  }, []);
+
+  // Kirim token ke WebView secara otomatis saat token tersedia dan loading web selesai
+  useEffect(() => {
+    if (expoPushToken && !isLoading) {
+      sendTokenToWebView(expoPushToken);
+    }
+  }, [expoPushToken, isLoading, sendTokenToWebView]);
 
   // ─── Callback saat navigasi berubah ──────────────────────────
   const onNavigationStateChange = useCallback((navState: WebViewNavigation) => {
@@ -137,6 +248,9 @@ export default function App() {
       // Beri tahu web bahwa ini native app (dipakai untuk gating UI client-side)
       window.__SUKASHAWARMA_NATIVE_APP__ = true;
 
+      // Injeksi token push jika sudah tersedia lebih awal
+      ${expoPushToken ? `window.__SUKASHAWARMA_NATIVE_PUSH_TOKEN__ = "${expoPushToken}";` : ''}
+
       // Cegah banner "Install PWA" muncul di dalam native app
       window.addEventListener('beforeinstallprompt', function(e) {
         e.preventDefault();
@@ -183,6 +297,19 @@ export default function App() {
         // Jalankan `npx expo install expo-audio` lalu putar `msg.file`.
         // Sampai itu, halaman web bisa fallback memutar audio sendiri.
         break;
+      case 'get-push-token': {
+        if (expoPushToken) {
+          sendTokenToWebView(expoPushToken);
+        } else {
+          registerForPushNotificationsAsync().then(token => {
+            if (token) {
+              setExpoPushToken(token);
+              sendTokenToWebView(token);
+            }
+          });
+        }
+        break;
+      }
     }
   }, []);
 
@@ -213,7 +340,7 @@ export default function App() {
 
       <WebView
         ref={webViewRef}
-        source={{ uri: PORTAL_URL }}
+        source={{ uri: initialUri }}
         style={styles.webview}
         onNavigationStateChange={onNavigationStateChange}
         onLoadEnd={onLoadEnd}

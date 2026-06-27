@@ -1,7 +1,6 @@
 import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { Providers } from './Providers'
-import { InstallPrompt, PwaUpdater } from '@suka/pwa'
 import './globals.css'
 
 export const metadata = {
@@ -32,8 +31,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Providers initialStaff={initialStaff}>
           {children}
         </Providers>
-        <InstallPrompt appName="Distribusi" />
-        <PwaUpdater />
       </body>
     </html>
   )

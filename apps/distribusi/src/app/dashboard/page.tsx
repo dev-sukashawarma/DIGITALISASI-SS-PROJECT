@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 import { getCrossAppUrl } from '@/lib/navigation'
 import { Avatar } from '@suka/design-system'
 import { FileText, ArrowLeftRight, CheckCircle2, Plus, Navigation, ListTodo, History, Layers, ChevronRight, LogOut, ShieldAlert, QrCode } from 'lucide-react'
-import { NotificationToggle } from '@suka/pwa'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -220,9 +219,6 @@ export default function DashboardPage() {
         <section className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-5 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-extrabold text-xs text-suka-gray-500 uppercase tracking-widest pl-1">Aksi Cepat</h2>
-            <div className="transform scale-90 origin-right">
-              <NotificationToggle appName="distribusi" />
-            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {isPusat ? (

@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { InstallPrompt, PwaUpdater } from '@suka/pwa'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -21,8 +20,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="id" className="h-full w-full overflow-hidden bg-suka-cream">
       <body className="h-full w-full overflow-hidden bg-suka-cream antialiased">
         {children}
-        <InstallPrompt appName="Portal" />
-        <PwaUpdater />
       </body>
     </html>
   )

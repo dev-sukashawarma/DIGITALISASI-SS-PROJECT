@@ -21,11 +21,8 @@
     "@suka/auth": "*",
     "@suka/design-system": "*",
     "@suka/offline-queue": "*",
-    "@suka/pwa": "*",
     "jsqr": "^1.4.0",
-    "qrcode": "^1.5.3",
-    "@serwist/next": "^9.0.11",
-    "serwist": "^9.0.11"
+    "qrcode": "^1.5.3"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

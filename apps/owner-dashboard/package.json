@@ -23,14 +23,11 @@
     "@suka/design-system": "*",
     "@suka/offline-queue": "*",
     "@suka/auth": "*",
-    "@suka/pwa": "*",
     "lucide-react": "^0.300.0",
     "zustand": "^4.5.4",
     "sonner": "^1.4.0",
     "framer-motion": "^11.0.3",
-    "react-countup": "^6.5.0",
-    "@serwist/next": "^9.0.11",
-    "serwist": "^9.0.11"
+    "react-countup": "^6.5.0"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

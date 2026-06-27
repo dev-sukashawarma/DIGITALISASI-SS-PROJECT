@@ -7,7 +7,6 @@ import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
-import { NotificationToggle } from '@suka/pwa';
 
 export function CrewDashboard() {
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
@@ -248,9 +247,6 @@ export function CrewDashboard() {
 
           <section className="bg-white border border-[#d9c2b2]/45 rounded-xl p-5 shadow-[0px_4px_12px_rgba(144,77,0,0.06)] space-y-4">
             <h3 className="font-bold text-xs text-[#544437] uppercase tracking-wider pl-0.5">Aksi Cepat</h3>
-            <div className="py-2 border-b border-t border-[#d9c2b2]/20 my-2">
-              <NotificationToggle appName="stok" />
-            </div>
             <div className="grid grid-cols-2 gap-3">
               <Link href="/stok/permintaan" className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
                 <span className="text-xl">📝</span>

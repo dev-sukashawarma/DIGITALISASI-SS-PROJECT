@@ -8,7 +8,6 @@ import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
 import { PageHeader } from "@/components/PageHeader";
-import { NotificationToggle, PushSubscriptionData } from "@suka/pwa";
 
 type Config = {
   jam_masuk: string;
@@ -65,26 +64,6 @@ export default function PengaturanAbsensiPage() {
     setSaving(false);
   };
 
-  const handleSubscribe = async (data: PushSubscriptionData) => {
-    if (!outletStaff?.id) return;
-    try {
-      await supabase.from("push_subscriptions").upsert({
-        user_id: outletStaff.id,
-        app: "absensi",
-        endpoint: data.endpoint,
-        p256dh: data.keys.p256dh,
-        auth: data.keys.auth
-      }, { onConflict: "user_id, app, endpoint" });
-    } catch (e) {
-      console.error("Failed to save push subscription", e);
-      throw e;
-    }
-  };
-
-  const handleUnsubscribe = async () => {
-    // Rely on edge function to delete expired subscriptions on 410/404
-    console.log("Unsubscribed from push notifications");
-  };
 
   if (isLoading) return <div className="p-12 flex justify-center"><Spinner /></div>;
 
@@ -223,11 +202,6 @@ export default function PengaturanAbsensiPage() {
         </div>
       </div>
 
-      <NotificationToggle
-        appName="Absensi"
-        onSubscribe={handleSubscribe}
-        onUnsubscribe={handleUnsubscribe}
-      />
 
       <div className="flex justify-end">
         <Button

@@ -5,8 +5,6 @@ import KioskPresenceMount from '@/components/KioskPresenceMount'
 import GlobalBlockerMount from '@/components/GlobalBlockerMount'
 import AudioUnlockMount from '@/components/AudioUnlockMount'
 import { Providers } from '@/components/Providers'
-import { InstallPrompt, PwaUpdater } from '@suka/pwa'
-
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
@@ -41,8 +39,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </BrandProvider>
         </Providers>
-        <InstallPrompt appName="POS Kasir" />
-        <PwaUpdater />
       </body>
     </html>
   )

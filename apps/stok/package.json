@@ -21,10 +21,7 @@
     "@suka/auth": "*",
     "@suka/design-system": "*",
     "@suka/offline-queue": "*",
-    "@suka/pwa": "*",
-    "@tanstack/react-query": "^5.101.0",
-    "@serwist/next": "^9.0.11",
-    "serwist": "^9.0.11"
+    "@tanstack/react-query": "^5.101.0"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

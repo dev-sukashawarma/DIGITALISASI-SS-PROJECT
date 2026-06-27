@@ -485,6 +485,7 @@ export default function CashierOrdersPage() {
       <div className="flex justify-between items-start flex-wrap gap-4">
         {(() => {
           const activeOnlineCount = orders.filter(o => o.source === 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
+          const activeOfflineCount = orders.filter(o => o.source !== 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
           return (
             <div className="flex bg-[#f5ede3] p-1 rounded-xl border border-[#d9c2b2] w-full sm:w-max">
               <button
@@ -506,9 +507,14 @@ export default function CashierOrdersPage() {
               </button>
               <button
                 onClick={() => setSourceFilter('offline')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${sourceFilter === 'offline' ? 'bg-[#701604] text-white shadow-sm shadow-[#701604]/20' : 'text-[#544437] hover:text-[#1e1b15]'}`}
+                className={`relative px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${sourceFilter === 'offline' ? 'bg-[#701604] text-white shadow-sm shadow-[#701604]/20' : 'text-[#544437] hover:text-[#1e1b15]'}`}
               >
                 <Store className="w-4 h-4" /> Offline
+                {activeOfflineCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border-2 border-white animate-pulse">
+                    {activeOfflineCount}
+                  </span>
+                )}
               </button>
             </div>
           );

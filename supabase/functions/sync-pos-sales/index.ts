@@ -27,6 +27,16 @@ function isPaidDone(o: any): boolean {
   return o.status === 'done' && (o.paid_at != null || o.payment_method === 'cash' || o.payment_method === 'manual')
 }
 
+// Petakan payment_method sistem order -> nilai yang VALID di CHECK constraint
+// public.orders DB Utama (hanya menerima 'cash' | 'qris'). Sistem order pakai
+// 'xendit_qris' | 'xendit_va' | 'manual' yang AKAN melanggar constraint &
+// menggagalkan SELURUH batch upsert (akar penyebab 500 "Unknown error" lama).
+function mapPaymentMethod(pm: string | null | undefined): 'cash' | 'qris' {
+  const p = (pm ?? '').toLowerCase()
+  if (p === 'cash' || p === 'manual' || p.includes('tunai')) return 'cash'
+  return 'qris' // xendit_qris, xendit_va, qris, kartu, ewallet, dll -> qris (non-tunai)
+}
+
 Deno.serve(async (req) => {
   try {
     // Cursor incremental: sync hanya order yang berubah sejak terakhir.
@@ -75,7 +85,7 @@ Deno.serve(async (req) => {
         outlet_id: mainOutlet,
         customer_name: o.customer_name ?? 'POS Customer',
         status: 'completed',
-        payment_method: o.payment_method ?? 'cash',
+        payment_method: mapPaymentMethod(o.payment_method),
         total_amount: o.total,
         sales_source: 'pos',
         created_at: o.created_at,
@@ -107,7 +117,11 @@ Deno.serve(async (req) => {
       cursor: maxUpdated,
     }), { headers: { 'Content-Type': 'application/json' } })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Unknown error'
+    // Postgrest error = objek biasa (bukan Error). Stringify agar pesan
+    // constraint/kolom terlihat, tidak tertutup jadi "Unknown error".
+    const msg = e instanceof Error
+      ? e.message
+      : (typeof e === 'object' ? JSON.stringify(e) : String(e))
     console.error('sync-pos-sales error:', msg)
     return new Response(JSON.stringify({ ok: false, error: msg }), {
       status: 500, headers: { 'Content-Type': 'application/json' },

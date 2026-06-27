@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient, getOutletStaff, normalizeLoginIdentifier } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
 import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin, QrCode } from 'lucide-react'
+import ChangelogModal from '@/components/ChangelogModal'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -219,6 +220,9 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      {/* Changelog Update Modal */}
+      <ChangelogModal />
     </main>
   )
 }

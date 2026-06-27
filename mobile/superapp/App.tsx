@@ -8,8 +8,12 @@ import {
   ActivityIndicator,
   Text,
   SafeAreaView,
+  Vibration,
 } from 'react-native';
-import WebView, { type WebViewNavigation } from 'react-native-webview';
+import WebView, {
+  type WebViewNavigation,
+  type WebViewMessageEvent,
+} from 'react-native-webview';
 import * as SplashScreen from 'expo-splash-screen';
 
 // ─── Konfigurasi ───────────────────────────────────────────────
@@ -99,27 +103,63 @@ export default function App() {
     webViewRef.current?.reload();
   }, []);
 
-  // ─── JavaScript yang di-inject ke WebView ────────────────────
-  // Menyembunyikan banner "Install PWA" di dalam WebView
-  // karena user sudah menggunakan native app
-  const injectedJavaScript = `
+  // ─── JavaScript yang di-inject SEBELUM konten dimuat ─────────
+  // Dijalankan saat document element dibuat, sebelum web hydrate — jadi
+  // window.__SUKASHAWARMA_NATIVE_APP__ sudah ada saat first paint (tak ada
+  // flash/hydration mismatch). injectedJavaScript biasa berjalan SETELAH load.
+  const injectedJavaScriptBeforeContentLoaded = `
     (function() {
-      // Intercept beforeinstallprompt agar banner PWA tidak muncul
+      // Beri tahu web bahwa ini native app (dipakai untuk gating UI client-side)
+      window.__SUKASHAWARMA_NATIVE_APP__ = true;
+
+      // Cegah banner "Install PWA" muncul di dalam native app
       window.addEventListener('beforeinstallprompt', function(e) {
         e.preventDefault();
       });
-      
-      // Beri tahu web bahwa ini adalah native app
-      window.__SUKASHAWARMA_NATIVE_APP__ = true;
-      
-      // Override navigator.standalone agar PWA code mendeteksi sebagai installed
+
+      // Override navigator.standalone agar terdeteksi sebagai installed
       Object.defineProperty(navigator, 'standalone', {
         get: function() { return true; }
       });
-      
+
       true; // Required oleh React Native WebView
     })();
   `;
+
+  // ─── Bridge: pesan dari Web → Native ─────────────────────────
+  // CATATAN: prop onMessage WAJIB ada agar react-native-webview meng-inject
+  // window.ReactNativeWebView.postMessage ke halaman web. Tanpa ini, bridge
+  // (dan injectedJavaScript) tidak terpasang. Protokol pesan sinkron dengan
+  // `postToNative()` di @suka/design-system.
+  const onMessage = useCallback((event: WebViewMessageEvent) => {
+    let msg: { type?: string; style?: string; file?: string };
+    try {
+      msg = JSON.parse(event.nativeEvent.data);
+    } catch {
+      return; // abaikan pesan non-JSON
+    }
+
+    switch (msg.type) {
+      case 'haptic': {
+        // Pakai Vibration core RN (tanpa dependensi tambahan).
+        const patterns: Record<string, number | number[]> = {
+          light: 15,
+          medium: 30,
+          heavy: 50,
+          success: [0, 30, 60, 30],
+          warning: [0, 40, 80, 40],
+          error: [0, 60, 40, 60],
+        };
+        Vibration.vibrate(patterns[msg.style ?? 'medium'] ?? 25);
+        break;
+      }
+      case 'sound':
+        // TODO: pemutaran suara native butuh modul audio Expo.
+        // Jalankan `npx expo install expo-audio` lalu putar `msg.file`.
+        // Sampai itu, halaman web bisa fallback memutar audio sendiri.
+        break;
+    }
+  }, []);
 
   // ─── Tampilan Error ──────────────────────────────────────────
   if (hasError) {
@@ -154,7 +194,8 @@ export default function App() {
         onLoadEnd={onLoadEnd}
         onError={onError}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        injectedJavaScript={injectedJavaScript}
+        onMessage={onMessage}
+        injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded}
 
         // ─── Izin Kamera & Mikrofon (untuk Face Recognition) ───
         mediaCapturePermissionGrantType="grant"

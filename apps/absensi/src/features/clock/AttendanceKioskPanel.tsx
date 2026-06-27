@@ -10,6 +10,7 @@ import "dayjs/locale/id";
 import { CameraCapture } from "@/components/CameraCapture";
 import { loadFaceModels } from "@/lib/face/recognizer";
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
+import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
 
 dayjs.locale("id");
 
@@ -57,6 +58,17 @@ export function AttendanceKioskPanel() {
       .then(() => setModelsReady(true))
       .catch((err) => setModelError(err.message || "Gagal memuat AI wajah. Coba refresh."));
   }, []);
+
+  useEffect(() => {
+    if (kiosk.result) {
+      if (kiosk.result.ok) {
+        triggerSuccessFeedback();
+      } else {
+        triggerErrorFeedback();
+      }
+    }
+  }, [kiosk.result]);
+
   useEffect(() => {
     if (outletStaff?.outlet_id) {
       kiosk.loadCandidates();

@@ -40,6 +40,12 @@ export default function OrderNotification() {
 
   const playNotification = async () => {
     try {
+      // 1. Haptic Feedback (Getar)
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate([100, 50, 100, 50, 200]) // pola dering pesanan masuk
+      }
+
+      // 2. Audio Feedback
       if (audioRef.current) {
         // Reset to start if currently playing
         audioRef.current.currentTime = 0

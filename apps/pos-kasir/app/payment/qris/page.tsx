@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/validations'
+import { triggerSuccessFeedback } from '@/lib/haptics'
 
 function QRISPaymentContent() {
   const router = useRouter()
@@ -67,6 +68,7 @@ function QRISPaymentContent() {
     })
 
     setStatus('success')
+    triggerSuccessFeedback()
 
     // Redirect to success after a moment
     setTimeout(() => {

@@ -7,6 +7,7 @@ import { useSalesHourly } from '@/hooks/useSalesHourly'
 import { useMenuSales } from '@/hooks/useMenuSales'
 import { useDashboardStore } from '@/hooks/useDashboardStore'
 import { useOutlets } from '@/hooks/useOutlets'
+import { useSalesRealtime } from '@/hooks/useSalesRealtime'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { KpiCards } from '@/components/KpiCards'
 import { SourceBreakdown } from '@/components/SourceBreakdown'
@@ -20,6 +21,8 @@ import type { PeriodFilterValue } from '@/lib/types'
 export default function DashboardPage() {
   const { data: outlets = [] } = useOutlets()
   const { filter, setFilter } = useDashboardStore()
+  // Realtime: papan ikut refresh begitu ada order baru (paid+selesai) tanpa ganti filter.
+  useSalesRealtime()
   const prevFilter = useMemo<PeriodFilterValue>(() => ({ ...filter, ...previousRange({ from: filter.from, to: filter.to }) }), [filter])
 
   const cur = useSalesSummary(filter)

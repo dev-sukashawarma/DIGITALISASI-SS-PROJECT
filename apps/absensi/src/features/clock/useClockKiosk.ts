@@ -125,9 +125,13 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
             watchIdRef.current = null;
           }
         } else {
+          let msg = `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: 4m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`;
+          if (accuracy >= 80) {
+            msg += "\n\nTips: Akurasi GPS Anda sangat rendah. Ini biasanya terjadi jika izin lokasi browser diset ke 'Perkiraan/Approximate' atau GPS HP mati. Harap ganti izin menjadi 'Lokasi Akurat/Precise' dan nyalakan GPS HP Anda.";
+          }
           setResult({
             ok: false,
-            message: `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: 4m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`,
+            message: msg,
           });
           setPhase("location_invalid");
         }

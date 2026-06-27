@@ -13,7 +13,7 @@ import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
-import { haversineMeters } from "@/lib/gps";
+import { haversineMeters, GEOFENCE_RADIUS_M } from "@/lib/gps";
 
 export type KioskPhase = "locating" | "location_invalid" | "idle" | "identified" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
@@ -43,7 +43,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const [gpsDistance, setGpsDistance] = useState<number | null>(null);
   const [result, setResult] = useState<KioskResult | null>(null);
 
-  /** Validasi lokasi sebelum scan wajah. Radius ketat 4 meter. */
+  /** Validasi lokasi sebelum scan wajah. Radius = GEOFENCE_RADIUS_M (lib/gps). */
   const checkLocation = useCallback(async () => {
     if (!outletId) return;
     setPhase("locating");
@@ -125,10 +125,10 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         const dist = haversineMeters(coords, currentCoords);
         setGpsDistance(dist);
 
-        // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 25 meter (Best Practice untuk mencegah GPS Drift)
+        // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= GEOFENCE_RADIUS_M (mengompensasi GPS drift indoor)
         const adjustedDist = Math.max(0, dist - accuracy);
 
-        if (adjustedDist <= 25) {
+        if (adjustedDist <= GEOFENCE_RADIUS_M) {
           // Simpan cache lokasi sukses ke localStorage agar tidak perlu scan ulang selama 12 jam
           try {
             const expireTime = Date.now() + 12 * 60 * 60 * 1000; // 12 hours
@@ -142,7 +142,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
             watchIdRef.current = null;
           }
         } else {
-          let msg = `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: 25m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`;
+          let msg = `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: ${GEOFENCE_RADIUS_M}m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`;
           if (accuracy >= 80) {
             msg += "\n\nTips: Akurasi GPS Anda sangat rendah. Ini biasanya terjadi jika izin lokasi browser diset ke 'Perkiraan/Approximate' atau GPS HP mati. Harap ganti izin menjadi 'Lokasi Akurat/Precise' dan nyalakan GPS HP Anda.";
           }

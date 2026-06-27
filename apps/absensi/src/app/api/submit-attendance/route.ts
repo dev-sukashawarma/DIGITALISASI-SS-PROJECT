@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { haversineMeters } from "@/lib/gps";
+import { haversineMeters, GEOFENCE_RADIUS_M } from "@/lib/gps";
 
 export async function POST(req: Request) {
   try {
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     if (target.outlet_id !== body.outlet_id) return NextResponse.json({ ok: false, reason: "cross_outlet" }, { status: 403 });
     if (!target.face_descriptor) return NextResponse.json({ ok: false, reason: "not_enrolled" }, { status: 422 });
 
-    // Validasi radius GPS server-side ketat 25 meter dengan toleransi akurasi
+    // Validasi radius GPS server-side = GEOFENCE_RADIUS_M (konsisten dgn client) + toleransi akurasi
     const { data: outlet } = await admin
       .from("outlets")
       .select("lat, lng")
@@ -36,11 +36,11 @@ export async function POST(req: Request) {
         distanceM = haversineMeters(outletCoords, userCoords);
       }
 
-      // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 4 meter
+      // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= GEOFENCE_RADIUS_M
       const accuracy = Number(body.gps_accuracy ?? 0);
       const adjustedDistance = distanceM !== null ? Math.max(0, distanceM - accuracy) : null;
 
-      if (adjustedDistance === null || adjustedDistance > 4) {
+      if (adjustedDistance === null || adjustedDistance > GEOFENCE_RADIUS_M) {
         return NextResponse.json({
           ok: false,
           reason: "too_far_from_outlet",

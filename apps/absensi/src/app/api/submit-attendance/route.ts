@@ -28,23 +28,26 @@ export async function POST(req: Request) {
     if (!outlet) return NextResponse.json({ ok: false, reason: "outlet_not_found" }, { status: 404 });
 
     let distanceM: number | null = null;
-    if (body.gps_lat !== undefined && body.gps_lat !== null && body.gps_lng !== undefined && body.gps_lng !== null) {
-      const outletCoords = { lat: Number(outlet.lat), lng: Number(outlet.lng) };
-      const userCoords = { lat: Number(body.gps_lat), lng: Number(body.gps_lng) };
-      distanceM = haversineMeters(outletCoords, userCoords);
-    }
+    // Hanya validasi GPS jika koordinat outlet terdaftar (tidak null)
+    if (outlet.lat !== null && outlet.lng !== null) {
+      if (body.gps_lat !== undefined && body.gps_lat !== null && body.gps_lng !== undefined && body.gps_lng !== null) {
+        const outletCoords = { lat: Number(outlet.lat), lng: Number(outlet.lng) };
+        const userCoords = { lat: Number(body.gps_lat), lng: Number(body.gps_lng) };
+        distanceM = haversineMeters(outletCoords, userCoords);
+      }
 
-    // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 4 meter
-    const accuracy = Number(body.gps_accuracy ?? 0);
-    const adjustedDistance = distanceM !== null ? Math.max(0, distanceM - accuracy) : null;
+      // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 4 meter
+      const accuracy = Number(body.gps_accuracy ?? 0);
+      const adjustedDistance = distanceM !== null ? Math.max(0, distanceM - accuracy) : null;
 
-    if (adjustedDistance === null || adjustedDistance > 4) {
-      return NextResponse.json({
-        ok: false,
-        reason: "too_far_from_outlet",
-        distance_m: distanceM ?? undefined,
-        accuracy_m: accuracy,
-      }, { status: 403 });
+      if (adjustedDistance === null || adjustedDistance > 4) {
+        return NextResponse.json({
+          ok: false,
+          reason: "too_far_from_outlet",
+          distance_m: distanceM ?? undefined,
+          accuracy_m: accuracy,
+        }, { status: 403 });
+      }
     }
 
     if (body.selfie_path && !body.selfie_path.startsWith(`${body.outlet_id}/`)) {

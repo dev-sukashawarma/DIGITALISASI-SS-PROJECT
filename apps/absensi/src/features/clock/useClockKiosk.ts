@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getHuman } from "@/lib/face/recognizer";
 import { createClient } from "@/lib/supabase";
 import { captureFrame } from "@/components/CameraCapture";
@@ -35,6 +35,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const queue = useAttendanceQueue();
 
   const candidatesRef = useRef<Candidate[]>([]);
+  const watchIdRef = useRef<number | null>(null);
   const [phase, setPhase] = useState<KioskPhase>("locating");
   const [outletCoords, setOutletCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -63,6 +64,14 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
           setPhase("location_invalid");
           return;
         }
+
+        // Jika lat/lng di DB bernilai null (misalnya HQ), bypass validasi geofence
+        if (data.lat === null || data.lng === null) {
+          setPhase("idle");
+          setResult(null);
+          return;
+        }
+
         coords = { lat: Number(data.lat), lng: Number(data.lng) };
         setOutletCoords(coords);
       } catch (err) {
@@ -73,20 +82,36 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       }
     }
 
-    // 2. Ambil lokasi perangkat saat ini
+    // 2. Ambil lokasi perangkat secara kontinu (watchPosition)
     if (typeof window === "undefined" || !navigator.geolocation) {
       setResult({ ok: false, message: "Browser tidak mendukung fitur geolokasi" });
       setPhase("location_invalid");
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const currentCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         const accuracy = pos.coords.accuracy;
         setDeviceCoords(currentCoords);
         setDeviceAccuracy(accuracy);
-        const dist = haversineMeters(coords!, currentCoords);
+
+        if (!coords) {
+          setPhase("idle");
+          setResult(null);
+          if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+          }
+          return;
+        }
+
+        const dist = haversineMeters(coords, currentCoords);
         setGpsDistance(dist);
 
         // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 4 meter
@@ -95,6 +120,10 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         if (adjustedDist <= 4) {
           setPhase("idle");
           setResult(null);
+          if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+          }
         } else {
           setResult({
             ok: false,
@@ -334,7 +363,20 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     scheduleReset(res.ok ? 2500 : 1000);
   }
 
+  // Bersihkan Geolocation Watcher saat komponen unmount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
+
   function scheduleReset(delay = 2500) {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
     setTimeout(() => {
       setPhase("locating"); setWho(null); setChallenge(null); setResult(null);
       livenessRef.current = null;

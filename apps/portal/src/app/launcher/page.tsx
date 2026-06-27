@@ -4,7 +4,6 @@ import { createSupabaseServerClient, getOutletStaff, accessibleApps } from '@suk
 import type { AppName } from '@suka/auth'
 import LogoutButton from '@/components/LogoutButton'
 import AppTile from '@/components/AppTile'
-import ChangelogModal from '@/components/ChangelogModal'
 import { Avatar } from '@suka/design-system'
 import { MapPin, Clock, CheckCircle2 } from 'lucide-react'
 
@@ -207,9 +206,6 @@ export default async function LauncherPage() {
           <p>Sistem Operasional v2.8.0</p>
         </footer>
       </div>
-
-      {/* Changelog Update Modal */}
-      <ChangelogModal />
     </main>
   )
 }

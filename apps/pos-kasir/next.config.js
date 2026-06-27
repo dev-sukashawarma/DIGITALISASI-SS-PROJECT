@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  turbopack: {},
   // @suka/* di-ekspor sebagai TypeScript src → harus ditranspile Next. (ADR-008)
   transpilePackages: ['@suka/auth'],
   typescript: {
@@ -17,9 +16,10 @@ const nextConfig = {
     ],
   },
   // Increase body size limit for ZIP uploads (default is 1MB)
-  // serverActions graduated from `experimental` to top-level config in Next 15+
-  serverActions: {
-    bodySizeLimit: '50mb',
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb',
+    },
   },
 }
 

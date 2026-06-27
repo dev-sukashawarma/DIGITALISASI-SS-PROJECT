@@ -3,7 +3,7 @@ import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient, getOutletStaff, normalizeLoginIdentifier } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
-import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin } from 'lucide-react'
+import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin, QrCode } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -193,6 +193,24 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
+
+            <div className="relative flex items-center py-2">
+              <div className="flex-grow border-t border-suka-gray-200/60"></div>
+              <span className="flex-shrink-0 mx-4 text-suka-gray-400 text-xs font-semibold uppercase tracking-wider">Mode Perangkat</span>
+              <div className="flex-grow border-t border-suka-gray-200/60"></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const kasirUrl = process.env.NEXT_PUBLIC_APP_URL_POS_KASIR || 'http://localhost:3004'
+                window.location.href = `${kasirUrl}/kiosk/qr-login`
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 border-2 border-suka-orange/30 text-suka-orange bg-suka-orange/5 hover:bg-suka-orange/10 hover:border-suka-orange/50 transition-all font-bold rounded-xl active:scale-[0.98] text-sm sm:text-base cursor-pointer"
+            >
+              <QrCode size={18} />
+              <span>Buka Scanner Kiosk</span>
+            </button>
           </div>
 
           {/* Trademark Mobile */}

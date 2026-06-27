@@ -19,7 +19,18 @@
       "Bash(bash scripts/verify-m0.sh)",
       "Bash(yarn --version)",
       "Bash(yarn install *)",
-      "Bash(supabase link *)"
+      "Bash(supabase link *)",
+      "mcp__stitch__list_screens",
+      "Bash(python -c \"import PIL; print\\('PIL', PIL.__version__\\)\")",
+      "Bash(python3 -c \"import PIL; print\\('PIL3', PIL.__version__\\)\")",
+      "Bash(curl -sL \"https://lh3.googleusercontent.com/aida/AP1WRLte9Qqp9rYBgpVa1Lm1xuFup_IXAKRgMMv_QPw9F3VnUSQv7up3XODAEwKG_XWqwub2Qsq_Ay8B28BGZl6X3RGfCtsPCdGDeIzHRKW5qrgu78e-o-pE6kKbNNQGB6aJ3L7EGCEV1Z9QAkEsPnXn5t-BoCzJ82f0TLZv0RDD4vcjDtwruzwz9gGd5z9oGSUzfSPL2ql6Mp4O9Tz7Mug2ymlRr0HFRdTLFOt3Y9a_Hci8VPlwLq56Xl-g1Yk\" -o 04_ownerhome.png)",
+      "Bash(curl -sL \"https://lh3.googleusercontent.com/aida/AP1WRLsfBnChyA2nYOvC6y6iLHWdQnrRkwHq0Hshh6_zUamUsz_tTcsSxNyQGyNIk914XuNpuMmWlSaOPPUZYA77RuY6zJvfdfvb7I3jel-sOTaR_-izQ548fx5dYpuY2TQaxD3dbKpYPHXzW-7SLDsjDqdJlEe4np1oN-5OTX--gG5yoBdmCczMU6iA1E6TrQLRMBCTeNZ9_WhTeeR6pYJhJL-bsdpr6SxTx3iiDhNz7fdA-VgkeAn2iFygFi2x\" -o 11_kasir.png)",
+      "mcp__stitch__upload_design_md",
+      "mcp__stitch__create_design_system_from_design_md",
+      "mcp__stitch__generate_screen_from_text",
+      "Bash(curl -sL \"https://lh3.googleusercontent.com/aida/AP1WRLusI4PRE6-jrC-qHP3mPTEq4YetVinT9KiqkhmaWEMjlZIZY8RHCzEL8i6K4hvacDVES-o0lqecBCH2dWqi_Ds-bgqlD8UYXerJTYV_pz8DMkw5KN3ouj0PtekimCE1Dchwyd8_1YtfXDPOk5RxOs1Ji9X7fyLSYpnn87WNS_cMw-9RQICUSA7-_TYqCxZwIGrR6yulBSJjqQcpfwNSdH-v7TTkQ5BsJ6xfTwo8-HEUZSpBolUzrgdL_xU8\" -o r1_login.png)",
+      "Bash(curl -sL \"https://lh3.googleusercontent.com/aida/AP1WRLsRvopqS1bV6xRs8_MNgaMyoQMqE3u7WXSs7ArPk5bU-sbZN7w6DXvCOGmH-CUYYvqluj7Z_9CtgGmrkKcFzrhiDTkWFKKI9dzh9_7SrkNi4W4X_9cQ6gcBwmqjvGt2Q_JSyHLPvmKAyzbPKpoZL3X3YYZpErXRqHKixls575zgP1BLfhRolInH7pGiwksSwRc9GCzeUAWcR7f3mtrz-iCllswMrLJVNFIWABmcW2BHDMaxq5o1OEFoWOY\" -o r1_kiosk.png)",
+      "Bash(curl -sL \"https://lh3.googleusercontent.com/aida/AP1WRLumkRi7O2161efSbVWa8CKH0Ny8lSEIuhkU5Oy7MQP6LB3djjF9TfG5TFizb15Jlb9eXDsikTReZxcFw1bNQjk5Vdn4DLZWmTOQRjg4HJ_PC7iUTKiPy0lXOUISWvRPxMOFJAUtC17GNyGwKqHmkfwT5IHBcy-HBX9TrOsHPxOpCRR5qJmmk3gxhqGcTbcrfWrn4RQmPrFlUic7uj_q64LuHo77wfyjdPvODqjfEHqbSIQ0UZhDLue-WCx-\" -o r2_login.png)"
     ]
   }
 }

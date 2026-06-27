@@ -7,6 +7,7 @@ import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
+import { Skeleton } from '@suka/design-system';
 
 export function CrewDashboard() {
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
@@ -40,16 +41,6 @@ export function CrewDashboard() {
     const ageText = !oldestDate ? 'Belum pernah opname' : `Terakhir ${Math.floor((Date.now() - oldestDate.getTime()) / (1000 * 60 * 60 * 24))} hari lalu`;
     setOpnameAgeText(ageText);
   }, [lastFetched, data?.items]);
-
-  if (isLoading && !data) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-center text-sm font-semibold text-gray-500 animate-pulse">
-          Loading monitoring data...
-        </div>
-      </div>
-    );
-  }
 
   const criticalItems = (data?.items || []).filter((item) => item.status === 'below');
 
@@ -109,7 +100,7 @@ export function CrewDashboard() {
         <div className="mt-3 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
           <div>
             <h1 className="text-base sm:text-lg font-black text-[#701604] uppercase tracking-tight leading-tight">
-              {data?.outlet_name || 'Outlet'} - Monitoring
+              {isLoading && !data ? <Skeleton className="h-5 w-32 inline-block" /> : (data?.outlet_name || 'Outlet')} - Monitoring
             </h1>
             <p className="text-[10px] font-bold text-[#f29744] uppercase tracking-widest mt-0.5">
               Stock Control Panel
@@ -147,14 +138,14 @@ export function CrewDashboard() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[11px] text-[#544437]">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="bg-[#a43c26] text-white px-2 py-0.5 rounded-full font-bold text-[9px] tracking-wide uppercase">
-                Outlet {data?.outlet_name ? 'Active' : '...'}
+                Outlet {isLoading && !data ? '...' : (data?.outlet_name ? 'Active' : '...')}
               </span>
               <span className="font-semibold">
                 Crew: <span className="font-bold text-gray-800">{outletStaff?.name || '...'}</span>
               </span>
             </div>
             <span className="font-medium text-right">
-              Total Items: <span className="font-bold text-[#701604]">{data?.items?.length || '0'}</span>
+              Total Items: <span className="font-bold text-[#701604]">{isLoading && !data ? <Skeleton className="h-3 w-8 inline-block" /> : (data?.items?.length || '0')}</span>
             </span>
           </div>
 
@@ -197,52 +188,56 @@ export function CrewDashboard() {
           </div>
           
           {/* List */}
-          <CrewList items={data?.items || []} onItemClick={setSelectedItem} />
+          <CrewList items={data?.items || []} onItemClick={setSelectedItem} loading={isLoading && !data} />
         </div>
 
         {/* Right Column: Alerts & Quick Actions */}
         <div className="col-span-12 md:col-span-5 order-1 md:order-2 space-y-6">
           {/* Section 1: Critical Alerts Widget */}
-          {(criticalItems.length > 0 || isOpnameOverdue) && (
-            <section className="bg-white rounded-xl border border-[#d9c2b2]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.06)] p-4 flex flex-col gap-4">
-              <div className="flex items-center gap-2 text-[#ba1a1a]">
-                <span className="text-xl">⚠️</span>
-                <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Peringatan Kritis</h2>
-              </div>
-              
-              <div className="space-y-2">
-                {criticalItems.map((item) => (
-                  <div key={item.bahan_baku_id} className="flex justify-between items-center p-3 bg-[#ffdad6]/20 rounded-lg border border-[#ba1a1a]/10">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-[#a43c26] text-sm">{item.item_name}</span>
-                      <span className="text-xs text-gray-600">
-                        {item.current_qty} {item.satuan} / <span className="font-bold text-[#a43c26]">Reorder {item.threshold} {item.satuan}</span>
-                      </span>
+          {isLoading && !data ? (
+            <Skeleton className="h-44 w-full" />
+          ) : (
+            (criticalItems.length > 0 || isOpnameOverdue) && (
+              <section className="bg-white rounded-xl border border-[#d9c2b2]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.06)] p-4 flex flex-col gap-4">
+                <div className="flex items-center gap-2 text-[#ba1a1a]">
+                  <span className="text-xl">⚠️</span>
+                  <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Peringatan Kritis</h2>
+                </div>
+                
+                <div className="space-y-2">
+                  {criticalItems.map((item) => (
+                    <div key={item.bahan_baku_id} className="flex justify-between items-center p-3 bg-[#ffdad6]/20 rounded-lg border border-[#ba1a1a]/10">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-[#a43c26] text-sm">{item.item_name}</span>
+                        <span className="text-xs text-gray-600">
+                          {item.current_qty} {item.satuan} / <span className="font-bold text-[#a43c26]">Reorder {item.threshold} {item.satuan}</span>
+                        </span>
+                      </div>
+                      <span className="text-[#ba1a1a] font-bold text-lg">↓</span>
                     </div>
-                    <span className="text-[#ba1a1a] font-bold text-lg">↓</span>
-                  </div>
-                ))}
+                  ))}
 
-                {isOpnameOverdue && (
-                  <div className="flex items-start gap-3 p-3 bg-[#faf2e9] rounded-lg border border-[#877365]/20">
-                    <span className="text-xl">📅</span>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-gray-900 text-sm">Opname Jatuh Tempo</span>
-                      <p className="text-xs text-gray-600">
-                        {opnameAgeText} (<span className="text-[#ba1a1a] font-bold uppercase text-[9px]">Overdue</span>)
-                      </p>
+                  {isOpnameOverdue && (
+                    <div className="flex items-start gap-3 p-3 bg-[#faf2e9] rounded-lg border border-[#877365]/20">
+                      <span className="text-xl">📅</span>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-gray-900 text-sm">Opname Jatuh Tempo</span>
+                        <p className="text-xs text-gray-600">
+                          {opnameAgeText} (<span className="text-[#ba1a1a] font-bold uppercase text-[9px]">Overdue</span>)
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-              
-              <Link
-                href="/stok/opname/new"
-                className="w-full bg-[#f29744] hover:bg-[#d97c2b] text-[#643400] font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-center active:scale-95"
-              >
-                📋 Mulai Opname Baru
-              </Link>
-            </section>
+                  )}
+                </div>
+                
+                <Link
+                  href="/stok/opname/new"
+                  className="w-full bg-[#f29744] hover:bg-[#d97c2b] text-[#643400] font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-center active:scale-95"
+                >
+                  📋 Mulai Opname Baru
+                </Link>
+              </section>
+            )
           )}
 
           <section className="bg-white border border-[#d9c2b2]/45 rounded-xl p-5 shadow-[0px_4px_12px_rgba(144,77,0,0.06)] space-y-4">

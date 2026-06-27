@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
+import { Skeleton } from '@suka/design-system';
 
 interface SPVTableProps {
   items: MonitoringItem[];
@@ -14,6 +15,7 @@ interface SPVTableProps {
   searchTerm?: string;
   filterStatus?: 'all' | 'below' | 'warning' | 'ok';
   hideFilters?: boolean;
+  loading?: boolean;
 }
 
 type SortField = 'item_name' | 'status' | 'last_updated' | 'last_opname_date' | 'outlet_name';
@@ -30,11 +32,73 @@ export function SPVTable({
   searchTerm: externalSearchTerm,
   filterStatus: externalFilterStatus,
   hideFilters = false,
+  loading = false,
 }: SPVTableProps) {
   const [sortField, setSortField] = useState<SortField>('item_name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [internalFilterStatus, setInternalFilterStatus] = useState<'all' | 'below' | 'warning' | 'ok'>('all');
   const [internalSearchTerm, setInternalSearchTerm] = useState('');
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {!hideFilters && (
+          <div className="flex flex-col sm:flex-row gap-3 bg-white p-4 rounded-xl border border-suka-brown/15 shadow-sm">
+            <Skeleton className="h-10 w-full sm:max-w-xs" />
+            <Skeleton className="h-10 w-full sm:max-w-md" />
+          </div>
+        )}
+        <div className="overflow-x-auto border border-suka-brown/10 rounded-xl shadow-sm bg-white">
+          <table className="w-full text-left border-collapse text-suka-ink">
+            <thead>
+              <tr className="bg-suka-cream/20 text-suka-brown border-b border-suka-brown/10 text-xs font-bold uppercase tracking-wider">
+                {tab === 'alerts' && <th className="p-4">Outlet</th>}
+                <th className="p-4">Nama Bahan</th>
+                <th className="p-4 text-right">Stok Aktual</th>
+                <th className="p-4 text-right">Threshold</th>
+                <th className="p-4 hidden md:table-cell">Opname Terakhir</th>
+                <th className="p-4 hidden sm:table-cell">Status</th>
+                <th className="p-4 text-center">Tindakan</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-suka-brown/10">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <tr key={i} className="text-sm">
+                  {tab === 'alerts' && (
+                    <td className="p-4">
+                      <Skeleton className="h-4 w-24" />
+                    </td>
+                  )}
+                  <td className="p-4">
+                    <Skeleton className="h-4 w-40" />
+                  </td>
+                  <td className="p-4 text-right flex justify-end">
+                    <Skeleton className="h-4 w-12" />
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end">
+                      <Skeleton className="h-4 w-12" />
+                    </div>
+                  </td>
+                  <td className="p-4 hidden md:table-cell">
+                    <Skeleton className="h-4 w-28" />
+                  </td>
+                  <td className="p-4 hidden sm:table-cell">
+                    <Skeleton className="h-6 w-16" />
+                  </td>
+                  <td className="p-4">
+                    <div className="flex justify-center gap-1">
+                      <Skeleton className="h-8 w-20" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
   
   const filterStatus = externalFilterStatus !== undefined ? externalFilterStatus : internalFilterStatus;
   const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;

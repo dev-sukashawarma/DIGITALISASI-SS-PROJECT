@@ -590,5 +590,45 @@ Migration sudah di-push ke remote.
 
 ---
 
-**Last updated:** 2026-06-26  
+## Session 2026-06-27: Redesign UI/UX Mobile Superapp via Stitch (project "SUPERAPP SS")
+
+**Status:** 🔄 IN PROGRESS — Fase 1 (screen fondasi) jalan; design system & alur generate sudah mantap.
+
+**Goal:** Redesign UI/UX versi mobile lengkap untuk semua app, pakai **design system repo (`packages/design-system`)**, di **project Stitch baru "SUPERAPP SS"**, generate dengan **Gemini 3.1 Pro**, screen dipetakan ke **struktur page repo** (target folder superapp `mobile/pos-mobile`).
+
+### Setup
+- **Stitch MCP** ditambah ke `.mcp.json` (project scope): `claude mcp add stitch --transport http https://stitch.googleapis.com/mcp --header "X-Goog-Api-Key: <key>" -s project`. ⚠️ API key ke-commit di `.mcp.json` (repo tracked) — pertimbangkan pindah user scope / gitignore.
+- **Project Stitch:** `SUPERAPP SS` — projectId `14523811322963058609`.
+
+### Keputusan desain
+1. **Struktur:** satu **superapp role-based** (bukan mirror app web terpisah) — sesuai konsep superapp + shell React Native WebView yang sudah diinisialisasi.
+2. **Design system:** dari **`packages/design-system`** (bukan auto-derive Stitch). Token: **Lilita One** (display/headline) + **Plus Jakarta Sans** (body), warna `suka-orange #f29744` / `suka-brown #701604` / `suka-ink #400a07` / `suka-cream #fff7ed` / `suka-green #0a7d2c`, spacing 4px, radii 8/10/14/20/full.
+   - Dibuat via DESIGN.md → `upload_design_md` → `create_design_system_from_design_md`. **Asset DS final (Lilita One): `4b51bc4b2c254d28b28f59e5625d9577`.**
+3. **Model generate:** `GEMINI_3_1_PRO`.
+4. **Pemetaan ke repo:** "sesuai halaman struktur repo" = screen mengikuti screen nyata `mobile/pos-mobile` (React Native Expo: `screens/auth|kasir|admin|kiosk`). Bukan screen web stok/absensi/distribusi.
+
+### Fase 1 (selesai, DS Lilita One + Gemini 3.1 Pro)
+| Screen Stitch | Map repo |
+|---|---|
+| Login | `src/screens/auth/LoginScreen.tsx` |
+| Portal/Launcher | `apps/portal` launcher (role-based app picker) |
+| Kasir Order | `src/screens/kasir/KasirMenuScreen.tsx` |
+| Admin Overview | `src/screens/admin/AdminOverviewScreen.tsx` |
+| Kiosk Home | `src/screens/kiosk/KioskHomeScreen.tsx` |
+
+(Catatan: 12 screen batch awal pakai DS Lexend auto-derive berbasis web app stok/absensi/distribusi — di-supersede oleh arah pos-mobile + DS repo.)
+
+### Gotcha penting (Stitch)
+- **`generate_screen_from_text` hampir selalu "operation timed out" (~120s) TAPI screen tetap jadi** di server. Jangan retry — verifikasi via `list_screens` (eventual-consistency, kadang telat beberapa detik). Response sukses besar (~13KB DS dump/screen) → boros konteks; batasi batch.
+- **Trade-off color engine (Material):** Lilita One hanya bisa lewat **DESIGN.md route** (enum font Stitch tak punya Lilita One) → engine men-darken tombol primary jadi burnt-orange/cokelat `#904d00`. Pakai `update_design_system` + `overridePrimaryColor` bikin tombol orange TAPI **membuang Lilita One** (headlineFont enum menimpa). **Keputusan: pilih Lilita One untuk mockup**; warna tombol orange `#f29744` dijamin tepat di **kode final** (`@suka/design-system` Button = `bg-suka-orange`). Mockup hanya referensi layout.
+- Base64 DESIGN.md jangan diketik ulang manual (gampang korup) — simpan file & `cat`.
+
+### 📝 Next
+1. Lanjut generate sisa ~18 screen pos-mobile berurutan: **Kasir** (OrderBoard, OrderHistory, ManualOrder, Reports, Settings, KioskControl) → **Admin** (Menu, Categories, Outlets, Users, Reports, Guides, Settings) → **Kiosk** (Attract, MenuDetail, Checkout, Payment, Success, QRLogin) → BlockedOverlay.
+2. Konversi desain → **kode React Native di `mobile/pos-mobile`** pakai `@suka/design-system`, lalu commit & push (tahap "sambung ke struktur repo").
+3. Bersihkan screen lama (batch Lexend web) & Login v2 (PJS) di project Stitch.
+
+---
+
+**Last updated:** 2026-06-27  
 **Owner:** Dev Suka Shawarma

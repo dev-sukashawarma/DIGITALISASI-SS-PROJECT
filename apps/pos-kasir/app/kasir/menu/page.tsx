@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category } from '@/types'
+import { Skeleton } from '@suka/design-system'
 
 const BUCKET = 'menu-images'
 
@@ -191,8 +192,8 @@ export default function KasirMenuPage() {
       {/* ── Menu Grid / Table ────────────────────────────── */}
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[1,2,3,4].map((i) => (
-            <div key={i} className="rounded-2xl bg-gray-100 animate-pulse h-48" />
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-48 w-full" />
           ))}
         </div>
       ) : items.length === 0 ? (

@@ -179,7 +179,7 @@ export default function App() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar
         barStyle="dark-content"
         backgroundColor="#FFFFFF"
@@ -229,7 +229,7 @@ export default function App() {
           <Text style={styles.loadingText}>Memuat Sukashawarma...</Text>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

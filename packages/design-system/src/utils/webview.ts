@@ -42,7 +42,13 @@ export function isWebViewUserAgent(userAgent: string | null | undefined): boolea
  * server-side `isWebViewUserAgent` to avoid hydration flashes.
  */
 export function isRunningInWebView(): boolean {
-  return typeof window !== 'undefined' && !!window.ReactNativeWebView
+  return (
+    typeof window !== 'undefined' &&
+    (!!window.ReactNativeWebView ||
+     !!window.__SUKASHAWARMA_NATIVE_APP__ ||
+     window.navigator.userAgent.includes('SukashawarmaSuperapp') ||
+     window.navigator.userAgent.includes('SukashawarmaApp'))
+  )
 }
 
 /**

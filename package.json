@@ -5,7 +5,8 @@
   "description": "Outlet Suite — digitalisasi operasional outlet Sukashawarma",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "mobile/*"
   ],
   "scripts": {
     "dev": "yarn workspaces foreach -p run dev",

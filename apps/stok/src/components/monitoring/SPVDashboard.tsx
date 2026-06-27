@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { useAuth } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
 import { ApprovalList } from '../permintaan/ApprovalList';
+import { Skeleton } from '@suka/design-system';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
   const name = outletName.toUpperCase();
@@ -273,9 +274,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     showToast(`✅ Batas minimum (Threshold) diperbarui menjadi ${value}`);
   };
 
-  if (isLoading && !data) {
-    return <div className="text-center py-8 text-suka-brown font-medium">Memuat data monitoring...</div>;
-  }
+
 
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
   let resolvedPortalUrl = portalUrl
@@ -482,9 +481,17 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               </div>
               
               <div className="flex flex-col gap-6">
-                {['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang'].map((region) => {
-                  const regionOutlets = outlets.byRegion[region] || [];
-                  if (regionOutlets.length === 0) return null;
+                {isLoading && !data ? (
+                  [1, 2, 3].map((i) => (
+                    <div key={i} className="space-y-2 px-2">
+                      {!isSidebarCollapsed && <Skeleton className="h-3 w-16" />}
+                      <Skeleton className="h-16 w-full" />
+                    </div>
+                  ))
+                ) : (
+                  ['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang'].map((region) => {
+                    const regionOutlets = outlets.byRegion[region] || [];
+                    if (regionOutlets.length === 0) return null;
                   
                   return (
                     <div key={region} className="flex flex-col gap-2">
@@ -572,13 +579,30 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       </div>
                     </div>
                   );
-                })}
+                })
+              )}
               </div>
             </aside>
 
             {/* Middle Column: Details & Tables */}
             <section className="flex-shrink-0 md:flex-1 bg-white flex flex-col border-b md:border-b-0 md:border-r border-[#d9c2b2] overflow-visible md:overflow-hidden">
-              {selectedOutletId ? (
+              {isLoading && !data ? (
+                <div className="flex-1 flex flex-col p-4 md:p-6 bg-white border border-suka-brown/10 rounded-xl space-y-6 overflow-y-auto">
+                  <Skeleton className="h-8 w-48" />
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                  </div>
+                  <SPVTable
+                    items={[]}
+                    tab="overview"
+                    loading={true}
+                    onRowClick={setSelectedItem}
+                  />
+                </div>
+              ) : selectedOutletId ? (
                 <div className="flex-1 flex flex-col overflow-hidden">
                   {/* Sub-header with search & filters */}
                   <div className="p-4 md:p-6 border-b border-suka-brown/10 flex flex-col gap-4 bg-white z-10 flex-shrink-0 shadow-sm">
@@ -718,6 +742,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       onThresholdChange={handleThresholdChange}
                       onRestockRequest={handleRestockRequest}
                       onTransferRequest={setTransferItem}
+                      loading={isLoading && !data}
                     />
                   </div>
                 </div>
@@ -847,6 +872,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                 onThresholdChange={handleThresholdChange}
                 onRestockRequest={handleRestockRequest}
                 onTransferRequest={setTransferItem}
+                loading={isLoading && !data}
               />
             </div>
           </main>

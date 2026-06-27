@@ -2,10 +2,12 @@
 
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
+import { Skeleton } from '@suka/design-system';
 
 interface CrewListProps {
   items: MonitoringItem[];
   onItemClick: (item: MonitoringItem) => void;
+  loading?: boolean;
 }
 
 type SortBy = 'status' | 'name';
@@ -25,10 +27,48 @@ const getStorageLocation = (category: string, name: string) => {
   return 'Dry Storage';
 };
 
-export function CrewList({ items, onItemClick }: CrewListProps) {
+export function CrewList({ items, onItemClick, loading = false }: CrewListProps) {
   const [sortBy, setSortBy] = useState<SortBy>('status');
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'flagged'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {/* Skeleton summary counts */}
+        <div className="grid grid-cols-3 gap-3">
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
+        </div>
+
+        {/* Skeleton search */}
+        <Skeleton className="h-10 w-full" />
+
+        {/* Skeleton sort options */}
+        <Skeleton className="h-10 w-full" />
+
+        {/* Skeleton list */}
+        <div className="bg-white rounded-xl border border-[#d9c2b2]/40 divide-y divide-[#d9c2b2]/20 shadow-sm overflow-hidden p-2 space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex justify-between items-center p-3">
+              <div className="flex items-center gap-3">
+                <Skeleton className="w-4 h-4 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+              <div className="space-y-2 flex flex-col items-end">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-3 w-14" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const filteredAndSorted = useMemo(() => {
     let result = [...items];

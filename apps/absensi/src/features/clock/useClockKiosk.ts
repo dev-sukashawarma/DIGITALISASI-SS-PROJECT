@@ -49,6 +49,17 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     setPhase("locating");
     setResult(null);
 
+    // Cek apakah lokasi sudah terverifikasi hari ini (cache 12 jam)
+    try {
+      const cached = localStorage.getItem(`gps_verified_${outletId}`);
+      if (cached && Date.now() < parseInt(cached, 10)) {
+        // Cache masih valid, bypass GPS check langsung buka kamera
+        setPhase("idle");
+        setResult(null);
+        return;
+      }
+    } catch (e) { /* ignore */ }
+
     // 1. Dapatkan koordinat outlet dari DB jika belum dimuat
     let coords = outletCoords;
     if (!coords) {
@@ -118,6 +129,12 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         const adjustedDist = Math.max(0, dist - accuracy);
 
         if (adjustedDist <= 25) {
+          // Simpan cache lokasi sukses ke localStorage agar tidak perlu scan ulang selama 12 jam
+          try {
+            const expireTime = Date.now() + 12 * 60 * 60 * 1000; // 12 hours
+            localStorage.setItem(`gps_verified_${outletId}`, expireTime.toString());
+          } catch (e) { /* ignore */ }
+
           setPhase("idle");
           setResult(null);
           if (watchIdRef.current !== null) {

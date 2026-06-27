@@ -54,15 +54,7 @@ export default function ChangelogModal() {
   return (
     <>
       {/* Floating Badge & Tooltip Trigger */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
-        {showTooltip && (
-          <div className="mb-2 bg-gradient-to-r from-suka-brown to-suka-ink text-white px-3 py-2 rounded-xl shadow-lg border border-white/10 text-[11px] font-black uppercase tracking-wider animate-bounce flex items-center gap-1.5 max-w-[240px]">
-            <span>✨ Versi terbaru aktif! Lihat fitur baru</span>
-            <button onClick={() => setShowTooltip(false)} className="hover:text-suka-orange transition-colors">
-              <X size={12} />
-            </button>
-          </div>
-        )}
+      <div className="fixed top-6 right-6 z-40 flex flex-col items-end">
         <button
           onClick={() => {
             setIsOpen(true)
@@ -73,6 +65,15 @@ export default function ChangelogModal() {
           <Sparkles className="w-4 h-4 text-suka-orange animate-pulse" />
           <span>Update v2.8</span>
         </button>
+
+        {showTooltip && (
+          <div className="mt-2 bg-gradient-to-r from-suka-brown to-suka-ink text-white px-3 py-2 rounded-xl shadow-lg border border-white/10 text-[11px] font-black uppercase tracking-wider animate-bounce flex items-center gap-1.5 max-w-[240px]">
+            <span>✨ Versi terbaru aktif! Lihat fitur baru</span>
+            <button onClick={() => setShowTooltip(false)} className="hover:text-suka-orange transition-colors">
+              <X size={12} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modal Overlay */}

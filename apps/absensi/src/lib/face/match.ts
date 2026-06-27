@@ -17,7 +17,7 @@ export type Descriptor = readonly number[];
  * orang BEDA ~0.53. Threshold 0.725 ≈ titik tengah → tahan banting di kedua sisi:
  * orang asli tetap lolos walau cahaya/sudut kurang ideal, orang beda ketolak telak.
  */
-export const DEFAULT_MATCH_THRESHOLD = 0.725;
+export const DEFAULT_MATCH_THRESHOLD = 0.65;
 
 function assertSameLength(a: Descriptor, b: Descriptor): void {
   if (a.length !== b.length) {

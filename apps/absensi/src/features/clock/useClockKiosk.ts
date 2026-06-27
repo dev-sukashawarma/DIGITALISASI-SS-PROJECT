@@ -13,8 +13,9 @@ import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
+import { haversineMeters } from "@/lib/gps";
 
-export type KioskPhase = "idle" | "identified" | "liveness" | "submitting" | "result";
+export type KioskPhase = "locating" | "location_invalid" | "idle" | "identified" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
 
 type StaffRow = { id: string; name: string; face_descriptor: number[] | null };
@@ -34,11 +35,93 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const queue = useAttendanceQueue();
 
   const candidatesRef = useRef<Candidate[]>([]);
-  const [phase, setPhase] = useState<KioskPhase>("idle");
+  const [phase, setPhase] = useState<KioskPhase>("locating");
+  const [outletCoords, setOutletCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [deviceAccuracy, setDeviceAccuracy] = useState<number | null>(null);
+  const [gpsDistance, setGpsDistance] = useState<number | null>(null);
+  const [result, setResult] = useState<KioskResult | null>(null);
+
+  /** Validasi lokasi sebelum scan wajah. Radius ketat 4 meter. */
+  const checkLocation = useCallback(async () => {
+    if (!outletId) return;
+    setPhase("locating");
+    setResult(null);
+
+    // 1. Dapatkan koordinat outlet dari DB jika belum dimuat
+    let coords = outletCoords;
+    if (!coords) {
+      try {
+        const { data, error } = await supabase
+          .from("outlets")
+          .select("lat, lng")
+          .eq("id", outletId)
+          .single();
+        if (error || !data) {
+          console.error("Failed to load outlet coordinates:", error);
+          setResult({ ok: false, message: "Gagal memuat koordinat outlet" });
+          setPhase("location_invalid");
+          return;
+        }
+        coords = { lat: Number(data.lat), lng: Number(data.lng) };
+        setOutletCoords(coords);
+      } catch (err) {
+        console.error("Error loading outlet coordinates:", err);
+        setResult({ ok: false, message: "Terjadi kesalahan sistem memuat lokasi outlet" });
+        setPhase("location_invalid");
+        return;
+      }
+    }
+
+    // 2. Ambil lokasi perangkat saat ini
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setResult({ ok: false, message: "Browser tidak mendukung fitur geolokasi" });
+      setPhase("location_invalid");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const currentCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const accuracy = pos.coords.accuracy;
+        setDeviceCoords(currentCoords);
+        setDeviceAccuracy(accuracy);
+        const dist = haversineMeters(coords!, currentCoords);
+        setGpsDistance(dist);
+
+        // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 4 meter
+        const adjustedDist = Math.max(0, dist - accuracy);
+
+        if (adjustedDist <= 4) {
+          setPhase("idle");
+          setResult(null);
+        } else {
+          setResult({
+            ok: false,
+            message: `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: 4m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`,
+          });
+          setPhase("location_invalid");
+        }
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+        let errMsg = "Gagal memindai lokasi perangkat";
+        if (err.code === err.PERMISSION_DENIED) {
+          errMsg = "Izin lokasi ditolak. Harap izinkan akses lokasi pada browser Anda.";
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          errMsg = "Sinyal GPS/lokasi tidak terdeteksi. Silakan coba lagi.";
+        } else if (err.code === err.TIMEOUT) {
+          errMsg = "Waktu pemindaian lokasi habis (Timeout). Coba lagi.";
+        }
+        setResult({ ok: false, message: errMsg });
+        setPhase("location_invalid");
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  }, [outletId, outletCoords, supabase]);
   const [who, setWho] = useState<{ id: string; name: string } | null>(null);
   const [action, setAction] = useState<"in" | "out">("in");
   const [challenge, setChallenge] = useState<Challenge | null>(null);
-  const [result, setResult] = useState<KioskResult | null>(null);
   const busyRef = useRef(false);
 
   /** Muat descriptor staff ter-enroll. */
@@ -216,6 +299,9 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       outlet_id: outletId,
       outlet_staff_id: who.id,
       type: action,
+      gps_lat: deviceCoords?.lat ?? null,
+      gps_lng: deviceCoords?.lng ?? null,
+      gps_accuracy: deviceAccuracy ?? null,
       match_distance: 0,
       selfie_path: null,
       ts_client: new Date().toISOString(),
@@ -250,7 +336,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
 
   function scheduleReset(delay = 2500) {
     setTimeout(() => {
-      setPhase("idle"); setWho(null); setChallenge(null); setResult(null);
+      setPhase("locating"); setWho(null); setChallenge(null); setResult(null);
       livenessRef.current = null;
     }, delay);
   }
@@ -261,7 +347,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   }, [outletId, queue]);
 
   return { phase, who, action, challenge, challengeLabel: challenge ? CHALLENGE_LABEL[challenge] : "", result,
-           loadCandidates, tick, runLiveness, flushQueue, isOnline: queue.isOnline, pending: queue.pending };
+           loadCandidates, tick, runLiveness, flushQueue, isOnline: queue.isOnline, pending: queue.pending,
+           checkLocation, gpsDistance, deviceCoords, deviceAccuracy };
 }
 
 function gagalText(reason: string): string {

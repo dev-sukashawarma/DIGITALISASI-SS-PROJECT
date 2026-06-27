@@ -1,6 +1,6 @@
 "use client";
 
-import { Human, Config } from "@vladmandic/human";
+import type { Human, Config } from "@vladmandic/human";
 
 const config: Partial<Config> = {
   // We remove hardcoded 'webgl' backend. Let human auto-detect (webgl -> wasm) to prevent crashes on older phones.
@@ -29,8 +29,12 @@ let humanInstance: Human | null = null;
 let loaded = false;
 
 export async function getHuman(): Promise<Human> {
+  if (typeof window === "undefined") {
+    throw new Error("getHuman must be called on the client side.");
+  }
   if (!humanInstance) {
-    humanInstance = new Human(config);
+    const HumanClass = (await import("@vladmandic/human")).Human;
+    humanInstance = new HumanClass(config);
   }
   return humanInstance;
 }

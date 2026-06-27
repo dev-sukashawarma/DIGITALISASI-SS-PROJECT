@@ -1,5 +1,5 @@
 export type AttendanceConfig = { jam_masuk: string; jam_keluar?: string; toleransi_menit: number };
-export type AttendanceStatus = "tepat" | "telat" | "alpha";
+export type AttendanceStatus = "tepat" | "telat" | "alpha" | "lebih_awal" | "pulang_telat";
 
 /** Menentukan status absen. Bila keluar sebelum jam keluar terhitung telat. */
 export function computeStatus(
@@ -17,12 +17,30 @@ export function computeStatus(
     const [hOut, mOut] = (cfg.jam_keluar || "17:00").split(":").map(Number);
     const deadlineOut = new Date(local);
     deadlineOut.setHours(hOut, mOut, 0, 0);
-    return local.getTime() < deadlineOut.getTime() ? "telat" : "tepat";
+    
+    const diffMins = Math.floor((local.getTime() - deadlineOut.getTime()) / 60000);
+    if (diffMins < 0) {
+      return "lebih_awal";
+    } else if (diffMins >= 1) {
+      return "pulang_telat";
+    } else {
+      return "tepat";
+    }
   }
 
   const [h, m] = cfg.jam_masuk.split(":").map(Number);
-  const deadline = new Date(local);
-  deadline.setHours(h, m + cfg.toleransi_menit, 0, 0);
+  
+  const jamMasukDeadline = new Date(local);
+  jamMasukDeadline.setHours(h, m, 0, 0);
 
-  return local.getTime() <= deadline.getTime() ? "tepat" : "alpha";
+  const toleransiDeadline = new Date(local);
+  toleransiDeadline.setHours(h, m + cfg.toleransi_menit, 0, 0);
+
+  if (local.getTime() <= jamMasukDeadline.getTime()) {
+    return "tepat";
+  } else if (local.getTime() <= toleransiDeadline.getTime()) {
+    return "telat";
+  } else {
+    return "alpha";
+  }
 }

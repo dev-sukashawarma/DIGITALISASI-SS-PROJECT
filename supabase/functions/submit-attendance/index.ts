@@ -7,11 +7,28 @@ type Body = {
   type: "in" | "out";
   gps_lat?: number;
   gps_lng?: number;
+  gps_accuracy?: number;
   match_distance: number;
   selfie_path: string | null;
   ts_client: string;
   from_queue: boolean;
 };
+
+const EARTH_RADIUS_M = 6_371_000;
+const toRad = (deg: number): number => (deg * Math.PI) / 180;
+
+function haversineMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -50,6 +67,34 @@ Deno.serve(async (req) => {
     if (target.outlet_id !== body.outlet_id) return json(403, { ok: false, reason: "cross_outlet" });
     if (!target.face_descriptor) return json(422, { ok: false, reason: "not_enrolled" });
 
+    // Validasi radius GPS server-side ketat 4 meter
+    const { data: outlet } = await admin
+      .from("outlets")
+      .select("lat, lng")
+      .eq("id", body.outlet_id)
+      .single();
+    if (!outlet) return json(404, { ok: false, reason: "outlet_not_found" });
+
+    let distanceM: number | null = null;
+    if (body.gps_lat !== undefined && body.gps_lat !== null && body.gps_lng !== undefined && body.gps_lng !== null) {
+      const outletCoords = { lat: Number(outlet.lat), lng: Number(outlet.lng) };
+      const userCoords = { lat: Number(body.gps_lat), lng: Number(body.gps_lng) };
+      distanceM = haversineMeters(outletCoords, userCoords);
+    }
+
+    // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 4 meter
+    const accuracy = Number(body.gps_accuracy ?? 0);
+    const adjustedDistance = distanceM !== null ? Math.max(0, distanceM - accuracy) : null;
+
+    if (adjustedDistance === null || adjustedDistance > 4) {
+      return json(403, {
+        ok: false,
+        reason: "too_far_from_outlet",
+        distance_m: distanceM ?? undefined,
+        accuracy_m: accuracy,
+      });
+    }
+
     // Validasi path selfie milik outlet ini.
     if (body.selfie_path && !body.selfie_path.startsWith(`${body.outlet_id}/`)) {
       return json(403, { ok: false, reason: "selfie_path_mismatch" });
@@ -74,9 +119,9 @@ Deno.serve(async (req) => {
       type: body.type,
       ts_server: tsServer,
       ts_client: body.ts_client,
-      gps_lat: null,
-      gps_lng: null,
-      distance_m: null,
+      gps_lat: body.gps_lat ?? null,
+      gps_lng: body.gps_lng ?? null,
+      distance_m: distanceM,
       match_distance: body.match_distance,
       selfie_url: body.selfie_path,
       status,

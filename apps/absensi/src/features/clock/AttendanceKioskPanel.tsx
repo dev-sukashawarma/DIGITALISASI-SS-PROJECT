@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Card, Spinner } from "@suka/design-system";
-import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer } from "lucide-react";
+import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, Store } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
@@ -87,6 +87,13 @@ export function AttendanceKioskPanel() {
     const interval = setInterval(checkStatus, 5000);
     return () => clearInterval(interval);
   }, [outletStaff?.outlet_id]);
+
+  // Otomatis memicu pemindaian lokasi saat phase diset ke "locating"
+  useEffect(() => {
+    if (kiosk.phase === "locating") {
+      kiosk.checkLocation();
+    }
+  }, [kiosk.phase, kiosk.checkLocation]);
 
   // Update nowMinutes setiap menit agar window overlay refresh otomatis
   useEffect(() => {
@@ -306,6 +313,54 @@ export function AttendanceKioskPanel() {
               <CircleX size={48} className="text-red-500 mb-4" />
               <h2 className="text-xl font-bold text-red-400">Gagal Memuat Kamera/AI</h2>
               <p className="text-gray-300 mt-2 text-sm">{cameraError || modelError}</p>
+            </div>
+          ) : kiosk.phase === "locating" ? (
+            <div className="absolute inset-0 z-20 flex flex-col justify-center items-center p-6 text-center space-y-4 bg-slate-900 text-white">
+              <style dangerouslySetInnerHTML={{__html: `
+                @keyframes pulse-radar {
+                  0% { transform: scale(0.8); opacity: 0.8; }
+                  100% { transform: scale(2.2); opacity: 0; }
+                }
+                .animate-radar-1 { animation: pulse-radar 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; }
+                .animate-radar-2 { animation: pulse-radar 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 0.6s; }
+                .animate-radar-3 { animation: pulse-radar 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 1.2s; }
+              `}} />
+              <div className="relative flex items-center justify-center w-28 h-28">
+                <div className="absolute inset-0 rounded-full bg-suka-orange/20 animate-radar-1" />
+                <div className="absolute inset-0 rounded-full bg-suka-orange/20 animate-radar-2" />
+                <div className="absolute inset-0 rounded-full bg-suka-orange/20 animate-radar-3" />
+                <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-suka-orange text-white shadow-lg">
+                  <Store size={28} className="animate-pulse" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-white font-bold text-base tracking-wide">Memindai Lokasi Anda...</p>
+                <p className="text-gray-400 text-xs">Mendeteksi koordinat GPS outlet</p>
+              </div>
+            </div>
+          ) : kiosk.phase === "location_invalid" ? (
+            <div className="absolute inset-0 z-20 flex flex-col justify-center items-center p-6 text-center bg-red-950/95 text-white space-y-4">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-900/50 text-red-500 border border-red-500/20">
+                <CircleX size={36} className="stroke-[2.5]" />
+              </div>
+              <div className="space-y-2 max-w-xs">
+                <h3 className="text-red-400 font-extrabold text-base">Akses Lokasi Ditolak</h3>
+                <p className="text-gray-300 text-xs leading-normal">
+                  {kiosk.result?.message || "Anda terdeteksi di luar radius outlet."}
+                </p>
+                {kiosk.gpsDistance !== null && (
+                  <div className="inline-block bg-slate-900 border border-red-500/30 rounded-lg px-2.5 py-1 mt-1">
+                    <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Jarak Saat Ini</p>
+                    <p className="text-base font-black text-red-400">{kiosk.gpsDistance.toFixed(1)} meter</p>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => kiosk.checkLocation()}
+                className="py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-[0.98]"
+              >
+                Coba Pindai Ulang Lokasi
+              </button>
             </div>
           ) : (
             <CameraCapture 

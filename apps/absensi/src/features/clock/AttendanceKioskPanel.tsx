@@ -263,7 +263,7 @@ export function AttendanceKioskPanel() {
            <Camera className="text-suka-orange" size={18} />
            <h2 className="font-bold text-suka-ink text-sm sm:text-base">Absen Wajah</h2>
         </div>
-        <div className="relative flex justify-center items-center h-[240px] sm:h-[320px] bg-black overflow-hidden shadow-inner">
+        <div className="relative flex justify-center items-center min-h-[320px] sm:min-h-[380px] bg-black overflow-hidden shadow-inner">
           {/* Mode manual: outlet dikunci SPV */}
           {isManual && !isOutletOpen ? (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm">

@@ -59,3 +59,6 @@ plan_masa_depan/
 create-bucket.js
 setup-policy.js
 tugas_lanjutan.md
+
+# yarn workspace — cegah lockfile npm nyasar
+package-lock.json

@@ -13,6 +13,7 @@ import { formatRupiah } from '@/lib/validations'
 import ChannelBadge from '@/components/ChannelBadge'
 import StockWidget from '@/components/StockWidget'
 import type { OrderWithItems, OrderStatus } from '@/types'
+import { postToNative } from '@suka/design-system'
 
 const DING_SOUND = '/sound-pesanan.mp3'
 
@@ -100,6 +101,10 @@ export default function CashierOrdersPage() {
   }, [])
 
   const playNotification = useCallback(async () => {
+    // Kirim sinyal ke native shell Superapp
+    postToNative({ type: 'haptic', style: 'heavy' })
+    postToNative({ type: 'sound', file: DING_SOUND })
+
     try {
       const a = document.getElementById('ding-sound') as HTMLAudioElement
       if (a) {
@@ -157,6 +162,7 @@ export default function CashierOrdersPage() {
 
   // Mark as Preparing
   async function markAsPreparing(id: string) {
+    postToNative({ type: 'haptic', style: 'success' })
     queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
       prev?.map(o => o.id === id ? { ...o, status: 'preparing' } : o)
     )
@@ -166,6 +172,7 @@ export default function CashierOrdersPage() {
 
   // Mark as Completed
   async function markAsCompleted(id: string) {
+    postToNative({ type: 'haptic', style: 'success' })
     queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
       prev?.map(o => o.id === id ? { ...o, status: 'completed' } : o)
     )
@@ -184,6 +191,7 @@ export default function CashierOrdersPage() {
   // Cancel order
   async function cancelOrder(id: string) {
     if (confirm('Batalkan pesanan ini secara permanen?')) {
+      postToNative({ type: 'haptic', style: 'warning' })
       queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
         prev?.map(o => o.id === id ? { ...o, status: 'cancelled' } : o)
       )

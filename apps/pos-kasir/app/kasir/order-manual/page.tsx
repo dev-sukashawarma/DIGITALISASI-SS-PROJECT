@@ -11,6 +11,7 @@ import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import { CHANNELS, getChannel } from '@/lib/channels'
 import type { MenuItem, Category } from '@/types'
+import { postToNative } from '@suka/design-system'
 
 interface Line {
   item: MenuItem
@@ -132,10 +133,12 @@ export default function OrderManualPage() {
       })
       const data = await res.json()
       if (!res.ok) {
+        postToNative({ type: 'haptic', style: 'error' })
         setError(data.error ?? 'Gagal membuat pesanan')
         setSubmitting(false)
         return
       }
+      postToNative({ type: 'haptic', style: 'success' })
       setSuccess(data.order_number)
       // reset untuk order berikutnya
       setLines({})
@@ -144,6 +147,7 @@ export default function OrderManualPage() {
       setCustomerName('')
       setCartOpen(false)
     } catch {
+      postToNative({ type: 'haptic', style: 'error' })
       setError('Tidak dapat terhubung ke server')
     } finally {
       setSubmitting(false)

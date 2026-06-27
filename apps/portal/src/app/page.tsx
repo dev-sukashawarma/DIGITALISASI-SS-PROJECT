@@ -203,7 +203,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                const kasirUrl = process.env.NEXT_PUBLIC_APP_URL_POS_KASIR || 'http://localhost:3004'
+                const kasirUrl = process.env.NEXT_PUBLIC_APP_URL_POS_KASIR || 'https://pos.sukashawarma.com'
                 window.location.href = `${kasirUrl}/kiosk/qr-login`
               }}
               className="w-full flex items-center justify-center gap-2 py-3 border-2 border-suka-orange/30 text-suka-orange bg-suka-orange/5 hover:bg-suka-orange/10 hover:border-suka-orange/50 transition-all font-bold rounded-xl active:scale-[0.98] text-sm sm:text-base cursor-pointer"

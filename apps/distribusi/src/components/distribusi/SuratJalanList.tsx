@@ -9,6 +9,7 @@ import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
 import { BottomNav } from './BottomNav'
 import { ArrowLeft, Plus, Calendar, AlertCircle, FileDown, Eye, Check } from 'lucide-react'
+import { Skeleton } from '@suka/design-system'
 
 function FormattedDate({ iso }: { iso: string | null | undefined }) {
   const text = useFormattedDate(iso, {
@@ -77,14 +78,7 @@ export function SuratJalanList() {
     downloadPDF(`Surat-Jalan-${sj.id.substring(0, 8)}.html`, htmlContent)
   }
 
-  if (loading) {
-    return (
-      <div className="flex flex-col min-h-screen justify-center items-center bg-[#fff8f1] text-[#701604] font-medium bg-grain relative">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#701604] mb-4"></div>
-        <p className="text-xs font-bold uppercase tracking-wider animate-pulse">Memuat daftar surat jalan...</p>
-      </div>
-    )
-  }
+
 
   return (
     <div className="min-h-screen bg-[#fff8f1]/50 text-[#1e1b15] pb-32 relative overflow-hidden bg-grain select-none">
@@ -147,7 +141,23 @@ export function SuratJalanList() {
           </div>
         </div>
 
-        {data.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-5 space-y-4 shadow-sm">
+                <div className="flex justify-between items-start">
+                  <Skeleton className="h-4.5 w-20" />
+                  <Skeleton className="h-4.5 w-16" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-3.5 w-full" />
+                </div>
+                <Skeleton className="h-8 w-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+        ) : data.length === 0 ? (
           <div className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-16 text-center shadow-sm">
             <span className="text-3xl block mb-2">📭</span>
             <p className="text-suka-gray-500 font-extrabold text-sm uppercase tracking-wider">Belum ada Surat Jalan</p>

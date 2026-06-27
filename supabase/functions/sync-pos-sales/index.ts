@@ -77,7 +77,6 @@ Deno.serve(async (req) => {
         status: 'completed',
         payment_method: o.payment_method ?? 'cash',
         total_amount: o.total,
-        source: 'pos_sync',
         sales_source: 'pos',
         created_at: o.created_at,
         updated_at: o.updated_at ?? o.created_at,

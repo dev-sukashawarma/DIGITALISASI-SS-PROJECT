@@ -114,10 +114,10 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         const dist = haversineMeters(coords, currentCoords);
         setGpsDistance(dist);
 
-        // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 10 meter
+        // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 25 meter (Best Practice untuk mencegah GPS Drift)
         const adjustedDist = Math.max(0, dist - accuracy);
 
-        if (adjustedDist <= 10) {
+        if (adjustedDist <= 25) {
           setPhase("idle");
           setResult(null);
           if (watchIdRef.current !== null) {
@@ -125,7 +125,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
             watchIdRef.current = null;
           }
         } else {
-          let msg = `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: 10m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`;
+          let msg = `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: 25m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`;
           if (accuracy >= 80) {
             msg += "\n\nTips: Akurasi GPS Anda sangat rendah. Ini biasanya terjadi jika izin lokasi browser diset ke 'Perkiraan/Approximate' atau GPS HP mati. Harap ganti izin menjadi 'Lokasi Akurat/Precise' dan nyalakan GPS HP Anda.";
           }

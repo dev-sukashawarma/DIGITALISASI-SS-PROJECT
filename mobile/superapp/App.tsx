@@ -101,11 +101,6 @@ export default function App() {
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>(undefined);
   const [initialUri, setInitialUri] = useState(PORTAL_URL);
 
-  // State untuk custom animated splash overlay
-  const [isSplashActive, setIsSplashActive] = useState(true);
-  const splashOpacity = useRef(new Animated.Value(1)).current;
-  const splashScale = useRef(new Animated.Value(1)).current;
-
   // ─── Handler Tombol Back Android ─────────────────────────────
   // Jika WebView bisa mundur → mundur 1 halaman
   // Jika tidak bisa → keluar dari aplikasi
@@ -184,31 +179,14 @@ export default function App() {
 
   // ─── Callback saat web selesai dimuat ────────────────────────
   const onLoadEnd = useCallback(() => {
-    // Sembunyikan native splash screen bawaan Expo secara instan
+    // Sembunyikan native splash screen bawaan Expo
     SplashScreen.hideAsync();
-
-    // Jalankan animasi transisi fade-out dan zoom-in halus pada custom overlay kita
-    Animated.parallel([
-      Animated.timing(splashOpacity, {
-        toValue: 0,
-        duration: 650, // Durasi 650ms transisi memudar
-        useNativeDriver: true,
-      }),
-      Animated.timing(splashScale, {
-        toValue: 1.12, // Zoom-in halus 12%
-        duration: 650,
-        useNativeDriver: true,
-      })
-    ]).start(() => {
-      setIsSplashActive(false); // Unmount overlay dari view tree
-      setIsLoading(false);
-    });
-  }, [splashOpacity, splashScale]);
+    setIsLoading(false);
+  }, []);
 
   // ─── Callback error ──────────────────────────────────────────
   const onError = useCallback(() => {
     setHasError(true);
-    setIsSplashActive(false);
     setIsLoading(false);
     SplashScreen.hideAsync();
   }, []);
@@ -381,17 +359,6 @@ export default function App() {
           <Text style={styles.loadingText}>Memuat Sukashawarma...</Text>
         </View>
       )}
-
-      {/* Custom Animated Splash Overlay */}
-      {isSplashActive && (
-        <Animated.View style={[styles.splashOverlay, { opacity: splashOpacity, transform: [{ scale: splashScale }] }]}>
-          <Image
-            source={require('./assets/splash.png')}
-            style={styles.splashImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
-      )}
     </SafeAreaView>
   );
 }
@@ -417,17 +384,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
     fontWeight: '500',
-  },
-  splashOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: '#FFFFFF', // Menyamakan warna background splash screen
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 999, // Menjamin berada di atas webview & loading spinner
-  },
-  splashImage: {
-    width: '100%',
-    height: '100%',
   },
   errorContainer: {
     flex: 1,

@@ -203,7 +203,7 @@ export default async function LauncherPage() {
         {/* Footer */}
         <footer className="pt-6 border-t border-suka-orange/10 flex flex-wrap justify-between items-center text-[10px] text-suka-gray-400 font-bold gap-2">
           <p>© {new Date().getFullYear()} Suka Shawarma. Hak Cipta Dilindungi.</p>
-          <p>Sistem Operasional v2.7.0</p>
+          <p>Sistem Operasional v2.8.0</p>
         </footer>
       </div>
     </main>

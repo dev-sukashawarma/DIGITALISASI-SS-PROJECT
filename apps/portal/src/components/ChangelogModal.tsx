@@ -8,7 +8,7 @@ export default function ChangelogModal() {
   const [showTooltip, setShowTooltip] = useState(false)
 
   useEffect(() => {
-    const versionKey = 'suka-announcement-v2.7'
+    const versionKey = 'suka-announcement-v2.8'
     const seen = localStorage.getItem(versionKey)
     if (seen) return
 
@@ -25,7 +25,7 @@ export default function ChangelogModal() {
   const handleClose = () => {
     setIsOpen(false)
     setShowTooltip(false)
-    localStorage.setItem('suka-announcement-v2.7', 'true')
+    localStorage.setItem('suka-announcement-v2.8', 'true')
   }
 
   const updates = [
@@ -71,7 +71,7 @@ export default function ChangelogModal() {
           className="bg-white/80 hover:bg-white text-suka-brown border border-suka-orange/20 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all p-3 rounded-2xl flex items-center gap-2 font-black text-xs uppercase tracking-widest cursor-pointer backdrop-blur-md"
         >
           <Sparkles className="w-4 h-4 text-suka-orange animate-pulse" />
-          <span>Update v2.7</span>
+          <span>Update v2.8</span>
         </button>
       </div>
 
@@ -90,7 +90,7 @@ export default function ChangelogModal() {
             <div className="flex justify-between items-start">
               <div>
                 <span className="inline-block text-[9px] font-black tracking-widest text-suka-orange uppercase bg-suka-orange/10 px-2 py-0.5 rounded-md leading-none mb-1">
-                  Changelog v2.7.0
+                  Changelog v2.8.0
                 </span>
                 <h2 className="text-xl font-black text-suka-brown font-display tracking-wide leading-tight">
                   Perubahan Terbaru Aplikasi

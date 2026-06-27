@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     if (target.outlet_id !== body.outlet_id) return NextResponse.json({ ok: false, reason: "cross_outlet" }, { status: 403 });
     if (!target.face_descriptor) return NextResponse.json({ ok: false, reason: "not_enrolled" }, { status: 422 });
 
-    // Validasi radius GPS server-side ketat 4 meter dengan toleransi akurasi
+    // Validasi radius GPS server-side ketat 10 meter dengan toleransi akurasi
     const { data: outlet } = await admin
       .from("outlets")
       .select("lat, lng")

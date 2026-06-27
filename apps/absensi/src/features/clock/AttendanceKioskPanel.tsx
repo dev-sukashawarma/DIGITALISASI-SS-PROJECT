@@ -367,12 +367,24 @@ export function AttendanceKioskPanel() {
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => kiosk.checkLocation()}
-                className="py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-[0.98]"
-              >
-                Coba Pindai Ulang Lokasi
-              </button>
+              <div className="flex flex-col gap-2 w-full max-w-[200px]">
+                <button
+                  onClick={() => kiosk.checkLocation()}
+                  className="py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-[0.98] w-full"
+                >
+                  Coba Pindai Ulang Lokasi
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Apakah Anda yakin ingin menetapkan lokasi saat ini sebagai titik resmi outlet di database?")) {
+                      kiosk.calibrateLocation();
+                    }
+                  }}
+                  className="py-2.5 px-4 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-[10px] rounded-xl shadow-md border border-gray-700 transition-all active:scale-[0.98] w-full"
+                >
+                  🔧 Jadikan Ini Lokasi Outlet
+                </button>
+              </div>
             </div>
           ) : (
             <CameraCapture 

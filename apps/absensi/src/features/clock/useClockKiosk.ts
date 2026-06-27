@@ -114,10 +114,10 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         const dist = haversineMeters(coords, currentCoords);
         setGpsDistance(dist);
 
-        // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 4 meter
+        // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 10 meter
         const adjustedDist = Math.max(0, dist - accuracy);
 
-        if (adjustedDist <= 4) {
+        if (adjustedDist <= 10) {
           setPhase("idle");
           setResult(null);
           if (watchIdRef.current !== null) {
@@ -125,7 +125,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
             watchIdRef.current = null;
           }
         } else {
-          let msg = `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: 4m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`;
+          let msg = `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: 10m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`;
           if (accuracy >= 80) {
             msg += "\n\nTips: Akurasi GPS Anda sangat rendah. Ini biasanya terjadi jika izin lokasi browser diset ke 'Perkiraan/Approximate' atau GPS HP mati. Harap ganti izin menjadi 'Lokasi Akurat/Precise' dan nyalakan GPS HP Anda.";
           }
@@ -392,9 +392,35 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     if (outletId && navigator.onLine) queue.flush(outletId);
   }, [outletId, queue]);
 
+  /** Kalibrasi ulang koordinat outlet ke posisi fisik saat ini */
+  const calibrateLocation = useCallback(async () => {
+    if (!outletId || !deviceCoords) return;
+    
+    // Update db dengan koordinat baru
+    const { error } = await supabase
+      .from("outlets")
+      .update({ lat: deviceCoords.lat, lng: deviceCoords.lng })
+      .eq("id", outletId);
+      
+    if (!error) {
+      setOutletCoords(deviceCoords);
+      setGpsDistance(0);
+      setPhase("idle");
+      setResult(null);
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      alert("✅ Koordinat Outlet berhasil dikalibrasi ke lokasi Anda saat ini!");
+    } else {
+      console.error("Failed to calibrate location:", error);
+      alert("❌ Gagal mengkalibrasi lokasi outlet.");
+    }
+  }, [outletId, deviceCoords, supabase]);
+
   return { phase, who, action, challenge, challengeLabel: challenge ? CHALLENGE_LABEL[challenge] : "", result,
            loadCandidates, tick, runLiveness, flushQueue, isOnline: queue.isOnline, pending: queue.pending,
-           checkLocation, gpsDistance, deviceCoords, deviceAccuracy };
+           checkLocation, calibrateLocation, gpsDistance, deviceCoords, deviceAccuracy };
 }
 
 function gagalText(reason: string): string {

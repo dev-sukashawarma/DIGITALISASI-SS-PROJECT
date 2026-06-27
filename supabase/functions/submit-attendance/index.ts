@@ -84,11 +84,11 @@ Deno.serve(async (req) => {
         distanceM = haversineMeters(outletCoords, userCoords);
       }
 
-      // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 4 meter
+      // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= 10 meter
       const accuracy = Number(body.gps_accuracy ?? 0);
       const adjustedDistance = distanceM !== null ? Math.max(0, distanceM - accuracy) : null;
 
-      if (adjustedDistance === null || adjustedDistance > 4) {
+      if (adjustedDistance === null || adjustedDistance > 10) {
         return json(403, {
           ok: false,
           reason: "too_far_from_outlet",

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { QueueStorage } from './storage'
-import { QueueItem, UseOfflineQueueOptions } from './types'
+import { QueueItem, UseOfflineQueueOptions, FlushOutcome } from './types'
 
 export function useOfflineQueue<T = any>(
   storageKey: string,
@@ -20,60 +20,27 @@ export function useOfflineQueue<T = any>(
 
   const storage = new QueueStorage<T>(storageKey)
 
-  // Load from IndexedDB on mount
+  // Load from IndexedDB on mount + track connectivity.
   useEffect(() => {
     let mounted = true
     storage.get().then((items) => {
       if (mounted) setState((prev) => ({ ...prev, items }))
     })
 
-    // Listen for online/offline events
-    const handleOnline = () => {
-      setState((prev) => ({ ...prev, isOnline: true }))
-      // When back online, we could auto-flush if desired, but we leave it to the consumer for now.
-    }
+    const handleOnline = () => setState((prev) => ({ ...prev, isOnline: true }))
     const handleOffline = () => setState((prev) => ({ ...prev, isOnline: false }))
 
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
 
-    // Listen for Service Worker messages
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'FLUSH_QUEUE' && event.data.storageKey === storageKey) {
-        console.log(`[Offline Queue] Background sync triggered for ${storageKey}`)
-        // The consumer of useOfflineQueue should ideally handle the flush.
-        // We set a flag or trigger a custom event that the consumer can listen to.
-        window.dispatchEvent(new CustomEvent(`flush-queue-${storageKey}`))
-      }
-    }
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', handleMessage)
-    }
-
     return () => {
       mounted = false
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.removeEventListener('message', handleMessage)
-      }
     }
   }, [storageKey])
 
-  // Register Background Sync if supported
-  const registerSync = async () => {
-    if ('serviceWorker' in navigator && 'SyncManager' in window) {
-      try {
-        const registration = await navigator.serviceWorker.ready
-        // Cast to any to bypass TS complaining about sync property
-        await (registration as any).sync.register(`sync-${storageKey}`)
-      } catch (e) {
-        console.warn('Background sync registration failed:', e)
-      }
-    }
-  }
-
-  // Add item to queue
+  // Add item to queue (persisted to IndexedDB).
   const add = useCallback(async (data: T) => {
     const id = Math.random().toString(36).substr(2, 9)
     const item: QueueItem<T> = {
@@ -82,47 +49,58 @@ export function useOfflineQueue<T = any>(
       data,
       retries: 0,
     }
-    
-    // We update state optimistically and then persist
+
+    // Update state optimistically, then persist.
     setState((prev) => {
       const newItems = [...prev.items, item]
-      storage.set(newItems).then(() => {
-        if (!navigator.onLine) {
-          registerSync()
-        }
-      })
+      storage.set(newItems)
       return { ...prev, items: newItems }
     })
-    
+
     return item.id
   }, [storageKey])
 
-  // Flush queue (submit to server)
+  // Flush queue, one item at a time, acking each on success.
+  //
+  // `submitFn` decides the fate of each item via its return value (`FlushOutcome`).
+  // Returning nothing means `done`; throwing means `retry`. On the first `retry`
+  // we stop so queued ordering is preserved for the next flush.
   const flush = useCallback(
-    async (submitFn: (items: QueueItem<T>[]) => Promise<any>) => {
-      // Refresh latest items from IDB in case service worker mutated it
+    async (submitFn: (data: T, item: QueueItem<T>) => Promise<FlushOutcome | void>) => {
       const currentItems = await storage.get()
       if (currentItems.length === 0) {
-        setState(prev => ({ ...prev, items: [] }))
+        setState((prev) => ({ ...prev, items: [] }))
         return { success: true, submitted: 0 }
       }
 
-      setState(prev => ({ ...prev, isPending: true, items: currentItems }))
+      setState((prev) => ({ ...prev, isPending: true, items: currentItems }))
 
-      try {
-        await submitFn(currentItems)
-        await storage.clear()
-        setState(prev => ({
-          ...prev,
-          items: [],
-          isPending: false,
-        }))
-        return { success: true, submitted: currentItems.length }
-      } catch (error) {
-        console.error('Queue flush failed:', error)
-        setState(prev => ({ ...prev, isPending: false }))
-        return { success: false, error, submitted: 0 }
+      let submitted = 0
+      let stopped = false
+
+      for (const item of currentItems) {
+        let outcome: FlushOutcome
+        try {
+          outcome = (await submitFn(item.data, item)) || 'done'
+        } catch (error) {
+          console.error('Queue item flush failed (will retry):', error)
+          outcome = 'retry'
+        }
+
+        if (outcome === 'retry') {
+          stopped = true
+          break
+        }
+
+        // `done` or `drop`: the server is reachable and has a final answer for
+        // this item, so it should leave the queue either way.
+        await storage.removeItem(item.id)
+        if (outcome === 'done') submitted++
       }
+
+      const remaining = await storage.get()
+      setState((prev) => ({ ...prev, items: remaining, isPending: false }))
+      return { success: !stopped, submitted }
     },
     [storageKey]
   )

@@ -9,10 +9,6 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
-    },
-    "./sw": {
-      "types": "./src/sw.ts",
-      "default": "./src/sw.ts"
     }
   },
   "scripts": {

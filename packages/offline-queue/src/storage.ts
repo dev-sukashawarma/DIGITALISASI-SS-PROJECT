@@ -32,4 +32,15 @@ export class QueueStorage<T> {
       console.warn(`Failed to clear queue from IndexedDB: ${e}`)
     }
   }
+
+  /** Remove a single item by id (used for per-item ack during flush). */
+  async removeItem(id: string): Promise<void> {
+    if (typeof window === 'undefined') return
+    try {
+      const items = await this.get()
+      await set(this.key, items.filter((i) => i.id !== id))
+    } catch (e) {
+      console.warn(`Failed to remove queue item from IndexedDB: ${e}`)
+    }
+  }
 }

@@ -74,6 +74,14 @@ if [ "$DO_PULL" = "1" ]; then
   git checkout -- . 2>/dev/null
   git pull origin main || { echo "❌ git pull gagal"; exit 1; }
   NEW_REV="$(git rev-parse HEAD 2>/dev/null)"
+  
+  # Jalankan yarn install jika ada perubahan pada dependencies (lockfile/package.json)
+  if [ -n "$OLD_REV" ] && [ "$OLD_REV" != "$NEW_REV" ]; then
+    if git diff --name-only "$OLD_REV" "$NEW_REV" | grep -qE '(yarn\.lock|package\.json)'; then
+      echo "📦 Perubahan dependensi terdeteksi. Menjalankan yarn install..."
+      npx yarn install || { echo "❌ yarn install gagal"; exit 1; }
+    fi
+  fi
 else
   echo "⏭️  Skip git pull (--no-pull)"
 fi

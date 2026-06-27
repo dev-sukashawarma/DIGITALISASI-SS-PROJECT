@@ -396,27 +396,38 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const calibrateLocation = useCallback(async () => {
     if (!outletId || !deviceCoords) return;
     
-    // Update db dengan koordinat baru
-    const { error } = await supabase
-      .from("outlets")
-      .update({ lat: deviceCoords.lat, lng: deviceCoords.lng })
-      .eq("id", outletId);
+    // Update db dengan koordinat baru lewat backend API (bypass RLS)
+    try {
+      const res = await fetch("/api/calibrate-outlet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outlet_id: outletId,
+          lat: deviceCoords.lat,
+          lng: deviceCoords.lng,
+        })
+      });
       
-    if (!error) {
-      setOutletCoords(deviceCoords);
-      setGpsDistance(0);
-      setPhase("idle");
-      setResult(null);
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
+      const json = await res.json();
+      if (json.ok) {
+        setOutletCoords(deviceCoords);
+        setGpsDistance(0);
+        setPhase("idle");
+        setResult(null);
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
+        alert("✅ Koordinat Outlet berhasil dikalibrasi ke lokasi Anda saat ini!");
+      } else {
+        console.error("Failed to calibrate location:", json.error);
+        alert("❌ Gagal mengkalibrasi lokasi outlet: " + json.error);
       }
-      alert("✅ Koordinat Outlet berhasil dikalibrasi ke lokasi Anda saat ini!");
-    } else {
+    } catch (error) {
       console.error("Failed to calibrate location:", error);
       alert("❌ Gagal mengkalibrasi lokasi outlet.");
     }
-  }, [outletId, deviceCoords, supabase]);
+  }, [outletId, deviceCoords]);
 
   return { phase, who, action, challenge, challengeLabel: challenge ? CHALLENGE_LABEL[challenge] : "", result,
            loadCandidates, tick, runLiveness, flushQueue, isOnline: queue.isOnline, pending: queue.pending,

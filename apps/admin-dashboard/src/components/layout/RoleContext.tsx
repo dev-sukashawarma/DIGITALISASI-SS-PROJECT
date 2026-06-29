@@ -4,10 +4,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from '@suka/auth'
 import { usePathname, useRouter } from 'next/navigation'
 
-type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN'
+type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA'
 
 interface RoleContextType {
   role: Role
+  outletId: string | null
+  isReadOnly: boolean
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined)
@@ -15,18 +17,20 @@ const RoleContext = createContext<RoleContextType | undefined>(undefined)
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const { outletStaff, loading } = useAuth()
   const [role, setRole] = useState<Role | null>(null)
+  const [outletId, setOutletId] = useState<string | null>(null)
   const pathname = usePathname()
   const router = useRouter()
-  
+
   useEffect(() => {
     if (loading) return
 
     if (outletStaff?.role) {
       const mappedRole = outletStaff.role.toUpperCase() as Role
-      if (['OWNER', 'ADMIN', 'ADMIN_HR'].includes(mappedRole)) {
+      if (['OWNER', 'ADMIN', 'ADMIN_HR', 'MITRA'].includes(mappedRole)) {
         setRole(mappedRole)
+        setOutletId(outletStaff.outlet_id ?? null)
       } else {
-        // Redirect to Portal if the role is not allowed in admin-dashboard (e.g. crew, kasir)
+        // Redirect to Portal if the role is not allowed in admin-dashboard (e.g. crew)
         const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
         let url = portalUrl
         if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
@@ -56,6 +60,20 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     }
   }, [role, pathname, router])
 
+  // Route-guard: MITRA may only see its 4 read-only pages.
+  useEffect(() => {
+    if (role !== 'MITRA') return
+    const allowed = [
+      '/dashboard/owner',
+      '/dashboard/owner/targets',
+      '/dashboard/owner/profit',
+      '/dashboard/owner/expenses',
+    ]
+    if (!allowed.includes(pathname)) {
+      router.replace('/dashboard/owner')
+    }
+  }, [role, pathname, router])
+
   if (loading || !role) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-suka-cream">
@@ -68,7 +86,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <RoleContext.Provider value={{ role }}>
+    <RoleContext.Provider value={{ role, outletId, isReadOnly: role === 'MITRA' }}>
       {children}
     </RoleContext.Provider>
   )

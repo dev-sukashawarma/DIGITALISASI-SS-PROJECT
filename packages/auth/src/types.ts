@@ -7,6 +7,7 @@ export type Role =
   | 'crew'
   | 'kiosk'
   | 'kitchen'
+  | 'mitra'
   | 'staff_pusat'
 
 export type AppName =

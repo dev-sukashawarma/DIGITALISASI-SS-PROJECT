@@ -27,9 +27,7 @@ export async function POST(req: Request) {
 
     // Bypass RLS untuk menyimpan ke database, karena hanya SPV yang bisa panggil fungsi ini di dashboard
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const adminClient = require('@supabase/supabase-js').createClient(supabaseUrl, serviceKey);
-
+    const adminClient = createClient(supabaseUrl, serviceKey);
     const { error } = await adminClient
       .from('outlets')
       .update({ lat: null, lng: null, address: null })

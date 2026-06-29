@@ -7,6 +7,7 @@ export type Role =
   | 'crew'
   | 'kiosk'
   | 'kitchen'
+  | 'mitra'
 
 export type AppName =
   | 'pos-kasir'

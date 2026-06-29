@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase';
-import type { PayrollRecord, PayrollStatus } from '@/lib/types';
+import type { PayrollStatus } from '@/lib/types';
 
 export function usePayrollMutations() {
   const supabase = createClient();

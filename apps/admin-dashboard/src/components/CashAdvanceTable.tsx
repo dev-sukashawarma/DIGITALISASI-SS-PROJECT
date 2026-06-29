@@ -167,8 +167,8 @@ function ExpandableRow({
                     {payments
                       .sort(
                         (a, b) =>
-                          new Date(a.created_at).getTime() -
-                          new Date(b.created_at).getTime()
+                          new Date(a.created_at ?? 0).getTime() -
+                          new Date(b.created_at ?? 0).getTime()
                       )
                       .map((p, idx) => (
                         <tr key={p.id}>

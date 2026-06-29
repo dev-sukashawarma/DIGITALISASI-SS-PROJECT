@@ -9,8 +9,6 @@ import {
   Clock,
   ShieldAlert,
   XCircle,
-  Sun,
-  Moon,
 } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { useAttendance } from '@/hooks/useAttendance'

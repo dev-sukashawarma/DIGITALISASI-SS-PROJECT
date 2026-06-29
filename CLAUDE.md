@@ -46,9 +46,13 @@ Grid: 18 outlet, 3 kolom, spacious cards (340px × 280px)
 ---
 
 ### 3. Outlet Model
-**Canonical:** `outlet_staff` (1 row per user, `id` = auth.users.id). Bukan `outlet_users`; `profiles` (lama POS) kini VIEW kompat di atas `outlet_staff`. Role: admin, owner, spv, leader, kasir, crew, kiosk.
+**Canonical:** `outlet_staff` (1 row per user, `id` = auth.users.id). Bukan `outlet_users`; `profiles` (lama POS) kini VIEW kompat di atas `outlet_staff`. Role: admin, owner, spv, leader, kasir, crew, kiosk, kitchen, mitra, staff_pusat.
 
-**Multi-outlet:** `leader` bisa membina beberapa outlet via tabel `staff_outlets` (many-to-many). `kasir`/`crew`/`kiosk` tetap 1 outlet (`outlet_staff.outlet_id`). `spv`/`admin`/`owner` akses semua outlet. Helper `accessible_outlet_ids()` meresolusi scope. Detail jobdesk & matriks akses: `docs/ROLE-JOBDESK.md`.
+**Multi-outlet:** `leader` bisa membina beberapa outlet via tabel `staff_outlets` (many-to-many). `kasir`/`crew`/`kiosk`/`mitra` tetap 1 outlet (`outlet_staff.outlet_id`). `spv`/`admin`/`owner` akses semua outlet. Helper `accessible_outlet_ids()` meresolusi scope. Detail jobdesk & matriks akses: `docs/ROLE-JOBDESK.md`.
+
+**Role khusus:**
+- `mitra` — partner/investor 1 outlet; read-only; lihat Owner Dashboard scope 1 outlet (server-enforced via `accessible_outlet_ids()` + scoped views).
+- `staff_pusat` — staff kantor pusat; auto-assign ke outlet dummy "Kantor Pusat"; akses `absensi` app.
 
 ---
 
@@ -630,5 +634,38 @@ Migration sudah di-push ke remote.
 
 ---
 
-**Last updated:** 2026-06-27  
+## Session 2026-06-29: Mitra Role — Outlet-Scoped Partner Dashboard (apps/admin-dashboard)
+
+**Status:** ✅ COMPLETED — PR #17 merged ke `main` (`bfee1f8`); migration applied ke remote; `feat/staff-pusat` di-rebase tanpa konflik & di-push.
+
+### Fitur
+Role baru **`mitra`** (partner/investor 1 outlet) — read-only, server-enforced DB isolation.
+
+### Implementasi
+1. **`packages/auth`** — tambah `'mitra'` ke `Role` union + `ROLE_APP_ACCESS.mitra = ['admin-dashboard']`; rebuild `dist/`.
+2. **Migration `20260629100000_add_mitra_role.sql`** — perluas CHECK constraint, update `accessible_outlet_ids()` (mitra → single outlet), buat scoped views `sales_hourly_scoped`/`menu_sales_scoped`/`daily_target_progress_scoped`, scope `get_current_targets()` RPC, ganti `expenses_select_all` (USING true) → `expenses_select_scoped`.
+3. **Hook repoint** — `useSalesSummary`, `useSalesHourly`, `useMenuSales`, `useTargetProgress` → `.from('*_scoped')`. Owner/admin tak terpengaruh (helper kembalikan semua outlet untuk mereka).
+4. **`RoleContext`** — tambah `'MITRA'`, expose `outletId` + `isReadOnly`; route guard redirect ke `/dashboard/owner` untuk path lain.
+5. **`navConfig`** — grup "Dashboard Mitra" (4 item: owner, targets, profit, expenses); TDD test `accessibleItems('MITRA')`.
+6. **`useScopedFilter`** hook baru — lock `filter.outletId` untuk mitra.
+7. **`PeriodFilter`** — prop `lockedOutletId` → label statis (bukan combobox) saat mitra.
+8. **`OutletLeaderboard`** — menerima `scopedOutlets` (bukan `allOutlets`) untuk cegah bocoran nama outlet lain.
+9. **Read-only gating** — `DailyTargetBoard` sembunyikan "Set Target"; halaman targets sembunyikan input/Save/Clear.
+10. **Provisioning** — `StaffForm` + `StaffFilters` + admin-guard edge function: tambah `'mitra'` ke ROLES.
+
+### Isolasi
+`accessible_outlet_ids()` — primitive lama (dipakai leader) — dipakai ulang; scoped views aditif; owner/admin/SPV tak berubah.
+
+### Artefak
+- Spec: `docs/superpowers/specs/2026-06-29-admin-dashboard-mitra-role-design.md`
+- Plan: `docs/superpowers/plans/2026-06-29-mitra-role.md`
+
+### 📝 Next
+- Smoke test: buat akun mitra di Supabase Dashboard → login → verifikasi isolasi (hanya 4 menu, filter terkunci, no edit).
+- Redeploy `admin-dashboard` ke produksi.
+- Merge `feat/staff-pusat` ke `main` (sudah rebase bersih, siap PR).
+
+---
+
+**Last updated:** 2026-06-29  
 **Owner:** Dev Suka Shawarma

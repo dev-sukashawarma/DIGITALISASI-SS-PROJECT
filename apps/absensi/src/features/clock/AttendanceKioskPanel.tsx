@@ -54,13 +54,7 @@ export function AttendanceKioskPanel() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const loopRef = useRef<number | null>(null);
 
-  useEffect(() => { 
-    if (clockInWindowOpen) {
-      loadFaceModels()
-        .then(() => setModelsReady(true))
-        .catch((err) => setModelError(err.message || "Gagal memuat AI wajah. Coba refresh."));
-    }
-  }, [clockInWindowOpen]);
+
 
   useEffect(() => {
     if (kiosk.result) {
@@ -174,6 +168,14 @@ export function AttendanceKioskPanel() {
   const windowOpenLabel = (!isManual && jamMasuk)
     ? dayjs().startOf("day").add(toMin(jamMasuk) - 60, "minute").format("HH:mm")
     : null;
+
+  useEffect(() => { 
+    if (clockInWindowOpen) {
+      loadFaceModels()
+        .then(() => setModelsReady(true))
+        .catch((err) => setModelError(err.message || "Gagal memuat AI wajah. Coba refresh."));
+    }
+  }, [clockInWindowOpen]);
 
   useEffect(() => {
     function loop() {

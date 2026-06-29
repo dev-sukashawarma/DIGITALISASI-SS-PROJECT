@@ -16,11 +16,9 @@ export function StaffForm({
   initial?: Partial<StaffFormValues>
   isPrivileged?: boolean
 }) {
-  console.log('StaffForm render start')
   // Determine if user has privileged HR access
   let isPrivileged = customIsPrivileged ?? true
   const auth = useAuth()
-  console.log('StaffForm auth:', auth)
   if (customIsPrivileged === undefined && auth?.outletStaff?.role) {
     isPrivileged = ['owner', 'admin_hr', 'admin'].includes(auth.outletStaff.role)
   }
@@ -72,15 +70,54 @@ export function StaffForm({
   const inputCls = 'w-full rounded-xl border border-suka-gray-200 px-3 py-2.5 outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white text-suka-ink text-sm'
   const labelCls = 'mb-1 block text-sm font-semibold text-suka-ink'
 
+  const tabs = [
+    { id: 'utama', label: '1. Informasi Utama' },
+    { id: 'pribadi', label: '2. Data Pribadi' },
+    { id: 'darurat', label: '3. Kontak Darurat' },
+    ...(isPrivileged ? [{ id: 'keuangan', label: '4. Keuangan & Rekening' }] : [])
+  ] as const
+
+  const currentIndex = tabs.findIndex(t => t.id === activeTab)
+  const isLastStep = currentIndex === tabs.length - 1
+  const isFirstStep = currentIndex === 0
+
+  function validateStep(stepId: string): boolean {
+    if (stepId === 'utama') {
+      if (!name) { alert('Nama Lengkap wajib diisi'); return false }
+      if (!username) { alert('Username wajib diisi'); return false }
+      if (!isEditing && !password) { alert('Password Sementara wajib diisi'); return false }
+    } else if (stepId === 'pribadi') {
+      if (nik && nik.length !== 16) { alert('NIK harus tepat 16 digit angka!'); return false }
+    }
+    return true
+  }
+
+  // Validasi semua step dari awal s/d targetIndex; lompat ke step pertama yang invalid.
+  function validateThrough(targetIndex: number): boolean {
+    for (let i = 0; i <= targetIndex; i++) {
+      if (!validateStep(tabs[i].id)) {
+        setActiveTab(tabs[i].id as any)
+        return false
+      }
+    }
+    return true
+  }
+
+  function handleNext() {
+    if (validateStep(activeTab)) {
+      if (!isLastStep) setActiveTab(tabs[currentIndex + 1].id as any)
+    }
+  }
+
+  function handlePrev() {
+    if (!isFirstStep) setActiveTab(tabs[currentIndex - 1].id as any)
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    
-    // Check validation for NIK if provided
-    if (nik && nik.length !== 16) {
-      alert('NIK harus tepat 16 digit angka!')
-      setActiveTab('pribadi')
-      return
-    }
+
+    // Validasi seluruh step, bukan hanya step terakhir, agar data invalid (mis. NIK) tak lolos.
+    if (!validateThrough(tabs.length - 1)) return
 
     const payload: StaffFormValues = {
       name,
@@ -131,13 +168,7 @@ export function StaffForm({
     onSubmit(payload)
   }
 
-  const tabs = [
-    { id: 'utama', label: 'Informasi Utama' },
-    { id: 'pribadi', label: 'Data Pribadi' },
-    { id: 'darurat', label: 'Kontak Darurat' },
-    ...(isPrivileged ? [{ id: 'keuangan', label: 'Keuangan & Rekening' }] : [])
-  ] as const
-
+  // tabs array moved above
   const extendedOutlets = [...outlets]
   if (!extendedOutlets.find(o => o.id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' || o.name.toLowerCase().includes('kantor pusat'))) {
     extendedOutlets.push({
@@ -154,17 +185,25 @@ export function StaffForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Premium Tab Selection */}
+      {/* Premium Stepper Selection */}
       <div className="flex flex-wrap gap-2 border-b border-suka-gray-200 pb-3">
-        {tabs.map((tab) => (
+        {tabs.map((tab, idx) => (
           <button
             key={tab.id}
             type="button"
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => {
+              if (idx < currentIndex) setActiveTab(tab.id as any) // mundur selalu boleh
+              else if (idx > currentIndex) {
+                // maju ke step manapun harus lolos validasi semua step sebelum target
+                if (validateThrough(idx - 1)) setActiveTab(tab.id as any)
+              }
+            }}
             className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 cursor-pointer ${
               activeTab === tab.id
                 ? 'bg-suka-brown text-white shadow-md transform scale-[1.02]'
-                : 'bg-suka-cream text-suka-brown hover:bg-suka-orange hover:text-white hover:shadow-sm'
+                : idx < currentIndex 
+                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                  : 'bg-suka-cream text-suka-brown hover:bg-suka-orange hover:text-white hover:shadow-sm'
             }`}
           >
             {tab.label}
@@ -177,7 +216,7 @@ export function StaffForm({
         {activeTab === 'utama' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="sf-name" className={labelCls}>Nama Lengkap</label>
+              <label htmlFor="sf-name" className={labelCls}>Nama Lengkap <span className="text-red-500">*</span></label>
               <input id="sf-name" className={inputCls} required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama Karyawan" />
             </div>
 
@@ -187,7 +226,7 @@ export function StaffForm({
             </div>
 
             <div>
-              <label htmlFor="sf-username" className={labelCls}>Username</label>
+              <label htmlFor="sf-username" className={labelCls}>Username <span className="text-red-500">*</span></label>
               <input 
                 id="sf-username" 
                 className={inputCls} 
@@ -202,13 +241,13 @@ export function StaffForm({
 
             {!isEditing && (
               <div>
-                <label htmlFor="sf-password" className={labelCls}>Password Sementara</label>
+                <label htmlFor="sf-password" className={labelCls}>Password Sementara <span className="text-red-500">*</span></label>
                 <input id="sf-password" type="text" className={inputCls} required value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
             )}
 
             <div>
-              <label htmlFor="sf-role" className={labelCls}>Role</label>
+              <label htmlFor="sf-role" className={labelCls}>Role <span className="text-red-500">*</span></label>
               <select id="sf-role" className={inputCls} value={role} onChange={(e) => {
                 const newRole = e.target.value as Role
                 setRole(newRole)
@@ -225,7 +264,7 @@ export function StaffForm({
             </div>
 
             <div>
-              <label htmlFor="sf-outlet" className={labelCls}>Outlet Home</label>
+              <label htmlFor="sf-outlet" className={labelCls}>Outlet Home <span className="text-red-500">*</span></label>
               <select 
                 id="sf-outlet" 
                 className={inputCls} 
@@ -413,10 +452,30 @@ export function StaffForm({
       </div>
 
       {/* Form Submission Actions */}
-      <div className="flex justify-end gap-3 pt-3 border-t border-suka-gray-100">
-        <Button type="submit" disabled={submitting} className="rounded-xl px-6 py-2.5 font-bold hover:shadow-lg transition-all">
-          {submitting ? 'Menyimpan...' : 'Simpan Profil Karyawan'}
+      <div className="flex justify-between items-center pt-3 border-t border-suka-gray-100 mt-6">
+        <Button 
+          type="button" 
+          variant="secondary"
+          disabled={isFirstStep}
+          onClick={handlePrev} 
+          className="rounded-xl px-6 py-2.5 font-bold transition-all"
+        >
+          Sebelumnya
         </Button>
+        
+        {!isLastStep ? (
+          <Button 
+            type="button" 
+            onClick={handleNext} 
+            className="rounded-xl px-6 py-2.5 font-bold hover:shadow-lg transition-all"
+          >
+            Selanjutnya
+          </Button>
+        ) : (
+          <Button type="submit" disabled={submitting} className="rounded-xl px-6 py-2.5 font-bold hover:shadow-lg transition-all bg-green-600 text-white hover:bg-green-700">
+            {submitting ? 'Menyimpan...' : 'Simpan Profil Karyawan'}
+          </Button>
+        )}
       </div>
     </form>
   )

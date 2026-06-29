@@ -16,7 +16,7 @@ fi
 # Misalnya, ambil dari salah satu UUID outlet yang ada di tabel outlets.
 # Untuk contoh ini, saya pakai placeholder, tapi pastikan ini adalah UUID valid jika foreign key required.
 # Jika tidak required, bisa dikosongkan.
-OUTLET_ID="f1b7a2d4-1234-4abcd-1234-567890abcdef" # GANTI INI DENGAN UUID OUTLET NYATA (mis. Kantor Pusat)
+OUTLET_ID="ffffffff-ffff-ffff-ffff-ffffffffffff" # UUID statis Kantor Pusat
 
 echo "Membuat akun Admin HR..."
 

@@ -84,7 +84,9 @@ export default function PengaturanLokasiPage() {
       <div>
         <h1 className="text-xl font-bold text-suka-ink">Kalibrasi Lokasi Outlet</h1>
         <p className="text-sm text-gray-500">
-          Geser pin ke gedung outlet sebenarnya (lihat dari satelit), lalu Simpan. Lingkaran oranye = radius absen 30 m.
+          Pakai kolom cari untuk terbang ke area outlet, lalu geser pin ke gedung sebenarnya
+          (lihat dari satelit) sebelum Simpan. Pencarian alamat belum tentu tepat di gedungnya —
+          pin tetap harus dicocokkan manual. Lingkaran oranye = radius absen 30 m.
         </p>
       </div>
 

@@ -5,7 +5,7 @@ import { useAuth } from '@suka/auth'
 import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role } from '@/lib/types'
 
-const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra']
+const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat']
 
 export function StaffForm({
   outlets, onSubmit, submitting, initial, isPrivileged: customIsPrivileged,

@@ -8,6 +8,7 @@ export type Role =
   | 'kiosk'
   | 'kitchen'
   | 'mitra'
+  | 'staff_pusat'
 
 export type AppName =
   | 'pos-kasir'

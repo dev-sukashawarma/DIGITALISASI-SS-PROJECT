@@ -16,7 +16,7 @@ export type LatLng = { lat: number; lng: number };
  * toleransi akurasi inline (max(0, jarak - akurasi) <= radius) + penolakan
  * akurasi buruk (MAX_GPS_ACCURACY_M). Outlet dengan lat/lng NULL dikecualikan.
  */
-export const GEOFENCE_RADIUS_M = 30;
+export const GEOFENCE_RADIUS_M = 100;
 
 const EARTH_RADIUS_M = 6_371_000; // radius rata-rata bumi (meter)
 
@@ -49,7 +49,7 @@ export function isWithinRadius(
  * Akurasi GPS terburuk (meter) yang masih boleh absen. Di atas ini, toleransi
  * akurasi akan "menelan" geofence 30 m → tolak & minta aktifkan Lokasi Akurat.
  */
-export const MAX_GPS_ACCURACY_M = 75;
+export const MAX_GPS_ACCURACY_M = 150;
 
 /** True bila akurasi GPS (meter) cukup baik untuk dipercaya absen. */
 export function isGpsAccuracyAcceptable(accuracyM: number): boolean {

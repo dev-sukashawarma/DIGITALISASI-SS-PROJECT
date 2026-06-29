@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       if (adjustedDistance === null || adjustedDistance > GEOFENCE_RADIUS_M) {
         return NextResponse.json({
           ok: false,
-          reason: "too_far_from_outlet",
+          reason: `too_far_from_outlet: Jarak ${Math.round(distanceM || 0)}m (Akurasi ${Math.round(accuracy)}m)`,
           distance_m: distanceM ?? undefined,
           accuracy_m: accuracy,
         }, { status: 403 });

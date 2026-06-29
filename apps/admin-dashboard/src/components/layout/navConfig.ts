@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Store, Activity,
-  CalendarClock, CalendarHeart, Banknote, Briefcase, Award,
+  CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, MessageSquareHeart, Target, BellRing, type LucideIcon,
 } from 'lucide-react'
 
@@ -19,8 +19,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/hr/attendance', label: 'Absensi & Shift', shortLabel: 'Absensi', icon: CalendarClock, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/leave', label: 'Cuti & Izin', shortLabel: 'Cuti', icon: CalendarHeart, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/payroll', label: 'Payroll & Kasbon', shortLabel: 'Payroll', icon: Banknote, roles: ['ADMIN_HR', 'ADMIN'] },
-      { href: '/dashboard/hr/recruitment', label: 'Rekrutmen', shortLabel: 'Rekrut', icon: Briefcase, roles: ['ADMIN_HR', 'ADMIN'] },
-      { href: '/dashboard/hr/kpi', label: 'KPI & SP', shortLabel: 'KPI', icon: Award, roles: ['ADMIN_HR', 'ADMIN'] },
     ],
   },
   {

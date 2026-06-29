@@ -1,7 +1,11 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { KpiCards } from './KpiCards'
 import type { SalesSummaryRow } from '@/lib/types'
+
+vi.mock('react-countup', () => ({
+  default: ({ end, prefix = '', suffix = '' }: any) => <span>{prefix}{end.toLocaleString('id-ID')}{suffix}</span>
+}))
 
 const rows: SalesSummaryRow[] = [
   { outlet_id: 'a', outlet_name: 'A', sales_source: 'pos', sales_date: '2026-06-18', omzet: 100000, jumlah_order_completed: 4, jumlah_order_all: 5 },

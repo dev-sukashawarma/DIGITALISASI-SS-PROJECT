@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { StaffForm } from './StaffForm'
 import type { Outlet } from '@/lib/types'
 
+// No mock
+
 const outlets: Outlet[] = [
   { id: 'o1', slug: 'empang', name: 'Empang', address: null, lat: 0, lng: 0, type: 'outlet', is_active: true },
   { id: 'o2', slug: 'sudirman', name: 'Sudirman', address: null, lat: 0, lng: 0, type: 'outlet', is_active: true },
@@ -11,6 +13,7 @@ const outlets: Outlet[] = [
 describe('StaffForm', () => {
   it('shows OutletMultiSelect only when role is leader', () => {
     render(<StaffForm outlets={outlets} onSubmit={vi.fn()} submitting={false} />)
+    screen.debug()
     // default role crew → no multi-select label
     expect(screen.queryByText('Outlet Binaan')).toBeNull()
     // switch to leader

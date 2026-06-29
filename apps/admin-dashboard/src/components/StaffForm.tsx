@@ -16,16 +16,13 @@ export function StaffForm({
   initial?: Partial<StaffFormValues>
   isPrivileged?: boolean
 }) {
+  console.log('StaffForm render start')
   // Determine if user has privileged HR access
   let isPrivileged = customIsPrivileged ?? true
-  try {
-    const auth = useAuth()
-    if (customIsPrivileged === undefined && auth.outletStaff?.role) {
-      isPrivileged = ['owner', 'admin_hr', 'admin'].includes(auth.outletStaff.role)
-    }
-  } catch (e) {
-    // Default to true in non-auth contexts (like tests)
-    isPrivileged = customIsPrivileged ?? true
+  const auth = useAuth()
+  console.log('StaffForm auth:', auth)
+  if (customIsPrivileged === undefined && auth?.outletStaff?.role) {
+    isPrivileged = ['owner', 'admin_hr', 'admin'].includes(auth.outletStaff.role)
   }
 
   const isEditing = !!initial?.name
@@ -141,6 +138,20 @@ export function StaffForm({
     ...(isPrivileged ? [{ id: 'keuangan', label: 'Keuangan & Rekening' }] : [])
   ] as const
 
+  const extendedOutlets = [...outlets]
+  if (!extendedOutlets.find(o => o.id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' || o.name.toLowerCase().includes('kantor pusat'))) {
+    extendedOutlets.push({
+      id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      name: 'Kantor Pusat',
+      slug: 'kantor-pusat',
+      address: null,
+      lat: 0,
+      lng: 0,
+      type: 'hq',
+      is_active: true
+    })
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Premium Tab Selection */}
@@ -198,15 +209,31 @@ export function StaffForm({
 
             <div>
               <label htmlFor="sf-role" className={labelCls}>Role</label>
-              <select id="sf-role" className={inputCls} value={role} onChange={(e) => setRole(e.target.value as Role)}>
+              <select id="sf-role" className={inputCls} value={role} onChange={(e) => {
+                const newRole = e.target.value as Role
+                setRole(newRole)
+                if (newRole === 'staff_pusat') {
+                  const pusat = extendedOutlets.find(o => 
+                    o.id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' || 
+                    o.name.toLowerCase().includes('kantor pusat')
+                  )
+                  if (pusat) setOutletId(pusat.id)
+                }
+              }}>
                 {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
 
             <div>
               <label htmlFor="sf-outlet" className={labelCls}>Outlet Home</label>
-              <select id="sf-outlet" className={inputCls} value={outletId} onChange={(e) => setOutletId(e.target.value)}>
-                {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              <select 
+                id="sf-outlet" 
+                className={inputCls} 
+                value={outletId} 
+                onChange={(e) => setOutletId(e.target.value)}
+                disabled={role === 'staff_pusat'}
+              >
+                {extendedOutlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             </div>
 

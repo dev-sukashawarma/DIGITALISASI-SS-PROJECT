@@ -20,16 +20,14 @@ vi.mock('@/lib/supabase', () => ({
 
 import { useSystemHealth } from './useSystemHealth'
 
-function wrapper(client: QueryClient) {
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  )
+const wrapper = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = new QueryClient()
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 }
 
 describe('useSystemHealth', () => {
   it('fetches rows from system_health_log ordered by checked_at desc', async () => {
-    const client = new QueryClient()
-    const { result } = renderHook(() => useSystemHealth(), { wrapper: wrapper(client) })
+    const { result } = renderHook(() => useSystemHealth(), { wrapper })
     await waitFor(() => expect(result.current.data).toEqual(rows))
     expect(select).toHaveBeenCalledWith('*')
     expect(order).toHaveBeenCalledWith('checked_at', { ascending: false })

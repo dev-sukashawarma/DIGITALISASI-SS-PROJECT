@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Tag, Percent, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 
@@ -28,6 +28,7 @@ export default function KasirPromoPage() {
   const [loadingData, setLoadingData] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     async function loadData() {
@@ -71,9 +72,7 @@ export default function KasirPromoPage() {
     const updated = [...promos]
     const idx = updated.findIndex(p => p.scope === 'global')
     
-    // If activating global promo, we should warn or auto-disable item promos, but we enforce it here
     if (field === 'is_active' && value === true) {
-      // Auto disable all item promos
       updated.forEach(p => {
         if (p.scope === 'item') p.is_active = false
       })
@@ -114,7 +113,6 @@ export default function KasirPromoPage() {
     try {
       const supabase = createClient()
       
-      // Filter out empty invalid promos (value 0 but active, though we can just save them as inactive)
       const toUpsert = promos.map(p => ({
         ...(p.id ? { id: p.id } : {}),
         outlet_id: outletId,
@@ -125,12 +123,6 @@ export default function KasirPromoPage() {
         is_active: p.is_active
       }))
       
-      // we can use upsert. Since we don't have a unique constraint on (outlet_id, scope, menu_item_id),
-      // we might just delete and recreate to be safe, but supabase upsert needs a PK.
-      // Better to delete all and insert to keep it simple, or only insert if new, update if has ID.
-      // Wait, we fetched IDs earlier.
-      
-      // Let's do upsert for those with ID, and insert for those without
       for (const p of toUpsert) {
         if (p.id) {
           const { error } = await supabase.from('outlet_promos').update(p).eq('id', p.id)
@@ -142,7 +134,6 @@ export default function KasirPromoPage() {
         }
       }
       
-      // Update local state with new IDs
       setPromos(toUpsert as OutletPromo[])
       setMessage({ type: 'success', text: 'Pengaturan promo berhasil disimpan!' })
       
@@ -155,132 +146,184 @@ export default function KasirPromoPage() {
     }
   }
 
-  if (!loaded || loadingData) return <div className="p-6"><Loader2 className="w-6 h-6 animate-spin text-amber-500" /></div>
+  if (!loaded || loadingData) return <div className="p-6 flex justify-center items-center h-48"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>
   if (!outletId) return <div className="p-6 text-red-500 font-bold">Outlet tidak ditemukan</div>
 
+  const filteredMenuItems = menuItems.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()))
+
   return (
-    <div className="max-w-4xl space-y-6 mb-20">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Pengaturan Promo</h1>
-        <p className="text-gray-500 text-sm mt-1">Kelola diskon Global (Seluruh Transaksi) atau diskon Per Menu.</p>
-      </div>
-
-      {message && (
-        <div className={`p-4 rounded-xl flex items-center gap-3 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-          {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-          <p className="font-medium">{message.text}</p>
-        </div>
-      )}
-
-      <div className="card p-6 space-y-4 border-2 border-amber-100">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="font-semibold text-lg text-gray-800 flex items-center gap-2">
-              <Tag className="w-5 h-5 text-amber-500" /> Promo Semua Menu (Transaksi)
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">Berlaku untuk total harga semua pesanan.</p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" className="sr-only peer" checked={globalPromo.is_active} onChange={(e) => handleGlobalPromoChange('is_active', e.target.checked)} />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-          </label>
-        </div>
-
-        <div className={`grid grid-cols-2 gap-4 mt-4 transition-opacity ${!globalPromo.is_active ? 'opacity-50 pointer-events-none' : ''}`}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tipe Diskon</label>
-            <select 
-              className="input-field" 
-              value={globalPromo.discount_type} 
-              onChange={e => handleGlobalPromoChange('discount_type', e.target.value)}
-            >
-              <option value="percentage">Persentase (%)</option>
-              <option value="nominal">Nominal (Rp)</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nilai Diskon</label>
-            <div className="relative">
-              {globalPromo.discount_type === 'nominal' && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">Rp</span>}
-              <input 
-                type="number" 
-                min="0"
-                className={`input-field ${globalPromo.discount_type === 'nominal' ? 'pl-9' : 'pr-9'}`}
-                value={globalPromo.discount_value || ''}
-                onChange={e => handleGlobalPromoChange('discount_value', Number(e.target.value))}
-              />
-              {globalPromo.discount_type === 'percentage' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"><Percent className="w-4 h-4"/></span>}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className={`card p-6 space-y-4 ${isGlobalActive ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div className="max-w-4xl flex flex-col min-h-full relative">
+      <div className="space-y-6 flex-1 pb-8">
         <div>
-          <h2 className="font-semibold text-lg text-gray-800 flex items-center gap-2">
-            <Tag className="w-5 h-5 text-blue-500" /> Promo Per Menu
-          </h2>
-          <p className="text-sm text-gray-500 mt-1">Pilih menu spesifik yang ingin diberikan diskon. (Nonaktif jika Promo Semua Menu aktif)</p>
+          <h1 className="text-2xl font-bold text-gray-900">Pengaturan Promo</h1>
+          <p className="text-gray-500 text-sm mt-1">Kelola diskon Global (Seluruh Transaksi) atau diskon Per Menu.</p>
         </div>
 
-        <div className="space-y-3 mt-4">
-          {menuItems.map(menu => {
-            const promo = promos.find(p => p.scope === 'item' && p.menu_item_id === menu.id) || {
-              scope: 'item',
-              menu_item_id: menu.id,
-              discount_type: 'nominal',
-              discount_value: 0,
-              is_active: false
-            } as OutletPromo
+        {message && (
+          <div className={`p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2 ${message.type === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+            {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+            <p className="font-medium">{message.text}</p>
+          </div>
+        )}
 
-            return (
-              <div key={menu.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 gap-4">
-                <div className="flex-1">
-                  <p className="font-medium text-gray-800">{menu.name}</p>
-                  <p className="text-sm text-gray-500">Rp {menu.price.toLocaleString('id-ID')}</p>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <select 
-                    className="input-field py-1.5 text-sm w-32" 
-                    value={promo.discount_type} 
-                    onChange={e => handleItemPromoChange(menu.id, 'discount_type', e.target.value)}
-                  >
-                    <option value="nominal">Rp</option>
-                    <option value="percentage">%</option>
-                  </select>
-                  
+        {/* PROMO GLOBAL */}
+        <div className={`card p-6 space-y-4 border-2 transition-colors duration-300 ${globalPromo.is_active ? 'border-amber-400 bg-amber-50/40 shadow-sm' : 'border-gray-200 bg-white'}`}>
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <h2 className={`font-semibold text-lg flex items-center gap-2 ${globalPromo.is_active ? 'text-amber-700' : 'text-gray-800'}`}>
+                <Tag className={`w-5 h-5 ${globalPromo.is_active ? 'text-amber-500' : 'text-gray-400'}`} /> Promo Semua Menu (Transaksi)
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">Berlaku untuk total harga semua pesanan tanpa terkecuali.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+              <input type="checkbox" className="sr-only peer" checked={globalPromo.is_active} onChange={(e) => handleGlobalPromoChange('is_active', e.target.checked)} />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+            </label>
+          </div>
+
+          {globalPromo.is_active && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Tipe Diskon</label>
+                <select 
+                  className="input-field bg-white border-gray-300 shadow-sm font-medium" 
+                  value={globalPromo.discount_type} 
+                  onChange={e => handleGlobalPromoChange('discount_type', e.target.value)}
+                >
+                  <option value="percentage">Persentase (%)</option>
+                  <option value="nominal">Nominal (Rp)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Nilai Diskon</label>
+                <div className="relative shadow-sm rounded-xl">
+                  {globalPromo.discount_type === 'nominal' && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>}
                   <input 
                     type="number" 
                     min="0"
-                    placeholder="Nilai"
-                    className="input-field py-1.5 text-sm w-24"
-                    value={promo.discount_value || ''}
-                    onChange={e => handleItemPromoChange(menu.id, 'discount_value', Number(e.target.value))}
+                    className={`input-field bg-white border-gray-300 font-bold text-gray-900 ${globalPromo.discount_type === 'nominal' ? 'pl-10' : 'pr-10'}`}
+                    value={globalPromo.discount_value || ''}
+                    onChange={e => handleGlobalPromoChange('discount_value', Number(e.target.value))}
                   />
-                  
-                  <label className="relative inline-flex items-center cursor-pointer ml-2">
-                    <input type="checkbox" className="sr-only peer" checked={promo.is_active} onChange={(e) => handleItemPromoChange(menu.id, 'is_active', e.target.checked)} />
-                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
-                  </label>
+                  {globalPromo.discount_type === 'percentage' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm"><Percent className="w-4 h-4"/></span>}
                 </div>
               </div>
-            )
-          })}
+            </div>
+          )}
+        </div>
+
+        {/* PROMO ITEM */}
+        <div className={`card p-6 space-y-4 border-2 border-gray-100 transition-all duration-300 ${isGlobalActive ? 'opacity-40 pointer-events-none grayscale' : 'opacity-100'}`}>
+          <div>
+            <h2 className="font-semibold text-lg text-gray-800 flex items-center gap-2">
+              <Tag className="w-5 h-5 text-blue-500" /> Promo Per Menu
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">Berikan diskon untuk menu spesifik. Fitur ini otomatis dinonaktifkan jika Promo Global aktif.</p>
+          </div>
+
+          <div className="relative max-w-sm mt-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="Cari nama menu..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="input-field pl-9 py-2 text-sm bg-gray-50 border-gray-200 focus:bg-white"
+            />
+          </div>
+
+          <div className="space-y-3 mt-4">
+            {filteredMenuItems.length === 0 ? (
+              <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-100">
+                <p className="text-gray-500 text-sm">Tidak ada menu yang sesuai pencarian.</p>
+              </div>
+            ) : (
+              filteredMenuItems.map(menu => {
+                const promo = promos.find(p => p.scope === 'item' && p.menu_item_id === menu.id) || {
+                  scope: 'item',
+                  menu_item_id: menu.id,
+                  discount_type: 'nominal',
+                  discount_value: 0,
+                  is_active: false
+                } as OutletPromo
+
+                let discountedPrice = menu.price;
+                if (promo.is_active && promo.discount_value > 0) {
+                  if (promo.discount_type === 'nominal') {
+                    discountedPrice = Math.max(0, menu.price - promo.discount_value)
+                  } else {
+                    discountedPrice = Math.max(0, menu.price - (menu.price * promo.discount_value / 100))
+                  }
+                }
+
+                return (
+                  <div key={menu.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 gap-4 ${promo.is_active ? 'bg-blue-50/60 border-blue-200 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-300'}`}>
+                    
+                    <div className="flex-1">
+                      <p className={`font-semibold ${promo.is_active ? 'text-blue-900' : 'text-gray-800'}`}>{menu.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {promo.is_active && promo.discount_value > 0 ? (
+                          <>
+                            <span className="text-xs text-gray-400 line-through">Rp {menu.price.toLocaleString('id-ID')}</span>
+                            <span className="text-sm font-bold text-emerald-600">Rp {discountedPrice.toLocaleString('id-ID')}</span>
+                          </>
+                        ) : (
+                          <span className="text-sm font-medium text-gray-500">Rp {menu.price.toLocaleString('id-ID')}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 shrink-0">
+                      {promo.is_active && (
+                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
+                          <select 
+                            className="input-field py-1.5 pl-2 pr-6 text-sm w-[72px] bg-white border-blue-200 text-center font-semibold text-blue-700 shadow-sm" 
+                            value={promo.discount_type} 
+                            onChange={e => handleItemPromoChange(menu.id, 'discount_type', e.target.value)}
+                          >
+                            <option value="nominal">Rp</option>
+                            <option value="percentage">%</option>
+                          </select>
+                          
+                          <div className="relative">
+                            <input 
+                              type="number" 
+                              min="0"
+                              placeholder="Nilai"
+                              className={`input-field py-1.5 text-sm w-28 bg-white border-blue-200 font-bold text-blue-900 shadow-sm ${promo.discount_type === 'nominal' ? 'pl-8' : 'pr-8'}`}
+                              value={promo.discount_value || ''}
+                              onChange={e => handleItemPromoChange(menu.id, 'discount_value', Number(e.target.value))}
+                            />
+                            {promo.discount_type === 'nominal' && <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-blue-400 font-bold">Rp</span>}
+                            {promo.discount_type === 'percentage' && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-blue-400 font-bold">%</span>}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <label className="relative inline-flex items-center cursor-pointer ml-1">
+                        <input type="checkbox" className="sr-only peer" checked={promo.is_active} onChange={(e) => handleItemPromoChange(menu.id, 'is_active', e.target.checked)} />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                      </label>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex justify-end pt-4 sticky bottom-4">
+      {/* Sticky Bottom Bar */}
+      <div className="sticky bottom-0 -mx-6 -mb-6 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)] z-40 flex justify-end">
         <button 
-          className="btn-primary px-8 py-3 shadow-lg shadow-amber-500/30 flex items-center gap-2"
+          className="btn-primary px-8 py-3 shadow-lg shadow-amber-500/30 flex items-center gap-2 text-sm font-bold sm:text-base w-full sm:w-auto justify-center"
           onClick={handleSave}
           disabled={saving}
         >
-          {saving && <Loader2 className="w-5 h-5 animate-spin" />}
+          {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
           Simpan Pengaturan
         </button>
       </div>
-
     </div>
   )
 }

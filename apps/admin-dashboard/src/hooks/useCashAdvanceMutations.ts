@@ -81,5 +81,31 @@ export function useCashAdvanceMutations() {
     },
   });
 
-  return { create, addPayment };
+  const approve = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('cash_advances')
+        .update({ status: 'active' as CashAdvanceStatus })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cash-advances'] });
+    },
+  });
+
+  const reject = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('cash_advances')
+        .update({ status: 'rejected' as CashAdvanceStatus })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cash-advances'] });
+    },
+  });
+
+  return { create, addPayment, approve, reject };
 }

@@ -221,7 +221,7 @@ export interface PayrollRecord {
 }
 
 // ── Cash Advance ────────────────────────────────────────────
-export type CashAdvanceStatus = 'active' | 'paid_off'
+export type CashAdvanceStatus = 'active' | 'paid_off' | 'pending' | 'rejected'
 
 export interface CashAdvance {
   id: string

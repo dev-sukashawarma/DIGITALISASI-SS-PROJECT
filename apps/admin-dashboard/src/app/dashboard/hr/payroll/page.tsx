@@ -128,6 +128,22 @@ export default function PayrollPage() {
     })
   }
 
+  const handleApproveKasbon = (id: string) => {
+    if (!confirm('Setujui pengajuan kasbon ini?')) return
+    kasbonMutations.approve.mutate(id, {
+      onSuccess: () => toast.success('Kasbon disetujui'),
+      onError: (e: any) => toast.error(e.message)
+    })
+  }
+
+  const handleRejectKasbon = (id: string) => {
+    if (!confirm('Tolak pengajuan kasbon ini?')) return
+    kasbonMutations.reject.mutate(id, {
+      onSuccess: () => toast.success('Kasbon ditolak'),
+      onError: (e: any) => toast.error(e.message)
+    })
+  }
+
   // ---------------------------------------------------------
   // Render
   // ---------------------------------------------------------
@@ -303,7 +319,12 @@ export default function PayrollPage() {
           {loadingKasbon ? (
             <div className="flex justify-center p-12"><Spinner size="lg" /></div>
           ) : (
-            <CashAdvanceTable rows={kasbonData} onAddPayment={setPayingKasbon} />
+            <CashAdvanceTable 
+              rows={kasbonData} 
+              onAddPayment={setPayingKasbon} 
+              onApprove={handleApproveKasbon}
+              onReject={handleRejectKasbon}
+            />
           )}
 
           {payingKasbon && (

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, use } from "react";
 import { MapPin, Navigation, AlertTriangle, CheckCircle } from "lucide-react";
 
-export default function CrewKalibrasiPage({ params }: { params: { token: string } }) {
-  const token = params.token;
+export default function CrewKalibrasiPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = use(params);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 

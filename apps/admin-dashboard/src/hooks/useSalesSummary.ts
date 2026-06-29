@@ -17,7 +17,7 @@ export function useSalesSummary(filter: PeriodFilterValue) {
     staleTime: 2 * 60_000,
     queryFn: async () => {
       let q = supabase
-        .from('sales_hourly_spv')
+        .from('sales_hourly_scoped')
         .select('outlet_id, sales_source, sales_date, omzet, jumlah_order_completed')
         .gte('sales_date', filter.from)
         .lte('sales_date', filter.to)

@@ -11,7 +11,7 @@ export function useMenuSales(filter: PeriodFilterValue) {
     staleTime: 2 * 60_000,
     queryFn: async () => {
       let q = supabase
-        .from('menu_sales_spv')
+        .from('menu_sales_scoped')
         .select('outlet_id, sales_source, sales_date, menu_key, menu_name, qty, revenue')
         .gte('sales_date', filter.from)
         .lte('sales_date', filter.to)

@@ -148,20 +148,20 @@ export function AttendanceKioskPanel() {
 
   const isManual = absenWindowMode === "manual";
 
-  // Logika window kamera (mode auto):
-  // - Belum clock-in  → buka 1 jam sebelum jam_masuk
-  // - Sudah clock-in, belum clock-out → tutup sampai 30 menit sebelum jam_keluar
+  // Logika window kamera:
   // - Sudah clock-out → tutup (shift selesai)
-  const clockInWindowOpen = isManual
-    ? isOutletOpen
-    : hasOut
-      ? false                                                              // shift selesai
-      : hasIn
-        ? (!jamKeluar || nowMinutes >= toMin(jamKeluar) - 30)             // clock-out window
-        : (!jamMasuk || nowMinutes >= toMin(jamMasuk) - 60);              // clock-in window
+  // - Sudah clock-in, belum clock-out → tutup sampai 30 menit sebelum jam_keluar (jika diset)
+  // - Belum clock-in → jika manual ikuti isOutletOpen, jika auto buka 1 jam sebelum jam_masuk
+  const clockInWindowOpen = hasOut
+    ? false                                                              // shift selesai
+    : hasIn
+      ? (!jamKeluar || nowMinutes >= toMin(jamKeluar) - 30)             // clock-out window
+      : isManual
+        ? isOutletOpen                                                  // manual clock-in window
+        : (!jamMasuk || nowMinutes >= toMin(jamMasuk) - 60);            // auto clock-in window
 
   // Label jam kamera akan buka lagi (untuk overlay "sedang bekerja")
-  const clockOutWindowLabel = (!isManual && jamKeluar)
+  const clockOutWindowLabel = jamKeluar
     ? dayjs().startOf("day").add(toMin(jamKeluar) - 30, "minute").format("HH:mm")
     : null;
   // Label jam kamera buka untuk clock-in

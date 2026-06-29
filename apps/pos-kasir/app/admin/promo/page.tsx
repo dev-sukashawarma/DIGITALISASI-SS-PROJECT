@@ -217,7 +217,7 @@ export default function AdminPromoPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Tipe Diskon</label>
                 <select 
-                  className="input-field bg-white border-gray-300 shadow-sm font-medium" 
+                  className="input bg-white border-gray-300 shadow-sm font-medium" 
                   value={globalPromo.discount_type} 
                   onChange={e => handleGlobalPromoChange('discount_type', e.target.value)}
                 >
@@ -232,7 +232,7 @@ export default function AdminPromoPage() {
                   <input 
                     type="number" 
                     min="0"
-                    className={`input-field bg-white border-gray-300 font-bold text-gray-900 ${globalPromo.discount_type === 'nominal' ? 'pl-10' : 'pr-10'}`}
+                    className={`input bg-white border-gray-300 font-bold text-gray-900 ${globalPromo.discount_type === 'nominal' ? 'pl-10' : 'pr-10'}`}
                     value={globalPromo.discount_value || ''}
                     onChange={e => handleGlobalPromoChange('discount_value', Number(e.target.value))}
                   />
@@ -250,7 +250,7 @@ export default function AdminPromoPage() {
                     type="number" 
                     min="0"
                     placeholder="0"
-                    className="input-field bg-white border-gray-300 font-medium text-gray-900 pl-10"
+                    className="input bg-white border-gray-300 font-medium text-gray-900 pl-10"
                     value={globalPromo.min_purchase || ''}
                     onChange={e => handleGlobalPromoChange('min_purchase', e.target.value ? Number(e.target.value) : null)}
                   />
@@ -264,7 +264,7 @@ export default function AdminPromoPage() {
                 <div className="relative shadow-sm rounded-xl">
                   <input 
                     type="datetime-local" 
-                    className="input-field bg-white border-gray-300 font-medium text-gray-900"
+                    className="input bg-white border-gray-300 font-medium text-gray-900"
                     value={globalPromo.end_date ? new Date(globalPromo.end_date).toISOString().slice(0, 16) : ''}
                     onChange={e => handleGlobalPromoChange('end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
                   />
@@ -290,7 +290,7 @@ export default function AdminPromoPage() {
               placeholder="Cari nama menu..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="input-field pl-9 py-2 text-sm bg-gray-50 border-gray-200 focus:bg-white"
+              className="input pl-9 py-2 text-sm bg-gray-50 border-gray-200 focus:bg-white"
             />
           </div>
 
@@ -342,7 +342,7 @@ export default function AdminPromoPage() {
                         {promo.is_active && (
                           <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
                             <select 
-                              className="input-field py-1.5 pl-2 pr-6 text-sm w-[72px] bg-white border-blue-200 text-center font-semibold text-blue-700 shadow-sm" 
+                              className="input py-1.5 pl-2 pr-6 text-sm w-[72px] bg-white border-blue-200 text-center font-semibold text-blue-700 shadow-sm" 
                               value={promo.discount_type} 
                               onChange={e => handleItemPromoChange(menu.id, 'discount_type', e.target.value)}
                             >
@@ -355,7 +355,7 @@ export default function AdminPromoPage() {
                                 type="number" 
                                 min="0"
                                 placeholder="Nilai"
-                                className={`input-field py-1.5 text-sm w-24 sm:w-28 bg-white border-blue-200 font-bold text-blue-900 shadow-sm ${promo.discount_type === 'nominal' ? 'pl-8' : 'pr-8'}`}
+                                className={`input py-1.5 text-sm w-24 sm:w-28 bg-white border-blue-200 font-bold text-blue-900 shadow-sm ${promo.discount_type === 'nominal' ? 'pl-8' : 'pr-8'}`}
                                 value={promo.discount_value || ''}
                                 onChange={e => handleItemPromoChange(menu.id, 'discount_value', Number(e.target.value))}
                               />
@@ -382,7 +382,7 @@ export default function AdminPromoPage() {
                               type="number" 
                               min="0"
                               placeholder="0"
-                              className="input-field py-1.5 text-sm w-full bg-white border-blue-200 text-blue-900 shadow-sm pl-9"
+                              className="input py-1.5 text-sm w-full bg-white border-blue-200 text-blue-900 shadow-sm pl-9"
                               value={promo.min_purchase || ''}
                               onChange={e => handleItemPromoChange(menu.id, 'min_purchase', e.target.value ? Number(e.target.value) : null)}
                             />
@@ -392,7 +392,7 @@ export default function AdminPromoPage() {
                           <label className="block text-xs font-semibold text-blue-800 mb-1.5">Batas Waktu (Opsional)</label>
                           <input 
                             type="datetime-local" 
-                            className="input-field py-1.5 text-sm w-full bg-white border-blue-200 text-blue-900 shadow-sm"
+                            className="input py-1.5 text-sm w-full bg-white border-blue-200 text-blue-900 shadow-sm"
                             value={promo.end_date ? new Date(promo.end_date).toISOString().slice(0, 16) : ''}
                             onChange={e => handleItemPromoChange(menu.id, 'end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
                           />

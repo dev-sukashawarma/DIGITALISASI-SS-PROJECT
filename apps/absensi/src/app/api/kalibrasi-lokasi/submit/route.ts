@@ -56,6 +56,13 @@ export async function POST(req: Request) {
       }
     }
 
+    if (minDistance > 50) {
+      return NextResponse.json({ 
+        ok: false, 
+        error: `Lokasi Anda terlalu jauh dari outlet manapun (${Math.round(minDistance)}m). Maksimal 50m. Mohon dekatkan diri ke bangunan outlet dan coba lagi.` 
+      }, { status: 400 });
+    }
+
     // Reverse geocode to get the address
     const params = new URLSearchParams({
       location: `${lng},${lat}`,

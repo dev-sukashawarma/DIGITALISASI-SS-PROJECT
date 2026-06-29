@@ -8,6 +8,7 @@ import { ArrowLeft, Plus, Minus, Sandwich, ShoppingCart, Loader2 } from 'lucide-
 import { createClient } from '@/lib/supabase/client'
 import { useCart } from '@/store/cart'
 import { formatRupiah } from '@/lib/validations'
+import { usePromos } from '@/lib/usePromos'
 import RecommendationStrip from '@/components/RecommendationStrip'
 import type { MenuItem } from '@/types'
 
@@ -21,6 +22,7 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true)
   const [qty, setQty] = useState(1)
   const [note, setNote] = useState('')
+  const [outletId, setOutletId] = useState<string | undefined>()
 
   // Upsell states
   const [upsellItems, setUpsellItems] = useState<MenuItem[]>([])
@@ -38,6 +40,7 @@ export default function ProductDetailPage() {
       
       const { data: profile } = await supabase.from('outlet_staff').select('outlet_id').eq('id', user.id).single()
       const currentOutletId = profile?.outlet_id || '11111111-1111-1111-1111-111111111111'
+      setOutletId(currentOutletId)
 
       // Fetch main item
       const { data: mainItem } = await supabase
@@ -118,6 +121,20 @@ export default function ProductDetailPage() {
     router.push('/')
   }
 
+  const { items } = useCart()
+  const { calculateItemPrice } = usePromos(outletId)
+  
+  const cartBaseSubtotal = items.reduce((acc, curr) => acc + curr.item.price * curr.quantity, 0)
+  
+  // Calculate final price for the item, considering the promo condition
+  let finalPrice = item ? item.price : 0
+  if (item) {
+    // Determine the price using the cart total (including this item's base price multiplied by qty)
+    // Wait, the promo applies if cart total meets min purchase.
+    finalPrice = calculateItemPrice(item.price, item.id, cartBaseSubtotal)
+  }
+  const hasPromo = item && finalPrice < item.price
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFFBF5]">
@@ -177,8 +194,22 @@ export default function ProductDetailPage() {
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight leading-tight">{item.name}</h2>
             {item.description && <p className="text-gray-500 text-[15px] leading-relaxed mt-2">{item.description}</p>}
           </div>
-          <div className="pt-3 border-t border-gray-100">
-            <p className="text-3xl font-bold text-amber-600 tracking-tight">{formatRupiah(item.price)}</p>
+          <div className="pt-3 border-t border-gray-100 flex flex-col justify-end">
+            {hasPromo ? (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
+                    PROMO
+                  </span>
+                  <span className="text-sm text-gray-400 line-through">
+                    {formatRupiah(item.price)}
+                  </span>
+                </div>
+                <p className="text-3xl font-bold text-red-600 tracking-tight">{formatRupiah(finalPrice)}</p>
+              </>
+            ) : (
+              <p className="text-3xl font-bold text-amber-600 tracking-tight">{formatRupiah(item.price)}</p>
+            )}
           </div>
         </div>
 

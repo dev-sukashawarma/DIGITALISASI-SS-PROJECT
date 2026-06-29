@@ -11,6 +11,7 @@ import { formatRupiah } from '@/lib/validations'
 import AttractScreen from '@/components/AttractScreen'
 import type { MenuItem as MenuItemType, Category } from '@/types'
 import { useBrand } from '@/components/BrandContext'
+import { usePromos } from '@/lib/usePromos'
 
 interface Props {
   menuItems: MenuItemType[]
@@ -18,16 +19,23 @@ interface Props {
   bestsellerIds: string[]
   coverUrl: string | null
   outletName: string
+  outletId?: string
   isIdle: boolean
   setIsIdle: (val: boolean) => void
 }
 
-export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl, outletName, isIdle, setIsIdle }: Props) {
+export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl, outletName, outletId, isIdle, setIsIdle }: Props) {
   const pathname = usePathname()
   const [selectedCategory, setSelectedCategory] = useState('all')
   const { totalItems, totalPrice, isOpen, toggleCart, clearCart, closeCart } = useCart()
   const [deviceLabel, setDeviceLabel] = useState<string>('')
   const { brandName, brandLogo } = useBrand()
+  const { items } = useCart()
+  
+  const { calculateItemPrice } = usePromos(outletId)
+  
+  const cartBaseSubtotal = items.reduce((acc, curr) => acc + curr.item.price * curr.quantity, 0)
+  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, cartBaseSubtotal)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -167,7 +175,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
                     className="animate-fade-up"
                     style={{ animationDelay: `${i * 40}ms`, animationFillMode: 'both' }}
                   >
-                    <MenuItem item={item} />
+                    <MenuItem item={item} calculateItemPrice={wrappedCalculateItemPrice} />
                   </div>
                 ))}
               </div>
@@ -191,7 +199,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
                         className="animate-fade-up"
                         style={{ animationDelay: `${i * 40}ms`, animationFillMode: 'both' }}
                       >
-                        <MenuItem item={item} />
+                        <MenuItem item={item} calculateItemPrice={wrappedCalculateItemPrice} />
                       </div>
                     ))}
                   </div>
@@ -216,7 +224,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
                           className="animate-fade-up"
                           style={{ animationDelay: `${i * 40}ms`, animationFillMode: 'both' }}
                         >
-                          <MenuItem item={item} />
+                          <MenuItem item={item} calculateItemPrice={wrappedCalculateItemPrice} />
                         </div>
                       ))}
                     </div>

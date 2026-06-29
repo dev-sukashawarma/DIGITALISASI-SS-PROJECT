@@ -10,9 +10,10 @@ import { formatRupiah } from '@/lib/validations'
 
 interface Props {
   item: MenuItemType
+  calculateItemPrice?: (price: number, id: string) => number
 }
 
-export default function MenuItem({ item }: Props) {
+export default function MenuItem({ item, calculateItemPrice }: Props) {
   const { items, addItem, updateQuantity } = useCart()
   const router = useRouter()
   const [imgError, setImgError] = useState(false)
@@ -21,6 +22,8 @@ export default function MenuItem({ item }: Props) {
   const totalQuantity = itemCartItems.reduce((acc, curr) => acc + curr.quantity, 0)
 
   const showPlaceholder = !item.image_url || imgError
+  const finalPrice = calculateItemPrice ? calculateItemPrice(item.price, item.id) : item.price
+  const hasPromo = finalPrice < item.price
 
   return (
     <div
@@ -55,10 +58,17 @@ export default function MenuItem({ item }: Props) {
             </span>
           </div>
         )}
+        
+        {/* Promo Badge overlay */}
+        {item.is_available && hasPromo && (
+          <div className="absolute top-2.5 left-2.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1 z-10">
+            PROMO
+          </div>
+        )}
 
         {/* Quantity badge (when in cart) */}
         {totalQuantity > 0 && (
-          <div className="absolute top-2.5 right-2.5 min-w-6 h-6 px-1.5 bg-amber-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm animate-scale-in">
+          <div className="absolute top-2.5 right-2.5 min-w-6 h-6 px-1.5 bg-amber-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm animate-scale-in z-10">
             {totalQuantity}
           </div>
         )}
@@ -76,10 +86,21 @@ export default function MenuItem({ item }: Props) {
         )}
 
         {/* Price */}
-        <div className="mt-3 flex items-center justify-between">
-          <span className="font-bold text-amber-600 text-base tracking-tight leading-none">
-            {formatRupiah(item.price)}
-          </span>
+        <div className="mt-3 flex flex-col justify-end">
+          {hasPromo ? (
+            <>
+              <span className="text-[10px] text-gray-400 line-through leading-none mb-0.5">
+                {formatRupiah(item.price)}
+              </span>
+              <span className="font-bold text-red-600 text-base tracking-tight leading-none">
+                {formatRupiah(finalPrice)}
+              </span>
+            </>
+          ) : (
+            <span className="font-bold text-amber-600 text-base tracking-tight leading-none">
+              {formatRupiah(item.price)}
+            </span>
+          )}
         </div>
       </div>
     </div>

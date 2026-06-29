@@ -14,6 +14,8 @@ export default function MenuPage() {
   const [isIdle, setIsIdle] = useState(true)
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [outletName, setOutletName] = useState<string>('')
+  const [outletId, setOutletId] = useState<string | undefined>()
+
   useEffect(() => {
     async function fetchData() {
       const supabase = createClient()
@@ -32,6 +34,7 @@ export default function MenuPage() {
       }
 
       const currentOutletId = profile?.outlet_id || '11111111-1111-1111-1111-111111111111' // Fallback to pusat
+      setOutletId(currentOutletId)
       
       // 2. Fetch data paralel
       const [items_result, cats_result, cover_result, bs_result, outlet_result, unav_result] = await Promise.all([
@@ -80,6 +83,7 @@ export default function MenuPage() {
       bestsellerIds={bestsellerIds}
       coverUrl={coverUrl} 
       outletName={outletName}
+      outletId={outletId}
       isIdle={isIdle} 
       setIsIdle={setIsIdle} 
     />

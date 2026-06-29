@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
-import { useSalesSummary } from '@/hooks/useSalesSummary'
+import { useSalesDaily } from '@/hooks/useSalesDaily'
 import { useExpenses } from '@/hooks/useExpenses'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { rupiah, rupiahCompact } from '@/lib/format'
@@ -17,7 +17,7 @@ export default function ProfitPage() {
   const { data: outlets = [] } = useOutlets()
   const { filter, setFilter, lockedOutletId } = useScopedFilter()
 
-  const sales = useSalesSummary(filter, outlets)
+  const sales = useSalesDaily(filter, outlets)
   const expenses = useExpenses(filter)
 
   const loading = sales.loading || expenses.loading

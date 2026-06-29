@@ -1,7 +1,6 @@
 'use client'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { useSystemHealth } from '@/hooks/useSystemHealth'
-import { latestPerTarget, detectTransitions } from '@/lib/healthStatus'
 import { AppHealthCard } from '@/components/AppHealthCard'
 import { InfraHealthCard } from '@/components/InfraHealthCard'
 import { IncidentTimeline } from '@/components/IncidentTimeline'
@@ -12,17 +11,17 @@ const APP_ORDER = ['stok', 'absensi', 'pos-kasir', 'distribusi']
 const INFRA_ORDER = ['supabase-db']
 
 export default function SystemHealthPage() {
-  const { data: rows = [], isLoading } = useSystemHealth()
+  const { data, isLoading } = useSystemHealth()
 
   if (isLoading) return <Spinner />
-  if (rows.length === 0) {
+  const latest = data?.latest ?? []
+  const transitions = data?.transitions ?? []
+  if (latest.length === 0) {
     return <EmptyState title="Belum ada data health check" description="Collector belum pernah berjalan." />
   }
 
-  const latest = latestPerTarget(rows)
   const apps = APP_ORDER.map((name) => latest.find((r) => r.target_name === name)).filter((r) => r !== undefined)
   const infra = INFRA_ORDER.map((name) => latest.find((r) => r.target_name === name)).filter((r) => r !== undefined)
-  const transitions = detectTransitions(rows)
 
   return (
     <div className="space-y-6">

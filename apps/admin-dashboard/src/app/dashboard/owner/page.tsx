@@ -39,6 +39,9 @@ export default function DashboardPage() {
 
   const isOneDay = filter.from === filter.to
   const isLoading = cur.loading || hourly.loading || menu.loading
+  // Surface error dari salah satu query (jangan hanya `cur`), agar chart kosong
+  // tidak disangka "tak ada data" saat sebenarnya fetch hourly/menu gagal.
+  const errorMsg = cur.error || hourly.error || menu.error
 
   return (
     <div className="space-y-6">
@@ -51,7 +54,7 @@ export default function DashboardPage() {
         <PeriodFilter value={filter} onChange={setFilter} outlets={scopedOutlets} lockedOutletId={lockedOutletId} />
       </div>
 
-      {cur.error && <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">Gagal memuat data: {cur.error}</div>}
+      {errorMsg && <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">Gagal memuat data: {errorMsg}</div>}
       
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-suka-brown font-bold text-sm">

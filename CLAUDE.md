@@ -667,5 +667,21 @@ Role baru **`mitra`** (partner/investor 1 outlet) — read-only, server-enforced
 
 ---
 
+## Session 2026-06-29: Admin-Dashboard Bugfix, Type-Safety & Optimisasi Query
+
+**Status:** ✅ COMPLETED — `fix/staff-form-validation-dan-hr-typecheck` merged ke `main`; `perf/dashboard-db-aggregates` ter-push, 2 migration applied ke remote (PR redeploy menyusul). type-check 0 · test 40/40.
+
+**Ringkas:** review `apps/admin-dashboard` → perbaikan bug logika (validasi staff/NIK berantai, kasbon `currentRemaining`, sort `Invalid Date`, routing fallback semua role), keamanan (hapus `console.log` PII di StaffForm), type-safety (Button `outline`→`secondary`, Spinner `size` numerik, TS7030, dead imports), dan **4 optimisasi query dashboard** (dedup fetch hourly via `useSalesHourlyRaw`, buang fetch `outlets` ganda, view harian `sales_daily_*` untuk Profit, view `system_health_latest`/`_transitions` dengan `security_invoker=true`).
+
+**Gotcha kunci:**
+- KpiCards "Jam Tersibuk" butuh data per-jam **semua rentang** → owner page tetap `useSalesSummary` (hourly-derived); view harian `#3` hanya untuk halaman murni-harian (Profit). Jangan pindahkan owner ke view harian (nambah fetch).
+- View di atas `system_health_log` **WAJIB `security_invoker=true`** (RLS tabel = `is_admin()` only) — kalau definer, data health bocor ke non-admin.
+
+**Migration baru (applied, no drift):** `20260629150000_sales_daily_aggregate.sql`, `20260629160000_system_health_views.sql`.
+
+**📄 Detail lengkap (tabel bug/dampak/solusi + file):** `docs/SESSION-2026-06-29-ADMIN-DASHBOARD-BUGFIX-PERF.md`
+
+---
+
 **Last updated:** 2026-06-29  
 **Owner:** Dev Suka Shawarma

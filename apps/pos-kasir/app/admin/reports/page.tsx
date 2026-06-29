@@ -179,7 +179,7 @@ export default function AdminReportsPage() {
     ? 'Semua Cabang' 
     : outlets.find(o => o.id === selectedOutlet)?.name || 'Cabang Tidak Ditemukan'
 
-  const PAYMENT_META: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
+  const PAYMENT_META: Record<string, { label: string; color: string; bg: string; icon: any }> = {
     cash: { label: 'Tunai', color: '#10b981', bg: 'bg-emerald-50', icon: Banknote },
     qris: { label: 'QRIS', color: '#3b82f6', bg: 'bg-blue-50', icon: QrCode },
     card: { label: 'Kartu', color: '#8b5cf6', bg: 'bg-purple-50', icon: CreditCard },

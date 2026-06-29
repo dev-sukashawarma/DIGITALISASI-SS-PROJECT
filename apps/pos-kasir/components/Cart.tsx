@@ -6,12 +6,26 @@ import { ShoppingCart, Plus, Minus, Trash2, X, ArrowRight, Sandwich } from 'luci
 import { useCart } from '@/store/cart'
 import { formatRupiah } from '@/lib/validations'
 import type { CartItem as CartItemType } from '@/types'
+import { usePromos } from '@/lib/usePromos'
+import { useMyOutlet } from '@/lib/useMyOutlet'
 
 export default function Cart() {
   const router = useRouter()
-  const { items, updateQuantity, removeItem, totalItems, totalPrice, closeCart } = useCart()
-  const total = totalPrice()
+  const { items, updateQuantity, removeItem, totalItems, closeCart } = useCart()
   const count = totalItems()
+  const { outletId } = useMyOutlet()
+  const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
+  
+  // Hitung ulang total mempertimbangkan promo
+  let subtotal = 0
+  items.forEach(i => {
+    const price = calculateItemPrice(i.item.price, i.item.id)
+    subtotal += price * i.quantity
+  })
+  
+  const globalDiscount = calculateGlobalDiscount(subtotal)
+  const total = subtotal - globalDiscount
+  
   const rootItems = items.filter(i => !i.parentId)
 
   if (items.length === 0) {
@@ -50,7 +64,8 @@ export default function Cart() {
                 <CartItemRow 
                   itemData={root} 
                   updateQuantity={updateQuantity} 
-                  removeItem={removeItem} 
+                  removeItem={removeItem}
+                  calculateItemPrice={calculateItemPrice}
                 />
               </div>
               
@@ -63,7 +78,8 @@ export default function Cart() {
                       <CartItemRow 
                         itemData={child} 
                         updateQuantity={updateQuantity} 
-                        removeItem={removeItem} 
+                        removeItem={removeItem}
+                        calculateItemPrice={calculateItemPrice}
                         isChild 
                       />
                     </div>
@@ -80,10 +96,16 @@ export default function Cart() {
         {/* Total breakdown */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-gray-500">
-            <span>{count} item</span>
-            <span>{formatRupiah(total)}</span>
+            <span>{count} item (Subtotal)</span>
+            <span className={globalPromo ? 'line-through' : ''}>{formatRupiah(subtotal)}</span>
           </div>
-          <div className="flex justify-between items-center">
+          {globalPromo && (
+            <div className="flex justify-between text-sm text-emerald-600 font-medium">
+              <span>Promo Global</span>
+              <span>-{formatRupiah(globalDiscount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-center pt-2 border-t border-gray-100">
             <span className="font-bold text-gray-900">Total Pembayaran</span>
             <span className="font-extrabold text-xl text-amber-600">{formatRupiah(total)}</span>
           </div>
@@ -130,14 +152,18 @@ function CartItemRow({
   itemData, 
   updateQuantity, 
   removeItem, 
+  calculateItemPrice,
   isChild = false 
 }: { 
   itemData: CartItemType, 
   updateQuantity: (id: string, q: number) => void, 
-  removeItem: (id: string) => void, 
+  removeItem: (id: string) => void,
+  calculateItemPrice: (originalPrice: number, menuId: string) => number,
   isChild?: boolean 
 }) {
   const { cartItemId, item, quantity, note } = itemData
+  const discountedPrice = calculateItemPrice(item.price, item.id)
+  const isDiscounted = discountedPrice < item.price
   
   return (
     <div className="group flex flex-col">
@@ -164,9 +190,16 @@ function CartItemRow({
             <p className={`font-semibold text-gray-900 leading-tight truncate ${isChild ? 'text-[13px]' : 'text-sm'}`}>
               {item.name}
             </p>
-            <p className={`text-amber-600 font-semibold mt-0.5 ${isChild ? 'text-[11px]' : 'text-xs'}`}>
-              {formatRupiah(item.price)}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className={`text-amber-600 font-semibold ${isChild ? 'text-[11px]' : 'text-xs'}`}>
+                {formatRupiah(discountedPrice)}
+              </p>
+              {isDiscounted && (
+                <p className={`text-gray-400 line-through ${isChild ? 'text-[9px]' : 'text-[10px]'}`}>
+                  {formatRupiah(item.price)}
+                </p>
+              )}
+            </div>
             {note && (
               <p className="text-gray-500 text-xs mt-1 italic line-clamp-2">
                 Note: {note}

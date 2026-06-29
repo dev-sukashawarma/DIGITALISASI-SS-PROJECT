@@ -68,6 +68,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Gagal memuat data menu' }, { status: 500 })
   }
 
+  // Fetch active promos for this outlet
+  const { data: activePromos, error: promosError } = await supabaseService
+    .from('outlet_promos')
+    .select('*')
+    .eq('outlet_id', outlet_id)
+    .eq('is_active', true)
+
+  const globalPromo = activePromos?.find(p => p.scope === 'global')
+  const itemPromos = activePromos?.filter(p => p.scope === 'item') || []
+
   // Validasi setiap item: harus ada, harus tersedia
   const validatedItems: {
     menu_item_id: string
@@ -77,7 +87,7 @@ export async function POST(request: Request) {
     subtotal: number
   }[] = []
 
-  let total = 0
+  let subtotalAmount = 0
 
   for (const reqItem of payload.items) {
     const menuItem = menuItems?.find((m) => m.id === reqItem.menu_item_id)
@@ -104,11 +114,21 @@ export async function POST(request: Request) {
       )
     }
 
-    // Gunakan harga dari DATABASE, bukan dari frontend
-    const unitPrice = menuItem.price
+    // Gunakan harga dari DATABASE dan hitung promo per item jika ada
+    let unitPrice = menuItem.price
+    if (!globalPromo) {
+      const promo = itemPromos.find(p => p.menu_item_id === menuItem.id)
+      if (promo) {
+        if (promo.discount_type === 'nominal') {
+          unitPrice = Math.max(0, unitPrice - promo.discount_value)
+        } else {
+          unitPrice = Math.max(0, unitPrice * (1 - promo.discount_value / 100))
+        }
+      }
+    }
     const subtotal = unitPrice * quantity
 
-    total += subtotal
+    subtotalAmount += subtotal
     
     // Embed relationship data using separators
     let finalName = menuItem.name
@@ -131,6 +151,18 @@ export async function POST(request: Request) {
     })
   }
 
+  // Hitung Global Promo
+  let globalDiscount = 0
+  if (globalPromo) {
+    if (globalPromo.discount_type === 'nominal') {
+      globalDiscount = Math.min(subtotalAmount, globalPromo.discount_value)
+    } else {
+      globalDiscount = subtotalAmount * (globalPromo.discount_value / 100)
+    }
+  }
+
+  const finalTotal = subtotalAmount - globalDiscount
+
   // Buat order
   const { data: order, error: orderError } = await supabaseService
     .from('orders')
@@ -139,7 +171,8 @@ export async function POST(request: Request) {
       customer_name: payload.customer_name || null,
       notes: null,
       payment_method: payload.payment_method,
-      total_amount: total,
+      total_amount: finalTotal,
+      discount_amount: globalDiscount > 0 ? globalDiscount : null,
       status: 'pending',
     })
     .select('id, order_number')
@@ -169,6 +202,6 @@ export async function POST(request: Request) {
     success: true,
     order_id: order.id,
     order_number: order.order_number,
-    total_amount: total,
+    total_amount: finalTotal,
   })
 }

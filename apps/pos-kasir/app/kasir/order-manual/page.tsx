@@ -193,7 +193,7 @@ export default function OrderManualPage() {
                     className={`relative flex items-center gap-2 px-2.5 py-2 xl:py-2.5 rounded-lg xl:rounded-xl border font-bold text-xs xl:text-sm transition-all duration-200 active:scale-95 hover:shadow-sm ${
                       selected ? 'shadow-md ring-2 ring-offset-1' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                     }`}
-                    style={selected ? { backgroundColor: c.bg, color: c.fg, borderColor: c.bg, ringColor: c.bg } : undefined}
+                    style={selected ? { backgroundColor: c.bg, color: c.fg, borderColor: c.bg } : undefined}
                   >
                     <span
                       className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-extrabold flex-shrink-0"
@@ -405,7 +405,7 @@ export default function OrderManualPage() {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
         @keyframes popIn { from { transform: scale(.92); opacity: 0 } to { transform: scale(1); opacity: 1 } }
       `}</style>

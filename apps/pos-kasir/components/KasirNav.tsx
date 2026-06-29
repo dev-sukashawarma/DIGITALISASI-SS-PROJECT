@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch, Tag } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -18,6 +18,7 @@ const links = [
   { href: '/kasir/histori',    label: 'Histori',       icon: ClipboardList },
   { href: '/kasir/kiosk',      label: 'Kontrol Device Pelanggan', icon: Monitor },
   { href: '/kasir/reports',    label: 'Laporan',       icon: BarChart3 },
+  { href: '/kasir/promo',      label: 'Promo',         icon: Tag },
   { href: '/kasir/settings',   label: 'Tampilan Layar',icon: ImageIcon },
   { href: '/panduan',          label: 'Panduan',       icon: BookOpen },
 ]

@@ -15,9 +15,9 @@ vi.mock('@/lib/supabase', () => ({
 
 import { useOutletMutations } from './useOutletMutations'
 
-function wrapper(client: QueryClient) {
+const createWrapper = (queryClient: QueryClient) => {
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   )
 }
 
@@ -27,7 +27,7 @@ describe('useOutletMutations', () => {
   it('create inserts a row with a generated id and invalidates ["outlets"]', async () => {
     const client = new QueryClient()
     const spy = vi.spyOn(client, 'invalidateQueries')
-    const { result } = renderHook(() => useOutletMutations(), { wrapper: wrapper(client) })
+    const { result } = renderHook(() => useOutletMutations(), { wrapper: createWrapper(client) })
 
     await result.current.create.mutateAsync({
       name: 'Empang', slug: 'empang', address: '', lat: -6.6, lng: 106.8, type: 'outlet', is_active: true,
@@ -42,14 +42,14 @@ describe('useOutletMutations', () => {
 
   it('softDelete updates is_active=false', async () => {
     const client = new QueryClient()
-    const { result } = renderHook(() => useOutletMutations(), { wrapper: wrapper(client) })
+    const { result } = renderHook(() => useOutletMutations(), { wrapper: createWrapper(client) })
     await result.current.softDelete.mutateAsync('o1')
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ is_active: false }))
   })
 
   it('hardDelete calls delete', async () => {
     const client = new QueryClient()
-    const { result } = renderHook(() => useOutletMutations(), { wrapper: wrapper(client) })
+    const { result } = renderHook(() => useOutletMutations(), { wrapper: createWrapper(client) })
     await result.current.hardDelete.mutateAsync('o1')
     expect(del).toHaveBeenCalled()
   })

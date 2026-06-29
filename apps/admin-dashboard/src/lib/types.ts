@@ -152,3 +152,95 @@ export interface PeriodFilterValue {
   outletId: string | 'all'
   source: SalesSource | 'all'
 }
+
+// ── Attendance ──────────────────────────────────────────────
+export type AttendanceStatus = 'hadir' | 'terlambat' | 'izin' | 'sakit' | 'alfa' | 'cuti' | 'libur'
+
+export interface AttendanceLog {
+  id: string
+  staff_id: string
+  outlet_id: string
+  date: string
+  clock_in: string | null
+  clock_out: string | null
+  status: AttendanceStatus
+  late_minutes: number
+  notes: string | null
+  created_at?: string
+  updated_at?: string
+  outlet_staff?: { name: string; role: string }
+  outlets?: { name: string }
+}
+
+export interface AttendanceFilterValues {
+  dateFrom: string
+  dateTo: string
+  outletId: string
+  status: string
+}
+
+// ── Leave ───────────────────────────────────────────────────
+export type LeaveStatus = 'pending' | 'approved' | 'rejected'
+
+export interface LeaveRequest {
+  id: string
+  staff_id: string
+  leave_type: string
+  start_date: string
+  end_date: string
+  days: number
+  reason: string | null
+  status: LeaveStatus
+  approved_by: string | null
+  approved_at: string | null
+  rejection_note: string | null
+  created_at: string
+  outlet_staff?: { name: string; role: string; leave_quota: number | null }
+}
+
+// ── Payroll ─────────────────────────────────────────────────
+export type PayrollStatus = 'draft' | 'finalized'
+
+export interface PayrollRecord {
+  id: string
+  staff_id: string
+  period_month: number
+  period_year: number
+  basic_salary: number
+  allowance_position: number
+  allowance_presence: number
+  bonus: number
+  bonus_note: string | null
+  deductions: number
+  deduction_note: string | null
+  total_salary: number
+  status: PayrollStatus
+  created_at?: string
+  updated_at?: string
+  outlet_staff?: { name: string; role: string; outlet_id: string; outlets: { name: string } | null }
+}
+
+// ── Cash Advance ────────────────────────────────────────────
+export type CashAdvanceStatus = 'active' | 'paid_off'
+
+export interface CashAdvance {
+  id: string
+  staff_id: string
+  amount: number
+  remaining: number
+  reason: string | null
+  status: CashAdvanceStatus
+  approved_by: string | null
+  created_at: string
+  outlet_staff?: { name: string }
+  cash_advance_payments?: CashAdvancePayment[]
+}
+
+export interface CashAdvancePayment {
+  id: string
+  cash_advance_id: string
+  amount: number
+  payment_date: string
+  note: string | null
+  created_at?: string
+}

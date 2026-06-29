@@ -1,4 +1,4 @@
-import { Users, CalendarClock, Briefcase, CalendarHeart } from 'lucide-react'
+import { Users, CalendarClock, CalendarHeart, Banknote } from 'lucide-react'
 import Link from 'next/link'
 
 export default function HRDashboard() {
@@ -6,7 +6,7 @@ export default function HRDashboard() {
     { title: 'Database Karyawan', desc: 'Kelola data staf dan kontrak', href: '/dashboard/hr/staff', icon: Users, color: 'bg-blue-50 text-blue-600' },
     { title: 'Absensi & Shift', desc: 'Rekap kehadiran & jam kerja', href: '/dashboard/hr/attendance', icon: CalendarClock, color: 'bg-green-50 text-green-600' },
     { title: 'Cuti & Izin', desc: 'Pengajuan cuti dan sakit', href: '/dashboard/hr/leave', icon: CalendarHeart, color: 'bg-purple-50 text-purple-600' },
-    { title: 'Rekrutmen', desc: 'Onboarding pegawai baru', href: '/dashboard/hr/recruitment', icon: Briefcase, color: 'bg-orange-50 text-orange-600' },
+    { title: 'Payroll & Kasbon', desc: 'Slip gaji & pinjaman karyawan', href: '/dashboard/hr/payroll', icon: Banknote, color: 'bg-orange-50 text-orange-600' },
   ]
 
   return (

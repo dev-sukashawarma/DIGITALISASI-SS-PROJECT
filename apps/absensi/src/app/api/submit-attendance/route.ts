@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { haversineMeters, GEOFENCE_RADIUS_M } from "@/lib/gps";
+import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M } from "@/lib/gps";
 
 export async function POST(req: Request) {
   try {
@@ -30,6 +30,17 @@ export async function POST(req: Request) {
     let distanceM: number | null = null;
     // Hanya validasi GPS jika koordinat outlet terdaftar (tidak null)
     if (outlet.lat !== null && outlet.lng !== null) {
+      // Tolak bila akurasi GPS sangat buruk — radius 30 m jadi tak bermakna
+      // bila toleransi akurasi membengkak. Minta crew aktifkan Lokasi Akurat.
+      const reportedAccuracy = Number(body.gps_accuracy ?? 0);
+      if (reportedAccuracy > MAX_GPS_ACCURACY_M) {
+        return NextResponse.json({
+          ok: false,
+          reason: "gps_accuracy_low",
+          accuracy_m: reportedAccuracy,
+        }, { status: 403 });
+      }
+
       if (body.gps_lat !== undefined && body.gps_lat !== null && body.gps_lng !== undefined && body.gps_lng !== null) {
         const outletCoords = { lat: Number(outlet.lat), lng: Number(outlet.lng) };
         const userCoords = { lat: Number(body.gps_lat), lng: Number(body.gps_lng) };

@@ -24,8 +24,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isSPV = ["admin", "admin_hr", "owner", "spv", "leader"].includes(outletStaff?.role || "");
-  // Kalibrasi lokasi outlet untuk SPV/admin/owner/leader (sama dgn guard halaman
-  // & API). admin_hr tak boleh → jangan tampilkan menu agar tak jadi link mati.
   const canCalibrateLocation = ["spv", "admin", "owner", "leader"].includes(outletStaff?.role || "");
 
   const navItems: NavItem[] = isSPV ? [
@@ -36,7 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/checklist-monitor", label: "Monitor Checklist", icon: <ClipboardCheck size={20} /> },
     { href: "/dashboard/enroll", label: "Enrollment Crew", icon: <UserPlus size={20} /> },
     { href: "/dashboard/pengaturan", label: "Pengaturan Absensi", icon: <Settings2 size={20} /> },
-    ...(canCalibrateLocation ? [{ href: "/dashboard/pengaturan-lokasi", label: "Lokasi Outlet", icon: <MapPin size={20} /> }] : []),
+    ...(canCalibrateLocation ? [{ href: "/dashboard/kalibrasi", label: "Kalibrasi Outlet", icon: <MapPin size={20} /> }] : []),
   ] : [
     { href: "/dashboard/kru", label: "Beranda Saya", icon: <LayoutDashboard size={20} /> },
     { href: "/dashboard/kru-checklist", label: "Checklist Harian", icon: <ClipboardCheck size={20} /> },

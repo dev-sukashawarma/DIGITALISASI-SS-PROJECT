@@ -374,16 +374,6 @@ export function AttendanceKioskPanel() {
                 >
                   Coba Pindai Ulang Lokasi
                 </button>
-                <button
-                  onClick={() => {
-                    if (window.confirm("Apakah Anda yakin ingin menetapkan lokasi saat ini sebagai titik resmi outlet di database?")) {
-                      kiosk.calibrateLocation();
-                    }
-                  }}
-                  className="py-2.5 px-4 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-[10px] rounded-xl shadow-md border border-gray-700 transition-all active:scale-[0.98] w-full"
-                >
-                  🔧 Jadikan Ini Lokasi Outlet
-                </button>
               </div>
             </div>
           ) : (

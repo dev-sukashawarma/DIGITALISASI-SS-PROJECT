@@ -5,20 +5,21 @@ import { useRole } from '@/components/layout/RoleContext'
 
 export const dynamic = 'force-dynamic'
 
+// Landing per role. Role tak terpetakan jatuh ke fallback (Ringkasan HR).
+const ROLE_HOME: Record<string, string> = {
+  OWNER: '/dashboard/owner',
+  MITRA: '/dashboard/owner',
+  ADMIN_HR: '/dashboard/hr',
+  ADMIN: '/dashboard/system-health',
+}
+const FALLBACK_HOME = '/dashboard/hr'
+
 export default function DashboardHome() {
   const router = useRouter()
   const { role } = useRole()
 
   useEffect(() => {
-    if (role === 'OWNER') {
-      router.replace('/dashboard/owner')
-    } else if (role === 'MITRA') {
-      router.replace('/dashboard/owner')
-    } else if (role === 'ADMIN_HR') {
-      router.replace('/dashboard/hr')
-    } else if (role === 'ADMIN') {
-      router.replace('/dashboard/system-health')
-    }
+    router.replace(ROLE_HOME[role] ?? FALLBACK_HOME)
   }, [role, router])
 
   return (

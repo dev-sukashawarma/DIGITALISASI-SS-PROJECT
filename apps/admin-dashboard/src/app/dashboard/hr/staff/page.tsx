@@ -76,7 +76,7 @@ export default function StaffPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-suka-ink">Manajemen Staff</h2>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setEditing(null); setShowForm(false); setShowImport((v) => !v) }} className="flex items-center gap-2 rounded-xl">
+          <Button variant="secondary" onClick={() => { setEditing(null); setShowForm(false); setShowImport((v) => !v) }} className="flex items-center gap-2 rounded-xl">
             <Upload size={18} /> Import CSV
           </Button>
           <Button onClick={() => { setEditing(null); setShowImport(false); setShowForm((v) => !v) }} className="flex items-center gap-2 rounded-xl">

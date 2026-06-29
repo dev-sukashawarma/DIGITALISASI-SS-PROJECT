@@ -17,7 +17,7 @@ export default function ProfitPage() {
   const { data: outlets = [] } = useOutlets()
   const { filter, setFilter, lockedOutletId } = useScopedFilter()
 
-  const sales = useSalesSummary(filter)
+  const sales = useSalesSummary(filter, outlets)
   const expenses = useExpenses(filter)
 
   const loading = sales.loading || expenses.loading

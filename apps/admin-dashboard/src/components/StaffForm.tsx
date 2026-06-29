@@ -198,14 +198,27 @@ export function StaffForm({
 
             <div>
               <label htmlFor="sf-role" className={labelCls}>Role</label>
-              <select id="sf-role" className={inputCls} value={role} onChange={(e) => setRole(e.target.value as Role)}>
+              <select id="sf-role" className={inputCls} value={role} onChange={(e) => {
+                const newRole = e.target.value as Role
+                setRole(newRole)
+                if (newRole === 'staff_pusat') {
+                  const pusat = outlets.find(o => o.id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' || o.name === 'Kantor Pusat')
+                  if (pusat) setOutletId(pusat.id)
+                }
+              }}>
                 {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
 
             <div>
               <label htmlFor="sf-outlet" className={labelCls}>Outlet Home</label>
-              <select id="sf-outlet" className={inputCls} value={outletId} onChange={(e) => setOutletId(e.target.value)}>
+              <select 
+                id="sf-outlet" 
+                className={inputCls} 
+                value={outletId} 
+                onChange={(e) => setOutletId(e.target.value)}
+                disabled={role === 'staff_pusat'}
+              >
                 {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             </div>

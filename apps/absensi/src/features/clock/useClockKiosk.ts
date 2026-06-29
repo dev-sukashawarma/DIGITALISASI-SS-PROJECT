@@ -13,7 +13,7 @@ import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
-import { haversineMeters, GEOFENCE_RADIUS_M } from "@/lib/gps";
+import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAcceptable } from "@/lib/gps";
 
 export type KioskPhase = "locating" | "location_invalid" | "idle" | "identified" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
@@ -111,6 +111,16 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         const accuracy = pos.coords.accuracy;
         setDeviceCoords(currentCoords);
         setDeviceAccuracy(accuracy);
+
+        // Akurasi GPS terlalu rendah → tolak tegas (jangan loloskan ke idle).
+        if (!isGpsAccuracyAcceptable(accuracy)) {
+          setResult({
+            ok: false,
+            message: `Akurasi GPS terlalu rendah (${accuracy.toFixed(0)} m, maksimal ${MAX_GPS_ACCURACY_M} m). Aktifkan "Lokasi Akurat/Precise" dan nyalakan GPS HP Anda, lalu coba lagi.`,
+          });
+          setPhase("location_invalid");
+          return;
+        }
 
         if (!coords) {
           setPhase("idle");
@@ -460,6 +470,7 @@ function gagalText(reason: string): string {
     terlambat_alpha: "Lewat Batas Waktu (Alpha)",
     too_early_in: "Belum waktunya absen masuk",
     too_early_out: "Belum waktunya absen pulang",
+    gps_accuracy_low: "Akurasi GPS terlalu rendah — aktifkan Lokasi Akurat",
   };
   return map[reason] ?? `Gagal: ${reason}`;
 }

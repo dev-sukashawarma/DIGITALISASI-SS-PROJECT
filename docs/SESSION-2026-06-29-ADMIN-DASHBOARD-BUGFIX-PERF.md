@@ -55,5 +55,5 @@ Keduanya ✅ applied ke remote (4 view terverifikasi). History tanpa drift → c
 - **View di atas `system_health_log` WAJIB `security_invoker=true`** — tanpa itu view jalan sebagai definer dan membocorkan data health ke non-admin (RLS tabel = `is_admin()` only).
 
 ## Belum dikerjakan / next
-- Owner page surfacing error parsial (`hourly.error`/`menu.error`) — saat ini hanya `cur.error` (`owner/page.tsx`).
-- Setelah merge `perf/dashboard-db-aggregates`: **redeploy `admin-dashboard`** + smoke test Profit & System Health.
+- ✅ Owner page surfacing error parsial — kini `errorMsg = cur.error || hourly.error || menu.error` (`owner/page.tsx`), tak lagi hanya `cur.error`.
+- Setelah merge `perf/dashboard-db-aggregates`: **redeploy `admin-dashboard`** + smoke test Profit & System Health (langkah deploy, butuh akses server).

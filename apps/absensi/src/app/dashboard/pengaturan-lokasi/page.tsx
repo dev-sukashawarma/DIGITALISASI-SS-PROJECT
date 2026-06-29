@@ -9,7 +9,7 @@ import { useToast } from "@/lib/feedback/toast";
 
 const OutletMapPicker = dynamic(() => import("@/components/OutletMapPicker"), { ssr: false });
 
-const ALLOWED_ROLES = ["spv", "admin", "owner"];
+const ALLOWED_ROLES = ["spv", "admin", "owner", "leader"];
 type Outlet = { id: string; name: string; lat: number | null; lng: number | null };
 
 export default function PengaturanLokasiPage() {

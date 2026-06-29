@@ -5,7 +5,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const admin = createClient(supabaseUrl, supabaseServiceKey);
 
-const ALLOWED_ROLES = new Set(["spv", "admin", "owner"]);
+const ALLOWED_ROLES = new Set(["spv", "admin", "owner", "leader"]);
 
 export async function POST(req: Request) {
   try {

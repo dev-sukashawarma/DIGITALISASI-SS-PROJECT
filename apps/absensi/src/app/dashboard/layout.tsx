@@ -24,9 +24,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isSPV = ["admin", "admin_hr", "owner", "spv", "leader"].includes(outletStaff?.role || "");
-  // Kalibrasi lokasi outlet hanya untuk SPV/admin/owner (sama dgn guard halaman
-  // & API). leader/admin_hr tak boleh → jangan tampilkan menu agar tak jadi link mati.
-  const canCalibrateLocation = ["spv", "admin", "owner"].includes(outletStaff?.role || "");
+  // Kalibrasi lokasi outlet untuk SPV/admin/owner/leader (sama dgn guard halaman
+  // & API). admin_hr tak boleh → jangan tampilkan menu agar tak jadi link mati.
+  const canCalibrateLocation = ["spv", "admin", "owner", "leader"].includes(outletStaff?.role || "");
 
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },

@@ -1,4 +1,4 @@
-const VALID_ROLES = ["admin", "admin_hr", "owner", "spv", "leader", "kasir", "crew", "kiosk"];
+const VALID_ROLES = ["admin", "admin_hr", "owner", "spv", "leader", "kasir", "crew", "kiosk", "kitchen", "mitra"];
 const VALID_STATUSES = ["active", "inactive", "on_leave"];
 
 export function assertAdmin(caller: { role: string } | null): void {

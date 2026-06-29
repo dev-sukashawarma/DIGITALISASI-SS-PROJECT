@@ -22,7 +22,7 @@ export function useTargetProgress() {
 
   const fetchRows = async () => {
     const { data } = await supabase
-      .from('daily_target_progress_spv')
+      .from('daily_target_progress_scoped')
       .select('*')
       .order('outlet_name')
     setRows(

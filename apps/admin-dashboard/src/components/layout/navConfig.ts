@@ -4,7 +4,7 @@ import {
   PieChart, DollarSign, MessageSquareHeart, Target, BellRing, type LucideIcon,
 } from 'lucide-react'
 
-export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN'
+export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA'
 
 export type NavItem = { href: string; label: string; shortLabel?: string; icon: LucideIcon; roles: Role[] }
 export type NavGroup = { title: string; items: NavItem[]; roles: Role[] }
@@ -32,6 +32,16 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/owner/messages', label: 'Pesan ke Kasir', shortLabel: 'Pesan', icon: MessageSquareHeart, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/profit', label: 'Profitabilitas', shortLabel: 'Laba Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: Activity, roles: ['OWNER', 'ADMIN'] },
+    ],
+  },
+  {
+    title: 'Dashboard Mitra',
+    roles: ['MITRA'],
+    items: [
+      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['MITRA'] },
+      { href: '/dashboard/owner/targets', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['MITRA'] },
+      { href: '/dashboard/owner/profit', label: 'Profitabilitas', shortLabel: 'Laba Rugi', icon: DollarSign, roles: ['MITRA'] },
+      { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: Activity, roles: ['MITRA'] },
     ],
   },
   {

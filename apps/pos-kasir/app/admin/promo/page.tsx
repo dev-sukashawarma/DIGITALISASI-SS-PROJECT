@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useMyOutlet } from '@/lib/useMyOutlet'
 
 type MenuItem = {
   id: string
@@ -21,10 +20,15 @@ type OutletPromo = {
   is_active: boolean
 }
 
-export default function KasirPromoPage() {
-  const { outletId, loaded } = useMyOutlet()
+type Outlet = {
+  id: string
+  name: string
+}
+
+export default function AdminPromoPage() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [promos, setPromos] = useState<OutletPromo[]>([])
+  const [outlets, setOutlets] = useState<Outlet[]>([])
   const [loadingData, setLoadingData] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
@@ -32,21 +36,27 @@ export default function KasirPromoPage() {
 
   useEffect(() => {
     async function loadData() {
-      if (!loaded || !outletId) return
-      
       try {
         const supabase = createClient()
         
-        const [menuRes, promoRes] = await Promise.all([
+        const [menuRes, outletsRes] = await Promise.all([
           supabase.from('menu_items').select('id, name, price').eq('is_available', true).order('sort_order'),
-          supabase.from('outlet_promos').select('*').eq('outlet_id', outletId)
+          supabase.from('outlets').select('id, name').eq('is_active', true)
         ])
         
         if (menuRes.error) throw menuRes.error
-        if (promoRes.error) throw promoRes.error
+        if (outletsRes.error) throw outletsRes.error
         
         setMenuItems(menuRes.data || [])
-        setPromos(promoRes.data || [])
+        
+        const activeOutlets = outletsRes.data || []
+        setOutlets(activeOutlets)
+
+        if (activeOutlets.length > 0) {
+          const promoRes = await supabase.from('outlet_promos').select('*').eq('outlet_id', activeOutlets[0].id)
+          if (promoRes.error) throw promoRes.error
+          setPromos(promoRes.data || [])
+        }
       } catch (err: any) {
         console.error('Error loading data:', err)
         setMessage({ type: 'error', text: 'Gagal memuat data promo.' })
@@ -56,7 +66,7 @@ export default function KasirPromoPage() {
     }
     
     loadData()
-  }, [outletId, loaded])
+  }, [])
 
   const globalPromo = promos.find(p => p.scope === 'global') || {
     scope: 'global',
@@ -106,37 +116,47 @@ export default function KasirPromoPage() {
   }
 
   const handleSave = async () => {
-    if (!outletId) return
     setSaving(true)
     setMessage(null)
     
     try {
       const supabase = createClient()
       
-      const toUpsert = promos.map(p => ({
-        ...(p.id ? { id: p.id } : {}),
-        outlet_id: outletId,
-        scope: p.scope,
-        menu_item_id: p.menu_item_id,
-        discount_type: p.discount_type,
-        discount_value: p.discount_value,
-        is_active: p.is_active
-      }))
-      
-      for (const p of toUpsert) {
-        if (p.id) {
-          const { error } = await supabase.from('outlet_promos').update(p).eq('id', p.id)
-          if (error) throw error
-        } else {
-          const { error, data } = await supabase.from('outlet_promos').insert(p).select().single()
-          if (error) throw error
-          if (data) p.id = data.id
+      const { data: currentOutlets, error: outletsErr } = await supabase.from('outlets').select('id').eq('is_active', true)
+      if (outletsErr) throw outletsErr
+
+      if (!currentOutlets || currentOutlets.length === 0) {
+        throw new Error('Tidak ada outlet aktif untuk diterapkan promo.')
+      }
+
+      for (const outlet of currentOutlets) {
+        const { data: existingPromos } = await supabase.from('outlet_promos').select('id, scope, menu_item_id').eq('outlet_id', outlet.id)
+        
+        const toUpsert = promos.map(p => {
+          const existing = existingPromos?.find(ep => ep.scope === p.scope && ep.menu_item_id === p.menu_item_id)
+          return {
+            ...(existing ? { id: existing.id } : {}),
+            outlet_id: outlet.id,
+            scope: p.scope,
+            menu_item_id: p.menu_item_id,
+            discount_type: p.discount_type,
+            discount_value: p.discount_value,
+            is_active: p.is_active
+          }
+        })
+
+        for (const p of toUpsert) {
+          if (p.id) {
+            const { error } = await supabase.from('outlet_promos').update(p).eq('id', p.id)
+            if (error) throw error
+          } else {
+            const { error } = await supabase.from('outlet_promos').insert(p)
+            if (error) throw error
+          }
         }
       }
       
-      setPromos(toUpsert as OutletPromo[])
-      setMessage({ type: 'success', text: 'Pengaturan promo berhasil disimpan!' })
-      
+      setMessage({ type: 'success', text: 'Pengaturan promo berhasil diterapkan ke semua outlet!' })
       setTimeout(() => setMessage(null), 3000)
     } catch (err: any) {
       console.error(err)
@@ -146,17 +166,20 @@ export default function KasirPromoPage() {
     }
   }
 
-  if (!loaded || loadingData) return <div className="p-6 flex justify-center items-center h-48"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>
-  if (!outletId) return <div className="p-6 text-red-500 font-bold">Outlet tidak ditemukan</div>
-
+  if (loadingData) return <div className="p-6 flex justify-center items-center h-48"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>
+  
   const filteredMenuItems = menuItems.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
   return (
-    <div className="max-w-4xl flex flex-col min-h-full relative">
+    <div className="max-w-4xl flex flex-col min-h-full relative animate-fade-in">
       <div className="space-y-6 flex-1 pb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Pengaturan Promo</h1>
           <p className="text-gray-500 text-sm mt-1">Kelola diskon Global (Seluruh Transaksi) atau diskon Per Menu.</p>
+          <div className="mt-3 inline-flex items-center px-3 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-200">
+            <AlertCircle className="w-3.5 h-3.5 mr-1.5" />
+            Promo ini berlaku untuk <b>semua cabang</b>
+          </div>
         </div>
 
         {message && (
@@ -321,7 +344,7 @@ export default function KasirPromoPage() {
           disabled={saving}
         >
           {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-          Simpan Pengaturan
+          Terapkan ke Semua Cabang
         </button>
       </div>
     </div>

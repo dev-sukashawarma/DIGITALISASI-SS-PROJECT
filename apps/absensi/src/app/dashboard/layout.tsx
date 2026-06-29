@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@suka/auth";
-import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus, ArrowLeft, MapPin } from "lucide-react";
+import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus, ArrowLeft, MapPin, CalendarDays, Banknote } from "lucide-react";
 import { ModelPreloader } from "@/components/ModelPreloader";
 
 const getPortalUrl = () => {
@@ -31,11 +31,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/rekap", label: "Rekap & Riwayat", icon: <ClipboardList size={20} /> },
     { href: "/dashboard/checklist", label: "Manajemen Checklist", icon: <ListChecks size={20} /> },
     { href: "/dashboard/checklist-monitor", label: "Monitor Checklist", icon: <ClipboardCheck size={20} /> },
+    { href: "/dashboard/cuti", label: "Cuti", icon: <CalendarDays size={20} /> },
+    { href: "/dashboard/kasbon", label: "Kasbon", icon: <Banknote size={20} /> },
     { href: "/dashboard/enroll", label: "Enrollment Crew", icon: <UserPlus size={20} /> },
     { href: "/dashboard/pengaturan", label: "Pengaturan Absensi", icon: <Settings2 size={20} /> },
   ] : [
     { href: "/dashboard/kru", label: "Beranda Saya", icon: <LayoutDashboard size={20} /> },
     { href: "/dashboard/kru-checklist", label: "Checklist Harian", icon: <ClipboardCheck size={20} /> },
+    { href: "/dashboard/cuti", label: "Cuti", icon: <CalendarDays size={20} /> },
+    { href: "/dashboard/kasbon", label: "Kasbon", icon: <Banknote size={20} /> },
     { href: "/dashboard/profil", label: "Profil & Password", icon: <UserRound size={20} /> },
   ];
 
@@ -61,7 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Gunakan WHITELIST rute kru (lebih aman dari blacklist yang bisa salah tangkap)
   React.useEffect(() => {
     if (!loading && outletStaff && !isSPV) {
-      const kruAllowedPaths = ["/dashboard/kru", "/dashboard/kru-checklist", "/dashboard/profil"];
+      const kruAllowedPaths = ["/dashboard/kru", "/dashboard/kru-checklist", "/dashboard/profil", "/dashboard/cuti", "/dashboard/kasbon"];
       const isAllowed = kruAllowedPaths.some(p => pathname === p || pathname.startsWith(p + "/"));
       if (!isAllowed) {
         router.replace("/dashboard/kru");

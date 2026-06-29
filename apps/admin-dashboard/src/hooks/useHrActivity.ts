@@ -25,12 +25,12 @@ export function useHrActivity() {
           .limit(5),
         supabase
           .from('leave_requests')
-          .select('id, start_date, end_date, status, created_at, outlet_staff!inner(name)')
+          .select('id, start_date, end_date, status, created_at, outlet_staff!leave_requests_staff_id_fkey!inner(name)')
           .order('created_at', { ascending: false })
           .limit(5),
         supabase
           .from('cash_advances')
-          .select('id, amount, status, created_at, outlet_staff!inner(name)')
+          .select('id, amount, status, created_at, outlet_staff!cash_advances_staff_id_fkey!inner(name)')
           .order('created_at', { ascending: false })
           .limit(5)
       ])

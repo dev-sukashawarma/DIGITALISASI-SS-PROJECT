@@ -149,7 +149,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         }
       },
       (err) => {
-        console.error("Geolocation error:", err);
+        console.error("Geolocation error:", { code: err.code, message: err.message });
         let errMsg = "Gagal memindai lokasi perangkat";
         if (err.code === err.PERMISSION_DENIED) {
           errMsg = "Izin lokasi ditolak. Harap izinkan akses lokasi pada browser Anda.";

@@ -24,6 +24,16 @@ const statusConfig: Record<
     bg: 'bg-emerald-50 border-emerald-200',
     text: 'text-emerald-700',
   },
+  pending: {
+    label: 'Pending',
+    bg: 'bg-blue-50 border-blue-200',
+    text: 'text-blue-700',
+  },
+  rejected: {
+    label: 'Ditolak',
+    bg: 'bg-red-50 border-red-200',
+    text: 'text-red-700',
+  },
 };
 
 function StatusBadge({ status }: { status: CashAdvanceStatus }) {
@@ -44,9 +54,13 @@ function StatusBadge({ status }: { status: CashAdvanceStatus }) {
 function ExpandableRow({
   row,
   onAddPayment,
+  onApprove,
+  onReject,
 }: {
   row: CashAdvanceRow;
   onAddPayment: (row: CashAdvanceRow) => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const payments = row.cash_advance_payments ?? [];
@@ -97,6 +111,25 @@ function ExpandableRow({
               <Banknote className="h-3.5 w-3.5" />
               Bayar Cicilan
             </button>
+          ) : row.status === 'pending' ? (
+            <div className="flex justify-center gap-2">
+              {onApprove && (
+                <button
+                  onClick={() => onApprove(row.id)}
+                  className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-medium transition-colors"
+                >
+                  Setujui
+                </button>
+              )}
+              {onReject && (
+                <button
+                  onClick={() => onReject(row.id)}
+                  className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-medium transition-colors"
+                >
+                  Tolak
+                </button>
+              )}
+            </div>
           ) : (
             <span className="text-xs text-suka-gray-300">—</span>
           )}
@@ -187,9 +220,11 @@ function ExpandableRow({
 interface CashAdvanceTableProps {
   rows: CashAdvanceRow[];
   onAddPayment: (row: CashAdvanceRow) => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
 }
 
-export function CashAdvanceTable({ rows, onAddPayment }: CashAdvanceTableProps) {
+export function CashAdvanceTable({ rows, onAddPayment, onApprove, onReject }: CashAdvanceTableProps) {
   if (rows.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-suka-gray-400">
@@ -230,6 +265,8 @@ export function CashAdvanceTable({ rows, onAddPayment }: CashAdvanceTableProps) 
                 key={row.id}
                 row={row}
                 onAddPayment={onAddPayment}
+                onApprove={onApprove}
+                onReject={onReject}
               />
             ))}
           </tbody>

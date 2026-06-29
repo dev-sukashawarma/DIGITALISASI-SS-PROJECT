@@ -45,6 +45,7 @@ export function AttendanceKioskPanel() {
   const [nowMinutes, setNowMinutes] = useState(() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); });
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [modelError, setModelError] = useState<string | null>(null);
+  const [outletName, setOutletName] = useState<string>("");
 
   // Kiosk Integration — MODE 1:1: panel pribadi, kunci ke akun yang login.
   // Wajah orang lain (walau ter-enroll) ditolak; hanya pemilik akun yang bisa absen.
@@ -91,8 +92,11 @@ export function AttendanceKioskPanel() {
     if (!outletStaff?.outlet_id) return;
 
     async function checkStatus() {
-      const { data } = await supabase.from("outlets").select("is_active").eq("id", outletStaff!.outlet_id).single();
-      if (data) setIsOutletOpen(data.is_active);
+      const { data } = await supabase.from("outlets").select("is_active, name").eq("id", outletStaff!.outlet_id).single();
+      if (data) {
+        setIsOutletOpen(data.is_active);
+        setOutletName(data.name || "");
+      }
     }
 
     checkStatus();
@@ -429,17 +433,17 @@ export function AttendanceKioskPanel() {
           )}
         </div>
 
-        <div className="p-4 text-center min-h-[110px] flex flex-col items-center justify-center gap-3">
+        <div className="p-4 text-center min-h-[92px] flex flex-col items-center justify-center gap-2">
+          {kiosk.phase === "idle" && (
+            <div className="text-sm text-gray-600">
+              Anda berada di outlet <span className="font-bold text-suka-ink">{outletName || "Loading..."}</span>.<br />
+              Halo <span className="font-bold text-suka-ink">{outletStaff.name}</span>, silakan scan wajah Anda.
+            </div>
+          )}
           {kiosk.phase === "idle" && !modelsReady && (
             <p className="flex items-center gap-2 text-gray-500 font-medium animate-pulse">
               <Spinner size={18} /> Memuat model wajah…
             </p>
-          )}
-          {kiosk.phase === "idle" && modelsReady && (
-            <div className="flex flex-col items-center gap-1 animate-in fade-in duration-300">
-              <UserRound size={28} className="text-gray-300" />
-              <p className="text-gray-500 font-semibold text-sm">Menghadap kamera untuk Absen…</p>
-            </div>
           )}
           {kiosk.phase === "identified" && (
             <p className="text-xl font-bold text-suka-ink animate-in fade-in slide-in-from-bottom-2 duration-300">

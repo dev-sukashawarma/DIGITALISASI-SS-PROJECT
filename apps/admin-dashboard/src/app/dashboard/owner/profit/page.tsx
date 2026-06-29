@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useDashboardStore } from '@/hooks/useDashboardStore'
+import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useSalesSummary } from '@/hooks/useSalesSummary'
 import { useExpenses } from '@/hooks/useExpenses'
@@ -15,7 +15,7 @@ import { TrendingUp, Percent, ArrowLeftRight, TrendingDown } from 'lucide-react'
 
 export default function ProfitPage() {
   const { data: outlets = [] } = useOutlets()
-  const { filter, setFilter } = useDashboardStore()
+  const { filter, setFilter, lockedOutletId } = useScopedFilter()
 
   const sales = useSalesSummary(filter)
   const expenses = useExpenses(filter)
@@ -94,7 +94,7 @@ export default function ProfitPage() {
           <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Analisis Laba Rugi</h2>
           <p className="text-xs text-suka-gray-500 font-medium">Perbandingan omzet penjualan vs biaya operasional</p>
         </div>
-        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} />
+        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} />
       </div>
 
       {error && (

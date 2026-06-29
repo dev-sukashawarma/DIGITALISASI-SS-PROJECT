@@ -227,11 +227,12 @@ function OutletCombobox({
 }
 
 export function PeriodFilter({
-  value, onChange, outlets,
+  value, onChange, outlets, lockedOutletId,
 }: {
   value: PeriodFilterValue
   onChange: (v: PeriodFilterValue) => void
   outlets: { id: string; name: string }[]
+  lockedOutletId?: string | null
 }) {
   const setPreset = (p: Preset) => onChange({ ...value, ...presetRange(p) })
 
@@ -286,11 +287,22 @@ export function PeriodFilter({
 
       {/* 2 & 3. Dropdowns — stack to full width on mobile, inline on larger screens */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <OutletCombobox
-          value={value.outletId}
-          outlets={outlets}
-          onChange={(outletId) => onChange({ ...value, outletId: outletId as PeriodFilterValue['outletId'] })}
-        />
+        {lockedOutletId ? (
+          <div className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-4 py-2.5 sm:py-2 bg-suka-cream/30 border border-suka-gray-200 rounded-xl text-xs font-bold text-suka-brown relative sm:min-w-[180px]">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50">
+              <Store className="w-4 h-4" />
+            </span>
+            <span className="truncate text-left flex-1">
+              {cleanOutletName(outlets.find((o) => o.id === lockedOutletId)?.name ?? 'Outlet Saya')}
+            </span>
+          </div>
+        ) : (
+          <OutletCombobox
+            value={value.outletId}
+            outlets={outlets}
+            onChange={(outletId) => onChange({ ...value, outletId: outletId as PeriodFilterValue['outletId'] })}
+          />
+        )}
         <SourceCombobox
           value={value.source}
           onChange={(source) => onChange({ ...value, source: source as PeriodFilterValue['source'] })}

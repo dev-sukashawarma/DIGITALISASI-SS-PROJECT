@@ -5,7 +5,7 @@ import { buildLeaderboard } from '@/lib/leaderboard'
 import { useSalesSummary } from '@/hooks/useSalesSummary'
 import { useSalesHourly } from '@/hooks/useSalesHourly'
 import { useMenuSales } from '@/hooks/useMenuSales'
-import { useDashboardStore } from '@/hooks/useDashboardStore'
+import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useSalesRealtime } from '@/hooks/useSalesRealtime'
 import { PeriodFilter } from '@/components/PeriodFilter'
@@ -20,7 +20,11 @@ import type { PeriodFilterValue } from '@/lib/types'
 
 export default function DashboardPage() {
   const { data: outlets = [] } = useOutlets()
-  const { filter, setFilter } = useDashboardStore()
+  const { filter, setFilter, lockedOutletId } = useScopedFilter()
+  const scopedOutlets = useMemo(
+    () => (lockedOutletId ? outlets.filter((o) => o.id === lockedOutletId) : outlets),
+    [outlets, lockedOutletId]
+  )
   // Realtime: papan ikut refresh begitu ada order baru (paid+selesai) tanpa ganti filter.
   useSalesRealtime()
   const prevFilter = useMemo<PeriodFilterValue>(() => ({ ...filter, ...previousRange({ from: filter.from, to: filter.to }) }), [filter])
@@ -42,7 +46,7 @@ export default function DashboardPage() {
           <h2 className="text-lg sm:text-xl font-extrabold text-suka-brown tracking-tight">Kinerja Penjualan</h2>
           <p className="text-xs text-suka-gray-500 font-medium">Statistik penjualan riil dari sistem POS Kasir</p>
         </div>
-        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} />
+        <PeriodFilter value={filter} onChange={setFilter} outlets={scopedOutlets} lockedOutletId={lockedOutletId} />
       </div>
 
       {cur.error && <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">Gagal memuat data: {cur.error}</div>}
@@ -75,7 +79,7 @@ export default function DashboardPage() {
               <BottomMenus rows={menu.rows} />
             </div>
           </div>
-          <OutletLeaderboard entries={leaderboard} allOutlets={outlets} />
+          <OutletLeaderboard entries={leaderboard} allOutlets={scopedOutlets} />
         </>
       )}
     </div>

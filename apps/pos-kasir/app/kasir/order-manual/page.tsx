@@ -110,7 +110,10 @@ export default function OrderManualPage() {
   const lineList = Object.values(lines)
   const totalItems = lineList.reduce((s, l) => s + l.quantity, 0)
   
-  const subtotalAmount = lineList.reduce((s, l) => s + calculateItemPrice(l.item.price, l.item.id) * l.quantity, 0)
+  const baseSubtotal = lineList.reduce((s, l) => s + l.item.price * l.quantity, 0)
+  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, baseSubtotal)
+
+  const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity, 0)
   const globalDiscount = calculateGlobalDiscount(subtotalAmount)
   const totalPrice = subtotalAmount - globalDiscount
 
@@ -349,7 +352,7 @@ export default function OrderManualPage() {
             submitting={submitting}
             error={error}
             onSubmit={handleSubmit}
-            calculateItemPrice={calculateItemPrice}
+            calculateItemPrice={wrappedCalculateItemPrice}
             globalDiscount={globalDiscount}
             globalPromo={globalPromo}
             needsMoreForPromo={!!needsMoreForPromo}
@@ -397,7 +400,7 @@ export default function OrderManualPage() {
               submitting={submitting}
               error={error}
               onSubmit={handleSubmit}
-              calculateItemPrice={calculateItemPrice}
+              calculateItemPrice={wrappedCalculateItemPrice}
               globalDiscount={globalDiscount}
               globalPromo={globalPromo}
               needsMoreForPromo={!!needsMoreForPromo}

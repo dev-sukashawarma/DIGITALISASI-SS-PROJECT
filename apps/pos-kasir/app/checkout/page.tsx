@@ -66,9 +66,14 @@ export default function CheckoutPage() {
   const { outletId } = useMyOutlet()
   const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
   
+  let baseSubtotal = 0
+  items.forEach(i => baseSubtotal += i.item.price * i.quantity)
+
+  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, baseSubtotal)
+
   let subtotal = 0
   items.forEach(i => {
-    subtotal += calculateItemPrice(i.item.price, i.item.id) * i.quantity
+    subtotal += wrappedCalculateItemPrice(i.item.price, i.item.id) * i.quantity
   })
   const globalDiscount = calculateGlobalDiscount(subtotal)
   const total = subtotal - globalDiscount
@@ -103,7 +108,7 @@ export default function CheckoutPage() {
           payment_method: paymentMethod,
           discount_amount: globalDiscount, // global order discount
           items: items.map(({ cartItemId, parentId, item, quantity, note }) => {
-            const finalPrice = calculateItemPrice(item.price, item.id)
+            const finalPrice = wrappedCalculateItemPrice(item.price, item.id)
             return { 
               cartItemId, 
               parentId, 
@@ -186,16 +191,16 @@ export default function CheckoutPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="text-gray-900 text-[15px] font-bold leading-tight">{root.item.name}</p>
-                          {calculateItemPrice(root.item.price, root.item.id) < root.item.price && (
+                          {wrappedCalculateItemPrice(root.item.price, root.item.id) < root.item.price && (
                             <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">Diskon Promo Item!</p>
                           )}
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0 mt-0.5">
                         <p className="text-gray-900 text-[15px] font-black">
-                          {formatRupiah(calculateItemPrice(root.item.price, root.item.id) * root.quantity)}
+                          {formatRupiah(wrappedCalculateItemPrice(root.item.price, root.item.id) * root.quantity)}
                         </p>
-                        {calculateItemPrice(root.item.price, root.item.id) < root.item.price && (
+                        {wrappedCalculateItemPrice(root.item.price, root.item.id) < root.item.price && (
                           <p className="text-[11px] text-gray-400 line-through">
                             {formatRupiah(root.item.price * root.quantity)}
                           </p>
@@ -238,7 +243,7 @@ export default function CheckoutPage() {
                           </div>
                         </div>
                         <span className="text-gray-600 text-sm font-bold flex-shrink-0 mt-0.5">
-                          {formatRupiah(calculateItemPrice(child.item.price, child.item.id) * child.quantity)}
+                          {formatRupiah(wrappedCalculateItemPrice(child.item.price, child.item.id) * child.quantity)}
                         </span>
                       </div>
                     ))}

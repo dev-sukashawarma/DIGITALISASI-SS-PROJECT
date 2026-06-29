@@ -48,7 +48,7 @@ export function usePromos(outletId: string | undefined) {
   const globalPromo = promos.find(p => p.scope === 'global')
   const itemPromos = promos.filter(p => p.scope === 'item')
 
-  const calculateItemPrice = (originalPrice: number, menuId: string): number => {
+  const calculateItemPrice = (originalPrice: number, menuId: string, cartBaseSubtotal?: number): number => {
     // If global promo is active, it affects the total, usually not individual item display
     // or maybe it does? Based on requirement, Kasir sets either global OR item.
     // If global is active, we don't apply item promos.
@@ -66,6 +66,14 @@ export function usePromos(outletId: string | undefined) {
 
     if (promo.end_date && new Date(promo.end_date).getTime() < Date.now()) {
       return originalPrice // Expired
+    }
+
+    if (promo.min_purchase && promo.min_purchase > 0) {
+      if (cartBaseSubtotal !== undefined && cartBaseSubtotal < promo.min_purchase) {
+        return originalPrice // Not reached min purchase
+      }
+      // If cartBaseSubtotal is undefined (e.g. catalog display), we show the discounted price 
+      // so the cashier is aware there is a promo available for this item.
     }
 
     if (promo.discount_type === 'nominal') {

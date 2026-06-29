@@ -17,9 +17,14 @@ export default function Cart() {
   const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
   
   // Hitung ulang total mempertimbangkan promo
+  let baseSubtotal = 0
+  items.forEach(i => baseSubtotal += i.item.price * i.quantity)
+  
+  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, baseSubtotal)
+
   let subtotal = 0
   items.forEach(i => {
-    const price = calculateItemPrice(i.item.price, i.item.id)
+    const price = wrappedCalculateItemPrice(i.item.price, i.item.id)
     subtotal += price * i.quantity
   })
   
@@ -65,7 +70,7 @@ export default function Cart() {
                   itemData={root} 
                   updateQuantity={updateQuantity} 
                   removeItem={removeItem}
-                  calculateItemPrice={calculateItemPrice}
+                  calculateItemPrice={wrappedCalculateItemPrice}
                 />
               </div>
               
@@ -79,7 +84,7 @@ export default function Cart() {
                         itemData={child} 
                         updateQuantity={updateQuantity} 
                         removeItem={removeItem}
-                        calculateItemPrice={calculateItemPrice}
+                        calculateItemPrice={wrappedCalculateItemPrice}
                         isChild 
                       />
                     </div>

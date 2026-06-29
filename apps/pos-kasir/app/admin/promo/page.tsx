@@ -364,16 +364,27 @@ export default function AdminPromoPage() {
                             </div>
                           </div>
                           
-                          <div className="w-full mt-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                        <div className="w-full mt-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                          <div className="relative w-full">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-blue-400 font-bold">Min Rp</span>
                             <input 
-                              type="datetime-local" 
-                              title="Batas waktu promo"
-                              className="input-field py-1 text-xs w-full bg-blue-50/50 border-blue-200 text-blue-900 shadow-sm"
-                              value={promo.end_date ? new Date(promo.end_date).toISOString().slice(0, 16) : ''}
-                              onChange={e => handleItemPromoChange(menu.id, 'end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                              type="number" 
+                              min="0"
+                              placeholder="Minimal"
+                              className="input-field py-1 text-xs w-full bg-blue-50/50 border-blue-200 text-blue-900 shadow-sm pl-12"
+                              value={promo.min_purchase || ''}
+                              onChange={e => handleItemPromoChange(menu.id, 'min_purchase', e.target.value ? Number(e.target.value) : null)}
                             />
                           </div>
+                          <input 
+                            type="datetime-local" 
+                            title="Batas waktu promo"
+                            className="input-field py-1 text-xs w-full bg-blue-50/50 border-blue-200 text-blue-900 shadow-sm"
+                            value={promo.end_date ? new Date(promo.end_date).toISOString().slice(0, 16) : ''}
+                            onChange={e => handleItemPromoChange(menu.id, 'end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                          />
                         </div>
+                      </div>
                       )}
                       
                       <label className="relative inline-flex items-center cursor-pointer ml-1">

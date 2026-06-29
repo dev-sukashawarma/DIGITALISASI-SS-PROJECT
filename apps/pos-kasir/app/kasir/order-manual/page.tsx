@@ -298,10 +298,10 @@ export default function OrderManualPage() {
                       <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem] cursor-pointer" onClick={() => qty === 0 && addItem(it)}>{it.name}</p>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex flex-col">
-                          {calculateItemPrice(it.price, it.id) < it.price ? (
+                          {wrappedCalculateItemPrice(it.price, it.id) < it.price ? (
                             <>
                               <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(it.price)}</span>
-                              <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(calculateItemPrice(it.price, it.id))}</span>
+                              <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(wrappedCalculateItemPrice(it.price, it.id))}</span>
                             </>
                           ) : (
                             <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(it.price)}</span>

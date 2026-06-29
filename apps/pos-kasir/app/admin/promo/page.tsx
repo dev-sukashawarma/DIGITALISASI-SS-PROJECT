@@ -321,25 +321,25 @@ export default function AdminPromoPage() {
                 }
 
                 return (
-                  <div key={menu.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 gap-4 ${promo.is_active ? 'bg-blue-50/60 border-blue-200 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-300'}`}>
+                  <div key={menu.id} className={`p-4 rounded-xl border transition-all duration-300 ${promo.is_active ? 'bg-blue-50/60 border-blue-200 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-300'}`}>
                     
-                    <div className="flex-1">
-                      <p className={`font-semibold ${promo.is_active ? 'text-blue-900' : 'text-gray-800'}`}>{menu.name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {promo.is_active && promo.discount_value > 0 ? (
-                          <>
-                            <span className="text-xs text-gray-400 line-through">Rp {menu.price.toLocaleString('id-ID')}</span>
-                            <span className="text-sm font-bold text-emerald-600">Rp {discountedPrice.toLocaleString('id-ID')}</span>
-                          </>
-                        ) : (
-                          <span className="text-sm font-medium text-gray-500">Rp {menu.price.toLocaleString('id-ID')}</span>
-                        )}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <p className={`font-semibold ${promo.is_active ? 'text-blue-900' : 'text-gray-800'}`}>{menu.name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {promo.is_active && promo.discount_value > 0 ? (
+                            <>
+                              <span className="text-xs text-gray-400 line-through">Rp {menu.price.toLocaleString('id-ID')}</span>
+                              <span className="text-sm font-bold text-emerald-600">Rp {discountedPrice.toLocaleString('id-ID')}</span>
+                            </>
+                          ) : (
+                            <span className="text-sm font-medium text-gray-500">Rp {menu.price.toLocaleString('id-ID')}</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 shrink-0">
-                      {promo.is_active && (
-                        <div className="flex flex-col items-end">
+                      
+                      <div className="flex items-center gap-3 shrink-0">
+                        {promo.is_active && (
                           <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
                             <select 
                               className="input-field py-1.5 pl-2 pr-6 text-sm w-[72px] bg-white border-blue-200 text-center font-semibold text-blue-700 shadow-sm" 
@@ -355,7 +355,7 @@ export default function AdminPromoPage() {
                                 type="number" 
                                 min="0"
                                 placeholder="Nilai"
-                                className={`input-field py-1.5 text-sm w-28 bg-white border-blue-200 font-bold text-blue-900 shadow-sm ${promo.discount_type === 'nominal' ? 'pl-8' : 'pr-8'}`}
+                                className={`input-field py-1.5 text-sm w-24 sm:w-28 bg-white border-blue-200 font-bold text-blue-900 shadow-sm ${promo.discount_type === 'nominal' ? 'pl-8' : 'pr-8'}`}
                                 value={promo.discount_value || ''}
                                 onChange={e => handleItemPromoChange(menu.id, 'discount_value', Number(e.target.value))}
                               />
@@ -363,35 +363,42 @@ export default function AdminPromoPage() {
                               {promo.discount_type === 'percentage' && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-blue-400 font-bold">%</span>}
                             </div>
                           </div>
-                          
-                        <div className="w-full mt-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-300">
-                          <div className="relative w-full">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-blue-400 font-bold">Min Rp</span>
+                        )}
+                        
+                        <label className="relative inline-flex items-center cursor-pointer ml-1">
+                          <input type="checkbox" className="sr-only peer" checked={promo.is_active} onChange={(e) => handleItemPromoChange(menu.id, 'is_active', e.target.checked)} />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {promo.is_active && (
+                      <div className="mt-4 pt-4 border-t border-blue-100/50 flex flex-col sm:flex-row gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold text-blue-800 mb-1.5">Min. Pembelian (Opsional)</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-blue-500 font-bold">Rp</span>
                             <input 
                               type="number" 
                               min="0"
-                              placeholder="Minimal"
-                              className="input-field py-1 text-xs w-full bg-blue-50/50 border-blue-200 text-blue-900 shadow-sm pl-12"
+                              placeholder="0"
+                              className="input-field py-1.5 text-sm w-full bg-white border-blue-200 text-blue-900 shadow-sm pl-9"
                               value={promo.min_purchase || ''}
                               onChange={e => handleItemPromoChange(menu.id, 'min_purchase', e.target.value ? Number(e.target.value) : null)}
                             />
                           </div>
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold text-blue-800 mb-1.5">Batas Waktu (Opsional)</label>
                           <input 
                             type="datetime-local" 
-                            title="Batas waktu promo"
-                            className="input-field py-1 text-xs w-full bg-blue-50/50 border-blue-200 text-blue-900 shadow-sm"
+                            className="input-field py-1.5 text-sm w-full bg-white border-blue-200 text-blue-900 shadow-sm"
                             value={promo.end_date ? new Date(promo.end_date).toISOString().slice(0, 16) : ''}
                             onChange={e => handleItemPromoChange(menu.id, 'end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
                           />
                         </div>
                       </div>
-                      )}
-                      
-                      <label className="relative inline-flex items-center cursor-pointer ml-1">
-                        <input type="checkbox" className="sr-only peer" checked={promo.is_active} onChange={(e) => handleItemPromoChange(menu.id, 'is_active', e.target.checked)} />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
-                      </label>
-                    </div>
+                    )}
                   </div>
                 )
               })

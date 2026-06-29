@@ -31,8 +31,8 @@ export default function DashboardPage() {
   useSalesRealtime()
   const prevFilter = useMemo<PeriodFilterValue>(() => ({ ...filter, ...previousRange({ from: filter.from, to: filter.to }) }), [filter])
 
-  const cur = useSalesSummary(filter)
-  const prev = useSalesSummary(prevFilter)
+  const cur = useSalesSummary(filter, outlets)
+  const prev = useSalesSummary(prevFilter, outlets)
   const hourly = useSalesHourly(filter)
   const menu = useMenuSales(filter)
   const leaderboard = useMemo(() => buildLeaderboard(cur.rows, prev.rows), [cur.rows, prev.rows])

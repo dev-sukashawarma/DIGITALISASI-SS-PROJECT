@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import Papa from 'papaparse'
-import { Upload, X, Check, AlertTriangle } from 'lucide-react'
+import { Upload, Check, AlertTriangle } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
 import { useStaffMutations } from '@/hooks/useStaffMutations'
@@ -150,8 +150,8 @@ export function BulkImportStaff({ outlets, onComplete, onCancel }: BulkImportSta
             ref={fileInputRef} 
             onChange={handleFileChange} 
           />
-          <Button 
-            variant="outline" 
+          <Button
+            variant="secondary"
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-2"
           >

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { Clock, Info } from 'lucide-react'
 import { useStaff } from '@/hooks/useStaff'
 import type { AttendanceStatus, StaffRow } from '@/lib/types'
 import type { AttendanceFormValues } from '@/hooks/useAttendanceMutations'
@@ -117,7 +116,7 @@ export function AttendanceForm({ onSubmit, submitting, initial, onCancel }: Prop
               </option>
             ))}
           </select>
-          <ShiftBadge staffList={staffList} defaultStaffId={defaultValues.staff_id} />
+          <ShiftBadge staffList={staffList} />
         </div>
 
         {/* Hidden outlet_id — auto-filled from selected staff */}
@@ -209,10 +208,8 @@ export function AttendanceForm({ onSubmit, submitting, initial, onCancel }: Prop
 
 function ShiftBadge({
   staffList,
-  defaultStaffId,
 }: {
   staffList: StaffRow[]
-  defaultStaffId: string
 }) {
   // We read the select element's value on change to show the right shift.
   // Using a small effect to listen for changes on the sibling select.

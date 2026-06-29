@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
 import { Download, Plus, DollarSign, Users, PiggyBank, CreditCard } from 'lucide-react'
@@ -79,8 +79,8 @@ export default function PayrollPage() {
   }
 
   const handleExportPayroll = () => {
-    if (!payrollData.length) return toast.error('Tidak ada data untuk diexport')
-    
+    if (!payrollData.length) { toast.error('Tidak ada data untuk diexport'); return }
+
     const rows = payrollData.map(r => ({
       Nama: r.outlet_staff?.name || '-',
       Role: r.outlet_staff?.role || '-',
@@ -117,8 +117,9 @@ export default function PayrollPage() {
     if (!payingKasbon) return
     kasbonMutations.addPayment.mutate({
       cash_advance_id: payingKasbon.id,
-      amount: values.amount,
-      note: values.note
+      amount: Number(values.amount),
+      note: values.note ?? null,
+      currentRemaining: payingKasbon.remaining
     }, {
       onSuccess: () => {
         toast.success('Pembayaran kasbon berhasil dicatat')
@@ -198,10 +199,10 @@ export default function PayrollPage() {
             
             <div className="flex items-center gap-2">
               <Button onClick={handleGenerate} disabled={payrollMutations.generate.isPending} className="bg-suka-orange hover:bg-suka-orange/90 text-white border-0">
-                {payrollMutations.generate.isPending ? <Spinner size="sm" /> : 'Generate Slip'}
+                {payrollMutations.generate.isPending ? <Spinner size={16} /> : 'Generate Slip'}
               </Button>
               <Button onClick={handleFinalize} disabled={payrollMutations.finalizeAll.isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white border-0">
-                {payrollMutations.finalizeAll.isPending ? <Spinner size="sm" /> : 'Finalize Semua'}
+                {payrollMutations.finalizeAll.isPending ? <Spinner size={16} /> : 'Finalize Semua'}
               </Button>
               <Button onClick={handleExportPayroll} className="bg-white text-suka-ink border-suka-gray-200 hover:bg-suka-gray-50 flex items-center gap-2">
                 <Download size={16} /> Export
@@ -243,7 +244,7 @@ export default function PayrollPage() {
           )}
 
           {loadingPayroll ? (
-            <div className="flex justify-center p-12"><Spinner size="lg" /></div>
+            <div className="flex justify-center p-12"><Spinner size={40} /></div>
           ) : (
             <PayrollTable rows={payrollData} onEdit={setEditingSlip} />
           )}
@@ -317,7 +318,7 @@ export default function PayrollPage() {
           )}
 
           {loadingKasbon ? (
-            <div className="flex justify-center p-12"><Spinner size="lg" /></div>
+            <div className="flex justify-center p-12"><Spinner size={40} /></div>
           ) : (
             <CashAdvanceTable 
               rows={kasbonData} 

@@ -4,7 +4,7 @@ import {
   PieChart, DollarSign, MessageSquareHeart, Target, BellRing, type LucideIcon,
 } from 'lucide-react'
 
-export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN'
+export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA'
 
 export type NavItem = { href: string; label: string; shortLabel?: string; icon: LucideIcon; roles: Role[] }
 export type NavGroup = { title: string; items: NavItem[]; roles: Role[] }

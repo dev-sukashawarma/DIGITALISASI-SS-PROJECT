@@ -16,9 +16,11 @@ import { TopMenus } from '@/components/TopMenus'
 import { BottomMenus } from '@/components/BottomMenus'
 import { OutletLeaderboard } from '@/components/OutletLeaderboard'
 import { DailyTargetBoard } from '@/components/DailyTargetBoard'
+import { useRole } from '@/components/layout/RoleContext'
 import type { PeriodFilterValue } from '@/lib/types'
 
 export default function DashboardPage() {
+  const { isReadOnly } = useRole()
   const { data: outlets = [] } = useOutlets()
   const { filter, setFilter, lockedOutletId } = useScopedFilter()
   const scopedOutlets = useMemo(
@@ -79,7 +81,7 @@ export default function DashboardPage() {
               <BottomMenus rows={menu.rows} />
             </div>
           </div>
-          <OutletLeaderboard entries={leaderboard} allOutlets={scopedOutlets} />
+          {!isReadOnly && <OutletLeaderboard entries={leaderboard} allOutlets={scopedOutlets} />}
         </>
       )}
     </div>

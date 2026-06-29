@@ -35,6 +35,16 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: 'Dashboard Mitra',
+    roles: ['MITRA'],
+    items: [
+      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['MITRA'] },
+      { href: '/dashboard/owner/targets', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['MITRA'] },
+      { href: '/dashboard/owner/profit', label: 'Profitabilitas', shortLabel: 'Laba Rugi', icon: DollarSign, roles: ['MITRA'] },
+      { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: Activity, roles: ['MITRA'] },
+    ],
+  },
+  {
     title: 'System & Admin',
     roles: ['ADMIN'],
     items: [

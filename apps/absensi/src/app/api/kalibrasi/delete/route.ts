@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { deleteToken, getToken } from "@/lib/calibrationStore";
 
 export async function POST(req: Request) {
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-    if (!user) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 

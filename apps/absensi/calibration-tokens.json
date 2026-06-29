@@ -8,15 +8,5 @@
     "accuracy": null,
     "address": null,
     "expires_at": 1782791348994
-  },
-  "cdec6515-2bd6-4a76-8b82-b4655d4f4a68": {
-    "token": "cdec6515-2bd6-4a76-8b82-b4655d4f4a68",
-    "outlet_id": "550e8400-e29b-41d4-a716-446655440001",
-    "status": "pending",
-    "lat": null,
-    "lng": null,
-    "accuracy": null,
-    "address": null,
-    "expires_at": 1782791526967
   }
 }

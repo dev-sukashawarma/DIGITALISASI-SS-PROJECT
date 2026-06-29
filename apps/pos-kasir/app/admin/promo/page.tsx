@@ -18,6 +18,8 @@ type OutletPromo = {
   discount_type: 'percentage' | 'nominal'
   discount_value: number
   is_active: boolean
+  min_purchase?: number | null
+  end_date?: string | null
 }
 
 type Outlet = {
@@ -73,7 +75,9 @@ export default function AdminPromoPage() {
     menu_item_id: null,
     discount_type: 'percentage',
     discount_value: 0,
-    is_active: false
+    is_active: false,
+    min_purchase: null,
+    end_date: null
   } as OutletPromo
 
   const isGlobalActive = globalPromo.is_active
@@ -109,6 +113,8 @@ export default function AdminPromoPage() {
         discount_type: 'nominal',
         discount_value: 0,
         is_active: field === 'is_active' ? value : false,
+        min_purchase: null,
+        end_date: null,
         [field]: value
       })
     }
@@ -141,7 +147,9 @@ export default function AdminPromoPage() {
             menu_item_id: p.menu_item_id,
             discount_type: p.discount_type,
             discount_value: p.discount_value,
-            is_active: p.is_active
+            is_active: p.is_active,
+            min_purchase: p.min_purchase,
+            end_date: p.end_date
           }
         })
 
@@ -231,6 +239,37 @@ export default function AdminPromoPage() {
                   {globalPromo.discount_type === 'percentage' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm"><Percent className="w-4 h-4"/></span>}
                 </div>
               </div>
+              
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Minimal Pembelian <span className="text-gray-400 font-normal">(Opsional)</span>
+                </label>
+                <div className="relative shadow-sm rounded-xl">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>
+                  <input 
+                    type="number" 
+                    min="0"
+                    placeholder="0"
+                    className="input-field bg-white border-gray-300 font-medium text-gray-900 pl-10"
+                    value={globalPromo.min_purchase || ''}
+                    onChange={e => handleGlobalPromoChange('min_purchase', e.target.value ? Number(e.target.value) : null)}
+                  />
+                </div>
+              </div>
+              
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Batas Waktu Berakhir <span className="text-gray-400 font-normal">(Opsional)</span>
+                </label>
+                <div className="relative shadow-sm rounded-xl">
+                  <input 
+                    type="datetime-local" 
+                    className="input-field bg-white border-gray-300 font-medium text-gray-900"
+                    value={globalPromo.end_date ? new Date(globalPromo.end_date).toISOString().slice(0, 16) : ''}
+                    onChange={e => handleGlobalPromoChange('end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                  />
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -267,7 +306,9 @@ export default function AdminPromoPage() {
                   menu_item_id: menu.id,
                   discount_type: 'nominal',
                   discount_value: 0,
-                  is_active: false
+                  is_active: false,
+                  min_purchase: null,
+                  end_date: null
                 } as OutletPromo
 
                 let discountedPrice = menu.price;
@@ -298,27 +339,39 @@ export default function AdminPromoPage() {
                     
                     <div className="flex items-center gap-3 shrink-0">
                       {promo.is_active && (
-                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
-                          <select 
-                            className="input-field py-1.5 pl-2 pr-6 text-sm w-[72px] bg-white border-blue-200 text-center font-semibold text-blue-700 shadow-sm" 
-                            value={promo.discount_type} 
-                            onChange={e => handleItemPromoChange(menu.id, 'discount_type', e.target.value)}
-                          >
-                            <option value="nominal">Rp</option>
-                            <option value="percentage">%</option>
-                          </select>
+                        <div className="flex flex-col items-end">
+                          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <select 
+                              className="input-field py-1.5 pl-2 pr-6 text-sm w-[72px] bg-white border-blue-200 text-center font-semibold text-blue-700 shadow-sm" 
+                              value={promo.discount_type} 
+                              onChange={e => handleItemPromoChange(menu.id, 'discount_type', e.target.value)}
+                            >
+                              <option value="nominal">Rp</option>
+                              <option value="percentage">%</option>
+                            </select>
+                            
+                            <div className="relative">
+                              <input 
+                                type="number" 
+                                min="0"
+                                placeholder="Nilai"
+                                className={`input-field py-1.5 text-sm w-28 bg-white border-blue-200 font-bold text-blue-900 shadow-sm ${promo.discount_type === 'nominal' ? 'pl-8' : 'pr-8'}`}
+                                value={promo.discount_value || ''}
+                                onChange={e => handleItemPromoChange(menu.id, 'discount_value', Number(e.target.value))}
+                              />
+                              {promo.discount_type === 'nominal' && <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-blue-400 font-bold">Rp</span>}
+                              {promo.discount_type === 'percentage' && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-blue-400 font-bold">%</span>}
+                            </div>
+                          </div>
                           
-                          <div className="relative">
+                          <div className="w-full mt-3 animate-in fade-in slide-in-from-top-1 duration-300">
                             <input 
-                              type="number" 
-                              min="0"
-                              placeholder="Nilai"
-                              className={`input-field py-1.5 text-sm w-28 bg-white border-blue-200 font-bold text-blue-900 shadow-sm ${promo.discount_type === 'nominal' ? 'pl-8' : 'pr-8'}`}
-                              value={promo.discount_value || ''}
-                              onChange={e => handleItemPromoChange(menu.id, 'discount_value', Number(e.target.value))}
+                              type="datetime-local" 
+                              title="Batas waktu promo"
+                              className="input-field py-1 text-xs w-full bg-blue-50/50 border-blue-200 text-blue-900 shadow-sm"
+                              value={promo.end_date ? new Date(promo.end_date).toISOString().slice(0, 16) : ''}
+                              onChange={e => handleItemPromoChange(menu.id, 'end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
                             />
-                            {promo.discount_type === 'nominal' && <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-blue-400 font-bold">Rp</span>}
-                            {promo.discount_type === 'percentage' && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-blue-400 font-bold">%</span>}
                           </div>
                         </div>
                       )}

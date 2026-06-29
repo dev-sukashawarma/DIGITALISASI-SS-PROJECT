@@ -114,6 +114,10 @@ export default function OrderManualPage() {
   const globalDiscount = calculateGlobalDiscount(subtotalAmount)
   const totalPrice = subtotalAmount - globalDiscount
 
+  const isGlobalPromoActive = globalPromo && globalPromo.is_active && (!globalPromo.end_date || new Date(globalPromo.end_date).getTime() > Date.now());
+  const needsMoreForPromo = isGlobalPromoActive && globalPromo.min_purchase && subtotalAmount > 0 && subtotalAmount < globalPromo.min_purchase;
+  const missingAmount = needsMoreForPromo ? (globalPromo.min_purchase || 0) - subtotalAmount : 0;
+
   const canSubmit = lineList.length > 0 && !!channel && !!payment && !submitting
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -348,6 +352,8 @@ export default function OrderManualPage() {
             calculateItemPrice={calculateItemPrice}
             globalDiscount={globalDiscount}
             globalPromo={globalPromo}
+            needsMoreForPromo={!!needsMoreForPromo}
+            missingAmount={missingAmount}
           />
         </div>
       </div>
@@ -394,6 +400,8 @@ export default function OrderManualPage() {
               calculateItemPrice={calculateItemPrice}
               globalDiscount={globalDiscount}
               globalPromo={globalPromo}
+              needsMoreForPromo={!!needsMoreForPromo}
+              missingAmount={missingAmount}
               embedded
             />
           </div>
@@ -452,12 +460,14 @@ function CartPanel(props: {
   calculateItemPrice: (price: number, id: string) => number
   globalDiscount: number
   globalPromo: any
+  needsMoreForPromo?: boolean
+  missingAmount?: number
   embedded?: boolean
 }) {
   const {
     lineList, totalItems, totalPrice, channel, payment, setPayment,
     customerName, setCustomerName, setQty, setNote, canSubmit, submitting, error, onSubmit,
-    calculateItemPrice, globalDiscount, globalPromo, embedded,
+    calculateItemPrice, globalDiscount, globalPromo, needsMoreForPromo, missingAmount, embedded,
   } = props
 
   const ch = getChannel(channel)
@@ -555,6 +565,12 @@ function CartPanel(props: {
         </div>
 
         <div className="flex flex-col gap-1 pt-2">
+          {needsMoreForPromo && missingAmount ? (
+            <div className="bg-blue-50 text-blue-700 text-xs px-3 py-2 rounded-lg font-medium border border-blue-100 flex items-center gap-2 mb-2">
+              <span className="shrink-0 bg-blue-500 text-white w-4 h-4 rounded-full inline-flex items-center justify-center text-[10px] font-bold">i</span>
+              <span>Tambah <b>{formatRupiah(missingAmount)}</b> lagi untuk dapat diskon promo!</span>
+            </div>
+          ) : null}
           {globalDiscount > 0 && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500 font-medium">

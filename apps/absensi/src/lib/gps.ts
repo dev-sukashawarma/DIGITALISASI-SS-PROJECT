@@ -9,16 +9,14 @@
 export type LatLng = { lat: number; lng: number };
 
 /**
- * Radius geofence absensi (meter) — sumber tunggal dipakai client & server.
+ * Radius geofence absensi (meter) — sumber tunggal client & server.
  *
- * Dipilih 150 m, bukan ketat (4–25 m), karena kiosk absensi berada DI DALAM
- * gedung: GPS indoor lazim melenceng 30–100 m walau koordinat outlet benar.
- * Radius ketat membuat staf yang benar-benar di lokasi sering ditolak.
- * Catatan: radius tidak bisa menambal koordinat outlet yang salah — outlet
- * harus dikalibrasi ke titik gedung sebenarnya (tombol "Jadikan Ini Lokasi
- * Outlet" / kolom outlets.lat,lng). Outlet dengan lat/lng NULL dikecualikan.
+ * Diperketat ke 30 m setelah koordinat outlet dikalibrasi akurat lewat halaman
+ * peta SPV (/dashboard/pengaturan-lokasi). GPS drift indoor dikompensasi
+ * toleransi akurasi inline (max(0, jarak - akurasi) <= radius) + penolakan
+ * akurasi buruk (MAX_GPS_ACCURACY_M). Outlet dengan lat/lng NULL dikecualikan.
  */
-export const GEOFENCE_RADIUS_M = 150;
+export const GEOFENCE_RADIUS_M = 30;
 
 const EARTH_RADIUS_M = 6_371_000; // radius rata-rata bumi (meter)
 
@@ -45,4 +43,15 @@ export function isWithinRadius(
   radiusMeters: number,
 ): boolean {
   return haversineMeters(center, point) <= radiusMeters;
+}
+
+/**
+ * Akurasi GPS terburuk (meter) yang masih boleh absen. Di atas ini, toleransi
+ * akurasi akan "menelan" geofence 30 m → tolak & minta aktifkan Lokasi Akurat.
+ */
+export const MAX_GPS_ACCURACY_M = 75;
+
+/** True bila akurasi GPS (meter) cukup baik untuk dipercaya absen. */
+export function isGpsAccuracyAcceptable(accuracyM: number): boolean {
+  return accuracyM <= MAX_GPS_ACCURACY_M;
 }

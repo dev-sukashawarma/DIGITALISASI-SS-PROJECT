@@ -55,10 +55,12 @@ export function AttendanceKioskPanel() {
   const loopRef = useRef<number | null>(null);
 
   useEffect(() => { 
-    loadFaceModels()
-      .then(() => setModelsReady(true))
-      .catch((err) => setModelError(err.message || "Gagal memuat AI wajah. Coba refresh."));
-  }, []);
+    if (clockInWindowOpen) {
+      loadFaceModels()
+        .then(() => setModelsReady(true))
+        .catch((err) => setModelError(err.message || "Gagal memuat AI wajah. Coba refresh."));
+    }
+  }, [clockInWindowOpen]);
 
   useEffect(() => {
     if (kiosk.result) {
@@ -434,13 +436,13 @@ export function AttendanceKioskPanel() {
         </div>
 
         <div className="p-4 text-center min-h-[92px] flex flex-col items-center justify-center gap-2">
-          {kiosk.phase === "idle" && (
+          {kiosk.phase === "idle" && clockInWindowOpen && (
             <div className="text-sm text-gray-600">
               Anda berada di outlet <span className="font-bold text-suka-ink">{outletName || "Loading..."}</span>.<br />
               Halo <span className="font-bold text-suka-ink">{outletStaff.name}</span>, silakan scan wajah Anda.
             </div>
           )}
-          {kiosk.phase === "idle" && !modelsReady && (
+          {kiosk.phase === "idle" && clockInWindowOpen && !modelsReady && (
             <p className="flex items-center gap-2 text-gray-500 font-medium animate-pulse">
               <Spinner size={18} /> Memuat model wajah…
             </p>

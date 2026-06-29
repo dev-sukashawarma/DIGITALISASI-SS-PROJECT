@@ -4,6 +4,7 @@ import { Button } from '@suka/design-system'
 import { useAuth } from '@suka/auth'
 import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role } from '@/lib/types'
+import { validateStaffStep, validateStaffThrough, type StaffStepId, type StaffStepValues } from '@/lib/staffFormValidation'
 
 const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat']
 
@@ -81,25 +82,21 @@ export function StaffForm({
   const isLastStep = currentIndex === tabs.length - 1
   const isFirstStep = currentIndex === 0
 
-  function validateStep(stepId: string): boolean {
-    if (stepId === 'utama') {
-      if (!name) { alert('Nama Lengkap wajib diisi'); return false }
-      if (!username) { alert('Username wajib diisi'); return false }
-      if (!isEditing && !password) { alert('Password Sementara wajib diisi'); return false }
-    } else if (stepId === 'pribadi') {
-      if (nik && nik.length !== 16) { alert('NIK harus tepat 16 digit angka!'); return false }
-    }
+  // Logika validasi murni di '@/lib/staffFormValidation' (teruji unit).
+  // Di sini hanya efek UI: alert + pindah ke step bermasalah.
+  const stepIds = tabs.map((t) => t.id) as StaffStepId[]
+  const stepValues: StaffStepValues = { name, username, password, nik, isEditing }
+
+  function validateStep(stepId: StaffStepId): boolean {
+    const message = validateStaffStep(stepId, stepValues)
+    if (message) { alert(message); return false }
     return true
   }
 
   // Validasi semua step dari awal s/d targetIndex; lompat ke step pertama yang invalid.
   function validateThrough(targetIndex: number): boolean {
-    for (let i = 0; i <= targetIndex; i++) {
-      if (!validateStep(tabs[i].id)) {
-        setActiveTab(tabs[i].id as any)
-        return false
-      }
-    }
+    const fail = validateStaffThrough(stepIds, targetIndex, stepValues)
+    if (fail) { setActiveTab(fail.stepId); alert(fail.message); return false }
     return true
   }
 

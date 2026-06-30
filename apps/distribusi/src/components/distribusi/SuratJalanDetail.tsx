@@ -247,7 +247,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
             </p>
           </div>
         </div>
-        {(data.status === 'selesai' || data.status === 'dikirim') && (
+        {data.status !== 'draft' && (
           <button
             onClick={handleDownloadPDF}
             className="px-3 py-1.5 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white rounded-xl font-bold text-[10px] transition-colors shadow-sm uppercase tracking-wider active:scale-95 flex items-center gap-1.5 cursor-pointer"
@@ -302,7 +302,17 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
           {/* Document Preview */}
           <div className="mt-2">
-            <h3 className="text-[9px] font-black text-[#544437]/50 uppercase tracking-widest pl-1 mb-3">Dokumen Surat Jalan</h3>
+            <div className="flex justify-between items-center mb-3 px-1">
+              <h3 className="text-[9px] font-black text-[#544437]/50 uppercase tracking-widest">Dokumen Surat Jalan</h3>
+              {data.status !== 'draft' && (
+                <button
+                  onClick={handleDownloadPDF}
+                  className="text-[10px] font-bold text-[#701604] hover:text-[#591002] underline cursor-pointer flex items-center gap-1"
+                >
+                  📥 Download PDF
+                </button>
+              )}
+            </div>
             {pdfHtml ? (
               <div className="rounded-2xl overflow-hidden border border-[#d9c2b2]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] bg-white p-1">
                 <iframe

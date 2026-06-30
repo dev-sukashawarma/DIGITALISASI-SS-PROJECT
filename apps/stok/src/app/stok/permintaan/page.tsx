@@ -7,6 +7,7 @@ import { PermintaanForm } from '@/components/permintaan/PermintaanForm'
 import { PermintaanList } from '@/components/permintaan/PermintaanList'
 import { ApprovalList } from '@/components/permintaan/ApprovalList'
 import { OutletSwitcher } from '@/components/common/OutletSwitcher'
+import { BottomNav } from '@/components/common/BottomNav'
 
 const KITCHEN_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 
@@ -28,7 +29,7 @@ export default function PermintaanPage() {
   }
 
   return (
-    <div className="bg-[#fff8f1] min-h-screen">
+    <div className="bg-[#fff8f1] min-h-screen pb-28">
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -61,6 +62,8 @@ export default function PermintaanPage() {
           </>
         )}
       </main>
+
+      <BottomNav />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
 import { Skeleton } from '@suka/design-system';
+import { BottomNav } from '@/components/common/BottomNav';
 
 export function CrewDashboard() {
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
@@ -265,24 +266,7 @@ export function CrewDashboard() {
       </main>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-[#f5ede3] border-t border-[#877365]/20 shadow-2xl rounded-t-2xl">
-        <Link href="/dashboard" className="flex flex-col items-center justify-center bg-[#f29744] text-[#643400] rounded-xl px-5 py-2 shadow-sm active:scale-95 transition-all">
-          <span className="text-lg leading-none">📊</span>
-          <span className="text-[10px] font-bold mt-0.5">Dashboard</span>
-        </Link>
-        <Link href="/stok/ledger" className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8]/50 px-4 py-1.5 rounded-full transition-all active:scale-95">
-          <span className="text-lg leading-none">📒</span>
-          <span className="text-[10px] font-bold mt-0.5">Ledger</span>
-        </Link>
-        <Link href="/stok/opname" className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8]/50 px-4 py-1.5 rounded-full transition-all active:scale-95">
-          <span className="text-lg leading-none">📋</span>
-          <span className="text-[10px] font-bold mt-0.5">Opname</span>
-        </Link>
-        <Link href="/stok/permintaan" className="flex flex-col items-center justify-center text-[#544437] hover:bg-[#e9e1d8]/50 px-4 py-1.5 rounded-full transition-all active:scale-95">
-          <span className="text-lg leading-none">📝</span>
-          <span className="text-[10px] font-bold mt-0.5">Permintaan</span>
-        </Link>
-      </nav>
+      <BottomNav />
 
       {/* Detail Modal */}
       {selectedItem && (

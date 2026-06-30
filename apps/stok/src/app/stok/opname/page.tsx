@@ -1,29 +1,18 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@suka/auth';
 import { useOutletScope } from '@/hooks/useOutletScope';
 import { useOpnameList } from '@/hooks/useOpname';
 import { OpnameList } from '@/components/stok/OpnameList';
 import { OutletSwitcher } from '@/components/common/OutletSwitcher';
 import Link from 'next/link';
-import { getCrossAppUrl } from '@/lib/navigation';
+import { BottomNav } from '@/components/common/BottomNav';
 
 export default function OpnamePage() {
-  const router = useRouter();
   const { outletStaff } = useAuth();
   const { selectedOutletId } = useOutletScope();
   const { opnameList, loading } = useOpnameList(selectedOutletId);
-
-  const handleNavigate = (path: string) => {
-    const resolvedUrl = getCrossAppUrl(path);
-    if (resolvedUrl.startsWith('http')) {
-      window.location.href = resolvedUrl;
-    } else {
-      router.push(resolvedUrl);
-    }
-  };
 
   if (!outletStaff) {
     return (
@@ -75,36 +64,7 @@ export default function OpnamePage() {
       </main>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-3 pb-safe bg-[#f5ede3] border-t border-[#d9c2b2]/40 shadow-2xl rounded-t-2xl lg:hidden">
-        <Link
-          href="/dashboard"
-          className="flex flex-col items-center justify-center text-[#544437]/75 hover:text-[#701604] px-4 py-1 active:scale-95 transition-all cursor-pointer"
-        >
-          <span className="text-xl">📊</span>
-          <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Dashboard</span>
-        </Link>
-        <Link
-          href="/stok/ledger"
-          className="flex flex-col items-center justify-center text-[#544437]/75 hover:text-[#701604] px-4 py-1 active:scale-95 transition-all cursor-pointer"
-        >
-          <span className="text-xl">📒</span>
-          <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Ledger</span>
-        </Link>
-        <Link
-          href="/stok/opname"
-          className="flex flex-col items-center justify-center bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200 cursor-pointer"
-        >
-          <span className="text-xl">📋</span>
-          <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Opname</span>
-        </Link>
-        <button
-          onClick={() => handleNavigate('/distribusi/terima')}
-          className="flex flex-col items-center justify-center text-[#544437]/75 hover:text-[#701604] px-4 py-1 active:scale-95 transition-all cursor-pointer"
-        >
-          <span className="text-xl">🚚</span>
-          <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Terima</span>
-        </button>
-      </nav>
+      <BottomNav />
     </div>
   );
 }

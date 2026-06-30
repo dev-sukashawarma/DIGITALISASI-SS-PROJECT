@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
@@ -86,6 +86,11 @@ export function useSaranItem(outletId: string | undefined) {
 // ---------------------------------------------------------------------------
 
 export function usePermintaanList(outletId: string | undefined) {
+  // ID unik per instance hook → nama channel realtime tak bentrok bila dua
+  // konsumen (PermintaanForm + PermintaanList) memakai outletId yang sama.
+  // Tanpa ini: dua channel bernama identik → "cannot add postgres_changes
+  // callbacks after subscribe()".
+  const instanceId = useId()
   const [permintaan, setPermintaan] = useState<PermintaanWithItems[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -110,14 +115,14 @@ export function usePermintaanList(outletId: string | undefined) {
     if (!outletId) return
     const supabase = createClient()
     const channel = supabase
-      .channel(`permintaan_list_${outletId}`)
+      .channel(`permintaan_list_${outletId}_${instanceId}`)
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'permintaan_bahan',
         filter: `outlet_id=eq.${outletId}`,
       }, () => { refresh() })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [outletId, refresh])
+  }, [outletId, refresh, instanceId])
 
   return { permintaan, loading, error, refresh }
 }

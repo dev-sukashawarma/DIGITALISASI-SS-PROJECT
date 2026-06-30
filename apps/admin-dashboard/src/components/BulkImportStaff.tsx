@@ -5,6 +5,7 @@ import { Upload, Check, AlertTriangle } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
 import { useStaffMutations } from '@/hooks/useStaffMutations'
+import { generateTempPassword } from '@/lib/generatePassword'
 import type { Outlet, Role, StaffFormValues } from '@/lib/types'
 
 interface BulkImportStaffProps {
@@ -48,7 +49,7 @@ export function BulkImportStaff({ outlets, onComplete, onCancel }: BulkImportSta
             const parsed: StaffFormValues = {
               name: row['Nama Lengkap'] || '',
               username: row['Username'] || '',
-              password: row['Password'] || 'sukashawarma123',
+              password: row['Password'] || generateTempPassword(),
               role: (row['Role'] || 'crew') as Role,
               outlet_id: outlet?.id || outlets[0]?.id || '',
               outlet_ids: [],
@@ -187,6 +188,7 @@ export function BulkImportStaff({ outlets, onComplete, onCancel }: BulkImportSta
                   <th className="px-3 py-2 font-semibold text-suka-gray-600">Baris</th>
                   <th className="px-3 py-2 font-semibold text-suka-gray-600">Nama</th>
                   <th className="px-3 py-2 font-semibold text-suka-gray-600">Username</th>
+                  <th className="px-3 py-2 font-semibold text-suka-gray-600">Password</th>
                   <th className="px-3 py-2 font-semibold text-suka-gray-600">Status</th>
                 </tr>
               </thead>
@@ -196,6 +198,7 @@ export function BulkImportStaff({ outlets, onComplete, onCancel }: BulkImportSta
                     <td className="px-3 py-2">{i + 1}</td>
                     <td className="px-3 py-2">{r.raw['Nama Lengkap'] || '-'}</td>
                     <td className="px-3 py-2">{r.raw['Username'] || '-'}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{r.parsed?.password || '-'}</td>
                     <td className="px-3 py-2 text-xs">
                       {r.error === 'Berhasil' ? (
                         <span className="flex items-center gap-1 text-emerald-600"><Check size={14} /> Berhasil</span>

@@ -5,6 +5,7 @@ import { useAuth } from '@suka/auth'
 import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role } from '@/lib/types'
 import { validateStaffStep, validateStaffThrough, type StaffStepId, type StaffStepValues } from '@/lib/staffFormValidation'
+import { generateTempPassword } from '@/lib/generatePassword'
 
 const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat']
 
@@ -31,7 +32,8 @@ export function StaffForm({
   // 1. Informasi Utama
   const [name, setName] = useState(initial?.name ?? '')
   const [username, setUsername] = useState(initial?.username ?? '')
-  const [password, setPassword] = useState(initial?.password ?? 'sukashawarma123')
+  // Password sementara acak & unik per staf (lazy init: sekali saat form mount).
+  const [password, setPassword] = useState(() => initial?.password ?? generateTempPassword())
   const [role, setRole] = useState<Role>(initial?.role ?? 'crew')
   const [outletId, setOutletId] = useState(initial?.outlet_id ?? (outlets[0]?.id ?? ''))
   const [outletIds, setOutletIds] = useState<string[]>(initial?.outlet_ids ?? [])

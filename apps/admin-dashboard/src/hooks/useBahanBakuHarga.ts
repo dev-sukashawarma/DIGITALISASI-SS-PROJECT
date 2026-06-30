@@ -1,0 +1,21 @@
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase'
+import { normalizeBahanBaku } from '@/lib/bahanBaku'
+import type { BahanBakuRaw, BahanBakuWithHarga } from '@/lib/bahanBaku'
+
+export function useBahanBakuHarga() {
+  const supabase = createClient()
+  return useQuery<BahanBakuWithHarga[]>({
+    queryKey: ['bahan_baku_harga'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bahan_baku')
+        .select('id, nama, satuan, kategori, bahan_baku_harga(harga_beli, harga_updated_at)')
+        .eq('is_active', true)
+        .order('nama')
+      if (error) throw error
+      return ((data ?? []) as unknown as BahanBakuRaw[]).map(normalizeBahanBaku)
+    },
+  })
+}

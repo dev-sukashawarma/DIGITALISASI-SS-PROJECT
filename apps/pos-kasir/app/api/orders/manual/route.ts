@@ -83,6 +83,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Gagal memuat data menu' }, { status: 500 })
   }
 
+  // "?"? Ambil promo aktif "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?
+  const { data: activePromos } = await supabaseService
+    .from('outlet_promos')
+    .select('*')
+    .eq('outlet_id', outlet_id)
+    .eq('is_active', true)
+
+  const globalPromo = activePromos?.find((p) => p.scope === 'global')
+  const itemPromos = activePromos?.filter((p) => p.scope === 'item') || []
+
   const validatedItems: {
     menu_item_id: string
     menu_item_name: string
@@ -107,7 +117,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Jumlah untuk "${menuItem.name}" harus 1-10` }, { status: 400 })
     }
 
-    const unitPrice = menuItem.price
+    let unitPrice = menuItem.price
+    if (!globalPromo) {
+      const promo = itemPromos.find((p) => p.menu_item_id === menuItem.id)
+      if (promo) {
+        if (promo.discount_type === 'nominal') {
+          unitPrice = Math.max(0, unitPrice - promo.discount_value)
+        } else {
+          unitPrice = Math.max(0, unitPrice * (1 - promo.discount_value / 100))
+        }
+      }
+    }
+
     const subtotal = unitPrice * quantity
     total += subtotal
 
@@ -124,6 +145,18 @@ export async function POST(request: Request) {
     })
   }
 
+  // Hitung Global Promo
+  let globalDiscount = 0
+  if (globalPromo) {
+    if (globalPromo.discount_type === 'nominal') {
+      globalDiscount = Math.min(total, globalPromo.discount_value)
+    } else {
+      globalDiscount = total * (globalPromo.discount_value / 100)
+    }
+  }
+
+  const finalTotal = total - globalDiscount
+
   // ── Buat order langsung status 'preparing' (Diproses) ───────────────────
   const customerName = (body.customer_name ?? '').trim()
   const mappedSource = body.channel === 'tiktokgo' ? 'tiktok' : body.channel;
@@ -135,7 +168,8 @@ export async function POST(request: Request) {
       outlet_id,
       customer_name: customerName || null,
       payment_method: body.payment_method,
-      total_amount: total,
+      total_amount: finalTotal,
+      discount_amount: globalDiscount > 0 ? globalDiscount : null,
       status: 'preparing',
       source: 'manual',
       channel: body.channel,
@@ -163,6 +197,6 @@ export async function POST(request: Request) {
     success: true,
     order_id: order.id,
     order_number: order.order_number,
-    total_amount: total,
+    total_amount: finalTotal,
   })
 }

@@ -29,7 +29,7 @@ export default function AdminUsersPage() {
   // Form state
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const role = 'kiosk'
+  const [role, setRole] = useState<'admin' | 'kiosk' | 'crew'>('kiosk')
   const [outletId, setOutletId] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [inactiveReason, setInactiveReason] = useState('')
@@ -79,7 +79,7 @@ export default function AdminUsersPage() {
       setEditingUser(user)
       setUsername(user.username)
       setPassword('') // Password kosongkan saat edit
-      setRole(user.role)
+      setRole(user.role as 'admin' | 'kiosk' | 'crew')
       setOutletId(user.outlet_id || '')
       setIsActive(user.is_active ?? true)
       setInactiveReason(user.inactive_reason || '')
@@ -257,11 +257,11 @@ export default function AdminUsersPage() {
                 <label className="block text-sm font-bold text-gray-700 mb-1">Peran (Role)</label>
                 <div className="flex gap-4">
                   <label className="flex-1 flex items-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
-                    <input type="radio" name="role" value="crew" checked={role === 'crew'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
+                    <input type="radio" name="role" value="crew" checked={role === 'crew'} onChange={(e) => setRole(e.target.value as 'admin' | 'kiosk' | 'crew')} className="w-4 h-4 accent-amber-600" />
                     <span className="font-bold text-gray-700 text-sm">Akun Crew</span>
                   </label>
                   <label className="flex-1 flex items-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
-                    <input type="radio" name="role" value="kiosk" checked={role === 'kiosk'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
+                    <input type="radio" name="role" value="kiosk" checked={role === 'kiosk'} onChange={(e) => setRole(e.target.value as 'admin' | 'kiosk' | 'crew')} className="w-4 h-4 accent-amber-600" />
                     <span className="font-bold text-gray-700 text-sm">Mesin Kiosk</span>
                   </label>
                 </div>

@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { haversineMeters, isWithinRadius } from "./gps";
+import {
+  haversineMeters, isWithinRadius,
+  GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M,
+  isGpsAccuracyAcceptable,
+} from "./gps";
 
 describe("haversineMeters", () => {
   test("returns 0 for identical points", () => {
@@ -42,5 +46,41 @@ describe("isWithinRadius", () => {
   test("boundary: distance exactly at radius counts as within", () => {
     const d = haversineMeters(outlet, { lat: outlet.lat + 0.005, lng: outlet.lng });
     expect(isWithinRadius(outlet, { lat: outlet.lat + 0.005, lng: outlet.lng }, d)).toBe(true);
+  });
+});
+
+describe("GEOFENCE_RADIUS_M", () => {
+  test("is tightened to 30 meters", () => {
+    expect(GEOFENCE_RADIUS_M).toBe(30);
+  });
+});
+
+describe("isGpsAccuracyAcceptable", () => {
+  test("accepts good accuracy", () => {
+    expect(isGpsAccuracyAcceptable(20)).toBe(true);
+  });
+  test("accepts exactly at threshold (75)", () => {
+    expect(isGpsAccuracyAcceptable(MAX_GPS_ACCURACY_M)).toBe(true);
+  });
+  test("rejects accuracy worse than threshold", () => {
+    expect(isGpsAccuracyAcceptable(80)).toBe(false);
+  });
+});
+
+describe("toleransi akurasi pada radius 30 (logika inline client/server)", () => {
+  const outlet = { lat: -6.2, lng: 106.84 };
+  // ~0.0004 deg lat ≈ 44.5 m utara
+  const far = { lat: outlet.lat + 0.0004, lng: outlet.lng };
+  const adjusted = (acc: number) => Math.max(0, haversineMeters(outlet, far) - acc);
+
+  test("rejects 44m away with perfect accuracy (0)", () => {
+    expect(adjusted(0) <= GEOFENCE_RADIUS_M).toBe(false);
+  });
+  test("accepts 44m away when accuracy 25m absorbs the gap", () => {
+    // adjusted = max(0, ~44.5 - 25) ≈ 19.5 <= 30
+    expect(adjusted(25) <= GEOFENCE_RADIUS_M).toBe(true);
+  });
+  test("accepts point at center regardless", () => {
+    expect(Math.max(0, haversineMeters(outlet, outlet) - 0) <= GEOFENCE_RADIUS_M).toBe(true);
   });
 });

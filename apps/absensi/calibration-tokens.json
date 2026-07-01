@@ -1,0 +1,12 @@
+{
+  "1246847d-bd86-49dc-9b0b-c8c7a5c9ccba": {
+    "token": "1246847d-bd86-49dc-9b0b-c8c7a5c9ccba",
+    "outlet_id": "test-outlet",
+    "status": "pending",
+    "lat": null,
+    "lng": null,
+    "accuracy": null,
+    "address": null,
+    "expires_at": 1782791348994
+  }
+}

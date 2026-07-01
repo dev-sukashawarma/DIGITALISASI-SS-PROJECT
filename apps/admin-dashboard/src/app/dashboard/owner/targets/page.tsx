@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
+import { useRole } from '@/components/layout/RoleContext'
 import { rupiah } from '@/lib/format'
 import { Target, Save, RotateCcw, Store, Globe, CheckCircle2, Loader2, Search } from 'lucide-react'
 
@@ -18,6 +19,7 @@ function cleanName(name: string) {
 
 export default function TargetsPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const { isReadOnly } = useRole()
   const [rows, setRows] = useState<TargetRow[]>([])
   const [globalDefault, setGlobalDefault] = useState<number>(0)
   const [globalInput, setGlobalInput] = useState<string>('')
@@ -129,36 +131,38 @@ export default function TargetsPage() {
         </div>
       ) : (
         <>
-          {/* Global default */}
-          <div className="bg-gradient-to-br from-suka-brown to-suka-ink text-white p-5 sm:p-6 rounded-2xl shadow-md shadow-suka-brown/10">
-            <div className="flex items-center gap-2 mb-1">
-              <Globe className="w-4 h-4 text-suka-cream/90" />
-              <h3 className="text-sm font-extrabold uppercase tracking-wider text-suka-cream">Target Default (Semua Outlet)</h3>
-            </div>
-            <p className="text-[11px] text-suka-cream/70 font-medium mb-4">
-              Outlet tanpa override mengikuti angka ini. Saat ini: <b className="text-white">{rupiah(globalDefault)}</b> / hari
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60 text-sm font-bold">Rp</span>
-                <input
-                  inputMode="numeric"
-                  value={globalInput ? Number(globalInput).toLocaleString('id-ID') : ''}
-                  onChange={(e) => setGlobalInput(e.target.value.replace(/\D/g, ''))}
-                  placeholder={globalDefault ? globalDefault.toLocaleString('id-ID') : 'mis. 5.000.000'}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-white outline-none focus:ring-2 focus:ring-suka-orange/40"
-                />
+          {/* Global default — editing only; mitra (read-only) does not see it */}
+          {!isReadOnly && (
+            <div className="bg-gradient-to-br from-suka-brown to-suka-ink text-white p-5 sm:p-6 rounded-2xl shadow-md shadow-suka-brown/10">
+              <div className="flex items-center gap-2 mb-1">
+                <Globe className="w-4 h-4 text-suka-cream/90" />
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-suka-cream">Target Default (Semua Outlet)</h3>
               </div>
-              <button
-                onClick={saveGlobal}
-                disabled={savingKey === 'global' || !globalInput}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-suka-orange hover:bg-amber-600 disabled:opacity-50 text-white font-bold text-sm transition-all active:scale-95"
-              >
-                {savingKey === 'global' ? <Loader2 className="w-4 h-4 animate-spin" /> : savedKey === 'global' ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                Simpan
-              </button>
+              <p className="text-[11px] text-suka-cream/70 font-medium mb-4">
+                Outlet tanpa override mengikuti angka ini. Saat ini: <b className="text-white">{rupiah(globalDefault)}</b> / hari
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60 text-sm font-bold">Rp</span>
+                  <input
+                    inputMode="numeric"
+                    value={globalInput ? Number(globalInput).toLocaleString('id-ID') : ''}
+                    onChange={(e) => setGlobalInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder={globalDefault ? globalDefault.toLocaleString('id-ID') : 'mis. 5.000.000'}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-white outline-none focus:ring-2 focus:ring-suka-orange/40"
+                  />
+                </div>
+                <button
+                  onClick={saveGlobal}
+                  disabled={savingKey === 'global' || !globalInput}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-suka-orange hover:bg-amber-600 disabled:opacity-50 text-white font-bold text-sm transition-all active:scale-95"
+                >
+                  {savingKey === 'global' ? <Loader2 className="w-4 h-4 animate-spin" /> : savedKey === 'global' ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                  Simpan
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Per-outlet overrides */}
           <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
@@ -197,36 +201,43 @@ export default function TargetsPage() {
                     <div className="text-xs font-bold text-suka-gray-500 sm:w-32 shrink-0">
                       Kini: <span className="text-suka-brown">{rupiah(r.target_amount)}</span>
                     </div>
-                    <div className="flex flex-1 gap-2">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-xs font-bold">Rp</span>
-                        <input
-                          inputMode="numeric"
-                          value={overrideInputs[r.outlet_id] ? Number(overrideInputs[r.outlet_id]).toLocaleString('id-ID') : ''}
-                          onChange={(e) => setOverrideInputs((m) => ({ ...m, [r.outlet_id]: e.target.value.replace(/\D/g, '') }))}
-                          placeholder="set override..."
-                          className="w-full pl-8 pr-3 py-2 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
-                        />
+                    {isReadOnly ? (
+                      <div className="flex flex-1 items-center">
+                        <span className="text-sm font-extrabold text-suka-brown">{rupiah(r.target_amount)}</span>
+                        <span className="ml-2 text-[10px] font-bold text-suka-gray-400 uppercase">/ hari</span>
                       </div>
-                      <button
-                        onClick={() => saveOverride(r.outlet_id)}
-                        disabled={isSaving || !(overrideInputs[r.outlet_id] ?? '')}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-suka-orange hover:bg-amber-600 disabled:opacity-40 text-white font-bold text-xs transition-all active:scale-95 shrink-0"
-                      >
-                        {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isSaved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                        <span className="hidden sm:inline">Simpan</span>
-                      </button>
-                      {r.is_override && (
+                    ) : (
+                      <div className="flex flex-1 gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-xs font-bold">Rp</span>
+                          <input
+                            inputMode="numeric"
+                            value={overrideInputs[r.outlet_id] ? Number(overrideInputs[r.outlet_id]).toLocaleString('id-ID') : ''}
+                            onChange={(e) => setOverrideInputs((m) => ({ ...m, [r.outlet_id]: e.target.value.replace(/\D/g, '') }))}
+                            placeholder="set override..."
+                            className="w-full pl-8 pr-3 py-2 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
+                          />
+                        </div>
                         <button
-                          onClick={() => clearOverride(r.outlet_id)}
-                          disabled={isSaving}
-                          title="Hapus override (ikut default)"
-                          className="flex items-center justify-center px-2.5 py-2 rounded-xl border border-suka-gray-200 text-suka-gray-500 hover:text-suka-brown hover:border-suka-brown/20 transition-all active:scale-95 shrink-0"
+                          onClick={() => saveOverride(r.outlet_id)}
+                          disabled={isSaving || !(overrideInputs[r.outlet_id] ?? '')}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-suka-orange hover:bg-amber-600 disabled:opacity-40 text-white font-bold text-xs transition-all active:scale-95 shrink-0"
                         >
-                          <RotateCcw className="w-3.5 h-3.5" />
+                          {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isSaved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                          <span className="hidden sm:inline">Simpan</span>
                         </button>
-                      )}
-                    </div>
+                        {r.is_override && (
+                          <button
+                            onClick={() => clearOverride(r.outlet_id)}
+                            disabled={isSaving}
+                            title="Hapus override (ikut default)"
+                            className="flex items-center justify-center px-2.5 py-2 rounded-xl border border-suka-gray-200 text-suka-gray-500 hover:text-suka-brown hover:border-suka-brown/20 transition-all active:scale-95 shrink-0"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })}

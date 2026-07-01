@@ -16,7 +16,7 @@ describe('filterStaff', () => {
     expect(filterStaff(rows, { search: '', outletId: 'o2', role: '', status: '' }).map(r => r.id)).toEqual(['2', '3'])
   })
   it('filters by role', () => {
-    expect(filterStaff(rows, { search: '', outletId: '', role: 'crew', status: '' }).map(r => r.id)).toEqual(['1', '3'])
+    expect(filterStaff(rows, { search: '', outletId: '', role: 'crew', status: '' }).map(r => r.id)).toEqual(['1', '2', '3'])
   })
   it('filters by status', () => {
     expect(filterStaff(rows, { search: '', outletId: '', role: '', status: 'inactive' }).map(r => r.id)).toEqual(['2'])

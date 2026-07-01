@@ -13,7 +13,7 @@ import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
-import { haversineMeters, GEOFENCE_RADIUS_M } from "@/lib/gps";
+import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAcceptable } from "@/lib/gps";
 
 export type KioskPhase = "locating" | "location_invalid" | "idle" | "identified" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
@@ -49,16 +49,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     setPhase("locating");
     setResult(null);
 
-    // Cek apakah lokasi sudah terverifikasi hari ini (cache 12 jam)
-    try {
-      const cached = localStorage.getItem(`gps_verified_${outletId}`);
-      if (cached && Date.now() < parseInt(cached, 10)) {
-        // Cache masih valid, bypass GPS check langsung buka kamera
-        setPhase("idle");
-        setResult(null);
-        return;
-      }
-    } catch (e) { /* ignore */ }
+    // Cek apakah lokasi sudah terverifikasi hari ini (cache dihapus karena server butuh lat/lng realtime)
+
 
     // 1. Dapatkan koordinat outlet dari DB jika belum dimuat
     let coords = outletCoords;
@@ -112,6 +104,16 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         setDeviceCoords(currentCoords);
         setDeviceAccuracy(accuracy);
 
+        // Akurasi GPS terlalu rendah → tolak tegas (jangan loloskan ke idle).
+        if (!isGpsAccuracyAcceptable(accuracy)) {
+          setResult({
+            ok: false,
+            message: `Akurasi GPS terlalu rendah (${accuracy.toFixed(0)} m, maksimal ${MAX_GPS_ACCURACY_M} m). Aktifkan "Lokasi Akurat/Precise" dan nyalakan GPS HP Anda, lalu coba lagi.`,
+          });
+          setPhase("location_invalid");
+          return;
+        }
+
         if (!coords) {
           setPhase("idle");
           setResult(null);
@@ -129,11 +131,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         const adjustedDist = Math.max(0, dist - accuracy);
 
         if (adjustedDist <= GEOFENCE_RADIUS_M) {
-          // Simpan cache lokasi sukses ke localStorage agar tidak perlu scan ulang selama 12 jam
-          try {
-            const expireTime = Date.now() + 12 * 60 * 60 * 1000; // 12 hours
-            localStorage.setItem(`gps_verified_${outletId}`, expireTime.toString());
-          } catch (e) { /* ignore */ }
+
 
           setPhase("idle");
           setResult(null);
@@ -143,9 +141,6 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
           }
         } else {
           let msg = `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: ${GEOFENCE_RADIUS_M}m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`;
-          if (accuracy >= 80) {
-            msg += "\n\nTips: Akurasi GPS Anda sangat rendah. Ini biasanya terjadi jika izin lokasi browser diset ke 'Perkiraan/Approximate' atau GPS HP mati. Harap ganti izin menjadi 'Lokasi Akurat/Precise' dan nyalakan GPS HP Anda.";
-          }
           setResult({
             ok: false,
             message: msg,
@@ -154,7 +149,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         }
       },
       (err) => {
-        console.error("Geolocation error:", err);
+        console.error("Geolocation error:", { code: err.code, message: err.message });
         let errMsg = "Gagal memindai lokasi perangkat";
         if (err.code === err.PERMISSION_DENIED) {
           errMsg = "Izin lokasi ditolak. Harap izinkan akses lokasi pada browser Anda.";
@@ -410,45 +405,9 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   }, [outletId, queue]);
 
   /** Kalibrasi ulang koordinat outlet ke posisi fisik saat ini */
-  const calibrateLocation = useCallback(async () => {
-    if (!outletId || !deviceCoords) return;
-    
-    // Update db dengan koordinat baru lewat backend API (bypass RLS)
-    try {
-      const res = await fetch("/api/calibrate-outlet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          outlet_id: outletId,
-          lat: deviceCoords.lat,
-          lng: deviceCoords.lng,
-        })
-      });
-      
-      const json = await res.json();
-      if (json.ok) {
-        setOutletCoords(deviceCoords);
-        setGpsDistance(0);
-        setPhase("idle");
-        setResult(null);
-        if (watchIdRef.current !== null) {
-          navigator.geolocation.clearWatch(watchIdRef.current);
-          watchIdRef.current = null;
-        }
-        alert("✅ Koordinat Outlet berhasil dikalibrasi ke lokasi Anda saat ini!");
-      } else {
-        console.error("Failed to calibrate location:", json.error);
-        alert("❌ Gagal mengkalibrasi lokasi outlet: " + json.error);
-      }
-    } catch (error) {
-      console.error("Failed to calibrate location:", error);
-      alert("❌ Gagal mengkalibrasi lokasi outlet.");
-    }
-  }, [outletId, deviceCoords]);
-
   return { phase, who, action, challenge, challengeLabel: challenge ? CHALLENGE_LABEL[challenge] : "", result,
            loadCandidates, tick, runLiveness, flushQueue, isOnline: queue.isOnline, pending: queue.pending,
-           checkLocation, calibrateLocation, gpsDistance, deviceCoords, deviceAccuracy };
+           checkLocation, gpsDistance, deviceCoords, deviceAccuracy };
 }
 
 function gagalText(reason: string): string {
@@ -460,6 +419,7 @@ function gagalText(reason: string): string {
     terlambat_alpha: "Lewat Batas Waktu (Alpha)",
     too_early_in: "Belum waktunya absen masuk",
     too_early_out: "Belum waktunya absen pulang",
+    gps_accuracy_low: "Akurasi GPS terlalu rendah — aktifkan Lokasi Akurat",
   };
   return map[reason] ?? `Gagal: ${reason}`;
 }

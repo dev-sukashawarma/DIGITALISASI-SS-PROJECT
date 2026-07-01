@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import { CHANNELS, getChannel } from '@/lib/channels'
+import { usePromos } from '@/lib/usePromos'
 import type { MenuItem, Category } from '@/types'
 import { postToNative } from '@suka/design-system'
 
@@ -24,6 +25,7 @@ type Payment = 'cash' | 'qris'
 export default function OrderManualPage() {
   const supabase = createClient()
   const { outletId, loaded } = useMyOutlet()
+  const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
 
   const [items, setItems] = useState<MenuItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -107,7 +109,17 @@ export default function OrderManualPage() {
 
   const lineList = Object.values(lines)
   const totalItems = lineList.reduce((s, l) => s + l.quantity, 0)
-  const totalPrice = lineList.reduce((s, l) => s + l.item.price * l.quantity, 0)
+  
+  const baseSubtotal = lineList.reduce((s, l) => s + l.item.price * l.quantity, 0)
+  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, baseSubtotal)
+
+  const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity, 0)
+  const globalDiscount = calculateGlobalDiscount(subtotalAmount)
+  const totalPrice = subtotalAmount - globalDiscount
+
+  const isGlobalPromoActive = globalPromo && globalPromo.is_active && (!globalPromo.end_date || new Date(globalPromo.end_date).getTime() > Date.now());
+  const needsMoreForPromo = isGlobalPromoActive && globalPromo.min_purchase && subtotalAmount > 0 && subtotalAmount < globalPromo.min_purchase;
+  const missingAmount = needsMoreForPromo ? (globalPromo.min_purchase || 0) - subtotalAmount : 0;
 
   const canSubmit = lineList.length > 0 && !!channel && !!payment && !submitting
 
@@ -193,7 +205,7 @@ export default function OrderManualPage() {
                     className={`relative flex items-center gap-2 px-2.5 py-2 xl:py-2.5 rounded-lg xl:rounded-xl border font-bold text-xs xl:text-sm transition-all duration-200 active:scale-95 hover:shadow-sm ${
                       selected ? 'shadow-md ring-2 ring-offset-1' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                     }`}
-                    style={selected ? { backgroundColor: c.bg, color: c.fg, borderColor: c.bg, ringColor: c.bg } : undefined}
+                    style={selected ? { backgroundColor: c.bg, color: c.fg, borderColor: c.bg } : undefined}
                   >
                     <span
                       className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-extrabold flex-shrink-0"
@@ -285,7 +297,16 @@ export default function OrderManualPage() {
                     <div className="p-2.5 flex flex-col justify-between">
                       <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem] cursor-pointer" onClick={() => qty === 0 && addItem(it)}>{it.name}</p>
                       <div className="flex items-center justify-between mt-2">
-                        <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(it.price)}</span>
+                        <div className="flex flex-col">
+                          {wrappedCalculateItemPrice(it.price, it.id) < it.price ? (
+                            <>
+                              <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(it.price)}</span>
+                              <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(wrappedCalculateItemPrice(it.price, it.id))}</span>
+                            </>
+                          ) : (
+                            <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(it.price)}</span>
+                          )}
+                        </div>
                         {qty === 0 ? (
                           <button
                             onClick={() => addItem(it)}
@@ -331,6 +352,11 @@ export default function OrderManualPage() {
             submitting={submitting}
             error={error}
             onSubmit={handleSubmit}
+            calculateItemPrice={wrappedCalculateItemPrice}
+            globalDiscount={globalDiscount}
+            globalPromo={globalPromo}
+            needsMoreForPromo={!!needsMoreForPromo}
+            missingAmount={missingAmount}
           />
         </div>
       </div>
@@ -374,6 +400,11 @@ export default function OrderManualPage() {
               submitting={submitting}
               error={error}
               onSubmit={handleSubmit}
+              calculateItemPrice={wrappedCalculateItemPrice}
+              globalDiscount={globalDiscount}
+              globalPromo={globalPromo}
+              needsMoreForPromo={!!needsMoreForPromo}
+              missingAmount={missingAmount}
               embedded
             />
           </div>
@@ -405,7 +436,7 @@ export default function OrderManualPage() {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
         @keyframes popIn { from { transform: scale(.92); opacity: 0 } to { transform: scale(1); opacity: 1 } }
       `}</style>
@@ -429,11 +460,17 @@ function CartPanel(props: {
   submitting: boolean
   error: string | null
   onSubmit: () => void
+  calculateItemPrice: (price: number, id: string) => number
+  globalDiscount: number
+  globalPromo: any
+  needsMoreForPromo?: boolean
+  missingAmount?: number
   embedded?: boolean
 }) {
   const {
     lineList, totalItems, totalPrice, channel, payment, setPayment,
-    customerName, setCustomerName, setQty, setNote, canSubmit, submitting, error, onSubmit, embedded,
+    customerName, setCustomerName, setQty, setNote, canSubmit, submitting, error, onSubmit,
+    calculateItemPrice, globalDiscount, globalPromo, needsMoreForPromo, missingAmount, embedded,
   } = props
 
   const ch = getChannel(channel)
@@ -459,34 +496,42 @@ function CartPanel(props: {
           </div>
         ) : (
           <div className="space-y-3 max-h-[40vh] lg:max-h-[38vh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
-            {lineList.map((l) => (
-              <div key={l.item.id} className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 text-sm leading-snug">{l.item.name}</p>
-                    <p className="text-amber-600 font-bold text-sm mt-1">{formatRupiah(l.item.price * l.quantity)}</p>
+            {lineList.map((l) => {
+              const discountedPrice = calculateItemPrice(l.item.price, l.item.id)
+              return (
+                <div key={l.item.id} className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 text-sm leading-snug">{l.item.name}</p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {discountedPrice < l.item.price && (
+                          <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(l.item.price * l.quantity)}</span>
+                        )}
+                        <p className="text-amber-600 font-bold text-sm">{formatRupiah(discountedPrice * l.quantity)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-100 flex-shrink-0">
+                      <button onClick={() => setQty(l.item.id, l.quantity - 1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
+                        {l.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
+                      </button>
+                      <span className="font-bold text-sm w-5 text-center text-gray-800">{l.quantity}</span>
+                      <button onClick={() => setQty(l.item.id, l.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-100 flex-shrink-0">
-                    <button onClick={() => setQty(l.item.id, l.quantity - 1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
-                      {l.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
-                    </button>
-                    <span className="font-bold text-sm w-5 text-center text-gray-800">{l.quantity}</span>
-                    <button onClick={() => setQty(l.item.id, l.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="relative mt-2.5">
+                    <StickyNote className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      value={l.note}
+                      onChange={(e) => setNote(l.item.id, e.target.value)}
+                      placeholder="Catatan opsional..."
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white transition-colors"
+                    />
                   </div>
                 </div>
-                <div className="relative mt-2.5">
-                  <StickyNote className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    value={l.note}
-                    onChange={(e) => setNote(l.item.id, e.target.value)}
-                    placeholder="Catatan opsional..."
-                    className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white transition-colors"
-                  />
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
@@ -522,10 +567,25 @@ function CartPanel(props: {
           </div>
         </div>
 
-        {/* Total */}
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-gray-500 font-bold">Total Pembayaran</span>
-          <span className="text-2xl font-black text-gray-900">{formatRupiah(totalPrice)}</span>
+        <div className="flex flex-col gap-1 pt-2">
+          {needsMoreForPromo && missingAmount ? (
+            <div className="bg-blue-50 text-blue-700 text-xs px-3 py-2 rounded-lg font-medium border border-blue-100 flex items-center gap-2 mb-2">
+              <span className="shrink-0 bg-blue-500 text-white w-4 h-4 rounded-full inline-flex items-center justify-center text-[10px] font-bold">i</span>
+              <span>Tambah <b>{formatRupiah(missingAmount)}</b> lagi untuk dapat diskon promo!</span>
+            </div>
+          ) : null}
+          {globalDiscount > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500 font-medium">
+                Diskon {globalPromo?.name ? `(${globalPromo.name})` : ''}
+              </span>
+              <span className="text-red-500 font-bold">-{formatRupiah(globalDiscount)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            <span className="text-gray-500 font-bold">Total Pembayaran</span>
+            <span className="text-2xl font-black text-gray-900">{formatRupiah(totalPrice)}</span>
+          </div>
         </div>
 
         {error && (

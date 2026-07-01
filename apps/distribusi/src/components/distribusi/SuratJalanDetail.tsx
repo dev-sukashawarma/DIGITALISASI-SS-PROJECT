@@ -247,7 +247,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
             </p>
           </div>
         </div>
-        {(data.status === 'selesai' || data.status === 'dikirim') && (
+        {data.status !== 'draft' && (
           <button
             onClick={handleDownloadPDF}
             className="px-3 py-1.5 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white rounded-xl font-bold text-[10px] transition-colors shadow-sm uppercase tracking-wider active:scale-95 flex items-center gap-1.5 cursor-pointer"
@@ -300,50 +300,31 @@ export function SuratJalanDetail({ id }: { id: string }) {
             </span>
           </div>
 
-          {/* Items Log / Cards Layout */}
-          <div>
-            <h3 className="text-[9px] font-black text-[#544437]/50 uppercase tracking-widest pl-1 mb-3">Item Barang</h3>
-            {data.surat_jalan_item && data.surat_jalan_item.length > 0 ? (
-              <div className="space-y-2.5">
-                {data.surat_jalan_item.map((item) => {
-                  const hasReceived = item.qty_terima !== undefined && item.qty_terima !== null
-                  const kurang = hasReceived && item.qty_terima! < item.qty_dikirim
-                  const rusak = item.kondisi === 'rusak'
-                  return (
-                    <div key={item.id} className="p-3 bg-[#fff8f1]/30 rounded-xl border border-[#d9c2b2]/30 flex justify-between items-center text-xs">
-                      <div className="space-y-0.5 min-w-0 pr-2">
-                        <p className="font-bold text-[#1e1b15] uppercase tracking-wide truncate">{item.bahan_baku?.nama}</p>
-                        <p className="text-[9px] text-[#544437]/60">
-                          Dikirim: {item.qty_dikirim} {item.bahan_baku?.satuan}
-                        </p>
-                        {item.catatan && (
-                          <p className="text-[9px] text-[#ba1a1a] font-semibold italic mt-0.5">* {item.catatan}</p>
-                        )}
-                      </div>
-                      <div className="text-right shrink-0 space-y-1">
-                        {hasReceived && (
-                          <span className={`px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-wider border inline-block ${
-                            rusak
-                              ? 'bg-red-50 text-red-750 border-red-200'
-                              : 'bg-green-50 text-green-700 border-green-200'
-                          }`}>
-                            {item.kondisi || 'baik'}
-                          </span>
-                        )}
-                        <p className={`font-black text-xs mt-1 ${
-                          hasReceived ? (kurang ? 'text-[#ba1a1a]' : 'text-[#0a7d2c]') : 'text-[#544437]/65'
-                        }`}>
-                          {hasReceived ? `Terima: ${item.qty_terima} ${item.bahan_baku?.satuan}` : 'Belum Diterima'}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
+          {/* Document Preview */}
+          <div className="mt-2">
+            <div className="flex justify-between items-center mb-3 px-1">
+              <h3 className="text-[9px] font-black text-[#544437]/50 uppercase tracking-widest">Dokumen Surat Jalan</h3>
+              {data.status !== 'draft' && (
+                <button
+                  onClick={handleDownloadPDF}
+                  className="text-[10px] font-bold text-[#701604] hover:text-[#591002] underline cursor-pointer flex items-center gap-1"
+                >
+                  📥 Download PDF
+                </button>
+              )}
+            </div>
+            {pdfHtml ? (
+              <div className="rounded-2xl overflow-hidden border border-[#d9c2b2]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] bg-white p-1">
+                <iframe
+                  srcDoc={pdfHtml}
+                  className="w-full h-[650px] border-0 rounded-xl"
+                  title="Surat Jalan PDF"
+                />
               </div>
             ) : (
-              <p className="text-[10px] text-center text-[#544437]/45 font-bold italic py-4 bg-[#fff8f1]/50 border border-dashed border-[#d9c2b2]/40 rounded-xl">
-                Tidak ada item barang dalam surat jalan ini
-              </p>
+              <div className="flex justify-center items-center h-64 text-xs font-bold text-[#544437]/50 animate-pulse bg-white border border-[#d9c2b2]/45 rounded-2xl p-6">
+                Memuat PDF Surat Jalan...
+              </div>
             )}
           </div>
 
@@ -370,21 +351,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
           {/* Pusat Verification Action — hanya tampil saat status draft/dikirim */}
           {(['leader', 'kitchen', 'admin', 'admin_hr'].includes(outletStaff?.role || '')) && (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian') && (
             <div className="border-t border-[#d9c2b2]/20 pt-5">
-              <p className="text-[9px] font-bold text-[#544437]/50 uppercase tracking-wider mb-3">Hasil Verifikasi Cabang</p>
-              {pdfHtml ? (
-                <div className="rounded-xl overflow-hidden border border-[#d9c2b2]/45 mb-4">
-                  <iframe
-                    srcDoc={pdfHtml}
-                    className="w-full border-0"
-                    style={{ height: '600px' }}
-                    title="Surat Jalan PDF"
-                  />
-                </div>
-              ) : (
-                <div className="flex justify-center items-center h-40 text-xs font-bold text-[#544437]/50 animate-pulse bg-[#fff8f1] border border-[#d9c2b2]/30 rounded-xl mb-4">
-                  Memuat PDF...
-                </div>
-              )}
+              <p className="text-[9px] font-bold text-[#544437]/50 uppercase tracking-wider mb-3">Tindakan Verifikasi</p>
               <button
                 onClick={handleVerifyPusat}
                 disabled={verifying}

@@ -38,6 +38,62 @@ export function SPVTable({
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [internalFilterStatus, setInternalFilterStatus] = useState<'all' | 'below' | 'warning' | 'ok'>('all');
   const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  // Hook-hook di bawah WAJIB dieksekusi sebelum early-return `loading`
+  // (Rules of Hooks). Sebelumnya editingId/editingValue + filteredItems
+  // ada di bawah `if (loading) return`, sehingga jumlah hook berubah saat
+  // loading flip true→false → React error #310 (crash di useMemo).
+  const [editingId, setEditingId] = useState<string | null>(null); // format: `${outlet_id}-${bahan_baku_id}`
+  const [editingValue, setEditingValue] = useState<string>('');
+
+  const filterStatus = externalFilterStatus !== undefined ? externalFilterStatus : internalFilterStatus;
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
+
+  const filteredItems = useMemo(() => {
+    let result = items;
+
+    // Filter by outlet if selected in Overview tab
+    if (tab === 'overview' && selectedOutletId) {
+      result = result.filter((item) => item.outlet_id === selectedOutletId);
+    } else if (tab === 'alerts') {
+      result = result.filter((item) => item.status !== 'ok' || item.is_flagged);
+    } else if (tab === 'compliance') {
+      result = result.filter((item) => item.is_flagged);
+    }
+
+    // Filter by status (below, warning, ok)
+    if (filterStatus !== 'all') {
+      result = result.filter((item) => item.status === filterStatus);
+    }
+
+    // Filter by search term
+    if (searchTerm) {
+      result = result.filter((item) =>
+        item.item_name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let aVal: any = a[sortField];
+      let bVal: any = b[sortField];
+
+      if (sortField === 'status') {
+        const statusOrder = { below: 0, warning: 1, ok: 2 };
+        aVal = statusOrder[a.status as keyof typeof statusOrder];
+        bVal = statusOrder[b.status as keyof typeof statusOrder];
+      }
+
+      if (aVal === null || aVal === undefined) return 1;
+      if (bVal === null || bVal === undefined) return -1;
+
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    // Make copy to avoid mutation errors
+    return [...result];
+  }, [items, tab, selectedOutletId, filterStatus, searchTerm, sortField, sortDir]);
 
   if (loading) {
     return (
@@ -99,60 +155,6 @@ export function SPVTable({
       </div>
     );
   }
-  
-  const filterStatus = externalFilterStatus !== undefined ? externalFilterStatus : internalFilterStatus;
-  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
-  
-  // Track threshold editing state
-  const [editingId, setEditingId] = useState<string | null>(null); // format: `${outlet_id}-${bahan_baku_id}`
-  const [editingValue, setEditingValue] = useState<string>('');
-
-  const filteredItems = useMemo(() => {
-    let result = items;
-
-    // Filter by outlet if selected in Overview tab
-    if (tab === 'overview' && selectedOutletId) {
-      result = result.filter((item) => item.outlet_id === selectedOutletId);
-    } else if (tab === 'alerts') {
-      result = result.filter((item) => item.status !== 'ok' || item.is_flagged);
-    } else if (tab === 'compliance') {
-      result = result.filter((item) => item.is_flagged);
-    }
-
-    // Filter by status (below, warning, ok)
-    if (filterStatus !== 'all') {
-      result = result.filter((item) => item.status === filterStatus);
-    }
-
-    // Filter by search term
-    if (searchTerm) {
-      result = result.filter((item) =>
-        item.item_name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
-
-      if (sortField === 'status') {
-        const statusOrder = { below: 0, warning: 1, ok: 2 };
-        aVal = statusOrder[a.status as keyof typeof statusOrder];
-        bVal = statusOrder[b.status as keyof typeof statusOrder];
-      }
-
-      if (aVal === null || aVal === undefined) return 1;
-      if (bVal === null || bVal === undefined) return -1;
-
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    // Make copy to avoid mutation errors
-    return [...result];
-  }, [items, tab, selectedOutletId, filterStatus, searchTerm, sortField, sortDir]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {

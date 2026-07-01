@@ -4,7 +4,6 @@ import { createSupabaseServerClient, getOutletStaff, accessibleApps } from '@suk
 import type { AppName } from '@suka/auth'
 import LogoutButton from '@/components/LogoutButton'
 import AppTile from '@/components/AppTile'
-import ChangelogModal from '@/components/ChangelogModal'
 import { Avatar } from '@suka/design-system'
 import { MapPin, Clock, CheckCircle2 } from 'lucide-react'
 
@@ -54,9 +53,9 @@ export default async function LauncherPage() {
     redirect('/')
   }
 
-  // Admin dan Owner tidak punya menu operasional di launcher → langsung ke admin-dashboard.
+  // Admin, Owner, dan Mitra tidak punya menu operasional di launcher → langsung ke admin-dashboard.
   // Chokepoint tunggal: berlaku utk login baru, akses /launcher langsung, & revisit.
-  if (['admin', 'owner'].includes(staff.role)) {
+  if (['admin', 'owner', 'mitra'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
   }
 
@@ -207,9 +206,6 @@ export default async function LauncherPage() {
           <p>Sistem Operasional v2.8.0</p>
         </footer>
       </div>
-
-      {/* Changelog Update Modal */}
-      <ChangelogModal />
     </main>
   )
 }

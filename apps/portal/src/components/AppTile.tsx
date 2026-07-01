@@ -1,4 +1,4 @@
-import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield, Download } from 'lucide-react'
+import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield } from 'lucide-react'
 
 interface Props {
   label: string
@@ -82,15 +82,6 @@ export default function AppTile({ label, url, desc }: Props) {
           className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-suka-orange/10 text-suka-orange text-[11px] font-extrabold uppercase tracking-wider active:scale-95 transition-all"
         >
           Buka
-        </a>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-suka-green/10 text-suka-green text-[11px] font-extrabold uppercase tracking-wider active:scale-95 transition-all"
-        >
-          <Download size={11} />
-          Install
         </a>
       </div>
     </div>

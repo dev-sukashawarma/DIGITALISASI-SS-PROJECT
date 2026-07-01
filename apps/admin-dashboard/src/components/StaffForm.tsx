@@ -4,8 +4,10 @@ import { Button } from '@suka/design-system'
 import { useAuth } from '@suka/auth'
 import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role } from '@/lib/types'
+import { validateStaffStep, validateStaffThrough, type StaffStepId, type StaffStepValues } from '@/lib/staffFormValidation'
+import { generateTempPassword } from '@/lib/generatePassword'
 
-const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk']
+const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat']
 
 export function StaffForm({
   outlets, onSubmit, submitting, initial, isPrivileged: customIsPrivileged,
@@ -18,14 +20,9 @@ export function StaffForm({
 }) {
   // Determine if user has privileged HR access
   let isPrivileged = customIsPrivileged ?? true
-  try {
-    const auth = useAuth()
-    if (customIsPrivileged === undefined && auth.outletStaff?.role) {
-      isPrivileged = ['owner', 'admin_hr', 'admin'].includes(auth.outletStaff.role)
-    }
-  } catch (e) {
-    // Default to true in non-auth contexts (like tests)
-    isPrivileged = customIsPrivileged ?? true
+  const auth = useAuth()
+  if (customIsPrivileged === undefined && auth?.outletStaff?.role) {
+    isPrivileged = ['owner', 'admin_hr', 'admin'].includes(auth.outletStaff.role)
   }
 
   const isEditing = !!initial?.name
@@ -35,7 +32,8 @@ export function StaffForm({
   // 1. Informasi Utama
   const [name, setName] = useState(initial?.name ?? '')
   const [username, setUsername] = useState(initial?.username ?? '')
-  const [password, setPassword] = useState(initial?.password ?? 'sukashawarma123')
+  // Password sementara acak & unik per staf (lazy init: sekali saat form mount).
+  const [password, setPassword] = useState(() => initial?.password ?? generateTempPassword())
   const [role, setRole] = useState<Role>(initial?.role ?? 'crew')
   const [outletId, setOutletId] = useState(initial?.outlet_id ?? (outlets[0]?.id ?? ''))
   const [outletIds, setOutletIds] = useState<string[]>(initial?.outlet_ids ?? [])
@@ -75,15 +73,50 @@ export function StaffForm({
   const inputCls = 'w-full rounded-xl border border-suka-gray-200 px-3 py-2.5 outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white text-suka-ink text-sm'
   const labelCls = 'mb-1 block text-sm font-semibold text-suka-ink'
 
+  const tabs = [
+    { id: 'utama', label: '1. Informasi Utama' },
+    { id: 'pribadi', label: '2. Data Pribadi' },
+    { id: 'darurat', label: '3. Kontak Darurat' },
+    ...(isPrivileged ? [{ id: 'keuangan', label: '4. Keuangan & Rekening' }] : [])
+  ] as const
+
+  const currentIndex = tabs.findIndex(t => t.id === activeTab)
+  const isLastStep = currentIndex === tabs.length - 1
+  const isFirstStep = currentIndex === 0
+
+  // Logika validasi murni di '@/lib/staffFormValidation' (teruji unit).
+  // Di sini hanya efek UI: alert + pindah ke step bermasalah.
+  const stepIds = tabs.map((t) => t.id) as StaffStepId[]
+  const stepValues: StaffStepValues = { name, username, password, nik, isEditing }
+
+  function validateStep(stepId: StaffStepId): boolean {
+    const message = validateStaffStep(stepId, stepValues)
+    if (message) { alert(message); return false }
+    return true
+  }
+
+  // Validasi semua step dari awal s/d targetIndex; lompat ke step pertama yang invalid.
+  function validateThrough(targetIndex: number): boolean {
+    const fail = validateStaffThrough(stepIds, targetIndex, stepValues)
+    if (fail) { setActiveTab(fail.stepId); alert(fail.message); return false }
+    return true
+  }
+
+  function handleNext() {
+    if (validateStep(activeTab)) {
+      if (!isLastStep) setActiveTab(tabs[currentIndex + 1].id as any)
+    }
+  }
+
+  function handlePrev() {
+    if (!isFirstStep) setActiveTab(tabs[currentIndex - 1].id as any)
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    
-    // Check validation for NIK if provided
-    if (nik && nik.length !== 16) {
-      alert('NIK harus tepat 16 digit angka!')
-      setActiveTab('pribadi')
-      return
-    }
+
+    // Validasi seluruh step, bukan hanya step terakhir, agar data invalid (mis. NIK) tak lolos.
+    if (!validateThrough(tabs.length - 1)) return
 
     const payload: StaffFormValues = {
       name,
@@ -134,26 +167,42 @@ export function StaffForm({
     onSubmit(payload)
   }
 
-  const tabs = [
-    { id: 'utama', label: 'Informasi Utama' },
-    { id: 'pribadi', label: 'Data Pribadi' },
-    { id: 'darurat', label: 'Kontak Darurat' },
-    ...(isPrivileged ? [{ id: 'keuangan', label: 'Keuangan & Rekening' }] : [])
-  ] as const
+  // tabs array moved above
+  const extendedOutlets = [...outlets]
+  if (!extendedOutlets.find(o => o.id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' || o.name.toLowerCase().includes('kantor pusat'))) {
+    extendedOutlets.push({
+      id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      name: 'Kantor Pusat',
+      slug: 'kantor-pusat',
+      address: null,
+      lat: 0,
+      lng: 0,
+      type: 'hq',
+      is_active: true
+    })
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Premium Tab Selection */}
+      {/* Premium Stepper Selection */}
       <div className="flex flex-wrap gap-2 border-b border-suka-gray-200 pb-3">
-        {tabs.map((tab) => (
+        {tabs.map((tab, idx) => (
           <button
             key={tab.id}
             type="button"
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => {
+              if (idx < currentIndex) setActiveTab(tab.id as any) // mundur selalu boleh
+              else if (idx > currentIndex) {
+                // maju ke step manapun harus lolos validasi semua step sebelum target
+                if (validateThrough(idx - 1)) setActiveTab(tab.id as any)
+              }
+            }}
             className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 cursor-pointer ${
               activeTab === tab.id
                 ? 'bg-suka-brown text-white shadow-md transform scale-[1.02]'
-                : 'bg-suka-cream text-suka-brown hover:bg-suka-orange hover:text-white hover:shadow-sm'
+                : idx < currentIndex 
+                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                  : 'bg-suka-cream text-suka-brown hover:bg-suka-orange hover:text-white hover:shadow-sm'
             }`}
           >
             {tab.label}
@@ -166,7 +215,7 @@ export function StaffForm({
         {activeTab === 'utama' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="sf-name" className={labelCls}>Nama Lengkap</label>
+              <label htmlFor="sf-name" className={labelCls}>Nama Lengkap <span className="text-red-500">*</span></label>
               <input id="sf-name" className={inputCls} required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama Karyawan" />
             </div>
 
@@ -176,7 +225,7 @@ export function StaffForm({
             </div>
 
             <div>
-              <label htmlFor="sf-username" className={labelCls}>Username</label>
+              <label htmlFor="sf-username" className={labelCls}>Username <span className="text-red-500">*</span></label>
               <input 
                 id="sf-username" 
                 className={inputCls} 
@@ -191,22 +240,38 @@ export function StaffForm({
 
             {!isEditing && (
               <div>
-                <label htmlFor="sf-password" className={labelCls}>Password Sementara</label>
+                <label htmlFor="sf-password" className={labelCls}>Password Sementara <span className="text-red-500">*</span></label>
                 <input id="sf-password" type="text" className={inputCls} required value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
             )}
 
             <div>
-              <label htmlFor="sf-role" className={labelCls}>Role</label>
-              <select id="sf-role" className={inputCls} value={role} onChange={(e) => setRole(e.target.value as Role)}>
+              <label htmlFor="sf-role" className={labelCls}>Role <span className="text-red-500">*</span></label>
+              <select id="sf-role" className={inputCls} value={role} onChange={(e) => {
+                const newRole = e.target.value as Role
+                setRole(newRole)
+                if (newRole === 'staff_pusat') {
+                  const pusat = extendedOutlets.find(o => 
+                    o.id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' || 
+                    o.name.toLowerCase().includes('kantor pusat')
+                  )
+                  if (pusat) setOutletId(pusat.id)
+                }
+              }}>
                 {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
 
             <div>
-              <label htmlFor="sf-outlet" className={labelCls}>Outlet Home</label>
-              <select id="sf-outlet" className={inputCls} value={outletId} onChange={(e) => setOutletId(e.target.value)}>
-                {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              <label htmlFor="sf-outlet" className={labelCls}>Outlet Home <span className="text-red-500">*</span></label>
+              <select 
+                id="sf-outlet" 
+                className={inputCls} 
+                value={outletId} 
+                onChange={(e) => setOutletId(e.target.value)}
+                disabled={role === 'staff_pusat'}
+              >
+                {extendedOutlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             </div>
 
@@ -386,10 +451,30 @@ export function StaffForm({
       </div>
 
       {/* Form Submission Actions */}
-      <div className="flex justify-end gap-3 pt-3 border-t border-suka-gray-100">
-        <Button type="submit" disabled={submitting} className="rounded-xl px-6 py-2.5 font-bold hover:shadow-lg transition-all">
-          {submitting ? 'Menyimpan...' : 'Simpan Profil Karyawan'}
+      <div className="flex justify-between items-center pt-3 border-t border-suka-gray-100 mt-6">
+        <Button 
+          type="button" 
+          variant="secondary"
+          disabled={isFirstStep}
+          onClick={handlePrev} 
+          className="rounded-xl px-6 py-2.5 font-bold transition-all"
+        >
+          Sebelumnya
         </Button>
+        
+        {!isLastStep ? (
+          <Button 
+            type="button" 
+            onClick={handleNext} 
+            className="rounded-xl px-6 py-2.5 font-bold hover:shadow-lg transition-all"
+          >
+            Selanjutnya
+          </Button>
+        ) : (
+          <Button type="submit" disabled={submitting} className="rounded-xl px-6 py-2.5 font-bold hover:shadow-lg transition-all bg-green-600 text-white hover:bg-green-700">
+            {submitting ? 'Menyimpan...' : 'Simpan Profil Karyawan'}
+          </Button>
+        )}
       </div>
     </form>
   )

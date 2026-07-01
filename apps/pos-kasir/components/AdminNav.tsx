@@ -12,6 +12,7 @@ const links = [
   { href: '/admin/reports',    label: 'Laporan',   icon: ClipboardList },
   { href: '/admin/menu',       label: 'Menu',      icon: LayoutDashboard },
   { href: '/admin/categories', label: 'Kategori',  icon: Tag },
+  { href: '/admin/promo',      label: 'Promo',     icon: Tag },
   { href: '/admin/outlets',    label: 'Cabang',    icon: Store },
   { href: '/admin/users',      label: 'Pengguna',  icon: Users },
   { href: '/admin/guides',     label: 'Panduan',   icon: BookOpen },

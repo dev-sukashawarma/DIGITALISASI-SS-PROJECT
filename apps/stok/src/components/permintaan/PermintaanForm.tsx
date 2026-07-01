@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import type { SaranItem } from '@/hooks/usePermintaan'
-import { useSaranItem, usePermintaanActions } from '@/hooks/usePermintaan'
+import { useSaranItem, usePermintaanActions, usePermintaanList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 
 interface Row {
@@ -19,11 +19,20 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
   const { saran } = useSaranItem(outletId)
   const { bahanBaku } = useBahanBaku()
   const { buat } = usePermintaanActions()
+  const { permintaan: existingList, refresh: refreshExisting } = usePermintaanList(outletId)
   const [rows, setRows] = useState<Record<string, Row>>({})
   const [pickId, setPickId] = useState('')
   const [busy, setBusy] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
+  // Item yang sudah punya permintaan berstatus "menunggu" untuk outlet ini —
+  // jangan biarkan crew kirim ulang item yang sama selagi masih menunggu approval.
+  const pendingItemIds = new Set(
+    existingList
+      .filter(p => p.status === 'menunggu')
+      .flatMap(p => p.items.map(it => it.bahan_baku_id))
+  )
 
   // Seed baris dari saran (qty default = kekurangan ke threshold). Tidak menimpa
   // baris yang sudah diutak-atik user atau baris manual.
@@ -34,6 +43,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
       const next = { ...prev }
       saran.forEach((s: SaranItem) => {
         if (next[s.bahan_baku_id]) return
+        if (pendingItemIds.has(s.bahan_baku_id)) return
         const def = Math.max(1, Math.ceil(s.threshold - s.current_qty))
         next[s.bahan_baku_id] = {
           bahan_baku_id: s.bahan_baku_id,
@@ -68,7 +78,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
   function addManual() {
     if (!pickId) return
     const bb = bahanBaku.find(b => b.id === pickId)
-    if (!bb || rows[bb.id]) { setPickId(''); return }
+    if (!bb || rows[bb.id] || pendingItemIds.has(bb.id)) { setPickId(''); return }
     setRows(prev => ({
       ...prev,
       [bb.id]: {
@@ -90,7 +100,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
   const valid = selected.length > 0 && !busy
 
   // Item yang belum ada di form, untuk dropdown tambah manual
-  const available = bahanBaku.filter(b => !rows[b.id])
+  const available = bahanBaku.filter(b => !rows[b.id] && !pendingItemIds.has(b.id))
 
   const handleDismissSuccess = () => {
     setSuccessMsg(null)
@@ -107,6 +117,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
       // Reset form & tampilkan notif sukses
       setRows({})
       setSuccessMsg(`Permintaan berhasil dikirim (${selected.length} item). Menunggu persetujuan.`)
+      refreshExisting()
 
       // Trigger callback untuk refresh list
       if (onSubmitSuccess) {
@@ -201,6 +212,11 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
 
   return (
     <div className="space-y-4">
+      {pendingItemIds.size > 0 && (
+        <div className="text-xs font-bold text-[#6d3900] bg-[#ffdcc2] border border-[#6d3900]/20 p-3 rounded-xl">
+          ⏳ {pendingItemIds.size} item sudah punya permintaan yang menunggu persetujuan SPV — tidak ditampilkan lagi di sini sampai disetujui/ditolak.
+        </div>
+      )}
       {/* Item Kritis Section */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">

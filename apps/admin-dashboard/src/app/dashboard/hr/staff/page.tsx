@@ -1,7 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { UserPlus } from 'lucide-react'
+import { UserPlus, Upload } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { useStaff } from '@/hooks/useStaff'
 import { useOutlets } from '@/hooks/useOutlets'
@@ -10,6 +10,7 @@ import { filterStaff } from '@/lib/filterStaff'
 import { StaffFilters } from '@/components/StaffFilters'
 import { StaffTable } from '@/components/StaffTable'
 import { StaffForm } from '@/components/StaffForm'
+import { BulkImportStaff } from '@/components/BulkImportStaff'
 import { ResetPasswordDialog } from '@/components/ResetPasswordDialog'
 import type { StaffRow, StaffFilterValues, StaffStatus, StaffFormValues } from '@/lib/types'
 
@@ -24,6 +25,7 @@ export default function StaffPage() {
 
   const [filter, setFilter] = useState<StaffFilterValues>(EMPTY_FILTER)
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [editing, setEditing] = useState<StaffRow | null>(null)
   const [resetting, setResetting] = useState<StaffRow | null>(null)
 
@@ -73,10 +75,26 @@ export default function StaffPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-suka-ink">Manajemen Staff</h2>
-        <Button onClick={() => { setEditing(null); setShowForm((v) => !v) }} className="flex items-center gap-2 rounded-xl">
-          <UserPlus size={18} /> Tambah Staff
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => { setEditing(null); setShowForm(false); setShowImport((v) => !v) }} className="flex items-center gap-2 rounded-xl">
+            <Upload size={18} /> Import CSV
+          </Button>
+          <Button onClick={() => { setEditing(null); setShowImport(false); setShowForm((v) => !v) }} className="flex items-center gap-2 rounded-xl">
+            <UserPlus size={18} /> Tambah Staff
+          </Button>
+        </div>
       </div>
+
+      {showImport && !editing && (
+        <div className="rounded-2xl border-2 border-suka-orange/40 bg-white p-4 sm:p-6">
+          <h3 className="mb-4 font-bold text-suka-ink">Import CSV Secara Massal</h3>
+          <BulkImportStaff 
+            outlets={outlets} 
+            onComplete={() => setShowImport(false)} 
+            onCancel={() => setShowImport(false)} 
+          />
+        </div>
+      )}
 
       {showForm && !editing && (
         <div className="rounded-2xl border-2 border-suka-orange/40 bg-white p-4 sm:p-6">
@@ -134,7 +152,7 @@ export default function StaffPage() {
 
       <StaffTable
         rows={rows}
-        onEdit={(s) => { setShowForm(false); setEditing(s) }}
+        onEdit={(s) => { setShowForm(false); setShowImport(false); setEditing(s) }}
         onResetPassword={(s) => setResetting(s)}
         onToggleStatus={handleToggleStatus}
         onDelete={handleDelete}

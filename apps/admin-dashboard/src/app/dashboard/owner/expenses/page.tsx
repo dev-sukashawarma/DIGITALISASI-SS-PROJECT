@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useDashboardStore } from '@/hooks/useDashboardStore'
+import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useExpenses } from '@/hooks/useExpenses'
 import { PeriodFilter } from '@/components/PeriodFilter'
@@ -42,7 +42,7 @@ const CATEGORY_ICONS: Record<string, any> = {
 
 export default function ExpensesPage() {
   const { data: outlets = [] } = useOutlets()
-  const { filter, setFilter } = useDashboardStore()
+  const { filter, setFilter, lockedOutletId } = useScopedFilter()
 
   const { rows, loading, error } = useExpenses(filter)
 
@@ -86,7 +86,7 @@ export default function ExpensesPage() {
           <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Laporan Pengeluaran</h2>
           <p className="text-xs text-suka-gray-500 font-medium">Analisis pengeluaran operasional outlet</p>
         </div>
-        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} />
+        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} />
       </div>
 
       {error && (

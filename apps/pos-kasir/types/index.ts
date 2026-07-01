@@ -3,6 +3,9 @@ export interface Outlet {
   name: string
   address: string | null
   phone: string | null
+  type?: string
+  open_hour?: string
+  close_hour?: string
   is_active: boolean
   inactive_reason?: string | null
   created_at: string

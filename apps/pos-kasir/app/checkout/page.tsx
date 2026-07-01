@@ -12,6 +12,8 @@ import {
 import { useCart } from '@/store/cart'
 import { formatRupiah } from '@/lib/validations'
 import type { PaymentMethod } from '@/types'
+import { usePromos } from '@/lib/usePromos'
+import { useMyOutlet } from '@/lib/useMyOutlet'
 
 interface PaymentOption {
   id: PaymentMethod
@@ -55,12 +57,27 @@ const PAYMENT_OPTIONS: PaymentOption[] = [
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { items, totalPrice, clearCart } = useCart()
+  const { items, clearCart } = useCart()
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null)
   const [loading, setLoading]             = useState(false)
   const [isSuccess, setIsSuccess]         = useState(false)
   const [error, setError]                 = useState('')
-  const total = totalPrice()
+  
+  const { outletId } = useMyOutlet()
+  const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
+  
+  let baseSubtotal = 0
+  items.forEach(i => baseSubtotal += i.item.price * i.quantity)
+
+  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, baseSubtotal)
+
+  let subtotal = 0
+  items.forEach(i => {
+    subtotal += wrappedCalculateItemPrice(i.item.price, i.item.id) * i.quantity
+  })
+  const globalDiscount = calculateGlobalDiscount(subtotal)
+  const total = subtotal - globalDiscount
+  
   const rootItems = items.filter(i => !i.parentId)
 
   if (items.length === 0 && !isSuccess) {
@@ -89,13 +106,18 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           payment_method: paymentMethod,
-          items: items.map(({ cartItemId, parentId, item, quantity, note }) => ({ 
-            cartItemId, 
-            parentId, 
-            menu_item_id: item.id, 
-            quantity, 
-            note: note?.trim() 
-          })),
+          discount_amount: globalDiscount, // global order discount
+          items: items.map(({ cartItemId, parentId, item, quantity, note }) => {
+            const finalPrice = wrappedCalculateItemPrice(item.price, item.id)
+            return { 
+              cartItemId, 
+              parentId, 
+              menu_item_id: item.id, 
+              quantity, 
+              unit_price: finalPrice, // Important so API checkout uses discounted price
+              note: note?.trim() 
+            }
+          }),
         }),
       })
       const data = await res.json()
@@ -169,11 +191,21 @@ export default function CheckoutPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="text-gray-900 text-[15px] font-bold leading-tight">{root.item.name}</p>
+                          {wrappedCalculateItemPrice(root.item.price, root.item.id) < root.item.price && (
+                            <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">Diskon Promo Item!</p>
+                          )}
                         </div>
                       </div>
-                      <span className="text-gray-900 text-[15px] font-black flex-shrink-0 mt-0.5">
-                        {formatRupiah(root.item.price * root.quantity)}
-                      </span>
+                      <div className="text-right flex-shrink-0 mt-0.5">
+                        <p className="text-gray-900 text-[15px] font-black">
+                          {formatRupiah(wrappedCalculateItemPrice(root.item.price, root.item.id) * root.quantity)}
+                        </p>
+                        {wrappedCalculateItemPrice(root.item.price, root.item.id) < root.item.price && (
+                          <p className="text-[11px] text-gray-400 line-through">
+                            {formatRupiah(root.item.price * root.quantity)}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     {/* Root Note */}
@@ -211,7 +243,7 @@ export default function CheckoutPage() {
                           </div>
                         </div>
                         <span className="text-gray-600 text-sm font-bold flex-shrink-0 mt-0.5">
-                          {formatRupiah(child.item.price * child.quantity)}
+                          {formatRupiah(wrappedCalculateItemPrice(child.item.price, child.item.id) * child.quantity)}
                         </span>
                       </div>
                     ))}
@@ -223,9 +255,15 @@ export default function CheckoutPage() {
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 text-sm">Subtotal</span>
-                <span className="text-gray-700 font-semibold">{formatRupiah(total)}</span>
+                <span className={`text-gray-700 font-semibold ${globalPromo ? 'line-through text-gray-400' : ''}`}>{formatRupiah(subtotal)}</span>
               </div>
-              <div className="flex justify-between items-center mt-2">
+              {globalPromo && (
+                <div className="flex justify-between items-center mt-1 text-emerald-600 font-medium text-sm">
+                  <span>Promo Global</span>
+                  <span>-{formatRupiah(globalDiscount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center mt-2 border-t border-gray-50 pt-2">
                 <span className="font-bold text-gray-900">Total Pembayaran</span>
                 <span className="font-bold text-2xl text-amber-600">{formatRupiah(total)}</span>
               </div>

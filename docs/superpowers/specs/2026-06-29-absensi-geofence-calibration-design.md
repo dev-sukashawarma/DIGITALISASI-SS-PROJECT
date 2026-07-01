@@ -65,7 +65,7 @@ Radius 30 m itu ketat untuk GPS HP. Yang membuatnya tetap pakai-able adalah logi
 
 ### 4.1 Halaman kalibrasi `/dashboard/pengaturan-lokasi` (baru)
 
-- **Akses:** SPV-only — role ∈ {`spv`, `admin`, `owner`}. Page-level guard + `router.replace` bila bukan SPV, meniru pola `src/app/dashboard/layout.tsx:60-70`. Ditambahkan juga sebagai item nav SPV.
+- **Akses:** SPV-only — role ∈ {`spv`, `admin`, `owner`, `leader`}. Diperluas ke `leader` setelah ditemukan akun SPV lapangan ("SPV Pusat" dkk) lazimnya ber-role `leader` (SPV yang membina multi-outlet via `staff_outlets`), bukan `spv` murni. Page-level guard + `router.replace` bila tak termasuk, meniru pola `src/app/dashboard/layout.tsx:60-70`. Ditambahkan juga sebagai item nav, disembunyikan dari `admin_hr`.
 - **Peta:** **Leaflet** + tile **OpenStreetMap** (gratis, tanpa API key) dengan **layer Satelit Esri World Imagery** (gratis, tanpa key) sebagai base layer agar SPV dapat melihat atap gedung. Toggle OSM/Satelit.
 - **Interaksi:**
   1. Dropdown pilih outlet (default: outlet milik SPV bila `spv`/`leader`).
@@ -84,7 +84,7 @@ Radius 30 m itu ketat untuk GPS HP. Yang membuatnya tetap pakai-able adalah logi
 Endpoint sekarang **TIDAK punya auth sama sekali** — siapa pun bisa menggeser koordinat outlet. Diperketat:
 1. Baca bearer token dari header `Authorization`.
 2. `admin.auth.getUser(token)` → dapat `user.id`. Bila gagal → 401.
-3. Query `outlet_staff` role berdasarkan `user.id`. Bila role ∉ {`spv`,`admin`,`owner`} → 403.
+3. Query `outlet_staff` role berdasarkan `user.id`. Bila role ∉ {`spv`,`admin`,`owner`,`leader`} → 403. *(Diperluas ke `leader` pasca-implementasi — akun SPV lapangan lazimnya ber-role `leader`.)*
 4. (Untuk `spv`/`leader`) opsional: pastikan `outlet_id` termasuk outlet yang dia bina (`accessible_outlet_ids`). `admin`/`owner` bebas. *(Bila helper sulit dipanggil dari sini, minimal kunci ke role; catat sebagai follow-up.)*
 5. Baru `update outlets set lat,lng`. Validasi `lat ∈ [-90,90]`, `lng ∈ [-180,180]`.
 

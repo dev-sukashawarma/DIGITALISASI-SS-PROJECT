@@ -13,7 +13,7 @@ import { formatRupiah } from '@/lib/validations'
 import type { OrderWithItems, OrderStatus } from '@/types'
 
 const STATUS_CONF: Partial<Record<OrderStatus, {
-  label: string; color: string; badge: string; icon: React.ElementType
+  label: string; color: string; badge: string; icon: any
 }>> = {
   pending:   { label: 'Menunggu',     color: 'text-yellow-600',  badge: 'badge-yellow', icon: Clock },
   completed: { label: 'Selesai',      color: 'text-gray-400',    badge: 'badge-gray',   icon: CheckCircle2 },

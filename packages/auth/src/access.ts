@@ -10,6 +10,8 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   leader: ['pos-kasir', 'absensi', 'stok', 'distribusi'],
   crew: ['absensi', 'pos-kasir', 'stok', 'distribusi'],
   kiosk: ['pos-kasir'],
+  mitra: ['admin-dashboard'],
+  staff_pusat: ['absensi'],
 }
 
 export function hasAppAccess(role: Role, app: AppName): boolean {

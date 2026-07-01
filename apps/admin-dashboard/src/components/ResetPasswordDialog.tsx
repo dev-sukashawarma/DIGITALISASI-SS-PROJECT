@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Button } from '@suka/design-system'
+import { generateTempPassword } from '@/lib/generatePassword'
 
 export function ResetPasswordDialog({
   staffName, onSubmit, onClose, submitting,
@@ -10,7 +11,7 @@ export function ResetPasswordDialog({
   onClose: () => void
   submitting: boolean
 }) {
-  const [pw, setPw] = useState('sukashawarma123')
+  const [pw, setPw] = useState(() => generateTempPassword())
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-5 space-y-4">

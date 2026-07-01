@@ -502,16 +502,16 @@ export async function generatePDFContent(
 }
 
 export function downloadPDF(filename: string, htmlContent: string) {
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
   const element = document.createElement('a')
-  element.setAttribute(
-    'href',
-    'data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent)
-  )
+  element.setAttribute('href', url)
   element.setAttribute('download', filename)
   element.style.display = 'none'
   document.body.appendChild(element)
   element.click()
   document.body.removeChild(element)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 export function downloadBarcode(filename: string, dataUrl: string) {

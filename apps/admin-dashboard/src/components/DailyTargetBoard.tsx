@@ -4,6 +4,7 @@ import { useTargetProgress } from '@/hooks/useTargetProgress'
 import { rupiahCompact } from '@/lib/format'
 import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@suka/auth'
+import { useRole } from '@/components/layout/RoleContext'
 
 function cleanName(name: string) {
   return name.replace('SUKA SHAWARMA ', '').replace('MITRA SUKA ', 'MITRA ')
@@ -12,6 +13,7 @@ function cleanName(name: string) {
 export function DailyTargetBoard() {
   const { rows, loading, refetch } = useTargetProgress()
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const { isReadOnly } = useRole()
 
   // Modal states
   const [modalOpen, setModalOpen] = useState(false)
@@ -140,15 +142,17 @@ export function DailyTargetBoard() {
                 {achieved}/{withTarget.length} tercapai
               </span>
             )}
-            <button
-              onClick={() => {
-                setTargetScope('global')
-                setModalOpen(true)
-              }}
-              className="flex items-center gap-1.5 px-3 py-1 bg-suka-cream/50 hover:bg-suka-cream border border-suka-brown/10 text-suka-brown rounded-lg text-xs font-bold transition-colors"
-            >
-              <Edit3 className="w-3.5 h-3.5" /> Set Target
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => {
+                  setTargetScope('global')
+                  setModalOpen(true)
+                }}
+                className="flex items-center gap-1.5 px-3 py-1 bg-suka-cream/50 hover:bg-suka-cream border border-suka-brown/10 text-suka-brown rounded-lg text-xs font-bold transition-colors"
+              >
+                <Edit3 className="w-3.5 h-3.5" /> Set Target
+              </button>
+            )}
           </div>
         </div>
 
@@ -166,6 +170,7 @@ export function DailyTargetBoard() {
                   <div
                     key={r.outlet_id}
                     onClick={() => {
+                      if (isReadOnly) return
                       setTargetScope(r.outlet_id)
                       setModalOpen(true)
                     }}

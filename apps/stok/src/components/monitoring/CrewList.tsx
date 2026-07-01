@@ -32,6 +32,41 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'flagged'>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // useMemo WAJIB dieksekusi sebelum early-return `loading` (Rules of Hooks).
+  // Sebelumnya ada di bawah `if (loading) return` → jumlah hook berubah saat
+  // loading flip true→false → React error #310 (crash di useMemo).
+  const filteredAndSorted = useMemo(() => {
+    let result = [...items];
+
+    // Filter by status
+    if (filterStatus === 'below') {
+      result = result.filter((item) => item.status === 'below');
+    } else if (filterStatus === 'flagged') {
+      result = result.filter((item) => item.is_flagged);
+    }
+
+    // Filter by name (case-insensitive search specifically for ingredient/material names)
+    if (searchTerm.trim() !== '') {
+      const term = searchTerm.toLowerCase();
+      result = result.filter((item) => item.item_name.toLowerCase().includes(term));
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      if (sortBy === 'status') {
+        const statusOrder = { below: 0, warning: 1, ok: 2 };
+        const aOrder = statusOrder[a.status];
+        const bOrder = statusOrder[b.status];
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return a.item_name.localeCompare(b.item_name);
+      } else {
+        return a.item_name.localeCompare(b.item_name);
+      }
+    });
+
+    return result;
+  }, [items, sortBy, filterStatus, searchTerm]);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -69,38 +104,6 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
       </div>
     );
   }
-
-  const filteredAndSorted = useMemo(() => {
-    let result = [...items];
-
-    // Filter by status
-    if (filterStatus === 'below') {
-      result = result.filter((item) => item.status === 'below');
-    } else if (filterStatus === 'flagged') {
-      result = result.filter((item) => item.is_flagged);
-    }
-
-    // Filter by name (case-insensitive search specifically for ingredient/material names)
-    if (searchTerm.trim() !== '') {
-      const term = searchTerm.toLowerCase();
-      result = result.filter((item) => item.item_name.toLowerCase().includes(term));
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      if (sortBy === 'status') {
-        const statusOrder = { below: 0, warning: 1, ok: 2 };
-        const aOrder = statusOrder[a.status];
-        const bOrder = statusOrder[b.status];
-        if (aOrder !== bOrder) return aOrder - bOrder;
-        return a.item_name.localeCompare(b.item_name);
-      } else {
-        return a.item_name.localeCompare(b.item_name);
-      }
-    });
-
-    return result;
-  }, [items, sortBy, filterStatus, searchTerm]);
 
   const belowCount = items.filter((item) => item.status === 'below').length;
   const flaggedCount = items.filter((item) => item.is_flagged).length;

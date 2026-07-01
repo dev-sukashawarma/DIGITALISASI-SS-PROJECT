@@ -5,7 +5,7 @@ import { buildLeaderboard } from '@/lib/leaderboard'
 import { useSalesSummary } from '@/hooks/useSalesSummary'
 import { useSalesHourly } from '@/hooks/useSalesHourly'
 import { useMenuSales } from '@/hooks/useMenuSales'
-import { useDashboardStore } from '@/hooks/useDashboardStore'
+import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useSalesRealtime } from '@/hooks/useSalesRealtime'
 import { PeriodFilter } from '@/components/PeriodFilter'
@@ -16,23 +16,32 @@ import { TopMenus } from '@/components/TopMenus'
 import { BottomMenus } from '@/components/BottomMenus'
 import { OutletLeaderboard } from '@/components/OutletLeaderboard'
 import { DailyTargetBoard } from '@/components/DailyTargetBoard'
+import { useRole } from '@/components/layout/RoleContext'
 import type { PeriodFilterValue } from '@/lib/types'
 
 export default function DashboardPage() {
+  const { isReadOnly } = useRole()
   const { data: outlets = [] } = useOutlets()
-  const { filter, setFilter } = useDashboardStore()
+  const { filter, setFilter, lockedOutletId } = useScopedFilter()
+  const scopedOutlets = useMemo(
+    () => (lockedOutletId ? outlets.filter((o) => o.id === lockedOutletId) : outlets),
+    [outlets, lockedOutletId]
+  )
   // Realtime: papan ikut refresh begitu ada order baru (paid+selesai) tanpa ganti filter.
   useSalesRealtime()
   const prevFilter = useMemo<PeriodFilterValue>(() => ({ ...filter, ...previousRange({ from: filter.from, to: filter.to }) }), [filter])
 
-  const cur = useSalesSummary(filter)
-  const prev = useSalesSummary(prevFilter)
+  const cur = useSalesSummary(filter, outlets)
+  const prev = useSalesSummary(prevFilter, outlets)
   const hourly = useSalesHourly(filter)
   const menu = useMenuSales(filter)
   const leaderboard = useMemo(() => buildLeaderboard(cur.rows, prev.rows), [cur.rows, prev.rows])
 
   const isOneDay = filter.from === filter.to
   const isLoading = cur.loading || hourly.loading || menu.loading
+  // Surface error dari salah satu query (jangan hanya `cur`), agar chart kosong
+  // tidak disangka "tak ada data" saat sebenarnya fetch hourly/menu gagal.
+  const errorMsg = cur.error || hourly.error || menu.error
 
   return (
     <div className="space-y-6">
@@ -42,10 +51,10 @@ export default function DashboardPage() {
           <h2 className="text-lg sm:text-xl font-extrabold text-suka-brown tracking-tight">Kinerja Penjualan</h2>
           <p className="text-xs text-suka-gray-500 font-medium">Statistik penjualan riil dari sistem POS Kasir</p>
         </div>
-        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} />
+        <PeriodFilter value={filter} onChange={setFilter} outlets={scopedOutlets} lockedOutletId={lockedOutletId} />
       </div>
 
-      {cur.error && <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">Gagal memuat data: {cur.error}</div>}
+      {errorMsg && <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">Gagal memuat data: {errorMsg}</div>}
       
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-suka-brown font-bold text-sm">
@@ -75,7 +84,7 @@ export default function DashboardPage() {
               <BottomMenus rows={menu.rows} />
             </div>
           </div>
-          <OutletLeaderboard entries={leaderboard} allOutlets={outlets} />
+          {!isReadOnly && <OutletLeaderboard entries={leaderboard} allOutlets={scopedOutlets} />}
         </>
       )}
     </div>

@@ -39,24 +39,23 @@ export default function StockAlertBanner() {
   return (
     <div className="w-full px-4 pt-4 pb-0 print:hidden">
       <div
-        className="w-full rounded-xl flex items-start sm:items-center gap-3 px-4 py-3 shadow-sm border animate-fade-in"
-        style={{
-          backgroundColor: isCritical ? '#fdeaea' : '#fff3e6',
-          borderColor: isCritical ? '#dc262630' : '#f2974430',
-        }}
+        className={`w-full rounded-xl flex items-start sm:items-center gap-3 px-4 py-3 shadow-sm border-2 animate-fade-in ${
+          isCritical ? 'border-red-500 bg-red-50' : 'border-orange-400 bg-orange-50'
+        }`}
       >
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ backgroundColor: 'white', color: isCritical ? '#dc2626' : '#f29744' }}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white shadow-sm ${
+            isCritical ? 'text-red-600' : 'text-orange-500'
+          }`}
         >
-          <AlertTriangle className="w-4 h-4" />
+          <AlertTriangle className="w-5 h-5 animate-pulse" />
         </div>
 
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-extrabold text-[#1e1b15] leading-tight mb-0.5">
-            {isCritical ? 'Stok kritis di outlet Anda' : 'Stok menipis di outlet Anda'}
+          <h4 className={`text-sm font-extrabold leading-tight mb-0.5 ${isCritical ? 'text-red-700' : 'text-orange-700'}`}>
+            {isCritical ? '🚨 STOK KRITIS DI OUTLET ANDA!' : '⚠️ STOK MENIPIS DI OUTLET ANDA!'}
           </h4>
-          <p className="text-xs font-semibold text-[#3a322b] truncate pr-4">
+          <p className="text-xs font-semibold text-gray-700 truncate pr-4">
             {names}{more}
           </p>
         </div>

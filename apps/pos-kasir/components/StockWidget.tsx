@@ -45,7 +45,10 @@ export default function StockWidget() {
                 <PackageX className="w-4 h-4 text-red-600 shrink-0" />
                 <span className="text-xs font-bold text-[#1e1b15] truncate">{item.item_name}</span>
               </div>
-              <span className="text-xs font-bold text-red-600 shrink-0">{item.current_qty} {item.satuan}</span>
+              <span className="text-xs font-bold text-red-600 shrink-0 flex items-center gap-1.5">
+                <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded animate-pulse border border-red-200">Kritis!</span>
+                {item.current_qty} {item.satuan}
+              </span>
             </div>
           ))}
           {warningItems.map((item) => (
@@ -54,7 +57,10 @@ export default function StockWidget() {
                 <PackageMinus className="w-4 h-4 text-[#f29744] shrink-0" />
                 <span className="text-xs font-bold text-[#1e1b15] truncate">{item.item_name}</span>
               </div>
-              <span className="text-xs font-bold text-[#f29744] shrink-0">{item.current_qty} {item.satuan}</span>
+              <span className="text-xs font-bold text-[#f29744] shrink-0 flex items-center gap-1.5">
+                <span className="bg-orange-100 text-[#f29744] px-1.5 py-0.5 rounded animate-pulse border border-[#f2974430]">Menipis</span>
+                {item.current_qty} {item.satuan}
+              </span>
             </div>
           ))}
         </div>

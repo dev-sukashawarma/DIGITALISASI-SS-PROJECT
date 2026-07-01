@@ -1,19 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, ChevronRight, Loader2, ArrowRight } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 
-// Definition based on our DB schemas
+// Definition based on our DB schemas (kolom sesuai tabel `shifts`)
 interface Shift {
   id: string
   status: 'open' | 'closed'
   starting_cash: number
-  opened_at: string
+  start_time: string
   staff_id: string
-  closed_at?: string
+  end_time?: string
   closed_by?: string
   actual_ending_cash?: number
   expected_ending_cash?: number
@@ -27,6 +27,31 @@ interface Expense {
   description: string
   expense_date: string
   created_at: string
+  created_by?: string | null
+  creator?: { name: string | null } | null
+}
+
+// Format tanggal aman: kembalikan '—' bila nilai kosong/invalid (hindari
+// "Invalid Date").
+function formatDateTime(value?: string | null): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function formatTime(value?: string | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+}
+
+const CATEGORY_LABEL: Record<string, string> = {
+  bahan_baku: 'Bahan Baku',
+  operasional: 'Operasional',
+  utilitas: 'Utilitas',
+  lainnya: 'Lainnya',
 }
 
 export default function ShiftPage() {
@@ -52,6 +77,14 @@ export default function ShiftPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
+  // Total petty cash hari ini (auto-akumulasi dari daftar pengeluaran)
+  const todayTotal = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]
+    return expenses
+      .filter((e) => e.expense_date === today)
+      .reduce((s, e) => s + Number(e.amount), 0)
+  }, [expenses])
+
   useEffect(() => {
     if (outletId) {
       fetchCurrentState()
@@ -73,15 +106,15 @@ export default function ShiftPage() {
       setActiveShift(shiftData || null)
 
       if (shiftData) {
-        // Fetch expenses tied to this shift
+        // Fetch expenses tied to this shift + nama pencatat (audit)
         const { data: expData, error: expError } = await supabase
           .from('expenses')
-          .select('*')
+          .select('*, creator:outlet_staff!expenses_created_by_fkey(name)')
           .eq('shift_id', shiftData.id)
           .order('created_at', { ascending: false })
-          
+
         if (expError) throw expError
-        setExpenses(expData || [])
+        setExpenses((expData as unknown as Expense[]) || [])
       } else {
         setExpenses([])
       }
@@ -121,7 +154,8 @@ export default function ShiftPage() {
     }
   }
 
-  // Action: Add Petty Cash
+  // Action: Add Petty Cash — via RPC add_petty_cash (server-authoritative:
+  // stempel created_by/tanggal/outlet, auto-link shift).
   async function handleAddExpense(e: React.FormEvent) {
     e.preventDefault()
     setErrorMsg('')
@@ -132,7 +166,6 @@ export default function ShiftPage() {
       const amount = parseFloat(expAmount)
       if (isNaN(amount) || amount <= 0) throw new Error('Nominal pengeluaran tidak valid')
       if (!expDesc.trim()) throw new Error('Keterangan harus diisi')
-      
       if (!receiptFile) throw new Error('Foto struk/bukti wajib dilampirkan')
       
       const today = new Date().toISOString().split('T')[0]
@@ -140,20 +173,31 @@ export default function ShiftPage() {
       // MOCK UPLOAD: In real app, upload receiptFile to Supabase Storage here
       const dummyReceiptUrl = `https://storage.sukashawarma.com/receipts/${Date.now()}.jpg`
 
-      const { error } = await supabase
-        .from('expenses')
-        .insert({
+      // Try calling RPC first (assuming we updated it to accept p_receipt_url)
+      const { error } = await supabase.rpc('add_petty_cash', {
+        p_category: expCategory,
+        p_amount: amount,
+        p_description: expDesc.trim(),
+        p_receipt_url: dummyReceiptUrl
+      })
+
+      // Fallback bila migrasi petty-cash belum di-apply (RPC belum ada) atau argumen tidak cocok
+      if (error && (error.code === '42883' || error.code === 'PGRST202' || error.message?.includes('receipt_url'))) {
+        console.warn('RPC add_petty_cash belum siap — fallback insert langsung.')
+        const { error: insErr } = await supabase.from('expenses').insert({
           outlet_id: outletId,
           category: expCategory,
-          amount: amount,
-          description: expDesc,
+          amount,
+          description: expDesc.trim(),
           expense_date: today,
           payment_source: 'cash_drawer', // Will auto-link to active shift via trigger
           receipt_url: dummyReceiptUrl
         })
+        if (insErr) throw insErr
+      } else if (error) {
+        throw error
+      }
 
-      if (error) throw error
-      
       setSuccessMsg('Pengeluaran berhasil dicatat')
       setExpAmount('')
       setExpDesc('')
@@ -293,7 +337,7 @@ export default function ShiftPage() {
                 Saldo Awal: {formatRupiah(activeShift.starting_cash)}
               </h2>
               <p className="text-gray-500 text-sm mt-0.5">
-                Dibuka pada: {new Date(activeShift.opened_at).toLocaleString('id-ID')}
+                Dibuka pada: {formatDateTime(activeShift.start_time)}
               </p>
             </div>
             
@@ -383,31 +427,46 @@ export default function ShiftPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full bg-gray-900 hover:bg-gray-800 text-white py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50"
+                    className="w-full bg-gray-900 hover:bg-gray-800 text-white py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {isSubmitting ? 'Menyimpan...' : 'Simpan Pengeluaran'}
+                    {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Simpan Pengeluaran'}
                   </button>
                 </form>
               </div>
 
               {/* Expense List */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="border-b border-gray-100 px-5 py-4">
+                <div className="border-b border-gray-100 px-5 py-4 flex items-center justify-between">
                   <h3 className="font-bold text-gray-900 text-sm">Pengeluaran Laci Shift Ini</h3>
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Hari Ini</p>
+                    <p className="text-sm font-black text-red-600 leading-tight">-{formatRupiah(todayTotal)}</p>
+                  </div>
                 </div>
-                <div className="divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
+                <div className="divide-y divide-gray-100 max-h-[320px] overflow-y-auto">
                   {expenses.length === 0 ? (
                     <div className="p-8 text-center text-gray-400 text-sm">
                       Belum ada pengeluaran
                     </div>
                   ) : (
                     expenses.map(exp => (
-                      <div key={exp.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">{exp.description}</p>
-                          <p className="text-[11px] font-semibold text-gray-400 uppercase mt-0.5">{exp.category}</p>
+                      <div key={exp.id} className="p-4 flex items-start justify-between gap-3 hover:bg-gray-50">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="shrink-0 w-11 h-11 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300">
+                            <Receipt className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-gray-900 truncate">{exp.description}</p>
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase mt-0.5">
+                              {CATEGORY_LABEL[exp.category] ?? exp.category}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
+                              <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{exp.creator?.name ?? '—'}</span>
+                              <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(exp.created_at)}</span>
+                            </div>
+                          </div>
                         </div>
-                        <span className="text-sm font-black text-red-600">
+                        <span className="text-sm font-black text-red-600 shrink-0">
                           -{formatRupiah(exp.amount)}
                         </span>
                       </div>

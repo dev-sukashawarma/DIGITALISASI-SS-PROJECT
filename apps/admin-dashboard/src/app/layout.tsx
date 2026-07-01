@@ -3,8 +3,6 @@ import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { Providers } from './Providers'
 import './globals.css'
 
-export const dynamic = 'force-dynamic'
-
 export const metadata = {
   title: 'Admin Dashboard — Sukashawarma',
   description: 'Administrasi staff, akun & sistem',

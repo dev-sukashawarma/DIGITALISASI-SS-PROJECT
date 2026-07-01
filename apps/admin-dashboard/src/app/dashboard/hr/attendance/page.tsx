@@ -20,8 +20,6 @@ import { AttendanceTable } from '@/components/AttendanceTable'
 import { exportCsv } from '@/lib/exportCsv'
 import type { AttendanceLog, AttendanceFilterValues } from '@/lib/types'
 
-export const dynamic = 'force-dynamic'
-
 /* ─── Helpers ───────────────────────────────────────────────────────── */
 
 function currentMonthRange(): { from: string; to: string } {

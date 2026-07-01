@@ -12,8 +12,6 @@ import { OutletForm } from '@/components/OutletForm'
 import { DeleteOutletDialog } from '@/components/DeleteOutletDialog'
 import type { Outlet, OutletFilterValues, OutletFormValues } from '@/lib/types'
 
-export const dynamic = 'force-dynamic'
-
 const EMPTY_FILTER: OutletFilterValues = { search: '', status: '' }
 
 function toFormValues(o: Outlet): OutletFormValues {

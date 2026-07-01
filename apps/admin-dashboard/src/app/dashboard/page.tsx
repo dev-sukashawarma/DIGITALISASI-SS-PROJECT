@@ -12,8 +12,6 @@ const ROLE_HOME: Record<string, string> = {
 }
 const FALLBACK_HOME = '/dashboard/hr'
 
-export const dynamic = 'force-dynamic'
-
 export default async function DashboardHome() {
   const staff = parseStaffHeader((await headers()).get(STAFF_HEADER))
   const role = staff?.role?.toUpperCase() ?? ''

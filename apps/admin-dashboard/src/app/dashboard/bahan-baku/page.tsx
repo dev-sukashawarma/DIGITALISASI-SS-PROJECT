@@ -8,8 +8,6 @@ import { filterBahanBaku } from '@/lib/bahanBaku'
 import { BahanBakuFilters } from '@/components/BahanBakuFilters'
 import { BahanBakuTable } from '@/components/BahanBakuTable'
 
-export const dynamic = 'force-dynamic'
-
 export default function BahanBakuPage() {
   const { data: rows = [], isLoading } = useBahanBakuHarga()
   const { setHarga } = useBahanBakuHargaMutations()

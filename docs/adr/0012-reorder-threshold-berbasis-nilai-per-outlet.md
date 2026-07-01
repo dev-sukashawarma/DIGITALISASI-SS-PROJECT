@@ -1,6 +1,6 @@
-# ADR-012 — Reorder Threshold berbasis nilai stok per outlet (metode BELUM diputuskan)
+# ADR-012 — Reorder Threshold berbasis nilai stok per outlet (metode = Hybrid)
 
-- Status: **Proposed** (dalam diskusi — metode acuan, model core, & parameter belum final)
+- Status: **Proposed** (metode = **Hybrid (F)** DIPUTUSKAN; penandaan Bahan Inti, hard-block vs alert, & default % belum final)
 - Tanggal: 2026-07-01
 - Terkait: **ADR-011** (model HPP/valuasi — "nilai stok" di sini = Σ `qty × harga snapshot terbaru per bahan`, sesuai metode valuasi "harga terakhir" yang sudah diputuskan di ADR-011). CONTEXT.md ("Reorder Point", "Bahan Baku"). Bersinggungan dengan reorder point per-item yang sudah ada (`bahan_baku.default_reorder_point`, `outlet_reorder_point`).
 
@@ -20,7 +20,18 @@ Klarifikasi yang sudah muncul selama diskusi:
 
 Gate: **boleh membuat Order Session baru bila nilai stok (relevan) ≤ ambang%**. Menahan over-order, jaga cashflow, tanpa membuat outlet kehabisan bahan vital.
 
-## Kandidat metode acuan "100%" & pemicu
+## Keputusan: metode = Hybrid (F) / Model 1
+
+**Metode terpilih = Hybrid (F).** Gate terdiri dari dua lapis:
+
+1. **Plafon nilai total per outlet** — outlet boleh membuat Order Session bila `nilai stok total ≤ ambang% × plafon`. Ini mengontrol over-order/cashflow.
+2. **Pengecualian per-item Bahan Inti** — meski nilai total masih di atas ambang, bila ada **Bahan Inti** yang menyentuh reorder point per-item-nya (`bahan_baku.default_reorder_point` / `outlet_reorder_point` yang sudah ada), outlet **tetap boleh** memesan (order darurat), sehingga tak terjebak saat item vital habis.
+
+Ini mengadopsi **Model 1** (plafon total + pengecualian darurat core), **bukan** Model 2 (ambang hanya atas nilai inti). Konsekuensinya, konsep **Bahan Inti (Core Item)** menjadi **wajib** — perlu cara menandai bahan mana yang inti (lihat "Belum diputuskan").
+
+Alasan memilih Hybrid: menutup dua kebutuhan owner sekaligus — kontrol belanja (plafon nilai) + tak terjebak saat bahan vital kosong (per-item core) — dan memanfaatkan reorder point per-item yang **sudah ada** (tinggal menambah lapisan plafon + flag core).
+
+## Kandidat metode acuan "100%" & pemicu (rekam jejak — F dipilih)
 
 Semua memakai skenario Outlet Sudirman: Plafon = Rp10jt, ambang 20% (kecuali C), nilai order terakhir = Rp8jt, laju pakai = Rp1,5jt/hari, AYAM reorder point = 30 kg.
 
@@ -75,16 +86,14 @@ Konfigurasi yang dikelola admin **per outlet** (bukan konstanta sistem):
 
 | Setelan | Contoh | Fungsi |
 |---|---|---|
-| Plafon nilai bahan inti (acuan "100%") | Rp10jt | Nilai stok inti saat penuh |
+| Plafon nilai stok total (acuan "100%") | Rp10jt | Nilai stok outlet saat penuh (lapis 1 Hybrid) |
 | Ambang reorder (%) | 20% (bisa 15/25/30…) | Kapan boleh/dipicu order lagi |
 
 Rekomendasi: sediakan **default global** (mis. 20%) + **override per outlet**, meniru pola `default_reorder_point` (bahan) + `outlet_reorder_point` (override) yang sudah ada — supaya tak ada outlet tanpa ambang, dan konsisten dengan sistem.
 
 ## Belum diputuskan
 
-- **Metode acuan** (A / B / C / E / F) — inti yang masih terbuka.
-- **Model core** (Model 1 vs Model 2) & apakah konsep Bahan Inti diadopsi.
-- **Cara menandai bahan "inti"** — flag manual admin, per kategori, atau otomatis dari nilai konsumsi (ABC).
+- **Cara menandai bahan "inti"** — flag manual admin, per kategori, atau otomatis dari nilai konsumsi (ABC). (Wajib karena Hybrid butuh klasifikasi Bahan Inti.)
 - **Efek saat ambang terpenuhi** — hard-block (permintaan tak bisa disubmit) vs soft-alert (peringatan saja).
 - **Nilai default ambang %** & siapa yang boleh set per outlet (admin? spv?).
 - **Ketergantungan ADR-011:** valuasi sudah diputuskan (harga terakhir) → "nilai stok" = qty × harga snapshot terbaru per bahan.

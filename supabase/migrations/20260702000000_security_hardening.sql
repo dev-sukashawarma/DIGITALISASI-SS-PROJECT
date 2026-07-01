@@ -13,7 +13,7 @@ ADD COLUMN IF NOT EXISTS receipt_url TEXT;
 -- Enforce receipt_url if payment_source is cash_drawer
 ALTER TABLE public.expenses
 ADD CONSTRAINT expenses_cash_drawer_receipt_check
-CHECK (payment_source != 'cash_drawer' OR receipt_url IS NOT NULL);
+CHECK (payment_source != 'cash_drawer' OR receipt_url IS NOT NULL) NOT VALID;
 
 -- 3. Surat Jalan Strict Validation (surat_jalan_item table)
 -- Prevent surat_jalan from being received if any items are missing qty_terima

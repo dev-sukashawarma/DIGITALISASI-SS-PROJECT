@@ -6,6 +6,10 @@
 
 import { formatRupiah } from '@/lib/validations'
 
+// Lebar kertas thermal. Umum: 80mm (default) atau 58mm. Ganti ke 58 bila
+// printer memakai kertas 58mm.
+const PAPER_WIDTH_MM = 80
+
 export interface ReceiptLine {
   name: string
   note?: string
@@ -63,10 +67,14 @@ export function buildReceiptHtml(d: ReceiptData): string {
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Struk</title>
 <style>
-  @page { size: 80mm auto; margin: 0; }
+  /* @page di-set dinamis oleh printReceipt (80mm x tinggi konten). Fallback
+     valid di sini dipakai bila pengukuran gagal. 'size: 80mm auto' TIDAK valid
+     (tak boleh campur mm + auto) -> Chrome akan jatuh ke A4/A5. */
+  @page { size: ${PAPER_WIDTH_MM}mm 297mm; margin: 0; }
   * { box-sizing: border-box; }
+  html, body { background: #fff; }
   body { margin: 0; padding: 6px 8px; font-family: 'Courier New', monospace; color: #000;
-         width: 80mm; font-size: 12px; line-height: 1.35; }
+         width: ${PAPER_WIDTH_MM}mm; font-size: 12px; line-height: 1.35; }
   .center { text-align: center; }
   .bold { font-weight: 700; }
   .lg { font-size: 15px; }
@@ -134,12 +142,29 @@ export function printReceipt(data: ReceiptData): void {
   const win = iframe.contentWindow
   if (!win) { cleanup(); return }
 
+  // Set @page ke tinggi konten sebenarnya supaya halaman pas seukuran struk
+  // (bukan A4/A5 dengan ruang kosong). Konversi px CSS -> mm: px / 96 * 25.4.
+  const applyPageSize = () => {
+    try {
+      const heightPx = doc.body?.scrollHeight || 0
+      if (heightPx > 0) {
+        const heightMm = Math.ceil((heightPx / 96) * 25.4) + 4 // sedikit padding bawah
+        const style = doc.createElement('style')
+        style.textContent = `@page { size: ${PAPER_WIDTH_MM}mm ${heightMm}mm; margin: 0; }`
+        doc.head?.appendChild(style)
+      }
+    } catch {
+      // Abaikan; fallback @page valid sudah ada di markup.
+    }
+  }
+
   // Tunggu konten siap, lalu print (sekali saja meski beberapa pemicu ter-fire)
   let printed = false
   const doPrint = () => {
     if (printed) return
     printed = true
     try {
+      applyPageSize()
       win.focus()
       win.print()
     } finally {

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft, Gauge } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useBrand } from '@/components/BrandContext'
 
@@ -29,6 +29,13 @@ export default function AdminNav() {
   let resolvedPortalUrl = portalUrl
   if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
     resolvedPortalUrl = 'http://localhost:3010'
+  }
+
+  // Deep-link balik ke Admin Dashboard (HR/Owner/System). Section /admin ini
+  // sudah dibatasi middleware ke role 'admin', jadi link ini otomatis role-based.
+  let adminDashboardUrl = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    adminDashboardUrl = 'http://localhost:3005'
   }
 
   async function handleLogout() {
@@ -129,6 +136,14 @@ export default function AdminNav() {
 
         {/* Bawah: Logout */}
         <div className="px-4 py-6 border-t border-gray-100 space-y-2 shrink-0">
+          <a
+            href={adminDashboardUrl}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[15px] font-bold
+              text-amber-600 hover:bg-amber-50 transition-colors"
+          >
+            <Gauge className="w-5 h-5 shrink-0 text-amber-500" strokeWidth={2} />
+            Admin Dashboard
+          </a>
           <a
             href={resolvedPortalUrl}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[15px] font-bold

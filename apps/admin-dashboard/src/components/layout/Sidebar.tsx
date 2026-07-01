@@ -1,14 +1,15 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MonitorSmartphone } from 'lucide-react'
 import { useRole } from './RoleContext'
-import { NAV_GROUPS, isItemActive, resolvePortalUrl } from './navConfig'
+import { NAV_GROUPS, isItemActive, resolvePortalUrl, resolvePosAdminUrl } from './navConfig'
 
 export const Sidebar = () => {
   const pathname = usePathname()
   const { role } = useRole()
   const resolvedPortalUrl = resolvePortalUrl()
+  const posAdminUrl = resolvePosAdminUrl()
 
   return (
     <aside className="hidden w-64 shrink-0 border-r border-suka-gray-200 bg-white md:flex md:flex-col">
@@ -51,7 +52,16 @@ export const Sidebar = () => {
         })}
       </div>
 
-      <div className="p-4 border-t border-suka-gray-100">
+      <div className="p-4 border-t border-suka-gray-100 space-y-2">
+        {role === 'ADMIN' && (
+          <a
+            href={posAdminUrl}
+            className="flex items-center gap-3 px-3 py-2 rounded-xl font-bold text-xs text-suka-orange hover:bg-suka-orange/10 border border-suka-orange/30 hover:border-suka-orange/50 transition-all active:scale-95"
+          >
+            <MonitorSmartphone size={16} className="text-suka-orange" />
+            Admin POS Kasir
+          </a>
+        )}
         <a
           href={resolvedPortalUrl}
           className="flex items-center gap-3 px-3 py-2 rounded-xl font-bold text-xs text-suka-brown/70 hover:bg-suka-cream hover:text-suka-brown border border-suka-gray-200 hover:border-suka-brown/20 transition-all active:scale-95"

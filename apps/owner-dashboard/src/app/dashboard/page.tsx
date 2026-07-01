@@ -15,7 +15,7 @@ import { OutletLeaderboard } from '@/components/OutletLeaderboard'
 import type { PeriodFilterValue } from '@/lib/types'
 
 export default function DashboardPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
   const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([])
   const { filter, setFilter } = useDashboardStore()
   const prevFilter = useMemo<PeriodFilterValue>(() => ({ ...filter, ...previousRange({ from: filter.from, to: filter.to }) }), [filter])

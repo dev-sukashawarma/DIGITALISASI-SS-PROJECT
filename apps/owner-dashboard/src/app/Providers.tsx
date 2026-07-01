@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { AuthProvider, createSupabaseBrowserClient } from '@suka/auth'
 import type { OutletStaffProfile } from '@suka/auth'
 
@@ -11,7 +10,7 @@ export function Providers({
   children: React.ReactNode
   initialStaff?: OutletStaffProfile | null
 }) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
 
   return (
     <AuthProvider supabase={supabase} initialStaff={initialStaff}>

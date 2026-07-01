@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, Spinner } from "@suka/design-system";
 import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, Store } from "lucide-react";
 import { useAuth } from '@suka/auth';
@@ -49,7 +49,7 @@ export function AttendanceKioskPanel() {
 
   // Kiosk Integration — MODE 1:1: panel pribadi, kunci ke akun yang login.
   // Wajah orang lain (walau ter-enroll) ditolak; hanya pemilik akun yang bisa absen.
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
   const kiosk = useClockKiosk(outletStaff?.outlet_id || "", { lockToStaffId: outletStaff?.id });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const loopRef = useRef<number | null>(null);

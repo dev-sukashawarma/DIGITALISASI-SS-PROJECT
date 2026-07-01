@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState, Spinner } from "@suka/design-system";
 import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays } from "lucide-react";
@@ -31,7 +31,7 @@ const LEGEND = [
 
 export default function PapanKehadiranPage() {
   const { outletStaff } = useAuth();
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
   const [preview, setPreview] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("semua");
 

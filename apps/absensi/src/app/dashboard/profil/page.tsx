@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button, Card, Spinner } from "@suka/design-system";
 import { KeyRound, UserRound, AlertTriangle } from "lucide-react";
 import { useAuth } from '@suka/auth';
@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/PageHeader";
 
 export default function ProfilKruPage() {
   const { outletStaff, user } = useAuth();
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
   const toast = useToast();
 
   const [password, setPassword] = useState("");

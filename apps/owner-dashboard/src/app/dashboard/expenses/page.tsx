@@ -41,7 +41,7 @@ const CATEGORY_ICONS: Record<string, any> = {
 }
 
 export default function ExpensesPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
   const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([])
   const { filter, setFilter } = useDashboardStore()
 

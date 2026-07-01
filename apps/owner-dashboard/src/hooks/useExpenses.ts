@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 
@@ -15,7 +15,7 @@ export interface ExpenseRow {
 }
 
 export function useExpenses(filter: PeriodFilterValue) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
   const [rows, setRows] = useState<ExpenseRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

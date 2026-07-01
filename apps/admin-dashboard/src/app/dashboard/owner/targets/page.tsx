@@ -18,7 +18,7 @@ function cleanName(name: string) {
 }
 
 export default function TargetsPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
   const { isReadOnly } = useRole()
   const [rows, setRows] = useState<TargetRow[]>([])
   const [globalDefault, setGlobalDefault] = useState<number>(0)

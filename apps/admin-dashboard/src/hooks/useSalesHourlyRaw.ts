@@ -1,5 +1,4 @@
 'use client'
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue, SalesSource } from '@/lib/types'
@@ -17,7 +16,7 @@ export interface SalesHourlyRawRow {
 // useSalesSummary (agregat harian) & useSalesHourly (24 bucket jam). queryKey
 // identik untuk filter yang sama → React Query men-dedup jadi satu fetch jaringan.
 export function useSalesHourlyRaw(filter: PeriodFilterValue) {
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = createClient()
   return useQuery<SalesHourlyRawRow[]>({
     queryKey: ['sales-hourly-raw', filter.from, filter.to, filter.outletId, filter.source],
     staleTime: 2 * 60_000,

@@ -60,21 +60,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     }
   }, [role, pathname, router])
 
-  // Route-guard: ADMIN only sees the System & Admin section (+ landing).
-  useEffect(() => {
-    if (role !== 'ADMIN') return
-    const allowedPrefixes = [
-      '/dashboard/bahan-baku',
-      '/dashboard/outlets',
-      '/dashboard/push-center',
-      '/dashboard/system-health',
-    ]
-    const isLanding = pathname === '/dashboard'
-    const isAllowed = isLanding || allowedPrefixes.some((p) => pathname === p || pathname.startsWith(p + '/'))
-    if (!isAllowed) {
-      router.replace('/dashboard/system-health')
-    }
-  }, [role, pathname, router])
+  // ADMIN has full access (Owner Dashboard + System & Admin) — no route-guard restriction.
 
   // Route-guard: MITRA may only see its 4 read-only pages.
   useEffect(() => {

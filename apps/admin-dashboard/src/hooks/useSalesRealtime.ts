@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 
@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase'
  * cukup refetch sekali agar tidak membanjiri jaringan.
  */
 export function useSalesRealtime() {
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = createClient()
   const queryClient = useQueryClient()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 

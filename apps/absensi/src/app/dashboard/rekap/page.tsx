@@ -36,7 +36,7 @@ function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
 
 export default function RekapPage() {
   const { outletStaff } = useAuth();
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [preview, setPreview] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("semua");

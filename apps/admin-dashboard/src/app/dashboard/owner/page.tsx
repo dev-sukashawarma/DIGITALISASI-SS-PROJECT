@@ -11,13 +11,18 @@ import { useSalesRealtime } from '@/hooks/useSalesRealtime'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { KpiCards } from '@/components/KpiCards'
 import { SourceBreakdown } from '@/components/SourceBreakdown'
-import { RevenueTrendChart } from '@/components/RevenueTrendChart'
 import { TopMenus } from '@/components/TopMenus'
 import { BottomMenus } from '@/components/BottomMenus'
 import { OutletLeaderboard } from '@/components/OutletLeaderboard'
 import { DailyTargetBoard } from '@/components/DailyTargetBoard'
 import { useRole } from '@/components/layout/RoleContext'
 import type { PeriodFilterValue } from '@/lib/types'
+import dynamic from 'next/dynamic'
+
+const RevenueTrendChart = dynamic(
+  () => import('@/components/RevenueTrendChart').then((m) => m.RevenueTrendChart),
+  { ssr: false, loading: () => <div className="h-64 bg-white rounded-2xl border border-suka-gray-200 animate-pulse" /> }
+)
 
 export default function DashboardPage() {
   const { isReadOnly } = useRole()

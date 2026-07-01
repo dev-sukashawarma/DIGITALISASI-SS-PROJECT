@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 
 export interface TargetProgressRow {
@@ -15,7 +15,7 @@ export interface TargetProgressRow {
  * progress ikut naik begitu kasir menyelesaikan transaksi.
  */
 export function useTargetProgress() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
   const [rows, setRows] = useState<TargetProgressRow[]>([])
   const [loading, setLoading] = useState(true)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)

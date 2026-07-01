@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue } from '@/lib/types'
@@ -16,7 +15,7 @@ export interface ExpenseRow {
 }
 
 export function useExpenses(filter: PeriodFilterValue) {
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = createClient()
   const query = useQuery<ExpenseRow[]>({
     queryKey: ['expenses', filter.from, filter.to, filter.outletId],
     staleTime: 2 * 60_000,

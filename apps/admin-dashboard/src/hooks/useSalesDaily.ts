@@ -9,7 +9,7 @@ import type { SalesSummaryRow, PeriodFilterValue, SalesSource } from '@/lib/type
 // tak perlu mengirim baris per-jam ke browser. Return shape sama dengan
 // useSalesSummary agar konsumen tak berubah.
 export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string; name: string }[]) {
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = createClient()
   const query = useQuery<SalesSummaryRow[]>({
     queryKey: ['sales-daily', filter.from, filter.to, filter.outletId, filter.source],
     staleTime: 2 * 60_000,

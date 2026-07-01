@@ -1,4 +1,4 @@
-import { createSupabaseServerClient, hasAppAccess } from '@suka/auth'
+import { createSupabaseServerClient, hasAppAccess, verifyAccessToken } from '@suka/auth'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
@@ -23,17 +23,31 @@ export async function middleware(request: NextRequest) {
     return redirectResponse
   }
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const jwtSecret = process.env.SUPABASE_JWT_SECRET
+  let userId: string | null = null
+  if (jwtSecret) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const claims = session?.access_token
+      ? await verifyAccessToken(session.access_token, jwtSecret)
+      : null
+    userId = claims?.sub ?? null
+  } else {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[perf] SUPABASE_JWT_SECRET unset in production — falling back to slow network getUser() per request')
+    }
+    const { data: { user } } = await supabase.auth.getUser()
+    userId = user?.id ?? null
+  }
 
   let role = null
   let outlet_id = null
   let status = null
 
-  if (user) {
+  if (userId) {
     const { data: profile } = await supabase
       .from('outlet_staff')
       .select('role, outlet_id, status')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle()
 
     if (profile) {
@@ -50,14 +64,14 @@ export async function middleware(request: NextRequest) {
 
   // Proteksi Route Admin
   if (path.startsWith('/admin')) {
-    if (!user || role !== 'admin' || !hasAppAccess(role, 'pos-kasir') || status !== 'active') {
+    if (!userId || role !== 'admin' || !hasAppAccess(role, 'pos-kasir') || status !== 'active') {
       return getRedirect(PORTAL_URL)
     }
   }
 
   // Proteksi Route Kasir
   if (path.startsWith('/kasir')) {
-    if (!user || !['leader', 'crew'].includes(role as string) || !hasAppAccess(role as any, 'pos-kasir') || status !== 'active') {
+    if (!userId || !['leader', 'crew'].includes(role as string) || !hasAppAccess(role as any, 'pos-kasir') || status !== 'active') {
       return getRedirect(PORTAL_URL)
     }
   }
@@ -73,7 +87,7 @@ export async function middleware(request: NextRequest) {
 
   if (!isPublicPath && !isApiPath && !isDashboardPath) {
     // Belum login sama sekali → device belum di-aktifkan kasir
-    if (!user) {
+    if (!userId) {
       return getRedirect('/login')
     }
     // Status check: inactive/on_leave cannot use kiosk
@@ -94,7 +108,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect halaman login jika sudah auth
-  if (path === '/login' && user && role) {
+  if (path === '/login' && userId && role) {
     if (role === 'admin') return getRedirect('/admin')
     if (role === 'leader' || role === 'crew') return getRedirect('/kasir')
     if (role === 'kiosk') return getRedirect('/')

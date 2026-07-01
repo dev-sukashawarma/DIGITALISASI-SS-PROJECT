@@ -15,7 +15,7 @@ export function Providers({
   children: React.ReactNode
   initialStaff?: OutletStaffProfile | null
 }) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
   const queryClient = useMemo(
     () =>
       new QueryClient({

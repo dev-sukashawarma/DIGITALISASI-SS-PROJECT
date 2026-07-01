@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue } from '@/lib/types'
@@ -13,7 +12,7 @@ export interface HppRow {
 // HPP per outlet untuk rentang periode, dari fungsi DB get_hpp_periode
 // (per-batas-periode, sudah di-scope ke outlet yang boleh diakses pemanggil).
 export function useHpp(filter: PeriodFilterValue) {
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = createClient()
   const query = useQuery<HppRow[]>({
     queryKey: ['hpp', filter.from, filter.to, filter.outletId],
     staleTime: 2 * 60_000,

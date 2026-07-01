@@ -5,8 +5,6 @@ import { AppHealthCard } from '@/components/AppHealthCard'
 import { InfraHealthCard } from '@/components/InfraHealthCard'
 import { IncidentTimeline } from '@/components/IncidentTimeline'
 
-export const dynamic = 'force-dynamic'
-
 const APP_ORDER = ['stok', 'absensi', 'pos-kasir', 'distribusi']
 const INFRA_ORDER = ['supabase-db']
 

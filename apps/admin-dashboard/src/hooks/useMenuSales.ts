@@ -1,11 +1,10 @@
 'use client'
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { MenuSalesRow, PeriodFilterValue } from '@/lib/types'
 
 export function useMenuSales(filter: PeriodFilterValue) {
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = createClient()
   const query = useQuery<MenuSalesRow[]>({
     queryKey: ['menu-sales', filter.from, filter.to, filter.outletId, filter.source],
     staleTime: 2 * 60_000,

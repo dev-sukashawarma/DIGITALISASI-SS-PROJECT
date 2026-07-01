@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import type { SalesSummaryRow, PeriodFilterValue } from '@/lib/types'
 
@@ -9,7 +9,7 @@ import type { SalesSummaryRow, PeriodFilterValue } from '@/lib/types'
 // Catatan: dipakai sebagai pengganti view sales_summary_spv yang sempat drift di
 // remote (kehilangan kolom outlet_name/sales_source).
 export function useSalesSummary(filter: PeriodFilterValue) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
   const [rows, setRows] = useState<SalesSummaryRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

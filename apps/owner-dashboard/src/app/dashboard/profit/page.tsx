@@ -14,7 +14,7 @@ import CountUp from 'react-countup'
 import { TrendingUp, Percent, ArrowLeftRight, TrendingDown } from 'lucide-react'
 
 export default function ProfitPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
   const [outlets, setOutlets] = useState<{ id: string; name: string }[]>([])
   const { filter, setFilter } = useDashboardStore()
 

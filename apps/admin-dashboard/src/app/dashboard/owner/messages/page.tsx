@@ -53,7 +53,7 @@ function cleanName(name: string) {
 }
 
 export default function MessagesPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [history, setHistory] = useState<OverviewRow[]>([])
   const [loading, setLoading] = useState(true)

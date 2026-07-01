@@ -20,8 +20,6 @@ import { exportCsv } from '@/lib/exportCsv'
 import type { PayrollRow } from '@/hooks/usePayroll'
 import type { CashAdvance } from '@/lib/types'
 
-export const dynamic = 'force-dynamic'
-
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'

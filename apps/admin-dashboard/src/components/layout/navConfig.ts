@@ -52,6 +52,14 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/system-health', label: 'System Health', shortLabel: 'System', icon: Activity, roles: ['ADMIN'] },
     ],
   },
+  {
+    title: 'Laporan & Audit',
+    roles: ['OWNER', 'ADMIN'],
+    items: [
+      { href: '/dashboard/reports/voids', label: 'Void & Fraud', shortLabel: 'Void', icon: Activity, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/shrinkage', label: 'Shrinkage & Opname', shortLabel: 'Selisih', icon: Tags, roles: ['OWNER', 'ADMIN'] },
+    ],
+  },
 ]
 
 /** Flattened list of nav items the given role can access. */

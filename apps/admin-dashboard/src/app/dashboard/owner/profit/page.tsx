@@ -5,13 +5,15 @@ import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useSalesDaily } from '@/hooks/useSalesDaily'
 import { useExpenses } from '@/hooks/useExpenses'
+import { useHpp } from '@/hooks/useHpp'
+import { computeProfit } from '@/lib/profit'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { rupiah, rupiahCompact } from '@/lib/format'
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts'
 import CountUp from 'react-countup'
-import { TrendingUp, Percent, ArrowLeftRight, TrendingDown } from 'lucide-react'
+import { TrendingUp, Percent, ArrowLeftRight, TrendingDown, Boxes, Layers } from 'lucide-react'
 
 export default function ProfitPage() {
   const { data: outlets = [] } = useOutlets()
@@ -19,53 +21,53 @@ export default function ProfitPage() {
 
   const sales = useSalesDaily(filter, outlets)
   const expenses = useExpenses(filter)
+  const hpp = useHpp(filter)
 
-  const loading = sales.loading || expenses.loading
-  const error = sales.error || expenses.error
+  const loading = sales.loading || expenses.loading || hpp.loading
+  const error = sales.error || expenses.error || hpp.error
 
   // Calculations
   const totalOmzet = useMemo(() => sales.rows.reduce((sum, r) => sum + r.omzet, 0), [sales.rows])
   const totalExpenses = useMemo(() => expenses.rows.reduce((sum, r) => sum + r.amount, 0), [expenses.rows])
-  const netProfit = totalOmzet - totalExpenses
-  const profitMargin = totalOmzet > 0 ? (netProfit / totalOmzet) * 100 : 0
+  const totalHpp = useMemo(() => hpp.rows.reduce((sum, r) => sum + r.hpp, 0), [hpp.rows])
+  const { labaKotor, labaBersih, marginKotor, marginBersih } = computeProfit(totalOmzet, totalHpp, totalExpenses)
 
   // Outlets breakdown
   const outletBreakdown = useMemo(() => {
-    const map = new Map<string, { name: string; omzet: number; expense: number }>()
-    
-    // Seed Map with all outlets
+    const map = new Map<string, { name: string; omzet: number; expense: number; hpp: number }>()
+
     outlets.forEach(o => {
-      map.set(o.id, { name: o.name, omzet: 0, expense: 0 })
+      map.set(o.id, { name: o.name, omzet: 0, expense: 0, hpp: 0 })
     })
 
     sales.rows.forEach(s => {
-      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, expense: 0 }
+      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, expense: 0, hpp: 0 }
       cur.omzet += s.omzet
       map.set(s.outlet_id, cur)
     })
 
     expenses.rows.forEach(e => {
-      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name, omzet: 0, expense: 0 }
+      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name, omzet: 0, expense: 0, hpp: 0 }
       cur.expense += e.amount
       map.set(e.outlet_id, cur)
     })
 
+    hpp.rows.forEach(h => {
+      const cur = map.get(h.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, expense: 0, hpp: 0 }
+      cur.hpp += h.hpp
+      map.set(h.outlet_id, cur)
+    })
+
     return [...map.entries()]
       .map(([id, val]) => {
-        const net = val.omzet - val.expense
+        const net = val.omzet - val.hpp - val.expense
+        const labaKotor = val.omzet - val.hpp
         const margin = val.omzet > 0 ? (net / val.omzet) * 100 : 0
-        return {
-          id,
-          name: val.name,
-          omzet: val.omzet,
-          expense: val.expense,
-          net,
-          margin
-        }
+        return { id, name: val.name, omzet: val.omzet, expense: val.expense, hpp: val.hpp, labaKotor, net, margin }
       })
-      .filter(item => item.omzet > 0 || item.expense > 0)
-      .sort((a, b) => b.net - a.net) // Sort by net profit
-  }, [sales.rows, expenses.rows, outlets])
+      .filter(item => item.omzet > 0 || item.expense > 0 || item.hpp > 0)
+      .sort((a, b) => b.net - a.net)
+  }, [sales.rows, expenses.rows, hpp.rows, outlets])
 
   // Group by date for Cash Flow Chart
   const byDate = useMemo(() => {
@@ -110,7 +112,7 @@ export default function ProfitPage() {
       ) : (
         <>
           {/* KPI Dashboard Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* 1. Omzet Penjualan */}
             <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
               <div className="flex justify-between items-start">
@@ -124,6 +126,38 @@ export default function ProfitPage() {
                   Rp <CountUp end={totalOmzet} duration={1} separator="." />
                 </h3>
                 <p className="text-[10px] text-suka-green font-bold mt-1 uppercase">Pemasukan Completed Orders</p>
+              </div>
+            </div>
+
+            {/* HPP Bahan Baku */}
+            <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
+              <div className="flex justify-between items-start">
+                <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">HPP Bahan Baku</p>
+                <div className="p-2 bg-suka-brown/10 rounded-xl">
+                  <Boxes className="w-5 h-5 text-suka-brown" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-2xl font-extrabold text-suka-brown">
+                  Rp <CountUp end={totalHpp} duration={1} separator="." />
+                </h3>
+                <p className="text-[10px] text-suka-brown font-bold mt-1 uppercase">Biaya Bahan Terjual</p>
+              </div>
+            </div>
+
+            {/* Laba Kotor */}
+            <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
+              <div className="flex justify-between items-start">
+                <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Laba Kotor</p>
+                <div className="p-2 bg-suka-green/10 rounded-xl">
+                  <Layers className="w-5 h-5 text-suka-green" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-2xl font-extrabold text-suka-brown">
+                  Rp <CountUp end={labaKotor} duration={1} separator="." />
+                </h3>
+                <p className="text-[10px] text-suka-green font-bold mt-1 uppercase">Omzet − HPP · {marginKotor.toFixed(1)}%</p>
               </div>
             </div>
 
@@ -153,10 +187,10 @@ export default function ProfitPage() {
               </div>
               <div className="mt-4">
                 <h3 className="text-2xl font-extrabold text-suka-brown">
-                  Rp <CountUp end={netProfit} duration={1} separator="." />
+                  Rp <CountUp end={labaBersih} duration={1} separator="." />
                 </h3>
-                <p className={`text-[10px] font-bold mt-1 uppercase ${netProfit >= 0 ? 'text-suka-green' : 'text-red-650'}`}>
-                  {netProfit >= 0 ? 'Surplus Bersih' : 'Defisit Bersih'}
+                <p className={`text-[10px] font-bold mt-1 uppercase ${labaBersih >= 0 ? 'text-suka-green' : 'text-red-650'}`}>
+                  {labaBersih >= 0 ? 'Surplus Bersih' : 'Defisit Bersih'}
                 </p>
               </div>
             </div>
@@ -171,7 +205,7 @@ export default function ProfitPage() {
               </div>
               <div className="mt-4">
                 <h3 className="text-2xl font-extrabold text-suka-brown">
-                  <CountUp end={profitMargin} duration={1} decimals={1} /> %
+                  <CountUp end={marginBersih} duration={1} decimals={1} /> %
                 </h3>
                 <p className="text-[10px] text-suka-gray-400 font-semibold mt-1 uppercase">Efisiensi Profitabilitas</p>
               </div>
@@ -214,6 +248,8 @@ export default function ProfitPage() {
                     <th className="py-3 px-6 w-12 text-center">#</th>
                     <th className="py-3 px-6">Nama Outlet</th>
                     <th className="py-3 px-6 text-right">Omzet</th>
+                    <th className="py-3 px-6 text-right">HPP</th>
+                    <th className="py-3 px-6 text-right">Laba Kotor</th>
                     <th className="py-3 px-6 text-right">Pengeluaran</th>
                     <th className="py-3 px-6 text-right">Laba Bersih</th>
                     <th className="py-3 px-6 text-center">Margin %</th>
@@ -222,7 +258,7 @@ export default function ProfitPage() {
                 <tbody className="divide-y divide-suka-gray-100 font-medium">
                   {outletBreakdown.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-suka-gray-400">Belum ada aktivitas bisnis pada periode ini</td>
+                      <td colSpan={8} className="py-8 text-center text-suka-gray-400">Belum ada aktivitas bisnis pada periode ini</td>
                     </tr>
                   ) : (
                     outletBreakdown.map((row, index) => {
@@ -238,6 +274,8 @@ export default function ProfitPage() {
                           <td className="py-3.5 px-6 text-center text-suka-gray-400 font-bold">{index + 1}</td>
                           <td className="py-3.5 px-6 text-suka-ink font-bold">{row.name.replace('SUKA SHAWARMA ', '')}</td>
                           <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.omzet)}</td>
+                          <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.hpp)}</td>
+                          <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.labaKotor)}</td>
                           <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.expense)}</td>
                           <td className={`py-3.5 px-6 text-right font-extrabold ${isProfit ? 'text-suka-green' : 'text-red-700'}`}>
                             {rupiah(row.net)}

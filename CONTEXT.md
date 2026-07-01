@@ -27,6 +27,9 @@
 ## Distribusi
 
 - **Gudang Pusat (Central Warehouse)** — **satu** titik asal distribusi bahan baku ke 19 outlet.
+- **Permintaan Bahan** — pesanan bahan baku yang **diinisiasi outlet** ke pusat (`permintaan_bahan`); outlet minta → kitchen setujui → terbit Surat Jalan. Ini "pesanan per outlet".
+- **Kode Permintaan** — kode unik per Permintaan Bahan, format **`PB/{OUTLET}/{YYYYMMDD}/{urut}`** (outlet dari `slug`, `urut` reset harian per outlet — praktis selalu `001` karena kirim ke outlet umumnya 1× sehari; `urut` = jaring untuk kirim susulan langka). Dijamin unik via UNIQUE constraint (bukan counter table — cadence harian membuat race tak relevan).
+- **Order Session** — satu kejadian pemesanan bahan baku = **satu Surat Jalan**. Saat Surat Jalan dibuat, **harga bahan baku terkini di-snapshot** ke tiap itemnya (harga "hari itu"). Nilai barang masuk untuk HPP = `qty terverifikasi × harga snapshot`. Snapshot ini yang membuat HPP historis stabil: order Senin memakai harga Senin, reorder Rabu memakai harga Rabu, walau harga master berubah.
 - **Surat Jalan / Shipment (DO)** — dokumen + kejadian pengiriman batch bahan baku dari Gudang Pusat ke satu outlet (daftar item + qty dikirim). Dibuat di pusat.
 - **Verifikasi Penerimaan (Goods Receipt)** — outlet mengonfirmasi **qty diterima** vs **qty dikirim**; selisih/kerusakan dicatat. **Qty terverifikasi → stok masuk** di ledger outlet (titik integrasi distribusi ↔ stok).
 - **Discrepancy** — selisih antara qty dikirim dan qty diterima, ditandai untuk investigasi.
@@ -40,7 +43,9 @@
   3. **Manual Food Apps** — omzet dari aplikasi food delivery (**ShopeeFood, TikTok, GrabFood, GoFood**) yang **diinput manual** (tidak ada integrasi API). Masing-masing app dilacak terpisah sebagai sub-kanal.
   > POS SS legacy (POS lama di Ecosystem) sudah **dibuang dari scope** — bukan sumber omzet.
 - **Omzet Diakui (Recognized Revenue)** — nilai penjualan yang dihitung sebagai omzet di Owner Dashboard = order ber-status **`completed`** (item sudah diterima customer / order tuntas). Status `pending`/`preparing`/`ready` = masih jalan (tidak dihitung), `cancelled` = batal (tidak dihitung). Berlaku seragam untuk ketiga Sumber Omzet. Untuk Order Online yang di-sync dari Ecosystem, status sumber dipetakan ke enum hub saat sync.
-- **COGS** — Cost of Goods Sold; biaya bahan baku terpakai, dihitung dari ledger stok.
+- **COGS / HPP** — Cost of Goods Sold (Harga Pokok Penjualan); biaya bahan baku **terjual/terpakai**. Metode kanonik saat ini = **opname periodik harian per outlet**: `HPP_hari = nilai(stok awal hari) + nilai(barang masuk hari) − nilai(stok akhir hari)`, dengan `stok awal hari = stok akhir hari sebelumnya`. Stok fisik dari Stock Opname (**harian**), barang masuk dari Surat Jalan terverifikasi, harga dari Harga Bahan Baku. **Stok akhir dinilai pada harga snapshot Surat Jalan terbaru per bahan (metode "harga terakhir" — lihat ADR-011).** HPP harian di-roll-up ke mingguan/bulanan di Owner Dashboard. Auto-deduction berbasis BOM per penjualan = **target akhir (fase lanjut)**, belum aktif.
+- **Laba / Pemasukan Bersih** — hasil **Omzet Diakui − HPP** (biaya bahan baku terjual). Berbeda dari **Pengeluaran/Expenses** (biaya operasional manual: sewa, gaji, listrik). Owner Dashboard "Profitabilitas" saat ini baru menghitung `Omzet − Expenses`; HPP belum masuk (gap yang sedang digarap).
+- **Harga Bahan Baku** — harga beli per bahan. **Harga master terkini** dikelola admin (tabel `bahan_baku_harga`, admin-only). Saat sebuah order/sesi dibuat, harga terkini di-**snapshot** ke order tersebut agar HPP historis tidak berubah walau harga master berubah kemudian (lihat **Order Session**).
 
 ## Auth & Akses
 

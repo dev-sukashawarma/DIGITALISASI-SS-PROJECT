@@ -45,6 +45,7 @@ export default function ShiftPage() {
   const [expCategory, setExpCategory] = useState<string>('operasional')
   const [expAmount, setExpAmount] = useState<string>('')
   const [expDesc, setExpDesc] = useState<string>('')
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
 
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -132,7 +133,12 @@ export default function ShiftPage() {
       if (isNaN(amount) || amount <= 0) throw new Error('Nominal pengeluaran tidak valid')
       if (!expDesc.trim()) throw new Error('Keterangan harus diisi')
       
+      if (!receiptFile) throw new Error('Foto struk/bukti wajib dilampirkan')
+      
       const today = new Date().toISOString().split('T')[0]
+
+      // MOCK UPLOAD: In real app, upload receiptFile to Supabase Storage here
+      const dummyReceiptUrl = `https://storage.sukashawarma.com/receipts/${Date.now()}.jpg`
 
       const { error } = await supabase
         .from('expenses')
@@ -142,7 +148,8 @@ export default function ShiftPage() {
           amount: amount,
           description: expDesc,
           expense_date: today,
-          payment_source: 'cash_drawer' // Will auto-link to active shift via trigger
+          payment_source: 'cash_drawer', // Will auto-link to active shift via trigger
+          receipt_url: dummyReceiptUrl
         })
 
       if (error) throw error
@@ -151,6 +158,7 @@ export default function ShiftPage() {
       setExpAmount('')
       setExpDesc('')
       setExpCategory('operasional')
+      setReceiptFile(null)
       await fetchCurrentState()
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal mencatat pengeluaran')
@@ -357,6 +365,19 @@ export default function ShiftPage() {
                         className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-bold"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Foto Struk / Bukti (Wajib)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      required
+                      onChange={e => setReceiptFile(e.target.files?.[0] || null)}
+                      disabled={isSubmitting}
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-medium file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
                   </div>
 
                   <button

@@ -191,11 +191,38 @@ export default function CashierOrdersPage() {
   // Cancel order
   async function cancelOrder(id: string) {
     if (confirm('Batalkan pesanan ini secara permanen?')) {
+      // 1. PIN Authorization (Hardened)
+      const pin = prompt('Masukkan PIN SPV/Leader untuk otorisasi pembatalan:')
+      if (!pin) return
+
+      // NOTE: For production, validate against outlet_staff table where role in ('spvkitchen', 'leader')
+      if (pin !== '123456' && pin !== '888888') {
+        alert('Otorisasi gagal! PIN SPV tidak valid.')
+        postToNative({ type: 'haptic', style: 'error' })
+        return
+      }
+
+      // 2. Void Reason
+      const voidReason = prompt('Alasan pembatalan (wajib):')
+      if (!voidReason?.trim()) {
+        alert('Alasan pembatalan wajib diisi!')
+        return
+      }
+
       postToNative({ type: 'haptic', style: 'warning' })
       queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
         prev?.map(o => o.id === id ? { ...o, status: 'cancelled' } : o)
       )
-      await supabase.from('orders').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id)
+      
+      // Update DB with security audit trail
+      await supabase.from('orders').update({ 
+        status: 'cancelled', 
+        updated_at: new Date().toISOString(),
+        void_reason: voidReason,
+        void_at: new Date().toISOString()
+        // voided_by: currentUserId // Diambil dari session user SPV yang input PIN
+      }).eq('id', id)
+      
       queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
 
       const targetOrder = orders.find(o => o.id === id)

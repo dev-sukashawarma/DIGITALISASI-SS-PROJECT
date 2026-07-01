@@ -1,58 +1,47 @@
-# Ringkasan Perubahan Hari Ini (26 Juni 2026)
+# Ringkasan Perubahan Hari Ini (1 Juli 2026)
 
-Hari ini kita melakukan perubahan besar pada arsitektur aplikasi Sukashawarma Outlet Suite, yaitu beralih dari arsitektur PWA (Progressive Web App) dengan Service Worker ke aplikasi web standar yang dibungkus dalam **React Native WebView (Superapp)** untuk platform mobile.
+Hari ini kita fokus pada perkuatan sistem pencegahan kebocoran finansial (*Loss Gap Prevention*) di level operasional outlet. Kita telah merancang dan mengimplementasikan modul **Shift Management & Blind Close** ke dalam sistem *database* (Supabase).
 
-Berikut adalah rincian lengkap perubahan yang telah diimplementasikan hari ini:
-
----
-
-## 1. Pembersihan & Penghapusan Sistem PWA
-
-Seluruh infrastruktur PWA berbasis **Serwist** telah dihapus dari seluruh sub-aplikasi monorepo untuk mengembalikan status aplikasi ke aplikasi web biasa.
-
-### Aset dan File yang Dihapus
-* **Paket Internal `@suka/pwa`**: Dihapus sepenuhnya dari direktori `packages/`.
-* **Manifest & Service Worker**: File `manifest.ts` dan `sw.ts` dihapus dari seluruh aplikasi di direktori `apps/`.
-* **Aset Ikon PWA**: Seluruh file PNG ikon PWA (`icon-192x192.png`, `icon-512x512.png`, dan versi maskable) dihapus dari folder `public/icons/` di setiap aplikasi.
-
-### Perubahan Konfigurasi Aplikasi
-* **next.config.js / next.config.mjs**:
-  - Menghapus wrapper `withSerwist`.
-  - Menghapus `@suka/pwa` dari daftar `transpilePackages`.
-  - Menghapus konfigurasi build Service Worker.
-* **package.json**:
-  - Menghapus dependensi `@serwist/next`, `serwist`, dan `@suka/pwa` dari semua aplikasi.
-
-### Perubahan pada Layout Utama (`layout.tsx`)
-Menghapus komponen UI PWA berikut dari seluruh layout utama di ke-7 aplikasi:
-* **`<InstallPrompt />`**: Tombol / pop-up prompt instalasi dihapus.
-* **`<PwaUpdater />`**: Komponen pendeteksi update cache Service Worker dihapus.
-
-### Perubahan pada Dashboard & Halaman Pengaturan Staf
-Menghapus tombol atau kartu pengaturan notifikasi push (`NotificationToggle` dan tipe data pendukung) di file berikut:
-* **Absensi**: Halaman pengaturan (`apps/absensi/src/app/dashboard/pengaturan/page.tsx`).
-* **Distribusi**: Halaman utama dashboard (`apps/distribusi/src/app/dashboard/page.tsx`).
-* **POS Kasir**: Halaman pengaturan kiosk (`apps/pos-kasir/app/kasir/settings/page.tsx`).
-* **Stok**: Dashboard kru (`apps/stok/src/components/monitoring/CrewDashboard.tsx`) dan supervisor (`apps/stok/src/components/monitoring/SPVDashboard.tsx`).
+Berikut adalah rincian lengkap perubahan yang telah diimplementasikan:
 
 ---
 
-## 2. Pengembangan Mobile Superapp (React Native)
+## 1. Modul Shift Kasir (Sesi Laci Fisik)
 
-Sebagai pengganti instalasi PWA, kita menginisialisasi aplikasi mobile native berbasis **Expo** yang akan membungkus seluruh aplikasi web ke dalam satu aplikasi terpadu (Superapp).
+Sistem kini mewajibkan pencatatan sesi buka dan tutup laci secara eksplisit untuk menjaga akuntabilitas uang fisik.
 
-* **Inisialisasi Expo**: Proyek baru dibuat di direktori `mobile/superapp/`.
-* **Instalasi Dependensi**: Menginstal `react-native-webview` untuk merender aplikasi web, serta `expo-splash-screen` dan `expo-status-bar` untuk kenyamanan visual.
-* **Konfigurasi Android & iOS**: Konfigurasi nama aplikasi, paket (`com.sukashawarma.superapp`), status bar, dan izin akses kamera (untuk face recognition absensi) di `mobile/superapp/app.json`.
-* **Pengaturan EAS (Expo Application Services)**: Mengonfigurasi `eas.json` untuk persiapan build cloud, serta mendapatkan `projectId` resmi.
-* **Pemrograman WebView (`App.tsx`)**:
-  - Integrasi WebView yang mengarah ke portal utama Sukashawarma.
-  - Penanganan tombol kembali Android (*hardware back button*) agar navigasi dalam WebView berjalan seperti aplikasi native (tidak langsung keluar dari aplikasi).
-  - Tampilan layar error kustom jika koneksi internet terputus.
+*   **Tabel `shifts` Baru**: Menambahkan tabel `public.shifts` untuk merekam:
+    *   `staff_id`: Siapa yang membuka laci.
+    *   `closed_by`: Siapa yang melakukan tutup laci (Crew atau SPV).
+    *   `starting_cash`: Saldo awal laci (menyatukan uang modal kembalian dan sisa Petty Cash harian).
+    *   `actual_ending_cash` & `expected_ending_cash`: Pencatatan hasil *blind close*.
+    *   `variance`: Selisih otomatis antara fisik vs sistem.
+*   **Penguncian Outlet**: Hanya boleh ada 1 shift aktif (`status = 'open'`) per outlet pada satu waktu yang sama (*Unique Index Constraint*).
+
+## 2. Penguatan & Relasi Petty Cash
+
+Pengeluaran operasional outlet (*Opex*) kini terbagi dua tipe pembayaran agar rekonsiliasi kas tidak berantakan:
+
+*   **Tipe Sumber Dana (`payment_source`)**:
+    1.  `cash_drawer`: Pembayaran yang diambil langsung dari laci fisik (Misal: beli es batu).
+    2.  `transfer_pusat`: Pembayaran langsung dari kantor pusat (Misal: token listrik, keamanan).
+*   **Auto-Link ke Shift**: Sebuah *Database Trigger* (`trg_link_expense_to_shift`) ditambahkan agar setiap `expenses` bertipe `cash_drawer` otomatis terikat (mengisi `shift_id`) ke shift yang sedang aktif di outlet tersebut. Pengeluaran tipe ini akan otomatis memotong ekspektasi uang kas di laci.
+
+## 3. Fungsi Remote (RPC) untuk Kasir
+
+Mengimplementasikan tiga fungsi utama yang aman (menggunakan *Security Definer* dan pengecekan akses outlet) yang siap dihubungkan ke UI frontend:
+
+1.  **`open_shift(p_outlet_id, p_starting_cash)`**:
+    Digunakan saat pagi hari/awal shift. Mengunci outlet dan mencatat sisa Petty Cash laci sebagai saldo awal.
+2.  **`get_expected_shift_cash(p_shift_id)`**:
+    Mesin kalkulasi yang menjumlahkan: `Saldo Awal + (Total Penjualan Tunai POS dari jam buka s.d sekarang) - Total Petty Cash Laci`. Penjualan dari metode pembayaran QRIS/Card diabaikan.
+3.  **`close_shift_blind(p_shift_id, p_actual_cash)`**:
+    Fungsi krusial di mana kasir **hanya menyetor angka fisik**. Sistem akan menutup shift, mengalkulasi ekspektasi secara diam-diam, dan mengekspos *variance* (selisih uang hilang/berlebih).
 
 ---
 
-## 3. Hasil Validasi & Pengujian
+## 4. Hasil Validasi
 
-* **Kompilasi Sukses**: Seluruh aplikasi web yang dimodifikasi telah divalidasi menggunakan type-check TypeScript dan berjalan dengan **0 error** (seperti aplikasi `portal` dan `absensi`).
-* **Verifikasi Kode (Grep)**: Tidak ada lagi import `@suka/pwa` atau komponen `NotificationToggle` yang tersisa di seluruh folder `apps/`.
+*   **Kompilasi Database**: File migrasi `20260701130000_create_shifts_blind_close.sql` siap untuk dijalankan atau dideploy.
+*   **Keamanan (RLS)**: Tabel baru sudah dilindungi RLS sehingga pengguna hanya bisa mengintip atau mengubah data shift di outlet tempat mereka ditugaskan.
+*   **Identitas Terpusat**: Menggunakan fungsi `auth.uid()` yang mengarah tepat ke `outlet_staff.id` (sebagaimana dirancang pada unifikasi profil bulan lalu).

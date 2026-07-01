@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch, Tag, Loader2 } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch, Tag, Loader2, Wallet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { fastLogout } from '@/lib/fast-logout'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -15,6 +15,7 @@ import { useBrand } from '@/components/BrandContext'
 const links = [
   { href: '/kasir',            label: 'Order',         icon: Bell },
   { href: '/kasir/menu',       label: 'Manajemen Menu',icon: Sandwich },
+  { href: '/kasir/shift',      label: 'Kas & Shift',   icon: Wallet },
   { href: '/kasir/histori',    label: 'Histori',       icon: ClipboardList },
   { href: '/kasir/kiosk',      label: 'Kontrol Device Pelanggan', icon: Monitor },
   { href: '/kasir/reports',    label: 'Laporan',       icon: BarChart3 },

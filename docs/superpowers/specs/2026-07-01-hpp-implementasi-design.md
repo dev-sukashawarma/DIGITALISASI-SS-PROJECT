@@ -62,6 +62,8 @@ CREATE TRIGGER trg_fill_harga_snapshot
 ```
 Robust untuk semua jalur insert (SuratJalanForm client, RPC apa pun). Harga 0 bila belum di-set admin (HPP kurang-hitung; wajar).
 
+**Model harga = Model 1 (master, otomatis).** Harga hanya diatur admin di **Master Bahan Baku** (`/dashboard/bahan-baku`); snapshot menyalin harga master saat surat jalan dibuat — pembuat surat jalan tak mengisi harga. **Konsekuensi operasional:** admin wajib memperbarui harga master **sebelum** surat jalan dibuat agar snapshot mencerminkan "harga hari itu". Model 2 (input harga saat buat surat jalan) sengaja ditolak demi kontrol harga terpusat & form surat jalan tetap sederhana.
+
 ### 2. View building-block (pola `sales_daily_spv`)
 
 **Nilai stok harian** (dari opname finalized × harga snapshot terbaru ≤ tanggal):

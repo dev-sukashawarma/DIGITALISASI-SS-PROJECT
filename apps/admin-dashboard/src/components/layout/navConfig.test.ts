@@ -21,3 +21,16 @@ describe('accessibleItems for MITRA', () => {
     expect(hrefs).not.toContain('/dashboard/system-health')
   })
 })
+
+describe('Master Bahan Baku nav item', () => {
+  it('is visible to ADMIN', () => {
+    const hrefs = accessibleItems('ADMIN').map((i) => i.href)
+    expect(hrefs).toContain('/dashboard/bahan-baku')
+  })
+  it('is hidden from OWNER, ADMIN_HR, and MITRA', () => {
+    for (const role of ['OWNER', 'ADMIN_HR', 'MITRA'] as const) {
+      const hrefs = accessibleItems(role).map((i) => i.href)
+      expect(hrefs).not.toContain('/dashboard/bahan-baku')
+    }
+  })
+})

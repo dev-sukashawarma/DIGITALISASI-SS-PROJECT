@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   TrendingUp, TrendingDown, ShoppingBag, Banknote, Clock, ArrowUpRight,
-  Store, ChevronDown, Calendar
+  Store, ChevronDown, Calendar, Globe, Monitor, Layers
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/validations'
@@ -52,7 +52,7 @@ export default function AdminOverviewPage() {
 
     let q = supabase
       .from('orders')
-      .select('id, status, total_amount, created_at, outlet_id')
+      .select('id, status, total_amount, created_at, outlet_id, channel, sales_source')
       .eq('status', 'completed')
       .order('created_at', { ascending: true })
 
@@ -469,6 +469,60 @@ export default function AdminOverviewPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* ── Kontribusi Saluran Penjualan (Sumber Pesanan) ── */}
+          <div className="card p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 mb-1">
+              <Layers className="w-5 h-5 text-amber-500" />
+              <h2 className="font-bold text-gray-900 text-lg">Kontribusi Saluran Penjualan</h2>
+            </div>
+            <p className="text-gray-400 text-xs mb-5">Sumber transaksi: Website Online, channel eksternal & POS Kasir</p>
+
+            {analytics.sourceBreakdown.length === 0 ? (
+              <div className="h-24 flex items-center justify-center text-gray-400 text-sm">
+                Belum ada transaksi pada periode ini
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {analytics.sourceBreakdown.map((src) => (
+                  <div key={src.key} className="space-y-1.5 group">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-2 font-bold text-gray-800">
+                        <span
+                          className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: `${src.bg}1a` }}
+                        >
+                          {src.logoPath ? (
+                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" style={{ fill: src.bg }}>
+                              <path d={src.logoPath} />
+                            </svg>
+                          ) : src.lucide === 'globe' ? (
+                            <Globe className="w-3.5 h-3.5" style={{ color: src.bg }} />
+                          ) : (
+                            <Monitor className="w-3.5 h-3.5" style={{ color: src.bg }} />
+                          )}
+                        </span>
+                        <span>{src.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 font-medium">
+                          {formatRupiah(src.revenue)}{' '}
+                          <span className="text-[10px] text-gray-400 font-normal">({src.orders} order)</span>
+                        </span>
+                        <span className="font-extrabold text-xs" style={{ color: src.bg }}>{src.percentage}%</span>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${src.percentage}%`, backgroundColor: src.bg }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}

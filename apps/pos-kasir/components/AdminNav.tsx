@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft, Gauge } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft, Gauge, FolderTree } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useBrand } from '@/components/BrandContext'
 
@@ -11,7 +11,7 @@ const links = [
   { href: '/admin',            label: 'Overview',  icon: BarChart3 },
   { href: '/admin/reports',    label: 'Laporan',   icon: ClipboardList },
   { href: '/admin/menu',       label: 'Menu',      icon: LayoutDashboard },
-  { href: '/admin/categories', label: 'Kategori',  icon: Tag },
+  { href: '/admin/categories', label: 'Kategori',  icon: FolderTree },
   { href: '/admin/promo',      label: 'Promo',     icon: Tag },
   { href: '/admin/outlets',    label: 'Cabang',    icon: Store },
   { href: '/admin/users',      label: 'Pengguna',  icon: Users },

@@ -8,6 +8,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
+import OrderSourceBadge from '@/components/OrderSourceBadge'
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend
 } from 'recharts'
@@ -22,6 +23,8 @@ interface OrderRow {
   total_amount: number
   created_at: string
   outlet_id: string
+  channel: string | null
+  sales_source: string | null
   order_items: {
     id: string
     menu_item_name: string
@@ -514,6 +517,7 @@ export default function AdminReportsPage() {
                     <th className="px-5 py-4">No. Antrian</th>
                     <th className="px-5 py-4">Waktu</th>
                     <th className="px-5 py-4">Nama Item</th>
+                    <th className="px-5 py-4">Sumber</th>
                     <th className="px-5 py-4">Metode Bayar</th>
                     <th className="px-5 py-4 text-right">Total Transaksi</th>
                   </tr>
@@ -521,7 +525,7 @@ export default function AdminReportsPage() {
                 <tbody className="divide-y divide-gray-100">
                   {paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-5 py-10 text-center text-gray-400 font-medium">Data tidak ditemukan</td>
+                      <td colSpan={6} className="px-5 py-10 text-center text-gray-400 font-medium">Data tidak ditemukan</td>
                     </tr>
                   ) : (
                     paginatedData.map((order) => (
@@ -537,6 +541,9 @@ export default function AdminReportsPage() {
                         </td>
                         <td className="px-5 py-4 text-gray-600 truncate max-w-[250px] font-medium" title={order.order_items.map(i => cleanItemName(i.menu_item_name)).join(', ')}>
                           {order.order_items.map(i => cleanItemName(i.menu_item_name)).join(', ')}
+                        </td>
+                        <td className="px-5 py-4">
+                          <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} size="sm" />
                         </td>
                         <td className="px-5 py-4">
                           <span className="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold rounded-lg uppercase">

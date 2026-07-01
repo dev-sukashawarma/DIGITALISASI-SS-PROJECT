@@ -494,7 +494,7 @@ export default function CashierOrdersPage() {
             className="bg-[#f29744] hover:bg-[#e08632] text-white font-bold px-4 py-3 rounded-2xl flex items-center gap-2 transition-all active:scale-95 shadow-sm shadow-[#f29744]/20 flex-shrink-0"
           >
             <PlusCircle className="w-5 h-5" />
-            <span>Input Manual</span>
+            <span>Pesanan Baru</span>
           </Link>
           <div className="bg-white border border-[#d9c2b2] px-5 py-3 rounded-2xl flex-1 sm:flex-none flex items-center gap-4 suka-shadow">
             <div className="w-10 h-10 bg-[#f29744] rounded-xl flex items-center justify-center shadow-md shadow-[#f29744]/20">

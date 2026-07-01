@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Plus, Minus, Trash2, ShoppingBag, Loader2,
-  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich,
+  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -13,6 +13,10 @@ import { CHANNELS, getChannel } from '@/lib/channels'
 import { usePromos } from '@/lib/usePromos'
 import type { MenuItem, Category } from '@/types'
 import { postToNative } from '@suka/design-system'
+import { WalkInCartPanel, type Payment as WalkInPayment } from '@/components/kasir/WalkInCartPanel'
+import { printReceipt, type ReceiptData } from '@/lib/printReceipt'
+
+type Mode = 'walkin' | 'online'
 
 interface Line {
   item: MenuItem
@@ -24,8 +28,12 @@ type Payment = 'cash' | 'qris'
 
 export default function OrderManualPage() {
   const supabase = createClient()
-  const { outletId, loaded } = useMyOutlet()
+  const { outletId, outletName, loaded } = useMyOutlet()
   const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
+
+  // Mode halaman: "walkin" (pelanggan datang langsung ke kasir) atau
+  // "online" (input pesanan dari channel eksternal). Default walk-in.
+  const [mode, setMode] = useState<Mode>('walkin')
 
   const [items, setItems] = useState<MenuItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -45,6 +53,15 @@ export default function OrderManualPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<number | null>(null)
+
+  // ── State khusus jalur walk-in (kasir langsung) ───────────────────────────
+  const [walkInSubmitting, setWalkInSubmitting] = useState(false)
+  const [walkInError, setWalkInError] = useState<string | null>(null)
+  const [walkInSuccess, setWalkInSuccess] = useState<
+    { orderNumber: number; method: WalkInPayment; change: number | null; receipt: ReceiptData } | null
+  >(null)
+  // Bumped setelah transaksi sukses untuk me-remount panel (reset input tunai).
+  const [walkInPanelKey, setWalkInPanelKey] = useState(0)
 
   // ── Ambil menu sesuai outlet ──────────────────────────────────────────────
   useEffect(() => {
@@ -166,6 +183,89 @@ export default function OrderManualPage() {
     }
   }
 
+  // ── Submit walk-in (kasir langsung) ───────────────────────────────────────
+  async function handleWalkInPay(method: WalkInPayment, amountReceived: number | null) {
+    if (lineList.length === 0 || walkInSubmitting) return
+    setWalkInSubmitting(true)
+    setWalkInError(null)
+
+    // Snapshot rincian untuk struk SEBELUM keranjang direset
+    const receiptItems = lineList.map((l) => {
+      const unit = wrappedCalculateItemPrice(l.item.price, l.item.id)
+      return {
+        name: l.item.name,
+        note: l.note?.trim() || undefined,
+        quantity: l.quantity,
+        unit_price: unit,
+        subtotal: unit * l.quantity,
+      }
+    })
+    const snapCustomer = customerName.trim() || null
+    const snapSubtotal = subtotalAmount
+    const snapDiscount = globalDiscount
+
+    try {
+      const res = await fetch('/api/orders/walk-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_method: method,
+          customer_name: customerName,
+          amount_received: method === 'cash' ? amountReceived : undefined,
+          items: lineList.map((l) => ({
+            menu_item_id: l.item.id,
+            quantity: l.quantity,
+            note: l.note,
+          })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        postToNative({ type: 'haptic', style: 'error' })
+        setWalkInError(data.error ?? 'Gagal membuat pesanan')
+        setWalkInSubmitting(false)
+        return
+      }
+
+      postToNative({ type: 'haptic', style: 'success' })
+
+      const receipt: ReceiptData = {
+        outletName: outletName || 'SUKA SHAWARMA',
+        orderNumber: data.order_number,
+        dateISO: new Date().toISOString(),
+        customerName: snapCustomer,
+        items: receiptItems,
+        subtotal: snapSubtotal,
+        discount: snapDiscount,
+        total: data.total_amount,
+        paymentMethod: method,
+        amountReceived: data.amount_received ?? null,
+        changeAmount: data.change_amount ?? null,
+      }
+
+      // Cetak struk otomatis
+      printReceipt(receipt)
+
+      setWalkInSuccess({
+        orderNumber: data.order_number,
+        method,
+        change: data.change_amount ?? null,
+        receipt,
+      })
+
+      // Reset keranjang untuk transaksi berikutnya
+      setLines({})
+      setCustomerName('')
+      setCartOpen(false)
+      setWalkInPanelKey((k) => k + 1)
+    } catch {
+      postToNative({ type: 'haptic', style: 'error' })
+      setWalkInError('Tidak dapat terhubung ke server')
+    } finally {
+      setWalkInSubmitting(false)
+    }
+  }
+
   // ── Render: state khusus ──────────────────────────────────────────────────
   if (loaded && !outletId) {
     return (
@@ -179,20 +279,41 @@ export default function OrderManualPage() {
   return (
     <div className="pb-28 lg:pb-8">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex items-center gap-3 mb-4">
         <Link href="/kasir" className="w-10 h-10 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors flex-shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-xl font-bold text-gray-900 leading-tight">Input Manual</h1>
-          <p className="text-sm text-gray-500 leading-tight">Input pesanan dari channel eksternal</p>
+          <h1 className="text-xl font-bold text-gray-900 leading-tight">
+            {mode === 'walkin' ? 'Kasir — Pesanan Baru' : 'Input Channel Online'}
+          </h1>
+          <p className="text-sm text-gray-500 leading-tight">
+            {mode === 'walkin' ? 'Catat pesanan pelanggan di kasir' : 'Input pesanan dari channel eksternal'}
+          </p>
         </div>
+      </div>
+
+      {/* Tab switch: Kasir Langsung / Channel Online */}
+      <div className="inline-flex bg-gray-100 rounded-xl p-1 mb-5">
+        <button
+          onClick={() => setMode('walkin')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'walkin' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          <Store className="w-4 h-4" /> Kasir Langsung
+        </button>
+        <button
+          onClick={() => setMode('online')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'online' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          <Globe className="w-4 h-4" /> Channel Online
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px] gap-4 md:gap-5 xl:gap-6 items-start min-w-0">
         {/* ══ KIRI: pilih channel + menu ══ */}
         <div className="space-y-4 xl:space-y-5 min-w-0">
-          {/* Channel selector */}
+          {/* Channel selector (hanya mode online) */}
+          {mode === 'online' && (
           <div className="bg-white rounded-xl xl:rounded-2xl border border-gray-200 p-3.5 xl:p-4 shadow-sm">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">1. Pilih Channel</p>
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
@@ -226,10 +347,11 @@ export default function OrderManualPage() {
               })}
             </div>
           </div>
+          )}
 
           {/* Search + kategori */}
           <div className="bg-white rounded-xl xl:rounded-2xl border border-gray-200 p-3.5 xl:p-4 shadow-sm space-y-3">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">2. Pilih Menu</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{mode === 'online' ? '2. Pilih Menu' : '1. Pilih Menu'}</p>
             <div className="flex flex-col gap-3 min-w-0">
               <div className="relative w-full">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -337,27 +459,49 @@ export default function OrderManualPage() {
 
         {/* ══ KANAN: keranjang (desktop sticky) ══ */}
         <div className="hidden md:block sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto scrollbar-hide">
-          <CartPanel
-            lineList={lineList}
-            totalItems={totalItems}
-            totalPrice={totalPrice}
-            channel={channel}
-            payment={payment}
-            setPayment={setPayment}
-            customerName={customerName}
-            setCustomerName={setCustomerName}
-            setQty={setQty}
-            setNote={setNote}
-            canSubmit={canSubmit}
-            submitting={submitting}
-            error={error}
-            onSubmit={handleSubmit}
-            calculateItemPrice={wrappedCalculateItemPrice}
-            globalDiscount={globalDiscount}
-            globalPromo={globalPromo}
-            needsMoreForPromo={!!needsMoreForPromo}
-            missingAmount={missingAmount}
-          />
+          {mode === 'walkin' ? (
+            <WalkInCartPanel
+              key={walkInPanelKey}
+              lineList={lineList}
+              totalItems={totalItems}
+              subtotal={subtotalAmount}
+              totalPrice={totalPrice}
+              globalDiscount={globalDiscount}
+              globalPromo={globalPromo}
+              needsMoreForPromo={!!needsMoreForPromo}
+              missingAmount={missingAmount}
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              setQty={setQty}
+              setNote={setNote}
+              calculateItemPrice={wrappedCalculateItemPrice}
+              submitting={walkInSubmitting}
+              error={walkInError}
+              onPay={handleWalkInPay}
+            />
+          ) : (
+            <CartPanel
+              lineList={lineList}
+              totalItems={totalItems}
+              totalPrice={totalPrice}
+              channel={channel}
+              payment={payment}
+              setPayment={setPayment}
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              setQty={setQty}
+              setNote={setNote}
+              canSubmit={canSubmit}
+              submitting={submitting}
+              error={error}
+              onSubmit={handleSubmit}
+              calculateItemPrice={wrappedCalculateItemPrice}
+              globalDiscount={globalDiscount}
+              globalPromo={globalPromo}
+              needsMoreForPromo={!!needsMoreForPromo}
+              missingAmount={missingAmount}
+            />
+          )}
         </div>
       </div>
 
@@ -385,28 +529,51 @@ export default function OrderManualPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <CartPanel
-              lineList={lineList}
-              totalItems={totalItems}
-              totalPrice={totalPrice}
-              channel={channel}
-              payment={payment}
-              setPayment={setPayment}
-              customerName={customerName}
-              setCustomerName={setCustomerName}
-              setQty={setQty}
-              setNote={setNote}
-              canSubmit={canSubmit}
-              submitting={submitting}
-              error={error}
-              onSubmit={handleSubmit}
-              calculateItemPrice={wrappedCalculateItemPrice}
-              globalDiscount={globalDiscount}
-              globalPromo={globalPromo}
-              needsMoreForPromo={!!needsMoreForPromo}
-              missingAmount={missingAmount}
-              embedded
-            />
+            {mode === 'walkin' ? (
+              <WalkInCartPanel
+                key={walkInPanelKey}
+                lineList={lineList}
+                totalItems={totalItems}
+                subtotal={subtotalAmount}
+                totalPrice={totalPrice}
+                globalDiscount={globalDiscount}
+                globalPromo={globalPromo}
+                needsMoreForPromo={!!needsMoreForPromo}
+                missingAmount={missingAmount}
+                customerName={customerName}
+                setCustomerName={setCustomerName}
+                setQty={setQty}
+                setNote={setNote}
+                calculateItemPrice={wrappedCalculateItemPrice}
+                submitting={walkInSubmitting}
+                error={walkInError}
+                onPay={handleWalkInPay}
+                embedded
+              />
+            ) : (
+              <CartPanel
+                lineList={lineList}
+                totalItems={totalItems}
+                totalPrice={totalPrice}
+                channel={channel}
+                payment={payment}
+                setPayment={setPayment}
+                customerName={customerName}
+                setCustomerName={setCustomerName}
+                setQty={setQty}
+                setNote={setNote}
+                canSubmit={canSubmit}
+                submitting={submitting}
+                error={error}
+                onSubmit={handleSubmit}
+                calculateItemPrice={wrappedCalculateItemPrice}
+                globalDiscount={globalDiscount}
+                globalPromo={globalPromo}
+                needsMoreForPromo={!!needsMoreForPromo}
+                missingAmount={missingAmount}
+                embedded
+              />
+            )}
           </div>
         </div>
       )}
@@ -427,6 +594,47 @@ export default function OrderManualPage() {
             <div className="flex gap-2.5">
               <button onClick={() => setSuccess(null)} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-colors active:scale-95">
                 Buat Order Lagi
+              </button>
+              <Link href="/kasir" className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center">
+                Ke Papan Order
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ Success overlay walk-in (kasir langsung) ══ */}
+      {walkInSuccess !== null && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-[popIn_.2s_ease-out]">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-9 h-9 text-emerald-500" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Pembayaran Berhasil!</h2>
+            <p className="text-gray-500 mt-1">Order masuk ke papan <b>Sedang Diproses</b>.</p>
+
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl py-4 my-4">
+              <p className="text-xs font-bold text-amber-600/80 uppercase tracking-wider">Nomor Antrian</p>
+              <p className="text-4xl font-bold text-amber-600 leading-tight mt-1">#{walkInSuccess.orderNumber}</p>
+            </div>
+
+            {walkInSuccess.method === 'cash' && walkInSuccess.change !== null && (
+              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl py-3 mb-4 flex items-center justify-between px-5">
+                <span className="text-sm font-bold text-emerald-700">Kembalian</span>
+                <span className="text-2xl font-black text-emerald-700">{formatRupiah(walkInSuccess.change)}</span>
+              </div>
+            )}
+
+            <button
+              onClick={() => printReceipt(walkInSuccess.receipt)}
+              className="w-full mb-2.5 bg-white border-2 border-gray-200 hover:border-amber-300 text-gray-700 font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 active:scale-95"
+            >
+              <Printer className="w-5 h-5" /> Cetak Ulang Struk
+            </button>
+
+            <div className="flex gap-2.5">
+              <button onClick={() => setWalkInSuccess(null)} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-colors active:scale-95">
+                Transaksi Baru
               </button>
               <Link href="/kasir" className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center">
                 Ke Papan Order

@@ -47,6 +47,7 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['ADMIN'],
     items: [
       { href: '/dashboard/bahan-baku', label: 'Master Bahan Baku', shortLabel: 'Bahan Baku', icon: Tags, roles: ['ADMIN'] },
+      { href: '/dashboard/resep', label: 'Manajemen Resep (BOM)', shortLabel: 'Resep', icon: Activity, roles: ['ADMIN'] },
       { href: '/dashboard/outlets', label: 'Manajemen Outlet', shortLabel: 'Outlet', icon: Store, roles: ['ADMIN'] },
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
       { href: '/dashboard/system-health', label: 'System Health', shortLabel: 'System', icon: Activity, roles: ['ADMIN'] },

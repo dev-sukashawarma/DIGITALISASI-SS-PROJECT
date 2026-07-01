@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { format } from 'date-fns'
+
 
 export const dynamic = 'force-dynamic'
 
@@ -70,7 +70,7 @@ export default async function VoidsReportPage() {
                 voids.map((v: any) => (
                   <tr key={v.id} className="hover:bg-red-50/30 transition-colors group">
                     <td className="px-6 py-4 font-medium text-gray-900">
-                      {v.void_at ? format(new Date(v.void_at), 'dd MMM yyyy HH:mm') : '-'}
+                      {v.void_at ? new Date(v.void_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(/\./g, ':') : '-'}
                     </td>
                     <td className="px-6 py-4 text-gray-600">{v.outlets?.name || '-'}</td>
                     <td className="px-6 py-4">

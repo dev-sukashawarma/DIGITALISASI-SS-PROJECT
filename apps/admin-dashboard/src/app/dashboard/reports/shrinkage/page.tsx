@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { format } from 'date-fns'
+
 
 export const dynamic = 'force-dynamic'
 
@@ -87,7 +87,7 @@ export default async function ShrinkageReportPage() {
                   return (
                     <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 font-medium text-gray-900">
-                        {item.opname?.created_at ? format(new Date(item.opname.created_at), 'dd MMM yyyy HH:mm') : '-'}
+                        {item.opname?.created_at ? new Date(item.opname.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(/\./g, ':') : '-'}
                       </td>
                       <td className="px-6 py-4 text-gray-600">{item.opname?.outlets?.name || '-'}</td>
                       <td className="px-6 py-4">

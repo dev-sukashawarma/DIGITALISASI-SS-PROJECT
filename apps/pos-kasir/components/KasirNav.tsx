@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch, Tag } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { usePathname } from 'next/navigation'
+import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch, Tag, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { fastLogout } from '@/lib/fast-logout'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { useStockAlerts } from '@/lib/useStockAlerts'
 import { getStokUrl } from '@/lib/stokUrl'
@@ -24,8 +24,6 @@ const links = [
 
 export default function KasirNav() {
   const pathname = usePathname()
-  const router = useRouter()
-  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const { outletId } = useMyOutlet()
   const { items: lowStockItems } = useStockAlerts(outletId)
@@ -77,11 +75,11 @@ export default function KasirNav() {
     fetchOutlet()
   }, [outletId])
 
+  const [loggingOut, setLoggingOut] = useState(false)
   async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    queryClient.removeQueries({ queryKey: ['my-outlet'] })
-    router.push('/login')
+    setLoggingOut(true)
+    // Hard redirect di fastLogout otomatis membuang cache React Query.
+    await fastLogout('/login')
   }
 
   return (
@@ -216,12 +214,17 @@ export default function KasirNav() {
           </a>
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center rounded-2xl text-[15px] font-bold text-[#a43c26] hover:bg-[#e9e1d8]/50 transition-colors
+            disabled={loggingOut}
+            className={`w-full flex items-center rounded-2xl text-[15px] font-bold text-[#a43c26] hover:bg-[#e9e1d8]/50 transition-colors disabled:opacity-60 disabled:cursor-wait
               ${isCollapsed ? 'justify-center p-3.5' : 'gap-3 px-4 py-3'}`}
             title={isCollapsed ? "Keluar" : undefined}
           >
-            <LogOut className="w-5 h-5 shrink-0" strokeWidth={2} />
-            {!isCollapsed && <span className="animate-fade-in">Keluar</span>}
+            {loggingOut ? (
+              <Loader2 className="w-5 h-5 shrink-0 animate-spin" strokeWidth={2} />
+            ) : (
+              <LogOut className="w-5 h-5 shrink-0" strokeWidth={2} />
+            )}
+            {!isCollapsed && <span className="animate-fade-in">{loggingOut ? 'Keluar…' : 'Keluar'}</span>}
           </button>
         </div>
       </aside>

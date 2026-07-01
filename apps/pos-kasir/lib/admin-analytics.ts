@@ -4,6 +4,7 @@
 // sama dengan rentang tanggal terpilih — bukan hanya chart.
 
 import type { Outlet } from '@/types'
+import { resolveOrderSource, type OrderSourceInfo } from './order-source'
 
 export type ChartRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom'
 
@@ -32,6 +33,15 @@ export interface OrderRow {
   total_amount: number
   created_at: string
   outlet_id: string
+  channel?: string | null
+  sales_source?: string | null
+}
+
+// Satu baris rincian kontribusi per sumber (channel/online/pos) untuk Overview.
+export interface SourceBreakdownRow extends OrderSourceInfo {
+  revenue: number
+  orders: number
+  percentage: number
 }
 
 export interface DateRange {
@@ -50,6 +60,7 @@ export interface AdminAnalytics {
   avgOrderValue: number
   peakHour: number
   leaderboard: { name: string; revenue: number }[]
+  sourceBreakdown: SourceBreakdownRow[]
   prevRevenue: number
   hasComparison: boolean
 }
@@ -153,6 +164,24 @@ export function computeAnalytics(
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5)
 
+  // Kontribusi per sumber pesanan (channel eksternal / website online / POS).
+  const sourceMap = new Map<string, { info: OrderSourceInfo; revenue: number; orders: number }>()
+  periodOrders.forEach(o => {
+    const info = resolveOrderSource(o.channel, o.sales_source)
+    const cur = sourceMap.get(info.key) ?? { info, revenue: 0, orders: 0 }
+    cur.revenue += o.total_amount
+    cur.orders += 1
+    sourceMap.set(info.key, cur)
+  })
+  const sourceBreakdown: SourceBreakdownRow[] = Array.from(sourceMap.values())
+    .map(({ info, revenue, orders }) => ({
+      ...info,
+      revenue,
+      orders,
+      percentage: todayRevenue > 0 ? Math.round((revenue / todayRevenue) * 100) : 0,
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+
   return {
     todayRevenue,
     revenueGrowth,
@@ -161,6 +190,7 @@ export function computeAnalytics(
     avgOrderValue,
     peakHour,
     leaderboard,
+    sourceBreakdown,
     prevRevenue,
     hasComparison,
   }

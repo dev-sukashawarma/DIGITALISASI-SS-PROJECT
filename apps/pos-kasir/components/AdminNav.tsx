@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft, Gauge, FolderTree } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { usePathname } from 'next/navigation'
+import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft, Gauge, FolderTree, Loader2 } from 'lucide-react'
+import { fastLogout } from '@/lib/fast-logout'
 import { useBrand } from '@/components/BrandContext'
 
 const links = [
@@ -21,7 +21,6 @@ const links = [
 
 export default function AdminNav() {
   const pathname = usePathname()
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const { brandName, brandLogo } = useBrand()
 
@@ -38,10 +37,10 @@ export default function AdminNav() {
     adminDashboardUrl = 'http://localhost:3005'
   }
 
+  const [loggingOut, setLoggingOut] = useState(false)
   async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/admin/login')
+    setLoggingOut(true)
+    await fastLogout('/admin/login')
   }
 
   return (
@@ -154,11 +153,16 @@ export default function AdminNav() {
           </a>
           <button
             onClick={handleLogout}
+            disabled={loggingOut}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[15px] font-bold
-              text-red-500 hover:bg-red-50 transition-colors"
+              text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 disabled:cursor-wait"
           >
-            <LogOut className="w-5 h-5 shrink-0" strokeWidth={2} />
-            Keluar
+            {loggingOut ? (
+              <Loader2 className="w-5 h-5 shrink-0 animate-spin" strokeWidth={2} />
+            ) : (
+              <LogOut className="w-5 h-5 shrink-0" strokeWidth={2} />
+            )}
+            {loggingOut ? 'Keluar…' : 'Keluar'}
           </button>
         </div>
       </aside>

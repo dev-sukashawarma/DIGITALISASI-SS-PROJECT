@@ -1,6 +1,6 @@
 // apps/admin-dashboard/src/lib/profit.test.ts
 import { describe, it, expect } from 'vitest'
-import { computeProfit } from './profit'
+import { computeProfit, computeOutletProfit, computeCompanyProfit } from './profit'
 
 describe('computeProfit', () => {
   it('menghitung laba kotor, laba bersih, dan margin', () => {
@@ -19,5 +19,24 @@ describe('computeProfit', () => {
     const r = computeProfit(1_000_000, 1_500_000, 0)
     expect(r.labaKotor).toBe(-500_000)
     expect(r.marginKotor).toBeCloseTo(-50, 5)
+  })
+})
+
+describe('computeOutletProfit', () => {
+  it('laba outlet = omzet - hpp - pengeluaran outlet', () => {
+    const r = computeOutletProfit(1_000_000, 300_000, 200_000)
+    expect(r.labaKotor).toBe(700_000)
+    expect(r.labaBersih).toBe(500_000)
+    expect(r.marginBersih).toBeCloseTo(50, 5)
+  })
+  it('margin 0 saat omzet 0', () => {
+    expect(computeOutletProfit(0, 0, 100_000).marginBersih).toBe(0)
+  })
+})
+
+describe('computeCompanyProfit', () => {
+  it('laba perusahaan = Σ laba outlet - pengeluaran pusat', () => {
+    const r = computeCompanyProfit(5_000_000, 1_200_000)
+    expect(r.labaPerusahaan).toBe(3_800_000)
   })
 })

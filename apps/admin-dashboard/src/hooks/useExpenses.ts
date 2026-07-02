@@ -3,15 +3,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue } from '@/lib/types'
+import { deriveScope, type ExpenseCategory, type ExpenseScope } from '@/lib/expenseCategories'
 
 export interface ExpenseRow {
   id: string
-  outlet_id: string
-  outlet_name: string
-  category: 'bahan_baku' | 'gaji' | 'operasional' | 'sewa' | 'utilitas' | 'lainnya'
+  outlet_id: string | null
+  outlet_name: string | null
+  category: ExpenseCategory
+  scope: ExpenseScope
   amount: number
   description: string
   expense_date: string
+  period_month: string
 }
 
 export function useExpenses(filter: PeriodFilterValue) {
@@ -22,10 +25,11 @@ export function useExpenses(filter: PeriodFilterValue) {
     queryFn: async () => {
       let q = supabase
         .from('expenses')
-        .select('id, outlet_id, category, amount, description, expense_date, outlets(name)')
+        .select('id, outlet_id, category, amount, description, expense_date, period_month, outlets(name)')
         .gte('expense_date', filter.from)
         .lte('expense_date', filter.to)
 
+      // Filter outlet: satu outlet → hanya baris outlet itu (pusat/NULL tak muncul).
       if (filter.outletId !== 'all') {
         q = q.eq('outlet_id', filter.outletId)
       }
@@ -36,11 +40,13 @@ export function useExpenses(filter: PeriodFilterValue) {
       return (data ?? []).map((row: any) => ({
         id: row.id,
         outlet_id: row.outlet_id,
-        outlet_name: row.outlets?.name ?? 'Outlet Tidak Dikenal',
+        outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : null),
         category: row.category,
+        scope: deriveScope(row.category),
         amount: Number(row.amount),
-        description: row.description,
+        description: row.description ?? '',
         expense_date: row.expense_date,
+        period_month: row.period_month,
       })) as ExpenseRow[]
     },
   })

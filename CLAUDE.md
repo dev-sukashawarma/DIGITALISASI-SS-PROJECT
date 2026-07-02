@@ -683,5 +683,27 @@ Role baru **`mitra`** (partner/investor 1 outlet) — read-only, server-enforced
 
 ---
 
-**Last updated:** 2026-06-29  
+## Session 2026-07-01: Pengeluaran Outlet vs Pusat (apps/admin-dashboard)
+
+**Status:** ✅ Kode selesai di branch `feat/expenses-outlet-vs-pusat` (build sukses, 72/72 test; type-check bersih selain 1 error pre-existing tak-terkait `ResepEditor` TS6133 dari kerja BOM). Migration applied ke remote. ⚠️ Next: redeploy `admin-dashboard`.
+
+### Fitur
+Pengeluaran punya **dua scope**: **Outlet** (dibebankan ke P&L outlet) vs **Pusat** (company-wide, satu nilai; **exclude dari P&L outlet, tetap dihitung di P&L perusahaan**). 14 kategori kanonik menggantikan 6 enum lama. Form input rekap bulanan (upsert per bulan). Spec: `docs/superpowers/specs/2026-07-01-expenses-outlet-vs-pusat-design.md`; ADR-013; plan: `docs/superpowers/plans/2026-07-01-expenses-outlet-vs-pusat.md`.
+
+### Implementasi
+1. **Migration `20260702100000`** — `expenses.outlet_id` nullable (NULL=pusat); kolom `period_month`; CHECK 14 kategori; CHECK scope `(kategori pusat) = (outlet_id IS NULL)`; unique index `(outlet_id, category, period_month) NULLS NOT DISTINCT`; helper `is_owner()`; RLS SELECT scoped (pusat → owner/admin); tulis dicabut dari `authenticated`, hanya via RPC `upsert_expense` (owner/admin; pusat owner-only). Data lama (dummy) di-`DELETE`.
+2. **`lib/expenseCategories.ts`** — 14 kategori + `CATEGORY_META` (label/warna/ikon) + `deriveScope`.
+3. **`lib/profit.ts`** — `computeOutletProfit` + `computeCompanyProfit` (TDD).
+4. **`useExpenses`** — scope-aware (`outlet_id`/`outlet_name` nullable, `scope`, `period_month`).
+5. **Expenses page** — section Outlet vs Pusat, kartu "Biaya Pusat" (hanya saat "Semua Outlet").
+6. **Profit page** — Laba Outlet vs Laba Perusahaan; `outletBreakdown` skip baris pusat.
+7. **Nav** "Input Pengeluaran" (owner/admin) + **form** `/dashboard/owner/expenses/input` (upsert, opsi Pusat owner-only).
+
+### Catatan penting
+- **Drift saat push:** ada `20260703000000_bom_automation.sql` (kerja lain, kala itu untracked) → disisihkan sementara ke scratchpad agar `db push` hanya menerapkan migration expenses, lalu dikembalikan. Belakangan bom sudah di-commit dev lain (`62aa5ad`) di branch yang **sama** → ada kerja paralel di branch ini, hati-hati saat rebase/merge.
+- 📝 **Next manual:** isi data via form → verifikasi isolasi (mitra/leader tak lihat pusat) → redeploy admin-dashboard.
+
+---
+
+**Last updated:** 2026-07-01  
 **Owner:** Dev Suka Shawarma

@@ -22,6 +22,15 @@ describe('accessibleItems for MITRA', () => {
   })
 })
 
+describe('Input Pengeluaran nav item', () => {
+  it('OWNER punya Input Pengeluaran, MITRA tidak', () => {
+    const owner = accessibleItems('OWNER').map((i) => i.href)
+    const mitra = accessibleItems('MITRA').map((i) => i.href)
+    expect(owner).toContain('/dashboard/owner/expenses/input')
+    expect(mitra).not.toContain('/dashboard/owner/expenses/input')
+  })
+})
+
 describe('Master Bahan Baku nav item', () => {
   it('is visible to ADMIN', () => {
     const hrefs = accessibleItems('ADMIN').map((i) => i.href)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getHuman } from "@/lib/face/recognizer";
 import { createClient } from "@/lib/supabase";
 import { captureFrame } from "@/components/CameraCapture";
@@ -31,7 +31,7 @@ const FUNCTION_URL = "/api/submit-attendance";
  */
 export function useClockKiosk(outletId: string, options?: { lockToStaffId?: string }) {
   const lockToStaffId = options?.lockToStaffId;
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
   const queue = useAttendanceQueue();
 
   const candidatesRef = useRef<Candidate[]>([]);

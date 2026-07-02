@@ -29,8 +29,17 @@ serve(async (req) => {
         return new Response(JSON.stringify({ message: 'Ignored: not an insert/update' }), { status: 200 })
     }
 
-    if (record.status !== 'completed') {
-        return new Response(JSON.stringify({ message: 'Ignored: order not completed' }), { status: 200 })
+    if (record.status !== 'completed' && record.status !== 'done') {
+        return new Response(JSON.stringify({ message: 'Ignored: order not completed or done' }), { status: 200 })
+    }
+
+    // Smart detection for online orders
+    let finalSalesSource = record.source || 'online';
+    
+    // Check notes for website/online order signatures
+    const notesLower = (record.notes || '').toLowerCase();
+    if (notesLower.includes('info pemesan online') || notesLower.includes('[website]')) {
+      finalSalesSource = 'online';
     }
 
     // Upsert into Suite project
@@ -46,7 +55,7 @@ serve(async (req) => {
         notes: record.notes,
         created_at: record.created_at,
         updated_at: record.updated_at,
-        sales_source: 'online'
+        sales_source: finalSalesSource
       }, { onConflict: 'id' })
       .select()
 

@@ -12,7 +12,7 @@ function cleanName(name: string) {
 
 export function DailyTargetBoard() {
   const { rows, loading, refetch } = useTargetProgress()
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
   const { isReadOnly } = useRole()
 
   // Modal states

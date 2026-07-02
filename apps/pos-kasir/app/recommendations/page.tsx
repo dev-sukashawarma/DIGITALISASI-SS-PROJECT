@@ -30,7 +30,7 @@ export default function RecommendationsPage() {
       
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        router.replace('/login')
+        window.location.href = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
         return
       }
       

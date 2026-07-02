@@ -10,7 +10,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import ChannelBadge from '@/components/ChannelBadge'
 import { formatRupiah } from '@/lib/validations'
+import { Skeleton } from '@/components/Skeleton'
 import type { OrderWithItems, OrderStatus } from '@/types'
+import { useDialogStore } from '@/lib/dialogStore'
 
 const STATUS_CONF: Partial<Record<OrderStatus, {
   label: string; color: string; badge: string; icon: any
@@ -39,6 +41,7 @@ async function fetchHistoriOrders(outletId: string, filter: OrderStatus | 'all')
 }
 
 export default function AdminOrdersPage() {
+  const { showConfirm } = useDialogStore()
   const [filter, setFilter]     = useState<OrderStatus | 'all'>('all')
   const [expandedId, setExpand] = useState<string | null>(null)
   const { outletId, outletName } = useMyOutlet()
@@ -146,8 +149,17 @@ export default function AdminOrdersPage() {
       {/* ── Order list ── */}
       {loading ? (
         <div className="space-y-3">
-          {[1,2,3].map((i) => (
-            <div key={i} className="card h-20 animate-pulse bg-gray-50" />
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="card p-5">
+               <div className="flex items-center gap-4">
+                 <Skeleton className="w-12 h-12 rounded-2xl shrink-0" />
+                 <div className="flex-1 space-y-2">
+                   <Skeleton className="h-4 w-1/4 rounded-full" />
+                   <Skeleton className="h-3 w-1/3 rounded-full" />
+                 </div>
+                 <Skeleton className="h-8 w-24 rounded-full" />
+               </div>
+            </div>
           ))}
         </div>
       ) : orders.length === 0 ? (
@@ -334,7 +346,10 @@ export default function AdminOrdersPage() {
                       )}
                       {order.status !== 'completed' && order.status !== 'cancelled' && (
                         <button
-                          onClick={() => { if (confirm('Batalkan pesanan ini?')) updateStatus(order.id, 'cancelled') }}
+                          onClick={async () => { 
+                            const confirmed = await showConfirm('Batalkan pesanan ini?'); 
+                            if (confirmed) updateStatus(order.id, 'cancelled') 
+                          }}
                           className="btn-danger py-2 px-4 text-sm"
                         >
                           <XCircle className="w-3.5 h-3.5" />

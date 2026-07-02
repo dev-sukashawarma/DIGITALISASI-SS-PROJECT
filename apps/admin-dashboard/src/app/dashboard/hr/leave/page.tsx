@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import { useState, useMemo } from 'react'
 import { Button, Spinner } from '@suka/design-system'
 import { CalendarPlus, Download, Clock, CheckCircle, XCircle } from 'lucide-react'

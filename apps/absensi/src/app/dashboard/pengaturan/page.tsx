@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Spinner } from "@suka/design-system";
 import { Clock, Timer, Settings2, Save, Lock, Unlock, Zap, ToggleLeft } from "lucide-react";
@@ -19,7 +19,7 @@ type Config = {
 
 export default function PengaturanAbsensiPage() {
   const { outletStaff } = useAuth();
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
   const toast = useToast();
 
   const [saving, setSaving] = useState(false);

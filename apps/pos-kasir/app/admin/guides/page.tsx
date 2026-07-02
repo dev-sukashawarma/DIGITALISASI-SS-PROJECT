@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, Plus, Edit2, Trash2, Image as ImageIcon, Save, X, BookOpen, GripVertical } from 'lucide-react'
+import { useDialogStore } from '@/lib/dialogStore'
 
 interface Guide {
   id: string
@@ -14,6 +15,7 @@ interface Guide {
 }
 
 export default function AdminGuidesPage() {
+  const { showConfirm, showAlert } = useDialogStore()
   const [guides, setGuides] = useState<Guide[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -120,7 +122,7 @@ export default function AdminGuidesPage() {
       await fetchGuides()
       setIsModalOpen(false)
     } catch (err) {
-      alert('Terjadi kesalahan saat menyimpan.')
+      showAlert('Terjadi kesalahan saat menyimpan.')
       console.error(err)
     } finally {
       setIsSubmitting(false)
@@ -128,13 +130,14 @@ export default function AdminGuidesPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus panduan ini?')) return
+    const confirmed = await showConfirm('Apakah Anda yakin ingin menghapus panduan ini?');
+    if (!confirmed) return
     try {
       const res = await fetch(`/api/admin/guides?id=${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Gagal menghapus')
       await fetchGuides()
     } catch (e) {
-      alert('Gagal menghapus panduan')
+      showAlert('Gagal menghapus panduan')
     }
   }
 

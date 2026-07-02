@@ -67,7 +67,7 @@ export function VerifikasiForm({ id }: { id: string }) {
       const initial: Record<string, ItemVerification> = {}
       data.surat_jalan_item.forEach((item: any) => {
         initial[item.id] = {
-          qty_terima: item.qty_dikirim ?? 0,
+          qty_terima: 0, // Wajib input manual
           kondisi: 'baik',
           catatan: '',
           foto_path: null,
@@ -140,7 +140,7 @@ export function VerifikasiForm({ id }: { id: string }) {
   const items = data.surat_jalan_item || []
   const currentItem = items[currentIndex]
   const currentVerif: ItemVerification = verifications[currentItem?.id] ?? {
-    qty_terima: currentItem?.qty_dikirim ?? 0,
+    qty_terima: 0, // Wajib input manual
     kondisi: 'baik',
     catatan: '',
     foto_path: null,
@@ -157,14 +157,22 @@ export function VerifikasiForm({ id }: { id: string }) {
   }
 
   const handleBaik = () => {
+    if (currentVerif.qty_terima === 0) {
+      alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
+      return
+    }
     setVerifications((prev) => ({
       ...prev,
-      [currentItem.id]: { ...currentVerif, qty_terima: currentItem.qty_dikirim, kondisi: 'baik', catatan: '' },
+      [currentItem.id]: { ...currentVerif, kondisi: 'baik', catatan: '' },
     }))
     setKondisiConfirmed(true)
   }
 
   const handleJelekConfirm = () => {
+    if (currentVerif.qty_terima === 0) {
+      alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
+      return
+    }
     if (currentVerif.qty_terima > currentItem.qty_dikirim) {
       alert('Qty terima tidak boleh melebihi qty dikirim')
       return
@@ -447,7 +455,13 @@ export function VerifikasiForm({ id }: { id: string }) {
                   ✓ Baik
                 </button>
                 <button
-                  onClick={() => setVerif({ kondisi: 'jelek', qty_terima: currentItem?.qty_dikirim ?? 0 })}
+                  onClick={() => {
+                    if (currentVerif.qty_terima === 0) {
+                      alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
+                      return
+                    }
+                    setVerif({ kondisi: 'jelek' })
+                  }}
                   className="border-2 border-[#ba1a1a]/60 text-[#ba1a1a] rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-red-50 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
                 >
                   ✗ Jelek
@@ -456,7 +470,7 @@ export function VerifikasiForm({ id }: { id: string }) {
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => setVerif({ kondisi: 'baik', qty_terima: currentItem?.qty_dikirim ?? 0, catatan: '' })}
+                  onClick={() => setVerif({ kondisi: 'baik', catatan: '' })}
                   className="border border-[#d9c2b2]/45 text-[#544437] bg-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-[#faf2e9] transition-all cursor-pointer active:scale-95"
                 >
                   ← Batalkan

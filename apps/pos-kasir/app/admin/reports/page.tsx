@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   FileText, Calendar, ChevronDown, Award, Clock, Banknote,
-  QrCode, CreditCard, Package, Download, Search, CheckCircle2, XCircle, Printer
+  QrCode, CreditCard, Package, Download, Search, CheckCircle2, XCircle, Printer, Wallet
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cleanItemName } from '@/lib/order-item-name'
@@ -14,6 +14,20 @@ import {
 } from 'recharts'
 import type { Outlet } from '@/types'
 import BranchFilter from '@/components/BranchFilter'
+
+interface ShiftRow {
+  id: string
+  start_time: string
+  end_time: string | null
+  status: string
+  starting_cash: number
+  expected_ending_cash: number
+  actual_ending_cash: number
+  variance: number
+  expected_ending_petty_cash: number
+  actual_ending_petty_cash: number
+  petty_cash_variance: number
+}
 
 interface OrderRow {
   id: string
@@ -47,6 +61,7 @@ const RANGE_LABELS: Record<DateRangeType, string> = {
 
 export default function AdminReportsPage() {
   const [orders, setOrders] = useState<OrderRow[]>([])
+  const [shifts, setShifts] = useState<ShiftRow[]>([])
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
   const [loading, setLoading] = useState(true)
@@ -112,8 +127,39 @@ export default function AdminReportsPage() {
       q = q.gte('created_at', start.toISOString()).lte('created_at', end.toISOString())
     }
 
-    const { data } = await q
-    setOrders(data ?? [])
+    // Fetch Shifts
+    let qShifts = supabase
+      .from('shifts')
+      .select('*')
+      .eq('status', 'closed')
+      .order('end_time', { ascending: false })
+      
+    if (selectedOutlet !== 'all') {
+      qShifts = qShifts.eq('outlet_id', selectedOutlet)
+    }
+
+    if (range === 'today') {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      qShifts = qShifts.gte('end_time', today.toISOString())
+    } else if (range === 'yesterday') {
+      const d = new Date(); d.setDate(d.getDate() - 1); d.setHours(0, 0, 0, 0)
+      const endD = new Date(); endD.setHours(0, 0, 0, 0)
+      qShifts = qShifts.gte('end_time', d.toISOString()).lt('end_time', endD.toISOString())
+    } else if (range === '7days') {
+      const d = new Date(); d.setDate(d.getDate() - 7); d.setHours(0, 0, 0, 0)
+      qShifts = qShifts.gte('end_time', d.toISOString())
+    } else if (range === '30days') {
+      const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0, 0, 0, 0)
+      qShifts = qShifts.gte('end_time', d.toISOString())
+    } else if (range === 'custom' && customStartDate && customEndDate) {
+      const start = new Date(customStartDate); start.setHours(0, 0, 0, 0)
+      const end = new Date(customEndDate); end.setHours(23, 59, 59, 999)
+      qShifts = qShifts.gte('end_time', start.toISOString()).lte('end_time', end.toISOString())
+    }
+
+    const [{ data: ordersData }, { data: shiftsData }] = await Promise.all([q, qShifts])
+    setOrders(ordersData ?? [])
+    setShifts(shiftsData ?? [])
     setLoading(false)
   }, [range, selectedOutlet, customStartDate, customEndDate])
 
@@ -124,7 +170,10 @@ export default function AdminReportsPage() {
   const analytics = useMemo(() => {
     const completed = orders.filter(o => o.status === 'completed')
     const totalOrders = completed.length
-    const totalRevenue = completed.reduce((s, o) => s + o.total_amount, 0)
+    let totalRevenue = completed.reduce((s, o) => s + o.total_amount, 0)
+
+    // Hitung total selisih laci (variance) dari tutup shift
+    const totalCashVariance = shifts.reduce((s, shift) => s + (shift.variance || 0), 0)
 
     // Payment method breakdown
     const paymentBreakdown: Record<string, { count: number; revenue: number }> = {}
@@ -134,6 +183,14 @@ export default function AdminReportsPage() {
       paymentBreakdown[method].count++
       paymentBreakdown[method].revenue += o.total_amount
     })
+
+    // Koreksi pendapatan tunai dengan selisih fisik laci (Opsi B: Source of truth = Fisik Kasir)
+    if (paymentBreakdown['cash']) {
+      paymentBreakdown['cash'].revenue += totalCashVariance
+    }
+    
+    // Sesuaikan juga Total Pendapatan
+    totalRevenue += totalCashVariance
 
     // Best sellers & Category Breakdown
     const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {}
@@ -582,6 +639,113 @@ export default function AdminReportsPage() {
                 </div>
               </div>
             )}
+          </div>
+          
+          {/* Laporan Tutup Shift */}
+          <div className="card p-6 shadow-sm border border-gray-100 mt-6 overflow-hidden no-print">
+            <div>
+              <h2 className="font-bold text-gray-900 text-lg">Laporan Laci Cash</h2>
+              <p className="text-gray-400 text-xs mt-0.5 mb-6">Rekonsiliasi kas laci dan petty cash (uang operasional)</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {shifts.length === 0 ? (
+                <div className="col-span-full p-10 text-center bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-gray-400 font-medium">Data shift tidak ditemukan</p>
+                </div>
+              ) : (
+                shifts.map((shift) => {
+                  const dateStr = new Date(shift.start_time).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                  const startTimeStr = new Date(shift.start_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                  const endTimeStr = shift.end_time ? new Date(shift.end_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'Berjalan';
+                  
+                  const variance = shift.variance || 0;
+                  const pcVariance = shift.petty_cash_variance || 0;
+
+                  return (
+                    <div key={shift.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col">
+                      {/* Header Kartu */}
+                      <div className="bg-amber-50 px-5 py-4 border-b border-amber-100 flex items-center gap-4">
+                        <div className="bg-amber-100 p-2.5 rounded-lg text-amber-700">
+                          <Calendar className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-amber-900 text-sm mb-0.5">Shift {dateStr}</h3>
+                          <p className="text-xs font-medium text-amber-700/80">{startTimeStr} - {endTimeStr}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Body Kartu */}
+                      <div className="p-5 flex-1 flex flex-col gap-4">
+                        {/* Box Uang Laci */}
+                        <div className="bg-gray-50/80 rounded-xl p-4 border border-gray-100 flex-1">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Wallet className="w-4 h-4 text-gray-400" />
+                            <span className="font-bold text-gray-700 text-xs tracking-wider uppercase">Uang Laci (Sales)</span>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-500">Diserahkan Kasir</span>
+                              <span className="font-extrabold text-gray-900 text-base">{formatRupiah(shift.actual_ending_cash)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-medium text-gray-400">Menurut Sistem</span>
+                              <span className="text-xs font-semibold text-gray-500">{formatRupiah(shift.expected_ending_cash)}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="pt-3 mt-4 border-t border-gray-200/60 flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Status Uang Laci</span>
+                            <span className={`text-xs font-bold px-2.5 py-1.5 rounded-lg ${
+                              variance > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
+                              variance < 0 ? 'bg-red-50 text-red-700 border border-red-200' : 
+                              'bg-gray-100 text-gray-600 border border-gray-200'
+                            }`}>
+                              {variance > 0 ? `Lebih ${formatRupiah(variance)}` : 
+                               variance < 0 ? `Kurang ${formatRupiah(Math.abs(variance))}` : 
+                               'Pas (Balance)'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Box Petty Cash */}
+                        <div className="bg-gray-50/80 rounded-xl p-4 border border-gray-100 flex-1">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Banknote className="w-4 h-4 text-gray-400" />
+                            <span className="font-bold text-gray-700 text-xs tracking-wider uppercase">Dana Operasional</span>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-500">Sisa Uang (Fisik)</span>
+                              <span className="font-extrabold text-blue-700 text-base">{formatRupiah(shift.actual_ending_petty_cash || 0)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-medium text-gray-400">Menurut Sistem</span>
+                              <span className="text-xs font-semibold text-gray-500">{formatRupiah(shift.expected_ending_petty_cash || 0)}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="pt-3 mt-4 border-t border-gray-200/60 flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Status Operasional</span>
+                            <span className={`text-xs font-bold px-2.5 py-1.5 rounded-lg ${
+                              pcVariance > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
+                              pcVariance < 0 ? 'bg-red-50 text-red-700 border border-red-200' : 
+                              'bg-gray-100 text-gray-600 border border-gray-200'
+                            }`}>
+                              {pcVariance > 0 ? `Lebih ${formatRupiah(pcVariance)}` : 
+                               pcVariance < 0 ? `Kurang ${formatRupiah(Math.abs(pcVariance))}` : 
+                               'Pas (Balance)'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </div>
         </>
       )}

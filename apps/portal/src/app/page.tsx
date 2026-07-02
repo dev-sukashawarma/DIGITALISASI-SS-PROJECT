@@ -1,10 +1,13 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { createSupabaseBrowserClient, getOutletStaff, normalizeLoginIdentifier } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
 import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin, QrCode } from 'lucide-react'
-import ChangelogModal from '@/components/ChangelogModal'
+import dynamic from 'next/dynamic'
+
+const ChangelogModal = dynamic(() => import('@/components/ChangelogModal'), { ssr: false })
 
 export default function LoginPage() {
   const router = useRouter()
@@ -63,7 +66,7 @@ export default function LoginPage() {
           {/* Logo & Small Brand */}
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-white rounded-2xl p-1.5 shadow-lg shadow-suka-ink/30 border border-white/10 flex items-center justify-center">
-              <img src="/logo.png" alt="Suka Shawarma Logo" className="w-full h-full object-contain" />
+              <Image src="/logo.png" alt="Suka Shawarma Logo" width={48} height={48} priority className="w-full h-full object-contain" />
             </div>
             <div>
               <h2 className="text-xl font-extrabold tracking-wider text-white font-display">
@@ -125,7 +128,7 @@ export default function LoginPage() {
           {/* Mobile Header (Hidden on Desktop) */}
           <div className="flex flex-col items-center text-center space-y-2 md:hidden mb-8">
             <div className="w-20 h-20 flex items-center justify-center mb-1 bg-white p-2.5 rounded-3xl shadow-md border border-suka-orange/10">
-              <img src="/logo.png" alt="Suka Shawarma Logo" className="w-full h-full object-contain" />
+              <Image src="/logo.png" alt="Suka Shawarma Logo" width={80} height={80} priority className="w-full h-full object-contain" />
             </div>
             <h1 className="text-3xl font-extrabold text-suka-brown tracking-tight font-display">
               SUKA SHAWARMA

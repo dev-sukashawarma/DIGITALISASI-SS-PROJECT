@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Store, Plus, X, Loader2, Search } from 'lucide-react'
 import type { Outlet } from '@/types'
+import { useDialogStore } from '@/lib/dialogStore'
 
 export default function AdminOutletsPage() {
+  const { showConfirm, showAlert } = useDialogStore()
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -88,7 +90,7 @@ export default function AdminOutletsPage() {
         fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: data }) }).catch(console.error)
       } else {
         console.error('Update outlet error:', error)
-        alert('Gagal mengupdate cabang: ' + (error?.message || 'Unknown error'))
+        showAlert('Gagal mengupdate cabang: ' + (error?.message || 'Unknown error'))
       }
     } else {
       const { data, error } = await supabase.from('outlets').insert({
@@ -108,7 +110,7 @@ export default function AdminOutletsPage() {
         fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: data }) }).catch(console.error)
       } else {
         console.error('Insert outlet error:', error)
-        alert('Gagal menambahkan cabang: ' + (error?.message || 'Unknown error'))
+        showAlert('Gagal menambahkan cabang: ' + (error?.message || 'Unknown error'))
       }
     }
     
@@ -116,7 +118,8 @@ export default function AdminOutletsPage() {
   }
 
   async function handleDeleteOutlet(id: string) {
-    if (!confirm('Apakah Anda yakin ingin menghapus cabang ini? Semua data pesanan yang terkait juga akan ikut terhapus!')) return
+    const confirmed = await showConfirm('Apakah Anda yakin ingin menghapus cabang ini? Semua data pesanan yang terkait juga akan ikut terhapus!');
+    if (!confirmed) return
     
     const { error } = await supabase.from('outlets').delete().eq('id', id)
     if (!error) {
@@ -124,7 +127,7 @@ export default function AdminOutletsPage() {
       fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'delete', outlet: { id } }) }).catch(console.error)
     } else {
       console.error('Delete outlet error:', error)
-      alert('Gagal menghapus cabang: ' + (error?.message || 'Unknown error'))
+      showAlert('Gagal menghapus cabang: ' + (error?.message || 'Unknown error'))
     }
   }
 

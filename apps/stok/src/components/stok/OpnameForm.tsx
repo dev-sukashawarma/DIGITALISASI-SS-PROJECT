@@ -229,11 +229,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
           return (
             <div
               key={b.id}
-              className={`p-4 rounded-xl border flex flex-col justify-between min-h-[135px] transition-all duration-200 ${
-                flagged
-                  ? 'border-2 border-[#ba1a1a] bg-white shadow-[0px_6px_20px_rgba(186,26,26,0.06)] ring-2 ring-[#ba1a1a]/5 animate-pulse-subtle'
-                  : 'border-[#d9c2b2]/45 bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45'
-              }`}
+              className="p-4 rounded-xl border flex flex-col justify-between min-h-[135px] transition-all duration-200 border-[#d9c2b2]/45 bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45"
             >
               {/* Card Top: Details */}
               <div className="flex justify-between items-start gap-3">
@@ -242,37 +238,21 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
                     <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-1.5 py-0.5 rounded border border-[#d9c2b2]/30">
                       {CATEGORY_LABELS[b.kategori] || b.kategori}
                     </span>
-                    {flagged && (
-                      <span className="text-[8px] font-bold uppercase bg-[#ffdad6] text-[#ba1a1a] px-1.5 py-0.5 rounded border border-[#ba1a1a]/15">
-                        ⚠️ Kritis
-                      </span>
-                    )}
                   </div>
                   <h3 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide mt-1.5 leading-tight truncate">
                     {b.nama}
                   </h3>
                   <p className="text-[9px] text-[#544437]/60 font-semibold mt-0.5">
-                    Sistem: <span className="text-gray-700 font-bold">{qtySystem} {b.satuan}</span>
+                    Satuan: <span className="text-gray-700 font-bold">{b.satuan}</span>
                   </p>
                 </div>
 
-                {/* Discrepancy indicator */}
+                {/* Discrepancy indicator hidden for Blind Opname */}
                 <div className="text-right min-w-[65px] flex-shrink-0">
-                  {selisih !== null && (
+                  {val !== '' && (
                     <div className="space-y-0.5">
-                      <p className={`text-xs font-black ${
-                        flagged 
-                          ? 'text-[#ba1a1a]' 
-                          : selisih === 0 
-                            ? 'text-gray-500' 
-                            : selisih < 0 
-                              ? 'text-[#ba1a1a]' 
-                              : 'text-[#0a7d2c]'
-                      }`}>
-                        {selisih > 0 ? '+' : ''}{selisih} <span className="text-[9px] font-medium text-[#544437]/50">{b.satuan}</span>
-                      </p>
-                      <p className="text-[7px] text-[#544437]/50 font-bold uppercase tracking-widest leading-none">
-                        Selisih
+                      <p className="text-xs font-black text-[#0a7d2c]">
+                        ✓ Tersimpan
                       </p>
                     </div>
                   )}

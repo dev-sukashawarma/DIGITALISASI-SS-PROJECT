@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Spinner } from "@suka/design-system";
 import { ListChecks, Plus, Edit, Trash2, X as XIcon } from "lucide-react";
@@ -35,7 +35,7 @@ const CHECKLIST_KEY = (outletId: string) => ["checklist-management", outletId];
 
 export default function ChecklistManagementPage() {
   const { outletStaff } = useAuth();
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
   const toast = useToast();
   const qc = useQueryClient();
 

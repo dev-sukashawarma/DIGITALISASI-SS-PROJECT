@@ -15,7 +15,7 @@ export function Providers({
   initialStaff?: OutletStaffProfile | null
 }) {
   const queryClient = useMemo(() => new QueryClient(), [])
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -4,8 +4,6 @@ import Link from 'next/link'
 import { Spinner } from '@suka/design-system'
 import { useHrActivity } from '@/hooks/useHrActivity'
 
-export const dynamic = 'force-dynamic'
-
 export default function HRDashboard() {
   const cards = [
     { title: 'Database Karyawan', desc: 'Kelola data staf dan kontrak', href: '/dashboard/hr/staff', icon: Users, color: 'bg-blue-50 text-blue-600' },

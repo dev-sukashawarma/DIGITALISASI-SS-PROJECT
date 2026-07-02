@@ -1,11 +1,11 @@
 'use client'
 
-import { useMemo } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, createSupabaseBrowserClient } from '@suka/auth'
 import type { OutletStaffProfile } from '@suka/auth'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ToastProvider } from '@/lib/feedback/toast'
+import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,13 +25,14 @@ export function Providers({
   children: React.ReactNode
   initialStaff?: OutletStaffProfile | null
 }) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+  const supabase = createSupabaseBrowserClient()
 
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider supabase={supabase} initialStaff={initialStaff}>
           <ToastProvider>
+            <ServiceWorkerRegister />
             {children}
           </ToastProvider>
         </AuthProvider>

@@ -23,7 +23,7 @@ export default function MenuPage() {
       // 1. Dapatkan sesi & outlet_id
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        window.location.href = '/login'
+        window.location.href = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
         return
       }
       

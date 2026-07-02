@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createSupabaseServerClient, verifyAccessToken } from '@suka/auth'
+import { createSupabaseServerClient, resolveUserId } from '@suka/auth'
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next()
@@ -14,21 +14,7 @@ export async function middleware(request: NextRequest) {
   })
 
   // Identitas via JWT lokal (tanpa network); fallback getUser() bila secret kosong (dev).
-  const jwtSecret = process.env.SUPABASE_JWT_SECRET
-  let userId: string | null = null
-  if (jwtSecret) {
-    const { data: { session } } = await supabase.auth.getSession()
-    const claims = session?.access_token
-      ? await verifyAccessToken(session.access_token, jwtSecret)
-      : null
-    userId = claims?.sub ?? null
-  } else {
-    if (process.env.NODE_ENV === 'production') {
-      console.warn('[perf] SUPABASE_JWT_SECRET unset in production — falling back to slow network getUser() per request')
-    }
-    const { data: { user } } = await supabase.auth.getUser()
-    userId = user?.id ?? null
-  }
+  const userId = await resolveUserId(supabase, process.env.SUPABASE_JWT_SECRET)
 
   const { pathname } = request.nextUrl
 

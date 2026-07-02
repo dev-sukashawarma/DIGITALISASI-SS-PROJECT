@@ -1,76 +1,75 @@
-<svg viewBox='0 0 1200 760' xmlns='http://www.w3.org/2000/svg'>
-    <rect width='1200' height='760' fill='#f9fafb'/>
+<svg viewBox='0 0 1180 700' xmlns='http://www.w3.org/2000/svg'>
+  <rect width='1180' height='700' fill='#fdf3e7'/>
+  
+  <rect x='0' y='0' width='250' height='700' fill='#ffffff'/>
+  <line x1='250' y1='0' x2='250' y2='700' stroke='#eee0d2' stroke-width='2'/>
+  <rect x='20' y='28' width='40' height='40' rx='12' fill='#f29744'/>
+  <text x='40' y='54' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='18'>🥙</text>
+  <text x='72' y='46' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='800' fill='#2b1a12'>SHAWARMA</text>
+  <text x='72' y='62' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='10' font-weight='800' fill='#8a7263' letter-spacing='0.5'>CABANG SUKA SHAWARMA</text>
+  <line x1='16' y1='90' x2='234' y2='90' stroke='#eee0d2' stroke-width='2'/>
+  
     <g>
-    <rect x='0' y='0' width='230' height='760' fill='#ffffff'/>
-    <line x1='230' y1='0' x2='230' y2='760' stroke='#e5e7eb' stroke-width='2'/>
-    <!-- brand -->
-    <rect x='24' y='34' width='42' height='42' rx='13' fill='#f59e0b'/>
-    <text x='45' y='61' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='22'>🥙</text>
-    <text x='80' y='52' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='16' font-weight='800' fill='#111827'>Hai, Kasir</text>
-    <g><circle cx='84' cy='66' r='4' fill='#10b981'/><text x='94' y='71' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='11' font-weight='800' fill='#f59e0b' letter-spacing='1'>CABANG EMPANG</text></g>
+      <rect x='16' y='150' width='198' height='42' rx='13' fill='#fff1e0'/>
+      <circle cx='40' cy='171' r='4' fill='#f29744'/>
+      <text x='58' y='176' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='800' fill='#c9711f'>Order</text>
+    </g>
     <g>
-      <rect x='16' y='150' width='198' height='44' rx='14' fill='#fffbeb'/>
-      <rect x='32' y='163' width='18' height='18' rx='5' fill='none' stroke='#f59e0b' stroke-width='2'/>
-      <text x='62' y='178' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='800' fill='#d97706'>Order</text>
-    </g><g>
-      <rect x='16' y='206' width='198' height='44' rx='14' fill='none'/>
-      <rect x='32' y='219' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
-      <text x='62' y='234' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Manajemen Menu</text>
-    </g><g>
-      <rect x='16' y='262' width='198' height='44' rx='14' fill='none'/>
-      <rect x='32' y='275' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
-      <text x='62' y='290' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Histori</text>
-    </g><g>
-      <rect x='16' y='318' width='198' height='44' rx='14' fill='none'/>
-      <rect x='32' y='331' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
-      <text x='62' y='346' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Kontrol Device</text>
-    </g><g>
-      <rect x='16' y='374' width='198' height='44' rx='14' fill='none'/>
-      <rect x='32' y='387' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
-      <text x='62' y='402' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Laporan</text>
-    </g><g>
-      <rect x='16' y='430' width='198' height='44' rx='14' fill='none'/>
-      <rect x='32' y='443' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
-      <text x='62' y='458' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Tampilan Layar</text>
-    </g><g>
-      <rect x='16' y='486' width='198' height='44' rx='14' fill='none'/>
-      <rect x='32' y='499' width='18' height='18' rx='5' fill='none' stroke='#9ca3af' stroke-width='2'/>
-      <text x='62' y='514' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='600' fill='#6b7280'>Panduan</text>
+      <rect x='16' y='200' width='198' height='42' rx='13' fill='none'/>
+      <circle cx='40' cy='221' r='4' fill='#c7b8a9'/>
+      <text x='58' y='226' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Manajemen Menu</text>
     </g>
-    <g><rect x='16' y='696' width='198' height='44' rx='14' fill='#fef2f2'/>
-    <text x='40' y='724' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15.5' font-weight='700' fill='#ef4444'>⎋  Keluar</text></g>
-  </g>
-    <g transform='translate(266,40)'>
-      <text x='0' y='28' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='30' font-weight='800' fill='#111827'>Selamat Datang di Sistem Kasir</text>
-      <text x='0' y='56' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='600' fill='#6b7280'>Layar utama kerja Anda sehari-hari</text>
+    <g>
+      <rect x='16' y='250' width='198' height='42' rx='13' fill='none'/>
+      <circle cx='40' cy='271' r='4' fill='#c7b8a9'/>
+      <text x='58' y='276' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Petty Cash</text>
     </g>
-    <g transform='translate(266,120)'>
-    <rect x='0' y='0' width='430' height='250' rx='20' fill='#ffffff' stroke='#e5e7eb' stroke-width='2'/>
-    <rect x='24' y='24' width='120' height='14' rx='7' fill='#fef3c7'/>
-    <rect x='24' y='58' width='382' height='52' rx='14' fill='#fffbeb' stroke='#fef3c7' stroke-width='2'/>
-    <text x='44' y='90' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='17' font-weight='800' fill='#d97706'>🔔  Pesanan Baru Masuk Otomatis</text>
-    <rect x='24' y='126' width='382' height='44' rx='12' fill='#f9fafb'/>
-    <text x='44' y='154' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='700' fill='#6b7280'>Antrian #102  ·  Rp 51.000</text>
-    <rect x='24' y='184' width='382' height='44' rx='12' fill='#f9fafb'/>
-    <text x='44' y='212' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='700' fill='#6b7280'>Antrian #103  ·  Rp 36.000</text>
-
-    <rect x='462' y='0' width='430' height='250' rx='20' fill='#ffffff' stroke='#e5e7eb' stroke-width='2'/>
-    <text x='486' y='42' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='17' font-weight='800' fill='#111827'>Sistem Kasir Digital</text>
-    <text x='486' y='78' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' fill='#6b7280'>Semua pesanan dari pelanggan</text>
-    <text x='486' y='102' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' fill='#6b7280'>tampil di satu layar. Kasir tinggal</text>
-    <text x='486' y='126' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' fill='#6b7280'>terima, proses, lalu selesaikan.</text>
-    <g><rect x='486' y='150' width='150' height='34' rx='17' fill='#ecfdf5'/>
-    <text x='561' y='171.9' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='700' fill='#059669'>✓ Mudah dipakai</text></g>
-    <g><rect x='646' y='150' width='150' height='34' rx='17' fill='#ecfdf5'/>
-    <text x='721' y='171.9' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='700' fill='#059669'>✓ Tanpa ribet</text></g>
+    <g>
+      <rect x='16' y='300' width='198' height='42' rx='13' fill='none'/>
+      <circle cx='40' cy='321' r='4' fill='#c7b8a9'/>
+      <text x='58' y='326' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Histori</text>
+    </g>
+    <g>
+      <rect x='16' y='350' width='198' height='42' rx='13' fill='none'/>
+      <circle cx='40' cy='371' r='4' fill='#c7b8a9'/>
+      <text x='58' y='376' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Kontrol Device Pel...</text>
+    </g>
+    <g>
+      <rect x='16' y='400' width='198' height='42' rx='13' fill='none'/>
+      <circle cx='40' cy='421' r='4' fill='#c7b8a9'/>
+      <text x='58' y='426' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Laporan</text>
+    </g>
+    <g>
+      <rect x='16' y='450' width='198' height='42' rx='13' fill='none'/>
+      <circle cx='40' cy='471' r='4' fill='#c7b8a9'/>
+      <text x='58' y='476' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Tampilan Layar</text>
+    </g>
+    <g>
+      <rect x='16' y='500' width='198' height='42' rx='13' fill='none'/>
+      <circle cx='40' cy='521' r='4' fill='#c7b8a9'/>
+      <text x='58' y='526' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Panduan</text>
+    </g>
+  <g>
+    <rect x='16' y='618' width='198' height='40' rx='13' fill='none'/>
+    <text x='58' y='643' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='700' fill='#8a7263'>← Portal</text>
   </g>
   <g>
-    <circle cx='286' cy='175' r='21' fill='#ffffff' opacity='0.9'/>
-    <circle cx='286' cy='175' r='18' fill='#f59e0b' stroke='#ffffff' stroke-width='3'/>
-    <text x='286' y='181' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='19' font-weight='800' fill='#ffffff'>1</text>
-  </g> <g>
-    <circle cx='748' cy='175' r='21' fill='#ffffff' opacity='0.9'/>
-    <circle cx='748' cy='175' r='18' fill='#f59e0b' stroke='#ffffff' stroke-width='3'/>
-    <text x='748' y='181' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='19' font-weight='800' fill='#ffffff'>2</text>
+    <rect x='16' y='662' width='198' height='40' rx='13' fill='#fdeceb'/>
+    <text x='58' y='687' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='700' fill='#dc2626'>⎋ Keluar</text>
   </g>
-  </svg>
+  <g transform='translate(284,36)'>
+    <text x='0' y='26' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='26' font-weight='800' fill='#701604'>Apa Itu Sistem Kasir Suka Shawarma?</text>
+    
+  </g>
+  <g transform='translate(284,60)'>
+    
+    <rect x='0' y='0' width='860' height='220' rx='16' fill='#fff1e0' stroke='none' stroke-width='1.5'/>
+    <circle cx='30' cy='34' r='16' fill='#f29744'/><text x='30' y='39' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>1</text>
+    <text x='56' y='40' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Pesanan masuk otomatis ke halaman Order — lengkap dengan status &amp; nominal.</text>
+    <circle cx='30' cy='74' r='16' fill='#f29744'/><text x='30' y='79' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>2</text>
+    <text x='56' y='80' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Sidebar kiri = semua fitur kasir: Order, Menu, Petty Cash, Histori, Device, Laporan, dst.</text>
+    <circle cx='30' cy='114' r='16' fill='#f29744'/><text x='30' y='119' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>3</text>
+    <text x='56' y='120' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Tidak perlu mencatat manual di kertas — semua tersimpan otomatis di sistem.</text>
+  
+  </g>
+</svg>

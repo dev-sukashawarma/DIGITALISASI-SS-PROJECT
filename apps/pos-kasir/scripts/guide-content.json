@@ -1,0 +1,128 @@
+[
+  {
+    "category": "Bab 1 · Mengenal Sistem",
+    "sort_order": 1,
+    "file": "01-overview.svg",
+    "title": "Apa Itu Sistem Kasir Suka Shawarma?",
+    "content": "Sistem ini adalah \"meja kerja digital\" Anda sebagai kasir. Semua pesanan pelanggan — baik yang dipesan sendiri lewat layar toko (kiosk) maupun yang Anda input manual — akan muncul otomatis di halaman \"Order\".\n\nMenu-menu di sisi kiri layar (sidebar) adalah semua tugas yang bisa Anda lakukan: mulai dari memproses pesanan, mengatur menu, mencatat kas kecil (Petty Cash), sampai melihat laporan penjualan.\n\nIkuti panduan ini bab demi bab dari atas ke bawah, ya."
+  },
+  {
+    "category": "Bab 1 · Mengenal Sistem",
+    "sort_order": 2,
+    "file": "02-login.svg",
+    "title": "Cara Masuk (Login)",
+    "content": "Sebelum bekerja, masuk dulu memakai akun yang diberikan atasan (SPV/Leader).\n\nLangkah-langkahnya:\n1) Ketik Username Anda (contoh: staff_dramaga).\n2) Ketik Kata Sandi (password) Anda.\n3) Tekan tombol \"Masuk\" berwarna oranye.\n\nCatatan penting:\n• Akun ini rahasia, jangan dibagikan ke siapa pun.\n• Kalau lupa sandi, hubungi atasan/admin Anda."
+  },
+  {
+    "category": "Bab 1 · Mengenal Sistem",
+    "sort_order": 3,
+    "file": "03-sidebar.svg",
+    "title": "Mengenal Menu di Sebelah Kiri",
+    "content": "Semua halaman dibuka lewat daftar menu (sidebar) di sisi kiri layar:\n\n1) \"Order\" — layar utama, semua pesanan masuk & dikerjakan di sini.\n2) \"Manajemen Menu\" — atur menu tersedia/habis.\n3) \"Petty Cash\" — catat kas kecil & dana operasional.\n4) \"Histori\" — daftar & ringkasan semua pesanan.\n5) \"Kontrol Device Pelanggan\" — kelola layar pesan-sendiri (kiosk) di toko.\n6) \"Laporan\" — ringkasan & grafik penjualan.\n7) \"Tampilan Layar\" — atur gambar sambutan di kiosk.\n8) \"Panduan\" — buku panduan ini.\n\nPaling bawah ada \"Portal\" (kembali ke portal utama) dan \"Keluar\" (logout)."
+  },
+  {
+    "category": "Bab 2 · Order & Pesanan",
+    "sort_order": 1,
+    "file": "04-order-board.svg",
+    "title": "Memahami 3 Kolom di Halaman \"Order\"",
+    "content": "Halaman \"Order\" adalah layar utama kerja Anda, terbagi 3 kolom:\n\n1) \"Menunggu Pembayaran\" — pesanan baru yang belum dibayar/diproses.\n2) \"Sedang Diproses\" — pesanan yang sudah diterima kasir & sedang dibuatkan.\n3) \"Selesai / Lunas\" — pesanan yang sudah beres, ada kolom pencarian nomor antrian.\n\nKalau kolom kosong akan muncul tulisan \"Tidak ada pesanan ...\" — itu normal, artinya belum ada aktivitas di kolom tersebut."
+  },
+  {
+    "category": "Bab 2 · Order & Pesanan",
+    "sort_order": 2,
+    "file": "05-filter-online-offline.svg",
+    "title": "Filter Pesanan: Semua / Online / Offline",
+    "content": "Di atas kolom Order ada 3 tombol filter:\n\n1) \"Semua\" — tampilkan semua pesanan.\n2) \"Online\" — pesanan yang datang dari pelanggan lewat website/aplikasi.\n3) \"Offline\" — pesanan dari kiosk/layar pesan-sendiri di toko, atau input manual kasir.\n\nGunakan filter ini kalau ingin fokus memantau satu sumber pesanan saja."
+  },
+  {
+    "category": "Bab 2 · Order & Pesanan",
+    "sort_order": 3,
+    "file": "06-pesanan-baru.svg",
+    "title": "Membuat Pesanan Manual (Kasir Langsung)",
+    "content": "Kalau ada pelanggan pesan langsung ke kasir (bukan lewat kiosk), input pesanannya secara manual:\n\n1) Tekan tombol oranye \"+ Pesanan Baru\" di halaman Order.\n2) Pilih tab \"Kasir Langsung\".\n3) Cari & tekan menu yang dipesan — otomatis masuk ke \"Keranjang\" di kanan.\n4) Tekan tombol \"+\"/\"−\" untuk ubah jumlah, atau tempat sampah untuk hapus.\n5) Isi nama pelanggan (opsional) & pilih metode pembayaran: Tunai atau QRIS.\n6) Tekan tombol pesan untuk menyimpan pesanan."
+  },
+  {
+    "category": "Bab 2 · Order & Pesanan",
+    "sort_order": 4,
+    "file": "07-stok-kritis.svg",
+    "title": "Notifikasi Stok Kritis & Panel Stok Outlet",
+    "content": "Di bagian atas halaman Order, kadang muncul banner merah \"STOK KRITIS DI OUTLET ANDA\" — ini artinya ada bahan baku yang hampir habis atau sudah habis.\n\n1) Tekan tombol \"Cek Stok\" pada banner untuk melihat detail stok outlet.\n2) Ada juga panel kecil \"Stok Outlet\" di sisi kanan halaman Order yang menampilkan bahan dengan status \"Kritis!\" (merah) atau \"Menipis\" (oranye).\n\nSegera laporkan ke SPV/Leader kalau ada bahan penting yang kritis, supaya menu terkait tidak salah jual."
+  },
+  {
+    "category": "Bab 3 · Manajemen Menu",
+    "sort_order": 1,
+    "file": "08-menu-list.svg",
+    "title": "Melihat & Mencari Menu",
+    "content": "Halaman \"Manajemen Menu\" menampilkan semua menu cabang Anda dalam bentuk tabel: Foto, Nama Menu, Kategori, Harga, Status, dan Aksi.\n\nGunakan kolom pencarian \"Cari menu...\" di kanan atas untuk cepat menemukan menu tertentu, terutama kalau daftarnya panjang."
+  },
+  {
+    "category": "Bab 3 · Manajemen Menu",
+    "sort_order": 2,
+    "file": "09-menu-toggle.svg",
+    "title": "Menandai Menu Habis atau Tersedia",
+    "content": "Kalau bahan suatu menu habis, matikan menunya supaya pelanggan tidak bisa memesannya.\n\nCaranya:\n1) Buka \"Manajemen Menu\", cari nama menunya.\n2) Klik tulisan hijau \"Tersedia\" pada menu itu — langsung berubah jadi merah \"Habis\". Tidak perlu tombol lain.\n3) Kalau bahan sudah tersedia lagi, klik lagi tulisan \"Habis\" supaya kembali menjadi \"Tersedia\"."
+  },
+  {
+    "category": "Bab 4 · Petty Cash",
+    "sort_order": 1,
+    "file": "10-petty-cash.svg",
+    "title": "Memahami Laci Kasir & Dana Operasional",
+    "content": "Halaman \"Petty Cash\" mengelola dua jenis uang di outlet:\n\n1) \"Laci Kasir (Sales)\" — uang hasil penjualan tunai hari ini.\n2) \"Dana Operasional\" — kas kecil untuk belanja kebutuhan mendadak (misal beli es batu, plastik).\n\nKedua nominal ini ditampilkan jelas di bagian atas halaman, supaya Anda tahu persis berapa uang yang seharusnya ada di laci."
+  },
+  {
+    "category": "Bab 4 · Petty Cash",
+    "sort_order": 2,
+    "file": "11-petty-topup.svg",
+    "title": "Mencatat Pengeluaran & Mengajukan Top Up",
+    "content": "Untuk mencatat belanja pakai Dana Operasional:\n1) Buka bagian \"Catat Pengeluaran (Ambil dari Petty Cash)\".\n2) Pilih kategori (contoh: Operasional - Plastik, ATK).\n3) Isi keterangan/nama barang & nominal, lalu simpan.\n\nKalau Dana Operasional sudah menipis, tekan tombol \"Ajukan Top Up Petty Cash\" di kanan atas halaman untuk minta tambahan dana ke atasan."
+  },
+  {
+    "category": "Bab 5 · Histori & Dashboard Pesanan",
+    "sort_order": 1,
+    "file": "12-histori.svg",
+    "title": "Melihat Ringkasan Dashboard Pesanan",
+    "content": "Menu \"Histori\" membuka \"Dashboard Pesanan\", ringkasan lengkap aktivitas hari ini:\n\n1) Kotak \"Menunggu\" & \"Selesai\" — jumlah pesanan per status.\n2) Kotak oranye \"Revenue Hari Ini\" — total pendapatan hari ini.\n3) Tab \"Semua Pesanan / Menunggu / Selesai / Dibatalkan\" untuk menyaring daftar di bawahnya.\n\nHalaman ini auto-refresh setiap 15 detik."
+  },
+  {
+    "category": "Bab 5 · Histori & Dashboard Pesanan",
+    "sort_order": 2,
+    "file": "13-histori-detail.svg",
+    "title": "Melihat Detail Item Pesanan",
+    "content": "Tiap baris pesanan di Dashboard Pesanan menampilkan nomor order, status, waktu, jumlah item, dan total harga.\n\nTekan ikon panah (⌄) di ujung kanan baris pesanan untuk membuka rincian — Anda bisa melihat menu apa saja yang dipesan beserta harga satuannya. Berguna kalau ada pelanggan bertanya soal pesanan sebelumnya, atau saat mencocokkan uang di akhir shift."
+  },
+  {
+    "category": "Bab 6 · Kontrol Device Pelanggan",
+    "sort_order": 1,
+    "file": "14-kiosk-qr.svg",
+    "title": "Menghubungkan Device Pelanggan (Kiosk)",
+    "content": "\"Device Pelanggan\" adalah layar/tablet tempat pelanggan memesan sendiri. Untuk menyalakannya:\n\n1) Buka menu \"Kontrol Device Pelanggan\", tekan tombol ungu \"Hubungkan via QR\" — muncul kode QR.\n2) Dari layar tablet pelanggan, pindai (scan) kode QR tersebut.\n\nSetelah terpindai, tablet otomatis masuk dan siap dipakai pelanggan tanpa perlu mengetik sandi apa pun."
+  },
+  {
+    "category": "Bab 6 · Kontrol Device Pelanggan",
+    "sort_order": 2,
+    "file": "15-kiosk-list.svg",
+    "title": "Memantau & Logout Device",
+    "content": "Di halaman \"Kontrol Device Pelanggan\" Anda bisa melihat semua tablet pelanggan yang sedang menyala:\n\n1) Titik hijau \"Terhubung\" — tablet sedang online/aktif.\n2) Tombol \"Refresh\" — memuat ulang kalau tampilan tablet error/ngadat.\n3) Tombol merah \"Logout Semua Device\" — mengeluarkan semua tablet (misal toko mau tutup).\n\nKalau tidak ada tablet menyala, akan muncul tulisan \"Tidak ada device online\"."
+  },
+  {
+    "category": "Bab 7 · Laporan & Analitik",
+    "sort_order": 1,
+    "file": "16-laporan.svg",
+    "title": "Membaca Laporan & Analitik Cabang",
+    "content": "Menu \"Laporan\" menampilkan insight bisnis cabang Anda secara real-time:\n\n1) Kotak oranye \"Total Pendapatan\" — omzet pada periode yang dipilih (default: Hari Ini).\n2) \"Total Pesanan Sukses\", \"Rata-rata / Pesanan\", dan \"Jam Tersibuk\".\n3) Di bawahnya ada rincian \"Status Transaksi\" (Selesai vs Dibatalkan), \"Distribusi Pembayaran\", dan \"Kategori Produk\".\n\nUbah periode lewat dropdown \"Hari Ini\" di kanan atas kalau ingin melihat rentang tanggal lain. Anda tidak perlu menghitung manual — sistem menjumlahkan semuanya otomatis."
+  },
+  {
+    "category": "Bab 8 · Tampilan Layar & Keluar",
+    "sort_order": 1,
+    "file": "17-tampilan.svg",
+    "title": "Mengatur Gambar Cover Kiosk",
+    "content": "\"Tampilan Layar\" mengatur gambar sambutan (cover) yang tampil penuh di layar tablet pelanggan saat sedang menganggur (attract screen) — seperti poster digital di depan toko.\n\nCara mengganti:\n1) Buka menu \"Tampilan Layar\" — terlihat gambar cover yang aktif untuk cabang Anda.\n2) Tekan tombol \"Upload Gambar Cover\", pilih gambar dari komputer/HP.\n\nTips: pakai gambar landscape rasio 16:9, format JPG/PNG/WebP, supaya pas dan tidak terpotong."
+  },
+  {
+    "category": "Bab 8 · Tampilan Layar & Keluar",
+    "sort_order": 2,
+    "file": "18-logout.svg",
+    "title": "Keluar dari Sistem (Logout)",
+    "content": "Setiap selesai bekerja atau berganti shift, selalu keluar dari akun Anda.\n\n1) Tekan tombol \"Keluar\" berwarna merah di pojok kiri bawah sidebar.\n\nKenapa penting? Supaya akun Anda tidak dipakai orang lain dan data tetap aman — anggap seperti mengunci pintu sebelum pulang. Terima kasih sudah bertugas dengan baik!"
+  }
+]

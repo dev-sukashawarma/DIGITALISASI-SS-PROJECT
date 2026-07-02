@@ -12,7 +12,7 @@ interface Args {
 /**
  * Hook untuk tablet kiosk:
  * - Mendaftarkan kehadiran (presence) ke channel outlet → muncul di panel kasir.
- * - Mendengar event `force_logout` dari kasir → signOut & kembali ke /login.
+ * - Mendengar event `force_logout` dari kasir → signOut & kembali ke /kiosk/qr-login.
  *
  * Aman dipanggil dengan argumen null (mis. saat data sesi belum termuat): tidak melakukan apa pun.
  */
@@ -44,7 +44,7 @@ export function useKioskControl({ userId, username, outletId }: Args) {
         const target = (payload as { target?: string } | undefined)?.target
         if (target === 'all' || target === userId) {
           await supabase.auth.signOut({ scope: 'global' })
-          window.location.href = '/login'
+          window.location.href = '/kiosk/qr-login'
         }
       })
       // Kasir bisa meminta semua kiosk "lapor hadir" → kiosk re-track presence-nya.

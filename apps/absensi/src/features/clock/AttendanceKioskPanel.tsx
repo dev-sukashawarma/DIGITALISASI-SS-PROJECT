@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Card, Spinner } from "@suka/design-system";
-import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, Store } from "lucide-react";
+import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, Store, MapPin } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
@@ -337,20 +337,20 @@ export function AttendanceKioskPanel() {
           ) : kiosk.phase === "locating" ? (
             <div className="absolute inset-0 z-20 flex flex-col justify-center items-center p-6 text-center space-y-4 bg-slate-900 text-white">
               <style dangerouslySetInnerHTML={{__html: `
-                @keyframes pulse-radar {
-                  0% { transform: scale(0.8); opacity: 0.8; }
-                  100% { transform: scale(2.2); opacity: 0; }
+                @keyframes ripple {
+                  0% { transform: scale(0.8); opacity: 1; border-width: 4px; }
+                  100% { transform: scale(3.5); opacity: 0; border-width: 1px; }
                 }
-                .animate-radar-1 { animation: pulse-radar 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; }
-                .animate-radar-2 { animation: pulse-radar 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 0.6s; }
-                .animate-radar-3 { animation: pulse-radar 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 1.2s; }
+                .animate-radar-1 { animation: ripple 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; }
+                .animate-radar-2 { animation: ripple 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 0.6s; }
+                .animate-radar-3 { animation: ripple 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 1.2s; }
               `}} />
               <div className="relative flex items-center justify-center w-28 h-28">
-                <div className="absolute inset-0 rounded-full bg-suka-orange/20 animate-radar-1" />
-                <div className="absolute inset-0 rounded-full bg-suka-orange/20 animate-radar-2" />
-                <div className="absolute inset-0 rounded-full bg-suka-orange/20 animate-radar-3" />
-                <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-suka-orange text-white shadow-lg">
-                  <Store size={28} className="animate-pulse" />
+                <div className="absolute inset-0 rounded-full border-suka-orange animate-radar-1" style={{ borderStyle: 'solid' }} />
+                <div className="absolute inset-0 rounded-full border-suka-orange animate-radar-2" style={{ borderStyle: 'solid' }} />
+                <div className="absolute inset-0 rounded-full border-suka-orange animate-radar-3" style={{ borderStyle: 'solid' }} />
+                <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-tr from-suka-orange to-orange-400 text-white shadow-[0_0_20px_rgba(249,115,22,0.6)]">
+                  <MapPin size={28} className="animate-bounce" />
                 </div>
               </div>
               <div className="space-y-1">

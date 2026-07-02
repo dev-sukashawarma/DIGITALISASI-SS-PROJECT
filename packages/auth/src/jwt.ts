@@ -1,3 +1,5 @@
+import type { createSupabaseServerClient } from './supabase-server'
+
 /**
  * Verifikasi tanda tangan access token Supabase secara LOKAL (HS256) tanpa
  * panggilan jaringan ke Auth server, memakai WebCrypto (`crypto.subtle`) yang
@@ -55,4 +57,27 @@ export async function verifyAccessToken(
   } catch {
     return null
   }
+}
+
+/**
+ * Resolusi userId di middleware: JWT lokal (`SUPABASE_JWT_SECRET`) tanpa
+ * network bila secret ada; fallback ke `getUser()` (network) bila tidak.
+ * Dipakai bersama oleh middleware `@suka/auth`, portal, dan pos-kasir.
+ */
+export async function resolveUserId(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  jwtSecret: string | undefined
+): Promise<string | null> {
+  if (jwtSecret) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const claims = session?.access_token
+      ? await verifyAccessToken(session.access_token, jwtSecret)
+      : null
+    return claims?.sub ?? null
+  }
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('[perf] SUPABASE_JWT_SECRET unset in production — falling back to slow network getUser() per request')
+  }
+  const { data: { user } } = await supabase.auth.getUser()
+  return user?.id ?? null
 }

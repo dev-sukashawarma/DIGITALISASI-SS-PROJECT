@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft, Gauge, FolderTree, Loader2 } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft, Gauge, FolderTree, Loader2, ArrowDownToLine } from 'lucide-react'
 import { fastLogout } from '@/lib/fast-logout'
 import { useBrand } from '@/components/BrandContext'
+import { usePendingPettyCash } from '@/lib/usePendingPettyCash'
 
 const links = [
   { href: '/admin',            label: 'Overview',  icon: BarChart3 },
@@ -14,6 +15,7 @@ const links = [
   { href: '/admin/categories', label: 'Kategori',  icon: FolderTree },
   { href: '/admin/promo',      label: 'Promo',     icon: Tag },
   { href: '/admin/outlets',    label: 'Cabang',    icon: Store },
+  { href: '/admin/petty-cash', label: 'Petty Cash',icon: ArrowDownToLine },
   { href: '/admin/users',      label: 'Pengguna',  icon: Users },
   { href: '/admin/guides',     label: 'Panduan',   icon: BookOpen },
   { href: '/admin/settings',   label: 'Pengaturan',icon: Settings },
@@ -23,6 +25,7 @@ export default function AdminNav() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { brandName, brandLogo } = useBrand()
+  const pendingPettyCash = usePendingPettyCash()
 
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
   let resolvedPortalUrl = portalUrl
@@ -40,7 +43,7 @@ export default function AdminNav() {
   const [loggingOut, setLoggingOut] = useState(false)
   async function handleLogout() {
     setLoggingOut(true)
-    await fastLogout('/admin/login')
+    await fastLogout(resolvedPortalUrl)
   }
 
   return (
@@ -114,12 +117,13 @@ export default function AdminNav() {
         <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
           {links.map(({ href, label, icon: Icon }) => {
             const active = href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
+            const badgeCount = href === '/admin/petty-cash' ? pendingPettyCash : 0
             return (
               <Link
                 key={href}
                 href={href}
                 onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[15px] font-bold
+                className={`relative flex items-center gap-3 px-4 py-3 rounded-2xl text-[15px] font-bold
                   transition-all duration-150
                   ${active
                     ? 'bg-amber-50 text-amber-600'
@@ -128,6 +132,11 @@ export default function AdminNav() {
               >
                 <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-amber-500' : 'text-gray-400'}`} strokeWidth={active ? 2.5 : 2} />
                 {label}
+                {badgeCount > 0 && (
+                  <span className="ml-auto min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[11px] font-bold">
+                    {badgeCount}
+                  </span>
+                )}
               </Link>
             )
           })}

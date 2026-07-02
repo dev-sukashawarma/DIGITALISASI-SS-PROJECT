@@ -46,9 +46,15 @@ export default function RekapPage() {
     enabled: !!outletStaff?.outlet_id,
     queryFn: async () => {
       const [attRes, staffRes, cfgRes] = await Promise.all([
+        // Tanpa embed `outlet_staff(name)`: JOIN itu ikut tunduk RLS tabel outlet_staff —
+        // kalau baris staff pemilik attendance tak lolos RLS untuk di-JOIN, PostgREST
+        // membuang SELURUH baris attendance itu (bukan cuma nama-nya kosong). Efeknya
+        // orang yang sudah absen (terlihat "Masuk" di papan kehadiran) muncul "Alpha" di
+        // sini. Nama digabung manual dari query outlet_staff terpisah di bawah — pola yang
+        // sama dipakai papan-kehadiran dan sudah terbukti tak kena masalah ini.
         supabase
           .from("attendance")
-          .select("id,type,ts_server,ts_client,status,selfie_url,outlet_staff_id,outlet_staff(name)")
+          .select("id,type,ts_server,ts_client,status,selfie_url,outlet_staff_id")
           .eq("outlet_id", outletStaff!.outlet_id)
           .gte("ts_server", `${date}T00:00:00`)
           .lte("ts_server", `${date}T23:59:59`)
@@ -65,8 +71,13 @@ export default function RekapPage() {
           .single()
       ]);
 
-      const dbRows = (attRes.data as unknown as (Row & { outlet_staff_id: string })[]) || [];
       const activeStaff = staffRes.data || [];
+      const nameById = new Map(activeStaff.map((s) => [s.id, s.name]));
+      const rawRows = (attRes.data as unknown as (Omit<Row, "outlet_staff"> & { outlet_staff_id: string })[]) || [];
+      const dbRows: (Row & { outlet_staff_id: string })[] = rawRows.map((r) => ({
+        ...r,
+        outlet_staff: { name: nameById.get(r.outlet_staff_id) ?? "-" },
+      }));
       const cfg = cfgRes.data;
 
       dbRows.forEach(r => {
@@ -185,7 +196,7 @@ export default function RekapPage() {
           <div key={r.id} className="flex items-center gap-3 px-3.5 py-3 sm:px-4">
             {r.selfie_url ? (
               <img src={selfieUrl(r.selfie_url)} alt="selfie" onClick={() => setPreview(selfieUrl(r.selfie_url!))}
-                   className="h-10 w-10 shrink-0 cursor-pointer rounded-xl object-cover" />
+                   className="h-10 w-10 shrink-0 cursor-pointer rounded-xl object-cover border border-suka-gray-200" />
             ) : <Avatar name={r.outlet_staff?.name ?? "?"} size={40} />}
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium text-suka-ink">{r.outlet_staff?.name ?? "-"}</div>
@@ -202,8 +213,8 @@ export default function RekapPage() {
       </div>
 
       {preview && (
-        <div onClick={() => setPreview(null)} className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-6">
-          <img src={preview} alt="selfie besar" className="max-h-[80vh] max-w-full rounded-2xl" />
+        <div onClick={() => setPreview(null)} className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm transition-opacity">
+          <img src={preview} alt="selfie besar" className="max-h-[85vh] max-w-full rounded-3xl shadow-2xl border-4 border-white" />
         </div>
       )}
     </div>

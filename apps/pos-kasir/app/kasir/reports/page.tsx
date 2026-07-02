@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   BarChart3, TrendingUp, TrendingDown, ShoppingBag, Banknote,
   Calendar, ChevronDown, Award, Clock, CreditCard, QrCode,
-  Package, ArrowUpRight, ArrowDownRight, Minus, FileText, Download, Printer, Search, CheckCircle2, XCircle
+  Package, ArrowUpRight, ArrowDownRight, Minus, FileText, Download, Printer, Search, CheckCircle2, XCircle, Wallet
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer
@@ -15,6 +15,20 @@ import { useMyOutlet } from '@/lib/useMyOutlet'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
 import ChannelBadge from '@/components/ChannelBadge'
+
+interface ShiftRow {
+  id: string
+  start_time: string
+  end_time: string | null
+  status: string
+  starting_cash: number
+  expected_ending_cash: number
+  actual_ending_cash: number
+  variance: number
+  expected_ending_petty_cash: number
+  actual_ending_petty_cash: number
+  petty_cash_variance: number
+}
 
 interface OrderRow {
   id: string
@@ -86,6 +100,49 @@ async function fetchReportOrders(outletId: string, range: DateRange, customStart
   return data ?? []
 }
 
+async function fetchReportShifts(outletId: string, range: DateRange, customStart: string, customEnd: string): Promise<ShiftRow[]> {
+  const supabase = createClient()
+
+  let q = supabase
+    .from('shifts')
+    .select('*')
+    .eq('outlet_id', outletId)
+    .eq('status', 'closed')
+    .order('end_time', { ascending: false })
+
+  if (range === 'today') {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    q = q.gte('end_time', today.toISOString())
+  } else if (range === 'yesterday') {
+    const yest = new Date()
+    yest.setDate(yest.getDate() - 1)
+    yest.setHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    q = q.gte('end_time', yest.toISOString()).lt('end_time', today.toISOString())
+  } else if (range === '7days') {
+    const d = new Date()
+    d.setDate(d.getDate() - 7)
+    d.setHours(0, 0, 0, 0)
+    q = q.gte('end_time', d.toISOString())
+  } else if (range === '30days') {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    d.setHours(0, 0, 0, 0)
+    q = q.gte('end_time', d.toISOString())
+  } else if (range === 'custom' && customStart && customEnd) {
+    const s = new Date(customStart)
+    s.setHours(0, 0, 0, 0)
+    const e = new Date(customEnd)
+    e.setHours(23, 59, 59, 999)
+    q = q.gte('end_time', s.toISOString()).lte('end_time', e.toISOString())
+  }
+
+  const { data } = await q
+  return data ?? []
+}
+
 export default function ReportsPage() {
   const [range, setRange] = useState<DateRange>('today')
   const [showRangePicker, setShowRangePicker] = useState(false)
@@ -103,6 +160,18 @@ export default function ReportsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
+  // Banner setelah tutup shift (redirect dari halaman Kas & Shift dengan ?shift=closed)
+  const [justClosedShift, setJustClosedShift] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('shift') === 'closed') {
+      setJustClosedShift(true)
+      // Bersihkan query agar refresh tidak memunculkan banner lagi
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
+
   const isCustomReady = range !== 'custom' || (!!customStart && !!customEnd)
 
   const { data: orders = [], isLoading: loading } = useQuery({
@@ -113,15 +182,35 @@ export default function ReportsPage() {
     retry: false,
   })
 
+  const { data: shifts = [], isLoading: loadingShifts } = useQuery({
+    queryKey: ['reportShifts', outletId, range, customStart, customEnd],
+    queryFn: () => fetchReportShifts(outletId as string, range, customStart, customEnd),
+    enabled: !!outletId && isCustomReady,
+    staleTime: 30000,
+    retry: false,
+  })
+
+  // Setelah tutup shift, gulir otomatis ke laporan rekonsiliasi laci
+  useEffect(() => {
+    if (justClosedShift && !loadingShifts && shifts.length > 0) {
+      const t = setTimeout(() => {
+        document.getElementById('laporan-laci-cash')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 400)
+      return () => clearTimeout(t)
+    }
+  }, [justClosedShift, loadingShifts, shifts.length])
+
   // ─── Derived Analytics ───
   const analytics = useMemo(() => {
     const completedOrders = orders.filter(o => o.status === 'completed')
     const canceledOrders = orders.filter(o => o.status === 'cancelled' || o.status === 'expired')
     const pendingCount = orders.filter(o => o.status === 'pending').length
 
-    const totalRevenue = completedOrders.reduce((s, o) => s + o.total_amount, 0)
+    let totalRevenue = completedOrders.reduce((s, o) => s + o.total_amount, 0)
     const totalOrders = completedOrders.length
-    const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
+    
+    // Hitung total selisih laci (variance) dari tutup shift
+    const totalCashVariance = shifts.reduce((s, shift) => s + (shift.variance || 0), 0)
 
     // Payment method breakdown
     const paymentBreakdown: Record<string, { count: number; revenue: number }> = {}
@@ -131,6 +220,16 @@ export default function ReportsPage() {
       paymentBreakdown[method].count++
       paymentBreakdown[method].revenue += o.total_amount
     })
+
+    // Koreksi pendapatan tunai dengan selisih fisik laci (Opsi B: Source of truth = Fisik Kasir)
+    if (paymentBreakdown['cash']) {
+      paymentBreakdown['cash'].revenue += totalCashVariance
+    }
+    
+    // Sesuaikan juga Total Pendapatan
+    totalRevenue += totalCashVariance
+
+    const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
 
     // Category breakdown
     let totalMain = 0
@@ -232,6 +331,19 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 pb-10 animate-fade-in" id="report-content">
+
+      {/* ── Banner sukses tutup shift ── */}
+      {justClosedShift && (
+        <div className="no-print p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+          <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-emerald-800">Shift berhasil ditutup!</p>
+            <p className="text-sm text-emerald-700 mt-0.5">
+              Hasil hitung uang shift Anda ada di bagian <b>Laporan Laci Cash</b> di bawah. Halaman akan gulir otomatis ke sana.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Header Web (Hidden on Print) ── */}
       <div className="no-print flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
@@ -747,6 +859,127 @@ export default function ReportsPage() {
                 </div>
               </div>
             )}
+          </div>
+          
+          {/* Laporan Tutup Shift */}
+          <div id="laporan-laci-cash" className="card p-6 shadow-sm border border-gray-100 mt-6 overflow-hidden no-print scroll-mt-6">
+            <div>
+              <h2 className="font-bold text-gray-900 text-lg">Laporan Laci Cash</h2>
+              <p className="text-gray-400 text-xs mt-0.5 mb-6">Perbandingan uang menurut sistem vs hasil hitung manual kasir saat tutup shift</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {loadingShifts ? (
+                <div className="col-span-full p-10 text-center bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-gray-400 font-medium">Memuat data shift...</p>
+                </div>
+              ) : shifts.length === 0 ? (
+                <div className="col-span-full p-10 text-center bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-gray-400 font-medium">Data shift tidak ditemukan</p>
+                </div>
+              ) : (
+                shifts.map((shift) => {
+                  const dateStr = new Date(shift.start_time).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                  const startTimeStr = new Date(shift.start_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                  const endTimeStr = shift.end_time ? new Date(shift.end_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'Berjalan';
+                  
+                  const variance = shift.variance || 0;
+                  const pcVariance = shift.petty_cash_variance || 0;
+                  const totalDiff = variance + pcVariance;
+
+                  return (
+                    <div key={shift.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col">
+                      {/* Header Kartu */}
+                      <div className="bg-amber-50 px-5 py-4 border-b border-amber-100 flex items-center gap-4">
+                        <div className="bg-amber-100 p-2.5 rounded-lg text-amber-700">
+                          <Calendar className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-amber-900 text-sm mb-0.5">Shift {dateStr}</h3>
+                          <p className="text-xs font-medium text-amber-700/80">{startTimeStr} - {endTimeStr}</p>
+                        </div>
+                        <span className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border ${
+                          totalDiff === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          totalDiff > 0 ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          'bg-red-50 text-red-700 border-red-200'
+                        }`}>
+                          {totalDiff === 0 ? '✅ Uang Pas' :
+                           totalDiff > 0 ? `Uang Lebih ${formatRupiah(totalDiff)}` :
+                           `Uang Kurang ${formatRupiah(Math.abs(totalDiff))}`}
+                        </span>
+                      </div>
+                      
+                      {/* Body Kartu */}
+                      <div className="p-5 flex-1 flex flex-col gap-4">
+                        {/* Box Uang Laci */}
+                        <div className="bg-gray-50/80 rounded-xl p-4 border border-gray-100 flex-1">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Wallet className="w-4 h-4 text-gray-400" />
+                            <span className="font-bold text-gray-700 text-xs tracking-wider uppercase">Uang Laci (Sales)</span>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-500">Hitungan Manual Kasir</span>
+                              <span className="font-extrabold text-gray-900 text-base">{formatRupiah(shift.actual_ending_cash)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-medium text-gray-400">Perhitungan Sistem</span>
+                              <span className="text-xs font-semibold text-gray-500">{formatRupiah(shift.expected_ending_cash)}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="pt-3 mt-4 border-t border-gray-200/60 flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Status Uang Laci</span>
+                            <span className={`text-xs font-bold px-2.5 py-1.5 rounded-lg ${
+                              variance > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
+                              variance < 0 ? 'bg-red-50 text-red-700 border border-red-200' : 
+                              'bg-gray-100 text-gray-600 border border-gray-200'
+                            }`}>
+                              {variance > 0 ? `Lebih ${formatRupiah(variance)}` : 
+                               variance < 0 ? `Kurang ${formatRupiah(Math.abs(variance))}` : 
+                               'Pas (Balance)'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Box Petty Cash */}
+                        <div className="bg-gray-50/80 rounded-xl p-4 border border-gray-100 flex-1">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Banknote className="w-4 h-4 text-gray-400" />
+                            <span className="font-bold text-gray-700 text-xs tracking-wider uppercase">Dana Operasional</span>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-500">Hitungan Manual Kasir</span>
+                              <span className="font-extrabold text-blue-700 text-base">{formatRupiah(shift.actual_ending_petty_cash || 0)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-medium text-gray-400">Perhitungan Sistem</span>
+                              <span className="text-xs font-semibold text-gray-500">{formatRupiah(shift.expected_ending_petty_cash || 0)}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="pt-3 mt-4 border-t border-gray-200/60 flex justify-between items-center">
+                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Status Operasional</span>
+                            <span className={`text-xs font-bold px-2.5 py-1.5 rounded-lg ${
+                              pcVariance > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
+                              pcVariance < 0 ? 'bg-red-50 text-red-700 border border-red-200' : 
+                              'bg-gray-100 text-gray-600 border border-gray-200'
+                            }`}>
+                              {pcVariance > 0 ? `Lebih ${formatRupiah(pcVariance)}` : 
+                               pcVariance < 0 ? `Kurang ${formatRupiah(Math.abs(pcVariance))}` : 
+                               'Pas (Balance)'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </div>
         </>
       )}

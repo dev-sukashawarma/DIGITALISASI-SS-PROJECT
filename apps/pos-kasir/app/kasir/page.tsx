@@ -14,6 +14,7 @@ import ChannelBadge from '@/components/ChannelBadge'
 import StockWidget from '@/components/StockWidget'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { postToNative } from '@suka/design-system'
+import { useDialogStore } from '@/lib/dialogStore'
 
 const DING_SOUND = '/sound-pesanan.mp3'
 
@@ -47,6 +48,7 @@ async function fetchTodayOrders(outletId: string): Promise<OrderWithItems[]> {
 }
 
 export default function CashierOrdersPage() {
+  const { showConfirm, showAlert, showPrompt } = useDialogStore()
   const [expandedId, setExpand] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('all')
@@ -190,22 +192,23 @@ export default function CashierOrdersPage() {
 
   // Cancel order
   async function cancelOrder(id: string) {
-    if (confirm('Batalkan pesanan ini secara permanen?')) {
+    const confirmed = await showConfirm('Batalkan pesanan ini secara permanen?');
+    if (confirmed) {
       // 1. PIN Authorization (Hardened)
-      const pin = prompt('Masukkan PIN SPV/Leader untuk otorisasi pembatalan:')
+      const pin = await showPrompt('Masukkan PIN SPV/Leader untuk otorisasi pembatalan:')
       if (!pin) return
 
       // NOTE: For production, validate against outlet_staff table where role in ('spvkitchen', 'leader')
       if (pin !== '123456' && pin !== '888888') {
-        alert('Otorisasi gagal! PIN SPV tidak valid.')
+        showAlert('Otorisasi gagal! PIN SPV tidak valid.')
         postToNative({ type: 'haptic', style: 'error' })
         return
       }
 
       // 2. Void Reason
-      const voidReason = prompt('Alasan pembatalan (wajib):')
+      const voidReason = await showPrompt('Alasan pembatalan (wajib):')
       if (!voidReason?.trim()) {
-        alert('Alasan pembatalan wajib diisi!')
+        showAlert('Alasan pembatalan wajib diisi!')
         return
       }
 
@@ -494,7 +497,7 @@ export default function CashierOrdersPage() {
             className="bg-[#f29744] hover:bg-[#e08632] text-white font-bold px-4 py-3 rounded-2xl flex items-center gap-2 transition-all active:scale-95 shadow-sm shadow-[#f29744]/20 flex-shrink-0"
           >
             <PlusCircle className="w-5 h-5" />
-            <span>Input Manual</span>
+            <span>Pesanan Baru</span>
           </Link>
           <div className="bg-white border border-[#d9c2b2] px-5 py-3 rounded-2xl flex-1 sm:flex-none flex items-center gap-4 suka-shadow">
             <div className="w-10 h-10 bg-[#f29744] rounded-xl flex items-center justify-center shadow-md shadow-[#f29744]/20">

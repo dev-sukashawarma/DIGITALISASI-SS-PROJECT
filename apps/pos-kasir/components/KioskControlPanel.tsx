@@ -15,7 +15,10 @@ interface KioskPresence {
 
 type Toast = { type: 'success' | 'error'; message: string } | null
 
+import { useDialogStore } from '@/lib/dialogStore'
+
 export default function KioskControlPanel() {
+  const { showConfirm } = useDialogStore()
   const [outletId, setOutletId] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const [kiosks, setKiosks] = useState<KioskPresence[]>([])
@@ -114,15 +117,17 @@ export default function KioskControlPanel() {
     }
   }
 
-  function handleLogoutOne(k: KioskPresence) {
-    if (confirm(`Logout device "${k.device_label}"? Device akan kembali ke halaman login.`)) {
+  async function handleLogoutOne(k: KioskPresence) {
+    const confirmed = await showConfirm(`Logout device "${k.device_label}"? Device akan kembali ke halaman login.`)
+    if (confirmed) {
       doLogout(k.userId, k.device_label)
     }
   }
 
-  function handleLogoutAll() {
+  async function handleLogoutAll() {
     if (kiosks.length === 0) return
-    if (confirm(`Logout SEMUA ${kiosks.length} device di cabang ini? Semua device akan kembali ke login.`)) {
+    const confirmed = await showConfirm(`Logout SEMUA ${kiosks.length} device di cabang ini? Semua device akan kembali ke login.`)
+    if (confirmed) {
       doLogout('all', 'Semua device')
     }
   }

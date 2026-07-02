@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Users, Plus, X, Loader2, Store, Search, ChevronDown, Check } from 'lucide-react'
 import type { Outlet } from '@/types'
+import { useDialogStore } from '@/lib/dialogStore'
 
 interface UserProfile {
   id: string
@@ -16,6 +17,7 @@ interface UserProfile {
 }
 
 export default function AdminUsersPage() {
+  const { showConfirm, showAlert } = useDialogStore()
   const [users, setUsers] = useState<UserProfile[]>([])
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [loading, setLoading] = useState(true)
@@ -137,19 +139,20 @@ export default function AdminUsersPage() {
   }
 
   async function handleDeleteUser(id: string) {
-    if (!confirm('Apakah Anda yakin ingin menghapus akun pengguna ini?')) return
+    const confirmed = await showConfirm('Apakah Anda yakin ingin menghapus akun pengguna ini?');
+    if (!confirmed) return
     
     try {
       const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
       const data = await res.json()
       
       if (!res.ok) {
-        alert(data.error || 'Gagal menghapus pengguna')
+        showAlert(data.error || 'Gagal menghapus pengguna')
       } else {
         fetchData()
       }
     } catch (err) {
-      alert('Gagal menghubungi server')
+      showAlert('Gagal menghubungi server')
     }
   }
 

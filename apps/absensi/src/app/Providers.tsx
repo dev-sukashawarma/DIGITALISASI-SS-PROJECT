@@ -5,6 +5,7 @@ import { AuthProvider, createSupabaseBrowserClient } from '@suka/auth'
 import type { OutletStaffProfile } from '@suka/auth'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ToastProvider } from '@/lib/feedback/toast'
+import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +32,7 @@ export function Providers({
       <QueryClientProvider client={queryClient}>
         <AuthProvider supabase={supabase} initialStaff={initialStaff}>
           <ToastProvider>
+            <ServiceWorkerRegister />
             {children}
           </ToastProvider>
         </AuthProvider>

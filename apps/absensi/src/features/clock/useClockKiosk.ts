@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getHuman, GESTURE_ONLY_CONFIG } from "@/lib/face/recognizer";
+import { getHuman } from "@/lib/face/recognizer";
 import { createClient } from "@/lib/supabase";
 import { captureFrame } from "@/components/CameraCapture";
 import { identifyStaff, type Candidate } from "@/lib/face/identify";
@@ -270,12 +270,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     const detector = livenessRef.current;
     try {
       const human = await getHuman();
-      // Loop ini jalan ~25fps (lihat AttendanceKioskPanel). Skip model `description`
-      // (faceres, model TERBERAT) selama fase gerakan — gesture (facing left/right,
-      // blink) hanya butuh `mesh`, jadi tiap frame di sini jauh lebih ringan. Embedding
-      // baru dihitung ulang (detect penuh) sekali saja tepat saat frame frontal lolos.
-      const res = await human.detect(video, GESTURE_ONLY_CONFIG);
-
+      const res = await human.detect(video);
+      
       // Bila wajah hilang atau sesi sudah di-reset selama deteksi, berhenti diam-diam.
       if (!res.face || res.face.length === 0 || livenessRef.current !== detector) return;
 
@@ -286,15 +282,10 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       // tengah liveness" tanpa memunculkan false-reject saat menoleh.
       const passed = detector.feed(res.gesture);
       if (passed) {
-        // Frame gesture-only tak punya embedding (description dimatikan) — detect ulang
-        // penuh sekali di frame frontal ini untuk ambil descriptor identitas yang andal.
-        // Jangan null-kan livenessRef dulu: dipakai sebagai penanda "belum di-reset" saat
-        // menunggu await ini, sama seperti guard pertama di atas.
-        const full = await human.detect(video);
-        if (livenessRef.current !== detector || !full.face || full.face.length === 0 || !full.face[0].embedding) return;
         livenessRef.current = null;
-
-        const found = identifyStaff(Array.from(full.face[0].embedding), candidatesRef.current);
+        if (!res.face[0].embedding) return;
+        
+        const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
         if (found.id === "unknown" || found.id !== who.id) {
           setResult({ ok: false, message: `Wajah harus orang yang sama. Silakan ulangi. (Skor: ${found.bestSimilarity.toFixed(4)})` });
           setPhase("result");

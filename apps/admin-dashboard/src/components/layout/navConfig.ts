@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
-  PieChart, DollarSign, MessageSquareHeart, Target, BellRing, Tags, type LucideIcon,
+  PieChart, DollarSign, MessageSquareHeart, Target, BellRing, Tags, Wallet, type LucideIcon,
 } from 'lucide-react'
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA'
@@ -30,6 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/owner/messages', label: 'Pesan ke Kasir', shortLabel: 'Pesan', icon: MessageSquareHeart, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/profit', label: 'Profitabilitas', shortLabel: 'Laba Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: Activity, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/expenses/input', label: 'Input Pengeluaran', shortLabel: 'Input Biaya', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {
@@ -73,7 +74,7 @@ export function accessibleItems(role: Role): NavItem[] {
 /** Active-route resolution shared by sidebar & bottom nav. */
 export function isItemActive(href: string, pathname: string): boolean {
   // Dashboard landing routes must match exactly (they have sub-routes).
-  if (href === '/dashboard/hr' || href === '/dashboard/owner' || href === '/dashboard') {
+  if (href === '/dashboard/hr' || href === '/dashboard/owner' || href === '/dashboard' || href === '/dashboard/owner/expenses') {
     return pathname === href
   }
   return pathname === href || pathname.startsWith(href + '/')

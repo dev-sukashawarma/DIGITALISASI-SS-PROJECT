@@ -397,8 +397,12 @@ export default function OrderManualPage() {
               {visibleItems.map((it) => {
                 const qty = lines[it.id]?.quantity ?? 0
                 return (
-                  <div key={it.id} className={`group bg-white rounded-xl border overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${qty > 0 ? 'border-amber-400 shadow-sm ring-1 ring-amber-400' : 'border-gray-200 hover:border-amber-300'}`}>
-                    <div className="h-24 bg-gray-50 relative overflow-hidden cursor-pointer" onClick={() => qty === 0 && addItem(it)}>
+                  <div
+                    key={it.id}
+                    onClick={() => addItem(it)}
+                    className={`group bg-white rounded-xl border overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer active:scale-[0.98] ${qty > 0 ? 'border-amber-400 shadow-sm ring-1 ring-amber-400' : 'border-gray-200 hover:border-amber-300'}`}
+                  >
+                    <div className="h-24 bg-gray-50 relative overflow-hidden">
                       {it.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={it.image_url} alt={it.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
@@ -412,12 +416,10 @@ export default function OrderManualPage() {
                           {qty}
                         </span>
                       )}
-                      {qty === 0 && (
-                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
-                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
                     </div>
                     <div className="p-2.5 flex flex-col justify-between">
-                      <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem] cursor-pointer" onClick={() => qty === 0 && addItem(it)}>{it.name}</p>
+                      <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem]">{it.name}</p>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex flex-col">
                           {wrappedCalculateItemPrice(it.price, it.id) < it.price ? (
@@ -429,23 +431,16 @@ export default function OrderManualPage() {
                             <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(it.price)}</span>
                           )}
                         </div>
-                        {qty === 0 ? (
-                          <button
-                            onClick={() => addItem(it)}
-                            className="w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-500 text-amber-600 hover:text-white flex items-center justify-center transition-all active:scale-95"
-                            aria-label={`Tambah ${it.name}`}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
-                            <button onClick={() => setQty(it.id, qty - 1)} className="w-6 h-6 rounded-md bg-white shadow-sm text-gray-700 flex items-center justify-center transition-colors hover:bg-gray-100 active:scale-95">
+                        {qty > 0 && (
+                          <div className="flex items-center gap-1.5 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setQty(it.id, qty - 1) }}
+                              className="w-6 h-6 rounded-md bg-white shadow-sm text-gray-700 flex items-center justify-center transition-colors hover:bg-gray-100 active:scale-95"
+                              aria-label={`Kurangi ${it.name}`}
+                            >
                               <Minus className="w-3 h-3" />
                             </button>
                             <span className="font-bold text-gray-900 text-xs w-3 text-center">{qty}</span>
-                            <button onClick={() => setQty(it.id, qty + 1)} className="w-6 h-6 rounded-md bg-amber-500 shadow-sm text-white flex items-center justify-center transition-colors hover:bg-amber-600 active:scale-95">
-                              <Plus className="w-3 h-3" />
-                            </button>
                           </div>
                         )}
                       </div>

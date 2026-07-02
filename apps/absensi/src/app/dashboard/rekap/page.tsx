@@ -185,7 +185,7 @@ export default function RekapPage() {
           <div key={r.id} className="flex items-center gap-3 px-3.5 py-3 sm:px-4">
             {r.selfie_url ? (
               <img src={selfieUrl(r.selfie_url)} alt="selfie" onClick={() => setPreview(selfieUrl(r.selfie_url!))}
-                   className="h-10 w-10 shrink-0 cursor-pointer rounded-xl object-cover" />
+                   className="h-10 w-10 shrink-0 cursor-pointer rounded-xl object-cover border border-suka-gray-200" />
             ) : <Avatar name={r.outlet_staff?.name ?? "?"} size={40} />}
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium text-suka-ink">{r.outlet_staff?.name ?? "-"}</div>
@@ -202,8 +202,8 @@ export default function RekapPage() {
       </div>
 
       {preview && (
-        <div onClick={() => setPreview(null)} className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-6">
-          <img src={preview} alt="selfie besar" className="max-h-[80vh] max-w-full rounded-2xl" />
+        <div onClick={() => setPreview(null)} className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm transition-opacity">
+          <img src={preview} alt="selfie besar" className="max-h-[85vh] max-w-full rounded-3xl shadow-2xl border-4 border-white" />
         </div>
       )}
     </div>

@@ -41,7 +41,7 @@ export default function BlockedOverlay({
   async function handleLogout() {
     await supabase.auth.signOut()
     queryClient.removeQueries({ queryKey: ['my-outlet'] })
-    router.push('/login')
+    window.location.href = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
   }
 
   async function handleVerifyBypass(e: React.FormEvent) {

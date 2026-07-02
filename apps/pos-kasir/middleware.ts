@@ -80,7 +80,7 @@ export async function middleware(request: NextRequest) {
   // Device self-order HARUS sudah di-login kan kasir via QR (role 'kiosk').
   // Halaman pesan pelanggan ('/', menu, checkout, dst) tidak boleh dibuka
   // kalau device belum punya sesi kiosk aktif.
-  const PUBLIC_PATHS = ['/login', '/kiosk/qr-login', '/panduan']
+  const PUBLIC_PATHS = ['/kiosk/qr-login', '/panduan']
   const isPublicPath = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + '/'))
   const isApiPath = path.startsWith('/api')
   const isDashboardPath = path.startsWith('/admin') || path.startsWith('/kasir')
@@ -88,30 +88,23 @@ export async function middleware(request: NextRequest) {
   if (!isPublicPath && !isApiPath && !isDashboardPath) {
     // Belum login sama sekali → device belum di-aktifkan kasir
     if (!userId) {
-      return getRedirect('/login')
+      return getRedirect(PORTAL_URL)
     }
     // Status check: inactive/on_leave cannot use kiosk
     if (status !== 'active') {
-      return getRedirect('/login')
+      return getRedirect(PORTAL_URL)
     }
     // Sudah login tapi bukan device kiosk.
     // Admin dan Kasir yang nyasar ke sini dikembalikan ke dashboard-nya.
     if (role !== 'kiosk') {
       if (role === 'admin') return getRedirect('/admin')
       if (role === 'leader' || role === 'crew') return getRedirect('/kasir')
-      return getRedirect('/login')
+      return getRedirect(PORTAL_URL)
     }
     // Kiosk harus memiliki valid session (role kiosk dengan outlet_id valid)
     if (role === 'kiosk' && !outlet_id) {
-      return getRedirect('/login')
+      return getRedirect(PORTAL_URL)
     }
-  }
-
-  // Redirect halaman login jika sudah auth
-  if (path === '/login' && userId && role) {
-    if (role === 'admin') return getRedirect('/admin')
-    if (role === 'leader' || role === 'crew') return getRedirect('/kasir')
-    if (role === 'kiosk') return getRedirect('/')
   }
 
   // Inject session data untuk digunakan di App (khususnya untuk Kiosk)

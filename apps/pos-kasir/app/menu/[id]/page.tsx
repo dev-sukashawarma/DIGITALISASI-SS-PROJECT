@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCart } from '@/store/cart'
 import { formatRupiah } from '@/lib/validations'
 import { usePromos } from '@/lib/usePromos'
+import { Skeleton } from '@/components/Skeleton'
 import RecommendationStrip from '@/components/RecommendationStrip'
 import type { MenuItem } from '@/types'
 
@@ -34,7 +35,7 @@ export default function ProductDetailPage() {
       
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        window.location.href = '/login'
+        window.location.href = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
         return
       }
       
@@ -137,8 +138,25 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFFBF5]">
-        <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+      <div className="min-h-screen bg-gray-50 pb-8 animate-in fade-in">
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)]">
+          <div className="max-w-[800px] mx-auto px-5 py-4 flex items-center gap-4">
+            <Skeleton className="w-10 h-10 rounded-full" />
+            <Skeleton className="h-6 w-48 rounded-full" />
+          </div>
+        </div>
+        <div className="max-w-[800px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+          <Skeleton className="w-full aspect-[4/3] rounded-2xl" />
+          <div className="bg-white rounded-3xl p-6 border border-gray-100">
+             <Skeleton className="h-8 w-3/4 rounded-full mb-4" />
+             <Skeleton className="h-6 w-1/4 rounded-full mb-6" />
+             <div className="space-y-3">
+               <Skeleton className="h-4 w-full rounded-full" />
+               <Skeleton className="h-4 w-5/6 rounded-full" />
+               <Skeleton className="h-4 w-2/3 rounded-full" />
+             </div>
+          </div>
+        </div>
       </div>
     )
   }

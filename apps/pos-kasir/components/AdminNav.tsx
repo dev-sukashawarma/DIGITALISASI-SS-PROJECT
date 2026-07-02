@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft, Gauge, FolderTree, Loader2 } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, LayoutDashboard, Tag, Radio, BarChart3, Settings, Menu, X, Store, Users, BookOpen, ArrowLeft, Gauge, FolderTree, Loader2, ArrowDownToLine } from 'lucide-react'
 import { fastLogout } from '@/lib/fast-logout'
 import { useBrand } from '@/components/BrandContext'
 
@@ -14,6 +14,7 @@ const links = [
   { href: '/admin/categories', label: 'Kategori',  icon: FolderTree },
   { href: '/admin/promo',      label: 'Promo',     icon: Tag },
   { href: '/admin/outlets',    label: 'Cabang',    icon: Store },
+  { href: '/admin/petty-cash', label: 'Petty Cash',icon: ArrowDownToLine },
   { href: '/admin/users',      label: 'Pengguna',  icon: Users },
   { href: '/admin/guides',     label: 'Panduan',   icon: BookOpen },
   { href: '/admin/settings',   label: 'Pengaturan',icon: Settings },
@@ -40,7 +41,7 @@ export default function AdminNav() {
   const [loggingOut, setLoggingOut] = useState(false)
   async function handleLogout() {
     setLoggingOut(true)
-    await fastLogout('/admin/login')
+    await fastLogout(resolvedPortalUrl)
   }
 
   return (

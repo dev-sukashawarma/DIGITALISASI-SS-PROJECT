@@ -15,7 +15,7 @@ import { useBrand } from '@/components/BrandContext'
 const links = [
   { href: '/kasir',            label: 'Order',         icon: Bell },
   { href: '/kasir/menu',       label: 'Manajemen Menu',icon: Sandwich },
-  { href: '/kasir/shift',      label: 'Kas & Shift',   icon: Wallet },
+  { href: '/kasir/shift',      label: 'Petty Cash',   icon: Wallet },
   { href: '/kasir/histori',    label: 'Histori',       icon: ClipboardList },
   { href: '/kasir/kiosk',      label: 'Kontrol Device Pelanggan', icon: Monitor },
   { href: '/kasir/reports',    label: 'Laporan',       icon: BarChart3 },
@@ -27,6 +27,11 @@ export default function KasirNav() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { outletId } = useMyOutlet()
+
+  let resolvedPortalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    resolvedPortalUrl = 'http://localhost:3010'
+  }
   const { items: lowStockItems } = useStockAlerts(outletId)
   const [outletName, setOutletName] = useState('Kasir Outlet')
   const [cashierName, setCashierName] = useState('')
@@ -34,11 +39,6 @@ export default function KasirNav() {
 
   const [isCollapsed, setIsCollapsed] = useState(true)
 
-  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
-  let resolvedPortalUrl = portalUrl
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    resolvedPortalUrl = 'http://localhost:3010'
-  }
 
   useEffect(() => {
     const stored = localStorage.getItem('kasir_sidebar_collapsed')
@@ -80,7 +80,7 @@ export default function KasirNav() {
   async function handleLogout() {
     setLoggingOut(true)
     // Hard redirect di fastLogout otomatis membuang cache React Query.
-    await fastLogout('/login')
+    await fastLogout(resolvedPortalUrl)
   }
 
   return (

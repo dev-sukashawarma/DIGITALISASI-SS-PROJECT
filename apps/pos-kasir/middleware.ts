@@ -1,4 +1,4 @@
-import { createSupabaseServerClient, hasAppAccess, verifyAccessToken } from '@suka/auth'
+import { createSupabaseServerClient, hasAppAccess, resolveUserId } from '@suka/auth'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
@@ -23,21 +23,7 @@ export async function middleware(request: NextRequest) {
     return redirectResponse
   }
 
-  const jwtSecret = process.env.SUPABASE_JWT_SECRET
-  let userId: string | null = null
-  if (jwtSecret) {
-    const { data: { session } } = await supabase.auth.getSession()
-    const claims = session?.access_token
-      ? await verifyAccessToken(session.access_token, jwtSecret)
-      : null
-    userId = claims?.sub ?? null
-  } else {
-    if (process.env.NODE_ENV === 'production') {
-      console.warn('[perf] SUPABASE_JWT_SECRET unset in production — falling back to slow network getUser() per request')
-    }
-    const { data: { user } } = await supabase.auth.getUser()
-    userId = user?.id ?? null
-  }
+  const userId = await resolveUserId(supabase, process.env.SUPABASE_JWT_SECRET)
 
   let role = null
   let outlet_id = null

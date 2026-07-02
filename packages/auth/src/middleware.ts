@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from './supabase-server'
 import { getOutletStaff } from './staff'
 import { hasAppAccess } from './access'
-import { verifyAccessToken } from './jwt'
+import { resolveUserId } from './jwt'
 import { STAFF_HEADER, serializeStaffHeader } from './staff-header'
 import type { AppName } from './types'
 
@@ -56,21 +56,7 @@ export async function enforceAppAccess(
   }
 
   // --- Identitas: JWT lokal bila secret ada, fallback getUser() ---
-  const jwtSecret = process.env.SUPABASE_JWT_SECRET
-  let userId: string | null = null
-  if (jwtSecret) {
-    const { data: { session } } = await supabase.auth.getSession()
-    const claims = session?.access_token
-      ? await verifyAccessToken(session.access_token, jwtSecret)
-      : null
-    userId = claims?.sub ?? null
-  } else {
-    if (process.env.NODE_ENV === 'production') {
-      console.warn('[perf] SUPABASE_JWT_SECRET unset in production — falling back to slow network getUser() per request')
-    }
-    const { data: { user } } = await supabase.auth.getUser()
-    userId = user?.id ?? null
-  }
+  const userId = await resolveUserId(supabase, process.env.SUPABASE_JWT_SECRET)
   if (!userId) {
     return getRedirect(PORTAL_URL)
   }

@@ -38,6 +38,11 @@ Thumbs.db
 # TypeScript build info
 *.tsbuildinfo
 
+# React Native / Expo / Android build artifacts (mobile/)
+.expo/
+.gradle/
+.cxx/
+
 # Misc
 coverage/
 .turbo/

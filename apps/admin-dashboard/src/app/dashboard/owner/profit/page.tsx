@@ -6,14 +6,14 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { useSalesDaily } from '@/hooks/useSalesDaily'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useHpp } from '@/hooks/useHpp'
-import { computeProfit } from '@/lib/profit'
+import { computeProfit, computeCompanyProfit } from '@/lib/profit'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { rupiah, rupiahCompact } from '@/lib/format'
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
 import CountUp from 'react-countup'
-import { TrendingUp, Percent, ArrowLeftRight, TrendingDown, Boxes, Layers } from 'lucide-react'
+import { TrendingUp, Percent, ArrowLeftRight, TrendingDown, Boxes, Layers, Building2 } from 'lucide-react'
 
 export default function ProfitPage() {
   const { data: outlets = [] } = useOutlets()
@@ -26,11 +26,23 @@ export default function ProfitPage() {
   const loading = sales.loading || expenses.loading || hpp.loading
   const error = sales.error || expenses.error || hpp.error
 
-  // Calculations
+  const isAllOutlets = filter.outletId === 'all'
+
+  // Calculations — pisah pengeluaran outlet (dibebankan ke P&L outlet) vs pusat (company-wide).
   const totalOmzet = useMemo(() => sales.rows.reduce((sum, r) => sum + r.omzet, 0), [sales.rows])
-  const totalExpenses = useMemo(() => expenses.rows.reduce((sum, r) => sum + r.amount, 0), [expenses.rows])
+  const pengeluaranOutlet = useMemo(
+    () => expenses.rows.filter(r => r.scope === 'outlet').reduce((sum, r) => sum + r.amount, 0),
+    [expenses.rows])
+  const pengeluaranPusat = useMemo(
+    () => expenses.rows.filter(r => r.scope === 'pusat').reduce((sum, r) => sum + r.amount, 0),
+    [expenses.rows])
   const totalHpp = useMemo(() => hpp.rows.reduce((sum, r) => sum + r.hpp, 0), [hpp.rows])
-  const { labaKotor, labaBersih, marginKotor, marginBersih } = computeProfit(totalOmzet, totalHpp, totalExpenses)
+  // Laba outlet: Omzet − HPP − Pengeluaran Outlet. labaBersih di sini = Σ laba outlet saat "Semua Outlet".
+  const { labaKotor, labaBersih, marginKotor } = computeProfit(totalOmzet, totalHpp, pengeluaranOutlet)
+  // Saat "Semua Outlet": Laba Perusahaan = Σ laba outlet − Pengeluaran Pusat. Satu outlet: pusat = 0.
+  const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat).labaPerusahaan
+  const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
+  const displayMargin = totalOmzet > 0 ? (displayLaba / totalOmzet) * 100 : 0
 
   // Outlets breakdown
   const outletBreakdown = useMemo(() => {
@@ -47,7 +59,9 @@ export default function ProfitPage() {
     })
 
     expenses.rows.forEach(e => {
-      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name, omzet: 0, expense: 0, hpp: 0 }
+      // Pengeluaran Pusat (scope pusat / outlet_id NULL) tak dibebankan ke outlet manapun.
+      if (e.scope !== 'outlet' || !e.outlet_id) return
+      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name ?? 'Outlet Tidak Dikenal', omzet: 0, expense: 0, hpp: 0 }
       cur.expense += e.amount
       map.set(e.outlet_id, cur)
     })
@@ -80,6 +94,8 @@ export default function ProfitPage() {
     })
 
     expenses.rows.forEach(e => {
+      // Tren arus kas biaya = biaya outlet; pusat (company-wide, satu nilai/bulan) disurfacekan di kartu terpisah.
+      if (e.scope !== 'outlet') return
       const cur = map.get(e.expense_date) ?? { date: e.expense_date, omzet: 0, expense: 0 }
       cur.expense += e.amount
       map.set(e.expense_date, cur)
@@ -161,7 +177,7 @@ export default function ProfitPage() {
               </div>
             </div>
 
-            {/* 2. Total Pengeluaran */}
+            {/* 2. Pengeluaran Outlet */}
             <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
               <div className="flex justify-between items-start">
                 <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Total Pengeluaran</p>
@@ -171,26 +187,50 @@ export default function ProfitPage() {
               </div>
               <div className="mt-4">
                 <h3 className="text-2xl font-extrabold text-suka-brown">
-                  Rp <CountUp end={totalExpenses} duration={1} separator="." />
+                  Rp <CountUp end={pengeluaranOutlet} duration={1} separator="." />
                 </h3>
-                <p className="text-[10px] text-red-600 font-bold mt-1 uppercase">Seluruh Biaya Operasional</p>
+                <p className="text-[10px] text-red-600 font-bold mt-1 uppercase">Biaya Operasional Outlet</p>
               </div>
             </div>
 
-            {/* 3. Laba Bersih */}
+            {/* Biaya Pusat — company-wide, hanya saat semua outlet */}
+            {isAllOutlets && (
+              <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
+                <div className="flex justify-between items-start">
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Biaya Pusat</p>
+                  <div className="p-2 rounded-xl" style={{ backgroundColor: '#dc262610' }}>
+                    <Building2 className="w-5 h-5" style={{ color: '#dc2626' }} />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <h3 className="text-2xl font-extrabold text-suka-brown">
+                    Rp <CountUp end={pengeluaranPusat} duration={1} separator="." />
+                  </h3>
+                  <p className="text-[10px] font-bold mt-1 uppercase" style={{ color: '#dc2626' }}>
+                    Tak dibebankan ke outlet
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* 3. Laba Bersih (outlet vs perusahaan) */}
             <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
               <div className="flex justify-between items-start">
-                <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Laba Bersih</p>
+                <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">
+                  {isAllOutlets ? 'Laba Bersih Perusahaan' : 'Laba Bersih Outlet'}
+                </p>
                 <div className="p-2 bg-suka-orange/10 rounded-xl">
                   <ArrowLeftRight className="w-5 h-5 text-suka-orange" />
                 </div>
               </div>
               <div className="mt-4">
                 <h3 className="text-2xl font-extrabold text-suka-brown">
-                  Rp <CountUp end={labaBersih} duration={1} separator="." />
+                  Rp <CountUp end={displayLaba} duration={1} separator="." />
                 </h3>
-                <p className={`text-[10px] font-bold mt-1 uppercase ${labaBersih >= 0 ? 'text-suka-green' : 'text-red-650'}`}>
-                  {labaBersih >= 0 ? 'Surplus Bersih' : 'Defisit Bersih'}
+                <p className={`text-[10px] font-bold mt-1 uppercase ${displayLaba >= 0 ? 'text-suka-green' : 'text-red-650'}`}>
+                  {isAllOutlets
+                    ? (displayLaba >= 0 ? 'Σ Laba Outlet − Biaya Pusat' : 'Defisit Perusahaan')
+                    : (displayLaba >= 0 ? 'Surplus Bersih' : 'Defisit Bersih')}
                 </p>
               </div>
             </div>
@@ -205,7 +245,7 @@ export default function ProfitPage() {
               </div>
               <div className="mt-4">
                 <h3 className="text-2xl font-extrabold text-suka-brown">
-                  <CountUp end={marginBersih} duration={1} decimals={1} /> %
+                  <CountUp end={displayMargin} duration={1} decimals={1} /> %
                 </h3>
                 <p className="text-[10px] text-suka-gray-400 font-semibold mt-1 uppercase">Efisiensi Profitabilitas</p>
               </div>

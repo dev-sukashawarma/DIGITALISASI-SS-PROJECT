@@ -58,18 +58,18 @@
     <text x='58' y='687' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='700' fill='#dc2626'>⎋ Keluar</text>
   </g>
   <g transform='translate(284,36)'>
-    <text x='0' y='26' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='26' font-weight='800' fill='#701604'>Apa Itu Sistem Kasir Suka Shawarma?</text>
+    <text x='0' y='26' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='26' font-weight='800' fill='#701604'>Filter Pesanan: Semua / Online / Offline</text>
     
   </g>
   <g transform='translate(284,60)'>
     
-    <rect x='0' y='0' width='860' height='220' rx='16' fill='#fff1e0' stroke='none' stroke-width='1.5'/>
-    <circle cx='30' cy='34' r='16' fill='#f29744'/><text x='30' y='39' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>1</text>
-    <text x='56' y='40' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Pesanan masuk otomatis ke halaman Order — lengkap dengan status &amp; nominal.</text>
-    <circle cx='30' cy='74' r='16' fill='#f29744'/><text x='30' y='79' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>2</text>
-    <text x='56' y='80' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Sidebar kiri = semua fitur kasir: Order, Menu, Petty Cash, Histori, Device, Laporan, dst.</text>
-    <circle cx='30' cy='114' r='16' fill='#f29744'/><text x='30' y='119' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>3</text>
-    <text x='56' y='120' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Tidak perlu mencatat manual di kertas — semua tersimpan otomatis di sistem.</text>
+    <rect x='0' y='0' width='106' height='40' rx='12' fill='#2b1a12'/>
+    <text x='53' y='25' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13.5' font-weight='800' fill='#fff'>Semua</text>
+    <rect x='114' y='0' width='106' height='40' rx='12' fill='#ffffff' stroke='#eee0d2' stroke-width='1.5'/>
+    <text x='167' y='25' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13.5' font-weight='700' fill='#2b1a12'>🌐 Online</text>
+    <rect x='228' y='0' width='106' height='40' rx='12' fill='#ffffff' stroke='#eee0d2' stroke-width='1.5'/>
+    <text x='281' y='25' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13.5' font-weight='700' fill='#2b1a12'>🏬 Offline</text>
+    <text x='0' y='84' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='600' fill='#8a7263'>Pilih salah satu untuk menyaring daftar pesanan yang tampil di 3 kolom.</text>
   
   </g>
 </svg>

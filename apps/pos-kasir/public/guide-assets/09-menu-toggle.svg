@@ -10,14 +10,14 @@
   <line x1='16' y1='90' x2='234' y2='90' stroke='#eee0d2' stroke-width='2'/>
   
     <g>
-      <rect x='16' y='150' width='198' height='42' rx='13' fill='#fff1e0'/>
-      <circle cx='40' cy='171' r='4' fill='#f29744'/>
-      <text x='58' y='176' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='800' fill='#c9711f'>Order</text>
+      <rect x='16' y='150' width='198' height='42' rx='13' fill='none'/>
+      <circle cx='40' cy='171' r='4' fill='#c7b8a9'/>
+      <text x='58' y='176' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Order</text>
     </g>
     <g>
-      <rect x='16' y='200' width='198' height='42' rx='13' fill='none'/>
-      <circle cx='40' cy='221' r='4' fill='#c7b8a9'/>
-      <text x='58' y='226' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Manajemen Menu</text>
+      <rect x='16' y='200' width='198' height='42' rx='13' fill='#fff1e0'/>
+      <circle cx='40' cy='221' r='4' fill='#f29744'/>
+      <text x='58' y='226' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='800' fill='#c9711f'>Manajemen Menu</text>
     </g>
     <g>
       <rect x='16' y='250' width='198' height='42' rx='13' fill='none'/>
@@ -58,18 +58,23 @@
     <text x='58' y='687' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='700' fill='#dc2626'>⎋ Keluar</text>
   </g>
   <g transform='translate(284,36)'>
-    <text x='0' y='26' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='26' font-weight='800' fill='#701604'>Apa Itu Sistem Kasir Suka Shawarma?</text>
+    <text x='0' y='26' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='26' font-weight='800' fill='#701604'>Menandai Menu Habis atau Tersedia</text>
     
   </g>
   <g transform='translate(284,60)'>
     
-    <rect x='0' y='0' width='860' height='220' rx='16' fill='#fff1e0' stroke='none' stroke-width='1.5'/>
-    <circle cx='30' cy='34' r='16' fill='#f29744'/><text x='30' y='39' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>1</text>
-    <text x='56' y='40' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Pesanan masuk otomatis ke halaman Order — lengkap dengan status &amp; nominal.</text>
-    <circle cx='30' cy='74' r='16' fill='#f29744'/><text x='30' y='79' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>2</text>
-    <text x='56' y='80' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Sidebar kiri = semua fitur kasir: Order, Menu, Petty Cash, Histori, Device, Laporan, dst.</text>
-    <circle cx='30' cy='114' r='16' fill='#f29744'/><text x='30' y='119' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>3</text>
-    <text x='56' y='120' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Tidak perlu mencatat manual di kertas — semua tersimpan otomatis di sistem.</text>
+    <g transform='translate(0,0)'>
+      <rect x='0' y='0' width='340' height='90' rx='16' fill='#ffffff' stroke='#eee0d2' stroke-width='1.5'/>
+      <text x='20' y='32' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13.5' font-weight='800' fill='#2b1a12'>Suka Fried Chicken</text>
+      <rect x='20' y='46' width='90' height='24' rx='12' fill='#dcf7e3'/><text x='65' y='62.5' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='11' font-weight='800' fill='#0a7d2c'>Tersedia</text>
+      <text x='150' y='66' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='11.5' font-weight='700' fill='#8a7263'>← klik untuk ubah</text>
+    </g>
+    <g transform='translate(0,110)'>
+      <rect x='0' y='0' width='340' height='90' rx='16' fill='#fdecec' stroke='#eee0d2' stroke-width='1.5'/>
+      <text x='20' y='32' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13.5' font-weight='800' fill='#2b1a12'>Suka Fried Chicken</text>
+      <rect x='20' y='46' width='70' height='24' rx='12' fill='#fdd8d8'/><text x='55' y='62.5' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='11' font-weight='800' fill='#dc2626'>Habis</text>
+      <text x='130' y='66' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='11.5' font-weight='700' fill='#8a7263'>← setelah diklik</text>
+    </g>
   
   </g>
 </svg>

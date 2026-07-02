@@ -35,9 +35,9 @@
       <text x='58' y='376' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Kontrol Device Pel...</text>
     </g>
     <g>
-      <rect x='16' y='400' width='198' height='42' rx='13' fill='none'/>
-      <circle cx='40' cy='421' r='4' fill='#c7b8a9'/>
-      <text x='58' y='426' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Laporan</text>
+      <rect x='16' y='400' width='198' height='42' rx='13' fill='#fff1e0'/>
+      <circle cx='40' cy='421' r='4' fill='#f29744'/>
+      <text x='58' y='426' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='800' fill='#c9711f'>Laporan</text>
     </g>
     <g>
       <rect x='16' y='450' width='198' height='42' rx='13' fill='none'/>
@@ -58,21 +58,31 @@
     <text x='58' y='687' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='700' fill='#dc2626'>⎋ Keluar</text>
   </g>
   <g transform='translate(284,36)'>
-    <text x='0' y='26' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='26' font-weight='800' fill='#701604'>Cara Masuk (Login)</text>
+    <text x='0' y='26' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='26' font-weight='800' fill='#701604'>Membaca Laporan &amp; Analitik Cabang</text>
     
   </g>
   <g transform='translate(284,60)'>
     
-    <rect x='230' y='0' width='400' height='320' rx='24' fill='#ffffff' stroke='#eee0d2' stroke-width='1.5'/>
-    <rect x='390' y='30' width='80' height='80' rx='24' fill='#f29744'/>
-    <text x='430' y='80' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='34'>🥙</text>
-    <text x='430' y='140' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='16' font-weight='800' fill='#2b1a12'>Masuk ke Akun Kasir</text>
-    <rect x='262' y='166' width='336' height='44' rx='12' fill='#fdf3e7' stroke='#eee0d2' stroke-width='1.5'/>
-    <text x='280' y='193' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13' font-weight='600' fill='#8a7263'>Username</text>
-    <rect x='262' y='222' width='336' height='44' rx='12' fill='#fdf3e7' stroke='#eee0d2' stroke-width='1.5'/>
-    <text x='280' y='249' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13' font-weight='600' fill='#8a7263'>••••••••</text>
-    <rect x='262' y='278' width='336' height='46' rx='12' fill='#f29744'/>
-    <text x='430' y='306' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='15' font-weight='800' fill='#fff'>Masuk</text>
+    <rect x='0' y='0' width='190' height='100' rx='16' fill='#f29744' stroke='#eee0d2' stroke-width='1.5'/>
+    <text x='16' y='30' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='9.5' font-weight='800' fill='#fff5ea'>TOTAL PENDAPATAN</text>
+    <text x='16' y='66' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='22' font-weight='800' fill='#fff'>Rp 0</text>
+    <rect x='200' y='0' width='190' height='100' rx='16' fill='#ffffff' stroke='#eee0d2' stroke-width='1.5'/>
+    <text x='216' y='30' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='9.5' font-weight='800' fill='#8a7263'>PESANAN SUKSES</text>
+    <text x='216' y='66' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='22' font-weight='800' fill='#2b1a12'>0</text>
+    <rect x='400' y='0' width='190' height='100' rx='16' fill='#ffffff' stroke='#eee0d2' stroke-width='1.5'/>
+    <text x='416' y='30' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='9.5' font-weight='800' fill='#8a7263'>RATA-RATA/PESANAN</text>
+    <text x='416' y='66' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='22' font-weight='800' fill='#2b1a12'>Rp 0</text>
+    <rect x='600' y='0' width='190' height='100' rx='16' fill='#ffffff' stroke='#eee0d2' stroke-width='1.5'/>
+    <text x='616' y='30' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='9.5' font-weight='800' fill='#8a7263'>JAM TERSIBUK</text>
+    <text x='616' y='66' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='22' font-weight='800' fill='#2b1a12'>—</text>
+    <g transform='translate(0,116)'>
+      <rect x='0' y='0' width='260' height='130' rx='16' fill='#ffffff' stroke='#eee0d2' stroke-width='1.5'/>
+      <text x='16' y='26' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13' font-weight='800' fill='#2b1a12'>Status Transaksi</text>
+      <text x='16' y='60' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12.5' font-weight='700' fill='#0a7d2c'>✅ Selesai</text>
+      <text x='240' y='60' text-anchor='end' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13' font-weight='800' fill='#2b1a12'>0</text>
+      <text x='16' y='96' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12.5' font-weight='700' fill='#dc2626'>❌ Dibatalkan</text>
+      <text x='240' y='96' text-anchor='end' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13' font-weight='800' fill='#2b1a12'>0</text>
+    </g>
   
   </g>
 </svg>

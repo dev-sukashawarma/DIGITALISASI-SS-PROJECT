@@ -10,9 +10,9 @@
   <line x1='16' y1='90' x2='234' y2='90' stroke='#eee0d2' stroke-width='2'/>
   
     <g>
-      <rect x='16' y='150' width='198' height='42' rx='13' fill='#fff1e0'/>
-      <circle cx='40' cy='171' r='4' fill='#f29744'/>
-      <text x='58' y='176' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='800' fill='#c9711f'>Order</text>
+      <rect x='16' y='150' width='198' height='42' rx='13' fill='none'/>
+      <circle cx='40' cy='171' r='4' fill='#c7b8a9'/>
+      <text x='58' y='176' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Order</text>
     </g>
     <g>
       <rect x='16' y='200' width='198' height='42' rx='13' fill='none'/>
@@ -20,9 +20,9 @@
       <text x='58' y='226' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Manajemen Menu</text>
     </g>
     <g>
-      <rect x='16' y='250' width='198' height='42' rx='13' fill='none'/>
-      <circle cx='40' cy='271' r='4' fill='#c7b8a9'/>
-      <text x='58' y='276' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='600' fill='#8a7263'>Petty Cash</text>
+      <rect x='16' y='250' width='198' height='42' rx='13' fill='#fff1e0'/>
+      <circle cx='40' cy='271' r='4' fill='#f29744'/>
+      <text x='58' y='276' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='800' fill='#c9711f'>Petty Cash</text>
     </g>
     <g>
       <rect x='16' y='300' width='198' height='42' rx='13' fill='none'/>
@@ -58,18 +58,23 @@
     <text x='58' y='687' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='700' fill='#dc2626'>⎋ Keluar</text>
   </g>
   <g transform='translate(284,36)'>
-    <text x='0' y='26' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='26' font-weight='800' fill='#701604'>Apa Itu Sistem Kasir Suka Shawarma?</text>
+    <text x='0' y='26' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='26' font-weight='800' fill='#701604'>Mencatat Pengeluaran &amp; Mengajukan Top Up</text>
     
   </g>
   <g transform='translate(284,60)'>
     
-    <rect x='0' y='0' width='860' height='220' rx='16' fill='#fff1e0' stroke='none' stroke-width='1.5'/>
-    <circle cx='30' cy='34' r='16' fill='#f29744'/><text x='30' y='39' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>1</text>
-    <text x='56' y='40' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Pesanan masuk otomatis ke halaman Order — lengkap dengan status &amp; nominal.</text>
-    <circle cx='30' cy='74' r='16' fill='#f29744'/><text x='30' y='79' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>2</text>
-    <text x='56' y='80' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Sidebar kiri = semua fitur kasir: Order, Menu, Petty Cash, Histori, Device, Laporan, dst.</text>
-    <circle cx='30' cy='114' r='16' fill='#f29744'/><text x='30' y='119' text-anchor='middle' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14' font-weight='800' fill='#fff'>3</text>
-    <text x='56' y='120' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='14.5' font-weight='700' fill='#2b1a12'>Tidak perlu mencatat manual di kertas — semua tersimpan otomatis di sistem.</text>
+    <rect x='0' y='0' width='260' height='36' rx='10' fill='#eef2ff'/>
+    <text x='20' y='23' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12.5' font-weight='800' fill='#4338ca'>↳ Ajukan Top Up Petty Cash</text>
+    <g transform='translate(0,52)'>
+      <rect x='0' y='0' width='400' height='190' rx='16' fill='#ffffff' stroke='#eee0d2' stroke-width='1.5'/>
+      <text x='16' y='30' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='13' font-weight='800' fill='#dc2626'>↗ Catat Pengeluaran</text>
+      <text x='16' y='56' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='10.5' font-weight='800' fill='#8a7263'>KATEGORI</text>
+      <rect x='16' y='64' width='368' height='36' rx='10' fill='#fdf3e7' stroke='#eee0d2' stroke-width='1.5'/>
+      <text x='30' y='87' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12.5' font-weight='600' fill='#2b1a12'>Operasional (Plastik, ATK)</text>
+      <text x='16' y='118' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='10.5' font-weight='800' fill='#8a7263'>KETERANGAN / NAMA BARANG</text>
+      <rect x='16' y='126' width='368' height='36' rx='10' fill='#fdf3e7' stroke='#eee0d2' stroke-width='1.5'/>
+      <text x='30' y='149' text-anchor='start' font-family='Segoe UI, Roboto, Arial, sans-serif' font-size='12' font-weight='600' fill='#8a7263'>Contoh: Beli es kristal 2 bungkus</text>
+    </g>
   
   </g>
 </svg>

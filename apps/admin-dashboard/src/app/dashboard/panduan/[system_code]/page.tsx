@@ -11,6 +11,8 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 
+import { savePanduan } from './actions'
+
 interface PageProps {
   params: {
     system_code: string
@@ -95,22 +97,21 @@ export default function PanduanEditorPage({ params: { system_code } }: PageProps
       const { data: userData } = await supabase.auth.getUser()
       const userId = userData?.user?.id
 
-      const { error } = await supabase
-        .from('system_guides')
-        .upsert(
-          {
-            system_code,
-            title,
-            content_html: contentHtml,
-            updated_at: new Date().toISOString(),
-            created_by: userId,
-          },
-          { onConflict: 'system_code' }
-        )
+      if (!userId) {
+        toast.error('Anda harus login terlebih dahulu')
+        setIsSaving(false)
+        return
+      }
 
-      if (error) {
-        console.error('Save error:', error)
-        toast.error('Gagal menyimpan panduan. Pastikan Anda memiliki akses Admin/Owner.')
+      const res = await savePanduan({
+        system_code,
+        title,
+        content_html: contentHtml,
+        userId,
+      })
+
+      if (res.error) {
+        toast.error(res.error)
       } else {
         toast.success('Panduan berhasil disimpan!')
         router.refresh()

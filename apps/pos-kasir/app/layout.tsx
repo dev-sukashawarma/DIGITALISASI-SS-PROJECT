@@ -26,6 +26,7 @@ export const viewport: Viewport = {
 }
 
 import { BrandProvider } from '@/components/BrandContext'
+import { GlobalDialogs } from '@/components/GlobalDialogs'
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <GlobalBlockerMount />
             <AudioUnlockMount />
             {children}
+            <GlobalDialogs />
           </BrandProvider>
         </Providers>
       </body>

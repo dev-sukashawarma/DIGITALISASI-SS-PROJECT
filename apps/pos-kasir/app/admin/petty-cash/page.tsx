@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, ArrowDownToLine, Clock, User, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/validations'
+import { useDialogStore } from '@/lib/dialogStore'
 
 interface TopupRequest {
   id: string
@@ -27,6 +28,7 @@ function formatDateTime(value?: string | null): string {
 }
 
 export default function PettyCashApprovalPage() {
+  const { showConfirm, showAlert } = useDialogStore()
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [requests, setRequests] = useState<TopupRequest[]>([])
@@ -53,14 +55,15 @@ export default function PettyCashApprovalPage() {
       setRequests((data as any) || [])
     } catch (err: any) {
       console.error('Failed to fetch requests', err)
-      alert('Gagal memuat data pengajuan')
+      showAlert('Gagal memuat data pengajuan')
     } finally {
       setLoading(false)
     }
   }
 
   async function handleReview(id: string, action: 'approve' | 'reject') {
-    if (!confirm(`Anda yakin ingin ${action === 'approve' ? 'MENYETUJUI' : 'MENOLAK'} pengajuan ini?`)) return
+    const confirmed = await showConfirm(`Anda yakin ingin ${action === 'approve' ? 'MENYETUJUI' : 'MENOLAK'} pengajuan ini?`);
+    if (!confirmed) return
     
     setIsSubmitting(id)
     try {
@@ -84,7 +87,7 @@ export default function PettyCashApprovalPage() {
       
     } catch (err: any) {
       console.error(err)
-      alert(err.message || `Gagal memproses pengajuan`)
+      showAlert(err.message || `Gagal memproses pengajuan`)
     } finally {
       setIsSubmitting(null)
     }

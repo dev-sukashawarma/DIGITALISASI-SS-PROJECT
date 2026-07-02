@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Category } from '@/types'
+import { useDialogStore } from '@/lib/dialogStore'
 
 interface FormState {
   id: string | null
@@ -17,6 +18,7 @@ interface FormState {
 const EMPTY: FormState = { id: null, name: '', sort_order: '' }
 
 export default function AdminCategoriesPage() {
+  const { showConfirm, showAlert } = useDialogStore()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading]       = useState(true)
   const [form, setForm]             = useState<FormState>(EMPTY)
@@ -76,7 +78,8 @@ export default function AdminCategoriesPage() {
   }
 
   async function handleDelete(cat: Category) {
-    if (!confirm(`Hapus kategori "${cat.name}"?\n\nMenu yang menggunakan kategori ini akan kehilangan kategorinya.`)) return
+    const confirmed = await showConfirm(`Hapus kategori "${cat.name}"?\n\nMenu yang menggunakan kategori ini akan kehilangan kategorinya.`);
+    if (!confirmed) return
     setDeletingId(cat.id)
     const supabase = createClient()
     await supabase.from('categories').delete().eq('id', cat.id)

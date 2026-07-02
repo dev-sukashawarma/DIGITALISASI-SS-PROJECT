@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category } from '@/types'
 import ZipUploadModal from '@/components/ZipUploadModal'
+import { useDialogStore } from '@/lib/dialogStore'
 
 const BUCKET = 'menu-images'
 
@@ -41,6 +42,7 @@ async function deleteStorageImage(url: string) {
 }
 
 export default function AdminMenuPage() {
+  const { showConfirm, showAlert } = useDialogStore()
   const [items, setItems]         = useState<MenuItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading]     = useState(true)
@@ -153,7 +155,8 @@ export default function AdminMenuPage() {
   }
 
   async function deleteItem(item: MenuItem) {
-    if (!confirm(`Hapus "${item.name}"?`)) return
+    const confirmed = await showConfirm(`Hapus "${item.name}"?`);
+    if (!confirmed) return
     const supabase = createClient()
     if (item.image_url) await deleteStorageImage(item.image_url)
     await supabase.from('menu_items').delete().eq('id', item.id)
@@ -162,8 +165,10 @@ export default function AdminMenuPage() {
 
   async function deleteAllItems() {
     if (items.length === 0) return
-    if (!confirm(`Hapus SEMUA ${items.length} menu? Tindakan ini tidak bisa dibatalkan.`)) return
-    if (!confirm('Yakin? Semua data menu dan foto akan dihapus permanen.')) return
+    const confirmed1 = await showConfirm(`Hapus SEMUA ${items.length} menu? Tindakan ini tidak bisa dibatalkan.`);
+    if (!confirmed1) return
+    const confirmed2 = await showConfirm('Yakin? Semua data menu dan foto akan dihapus permanen.');
+    if (!confirmed2) return
 
     setDeletingAll(true)
     const supabase = createClient()

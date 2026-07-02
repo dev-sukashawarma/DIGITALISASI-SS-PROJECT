@@ -12,6 +12,7 @@ import ChannelBadge from '@/components/ChannelBadge'
 import { formatRupiah } from '@/lib/validations'
 import { Skeleton } from '@/components/Skeleton'
 import type { OrderWithItems, OrderStatus } from '@/types'
+import { useDialogStore } from '@/lib/dialogStore'
 
 const STATUS_CONF: Partial<Record<OrderStatus, {
   label: string; color: string; badge: string; icon: any
@@ -40,6 +41,7 @@ async function fetchHistoriOrders(outletId: string, filter: OrderStatus | 'all')
 }
 
 export default function AdminOrdersPage() {
+  const { showConfirm } = useDialogStore()
   const [filter, setFilter]     = useState<OrderStatus | 'all'>('all')
   const [expandedId, setExpand] = useState<string | null>(null)
   const { outletId, outletName } = useMyOutlet()
@@ -344,7 +346,10 @@ export default function AdminOrdersPage() {
                       )}
                       {order.status !== 'completed' && order.status !== 'cancelled' && (
                         <button
-                          onClick={() => { if (confirm('Batalkan pesanan ini?')) updateStatus(order.id, 'cancelled') }}
+                          onClick={async () => { 
+                            const confirmed = await showConfirm('Batalkan pesanan ini?'); 
+                            if (confirmed) updateStatus(order.id, 'cancelled') 
+                          }}
                           className="btn-danger py-2 px-4 text-sm"
                         >
                           <XCircle className="w-3.5 h-3.5" />

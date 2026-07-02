@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import { Skeleton } from '@/components/Skeleton'
+import { useDialogStore } from '@/lib/dialogStore'
 
 interface Shift {
   id: string
@@ -80,6 +81,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 }
 
 export default function ShiftPage() {
+  const { showConfirm } = useDialogStore()
   const { outletId } = useMyOutlet()
   const supabase = createClient()
   const router = useRouter()
@@ -327,7 +329,8 @@ export default function ShiftPage() {
   async function handleCloseShift(e: React.FormEvent) {
     e.preventDefault()
     if (!activeShift) return
-    if (!confirm('Tutup shift sekarang? Setelah ditutup Anda tidak bisa melakukan transaksi tunai.')) return
+    const confirmed = await showConfirm('Tutup shift sekarang? Setelah ditutup Anda tidak bisa melakukan transaksi tunai.')
+    if (!confirmed) return
     setErrorMsg('')
     setSuccessMsg('')
     setIsSubmitting(true)

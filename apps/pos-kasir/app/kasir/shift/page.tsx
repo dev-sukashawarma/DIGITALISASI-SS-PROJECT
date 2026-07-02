@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator } from 'lucide-react'
+import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
@@ -96,6 +96,7 @@ export default function ShiftPage() {
   
   // Forms
   const [startingPettyCash, setStartingPettyCash] = useState<string>('')
+  const [pettyCashLocked, setPettyCashLocked] = useState(false)
   const [actualEndingCash, setActualEndingCash] = useState<string>('')
   const [actualEndingPettyCash, setActualEndingPettyCash] = useState<string>('')
   
@@ -202,6 +203,23 @@ export default function ShiftPage() {
         setExpenses([])
         setTopups([])
         setCashOrders([])
+
+        // Kunci nominal setoran awal Dana Operasional ke angka yang terakhir
+        // pernah diinput kasir untuk outlet ini — tidak boleh diketik bebas lagi.
+        const { data: lastShift } = await supabase
+          .from('shifts')
+          .select('starting_petty_cash')
+          .eq('outlet_id', outletId)
+          .order('start_time', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (lastShift && lastShift.starting_petty_cash !== null && lastShift.starting_petty_cash !== undefined) {
+          setStartingPettyCash(String(lastShift.starting_petty_cash))
+          setPettyCashLocked(true)
+        } else {
+          setPettyCashLocked(false)
+        }
       }
     } catch (err: any) {
       console.error(err)
@@ -492,11 +510,21 @@ export default function ShiftPage() {
                     min="0"
                     placeholder="Contoh: 150000"
                     value={startingPettyCash}
-                    onChange={e => setStartingPettyCash(e.target.value)}
-                    disabled={isSubmitting}
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50"
+                    onChange={e => !pettyCashLocked && setStartingPettyCash(e.target.value)}
+                    disabled={isSubmitting || pettyCashLocked}
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
+                  {pettyCashLocked && (
+                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                      <Lock className="w-4 h-4 text-gray-400" />
+                    </div>
+                  )}
                 </div>
+                {pettyCashLocked && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Mengikuti setoran awal terakhir. Hubungi SPV/Admin bila nominal ini perlu diubah.
+                  </p>
+                )}
               </div>
               <button
                 type="submit"

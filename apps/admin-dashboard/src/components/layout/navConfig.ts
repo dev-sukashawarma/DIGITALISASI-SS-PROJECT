@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
-  PieChart, DollarSign, MessageSquareHeart, Target, BellRing, Tags, type LucideIcon,
+  PieChart, DollarSign, MessageSquareHeart, Target, BellRing, Tags, BookOpen, type LucideIcon,
 } from 'lucide-react'
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA'
@@ -50,6 +50,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/outlets', label: 'Manajemen Outlet', shortLabel: 'Outlet', icon: Store, roles: ['ADMIN'] },
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
       { href: '/dashboard/system-health', label: 'System Health', shortLabel: 'System', icon: Activity, roles: ['ADMIN'] },
+      { href: '/dashboard/panduan', label: 'Panduan Sistem', shortLabel: 'Panduan', icon: BookOpen, roles: ['ADMIN', 'OWNER'] },
     ],
   },
   {

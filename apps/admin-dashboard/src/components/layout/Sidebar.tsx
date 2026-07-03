@@ -1,9 +1,10 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft, MonitorSmartphone } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, MonitorSmartphone, ChevronDown } from 'lucide-react'
 import { useRole } from './RoleContext'
-import { NAV_GROUPS, isItemActive, resolvePortalUrl, resolvePosAdminUrl } from './navConfig'
+import { accessibleGroups, isItemActive, resolvePortalUrl, resolvePosAdminUrl } from './navConfig'
 
 export const Sidebar = () => {
   const pathname = usePathname()
@@ -11,42 +12,60 @@ export const Sidebar = () => {
   const resolvedPortalUrl = resolvePortalUrl()
   const posAdminUrl = resolvePosAdminUrl()
 
+  const groups = accessibleGroups(role)
+  // Pintu yang sedang dibuka: default pintu yang memuat halaman aktif.
+  const activeGroupTitle = groups.find((g) => g.items.some((i) => isItemActive(i.href, pathname)))?.title
+  const [openDoor, setOpenDoor] = useState<string | null>(activeGroupTitle ?? groups[0]?.title ?? null)
+
   return (
     <aside className="hidden w-64 shrink-0 border-r border-suka-gray-200 bg-white md:flex md:flex-col">
       <div className="p-5 border-b border-suka-gray-100">
         <div className="text-xl font-extrabold text-suka-brown tracking-tight">Admin<span className="text-suka-orange">Hub</span></div>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6 text-sm">
-        {NAV_GROUPS.map((group) => {
-          if (!group.roles.includes(role)) return null
+      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 text-sm">
+        {groups.map((group) => {
+          const DoorIcon = group.icon
+          const isOpen = openDoor === group.title
+          const doorActive = group.items.some((i) => isItemActive(i.href, pathname))
 
           return (
             <div key={group.title}>
-              <h3 className="px-3 mb-2 text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">
-                {group.title}
-              </h3>
-              <div className="space-y-1">
-                {group.items.map(({ href, label, icon: Icon, roles }) => {
-                  if (!roles.includes(role)) return null
-                  const isActive = isItemActive(href, pathname)
+              {/* Kepala pintu — klik untuk buka/tutup */}
+              <button
+                type="button"
+                onClick={() => setOpenDoor(isOpen ? null : group.title)}
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition-colors ${
+                  doorActive ? 'text-suka-brown' : 'text-suka-ink'
+                } hover:bg-suka-gray-50`}
+              >
+                <DoorIcon size={18} className={doorActive ? 'text-suka-orange' : 'text-suka-gray-400'} />
+                <span className="flex-1 text-left">{group.title}</span>
+                <ChevronDown size={16} className={`text-suka-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      className={`flex items-center gap-3 rounded-xl px-3 py-2 font-medium transition-colors ${
-                        isActive
-                          ? 'bg-suka-orange/10 text-suka-orange'
-                          : 'text-gray-600 hover:bg-suka-gray-50 hover:text-suka-ink'
-                      }`}
-                    >
-                      <Icon size={18} className={isActive ? 'text-suka-orange' : 'text-gray-400'} />
-                      {label}
-                    </Link>
-                  )
-                })}
-              </div>
+              {/* Isi pintu — hanya tampil saat dibuka */}
+              {isOpen && (
+                <div className="mt-0.5 mb-1 ml-3 pl-3 border-l border-suka-gray-100 space-y-0.5">
+                  {group.items.map(({ href, label, icon: Icon }) => {
+                    const active = isItemActive(href, pathname)
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2 font-medium transition-colors ${
+                          active
+                            ? 'bg-suka-orange/10 text-suka-orange'
+                            : 'text-gray-600 hover:bg-suka-gray-50 hover:text-suka-ink'
+                        }`}
+                      >
+                        <Icon size={16} className={active ? 'text-suka-orange' : 'text-gray-400'} />
+                        {label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )
         })}

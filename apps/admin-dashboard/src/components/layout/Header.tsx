@@ -4,19 +4,13 @@ import { Button } from '@suka/design-system'
 import { useAuth } from '@suka/auth'
 import { LogOut, User } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-
-
-const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': 'Analisis Penjualan & Kinerja',
-  '/dashboard/expenses': 'Laporan Pengeluaran Operasional',
-  '/dashboard/profit': 'Analisis Laba Rugi Outlet',
-}
+import { labelForPath } from './navConfig'
 
 export const Header = () => {
   const { outletStaff, signOut } = useAuth()
   const pathname = usePathname()
 
-  const title = PAGE_TITLES[pathname] ?? 'Dashboard Owner'
+  const title = labelForPath(pathname)
 
   const handleLogout = async () => {
     await signOut()

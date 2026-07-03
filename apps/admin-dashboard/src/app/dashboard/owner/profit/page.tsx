@@ -9,6 +9,7 @@ import { useHpp } from '@/hooks/useHpp'
 import { computeProfit, computeCompanyProfit } from '@/lib/profit'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { rupiah } from '@/lib/format'
+import { PageHeader, StatTile, Section, StatTilesSkeleton } from '@/components/ui'
 import CountUp from 'react-countup'
 import { TrendingUp, Percent, ArrowLeftRight, TrendingDown, Boxes, Layers, Building2 } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -109,14 +110,9 @@ export default function ProfitPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header and Filter */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
-        <div>
-          <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Analisis Laba Rugi</h2>
-          <p className="text-xs text-suka-gray-500 font-medium">Perbandingan omzet penjualan vs biaya operasional</p>
-        </div>
+      <PageHeader title="Untung Rugi" description="Perbandingan omzet penjualan vs biaya operasional">
         <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} />
-      </div>
+      </PageHeader>
 
       {error && (
         <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">
@@ -125,141 +121,52 @@ export default function ProfitPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-suka-brown font-bold text-sm">
-          Memuat analisis laba rugi...
-        </div>
+        <StatTilesSkeleton count={3} />
       ) : (
         <>
-          {/* KPI Dashboard Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* 1. Omzet Penjualan */}
-            <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
-              <div className="flex justify-between items-start">
-                <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Omzet Penjualan</p>
-                <div className="p-2 bg-suka-green/10 rounded-xl">
-                  <TrendingUp className="w-5 h-5 text-suka-green" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="text-2xl font-extrabold text-suka-brown">
-                  Rp <CountUp end={totalOmzet} duration={1} separator="." />
-                </h3>
-                <p className="text-[10px] text-suka-green font-bold mt-1 uppercase">Pemasukan Completed Orders</p>
-              </div>
-            </div>
-
-            {/* HPP Bahan Baku */}
-            <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
-              <div className="flex justify-between items-start">
-                <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">HPP Bahan Baku</p>
-                <div className="p-2 bg-suka-brown/10 rounded-xl">
-                  <Boxes className="w-5 h-5 text-suka-brown" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="text-2xl font-extrabold text-suka-brown">
-                  Rp <CountUp end={totalHpp} duration={1} separator="." />
-                </h3>
-                <p className="text-[10px] text-suka-brown font-bold mt-1 uppercase">Biaya Bahan Terjual</p>
-              </div>
-            </div>
-
-            {/* Laba Kotor */}
-            <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
-              <div className="flex justify-between items-start">
-                <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Laba Kotor</p>
-                <div className="p-2 bg-suka-green/10 rounded-xl">
-                  <Layers className="w-5 h-5 text-suka-green" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="text-2xl font-extrabold text-suka-brown">
-                  Rp <CountUp end={labaKotor} duration={1} separator="." />
-                </h3>
-                <p className="text-[10px] text-suka-green font-bold mt-1 uppercase">Omzet − HPP · {marginKotor.toFixed(1)}%</p>
-              </div>
-            </div>
-
-            {/* 2. Pengeluaran Outlet */}
-            <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
-              <div className="flex justify-between items-start">
-                <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Total Pengeluaran</p>
-                <div className="p-2 bg-red-55/10 rounded-xl">
-                  <TrendingDown className="w-5 h-5 text-red-600" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="text-2xl font-extrabold text-suka-brown">
-                  Rp <CountUp end={pengeluaranOutlet} duration={1} separator="." />
-                </h3>
-                <p className="text-[10px] text-red-600 font-bold mt-1 uppercase">Biaya Operasional Outlet</p>
-              </div>
-            </div>
-
-            {/* Biaya Pusat — company-wide, hanya saat semua outlet */}
-            {isAllOutlets && (
-              <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
-                <div className="flex justify-between items-start">
-                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Biaya Pusat</p>
-                  <div className="p-2 rounded-xl" style={{ backgroundColor: '#dc262610' }}>
-                    <Building2 className="w-5 h-5" style={{ color: '#dc2626' }} />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <h3 className="text-2xl font-extrabold text-suka-brown">
-                    Rp <CountUp end={pengeluaranPusat} duration={1} separator="." />
-                  </h3>
-                  <p className="text-[10px] font-bold mt-1 uppercase" style={{ color: '#dc2626' }}>
-                    Tak dibebankan ke outlet
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* 3. Laba Bersih (outlet vs perusahaan) */}
-            <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
-              <div className="flex justify-between items-start">
-                <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">
-                  {isAllOutlets ? 'Laba Bersih Perusahaan' : 'Laba Bersih Outlet'}
-                </p>
-                <div className="p-2 bg-suka-orange/10 rounded-xl">
-                  <ArrowLeftRight className="w-5 h-5 text-suka-orange" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="text-2xl font-extrabold text-suka-brown">
-                  Rp <CountUp end={displayLaba} duration={1} separator="." />
-                </h3>
-                <p className={`text-[10px] font-bold mt-1 uppercase ${displayLaba >= 0 ? 'text-suka-green' : 'text-red-650'}`}>
-                  {isAllOutlets
-                    ? (displayLaba >= 0 ? 'Σ Laba Outlet − Biaya Pusat' : 'Defisit Perusahaan')
-                    : (displayLaba >= 0 ? 'Surplus Bersih' : 'Defisit Bersih')}
-                </p>
-              </div>
-            </div>
-
-            {/* 4. Profit Margin */}
-            <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
-              <div className="flex justify-between items-start">
-                <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Profit Margin</p>
-                <div className="p-2 bg-suka-brown/5 rounded-xl">
-                  <Percent className="w-5 h-5 text-suka-brown" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="text-2xl font-extrabold text-suka-brown">
-                  <CountUp end={displayMargin} duration={1} decimals={1} /> %
-                </h3>
-                <p className="text-[10px] text-suka-gray-400 font-semibold mt-1 uppercase">Efisiensi Profitabilitas</p>
-              </div>
-            </div>
+          {/* 3 angka headline — informasi terpenting menonjol */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatTile
+              label="Omzet Penjualan"
+              value={<><span className="text-lg align-top">Rp </span><CountUp end={totalOmzet} duration={1} separator="." /></>}
+              sub="Pemasukan Completed Orders"
+              icon={TrendingUp}
+              accent="green"
+            />
+            <StatTile
+              label={isAllOutlets ? 'Laba Bersih Perusahaan' : 'Laba Bersih Outlet'}
+              value={<><span className="text-lg align-top">Rp </span><CountUp end={displayLaba} duration={1} separator="." /></>}
+              sub={isAllOutlets
+                ? (displayLaba >= 0 ? 'Σ Laba Outlet − Biaya Pusat' : 'Defisit Perusahaan')
+                : (displayLaba >= 0 ? 'Surplus Bersih' : 'Defisit Bersih')}
+              icon={ArrowLeftRight}
+              accent={displayLaba >= 0 ? 'orange' : 'red'}
+            />
+            <StatTile
+              label="Profit Margin"
+              value={<><CountUp end={displayMargin} duration={1} decimals={1} /> %</>}
+              sub="Efisiensi Profitabilitas"
+              icon={Percent}
+              accent="brown"
+            />
           </div>
+
+          {/* Rincian — angka pendukung disembunyikan agar layar tidak sesak */}
+          <Section title="Rincian Perhitungan" collapsible defaultOpen={false}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatTile label="HPP Bahan Baku" value={<><span className="text-lg align-top">Rp </span><CountUp end={totalHpp} duration={1} separator="." /></>} sub="Biaya Bahan Terjual" icon={Boxes} accent="brown" />
+              <StatTile label="Laba Kotor" value={<><span className="text-lg align-top">Rp </span><CountUp end={labaKotor} duration={1} separator="." /></>} sub={`Omzet − HPP · ${marginKotor.toFixed(1)}%`} icon={Layers} accent="green" />
+              <StatTile label="Pengeluaran Outlet" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranOutlet} duration={1} separator="." /></>} sub="Biaya Operasional Outlet" icon={TrendingDown} accent="red" />
+              {isAllOutlets && (
+                <StatTile label="Biaya Pusat" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranPusat} duration={1} separator="." /></>} sub="Tak dibebankan ke outlet" icon={Building2} accent="red" />
+              )}
+            </div>
+          </Section>
 
           {/* Cash Flow Comparison Chart */}
-          <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm">
-            <h3 className="font-extrabold text-suka-brown text-sm tracking-tight mb-4 uppercase">Arus Kas Penjualan vs Pengeluaran</h3>
+          <Section title="Arus Kas Penjualan vs Pengeluaran">
             <ProfitCashFlowChart byDate={byDate} />
-          </div>
+          </Section>
 
           {/* Outlet Profitability Leaderboard Table */}
           <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">

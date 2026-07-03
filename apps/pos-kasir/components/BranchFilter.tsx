@@ -47,7 +47,7 @@ export default function BranchFilter({ outlets, selectedOutlet, onChange, classN
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-full sm:w-72 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden animate-fade-in">
+        <div className="absolute top-full left-0 mt-2 w-full sm:w-72 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden animate-fade-in">
           <div className="p-2 border-b border-gray-100">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

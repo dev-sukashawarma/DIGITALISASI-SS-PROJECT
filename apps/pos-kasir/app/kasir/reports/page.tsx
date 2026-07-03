@@ -392,7 +392,7 @@ export default function ReportsPage() {
             {showRangePicker && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowRangePicker(false)} />
-                <div className="absolute right-0 top-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl py-2 z-50 w-48 animate-fade-in">
+                <div className="absolute left-0 top-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl py-2 z-50 w-48 animate-fade-in">
                   {(Object.keys(RANGE_LABELS) as DateRange[]).map((r) => (
                     <button
                       key={r}

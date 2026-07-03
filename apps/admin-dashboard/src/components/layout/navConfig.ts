@@ -1,17 +1,33 @@
 import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
-  PieChart, DollarSign, MessageSquareHeart, Target, BellRing, Tags, Wallet, BookOpen, type LucideIcon,
+  PieChart, DollarSign, MessageSquareHeart, Target, BellRing, Tags, Wallet, BookOpen,
+  Package, FileText, Settings, Ban, Boxes, TrendingDown, type LucideIcon,
 } from 'lucide-react'
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA'
 
 export type NavItem = { href: string; label: string; shortLabel?: string; icon: LucideIcon; roles: Role[] }
-export type NavGroup = { title: string; items: NavItem[]; roles: Role[] }
+/** Sebuah "pintu" navigasi — kelompok besar berlabel bahasa awam. */
+export type NavGroup = { title: string; icon: LucideIcon; items: NavItem[]; roles: Role[] }
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    title: 'HR Dashboard',
+    title: 'Bisnis',
+    icon: Wallet,
+    roles: ['OWNER', 'ADMIN', 'MITRA'],
+    items: [
+      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN', 'MITRA'] },
+      { href: '/dashboard/owner/profit', label: 'Untung Rugi', shortLabel: 'Untung Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN', 'MITRA'] },
+      { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN', 'MITRA'] },
+      { href: '/dashboard/owner/targets', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN', 'MITRA'] },
+      { href: '/dashboard/owner/expenses/input', label: 'Input Pengeluaran', shortLabel: 'Input Biaya', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/messages', label: 'Pesan ke Kasir', shortLabel: 'Pesan', icon: MessageSquareHeart, roles: ['OWNER', 'ADMIN'] },
+    ],
+  },
+  {
+    title: 'Karyawan',
+    icon: Users,
     roles: ['ADMIN_HR', 'ADMIN'],
     items: [
       { href: '/dashboard/hr', label: 'Ringkasan HR', shortLabel: 'HR', icon: LayoutDashboard, roles: ['ADMIN_HR', 'ADMIN'] },
@@ -22,45 +38,32 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Owner Dashboard',
-    roles: ['OWNER', 'ADMIN'],
-    items: [
-      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/targets', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/messages', label: 'Pesan ke Kasir', shortLabel: 'Pesan', icon: MessageSquareHeart, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/profit', label: 'Profitabilitas', shortLabel: 'Laba Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: Activity, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/expenses/input', label: 'Input Pengeluaran', shortLabel: 'Input Biaya', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
-    ],
-  },
-  {
-    title: 'Dashboard Mitra',
-    roles: ['MITRA'],
-    items: [
-      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['MITRA'] },
-      { href: '/dashboard/owner/targets', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['MITRA'] },
-      { href: '/dashboard/owner/profit', label: 'Profitabilitas', shortLabel: 'Laba Rugi', icon: DollarSign, roles: ['MITRA'] },
-      { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: Activity, roles: ['MITRA'] },
-    ],
-  },
-  {
-    title: 'System & Admin',
+    title: 'Produk & Stok',
+    icon: Package,
     roles: ['ADMIN'],
     items: [
       { href: '/dashboard/bahan-baku', label: 'Master Bahan Baku', shortLabel: 'Bahan Baku', icon: Tags, roles: ['ADMIN'] },
-      { href: '/dashboard/resep', label: 'Manajemen Resep (BOM)', shortLabel: 'Resep', icon: Activity, roles: ['ADMIN'] },
+      { href: '/dashboard/resep', label: 'Manajemen Resep', shortLabel: 'Resep', icon: BookOpen, roles: ['ADMIN'] },
       { href: '/dashboard/outlets', label: 'Manajemen Outlet', shortLabel: 'Outlet', icon: Store, roles: ['ADMIN'] },
-      { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
-      { href: '/dashboard/system-health', label: 'System Health', shortLabel: 'System', icon: Activity, roles: ['ADMIN'] },
-      { href: '/dashboard/panduan', label: 'Panduan Sistem', shortLabel: 'Panduan', icon: BookOpen, roles: ['ADMIN', 'OWNER'] },
     ],
   },
   {
-    title: 'Laporan & Audit',
+    title: 'Laporan',
+    icon: FileText,
     roles: ['OWNER', 'ADMIN'],
     items: [
-      { href: '/dashboard/reports/voids', label: 'Void & Fraud', shortLabel: 'Void', icon: Activity, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/reports/shrinkage', label: 'Shrinkage & Opname', shortLabel: 'Selisih', icon: Tags, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/voids', label: 'Pembatalan & Kecurangan', shortLabel: 'Pembatalan', icon: Ban, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', shortLabel: 'Selisih', icon: Boxes, roles: ['OWNER', 'ADMIN'] },
+    ],
+  },
+  {
+    title: 'Sistem',
+    icon: Settings,
+    roles: ['OWNER', 'ADMIN'],
+    items: [
+      { href: '/dashboard/panduan', label: 'Panduan Sistem', shortLabel: 'Panduan', icon: BookOpen, roles: ['ADMIN', 'OWNER'] },
+      { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
+      { href: '/dashboard/system-health', label: 'Kesehatan Sistem', shortLabel: 'Sistem', icon: Activity, roles: ['ADMIN'] },
     ],
   },
 ]
@@ -72,6 +75,13 @@ export function accessibleItems(role: Role): NavItem[] {
   )
 }
 
+/** Pintu (group) yang bisa diakses role, beserta item yang sudah difilter. */
+export function accessibleGroups(role: Role): NavGroup[] {
+  return NAV_GROUPS.filter((g) => g.roles.includes(role))
+    .map((g) => ({ ...g, items: g.items.filter((i) => i.roles.includes(role)) }))
+    .filter((g) => g.items.length > 0)
+}
+
 /** Active-route resolution shared by sidebar & bottom nav. */
 export function isItemActive(href: string, pathname: string): boolean {
   // Dashboard landing routes must match exactly (they have sub-routes).
@@ -79,6 +89,19 @@ export function isItemActive(href: string, pathname: string): boolean {
     return pathname === href
   }
   return pathname === href || pathname.startsWith(href + '/')
+}
+
+/** Judul halaman (bahasa awam) untuk header, berdasarkan path aktif. */
+export function labelForPath(pathname: string): string {
+  let best: { href: string; label: string } | null = null
+  for (const g of NAV_GROUPS) {
+    for (const it of g.items) {
+      if (isItemActive(it.href, pathname) && (!best || it.href.length > best.href.length)) {
+        best = { href: it.href, label: it.label }
+      }
+    }
+  }
+  return best?.label ?? 'Dashboard'
 }
 
 /** Portal URL, localhost-aware for dev. */

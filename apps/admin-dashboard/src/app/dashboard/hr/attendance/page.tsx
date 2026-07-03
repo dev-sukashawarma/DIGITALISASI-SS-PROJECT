@@ -168,7 +168,7 @@ export default function AttendancePage() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-suka-ink">Absensi &amp; Shift</h2>
+          <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Absensi &amp; Shift</h2>
           <p className="text-sm text-suka-gray-500">
             Rekap kehadiran karyawan &amp; informasi shift kerja.
           </p>

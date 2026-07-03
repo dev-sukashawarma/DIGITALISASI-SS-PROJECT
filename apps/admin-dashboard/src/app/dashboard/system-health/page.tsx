@@ -23,7 +23,7 @@ export default function SystemHealthPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-suka-ink">System Health</h2>
+      <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Kesehatan Sistem</h2>
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-gray-500">Apps</h3>

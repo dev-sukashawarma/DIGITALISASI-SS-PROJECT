@@ -25,7 +25,7 @@ export default function BahanBakuPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-suka-ink">Master Bahan Baku</h1>
+        <h1 className="text-xl font-extrabold text-suka-brown tracking-tight">Master Bahan Baku</h1>
         <p className="text-sm text-gray-500">Kelola harga beli bahan baku. Harga hanya terlihat oleh admin.</p>
       </div>
 

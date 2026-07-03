@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
 import { Download, Plus, DollarSign, Users, PiggyBank, CreditCard } from 'lucide-react'
 
+import { PageHeader } from '@/components/ui'
 import { usePayroll } from '@/hooks/usePayroll'
 import { usePayrollMutations } from '@/hooks/usePayrollMutations'
 import { useCashAdvances } from '@/hooks/useCashAdvances'
@@ -148,10 +149,7 @@ export default function PayrollPage() {
   // ---------------------------------------------------------
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-suka-ink">Payroll & Kasbon</h1>
-        <p className="text-sm text-suka-gray-500">Kelola slip gaji bulanan dan pinjaman karyawan.</p>
-      </div>
+      <PageHeader title="Payroll & Kasbon" description="Kelola slip gaji bulanan dan pinjaman karyawan." />
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-suka-gray-200 pb-4">

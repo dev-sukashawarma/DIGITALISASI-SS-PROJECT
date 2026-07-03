@@ -72,7 +72,7 @@ export default function StaffPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-suka-ink">Manajemen Staff</h2>
+        <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Database Karyawan</h2>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => { setEditing(null); setShowForm(false); setShowImport((v) => !v) }} className="flex items-center gap-2 rounded-xl">
             <Upload size={18} /> Import CSV

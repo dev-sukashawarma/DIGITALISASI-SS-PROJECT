@@ -3,6 +3,7 @@ import { Users, CalendarClock, CalendarHeart, Banknote, Clock, ArrowRight } from
 import Link from 'next/link'
 import { Spinner } from '@suka/design-system'
 import { useHrActivity } from '@/hooks/useHrActivity'
+import { PageHeader } from '@/components/ui'
 
 export default function HRDashboard() {
   const cards = [
@@ -16,10 +17,7 @@ export default function HRDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-suka-ink">Ringkasan HR</h1>
-        <p className="text-sm text-suka-gray-500">Overview sistem manajemen sumber daya manusia.</p>
-      </div>
+      <PageHeader title="Ringkasan HR" description="Overview sistem manajemen sumber daya manusia." />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((card) => (

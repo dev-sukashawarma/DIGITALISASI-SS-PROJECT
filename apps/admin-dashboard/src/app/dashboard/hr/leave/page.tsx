@@ -150,7 +150,7 @@ export default function LeavePage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-suka-ink">Cuti &amp; Izin</h1>
+          <h1 className="text-2xl font-extrabold text-suka-brown tracking-tight">Cuti &amp; Izin</h1>
           <p className="text-sm text-suka-gray-500">Kelola pengajuan cuti dan izin karyawan.</p>
         </div>
         <div className="flex gap-2">

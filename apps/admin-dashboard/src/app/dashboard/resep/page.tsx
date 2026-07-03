@@ -49,7 +49,7 @@ export default async function ResepPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Manajemen Resep (BOM)</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-suka-brown">Manajemen Resep (BOM)</h1>
         <p className="text-sm text-gray-500 mt-1">
           Pilih menu untuk mengatur Bill of Materials. Menu dengan BOM akan memotong stok otomatis saat terjual di Kasir.
         </p>

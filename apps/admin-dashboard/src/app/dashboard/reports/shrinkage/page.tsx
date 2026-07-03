@@ -52,7 +52,7 @@ export default async function ShrinkageReportPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Shrinkage & Opname Dashboard</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-suka-brown">Selisih Stok (Shrinkage & Opname)</h1>
         <p className="text-sm text-gray-500 mt-1">
           Monitor selisih barang (hilang/rusak) antara fisik dan sistem (Blind Opname).
         </p>

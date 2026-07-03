@@ -103,7 +103,7 @@ export default function PushCenterPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-extrabold tracking-tight text-suka-brown flex items-center gap-2">
             <BellRing className="text-suka-orange" />
             Pusat Notifikasi (Push Center)
           </h1>

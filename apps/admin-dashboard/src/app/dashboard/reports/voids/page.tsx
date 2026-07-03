@@ -41,7 +41,7 @@ export default async function VoidsReportPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Laporan Void & Fraud</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-suka-brown">Pembatalan & Kecurangan</h1>
         <p className="text-sm text-gray-500 mt-1">
           Monitor pembatalan pesanan dan aktivitas mencurigakan di kasir.
         </p>

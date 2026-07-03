@@ -82,7 +82,7 @@ export default function OutletsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-suka-ink">Master Outlet</h2>
+        <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Manajemen Outlet</h2>
         <Button onClick={() => { setEditing(null); setShowForm((v) => !v) }} className="flex items-center gap-2 rounded-xl">
           <Plus size={18} /> Tambah Outlet
         </Button>

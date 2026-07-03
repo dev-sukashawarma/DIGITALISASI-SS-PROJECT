@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import {
-  MessageSquareHeart, Send, Sparkles, Info, AlertTriangle, Loader2,
+  Send, Sparkles, Info, AlertTriangle, Loader2,
   CheckCircle2, Power, Clock, Store, Globe, Eye, Search,
 } from 'lucide-react'
+import { PageHeader } from '@/components/ui'
 
 type Kind = 'motivasi' | 'info' | 'peringatan'
 
@@ -163,16 +164,7 @@ export default function MessagesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
-        <div className="w-10 h-10 rounded-xl bg-suka-orange/10 flex items-center justify-center shrink-0">
-          <MessageSquareHeart className="w-5 h-5 text-suka-orange" />
-        </div>
-        <div>
-          <h2 className="text-lg sm:text-xl font-extrabold text-suka-brown tracking-tight">Pesan ke Kasir</h2>
-          <p className="text-xs text-suka-gray-500 font-medium">Kirim kata-kata mutiara / info ke layar POS kasir (pop-up).</p>
-        </div>
-      </div>
+      <PageHeader title="Pesan ke Kasir" description="Kirim kata-kata mutiara / info ke layar POS kasir (pop-up)." />
 
       {error && <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">{error}</div>}
 

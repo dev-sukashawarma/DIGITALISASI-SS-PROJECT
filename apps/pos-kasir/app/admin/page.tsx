@@ -222,21 +222,22 @@ export default function AdminOverviewPage() {
           />
 
           {/* Date Range Dropdown */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto">
             {chartRange === 'custom' && (
-              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-200">
+              <div className="flex flex-col sm:flex-row items-center gap-2 bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-200">
                 <input 
                   type="date" 
                   value={customStartDate} 
                   onChange={e => setCustomStartDate(e.target.value)}
-                  className="text-sm outline-none text-gray-700 bg-transparent"
+                  className="w-full sm:w-auto text-sm outline-none text-gray-700 bg-transparent"
                 />
-                <span className="text-gray-400 text-sm">-</span>
+                <span className="hidden sm:inline text-gray-400 text-sm">-</span>
+                <span className="sm:hidden text-gray-400 text-xs">sampai</span>
                 <input 
                   type="date" 
                   value={customEndDate} 
                   onChange={e => setCustomEndDate(e.target.value)}
-                  className="text-sm outline-none text-gray-700 bg-transparent"
+                  className="w-full sm:w-auto text-sm outline-none text-gray-700 bg-transparent"
                 />
               </div>
             )}

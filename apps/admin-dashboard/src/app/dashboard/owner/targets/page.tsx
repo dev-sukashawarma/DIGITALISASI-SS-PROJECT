@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
 import { rupiah } from '@/lib/format'
-import { Target, Save, RotateCcw, Store, Globe, CheckCircle2, Loader2, Search } from 'lucide-react'
+import { PageHeader, Skeleton } from '@/components/ui'
+import { Save, RotateCcw, Store, Globe, CheckCircle2, Loader2, Search } from 'lucide-react'
 
 interface TargetRow {
   outlet_id: string
@@ -105,29 +106,20 @@ export default function TargetsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-suka-orange/10 flex items-center justify-center shrink-0">
-            <Target className="w-5 h-5 text-suka-orange" />
-          </div>
-          <div>
-            <h2 className="text-lg sm:text-xl font-extrabold text-suka-brown tracking-tight">Target Penjualan Harian</h2>
-            <p className="text-xs text-suka-gray-500 font-medium">Atur target default & override per outlet. Berlaku tiap hari sampai diubah.</p>
-          </div>
-        </div>
-        <span className="text-xs font-bold text-suka-orange bg-suka-cream px-3 py-1.5 rounded-full border border-suka-brown/5 self-start sm:self-auto">
+      <PageHeader title="Target Harian" description="Atur target default & override per outlet. Berlaku tiap hari sampai diubah.">
+        <span className="text-xs font-bold text-suka-orange bg-suka-cream px-3 py-1.5 rounded-full border border-suka-brown/5">
           {overrideCount} outlet di-override
         </span>
-      </div>
+      </PageHeader>
 
       {error && (
         <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">{error}</div>
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-suka-brown font-bold text-sm gap-2">
-          <Loader2 className="w-4 h-4 animate-spin" /> Memuat target...
+        <div className="space-y-4">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-64" />
         </div>
       ) : (
         <>

@@ -359,19 +359,20 @@ export default function ReportsPage() {
         <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
           {/* Custom Date Picker (if selected) */}
           {range === 'custom' && (
-            <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
+            <div className="flex flex-col sm:flex-row items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200 w-full sm:w-auto order-last sm:order-first">
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="bg-transparent text-sm font-medium text-gray-700 outline-none"
+                className="w-full sm:w-auto bg-transparent text-sm font-medium text-gray-700 outline-none"
               />
-              <span className="text-gray-400 text-sm">-</span>
+              <span className="hidden sm:inline text-gray-400 text-sm">-</span>
+              <span className="sm:hidden text-gray-400 text-xs">sampai</span>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="bg-transparent text-sm font-medium text-gray-700 outline-none"
+                className="w-full sm:w-auto bg-transparent text-sm font-medium text-gray-700 outline-none"
               />
             </div>
           )}

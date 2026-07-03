@@ -16,6 +16,7 @@ import { BottomMenus } from '@/components/BottomMenus'
 import { OutletLeaderboard } from '@/components/OutletLeaderboard'
 import { DailyTargetBoard } from '@/components/DailyTargetBoard'
 import { useRole } from '@/components/layout/RoleContext'
+import { PageHeader } from '@/components/ui'
 import type { PeriodFilterValue } from '@/lib/types'
 import dynamic from 'next/dynamic'
 
@@ -50,14 +51,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header and Filter */}
-      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
-        <div>
-          <h2 className="text-lg sm:text-xl font-extrabold text-suka-brown tracking-tight">Kinerja Penjualan</h2>
-          <p className="text-xs text-suka-gray-500 font-medium">Statistik penjualan riil dari sistem POS Kasir</p>
-        </div>
+      <PageHeader title="Ringkasan Bisnis" description="Statistik penjualan riil dari sistem POS Kasir">
         <PeriodFilter value={filter} onChange={setFilter} outlets={scopedOutlets} lockedOutletId={lockedOutletId} />
-      </div>
+      </PageHeader>
 
       {errorMsg && <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">Gagal memuat data: {errorMsg}</div>}
       

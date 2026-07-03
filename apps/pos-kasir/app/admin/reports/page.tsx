@@ -313,21 +313,24 @@ export default function AdminReportsPage() {
               onChange={setSelectedOutlet} 
             />
 
-            <div className="relative flex items-center gap-2">
+            <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto">
               <button
                 onClick={() => setShowRangePicker(!showRangePicker)}
-                className="flex items-center gap-2 bg-white border border-gray-200 hover:border-gray-300 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 transition-all shadow-sm"
+                className="w-full sm:w-auto flex items-center justify-between gap-2 bg-white border border-gray-200 hover:border-gray-300 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 transition-all shadow-sm"
               >
-                <Calendar className="w-4 h-4 text-amber-500" />
-                {RANGE_LABELS[range]}
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-amber-500" />
+                  {RANGE_LABELS[range]}
+                </div>
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showRangePicker ? 'rotate-180' : ''}`} />
               </button>
 
               {range === 'custom' && (
-                <div className="flex items-center gap-2 text-sm bg-gray-50 px-3 py-2.5 rounded-xl border border-gray-200">
-                  <input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)} className="bg-transparent outline-none font-medium text-gray-700"/>
-                  <span>-</span>
-                  <input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)} className="bg-transparent outline-none font-medium text-gray-700"/>
+                <div className="flex flex-col sm:flex-row items-center gap-2 text-sm bg-gray-50 px-3 py-2.5 rounded-xl border border-gray-200">
+                  <input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)} className="w-full sm:w-auto bg-transparent outline-none font-medium text-gray-700"/>
+                  <span className="hidden sm:inline">-</span>
+                  <span className="sm:hidden text-gray-400 text-xs">sampai</span>
+                  <input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)} className="w-full sm:w-auto bg-transparent outline-none font-medium text-gray-700"/>
                 </div>
               )}
 

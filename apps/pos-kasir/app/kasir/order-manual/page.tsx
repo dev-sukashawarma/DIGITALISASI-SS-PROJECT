@@ -52,7 +52,8 @@ export default function OrderManualPage() {
   const [cartOpen, setCartOpen] = useState(false) // bottom sheet di mobile
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<number | null>(null)
+  const [showInfo, setShowInfo] = useState(true)
+  const [success, setSuccess] = useState<{ orderNumber: number; method: Payment | null; change: number | null } | null>(null)
 
   // ── State khusus jalur walk-in (kasir langsung) ───────────────────────────
   const [walkInSubmitting, setWalkInSubmitting] = useState(false)
@@ -141,7 +142,7 @@ export default function OrderManualPage() {
   const canSubmit = lineList.length > 0 && !!channel && !!payment && !submitting
 
   // ── Submit ────────────────────────────────────────────────────────────────
-  async function handleSubmit() {
+  async function handleSubmit(amountReceived: number | null) {
     if (!canSubmit) return
     setSubmitting(true)
     setError(null)
@@ -153,6 +154,7 @@ export default function OrderManualPage() {
           channel,
           payment_method: payment,
           customer_name: customerName,
+          amount_received: payment === 'cash' ? amountReceived : undefined,
           items: lineList.map((l) => ({
             menu_item_id: l.item.id,
             quantity: l.quantity,
@@ -168,7 +170,11 @@ export default function OrderManualPage() {
         return
       }
       postToNative({ type: 'haptic', style: 'success' })
-      setSuccess(data.order_number)
+      setSuccess({
+        orderNumber: data.order_number,
+        method: payment,
+        change: data.change_amount ?? null
+      })
       // reset untuk order berikutnya
       setLines({})
       setChannel(null)
@@ -285,15 +291,15 @@ export default function OrderManualPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-gray-900 leading-tight">
-            {mode === 'walkin' ? 'Kasir — Pesanan Baru' : 'Input Channel Online'}
+            {mode === 'walkin' ? 'Order Manual — Pesanan Baru' : 'Input Food Apps'}
           </h1>
           <p className="text-sm text-gray-500 leading-tight">
-            {mode === 'walkin' ? 'Catat pesanan pelanggan di kasir' : 'Input pesanan dari channel eksternal'}
+            {mode === 'walkin' ? 'Catat pesanan pelanggan secara manual' : 'Input pesanan dari aplikasi makanan'}
           </p>
         </div>
       </div>
 
-      {/* Tab switch: Kasir Langsung / Channel Online */}
+      {/* Tab switch: Order Manual / Food Apps */}
       <div className="inline-flex bg-gray-100 rounded-xl p-1 mb-5">
         <button
           onClick={() => setMode('walkin')}
@@ -582,10 +588,16 @@ export default function OrderManualPage() {
             </div>
             <h2 className="text-xl font-bold text-gray-900">Pesanan Dibuat!</h2>
             <p className="text-gray-500 mt-1">Order masuk ke papan <b>Sedang Diproses</b>.</p>
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl py-4 my-5">
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl py-4 my-4">
               <p className="text-xs font-bold text-amber-600/80 uppercase tracking-wider">Nomor Antrian</p>
-              <p className="text-4xl font-bold text-amber-600 leading-tight mt-1">#{success}</p>
+              <p className="text-4xl font-bold text-amber-600 leading-tight mt-1">#{success.orderNumber}</p>
             </div>
+            {success.method === 'cash' && success.change !== null && (
+              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl py-3 mb-4 flex items-center justify-between px-5">
+                <span className="text-sm font-bold text-emerald-700">Kembalian</span>
+                <span className="text-2xl font-black text-emerald-700">{formatRupiah(success.change)}</span>
+              </div>
+            )}
             <div className="flex gap-2.5">
               <button onClick={() => setSuccess(null)} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-colors active:scale-95">
                 Buat Order Lagi
@@ -662,7 +674,7 @@ function CartPanel(props: {
   canSubmit: boolean
   submitting: boolean
   error: string | null
-  onSubmit: () => void
+  onSubmit: (amount: number | null) => void
   calculateItemPrice: (price: number, id: string) => number
   globalDiscount: number
   globalPromo: any
@@ -677,6 +689,13 @@ function CartPanel(props: {
   } = props
 
   const ch = getChannel(channel)
+  const [cashInput, setCashInput] = useState<string>('')
+  
+  const QUICK_CASH = [20000, 50000, 100000, 150000, 200000]
+  const amountReceived = cashInput ? parseInt(cashInput.replace(/\D/g, ''), 10) || 0 : 0
+  const change = amountReceived - totalPrice
+  const cashEnough = amountReceived >= totalPrice && totalPrice > 0
+  const canPayCash = canSubmit && cashEnough
 
   return (
     <div className={embedded ? '' : 'bg-white rounded-2xl border border-gray-200 overflow-hidden'}>
@@ -768,6 +787,50 @@ function CartPanel(props: {
               </button>
             </div>
           </div>
+          
+          {/* Input tunai + kembalian */}
+          {payment === 'cash' && (
+            <div className="space-y-2.5 mt-4">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Uang Diterima</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>
+                <input
+                  inputMode="numeric"
+                  value={amountReceived ? amountReceived.toLocaleString('id-ID') : ''}
+                  onChange={(e) => setCashInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="0"
+                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl bg-white text-right text-lg font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                />
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setCashInput(String(Math.ceil(totalPrice)))}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 active:scale-95 transition-all"
+                >
+                  Uang Pas
+                </button>
+                {QUICK_CASH.filter((v) => v >= totalPrice).slice(0, 4).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setCashInput(String(v))}
+                    className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-700 text-xs font-bold hover:bg-gray-50 active:scale-95 transition-all"
+                  >
+                    {formatRupiah(v)}
+                  </button>
+                ))}
+              </div>
+              {amountReceived > 0 && (
+                <div className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 ${cashEnough ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100'}`}>
+                  <span className={`text-sm font-bold ${cashEnough ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {cashEnough ? 'Kembalian' : 'Kurang'}
+                  </span>
+                  <span className={`text-lg font-black ${cashEnough ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {formatRupiah(Math.abs(change))}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-1 pt-2">
@@ -797,8 +860,8 @@ function CartPanel(props: {
 
         {/* Konfirmasi */}
         <button
-          onClick={onSubmit}
-          disabled={!canSubmit}
+          onClick={() => onSubmit(payment === 'cash' ? amountReceived : null)}
+          disabled={payment === 'cash' ? !canPayCash : !canSubmit}
           className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm shadow-amber-200 flex items-center justify-center gap-2 transition-all active:scale-95"
         >
           {submitting ? (

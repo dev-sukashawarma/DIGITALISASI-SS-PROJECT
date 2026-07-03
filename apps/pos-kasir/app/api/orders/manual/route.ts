@@ -20,6 +20,7 @@ interface ManualPayload {
   channel: string
   payment_method: 'cash' | 'qris'
   customer_name?: string
+  amount_received?: number // added for cash logic
   items: ManualItem[]
 }
 
@@ -157,26 +158,60 @@ export async function POST(request: Request) {
 
   const finalTotal = total - globalDiscount
 
+  // ── Validasi pembayaran tunai & hitung kembalian ────────────────────────
+  let amountReceived: number | null = null
+  let changeAmount: number | null = null
+  if (body.payment_method === 'cash') {
+    amountReceived = Number(body.amount_received)
+    if (!Number.isFinite(amountReceived) || amountReceived < finalTotal) {
+      return NextResponse.json({ error: 'Uang diterima kurang dari total' }, { status: 400 })
+    }
+    changeAmount = amountReceived - finalTotal
+  }
+
   // ── Buat order langsung status 'preparing' (Diproses) ───────────────────
   const customerName = (body.customer_name ?? '').trim()
   const mappedSource = body.channel === 'tiktokgo' ? 'tiktok' : body.channel;
   const validSalesSource = ['pos','online','gofood','grabfood','shopeefood','tiktok'].includes(mappedSource) ? mappedSource : 'pos';
 
-  const { data: order, error: orderError } = await supabaseService
-    .from('orders')
-    .insert({
-      outlet_id,
-      customer_name: customerName || null,
-      payment_method: body.payment_method,
-      total_amount: finalTotal,
-      discount_amount: globalDiscount > 0 ? globalDiscount : null,
-      status: 'preparing',
-      source: 'manual',
-      channel: body.channel,
-      sales_source: validSalesSource,
-    })
-    .select('id, order_number')
-    .single()
+  const baseOrder = {
+    outlet_id,
+    customer_name: customerName || null,
+    payment_method: body.payment_method,
+    total_amount: finalTotal,
+    discount_amount: globalDiscount > 0 ? globalDiscount : null,
+    status: 'preparing',
+    source: 'manual',
+    channel: body.channel,
+    sales_source: validSalesSource,
+  }
+
+  let order: { id: string; order_number: number } | null = null
+  let orderError: { code?: string; message?: string } | null = null
+
+  {
+    const res = await supabaseService
+      .from('orders')
+      .insert({ ...baseOrder, amount_received: amountReceived, change_amount: changeAmount })
+      .select('id, order_number')
+      .single()
+    order = res.data
+    orderError = res.error
+  }
+
+  const missingColumn =
+    orderError && (orderError.code === '42703' || orderError.code === 'PGRST204' ||
+      /amount_received|change_amount/i.test(orderError.message ?? ''))
+
+  if (missingColumn) {
+    const res = await supabaseService
+      .from('orders')
+      .insert(baseOrder)
+      .select('id, order_number')
+      .single()
+    order = res.data
+    orderError = res.error
+  }
 
   if (orderError || !order) {
     console.error('Gagal membuat order manual:', orderError)
@@ -198,5 +233,7 @@ export async function POST(request: Request) {
     order_id: order.id,
     order_number: order.order_number,
     total_amount: finalTotal,
+    amount_received: amountReceived,
+    change_amount: changeAmount,
   })
 }

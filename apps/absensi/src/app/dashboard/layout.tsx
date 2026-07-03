@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@suka/auth";
 import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus, ArrowLeft, MapPin, CalendarDays, Banknote } from "lucide-react";
 import { ModelPreloader } from "@/components/ModelPreloader";
+import { SwipeableContainer } from "@/components/layout/SwipeableContainer";
 
 const getPortalUrl = () => {
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com';
@@ -198,11 +199,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Content Scrollable — beri ruang bawah untuk bottom bar di mobile */}
-        <main className="flex-1 overflow-y-auto bg-slate-50 px-4 pt-5 pb-28 sm:px-6 sm:pt-6 lg:p-8 lg:pb-8">
-          <div className="max-w-4xl mx-auto">
-            {children}
-          </div>
-        </main>
+        <SwipeableContainer navItems={mobileMainItems}>
+          <main className="flex-1 overflow-y-auto bg-slate-50 px-4 pt-5 pb-28 sm:px-6 sm:pt-6 lg:p-8 lg:pb-8">
+            <div className="max-w-4xl mx-auto">
+              {children}
+            </div>
+          </main>
+        </SwipeableContainer>
       </div>
 
       {/* ── Sheet "Lainnya" (mobile) ── */}

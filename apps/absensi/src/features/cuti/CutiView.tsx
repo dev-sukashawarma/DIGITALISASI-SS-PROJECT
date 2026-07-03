@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@suka/auth";
 import { CalendarDays, Clock, CheckCircle2, XCircle, Plus, Info } from "lucide-react";
 import { useLeaveHistory, useLeaveBalance, useSubmitLeave, LeaveType } from "./api";
+import { useLeaveNotifications } from "./useLeaveNotifications";
 import dayjs from "dayjs";
 import { useToast } from "@/lib/feedback/toast";
 
@@ -16,6 +17,11 @@ export function CutiView() {
   const { data: history, isLoading: loadingHistory } = useLeaveHistory(userId);
   const submitLeave = useSubmitLeave();
   const toast = useToast();
+  const { markAsRead } = useLeaveNotifications();
+
+  useEffect(() => {
+    markAsRead();
+  }, [markAsRead]);
 
   const [showForm, setShowForm] = useState(false);
   

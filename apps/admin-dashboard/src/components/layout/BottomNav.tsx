@@ -5,11 +5,13 @@ import { useState } from 'react'
 import { Menu, X, ArrowLeft } from 'lucide-react'
 import { useRole } from './RoleContext'
 import { NAV_GROUPS, accessibleItems, isItemActive, resolvePortalUrl } from './navConfig'
+import { useLeaveNotifications } from '@/hooks/useLeaveNotifications'
 
 export const BottomNav = () => {
   const pathname = usePathname()
   const { role } = useRole()
   const [sheetOpen, setSheetOpen] = useState(false)
+  const { pendingCount } = useLeaveNotifications()
 
   const items = accessibleItems(role)
   // Show up to 4 primary items inline; the rest live in the "Menu" sheet.
@@ -36,7 +38,7 @@ export const BottomNav = () => {
                   <span className="absolute top-0 h-1 w-8 rounded-full bg-suka-orange" />
                 )}
                 <span
-                  className={`flex items-center justify-center rounded-xl transition-all ${
+                  className={`relative flex items-center justify-center rounded-xl transition-all ${
                     isActive ? 'bg-suka-orange/10 px-3 py-1' : 'px-3 py-1'
                   }`}
                 >
@@ -44,6 +46,11 @@ export const BottomNav = () => {
                     size={20}
                     className={`shrink-0 transition-colors ${isActive ? 'text-suka-orange' : 'text-suka-gray-400'}`}
                   />
+                  {href === '/dashboard/hr/leave' && pendingCount > 0 && (
+                    <span className="absolute top-0 right-1 translate-x-1/2 -translate-y-1/2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
+                      {pendingCount}
+                    </span>
+                  )}
                 </span>
                 <span
                   className={`text-[10px] font-bold leading-none truncate max-w-full transition-colors ${
@@ -121,7 +128,12 @@ export const BottomNav = () => {
                             }`}
                           >
                             <Icon size={18} className={isActive ? 'text-white' : 'text-suka-orange'} />
-                            <span className="truncate">{label}</span>
+                            <span className="truncate flex-1">{label}</span>
+                            {href === '/dashboard/hr/leave' && pendingCount > 0 && (
+                              <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                                {pendingCount}
+                              </span>
+                            )}
                           </Link>
                         )
                       })}

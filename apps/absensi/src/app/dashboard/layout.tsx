@@ -7,6 +7,7 @@ import { useAuth } from "@suka/auth";
 import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus, ArrowLeft, MapPin, CalendarDays, Banknote } from "lucide-react";
 import { ModelPreloader } from "@/components/ModelPreloader";
 import { SwipeableContainer } from "@/components/layout/SwipeableContainer";
+import { useLeaveNotifications } from "@/features/cuti/useLeaveNotifications";
 
 const getPortalUrl = () => {
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com';
@@ -23,6 +24,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { unreadCount } = useLeaveNotifications();
 
   const isSPV = ["admin", "admin_hr", "owner", "spv", "leader"].includes(outletStaff?.role || "");
 
@@ -148,7 +150,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   }`}
                 >
                   <span className={active ? "text-suka-orange" : "text-gray-400"}>{item.icon}</span>
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.href === '/dashboard/cuti' && unreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                      {unreadCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -239,7 +246,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       }`}
                     >
                       <span className={active ? "text-suka-orange" : "text-gray-400"}>{item.icon}</span>
-                      {item.label}
+                      <span className="flex-1">{item.label}</span>
+                      {item.href === '/dashboard/cuti' && unreadCount > 0 && (
+                        <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                          {unreadCount}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -288,11 +300,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={item.href}
                 href={item.href}
                 onClick={() => setMoreOpen(false)}
-                className={`flex flex-col items-center justify-center gap-1 pt-2.5 pb-2 transition-colors ${
+                className={`relative flex flex-col items-center justify-center gap-1 pt-2.5 pb-2 transition-colors ${
                   active && !moreOpen ? "text-suka-orange" : "text-gray-400"
                 }`}
               >
-                {item.icon}
+                <div className="relative">
+                  {item.icon}
+                  {item.href === '/dashboard/cuti' && unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 translate-x-1/2 -translate-y-1/2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-semibold leading-none">{item.label}</span>
               </Link>
             );

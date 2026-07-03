@@ -5,10 +5,12 @@ import { useState } from 'react'
 import { ArrowLeft, MonitorSmartphone, ChevronDown } from 'lucide-react'
 import { useRole } from './RoleContext'
 import { accessibleGroups, isItemActive, resolvePortalUrl, resolvePosAdminUrl } from './navConfig'
+import { useLeaveNotifications } from '@/hooks/useLeaveNotifications'
 
 export const Sidebar = () => {
   const pathname = usePathname()
   const { role } = useRole()
+  const { pendingCount } = useLeaveNotifications()
   const resolvedPortalUrl = resolvePortalUrl()
   const posAdminUrl = resolvePosAdminUrl()
 
@@ -60,7 +62,12 @@ export const Sidebar = () => {
                         }`}
                       >
                         <Icon size={16} className={active ? 'text-suka-orange' : 'text-gray-400'} />
-                        {label}
+                        <span className="flex-1">{label}</span>
+                        {href === '/dashboard/hr/leave' && pendingCount > 0 && (
+                          <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            {pendingCount}
+                          </span>
+                        )}
                       </Link>
                     )
                   })}

@@ -191,7 +191,7 @@ export default function ShiftPage() {
         }
 
         const [expRes, topRes, ordRes] = await Promise.all([
-          supabase.from('expenses').select('*').eq('outlet_id', outletId).eq('payment_source', 'petty_cash').gte('created_at', shiftData.start_time),
+          supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
           supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
           supabase.from('orders').select('id, order_number, total_amount, created_at').eq('outlet_id', outletId).eq('payment_method', 'cash').eq('status', 'completed').gte('created_at', shiftData.start_time)
         ])
@@ -284,19 +284,7 @@ export default function ShiftPage() {
         p_receipt_url: receiptUrl
       })
 
-      if (error && (error.code === '42883' || error.code === 'PGRST202' || error.message?.includes('receipt_url'))) {
-        console.warn('RPC add_petty_cash belum siap — fallback insert langsung.')
-        const { error: insErr } = await supabase.from('expenses').insert({
-          outlet_id: outletId,
-          category: expCategory,
-          amount,
-          description: expDesc.trim(),
-          expense_date: today,
-          payment_source: 'cash_drawer',
-          receipt_url: receiptUrl
-        })
-        if (insErr) throw insErr
-      } else if (error) {
+      if (error) {
         throw error
       }
 

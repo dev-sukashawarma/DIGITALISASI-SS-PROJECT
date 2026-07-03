@@ -88,10 +88,9 @@ export default function AdminReportsPage() {
     setLoadingShiftExpenses(true)
     const supabase = createClient()
     const { data } = await supabase
-      .from('expenses')
+      .from('petty_cash_expenses')
       .select('*')
       .eq('outlet_id', shift.outlet_id)
-      .eq('payment_source', 'petty_cash')
       .gte('created_at', shift.start_time)
       .lte('created_at', shift.end_time || new Date().toISOString())
       .order('created_at', { ascending: true })

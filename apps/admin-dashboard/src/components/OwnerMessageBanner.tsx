@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { Sparkles, Info, AlertTriangle } from 'lucide-react'
+import { useRole } from '@/components/layout/RoleContext'
 
 type Kind = 'motivasi' | 'info' | 'peringatan'
 
@@ -13,6 +14,8 @@ interface Message {
   body: string
   created_at: string
   expires_at: string | null
+  target_type: string
+  outlet_ids: string[]
 }
 
 const STYLE: Record<Kind, { icon: typeof Info; color: string; soft: string; label: string }> = {
@@ -22,16 +25,35 @@ const STYLE: Record<Kind, { icon: typeof Info; color: string; soft: string; labe
 }
 
 export default function OwnerMessageBanner() {
+  const { role, outletId } = useRole()
   const [banners, setBanners] = useState<Message[]>([])
+  const supabase = createSupabaseBrowserClient()
 
   useEffect(() => {
-    const supabase = createClient()
-    
+    // Sembunyikan untuk OWNER karena ini pesan dari mereka
+    if (role === 'OWNER') {
+      setBanners([])
+      return
+    }
+
     const fetchMessages = async () => {
       try {
-        const { data } = await supabase.rpc('get_my_active_messages')
-        if (data && Array.isArray(data)) {
-          setBanners(data)
+        const now = new Date().toISOString()
+        const { data } = await supabase
+          .from('owner_messages')
+          .select('*')
+          .eq('is_active', true)
+          .or(`expires_at.is.null,expires_at.gt.${now}`)
+          .order('created_at', { ascending: false })
+        
+        if (data) {
+          // Filter if needed (for example, specific outlets if the profile has an outlet_id)
+          const filtered = (data as Message[]).filter(m => {
+            if (m.target_type === 'all') return true
+            if (m.target_type === 'specific' && outletId && m.outlet_ids?.includes(outletId)) return true
+            return false
+          })
+          setBanners(filtered)
         } else {
           setBanners([])
         }
@@ -40,10 +62,12 @@ export default function OwnerMessageBanner() {
       }
     }
 
-    fetchMessages()
+    if (role) {
+      fetchMessages()
+    }
 
     const channel = supabase
-      .channel('kasir-owner-messages-banner')
+      .channel('admin-owner-messages-banner')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'owner_messages' }, () => {
         fetchMessages()
       })
@@ -56,7 +80,7 @@ export default function OwnerMessageBanner() {
       supabase.removeChannel(channel)
       clearInterval(interval)
     }
-  }, [])
+  }, [role, outletId, supabase])
 
   if (banners.length === 0) return null
 

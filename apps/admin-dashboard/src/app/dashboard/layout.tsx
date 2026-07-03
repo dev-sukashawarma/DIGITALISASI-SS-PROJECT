@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { Header } from '@/components/layout/Header'
 import { SwipeableLayout } from '@/components/layout/SwipeableLayout'
+import OwnerMessageBanner from '@/components/OwnerMessageBanner'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -10,6 +11,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
+        <OwnerMessageBanner />
         <SwipeableLayout>
           <main className="flex-1 overflow-y-auto w-full">
             {/* Bottom padding on mobile keeps content clear of the fixed BottomNav. */}

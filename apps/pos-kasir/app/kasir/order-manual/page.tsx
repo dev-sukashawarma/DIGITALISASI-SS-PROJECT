@@ -64,6 +64,23 @@ export default function OrderManualPage() {
   // Bumped setelah transaksi sukses untuk me-remount panel (reset input tunai).
   const [walkInPanelKey, setWalkInPanelKey] = useState(0)
 
+  const handleSwitchMode = (newMode: Mode) => {
+    if (newMode !== mode) {
+      setMode(newMode)
+      setLines({})
+      setChannel(null)
+      setPayment(null)
+      setCustomerName('')
+      setSearch('')
+      setActiveCat('all')
+      setSuccess(null)
+      setWalkInSuccess(null)
+      setError(null)
+      setWalkInError(null)
+      setWalkInPanelKey((k) => k + 1)
+    }
+  }
+
   // ── Ambil menu sesuai outlet ──────────────────────────────────────────────
   useEffect(() => {
     if (!loaded) return
@@ -300,19 +317,37 @@ export default function OrderManualPage() {
       </div>
 
       {/* Tab switch: Order Manual / Food Apps */}
-      <div className="inline-flex bg-gray-100 rounded-xl p-1 mb-5">
-        <button
-          onClick={() => setMode('walkin')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'walkin' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          <Store className="w-4 h-4" /> Kasir Langsung
-        </button>
-        <button
-          onClick={() => setMode('online')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'online' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          <Globe className="w-4 h-4" /> Channel Online
-        </button>
+      <div className="flex flex-col gap-3 mb-5">
+        <div className="inline-flex bg-gray-100 rounded-xl p-1 self-start">
+          <button
+            onClick={() => handleSwitchMode('walkin')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'walkin' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Store className="w-4 h-4" /> Order Manual
+          </button>
+          <button
+            onClick={() => handleSwitchMode('online')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'online' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Globe className="w-4 h-4" /> Food Apps
+          </button>
+        </div>
+        
+        {showInfo && (
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-3 relative animate-[popIn_.2s_ease-out]">
+            <span className="shrink-0 bg-blue-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">i</span>
+            <div className="text-sm text-blue-800 pr-6">
+              <b>Order Manual</b> digunakan untuk pelanggan yang datang langsung atau memesan manual tanpa perantara aplikasi. <br/>
+              <b>Food Apps</b> digunakan untuk mencatat pesanan yang masuk dari aplikasi pihak ketiga seperti GrabFood, GoFood, dll.
+            </div>
+            <button 
+              onClick={() => setShowInfo(false)}
+              className="absolute top-2 right-2 p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px] gap-4 md:gap-5 xl:gap-6 items-start min-w-0">

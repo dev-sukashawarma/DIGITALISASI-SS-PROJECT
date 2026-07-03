@@ -37,7 +37,7 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-export function buildReceiptHtml(d: ReceiptData): string {
+export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   const date = new Date(d.dateISO)
   const dateStr = date.toLocaleString('id-ID', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -91,7 +91,7 @@ export function buildReceiptHtml(d: ReceiptData): string {
   .queue { font-size: 22px; font-weight: 700; }
 </style></head>
 <body>
-  <img src="/logo.png" class="logo" alt="Logo" />
+  <img src="${origin}/logo.png" class="logo" alt="Logo" />
   <div class="center bold lg">${esc(d.outletName || 'SUKA SHAWARMA')}</div>
   <div class="center muted">Suka Shawarma</div>
   <hr/>
@@ -113,7 +113,8 @@ export function buildReceiptHtml(d: ReceiptData): string {
 
 export function printReceipt(data: ReceiptData): void {
   if (typeof window === 'undefined') return
-  const html = buildReceiptHtml(data)
+  const origin = window.location.origin
+  const html = buildReceiptHtml(data, origin)
 
   const iframe = document.createElement('iframe')
   iframe.style.position = 'fixed'
@@ -174,11 +175,18 @@ export function printReceipt(data: ReceiptData): void {
     }
   }
 
-  if (doc.readyState === 'complete') {
-    setTimeout(doPrint, 100)
-  } else {
-    win.addEventListener('load', () => setTimeout(doPrint, 100))
-    // Fallback bila event load tidak ter-fire
-    setTimeout(doPrint, 600)
-  }
+  // Cek apakah gambar logo sudah termuat
+  const checkImage = setInterval(() => {
+    const img = doc.querySelector('img')
+    if (!img || img.complete) {
+      clearInterval(checkImage)
+      doPrint()
+    }
+  }, 50)
+  
+  // Fallback timeout jika gambar gagal dimuat dalam waktu 1.5 detik
+  setTimeout(() => {
+    clearInterval(checkImage)
+    doPrint()
+  }, 1500)
 }

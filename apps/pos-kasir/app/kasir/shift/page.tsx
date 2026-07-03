@@ -842,7 +842,7 @@ export default function ShiftPage() {
 
       {/* Receipt Image Modal */}
       {selectedReceiptUrl && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedReceiptUrl(null)}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedReceiptUrl(null)}>
           <div className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
             <div className="absolute -top-12 right-0 flex gap-4">
               <a href={selectedReceiptUrl} target="_blank" rel="noreferrer" className="bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-full px-4 py-2 backdrop-blur-md transition-colors flex items-center gap-2">

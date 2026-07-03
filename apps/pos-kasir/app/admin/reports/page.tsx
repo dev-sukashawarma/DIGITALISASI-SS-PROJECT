@@ -82,6 +82,7 @@ export default function AdminReportsPage() {
   const [selectedShiftForExpenses, setSelectedShiftForExpenses] = useState<ShiftRow | null>(null)
   const [shiftExpenses, setShiftExpenses] = useState<any[]>([])
   const [loadingShiftExpenses, setLoadingShiftExpenses] = useState(false)
+  const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
 
   const openShiftExpenses = async (shift: ShiftRow) => {
     setSelectedShiftForExpenses(shift)
@@ -827,10 +828,10 @@ export default function AdminReportsPage() {
                           <td className="px-4 py-3 text-gray-600 italic">
                             {exp.description}
                             {exp.receipt_url && (
-                              <a href={exp.receipt_url} target="_blank" rel="noreferrer" className="ml-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md inline-flex items-center gap-1 hover:bg-blue-100 transition-colors">
+                              <button onClick={() => setSelectedReceiptUrl(exp.receipt_url || null)} className="ml-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md inline-flex items-center gap-1 hover:bg-blue-100 transition-colors">
                                 <FileText className="w-3 h-3" />
-                                Lihat Struk
-                              </a>
+                                Lihat Bukti
+                              </button>
                             )}
                           </td>
                           <td className="px-4 py-3 text-right font-bold text-gray-900">
@@ -852,6 +853,23 @@ export default function AdminReportsPage() {
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Image Modal */}
+      {selectedReceiptUrl && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedReceiptUrl(null)}>
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <div className="absolute -top-12 right-0 flex gap-4">
+              <a href={selectedReceiptUrl} target="_blank" rel="noreferrer" className="bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-full px-4 py-2 backdrop-blur-md transition-colors flex items-center gap-2">
+                Buka di tab baru
+              </a>
+              <button onClick={() => setSelectedReceiptUrl(null)} className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 backdrop-blur-md transition-colors">
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+            <img src={selectedReceiptUrl} alt="Bukti Pengeluaran" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
           </div>
         </div>
       )}

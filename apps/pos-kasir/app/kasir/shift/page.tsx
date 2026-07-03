@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator, Lock } from 'lucide-react'
+import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator, Lock, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
@@ -114,6 +114,7 @@ export default function ShiftPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
 
   const shiftSalesTotal = useMemo(
     () => cashOrders.reduce((s, o) => s + Number(o.total_amount), 0),
@@ -647,7 +648,7 @@ export default function ShiftPage() {
                             </div>
                             <div className="flex flex-col items-end shrink-0 gap-1.5">
                               <span className="text-sm font-black text-red-600">-{formatRupiah(exp.amount)}</span>
-                              {exp.receipt_url && <a href={exp.receipt_url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">Lihat Struk</a>}
+                              {exp.receipt_url && <button onClick={() => setSelectedReceiptUrl(exp.receipt_url || null)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md hover:bg-blue-100 transition-colors">Lihat Bukti</button>}
                             </div>
                           </div>
                         )
@@ -835,6 +836,23 @@ export default function ShiftPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Image Modal */}
+      {selectedReceiptUrl && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedReceiptUrl(null)}>
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <div className="absolute -top-12 right-0 flex gap-4">
+              <a href={selectedReceiptUrl} target="_blank" rel="noreferrer" className="bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-full px-4 py-2 backdrop-blur-md transition-colors flex items-center gap-2">
+                Buka di tab baru
+              </a>
+              <button onClick={() => setSelectedReceiptUrl(null)} className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 backdrop-blur-md transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <img src={selectedReceiptUrl} alt="Bukti Pengeluaran" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
           </div>
         </div>
       )}

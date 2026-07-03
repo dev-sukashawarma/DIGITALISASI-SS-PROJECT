@@ -8,12 +8,15 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useHpp } from '@/hooks/useHpp'
 import { computeProfit, computeCompanyProfit } from '@/lib/profit'
 import { PeriodFilter } from '@/components/PeriodFilter'
-import { rupiah, rupiahCompact } from '@/lib/format'
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts'
+import { rupiah } from '@/lib/format'
 import CountUp from 'react-countup'
 import { TrendingUp, Percent, ArrowLeftRight, TrendingDown, Boxes, Layers, Building2 } from 'lucide-react'
+import dynamic from 'next/dynamic'
+
+const ProfitCashFlowChart = dynamic(
+  () => import('@/components/ProfitCashFlowChart').then((m) => m.ProfitCashFlowChart),
+  { ssr: false, loading: () => <div className="h-80 bg-white rounded-2xl border border-suka-gray-200 animate-pulse" /> }
+)
 
 export default function ProfitPage() {
   const { data: outlets = [] } = useOutlets()
@@ -255,23 +258,7 @@ export default function ProfitPage() {
           {/* Cash Flow Comparison Chart */}
           <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm">
             <h3 className="font-extrabold text-suka-brown text-sm tracking-tight mb-4 uppercase">Arus Kas Penjualan vs Pengeluaran</h3>
-            {byDate.length === 0 ? (
-              <div className="h-64 flex items-center justify-center text-suka-gray-400 text-sm">Tidak ada transaksi</div>
-            ) : (
-              <div className="w-full h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={byDate} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                    <XAxis dataKey="date" fontSize={10} tickLine={false} />
-                    <YAxis tickFormatter={(v) => rupiahCompact(Number(v))} fontSize={10} tickLine={false} axisLine={false} width={80} />
-                    <Tooltip formatter={(value) => rupiah(Number(value))} />
-                    <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 10, paddingTop: 10 }} />
-                    <Bar dataKey="omzet" name="Omzet Pemasukan" fill="#0a7d2c" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="expense" name="Biaya Pengeluaran" fill="#701604" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+            <ProfitCashFlowChart byDate={byDate} />
           </div>
 
           {/* Outlet Profitability Leaderboard Table */}

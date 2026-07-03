@@ -5,14 +5,20 @@ import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useExpenses } from '@/hooks/useExpenses'
 import { PeriodFilter } from '@/components/PeriodFilter'
-import { rupiah, pct, rupiahCompact } from '@/lib/format'
-import {
-  PieChart, Pie, Cell, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
-} from 'recharts'
+import { rupiah, pct } from '@/lib/format'
 import CountUp from 'react-countup'
-import { Wallet, Building2 } from 'lucide-react'
+import { Wallet, Building2, Receipt } from 'lucide-react'
 import { CATEGORY_META, OUTLET_CATEGORIES } from '@/lib/expenseCategories'
+import dynamic from 'next/dynamic'
+
+const ExpenseDistributionChart = dynamic(
+  () => import('@/components/ExpenseDistributionChart').then((m) => m.ExpenseDistributionChart),
+  { ssr: false, loading: () => <div className="h-56 bg-white rounded-2xl border border-suka-gray-200 animate-pulse" /> }
+)
+const ExpenseTrendChart = dynamic(
+  () => import('@/components/ExpenseTrendChart').then((m) => m.ExpenseTrendChart),
+  { ssr: false, loading: () => <div className="h-72 bg-white rounded-2xl border border-suka-gray-200 animate-pulse" /> }
+)
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
 const colorOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.color ?? '#cccccc'
@@ -160,68 +166,13 @@ export default function ExpensesPage() {
             {/* Donut Chart: Expenses Distribution (2/5 Cols) */}
             <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm">
               <h3 className="font-extrabold text-suka-brown text-sm tracking-tight mb-4 uppercase">Distribusi Pengeluaran Outlet</h3>
-              {outletRows.length === 0 ? (
-                <div className="h-64 flex items-center justify-center text-suka-gray-400 text-sm">Tidak ada transaksi</div>
-              ) : (
-                <div className="flex flex-col items-center justify-center">
-                  <div className="w-full h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={byCategory}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={3}
-                          dataKey="value"
-                        >
-                          {byCategory.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => rupiah(Number(value))} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Legend list */}
-                  <div className="w-full mt-4 grid grid-cols-2 gap-2 text-xs">
-                    {byCategory.map((entry) => (
-                      <div key={entry.name} className="flex items-center gap-2 font-medium">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
-                        <span className="truncate text-suka-ink">{entry.name}</span>
-                        <span className="ml-auto text-suka-gray-500 font-bold">
-                          {pct(entry.value, totalOutlet)}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <ExpenseDistributionChart byCategory={byCategory} totalOutlet={totalOutlet} />
             </div>
 
             {/* Stacked Bar Chart: Expenses Trend (3/5 Cols) */}
             <div className="lg:col-span-3 bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm">
               <h3 className="font-extrabold text-suka-brown text-sm tracking-tight mb-4 uppercase">Tren Biaya Operasional</h3>
-              {outletRows.length === 0 ? (
-                <div className="h-64 flex items-center justify-center text-suka-gray-400 text-sm">Tidak ada transaksi</div>
-              ) : (
-                <div className="w-full h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={byDate} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                      <XAxis dataKey="date" fontSize={10} tickLine={false} />
-                      <YAxis tickFormatter={(v) => rupiahCompact(Number(v))} fontSize={10} tickLine={false} axisLine={false} width={80} />
-                      <Tooltip formatter={(value) => rupiah(Number(value))} />
-                      <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 10, paddingTop: 10 }} />
-                      {OUTLET_CATEGORIES.map(c => (
-                        <Bar key={c} dataKey={c} name={CATEGORY_META[c].label} stackId="a" fill={CATEGORY_META[c].color} />
-                      ))}
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
+              <ExpenseTrendChart byDate={byDate} />
             </div>
           </div>
 

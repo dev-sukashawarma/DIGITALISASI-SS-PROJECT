@@ -859,17 +859,42 @@ export default function AdminReportsPage() {
 
       {/* Receipt Image Modal */}
       {selectedReceiptUrl && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedReceiptUrl(null)}>
-          <div className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
-            <div className="absolute -top-12 right-0 flex gap-4">
-              <a href={selectedReceiptUrl} target="_blank" rel="noreferrer" className="bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-full px-4 py-2 backdrop-blur-md transition-colors flex items-center gap-2">
-                Buka di tab baru
-              </a>
-              <button onClick={() => setSelectedReceiptUrl(null)} className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 backdrop-blur-md transition-colors">
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-            <img src={selectedReceiptUrl} alt="Bukti Pengeluaran" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 backdrop-blur-sm animate-fade-in" 
+          onClick={() => setSelectedReceiptUrl(null)}
+        >
+          {/* Close Button (Top Right) */}
+          <button 
+            onClick={() => setSelectedReceiptUrl(null)} 
+            className="absolute top-4 right-4 md:top-6 md:right-6 z-[10000] bg-white/10 hover:bg-white/20 text-white rounded-full p-3 backdrop-blur-md transition-all active:scale-95"
+            aria-label="Tutup"
+          >
+            <XCircle className="w-7 h-7" />
+          </button>
+
+          {/* Image Container */}
+          <div 
+            className="relative w-full h-full flex items-center justify-center p-4" 
+            onClick={e => e.stopPropagation()}
+          >
+            <img 
+              src={selectedReceiptUrl} 
+              alt="Bukti Pengeluaran" 
+              className="max-w-full max-h-full object-contain rounded-lg" 
+            />
+          </div>
+
+          {/* Action Button (Bottom Center) */}
+          <div className="absolute bottom-8 left-0 right-0 flex justify-center z-[10000] pointer-events-none">
+            <a 
+              href={selectedReceiptUrl} 
+              target="_blank" 
+              rel="noreferrer" 
+              className="pointer-events-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-bold rounded-full px-6 py-3 backdrop-blur-md transition-all active:scale-95 flex items-center gap-2 shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              Buka di Tab Baru
+            </a>
           </div>
         </div>
       )}

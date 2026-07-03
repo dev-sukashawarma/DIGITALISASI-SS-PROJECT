@@ -64,3 +64,7 @@ tugas_lanjutan.md
 
 # yarn workspace — cegah lockfile npm nyasar
 package-lock.json
+
+# Temp/inspection scripts (never commit)
+_tmp_*
+**/_tmp_*

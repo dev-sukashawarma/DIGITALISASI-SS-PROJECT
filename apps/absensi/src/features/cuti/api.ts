@@ -15,6 +15,7 @@ export interface Leave {
   attachment_url: string | null;
   status_spv: LeaveStatus;
   status: LeaveStatus; // HR status
+  rejection_note: string | null;
   created_at: string;
 }
 

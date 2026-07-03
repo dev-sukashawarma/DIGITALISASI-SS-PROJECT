@@ -211,6 +211,12 @@ export function CutiView() {
                       {getStatusBadge(item.status_spv, item.status_hr)}
                     </div>
                     <p className="text-sm text-slate-600 mb-2">{item.reason}</p>
+                    {(item.status_hr === 'rejected' || item.status_spv === 'rejected') && item.rejection_note && (
+                      <div className="mb-3 p-3 bg-red-50 border border-red-100 rounded-lg">
+                        <p className="text-xs font-semibold text-red-800 mb-1">Alasan Penolakan:</p>
+                        <p className="text-sm text-red-700">{item.rejection_note}</p>
+                      </div>
+                    )}
                     <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">
                       <span className="flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded-md">
                         <CalendarDays size={14}/>

@@ -20,6 +20,8 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '50mb',
     },
+    // Tree-shake barrel imports → smaller client bundles
+    optimizePackageImports: ['recharts', 'lucide-react'],
   },
 }
 

@@ -14,7 +14,20 @@ export function Providers({
   children: ReactNode
   initialStaff?: OutletStaffProfile | null
 }) {
-  const queryClient = useMemo(() => new QueryClient(), [])
+  const queryClient = useMemo(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 60_000,
+            gcTime: 5 * 60_000,
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      }),
+    []
+  )
   const supabase = createSupabaseBrowserClient()
 
   return (

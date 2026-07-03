@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
 import { useFormattedDate } from '@/hooks/useFormattedDate'
-import { generatePDFContent, downloadPDF } from '@/utils/generatePDF'
 import { BottomNav } from './BottomNav'
 import { ArrowLeft, Plus, Calendar, AlertCircle, FileDown, Eye, Check } from 'lucide-react'
 import { Skeleton } from '@suka/design-system'
@@ -60,6 +59,9 @@ export function SuratJalanList() {
 
     // Find outlet name from list data
     const outletData = data.find((d) => d.id === sjId)
+
+    // Load the PDF module (incl. ~320KB embedded logo) only when a PDF is actually generated.
+    const { generatePDFContent, downloadPDF } = await import('@/utils/generatePDF')
 
     const htmlContent = await generatePDFContent({
       id: sj.id,

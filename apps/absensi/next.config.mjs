@@ -3,6 +3,9 @@ const nextConfig = {
   turbopack: {},
   transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/offline-queue'],
   serverExternalPackages: ['@vladmandic/human'],
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
   typescript: {
     tsconfigPath: './tsconfig.json',
     ignoreBuildErrors: true,

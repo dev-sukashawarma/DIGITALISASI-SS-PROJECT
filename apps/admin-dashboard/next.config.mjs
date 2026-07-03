@@ -3,7 +3,7 @@ const nextConfig = {
   turbopack: {},
   transpilePackages: ['@suka/auth', '@suka/design-system'],
   experimental: {
-    optimizePackageImports: ['recharts', 'lucide-react'],
+    optimizePackageImports: ['recharts', 'lucide-react', 'react-icons', 'date-fns'],
   },
   typescript: {
     tsconfigPath: './tsconfig.json',

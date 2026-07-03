@@ -234,7 +234,7 @@ export default function AdminGuidesPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-900">Urutan Tampil (Sort Order)</label>
-                    <input type="number" required value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 rounded-xl px-4 py-3 outline-none transition-colors font-medium text-gray-900" />
+                    <input type="number" onWheel={(e) => e.currentTarget.blur()} required value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 rounded-xl px-4 py-3 outline-none transition-colors font-medium text-gray-900" />
                   </div>
                 </div>
 

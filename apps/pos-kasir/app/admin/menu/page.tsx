@@ -348,7 +348,7 @@ export default function AdminMenuPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="input-label">Harga (Rp) <span className="text-red-400 font-normal">*</span></label>
-                    <input type="number" value={form.price}
+                    <input type="number" onWheel={(e) => e.currentTarget.blur()} value={form.price}
                       onChange={(e) => setForm({ ...form, price: e.target.value })}
                       required min="0" step="500" className="input" placeholder="35000" />
                   </div>

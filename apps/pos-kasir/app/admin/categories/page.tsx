@@ -157,6 +157,7 @@ export default function AdminCategoriesPage() {
                 </label>
                 <input
                   type="number"
+                  onWheel={(e) => e.currentTarget.blur()}
                   value={form.sort_order}
                   onChange={(e) => setForm({ ...form, sort_order: e.target.value })}
                   min="0"

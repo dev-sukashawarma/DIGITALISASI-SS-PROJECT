@@ -231,6 +231,7 @@ export default function AdminPromoPage() {
                   {globalPromo.discount_type === 'nominal' && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>}
                   <input 
                     type="number" 
+                    onWheel={(e) => e.currentTarget.blur()}
                     min="0"
                     className={`input bg-white border-gray-300 font-bold text-gray-900 ${globalPromo.discount_type === 'nominal' ? 'pl-10' : 'pr-10'}`}
                     value={globalPromo.discount_value || ''}
@@ -248,6 +249,7 @@ export default function AdminPromoPage() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>
                   <input 
                     type="number" 
+                    onWheel={(e) => e.currentTarget.blur()}
                     min="0"
                     placeholder="0"
                     className="input bg-white border-gray-300 font-medium text-gray-900 pl-10"
@@ -353,6 +355,7 @@ export default function AdminPromoPage() {
                             <div className="relative">
                               <input 
                                 type="number" 
+                                onWheel={(e) => e.currentTarget.blur()}
                                 min="0"
                                 placeholder="Nilai"
                                 className={`input py-1.5 text-sm w-24 sm:w-28 bg-white border-blue-200 font-bold text-blue-900 shadow-sm ${promo.discount_type === 'nominal' ? 'pl-8' : 'pr-8'}`}
@@ -380,6 +383,7 @@ export default function AdminPromoPage() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-blue-500 font-bold">Rp</span>
                             <input 
                               type="number" 
+                              onWheel={(e) => e.currentTarget.blur()}
                               min="0"
                               placeholder="0"
                               className="input py-1.5 text-sm w-full bg-white border-blue-200 text-blue-900 shadow-sm pl-9"

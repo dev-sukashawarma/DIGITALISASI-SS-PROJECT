@@ -863,18 +863,9 @@ export default function AdminReportsPage() {
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 backdrop-blur-sm animate-fade-in" 
           onClick={() => setSelectedReceiptUrl(null)}
         >
-          {/* Close Button (Top Right) */}
-          <button 
-            onClick={() => setSelectedReceiptUrl(null)} 
-            className="absolute top-4 right-4 md:top-6 md:right-6 z-[10000] bg-white/10 hover:bg-white/20 text-white rounded-full p-3 backdrop-blur-md transition-all active:scale-95"
-            aria-label="Tutup"
-          >
-            <XCircle className="w-7 h-7" />
-          </button>
-
           {/* Image Container */}
           <div 
-            className="relative w-full h-full flex items-center justify-center p-4" 
+            className="relative w-full h-full flex items-center justify-center p-4 pb-24" 
             onClick={e => e.stopPropagation()}
           >
             <img 
@@ -884,17 +875,15 @@ export default function AdminReportsPage() {
             />
           </div>
 
-          {/* Action Button (Bottom Center) */}
+          {/* Close Button (Bottom Center) */}
           <div className="absolute bottom-8 left-0 right-0 flex justify-center z-[10000] pointer-events-none">
-            <a 
-              href={selectedReceiptUrl} 
-              target="_blank" 
-              rel="noreferrer" 
-              className="pointer-events-auto bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-bold rounded-full px-6 py-3 backdrop-blur-md transition-all active:scale-95 flex items-center gap-2 shadow-2xl"
-              onClick={e => e.stopPropagation()}
+            <button 
+              onClick={() => setSelectedReceiptUrl(null)} 
+              className="pointer-events-auto bg-white/20 hover:bg-white/30 border border-white/30 text-white text-sm font-bold rounded-full px-8 py-3.5 backdrop-blur-md transition-all active:scale-95 flex items-center gap-2 shadow-2xl"
             >
-              Buka di Tab Baru
-            </a>
+              <XCircle className="w-5 h-5" />
+              Tutup Gambar
+            </button>
           </div>
         </div>
       )}

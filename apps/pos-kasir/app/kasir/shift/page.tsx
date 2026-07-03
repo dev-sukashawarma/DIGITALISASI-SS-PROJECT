@@ -494,6 +494,7 @@ export default function ShiftPage() {
                   </div>
                   <input
                     type="number"
+                    onWheel={(e) => e.currentTarget.blur()}
                     required
                     min="0"
                     placeholder="Contoh: 150000"
@@ -599,7 +600,7 @@ export default function ShiftPage() {
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <span className="text-gray-400 font-semibold text-sm">Rp</span>
                       </div>
-                      <input type="number" required min="100" placeholder="20000" value={expAmount} onChange={e => setExpAmount(e.target.value)} disabled={isSubmitting} className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm font-bold" />
+                      <input type="number" onWheel={(e) => e.currentTarget.blur()} required min="100" placeholder="20000" value={expAmount} onChange={e => setExpAmount(e.target.value)} disabled={isSubmitting} className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm font-bold" />
                     </div>
                   </div>
 
@@ -764,7 +765,7 @@ export default function ShiftPage() {
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                           <span className="text-gray-500 font-semibold">Rp</span>
                         </div>
-                        <input type="number" required min="0" placeholder="Contoh: 850000" value={actualEndingCash} onChange={e => setActualEndingCash(e.target.value)} disabled={isSubmitting} className="w-full pl-12 pr-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900" />
+                        <input type="number" onWheel={(e) => e.currentTarget.blur()} required min="0" placeholder="Contoh: 850000" value={actualEndingCash} onChange={e => setActualEndingCash(e.target.value)} disabled={isSubmitting} className="w-full pl-12 pr-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900" />
                       </div>
                       {cashDiff !== null && (
                         <p className={`text-xs font-bold mt-1.5 ${cashDiff === 0 ? 'text-emerald-600' : cashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
@@ -778,7 +779,7 @@ export default function ShiftPage() {
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                           <span className="text-gray-500 font-semibold">Rp</span>
                         </div>
-                        <input type="number" required min="0" placeholder="Contoh: 250000" value={actualEndingPettyCash} onChange={e => setActualEndingPettyCash(e.target.value)} disabled={isSubmitting} className="w-full pl-12 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900" />
+                        <input type="number" onWheel={(e) => e.currentTarget.blur()} required min="0" placeholder="Contoh: 250000" value={actualEndingPettyCash} onChange={e => setActualEndingPettyCash(e.target.value)} disabled={isSubmitting} className="w-full pl-12 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900" />
                       </div>
                       {pettyCashDiff !== null && (
                         <p className={`text-xs font-bold mt-1.5 ${pettyCashDiff === 0 ? 'text-emerald-600' : pettyCashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
@@ -820,7 +821,7 @@ export default function ShiftPage() {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <span className="text-gray-400 font-semibold text-sm">Rp</span>
                   </div>
-                  <input type="number" required min="1000" placeholder="50000" value={topupAmount} onChange={e => setTopupAmount(e.target.value)} disabled={isSubmitting} className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-bold" />
+                  <input type="number" onWheel={(e) => e.currentTarget.blur()} required min="1000" placeholder="50000" value={topupAmount} onChange={e => setTopupAmount(e.target.value)} disabled={isSubmitting} className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-bold" />
                 </div>
               </div>
               <div>

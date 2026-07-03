@@ -56,6 +56,7 @@ END;
 $$;
 
 -- 4. Update add_petty_cash to insert into petty_cash_expenses
+DROP FUNCTION IF EXISTS public.add_petty_cash(text, numeric, text, text);
 CREATE OR REPLACE FUNCTION public.add_petty_cash(
   p_category TEXT,
   p_amount DECIMAL,

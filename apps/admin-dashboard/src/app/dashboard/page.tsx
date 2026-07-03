@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
+import { ClientRedirect } from './ClientRedirect'
 
 // Landing per role. Role tak terpetakan jatuh ke fallback (Ringkasan HR).
 // Mapping identik dengan RoleContext.tsx: outletStaff.role.toUpperCase().
@@ -10,10 +11,14 @@ const ROLE_HOME: Record<string, string> = {
   ADMIN_HR: '/dashboard/hr',
   ADMIN: '/dashboard/system-health',
 }
-const FALLBACK_HOME = '/dashboard/hr'
 
 export default async function DashboardHome() {
   const staff = parseStaffHeader((await headers()).get(STAFF_HEADER))
   const role = staff?.role?.toUpperCase() ?? ''
-  redirect(ROLE_HOME[role] ?? FALLBACK_HOME)
+  
+  if (ROLE_HOME[role]) {
+    redirect(ROLE_HOME[role])
+  }
+  
+  return <ClientRedirect />
 }

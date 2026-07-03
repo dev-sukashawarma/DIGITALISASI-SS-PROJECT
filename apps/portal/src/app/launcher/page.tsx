@@ -109,7 +109,18 @@ export default async function LauncherPage() {
 
   const latestAttendance = attendanceData?.[0] || null
 
-
+  // Time-aware greeting + full date, computed in Asia/Jakarta (server render)
+  const jakartaHour = parseInt(
+    new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta', hour: '2-digit', hour12: false }),
+    10,
+  )
+  const greeting =
+    jakartaHour < 11 ? 'Selamat pagi' :
+    jakartaHour < 15 ? 'Selamat siang' :
+    jakartaHour < 18 ? 'Selamat sore' : 'Selamat malam'
+  const dateLabel = new Date().toLocaleDateString('id-ID', {
+    timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
 
   return (
     <main className="h-full w-full bg-suka-cream/50 relative overflow-y-auto overflow-x-hidden bg-grain select-none py-8 md:py-12 px-4 sm:px-6">
@@ -119,62 +130,75 @@ export default async function LauncherPage() {
 
       <div className="max-w-4xl mx-auto space-y-6 relative z-10">
         
-        {/* Unified Glassmorphic Profile & Workspace Card */}
-        <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${banner.gradient} p-5 sm:p-6 text-white shadow-xl shadow-suka-brown/15 border border-white/10`}>
-          {/* Soft background glow circles */}
-          <div className="absolute right-0 top-0 -mt-6 -mr-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
-          <div className="absolute left-1/3 bottom-0 -mb-10 w-48 h-48 bg-suka-orange/20 rounded-full blur-3xl pointer-events-none"></div>
+        {/* Profile & Workspace Card */}
+        <div className={`relative overflow-hidden rounded-[28px] bg-gradient-to-br ${banner.gradient} p-6 sm:p-7 text-white shadow-2xl shadow-suka-brown/25 ring-1 ring-white/10 border-t border-white/15`}>
+          {/* Decorative glows + subtle dot grid */}
+          <div className="absolute right-0 top-0 -mt-10 -mr-10 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute left-1/4 bottom-0 -mb-16 w-52 h-52 bg-suka-orange/25 rounded-full blur-[90px] pointer-events-none" />
+          <div
+            className="absolute inset-0 opacity-[0.12] pointer-events-none"
+            style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.5) 1px, transparent 0)', backgroundSize: '22px 22px' }}
+          />
 
-          <div className="relative z-10 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <div className="p-0.5 rounded-full ring-2 ring-white/30 flex-shrink-0">
-                <Avatar name={staff.name} size={50} className="shadow border border-white flex-shrink-0" />
-              </div>
-              <div className="min-w-0">
-                <span className="inline-block text-[9px] font-black tracking-widest text-suka-orange uppercase bg-white/15 px-2 py-0.5 rounded-md leading-none">
-                  {banner.title}
-                </span>
-                <h1 className="text-lg sm:text-xl font-black text-white truncate font-display tracking-wide mt-1.5 leading-tight">
-                  Halo, {staff.name}
-                </h1>
-                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 text-[11px] text-white/70 font-semibold leading-none">
-                  <span className="capitalize">{staff.role.replace('_', ' ')}</span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1 min-w-0 truncate">
-                    <MapPin size={10} className="text-white/80 shrink-0" />
-                    <span className="truncate">{staff.outlets?.name ?? 'Semua Outlet'}</span>
+          <div className="relative z-10">
+            {/* Top row: identity + logout/date */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="p-0.5 rounded-2xl ring-2 ring-white/25 shadow-lg shrink-0">
+                  <Avatar name={staff.name} size={54} className="rounded-[14px] border border-white/40" />
+                </div>
+                <div className="min-w-0">
+                  <span className="inline-block text-[9px] font-black tracking-[0.2em] text-white/90 uppercase bg-white/15 px-2.5 py-1 rounded-full leading-none backdrop-blur-sm">
+                    {banner.title}
                   </span>
+                  <h1 className="mt-2 text-xl sm:text-2xl font-black text-white truncate font-display tracking-wide leading-tight">
+                    {greeting}, {staff.name}
+                  </h1>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-semibold text-white/70 leading-none">
+                    <span className="capitalize inline-flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-suka-orange" />
+                      {staff.role.replace('_', ' ')}
+                    </span>
+                    <span className="text-white/25">|</span>
+                    <span className="flex items-center gap-1 min-w-0 truncate">
+                      <MapPin size={11} className="text-white/70 shrink-0" />
+                      <span className="truncate">{staff.outlets?.name ?? 'Semua Outlet'}</span>
+                    </span>
+                  </div>
                 </div>
-                
-                {/* Attendance Quick Status */}
-                <div className="mt-2.5 flex items-center gap-2">
-                  {latestAttendance ? (
-                    latestAttendance.type === 'in' ? (
-                      <span className="inline-flex items-center gap-1.5 bg-emerald-500/25 border border-emerald-500/35 text-emerald-200 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                        <span>Absen Masuk: {new Date(latestAttendance.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })} WIB</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 bg-amber-500/25 border border-amber-500/35 text-amber-200 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
-                        <CheckCircle2 size={10} className="text-amber-400" />
-                        <span>Absen Pulang: {new Date(latestAttendance.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })} WIB</span>
-                      </span>
-                    )
-                  ) : (
-                    <a
-                      href="/absensi"
-                      className="inline-flex items-center gap-1.5 bg-red-500/25 border border-red-500/40 text-red-200 hover:bg-red-500/35 active:scale-95 transition-all text-[10px] font-extrabold px-2.5 py-0.5 rounded-full cursor-pointer"
-                    >
-                      <Clock size={10} className="animate-pulse text-red-400" />
-                      <span>Belum Absen Masuk • Klik Untuk Absen</span>
-                    </a>
-                  )}
-                </div>
+              </div>
+
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                <LogoutButton />
+                <span className="hidden sm:block text-[10px] font-bold text-white/55 text-right leading-tight capitalize">
+                  {dateLabel}
+                </span>
               </div>
             </div>
-            
-            <div className="shrink-0">
-              <LogoutButton />
+
+            {/* Attendance status strip */}
+            <div className="mt-4 pt-4 border-t border-white/10 flex items-center gap-2 flex-wrap">
+              {latestAttendance ? (
+                latestAttendance.type === 'in' ? (
+                  <span className="inline-flex items-center gap-1.5 bg-emerald-500/25 border border-emerald-500/35 text-emerald-100 text-[10px] font-extrabold px-3 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    <span>Absen Masuk: {new Date(latestAttendance.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })} WIB</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 bg-amber-500/25 border border-amber-500/35 text-amber-100 text-[10px] font-extrabold px-3 py-1 rounded-full">
+                    <CheckCircle2 size={11} className="text-amber-300" />
+                    <span>Absen Pulang: {new Date(latestAttendance.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })} WIB</span>
+                  </span>
+                )
+              ) : (
+                <a
+                  href="/absensi"
+                  className="inline-flex items-center gap-1.5 bg-red-500/25 border border-red-500/40 text-red-100 hover:bg-red-500/40 active:scale-95 transition-all text-[10px] font-extrabold px-3 py-1 rounded-full cursor-pointer"
+                >
+                  <Clock size={11} className="animate-pulse text-red-300" />
+                  <span>Belum Absen Masuk • Klik Untuk Absen</span>
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -182,10 +206,15 @@ export default async function LauncherPage() {
 
         {/* Applications Grid */}
         <section className="space-y-4">
-          <h2 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-suka-orange border-b border-suka-orange/10 pb-2">
-            Aplikasi Anda
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex items-center justify-between border-b border-suka-orange/10 pb-2">
+            <h2 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-suka-orange">
+              Aplikasi Anda
+            </h2>
+            <span className="text-[10px] font-black text-suka-brown/40 tabular-nums">
+              {apps.length} modul
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {apps.map(appName => {
               const meta = APP_META[appName]
               return (

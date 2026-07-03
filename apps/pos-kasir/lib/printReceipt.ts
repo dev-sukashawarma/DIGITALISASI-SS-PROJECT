@@ -79,6 +79,7 @@ export function buildReceiptHtml(d: ReceiptData): string {
   .bold { font-weight: 700; }
   .lg { font-size: 15px; }
   .muted { font-size: 11px; }
+  .logo { display: block; margin: 0 auto 6px auto; width: 48px; height: 48px; object-fit: contain; filter: grayscale(100%) contrast(200%); }
   hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
   table { width: 100%; border-collapse: collapse; }
   td { vertical-align: top; padding: 1px 0; }
@@ -90,6 +91,7 @@ export function buildReceiptHtml(d: ReceiptData): string {
   .queue { font-size: 22px; font-weight: 700; }
 </style></head>
 <body>
+  <img src="/logo.png" class="logo" alt="Logo" />
   <div class="center bold lg">${esc(d.outletName || 'SUKA SHAWARMA')}</div>
   <div class="center muted">Suka Shawarma</div>
   <hr/>

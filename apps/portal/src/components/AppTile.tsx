@@ -1,4 +1,5 @@
-import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield } from 'lucide-react'
+import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield, ArrowUpRight } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 interface Props {
   label: string
@@ -6,84 +7,102 @@ interface Props {
   desc:  string
 }
 
+interface AppConfig {
+  icon: ReactNode
+  /** Gradient for the icon chip */
+  chip: string
+  /** Ring + shadow tint on hover */
+  hover: string
+  /** Accent text colour for title + CTA on hover */
+  accentText: string
+  /** Soft radial glow revealed on hover */
+  glow: string
+}
+
 export default function AppTile({ label, url, desc }: Props) {
-  const getAppConfig = () => {
+  const getAppConfig = (): AppConfig => {
     const key = label.toLowerCase()
     if (key.includes('stok')) return {
-      icon: <Package size={22} />,
-      accentClass: 'hover:border-suka-green/40 hover:shadow-suka-green/5',
-      iconBgClass: 'group-hover:bg-suka-green text-suka-green bg-suka-green/5',
-      glowClass: 'bg-suka-green/10'
+      icon: <Package size={24} strokeWidth={2.25} />,
+      chip: 'bg-gradient-to-br from-emerald-500 to-suka-green',
+      hover: 'hover:border-suka-green/30 hover:shadow-suka-green/10',
+      accentText: 'group-hover:text-suka-green',
+      glow: 'bg-suka-green/15',
     }
     if (key.includes('absensi')) return {
-      icon: <Clock size={22} />,
-      accentClass: 'hover:border-suka-orange/40 hover:shadow-suka-orange/5',
-      iconBgClass: 'group-hover:bg-suka-orange text-suka-orange bg-suka-orange/5',
-      glowClass: 'bg-suka-orange/10'
+      icon: <Clock size={24} strokeWidth={2.25} />,
+      chip: 'bg-gradient-to-br from-suka-orange to-amber-500',
+      hover: 'hover:border-suka-orange/30 hover:shadow-suka-orange/10',
+      accentText: 'group-hover:text-suka-orange',
+      glow: 'bg-suka-orange/15',
     }
     if (key.includes('distribusi')) return {
-      icon: <Truck size={22} />,
-      accentClass: 'hover:border-indigo-500/40 hover:shadow-indigo-500/5',
-      iconBgClass: 'group-hover:bg-indigo-500 text-indigo-500 bg-indigo-500/5',
-      glowClass: 'bg-indigo-500/10'
+      icon: <Truck size={24} strokeWidth={2.25} />,
+      chip: 'bg-gradient-to-br from-indigo-500 to-blue-600',
+      hover: 'hover:border-indigo-500/30 hover:shadow-indigo-500/10',
+      accentText: 'group-hover:text-indigo-600',
+      glow: 'bg-indigo-500/15',
     }
     if (key.includes('pos') || key.includes('kasir')) return {
-      icon: <ShoppingBag size={22} />,
-      accentClass: 'hover:border-suka-orange/40 hover:shadow-suka-orange/5',
-      iconBgClass: 'group-hover:bg-suka-orange text-suka-orange bg-suka-orange/5',
-      glowClass: 'bg-suka-orange/10'
+      icon: <ShoppingBag size={24} strokeWidth={2.25} />,
+      chip: 'bg-gradient-to-br from-suka-orange to-suka-brown',
+      hover: 'hover:border-suka-brown/30 hover:shadow-suka-brown/10',
+      accentText: 'group-hover:text-suka-brown',
+      glow: 'bg-suka-brown/15',
     }
     if (key.includes('owner')) return {
-      icon: <BarChart3 size={22} />,
-      accentClass: 'hover:border-amber-600/40 hover:shadow-amber-600/5',
-      iconBgClass: 'group-hover:bg-amber-600 text-amber-600 bg-amber-600/5',
-      glowClass: 'bg-amber-600/10'
+      icon: <BarChart3 size={24} strokeWidth={2.25} />,
+      chip: 'bg-gradient-to-br from-amber-500 to-suka-brown',
+      hover: 'hover:border-amber-600/30 hover:shadow-amber-600/10',
+      accentText: 'group-hover:text-amber-700',
+      glow: 'bg-amber-600/15',
     }
     if (key.includes('admin')) return {
-      icon: <Settings size={22} />,
-      accentClass: 'hover:border-suka-brown/40 hover:shadow-suka-brown/5',
-      iconBgClass: 'group-hover:bg-suka-brown text-suka-brown bg-suka-brown/5',
-      glowClass: 'bg-suka-brown/10'
+      icon: <Settings size={24} strokeWidth={2.25} />,
+      chip: 'bg-gradient-to-br from-suka-brown to-suka-ink',
+      hover: 'hover:border-suka-brown/30 hover:shadow-suka-brown/10',
+      accentText: 'group-hover:text-suka-brown',
+      glow: 'bg-suka-brown/15',
     }
     return {
-      icon: <Shield size={22} />,
-      accentClass: 'hover:border-suka-orange/40 hover:shadow-suka-orange/5',
-      iconBgClass: 'group-hover:bg-suka-orange text-suka-orange bg-suka-orange/5',
-      glowClass: 'bg-suka-orange/10'
+      icon: <Shield size={24} strokeWidth={2.25} />,
+      chip: 'bg-gradient-to-br from-suka-orange to-suka-brown',
+      hover: 'hover:border-suka-orange/30 hover:shadow-suka-orange/10',
+      accentText: 'group-hover:text-suka-orange',
+      glow: 'bg-suka-orange/15',
     }
   }
 
-  const { icon, accentClass, iconBgClass, glowClass } = getAppConfig()
+  const { icon, chip, hover, accentText, glow } = getAppConfig()
 
   return (
-    <div className={`group relative flex flex-col justify-between overflow-hidden bg-white/70 backdrop-blur-md border border-suka-orange/10 rounded-2xl p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:bg-white/90 hover:-translate-y-1 ${accentClass}`}>
-      <div className={`absolute -right-10 -top-10 w-24 h-24 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ${glowClass}`} />
+    <a
+      href={url}
+      className={`group relative flex flex-col overflow-hidden rounded-[22px] border border-suka-brown/[0.07] bg-white/75 backdrop-blur-md p-5 shadow-[0_2px_12px_-4px_rgba(112,22,4,0.10)] transition-all duration-300 ease-out hover:-translate-y-1.5 hover:bg-white/95 hover:shadow-[0_16px_36px_-12px_rgba(112,22,4,0.22)] ${hover}`}
+    >
+      {/* Soft accent glow on hover */}
+      <div className={`pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full blur-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100 ${glow}`} />
 
-      <a href={url} className="flex flex-col gap-0 flex-1">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 border border-suka-orange/5 group-hover:text-white group-hover:scale-105 ${iconBgClass}`}>
+      <div className="relative z-10 flex items-start justify-between">
+        <div className={`flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg shadow-suka-brown/15 transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3 ${chip}`}>
           {icon}
         </div>
-        <h3 className="font-extrabold text-sm sm:text-base text-suka-ink mt-4 group-hover:text-suka-orange transition-colors truncate">
-          {label}
-        </h3>
-        <p className="text-[11px] sm:text-xs text-suka-gray-500 font-medium leading-relaxed mt-1 line-clamp-2">
-          {desc}
-        </p>
-        <div className="hidden md:flex mt-5 items-center gap-1.5 text-[10px] font-extrabold text-suka-brown group-hover:text-suka-orange transition-colors uppercase tracking-wider">
-          <span>Buka Modul</span>
-          <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-        </div>
-      </a>
-
-      {/* Mobile only */}
-      <div className="md:hidden mt-4 flex gap-2">
-        <a
-          href={url}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-suka-orange/10 text-suka-orange text-[11px] font-extrabold uppercase tracking-wider active:scale-95 transition-all"
-        >
-          Buka
-        </a>
+        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-suka-brown/10 bg-white/70 text-suka-brown/40 transition-all duration-300 group-hover:border-transparent group-hover:bg-suka-ink group-hover:text-white group-hover:rotate-0">
+          <ArrowUpRight size={16} strokeWidth={2.5} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+        </span>
       </div>
-    </div>
+
+      <h3 className={`mt-5 text-base font-extrabold tracking-tight text-suka-ink transition-colors ${accentText}`}>
+        {label}
+      </h3>
+      <p className="mt-1 text-xs leading-relaxed text-suka-gray-500 font-medium line-clamp-2">
+        {desc}
+      </p>
+
+      <div className={`mt-4 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-suka-brown/70 transition-colors ${accentText}`}>
+        <span>Buka Modul</span>
+        <span className="h-px w-4 bg-current opacity-40 transition-all duration-300 group-hover:w-7 group-hover:opacity-100" />
+      </div>
+    </a>
   )
 }

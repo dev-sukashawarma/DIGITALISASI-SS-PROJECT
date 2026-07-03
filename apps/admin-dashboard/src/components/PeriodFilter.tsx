@@ -84,7 +84,7 @@ function CustomDateRangePopover({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 p-4 w-[280px] bg-white border border-suka-gray-200 rounded-2xl shadow-xl shadow-suka-brown/10 z-50 animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute top-full right-0 mt-2 p-4 w-[280px] max-w-[calc(100vw-2rem)] bg-white border border-suka-gray-200 rounded-2xl shadow-xl shadow-suka-brown/10 z-50 animate-in fade-in zoom-in-95 duration-200">
           <h4 className="text-sm font-bold text-suka-brown mb-3">Pilih Rentang Tanggal</h4>
           <div className="space-y-3">
             <div>

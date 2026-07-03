@@ -17,6 +17,7 @@ import BranchFilter from '@/components/BranchFilter'
 
 interface ShiftRow {
   id: string
+  outlet_id: string
   start_time: string
   end_time: string | null
   status: string
@@ -76,6 +77,28 @@ export default function AdminReportsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+
+  // Modal State for Shift Expenses
+  const [selectedShiftForExpenses, setSelectedShiftForExpenses] = useState<ShiftRow | null>(null)
+  const [shiftExpenses, setShiftExpenses] = useState<any[]>([])
+  const [loadingShiftExpenses, setLoadingShiftExpenses] = useState(false)
+
+  const openShiftExpenses = async (shift: ShiftRow) => {
+    setSelectedShiftForExpenses(shift)
+    setLoadingShiftExpenses(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('outlet_id', shift.outlet_id)
+      .eq('payment_source', 'petty_cash')
+      .gte('created_at', shift.start_time)
+      .lte('created_at', shift.end_time || new Date().toISOString())
+      .order('created_at', { ascending: true })
+    
+    setShiftExpenses(data || [])
+    setLoadingShiftExpenses(false)
+  }
 
   const fetchOutlets = useCallback(async () => {
     const supabase = createClient()
@@ -741,6 +764,17 @@ export default function AdminReportsPage() {
                           </div>
                         </div>
                       </div>
+                      
+                      {/* Footer Kartu */}
+                      <div className="bg-gray-50 border-t border-gray-100 p-3 flex justify-end">
+                        <button 
+                          onClick={() => openShiftExpenses(shift)}
+                          className="text-xs font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors border border-amber-200/50"
+                        >
+                          <FileText className="w-4 h-4" />
+                          Rincian Pengeluaran Petty Cash
+                        </button>
+                      </div>
                     </div>
                   )
                 })
@@ -748,6 +782,79 @@ export default function AdminReportsPage() {
             </div>
           </div>
         </>
+      )}
+
+      {selectedShiftForExpenses && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div>
+                <h3 className="font-bold text-gray-900 text-lg">Rincian Pengeluaran Petty Cash</h3>
+                <p className="text-xs text-gray-500 mt-1">Shift: {new Date(selectedShiftForExpenses.start_time).toLocaleString('id-ID')}</p>
+              </div>
+              <button 
+                onClick={() => setSelectedShiftForExpenses(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-5 overflow-y-auto flex-1">
+              {loadingShiftExpenses ? (
+                <div className="flex justify-center py-10 text-gray-400">Memuat data pengeluaran...</div>
+              ) : shiftExpenses.length === 0 ? (
+                <div className="flex justify-center py-10 text-gray-400 font-medium text-sm">Tidak ada pengeluaran petty cash di shift ini.</div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
+                      <tr>
+                        <th className="px-4 py-3">Waktu</th>
+                        <th className="px-4 py-3">Kategori</th>
+                        <th className="px-4 py-3">Catatan</th>
+                        <th className="px-4 py-3 text-right">Nominal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {shiftExpenses.map((exp) => (
+                        <tr key={exp.id} className="hover:bg-amber-50/50">
+                          <td className="px-4 py-3 text-gray-500 font-medium text-xs">
+                            {new Date(exp.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-4 py-3 text-gray-700 capitalize font-medium">
+                            {exp.category?.replace('_', ' ')}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 italic">
+                            {exp.description}
+                            {exp.receipt_url && (
+                              <a href={exp.receipt_url} target="_blank" rel="noreferrer" className="ml-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md inline-flex items-center gap-1 hover:bg-blue-100 transition-colors">
+                                <FileText className="w-3 h-3" />
+                                Lihat Struk
+                              </a>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-gray-900">
+                            {formatRupiah(exp.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button 
+                onClick={() => setSelectedShiftForExpenses(null)}
+                className="px-4 py-2 font-bold text-gray-600 hover:text-gray-900 transition-colors bg-white border border-gray-200 rounded-xl shadow-sm"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -464,7 +464,7 @@ export default function ShiftPage() {
             className="flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-blue-200"
           >
             <ArrowDownToLine className="w-4 h-4" />
-            Ajukan Top Up Petty Cash
+            Ajukan Top Up Dana Operasional
           </button>
         )}
       </div>

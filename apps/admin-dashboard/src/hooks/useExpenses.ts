@@ -15,6 +15,7 @@ export interface ExpenseRow {
   description: string
   expense_date: string
   period_month: string
+  receipt_url?: string | null
 }
 
 export function useExpenses(filter: PeriodFilterValue) {
@@ -25,7 +26,7 @@ export function useExpenses(filter: PeriodFilterValue) {
     queryFn: async () => {
       let q = supabase
         .from('expenses')
-        .select('id, outlet_id, category, amount, description, expense_date, period_month, outlets(name)')
+        .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, outlets(name)')
         .gte('expense_date', filter.from)
         .lte('expense_date', filter.to)
 
@@ -47,6 +48,7 @@ export function useExpenses(filter: PeriodFilterValue) {
         description: row.description ?? '',
         expense_date: row.expense_date,
         period_month: row.period_month,
+        receipt_url: row.receipt_url,
       })) as ExpenseRow[]
     },
   })

@@ -276,7 +276,15 @@ export default function ExpensesPage() {
                               year: 'numeric'
                             })}
                           </td>
-                          <td className="py-3.5 px-6 text-suka-gray-600 text-xs italic">{row.description}</td>
+                          <td className="py-3.5 px-6 text-suka-gray-600 text-xs italic">
+                            {row.description}
+                            {row.receipt_url && (
+                              <a href={row.receipt_url} target="_blank" rel="noreferrer" className="ml-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md inline-flex items-center gap-1 hover:bg-blue-100 transition-colors">
+                                <Receipt className="w-3 h-3" />
+                                Lihat Struk
+                              </a>
+                            )}
+                          </td>
                           <td className="py-3.5 px-6 text-right text-suka-brown font-extrabold">{rupiah(row.amount)}</td>
                         </tr>
                       )

@@ -42,7 +42,7 @@ export async function getAggregatedMenuSales(filter: PeriodFilterValue): Promise
   
   const agg = new Map<string, AggregatedMenuSales>()
   for (const r of data || []) {
-    const cleanName = r.menu_name.split('|')[0].trim()
+    const cleanName = (r.menu_name || 'Unknown Menu').split('|')[0].trim()
     const cur = agg.get(cleanName) ?? { name: cleanName, qty: 0, revenue: 0 }
     cur.qty += Number(r.qty || 0)
     cur.revenue += Number(r.revenue || 0)

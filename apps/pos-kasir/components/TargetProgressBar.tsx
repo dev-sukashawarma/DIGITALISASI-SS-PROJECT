@@ -67,14 +67,14 @@ export default function TargetProgressBar() {
     const supabase = createClient()
     const scheduleRefetch = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(fetchProgress, 1000)
+      debounceRef.current = setTimeout(fetchProgress, 100)
     }
 
     const channel = supabase
-      .channel(`kasir-target:${outletId}`)
+      .channel(`kasir-target-progress`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` },
+        { event: '*', schema: 'public', table: 'orders' },
         scheduleRefetch
       )
       .on(
@@ -90,22 +90,43 @@ export default function TargetProgressBar() {
     }
   }, [loaded, outletId, fetchProgress])
 
-  // Tidak ada target → tidak menampilkan apa-apa
   if (!data || data.target_amount <= 0) return null
 
   const pct = Math.min((data.omzet_today / data.target_amount) * 100, 100)
   const pctRaw = Math.round((data.omzet_today / data.target_amount) * 100)
+  const isGreen = pctRaw >= 75
+  const isYellow = pctRaw >= 30 && pctRaw < 75
+  const isRed = pctRaw < 30
   const done = data.omzet_today >= data.target_amount
+
+  // Menyesuaikan warna berdasarkan pctRaw (Merah, Kuning, Hijau)
+  const bgColor = done ? 'bg-[#eafaef] border-[#bfe6c9]' 
+                : isGreen ? 'bg-[#eafaef] border-[#bfe6c9]'
+                : isYellow ? 'bg-[#fffaf4] border-[#ecdcc9]'
+                : 'bg-red-50 border-red-200'
+                
+  const iconColor = done ? 'text-[#0a7d2c]' 
+                  : isGreen ? 'text-[#0a7d2c]'
+                  : isYellow ? 'text-[#904d00]'
+                  : 'text-red-600'
+                  
+  const barColor = done ? 'bg-[#0a7d2c]' 
+                 : isGreen ? 'bg-[#0a7d2c]'
+                 : isYellow ? 'bg-[#f29744]'
+                 : 'bg-red-500'
+
+  const amountColor = done ? 'text-[#0a7d2c]'
+                    : isGreen ? 'text-[#0a7d2c]'
+                    : isYellow ? 'text-[#643400]'
+                    : 'text-red-700'
 
   return (
     <div className="print:hidden sticky top-0 lg:top-0 z-20">
       <div
-        className={`px-4 sm:px-6 py-2.5 border-b transition-colors ${
-          done ? 'bg-[#eafaef] border-[#bfe6c9]' : 'bg-[#fffaf4] border-[#ecdcc9]'
-        }`}
+        className={`px-4 sm:px-6 py-2.5 border-b transition-colors ${bgColor}`}
       >
         <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <div className={`flex items-center gap-1.5 shrink-0 ${done ? 'text-[#0a7d2c]' : 'text-[#904d00]'}`}>
+          <div className={`flex items-center gap-1.5 shrink-0 ${iconColor}`}>
             {done ? <PartyPopper className="w-4 h-4" /> : <Target className="w-4 h-4" />}
             <span className="text-[11px] font-extrabold uppercase tracking-wider hidden sm:inline">
               {done ? 'Target Tercapai!' : 'Target Hari Ini'}
@@ -113,22 +134,20 @@ export default function TargetProgressBar() {
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="h-2.5 rounded-full bg-[#ecdcc9]/70 overflow-hidden">
+            <div className="h-2.5 rounded-full bg-black/5 overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-700 ${
-                  done ? 'bg-[#0a7d2c]' : 'bg-[#f29744]'
-                } ${celebrate ? 'animate-pulse' : ''}`}
+                className={`h-full rounded-full transition-all duration-300 ${barColor} ${celebrate ? 'animate-pulse' : ''}`}
                 style={{ width: `${pct}%` }}
               />
             </div>
           </div>
 
           <div className="shrink-0 text-right leading-tight">
-            <p className={`text-xs font-extrabold ${done ? 'text-[#0a7d2c]' : 'text-[#643400]'}`}>
+            <p className={`text-xs font-extrabold ${amountColor}`}>
               {rupiahCompact(data.omzet_today)}
               <span className="text-[#a98b73] font-bold"> / {rupiahCompact(data.target_amount)}</span>
             </p>
-            <p className={`text-[10px] font-bold ${done ? 'text-[#0a7d2c]' : 'text-[#904d00]'}`}>{pctRaw}%</p>
+            <p className={`text-[10px] font-bold ${amountColor}`}>{pctRaw}%</p>
           </div>
         </div>
       </div>

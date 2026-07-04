@@ -45,7 +45,7 @@ export function useTargetProgress() {
 
     const scheduleRefetch = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(fetchRows, 1200)
+      debounceRef.current = setTimeout(fetchRows, 100)
     }
 
     const channel = supabase

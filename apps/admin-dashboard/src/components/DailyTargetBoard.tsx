@@ -164,8 +164,19 @@ export function DailyTargetBoard() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {paginatedItems.map((r) => {
-                const pctClamped = Math.min(r.pct, 100)
-                const done = r.pct >= 100
+                const pct = r.pct
+                const pctClamped = Math.min(pct, 100)
+                const isGreen = pct >= 75
+                const isYellow = pct >= 30 && pct < 75
+                
+                const colorText = isGreen ? 'text-suka-green' : isYellow ? 'text-suka-orange' : 'text-red-500'
+                const colorBg = isGreen ? 'bg-suka-green' : isYellow ? 'bg-suka-orange' : 'bg-red-500'
+                const cardStyle = isGreen 
+                  ? 'border-suka-green/30 bg-suka-green/5' 
+                  : isYellow 
+                    ? 'border-suka-orange/30 bg-suka-orange/5' 
+                    : 'border-red-500/30 bg-red-500/5'
+
                 return (
                   <div
                     key={r.outlet_id}
@@ -174,22 +185,22 @@ export function DailyTargetBoard() {
                       setTargetScope(r.outlet_id)
                       setModalOpen(true)
                     }}
-                    className={`rounded-xl border p-3 transition-all cursor-pointer hover:shadow-md ${done ? 'border-suka-green/30 bg-suka-green/5' : 'border-suka-gray-100 bg-suka-cream/20 hover:border-suka-orange/30'}`}
+                    className={`rounded-xl border p-3 transition-all cursor-pointer hover:shadow-md ${cardStyle}`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <span className="text-xs font-extrabold text-suka-ink truncate">{cleanName(r.outlet_name)}</span>
-                      <span className={`text-xs font-extrabold shrink-0 ${done ? 'text-suka-green' : 'text-suka-orange'}`}>
+                      <span className={`text-xs font-extrabold shrink-0 ${colorText}`}>
                         {Math.round(r.pct)}%
                       </span>
                     </div>
                     <div className="h-2 rounded-full bg-suka-gray-200/70 overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-700 ${done ? 'bg-suka-green' : 'bg-suka-orange'}`}
+                        className={`h-full rounded-full transition-all duration-700 ${colorBg}`}
                         style={{ width: `${pctClamped}%` }}
                       />
                     </div>
                     <div className="flex items-center justify-between mt-1.5 text-[10px] font-bold text-suka-gray-500">
-                      <span className={done ? 'text-suka-green' : 'text-suka-brown'}>{rupiahCompact(r.omzet_today)}</span>
+                      <span className={colorText}>{rupiahCompact(r.omzet_today)}</span>
                       <span>/ {rupiahCompact(r.target_amount)}</span>
                     </div>
                   </div>

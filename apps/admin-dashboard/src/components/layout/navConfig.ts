@@ -54,6 +54,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/reports/voids', label: 'Pembatalan & Kecurangan', shortLabel: 'Pembatalan', icon: Ban, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', shortLabel: 'Selisih', icon: Boxes, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/target-harian', label: 'Laporan Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {

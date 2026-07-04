@@ -305,11 +305,11 @@ export function DailyTargetBoard() {
       )}
       <style>{`
         @keyframes manual-blink {
-          0%, 49% { opacity: 1; }
-          50%, 100% { opacity: 0; }
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
         }
         .manual-blink-fast {
-          animation: manual-blink 0.4s infinite;
+          animation: manual-blink 1s ease-in-out infinite;
         }
       `}</style>
     </>

@@ -2,7 +2,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useTargetProgress } from '@/hooks/useTargetProgress'
 import { rupiahCompact } from '@/lib/format'
-import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, ChevronLeft, ChevronRight, Lightbulb } from 'lucide-react'
+import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
 
@@ -190,8 +190,8 @@ export function DailyTargetBoard() {
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-1.5 truncate">
                         <div className="relative flex items-center justify-center w-3 h-3 shrink-0 ml-0.5 mr-1">
-                          <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 animate-pulse ${colorBg}`}></div>
-                          <Lightbulb className={`relative w-3 h-3 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] ${colorText} fill-current drop-shadow-md`} />
+                          <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 ${colorBg} ${isGreen ? '' : isYellow ? 'animate-pulse' : 'animate-[pulse_0.75s_cubic-bezier(0.4,0,0.6,1)_infinite]'}`}></div>
+                          <div className={`relative w-2 h-2 rounded-full ${colorBg} shadow-sm ${isGreen ? '' : isYellow ? 'animate-pulse' : 'animate-[pulse_0.75s_cubic-bezier(0.4,0,0.6,1)_infinite]'}`}></div>
                         </div>
                         <span className="text-xs font-extrabold text-suka-ink truncate">{cleanName(r.outlet_name)}</span>
                       </div>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
-import { Target, PartyPopper, Lightbulb } from 'lucide-react'
+import { Target, PartyPopper } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
 interface Progress {
@@ -107,8 +107,8 @@ export default function TargetProgressBar() {
               {done ? 'Target Tercapai!' : 'Target Hari Ini'}
             </span>
             <div className="relative flex items-center justify-center w-3.5 h-3.5 ml-1">
-              <div className={`absolute inset-0 rounded-full blur-[4px] opacity-60 animate-pulse ${barColor}`}></div>
-              <Lightbulb className={`relative w-3.5 h-3.5 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] ${barColor.replace('bg-', 'text-')} fill-current drop-shadow-md`} />
+              <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 ${barColor} ${done || isGreen ? '' : isYellow ? 'animate-pulse' : 'animate-[pulse_0.75s_cubic-bezier(0.4,0,0.6,1)_infinite]'}`}></div>
+              <div className={`relative w-2.5 h-2.5 rounded-full ${barColor} shadow-sm ${done || isGreen ? '' : isYellow ? 'animate-pulse' : 'animate-[pulse_0.75s_cubic-bezier(0.4,0,0.6,1)_infinite]'}`}></div>
             </div>
           </div>
 

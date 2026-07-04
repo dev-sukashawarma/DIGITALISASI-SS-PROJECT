@@ -39,7 +39,7 @@ export function SwipeableLayout({ children }: { children: React.ReactNode }) {
     setPeekDirection(null)
   }, [pathname])
 
-  const isValidSwipeStart = (e: Event) => {
+  const isValidSwipeStart = (e: any) => {
     const target = e.target as HTMLElement
     // Ignore swipes from horizontally scrollable tables/containers
     if (target.closest('.overflow-x-auto') || target.closest('[data-no-swipe]')) return false

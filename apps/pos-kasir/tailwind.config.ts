@@ -43,6 +43,7 @@ export default {
         'scale-in':   'scaleIn .2s ease forwards',
         'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
         'spin-slow':  'spin 2s linear infinite',
+        'blink-fast': 'blinkFast 0.4s infinite',
       },
       keyframes: {
         fadeUp:     { from: { opacity: 0, transform: 'translateY(12px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
@@ -51,6 +52,7 @@ export default {
         slideIn:    { from: { opacity: 0, transform: 'translateX(20px)' }, to: { opacity: 1, transform: 'translateX(0)' } },
         scaleIn:    { from: { opacity: 0, transform: 'scale(.95)' }, to: { opacity: 1, transform: 'scale(1)' } },
         pulseSoft:  { '0%,100%': { opacity: 1 }, '50%': { opacity: .5 } },
+        blinkFast:  { '0%, 49%': { opacity: 1 }, '50%, 100%': { opacity: 0 } },
       },
       borderRadius: {
         '2xl': '1rem',

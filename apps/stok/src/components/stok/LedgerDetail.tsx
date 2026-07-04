@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Card } from '@suka/design-system'
+import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit'
 
 const LABEL_MAP: Record<string, string> = {
   terima_kiriman: 'Terima Kiriman',
@@ -24,7 +25,7 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
       try {
         const { data, error: err } = await supabase
           .from('ledger_stok')
-          .select('*, bahan_baku(nama, satuan)')
+          .select('*, bahan_baku(nama, satuan, satuan_kecil, faktor_tampilan)')
           .eq('id', ledgerId)
           .single()
         if (err) throw err
@@ -41,6 +42,8 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
 
   const isPositive = l.qty > 0;
   const unit = l.bahan_baku?.satuan || '';
+  const satuanKecil = l.bahan_baku?.satuan_kecil ?? null;
+  const faktorTampilan = l.bahan_baku?.faktor_tampilan ?? null;
 
   const getTipeBadge = (tipe: string) => {
     let style = 'bg-[#faf2e9] text-[#701604] border-[#d9c2b2]/40';
@@ -92,14 +95,14 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
         <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
           <span className="text-xs font-bold text-[#544437]/70">Jumlah Perubahan</span>
           <span className={`text-sm font-bold ${isPositive ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
-            {isPositive ? '+' : ''}{l.qty} <span className="text-xs font-medium text-[#544437]/60">{unit}</span>
+            {formatCompositeDelta(l.qty, unit, satuanKecil, faktorTampilan)}
           </span>
         </div>
 
         <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
           <span className="text-xs font-bold text-[#544437]/70">Mutasi Saldo</span>
           <span className="text-xs font-semibold text-[#1e1b15]">
-            {l.saldo_sebelum} {unit} → <span className="font-bold">{l.saldo_sesudah} {unit}</span>
+            {formatCompositeSaldo(l.saldo_sebelum, unit, satuanKecil, faktorTampilan)} → <span className="font-bold">{formatCompositeSaldo(l.saldo_sesudah, unit, satuanKecil, faktorTampilan)}</span>
           </span>
         </div>
 

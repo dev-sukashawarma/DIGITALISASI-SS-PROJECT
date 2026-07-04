@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { LedgerStok } from '@/types/stok';
 import { useBahanBaku } from '@/hooks/useBahanBaku';
+import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
 
 const LABEL: Record<string, string> = {
   terima_kiriman: 'Terima Kiriman',
@@ -29,9 +30,9 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
 
   // Map bahan_baku_id to name and unit
   const bahanMap = useMemo(() => {
-    const map: Record<string, { nama: string; satuan: string }> = {};
+    const map: Record<string, { nama: string; satuan: string; satuanKecil: string | null; faktorTampilan: number | null }> = {};
     for (const b of bahanBaku) {
-      map[b.id] = { nama: b.nama, satuan: b.satuan };
+      map[b.id] = { nama: b.nama, satuan: b.satuan, satuanKecil: b.satuan_kecil, faktorTampilan: b.faktor_tampilan };
     }
     return map;
   }, [bahanBaku]);
@@ -181,10 +182,14 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
                 {/* Right Section: Quantity and Balance */}
                 <div className="text-right flex-shrink-0 space-y-0.5 pl-4">
                   <p className={`font-bold text-sm ${isPositive ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
-                    {isPositive ? '+' : ''}{l.qty} <span className="text-[10px] font-medium text-[#544437]/50">{unit}</span>
+                    {bahan
+                      ? formatCompositeDelta(l.qty, unit, bahan.satuanKecil, bahan.faktorTampilan)
+                      : `${isPositive ? '+' : ''}${l.qty} ${unit}`}
                   </p>
                   <p className="text-[9px] text-[#544437]/60 font-bold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#d9c2b2]/20 inline-block mt-1">
-                    Saldo: {l.saldo_sesudah} {unit}
+                    Saldo: {bahan
+                      ? formatCompositeSaldo(l.saldo_sesudah, unit, bahan.satuanKecil, bahan.faktorTampilan)
+                      : `${l.saldo_sesudah} ${unit}`}
                   </p>
                 </div>
               </div>

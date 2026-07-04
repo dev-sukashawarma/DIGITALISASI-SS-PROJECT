@@ -42,6 +42,7 @@ export interface OpnameStatus {
 }
 
 export interface DetailItem extends MonitoringItem {
+  // Satuan kecil untuk tampilan majemuk saldo (mis. liter untuk kompan). Independen dari faktor_konversi (BOM/resep).
   satuan_kecil: string | null;
   faktor_tampilan: number | null;
   recent_ledger: {

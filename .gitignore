@@ -40,6 +40,7 @@ Thumbs.db
 
 # React Native / Expo / Android build artifacts (mobile/)
 .expo/
+# React Native / Android native build caches
 .gradle/
 .cxx/
 

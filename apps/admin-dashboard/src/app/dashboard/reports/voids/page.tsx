@@ -24,7 +24,7 @@ export default async function VoidsReportPage() {
     .select(`
       id,
       created_at,
-      total,
+      total_amount,
       void_reason,
       void_at,
       outlets!inner(name),
@@ -92,7 +92,7 @@ export default async function VoidsReportPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right font-semibold text-red-600">
-                      -{v.total?.toLocaleString('id-ID')}
+                      -{v.total_amount?.toLocaleString('id-ID')}
                     </td>
                   </tr>
                 ))

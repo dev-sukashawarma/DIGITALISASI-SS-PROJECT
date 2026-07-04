@@ -271,6 +271,44 @@ export default function CashierOrdersPage() {
     const iconColor = isPending ? 'text-amber-500' : 'text-blue-500';
     const accentColor = isPending ? 'text-amber-600' : 'text-blue-600';
 
+    // Helper to parse and group items
+    const getGroupedItems = (orderItems: any[]) => {
+      const parsed = (orderItems || []).map(oi => {
+        let name = oi.menu_item_name || ''
+        let note = ''
+        let id = oi.id
+        let parentId = null
+        
+        const noteSplit = name.split('|NOTE|')
+        if (noteSplit.length > 1) { note = noteSplit[1]; name = noteSplit[0] }
+        
+        const parentSplit = name.split('|PARENT|')
+        if (parentSplit.length > 1) { parentId = parentSplit[1]; name = parentSplit[0] }
+        
+        const idSplit = name.split('|ID|')
+        if (idSplit.length > 1) { id = idSplit[1]; name = idSplit[0] }
+        
+        return { ...oi, parsedName: name, parsedNote: note, parsedId: id, parsedParentId: parentId }
+      })
+      
+      const rootItems = parsed.filter(i => !i.parsedParentId)
+      const validRootIds = new Set(rootItems.map(r => r.parsedId))
+      
+      const childrenMap: any = {}
+      parsed.filter(i => i.parsedParentId).forEach(i => {
+        if (!validRootIds.has(i.parsedParentId)) {
+          rootItems.push(i) // treat as root
+        } else {
+          if (!childrenMap[i.parsedParentId]) childrenMap[i.parsedParentId] = []
+          childrenMap[i.parsedParentId].push(i)
+        }
+      })
+      
+      return { rootItems, childrenMap }
+    }
+
+    const { rootItems, childrenMap } = getGroupedItems(order.order_items || []);
+
     return (
       <div 
         key={order.id} 
@@ -306,23 +344,48 @@ export default function CashierOrdersPage() {
             </div>
           </div>
 
-          {/* Items List (Simplified) */}
+          {/* Items List (Full Details) */}
           <div className="flex-1">
-            <p className="text-xs font-bold text-slate-400 uppercase mb-2">Pesanan:</p>
-            <div className="space-y-2">
-              {order.order_items && order.order_items.slice(0, 3).map((item: any, idx: number) => (
-                <div key={idx} className="flex justify-between items-start text-sm group/item">
-                  <span className="font-semibold text-slate-700 line-clamp-2 leading-tight">
-                    {item.quantity}x {item.menu_item_name?.split('|NOTE|')[0]?.split('|ID|')[0]}
-                  </span>
+            <p className="text-xs font-bold text-slate-400 uppercase mb-2">Detail Pesanan:</p>
+            <div className="space-y-3">
+              {rootItems.map((oi: any) => (
+                <div key={oi.id} className="relative pb-2 border-b border-slate-100/70 last:border-0 last:pb-0">
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="font-semibold text-slate-800 leading-tight">
+                        {oi.quantity}x {oi.parsedName}
+                    </span>
+                  </div>
+                  {oi.parsedNote && (
+                    <div className="text-[11px] text-slate-500 bg-white px-2 py-1 rounded-md mt-1 border border-slate-100 italic">
+                      {oi.parsedNote}
+                    </div>
+                  )}
+                  
+                  {/* Children / Extras */}
+                  {childrenMap[oi.parsedId] && childrenMap[oi.parsedId].map((child: any) => (
+                    <div key={child.id} className="pl-4 mt-2 flex items-start gap-2 text-sm text-slate-600">
+                        <CornerDownRight size={14} className="text-slate-300 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <span className="font-medium">{child.quantity}x {child.parsedName}</span>
+                          {child.parsedNote && (
+                              <div className="text-[11px] text-slate-500 bg-white px-2 py-1 rounded-md mt-1 border border-slate-100 italic">
+                                {child.parsedNote}
+                              </div>
+                          )}
+                        </div>
+                    </div>
+                  ))}
                 </div>
               ))}
-              {order.order_items && order.order_items.length > 3 && (
-                <div className="text-xs font-medium text-slate-400 mt-2 bg-slate-50 py-1 px-2 rounded-lg inline-block">
-                  + {order.order_items.length - 3} item lainnya
-                </div>
-              )}
             </div>
+
+            {/* Catatan Keseluruhan */}
+            {order.notes && (
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200/60 rounded-xl text-sm">
+                <span className="font-bold text-amber-900 block mb-0.5">📝 Catatan Pelanggan:</span>
+                <span className="text-amber-800/80 leading-snug">{order.notes}</span>
+              </div>
+            )}
           </div>
         </div>
         

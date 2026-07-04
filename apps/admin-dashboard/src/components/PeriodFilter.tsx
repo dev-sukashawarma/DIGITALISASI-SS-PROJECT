@@ -227,12 +227,13 @@ function OutletCombobox({
 }
 
 export function PeriodFilter({
-  value, onChange, outlets, lockedOutletId,
+  value, onChange, outlets, lockedOutletId, hideSource
 }: {
   value: PeriodFilterValue
   onChange: (v: PeriodFilterValue) => void
   outlets: { id: string; name: string }[]
   lockedOutletId?: string | null
+  hideSource?: boolean
 }) {
   const setPreset = (p: Preset) => onChange({ ...value, ...presetRange(p) })
 
@@ -303,10 +304,12 @@ export function PeriodFilter({
             onChange={(outletId) => onChange({ ...value, outletId: outletId as PeriodFilterValue['outletId'] })}
           />
         )}
-        <SourceCombobox
-          value={value.source}
-          onChange={(source) => onChange({ ...value, source: source as PeriodFilterValue['source'] })}
-        />
+        {!hideSource && (
+          <SourceCombobox
+            value={value.source}
+            onChange={(source) => onChange({ ...value, source: source as PeriodFilterValue['source'] })}
+          />
+        )}
       </div>
     </div>
   )

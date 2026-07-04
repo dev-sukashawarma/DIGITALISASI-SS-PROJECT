@@ -2,9 +2,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { ArrowLeft, MonitorSmartphone, ChevronDown } from 'lucide-react'
+import { ArrowLeft, ChevronDown } from 'lucide-react'
 import { useRole } from './RoleContext'
-import { accessibleGroups, isItemActive, resolvePortalUrl, resolvePosAdminUrl } from './navConfig'
+import { accessibleGroups, isItemActive, resolvePortalUrl } from './navConfig'
 import { useLeaveNotifications } from '@/hooks/useLeaveNotifications'
 
 export const Sidebar = () => {
@@ -12,7 +12,6 @@ export const Sidebar = () => {
   const { role } = useRole()
   const { pendingCount } = useLeaveNotifications()
   const resolvedPortalUrl = resolvePortalUrl()
-  const posAdminUrl = resolvePosAdminUrl()
 
   const groups = accessibleGroups(role)
   // Pintu yang sedang dibuka: default pintu yang memuat halaman aktif.
@@ -79,15 +78,6 @@ export const Sidebar = () => {
       </div>
 
       <div className="p-4 border-t border-suka-gray-100 space-y-2">
-        {role === 'ADMIN' && (
-          <a
-            href={posAdminUrl}
-            className="flex items-center gap-3 px-3 py-2 rounded-xl font-bold text-xs text-suka-orange hover:bg-suka-orange/10 border border-suka-orange/30 hover:border-suka-orange/50 transition-all active:scale-95"
-          >
-            <MonitorSmartphone size={16} className="text-suka-orange" />
-            Admin POS Kasir
-          </a>
-        )}
         <a
           href={resolvedPortalUrl}
           className="flex items-center gap-3 px-3 py-2 rounded-xl font-bold text-xs text-suka-brown/70 hover:bg-suka-cream hover:text-suka-brown border border-suka-gray-200 hover:border-suka-brown/20 transition-all active:scale-95"

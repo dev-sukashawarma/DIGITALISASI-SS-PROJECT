@@ -9,6 +9,15 @@ const nextConfig = {
     tsconfigPath: './tsconfig.json',
     ignoreBuildErrors: true,
   },
+  images: {
+    domains: ['qntuhtkujpwudcpudmbj.supabase.co'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'qntuhtkujpwudcpudmbj.supabase.co',
+      },
+    ],
+  },
 }
 
 export default nextConfig

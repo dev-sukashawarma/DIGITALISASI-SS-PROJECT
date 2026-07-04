@@ -22,6 +22,71 @@
   --color-suka-gray-700: #374151;
   --color-suka-gray-800: #1f2937;
   --color-suka-gray-900: #111827;
+
+  /* Shadow & animasi bawaan halaman pos-admin (migrasi dari pos-kasir) */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, .05), 0 4px 12px rgba(0, 0, 0, .04);
+  --shadow-card-hover: 0 4px 20px rgba(0, 0, 0, .10);
+  --shadow-amber: 0 4px 14px rgba(245, 158, 11, .35);
+
+  --animate-fade-up: fade-up .4s ease forwards;
+  --animate-fade-in: fade-in .3s ease forwards;
+  --animate-scale-in: scale-in .2s ease forwards;
+  --animate-slide-in: slide-in .35s cubic-bezier(.16, 1, .3, 1) forwards;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+}
+
+/* Komponen bawaan halaman pos-admin (migrasi dari pos-kasir) */
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-amber-500 text-white font-semibold
+           px-6 py-3.5 rounded-2xl
+           shadow-sm shadow-amber-500/20 hover:bg-amber-600
+           active:scale-[.98]
+           transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-white text-gray-700 font-semibold
+           px-6 py-3 rounded-2xl border border-gray-200
+           hover:border-gray-300 hover:bg-gray-50
+           active:scale-[.98]
+           transition-all duration-150;
+  }
+
+  .input {
+    @apply w-full px-4 py-3 rounded-xl
+           border border-gray-200 bg-white
+           text-gray-900 placeholder:text-gray-400
+           focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400
+           transition-all duration-150;
+  }
+
+  .input-label {
+    @apply block text-sm font-semibold text-gray-600 mb-1.5 tracking-tight;
+  }
+
+  .badge-amber {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700;
+  }
 }
 
 @layer base {

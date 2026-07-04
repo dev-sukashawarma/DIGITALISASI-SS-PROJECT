@@ -21,7 +21,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/owner/profit', label: 'Untung Rugi', shortLabel: 'Untung Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN', 'MITRA'] },
       { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN', 'MITRA'] },
       { href: '/dashboard/owner/targets', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN', 'MITRA'] },
-      { href: '/dashboard/owner/expenses/input', label: 'Input Pengeluaran', shortLabel: 'Input Biaya', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/expenses/input', label: 'Input Pengeluaran', shortLabel: 'Input Biaya', icon: Wallet, roles: ['ADMIN'] },
       { href: '/dashboard/owner/messages', label: 'Pesan ke Kasir', shortLabel: 'Pesan', icon: MessageSquareHeart, roles: ['OWNER', 'ADMIN'] },
     ],
   },
@@ -65,6 +65,20 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/panduan', label: 'Panduan Sistem', shortLabel: 'Panduan', icon: BookOpen, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
       { href: '/dashboard/system-health', label: 'Kesehatan Sistem', shortLabel: 'Sistem', icon: Activity, roles: ['ADMIN'] },
+    ],
+  },
+  {
+    title: 'Manajemen POS',
+    icon: Store,
+    roles: ['OWNER', 'ADMIN'],
+    items: [
+      { href: '/dashboard/pos-admin', label: 'Ringkasan POS', shortLabel: 'Ringkasan', icon: LayoutDashboard, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/pos-admin/menu', label: 'Daftar Menu POS', shortLabel: 'Menu', icon: Package, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/pos-admin/categories', label: 'Kategori Menu POS', shortLabel: 'Kategori', icon: Tags, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/pos-admin/promo', label: 'Manajemen Promo POS', shortLabel: 'Promo', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/pos-admin/reports', label: 'Laporan Shift POS', shortLabel: 'Shift', icon: FileText, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/pos-admin/users', label: 'Pengguna POS', shortLabel: 'Pengguna', icon: Users, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/pos-admin/settings', label: 'Pengaturan POS', shortLabel: 'Pengaturan', icon: Settings, roles: ['OWNER', 'ADMIN'] },
     ],
   },
 ]
@@ -121,9 +135,4 @@ export function resolvePosKasirUrl(): string {
     return 'http://localhost:3004'
   }
   return posUrl
-}
-
-/** Deep-link ke sistem admin POS (menu, kategori, promo, laporan, user). */
-export function resolvePosAdminUrl(): string {
-  return `${resolvePosKasirUrl()}/admin`
 }

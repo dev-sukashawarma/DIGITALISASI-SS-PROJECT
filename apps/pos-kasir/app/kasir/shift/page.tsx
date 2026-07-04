@@ -205,12 +205,16 @@ export default function ShiftPage() {
         setTopups([])
         setCashOrders([])
 
-        // Kunci nominal setoran awal Dana Operasional ke angka yang terakhir
-        // pernah diinput kasir untuk outlet ini — tidak boleh diketik bebas lagi.
+        // Kunci nominal setoran awal Dana Operasional ke SETORAN AWAL (starting_petty_cash)
+        // shift terakhir — BUKAN sisa/hitungan akhir laci. Jadi buka shift selalu
+        // reset ke nominal setoran standar (mis. 300K), bukan mengikuti sisa shift lalu.
+        // Ambil shift terakhir yang punya setoran awal valid (> 0) agar baris anomali
+        // (0/null) tidak "mengunci" outlet ke nominal keliru selamanya.
         const { data: lastShift } = await supabase
           .from('shifts')
           .select('starting_petty_cash')
           .eq('outlet_id', outletId)
+          .gt('starting_petty_cash', 0)
           .order('start_time', { ascending: false })
           .limit(1)
           .maybeSingle()

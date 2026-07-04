@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { LedgerStok } from '@/types/stok';
+import type { LedgerTransaksiSummary } from '@/types/stok';
 import { useBahanBaku } from '@/hooks/useBahanBaku';
+import { useLedgerTransaksiDetail } from '@/hooks/useLedger';
+import { useOutletScope } from '@/hooks/useOutletScope';
 import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
 
 const LABEL: Record<string, string> = {
@@ -23,12 +25,75 @@ const FILTER_LABELS: Record<string, string> = {
   adjustment: 'Penyesuaian ⚖️',
 };
 
-export function LedgerList({ items }: { items: LedgerStok[] }) {
+export function transaksiLabel(t: LedgerTransaksiSummary): { title: string; subtitle: string | null } {
+  if (t.ref_order_id) {
+    return { title: 'Order Selesai', subtitle: t.order_number ? `Order #${t.order_number}` : null };
+  }
+  if (t.ref_opname_id) {
+    const tanggal = t.opname_tanggal
+      ? new Date(t.opname_tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+      : null;
+    return { title: 'Opname', subtitle: tanggal ? `${t.opname_tipe ?? ''} — ${tanggal}` : null };
+  }
+  if (t.ref_shipment_id) {
+    return { title: 'Terima Kiriman', subtitle: null };
+  }
+  if (t.ref_transfer_id) {
+    return { title: 'Transfer Stok', subtitle: null };
+  }
+  return { title: LABEL[t.single_tipe ?? ''] ?? (t.single_tipe ?? 'Manual'), subtitle: null };
+}
+
+function getRelativeTimeString(dateStr: string) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 60) return `${diffMins <= 0 ? 1 : diffMins} mnt lalu`;
+  if (diffHours < 24) return `${diffHours} jam lalu`;
+  if (diffDays === 1) return 'Kemarin';
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function TransaksiExpandedDetail({ outletId, transaksiKey }: { outletId: string; transaksiKey: string }) {
+  const { rows, loading, error } = useLedgerTransaksiDetail(outletId, transaksiKey, true);
+
+  if (loading) return <p className="text-[10px] font-bold text-[#544437]/50 py-2 animate-pulse">Memuat detail...</p>;
+  if (error) return <p className="text-[10px] font-bold text-[#ba1a1a] py-2">Gagal memuat: {error}</p>;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[#d9c2b2]/25 space-y-2">
+      {rows.map((r) => {
+        const bahan = r.bahan_baku;
+        const satuan = bahan?.satuan ?? '';
+        return (
+          <div key={r.id} className="flex justify-between items-center text-[10px]">
+            <span className="font-bold text-[#1e1b15] uppercase truncate pr-2">{bahan?.nama ?? 'Bahan'}</span>
+            <span className="text-right flex-shrink-0">
+              <span className={r.qty > 0 ? 'text-[#0a7d2c] font-bold' : 'text-[#ba1a1a] font-bold'}>
+                {formatCompositeDelta(r.qty, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
+              </span>
+              <span className="text-[#544437]/50 font-medium">
+                {' '}→ sisa {formatCompositeSaldo(r.saldo_sesudah, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
+              </span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
   const { bahanBaku } = useBahanBaku();
+  const { selectedOutletId } = useOutletScope();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
-  // Map bahan_baku_id to name and unit
   const bahanMap = useMemo(() => {
     const map: Record<string, { nama: string; satuan: string; satuanKecil: string | null; faktorTampilan: number | null }> = {};
     for (const b of bahanBaku) {
@@ -37,55 +102,24 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
     return map;
   }, [bahanBaku]);
 
-  // Relative Time Formatter
-  const getRelativeTimeString = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 60) {
-      return `${diffMins <= 0 ? 1 : diffMins} mnt lalu`;
-    } else if (diffHours < 24) {
-      return `${diffHours} jam lalu`;
-    } else if (diffDays === 1) {
-      return 'Kemarin';
-    } else {
-      return date.toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    }
-  };
-
-  // Filter items based on search and transaction type
   const filteredItems = useMemo(() => {
-    return items.filter((l) => {
-      const bahan = bahanMap[l.bahan_baku_id];
-      const nameMatch = bahan
-        ? bahan.nama.toLowerCase().includes(searchTerm.toLowerCase())
-        : false;
-      const refMatch =
-        l.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (l.ref_shipment_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (l.ref_opname_id || '').toLowerCase().includes(searchTerm.toLowerCase());
-
+    return items.filter((t) => {
+      const { title, subtitle } = transaksiLabel(t);
+      const singleBahan = t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id] : undefined;
+      const nameMatch = singleBahan ? singleBahan.nama.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+      const refMatch = `${title} ${subtitle ?? ''}`.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesSearch = searchTerm === '' || nameMatch || refMatch;
 
-      // Filter by type
       let matchesFilter = false;
+      const tipe = t.jumlah_bahan === 1 ? t.single_tipe : null;
       if (activeFilter === 'all') {
         matchesFilter = true;
       } else if (activeFilter === 'inbound') {
-        matchesFilter = ['terima_kiriman', 'transfer_masuk'].includes(l.tipe);
+        matchesFilter = !!t.ref_order_id === false && (tipe ? ['terima_kiriman', 'transfer_masuk'].includes(tipe) : !!t.ref_shipment_id);
       } else if (activeFilter === 'outbound') {
-        matchesFilter = ['pemakaian', 'waste', 'transfer_keluar'].includes(l.tipe);
+        matchesFilter = !!t.ref_order_id || (tipe ? ['pemakaian', 'waste', 'transfer_keluar'].includes(tipe) : false);
       } else if (activeFilter === 'adjustment') {
-        matchesFilter = ['adjustment', 'opname_selisih'].includes(l.tipe);
+        matchesFilter = !!t.ref_opname_id || (tipe ? ['adjustment', 'opname_selisih'].includes(tipe) : false);
       }
 
       return matchesSearch && matchesFilter;
@@ -94,21 +128,18 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
 
   return (
     <div className="space-y-4">
-      {/* Search and Filter Row */}
       <div className="space-y-3">
-        {/* Search */}
         <div className="relative">
           <input
             type="text"
             className="w-full px-4 py-2.5 pl-9 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-medium transition-all shadow-sm"
-            placeholder="Cari nama bahan baku atau ID referensi..."
+            placeholder="Cari nama bahan baku atau nomor order/opname..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#544437]/40 text-xs">🔍</span>
         </div>
 
-        {/* Transaction Type Filter Pills */}
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
           {Object.entries(FILTER_LABELS).map(([key, label]) => {
             const isActive = activeFilter === key;
@@ -130,33 +161,40 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
         </div>
       </div>
 
-      {/* Ledger Feed */}
       <div className="space-y-3">
-        {filteredItems.map((l) => {
-          const bahan = bahanMap[l.bahan_baku_id];
-          const name = bahan ? bahan.nama : 'Bahan Baku';
-          const unit = bahan ? bahan.satuan : '';
-          const isPositive = l.qty > 0;
-          const relativeTime = getRelativeTimeString(l.created_at);
+        {filteredItems.map((t) => {
+          const { title, subtitle } = transaksiLabel(t);
+          const isManual = t.jumlah_bahan === 1 && !t.ref_order_id && !t.ref_opname_id && !t.ref_shipment_id && !t.ref_transfer_id;
+          const relativeTime = getRelativeTimeString(t.created_at);
+          const isExpanded = expandedKey === t.transaksi_key;
 
-          // Select icon and border accent
           let icon = '⚖️';
           let bgClass = 'bg-[#faf2e9] text-[#701604] border-[#d9c2b2]/40';
-          if (l.tipe === 'terima_kiriman' || l.tipe === 'transfer_masuk') {
+          if (t.ref_order_id) {
+            icon = '🧾';
+            bgClass = 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10';
+          } else if (t.ref_opname_id) {
+            icon = '📋';
+          } else if (t.ref_shipment_id) {
             icon = '📥';
             bgClass = 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25';
-          } else if (l.tipe === 'waste' || l.tipe === 'pemakaian') {
+          } else if (t.ref_transfer_id) {
+            icon = '📤';
+            bgClass = 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10';
+          } else if (t.single_tipe === 'terima_kiriman' || t.single_tipe === 'transfer_masuk') {
+            icon = '📥';
+            bgClass = 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25';
+          } else if (t.single_tipe === 'waste' || t.single_tipe === 'pemakaian') {
             icon = '🗑️';
             bgClass = 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10';
-          } else if (l.tipe === 'transfer_keluar') {
+          } else if (t.single_tipe === 'transfer_keluar') {
             icon = '📤';
             bgClass = 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10';
           }
 
-          return (
-            <Link key={l.id} href={`/stok/ledger/${l.id}`}>
-              <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 flex justify-between items-center shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer mb-2.5">
-                {/* Left Section: Icon and Details */}
+          const cardBody = (
+            <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md transition-all duration-200 mb-2.5">
+              <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3.5 min-w-0">
                   <span className={`w-10 h-10 rounded-xl border flex items-center justify-center text-lg flex-shrink-0 ${bgClass}`}>
                     {icon}
@@ -164,36 +202,70 @@ export function LedgerList({ items }: { items: LedgerStok[] }) {
                   <div className="truncate space-y-0.5">
                     <div className="flex items-center gap-2">
                       <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
-                        {LABEL[l.tipe] ?? l.tipe}
+                        {title}
                       </span>
                       <span className="text-[10px] text-[#544437]/50 font-medium">{relativeTime}</span>
                     </div>
                     <h4 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide truncate">
-                      {name}
+                      {isManual
+                        ? (t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id]?.nama ?? 'Bahan Baku' : 'Bahan Baku')
+                        : subtitle ?? `${t.jumlah_bahan} bahan`}
                     </h4>
-                    {l.catatan && (
-                      <p className="text-[9px] text-[#544437]/60 font-medium truncate mt-0.5">
-                        📝 {l.catatan}
-                      </p>
+                    {isManual && t.single_catatan && (
+                      <p className="text-[9px] text-[#544437]/60 font-medium truncate mt-0.5">📝 {t.single_catatan}</p>
                     )}
                   </div>
                 </div>
 
-                {/* Right Section: Quantity and Balance */}
                 <div className="text-right flex-shrink-0 space-y-0.5 pl-4">
-                  <p className={`font-bold text-sm ${isPositive ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
-                    {bahan
-                      ? formatCompositeDelta(l.qty, unit, bahan.satuanKecil, bahan.faktorTampilan)
-                      : `${isPositive ? '+' : ''}${l.qty} ${unit}`}
-                  </p>
-                  <p className="text-[9px] text-[#544437]/60 font-bold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#d9c2b2]/20 inline-block mt-1">
-                    Saldo: {bahan
-                      ? formatCompositeSaldo(l.saldo_sesudah, unit, bahan.satuanKecil, bahan.faktorTampilan)
-                      : `${l.saldo_sesudah} ${unit}`}
-                  </p>
+                  {isManual ? (
+                    <>
+                      <p className={`font-bold text-sm ${(t.single_qty ?? 0) > 0 ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
+                        {(() => {
+                          const bahan = t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id] : undefined;
+                          const satuan = bahan?.satuan ?? '';
+                          return formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null);
+                        })()}
+                      </p>
+                      <p className="text-[9px] text-[#544437]/60 font-bold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#d9c2b2]/20 inline-block mt-1">
+                        Saldo: {(() => {
+                          const bahan = t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id] : undefined;
+                          const satuan = bahan?.satuan ?? '';
+                          return formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null);
+                        })()}
+                      </p>
+                    </>
+                  ) : (
+                    <span className="text-[10px] font-bold text-[#701604]/70">
+                      {isExpanded ? '▲ Tutup' : '▼ Lihat Detail'}
+                    </span>
+                  )}
                 </div>
               </div>
-            </Link>
+
+              {!isManual && isExpanded && selectedOutletId && (
+                <TransaksiExpandedDetail outletId={selectedOutletId} transaksiKey={t.transaksi_key} />
+              )}
+            </div>
+          );
+
+          if (isManual) {
+            return (
+              <Link key={t.transaksi_key} href={`/stok/ledger/${t.transaksi_key}`}>
+                <div className="cursor-pointer active:scale-[0.98] transition-all">{cardBody}</div>
+              </Link>
+            );
+          }
+
+          return (
+            <button
+              key={t.transaksi_key}
+              type="button"
+              className="w-full text-left cursor-pointer active:scale-[0.99] transition-all"
+              onClick={() => setExpandedKey(isExpanded ? null : t.transaksi_key)}
+            >
+              {cardBody}
+            </button>
           );
         })}
 

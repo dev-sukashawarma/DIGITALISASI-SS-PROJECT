@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@suka/auth';
 import { useOutletScope } from '@/hooks/useOutletScope';
-import { useLedgerList } from '@/hooks/useLedger';
+import { useLedgerTransaksiList } from '@/hooks/useLedger';
 import { LedgerList } from '@/components/stok/LedgerList';
 import { OutletSwitcher } from '@/components/common/OutletSwitcher';
 import { BottomNav } from '@/components/common/BottomNav';
@@ -13,7 +13,7 @@ export default function LedgerPage() {
   const { outletStaff } = useAuth();
   const { selectedOutletId } = useOutletScope();
   const [page, setPage] = useState(0);
-  const { ledger, loading, error } = useLedgerList(selectedOutletId, page);
+  const { transaksi, loading, error } = useLedgerTransaksiList(selectedOutletId, page);
 
   if (!outletStaff) {
     return (
@@ -66,11 +66,11 @@ export default function LedgerPage() {
             <p className="text-[#701604]/70 font-bold uppercase tracking-wider text-xs mt-4 animate-pulse">Memuat data log pergerakan...</p>
           </div>
         ) : (
-          <LedgerList items={ledger || []} />
+          <LedgerList items={transaksi || []} />
         )}
 
         {/* Pagination Controls */}
-        {!loading && (ledger || []).length > 0 && (
+        {!loading && (transaksi || []).length > 0 && (
           <div className="flex justify-between items-center bg-white border border-[#d9c2b2]/40 p-4 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] mt-6">
             <button
               disabled={page === 0}
@@ -83,7 +83,7 @@ export default function LedgerPage() {
               Halaman {page + 1}
             </span>
             <button
-              disabled={(ledger || []).length < 50}
+              disabled={(transaksi || []).length < 50}
               onClick={() => setPage((p) => p + 1)}
               className="px-4 py-2 bg-white border border-[#d9c2b2]/45 hover:bg-[#fff8f1]/50 text-[#701604] disabled:opacity-35 disabled:hover:bg-white rounded-xl font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer"
             >

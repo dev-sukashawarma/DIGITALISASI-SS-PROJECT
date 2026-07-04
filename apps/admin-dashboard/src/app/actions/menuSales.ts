@@ -1,5 +1,6 @@
 'use server'
 
+import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 
@@ -10,7 +11,19 @@ export type AggregatedMenuSales = {
 }
 
 export async function getAggregatedMenuSales(filter: PeriodFilterValue): Promise<AggregatedMenuSales[]> {
-  const supabase = createSupabaseServerClient()
+  const cookieStore = cookies()
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (cookiesToSet) => {
+      try {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          cookieStore.set(name, value, options as any)
+        })
+      } catch {
+        // Ignored if called during SSR
+      }
+    }
+  })
   
   let q = supabase
     .from('menu_sales_scoped')

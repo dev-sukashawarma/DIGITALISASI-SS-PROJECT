@@ -44,6 +44,42 @@ export function transaksiLabel(t: LedgerTransaksiSummary): { title: string; subt
   return { title: LABEL[t.single_tipe ?? ''] ?? (t.single_tipe ?? 'Manual'), subtitle: null };
 }
 
+const DEFAULT_ICON = '⚖️';
+const DEFAULT_BG_CLASS = 'bg-[#faf2e9] text-[#701604] border-[#d9c2b2]/40';
+
+/**
+ * Single source of truth for transaction display classification (icon + background style),
+ * layered on top of transaksiLabel's ref/tipe checks so the two never drift apart.
+ */
+export function transaksiVisual(t: LedgerTransaksiSummary): { icon: string; bgClass: string } {
+  if (t.ref_order_id) {
+    return { icon: '🧾', bgClass: 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10' };
+  }
+  if (t.ref_opname_id) {
+    return { icon: '📋', bgClass: DEFAULT_BG_CLASS };
+  }
+  if (t.ref_shipment_id) {
+    return { icon: '📥', bgClass: 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25' };
+  }
+  if (t.ref_transfer_id) {
+    return { icon: '📤', bgClass: 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10' };
+  }
+  if (t.single_tipe === 'terima_kiriman' || t.single_tipe === 'transfer_masuk') {
+    return { icon: '📥', bgClass: 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25' };
+  }
+  if (t.single_tipe === 'waste' || t.single_tipe === 'pemakaian') {
+    return { icon: '🗑️', bgClass: 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10' };
+  }
+  if (t.single_tipe === 'transfer_keluar') {
+    return { icon: '📤', bgClass: 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10' };
+  }
+  // adjustment / opname_selisih intentionally fall through to the default styling below.
+  if (t.single_tipe === 'adjustment' || t.single_tipe === 'opname_selisih') {
+    return { icon: DEFAULT_ICON, bgClass: DEFAULT_BG_CLASS };
+  }
+  return { icon: DEFAULT_ICON, bgClass: DEFAULT_BG_CLASS };
+}
+
 function getRelativeTimeString(dateStr: string) {
   const date = new Date(dateStr);
   const now = new Date();
@@ -167,105 +203,86 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           const isManual = t.jumlah_bahan === 1 && !t.ref_order_id && !t.ref_opname_id && !t.ref_shipment_id && !t.ref_transfer_id;
           const relativeTime = getRelativeTimeString(t.created_at);
           const isExpanded = expandedKey === t.transaksi_key;
+          const detailId = `transaksi-detail-${t.transaksi_key}`;
 
-          let icon = '⚖️';
-          let bgClass = 'bg-[#faf2e9] text-[#701604] border-[#d9c2b2]/40';
-          if (t.ref_order_id) {
-            icon = '🧾';
-            bgClass = 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10';
-          } else if (t.ref_opname_id) {
-            icon = '📋';
-          } else if (t.ref_shipment_id) {
-            icon = '📥';
-            bgClass = 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25';
-          } else if (t.ref_transfer_id) {
-            icon = '📤';
-            bgClass = 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10';
-          } else if (t.single_tipe === 'terima_kiriman' || t.single_tipe === 'transfer_masuk') {
-            icon = '📥';
-            bgClass = 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25';
-          } else if (t.single_tipe === 'waste' || t.single_tipe === 'pemakaian') {
-            icon = '🗑️';
-            bgClass = 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10';
-          } else if (t.single_tipe === 'transfer_keluar') {
-            icon = '📤';
-            bgClass = 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10';
-          }
+          const { icon, bgClass } = transaksiVisual(t);
+          const bahan = t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id] : undefined;
+          const satuan = bahan?.satuan ?? '';
 
-          const cardBody = (
-            <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md transition-all duration-200 mb-2.5">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <span className={`w-10 h-10 rounded-xl border flex items-center justify-center text-lg flex-shrink-0 ${bgClass}`}>
-                    {icon}
-                  </span>
-                  <div className="truncate space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
-                        {title}
-                      </span>
-                      <span className="text-[10px] text-[#544437]/50 font-medium">{relativeTime}</span>
-                    </div>
-                    <h4 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide truncate">
-                      {isManual
-                        ? (t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id]?.nama ?? 'Bahan Baku' : 'Bahan Baku')
-                        : subtitle ?? `${t.jumlah_bahan} bahan`}
-                    </h4>
-                    {isManual && t.single_catatan && (
-                      <p className="text-[9px] text-[#544437]/60 font-medium truncate mt-0.5">📝 {t.single_catatan}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-right flex-shrink-0 space-y-0.5 pl-4">
-                  {isManual ? (
-                    <>
-                      <p className={`font-bold text-sm ${(t.single_qty ?? 0) > 0 ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
-                        {(() => {
-                          const bahan = t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id] : undefined;
-                          const satuan = bahan?.satuan ?? '';
-                          return formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null);
-                        })()}
-                      </p>
-                      <p className="text-[9px] text-[#544437]/60 font-bold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#d9c2b2]/20 inline-block mt-1">
-                        Saldo: {(() => {
-                          const bahan = t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id] : undefined;
-                          const satuan = bahan?.satuan ?? '';
-                          return formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null);
-                        })()}
-                      </p>
-                    </>
-                  ) : (
-                    <span className="text-[10px] font-bold text-[#701604]/70">
-                      {isExpanded ? '▲ Tutup' : '▼ Lihat Detail'}
+          const headerRow = (
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <span className={`w-10 h-10 rounded-xl border flex items-center justify-center text-lg flex-shrink-0 ${bgClass}`}>
+                  {icon}
+                </span>
+                <div className="truncate space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
+                      {title}
                     </span>
+                    <span className="text-[10px] text-[#544437]/50 font-medium">{relativeTime}</span>
+                  </div>
+                  <h4 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide truncate">
+                    {isManual
+                      ? (t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id]?.nama ?? 'Bahan Baku' : 'Bahan Baku')
+                      : subtitle ?? `${t.jumlah_bahan} bahan`}
+                  </h4>
+                  {isManual && t.single_catatan && (
+                    <p className="text-[9px] text-[#544437]/60 font-medium truncate mt-0.5">📝 {t.single_catatan}</p>
                   )}
                 </div>
               </div>
 
-              {!isManual && isExpanded && selectedOutletId && (
-                <TransaksiExpandedDetail outletId={selectedOutletId} transaksiKey={t.transaksi_key} />
-              )}
+              <div className="text-right flex-shrink-0 space-y-0.5 pl-4">
+                {isManual ? (
+                  <>
+                    <p className={`font-bold text-sm ${(t.single_qty ?? 0) > 0 ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
+                      {formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
+                    </p>
+                    <p className="text-[9px] text-[#544437]/60 font-bold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#d9c2b2]/20 inline-block mt-1">
+                      Saldo: {formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
+                    </p>
+                  </>
+                ) : (
+                  <span className="text-[10px] font-bold text-[#701604]/70">
+                    {isExpanded ? '▲ Tutup' : '▼ Lihat Detail'}
+                  </span>
+                )}
+              </div>
             </div>
           );
 
           if (isManual) {
             return (
               <Link key={t.transaksi_key} href={`/stok/ledger/${t.transaksi_key}`}>
-                <div className="cursor-pointer active:scale-[0.98] transition-all">{cardBody}</div>
+                <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md transition-all duration-200 mb-2.5 cursor-pointer active:scale-[0.98]">
+                  {headerRow}
+                </div>
               </Link>
             );
           }
 
           return (
-            <button
+            <div
               key={t.transaksi_key}
-              type="button"
-              className="w-full text-left cursor-pointer active:scale-[0.99] transition-all"
-              onClick={() => setExpandedKey(isExpanded ? null : t.transaksi_key)}
+              className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md transition-all duration-200 mb-2.5"
             >
-              {cardBody}
-            </button>
+              <button
+                type="button"
+                className="w-full text-left cursor-pointer active:scale-[0.99] transition-all"
+                onClick={() => setExpandedKey(isExpanded ? null : t.transaksi_key)}
+                aria-expanded={isExpanded}
+                aria-controls={detailId}
+              >
+                {headerRow}
+              </button>
+
+              {isExpanded && selectedOutletId && (
+                <div id={detailId}>
+                  <TransaksiExpandedDetail outletId={selectedOutletId} transaksiKey={t.transaksi_key} />
+                </div>
+              )}
+            </div>
           );
         })}
 

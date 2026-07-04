@@ -85,6 +85,16 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
     setRemainderInput((prev) => ({ ...prev, [bahanId]: remainder }));
 
     const remainderNum = remainder === '' ? 0 : Number(remainder);
+    const containersNum = containers === '' ? 0 : Number(containers);
+
+    if (containersNum < 0) {
+      setRemainderError((prev) => ({ ...prev, [bahanId]: 'Jumlah kontainer tidak boleh negatif' }));
+      return;
+    }
+    if (remainderNum < 0) {
+      setRemainderError((prev) => ({ ...prev, [bahanId]: 'Sisa tidak boleh negatif' }));
+      return;
+    }
     if (remainderNum >= faktorTampilan) {
       setRemainderError((prev) => ({ ...prev, [bahanId]: `Sisa harus kurang dari ${faktorTampilan}` }));
       return;
@@ -95,7 +105,6 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
       return next;
     });
 
-    const containersNum = containers === '' ? 0 : Number(containers);
     if (containers === '' && remainder === '') {
       setFisik((prev) => {
         const next = { ...prev };

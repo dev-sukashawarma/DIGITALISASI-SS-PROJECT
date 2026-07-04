@@ -8,7 +8,7 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { PageHeader } from '@/components/ui'
-import { Target, Search, FileText } from 'lucide-react'
+import { Target, FileText } from 'lucide-react'
 
 const formatRupiah = (num: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -118,7 +118,7 @@ export default function TargetHarianPage() {
                           
                           <div className="pl-3">
                             <h4 className="font-bold text-suka-brown text-sm mb-3">
-                              {record.outlets?.name || 'Outlet Tidak Diketahui'}
+                              {record.outlet_name}
                             </h4>
                             
                             <div className="space-y-3">

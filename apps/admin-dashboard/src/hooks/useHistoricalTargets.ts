@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useQuery } from '@tanstack/react-query'
 
@@ -43,6 +43,8 @@ export function useHistoricalTargets(filter: { from: string; to: string; outletI
       }
 
       const { data, error } = await query
+
+      if (error) {
         console.error('Error fetching historical targets:', error)
         return []
       }

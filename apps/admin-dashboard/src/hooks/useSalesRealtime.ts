@@ -27,9 +27,9 @@ export function useSalesRealtime() {
     const invalidate = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['sales-summary'] })
-        queryClient.invalidateQueries({ queryKey: ['sales-hourly'] })
+        queryClient.invalidateQueries({ queryKey: ['sales-hourly-raw'] })
         queryClient.invalidateQueries({ queryKey: ['menu-sales'] })
+        queryClient.invalidateQueries({ queryKey: ['target_progress_global'] })
       }, 800)
     }
 

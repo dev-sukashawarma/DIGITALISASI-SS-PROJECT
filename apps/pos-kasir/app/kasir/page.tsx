@@ -153,6 +153,7 @@ export default function CashierOrdersPage() {
         { event: '*', schema: 'public', table: 'orders' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
+          queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
         }
       )
       .subscribe()
@@ -180,6 +181,7 @@ export default function CashierOrdersPage() {
     )
     await supabase.from('orders').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', id)
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
+    queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
 
     // Kalau order ini berasal dari website order online, teruskan notifikasi
     // ke order-system supaya WA "pesanan siap diambil" terkirim ke customer.

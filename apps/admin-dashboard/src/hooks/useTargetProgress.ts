@@ -1,6 +1,7 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 export interface TargetProgressRow {
   outlet_id: string
@@ -11,41 +12,39 @@ export interface TargetProgressRow {
 
 /**
  * Progress target harian semua outlet (untuk dashboard owner).
- * Realtime: refetch (debounced) tiap ada perubahan tabel `orders`, jadi bar
- * progress ikut naik begitu kasir menyelesaikan transaksi.
+ * Realtime: refetch tiap ada perubahan tabel `orders` / `daily_sales_targets`.
  */
 export function useTargetProgress() {
   const supabase = createSupabaseBrowserClient()
-  const [rows, setRows] = useState<TargetProgressRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const queryClient = useQueryClient()
 
-  const fetchRows = async () => {
-    const { data } = await supabase
-      .from('daily_target_progress_scoped')
-      .select('*')
-      .order('outlet_name')
-    setRows(
-      (data ?? []).map((r: any) => ({
+  const { data: rows = [], isLoading: loading, refetch } = useQuery<TargetProgressRow[]>({
+    queryKey: ['target_progress_global'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('daily_target_progress_scoped')
+        .select('*')
+        .or(`outlet_name.neq.BustCache${Date.now()}`) // CACHE BUSTER IS MANDATORY FOR GET REQUESTS
+        .order('outlet_name')
+      return (data ?? []).map((r: any) => ({
         outlet_id: r.outlet_id,
         outlet_name: r.outlet_name,
         target_amount: Number(r.target_amount) || 0,
         omzet_today: Number(r.omzet_today) || 0,
       }))
-    )
-    setLoading(false)
-  }
+    },
+    staleTime: 0,
+    refetchInterval: 3000,
+  })
 
   useEffect(() => {
-    const doFetch = async () => {
-      await fetchRows()
-    }
-
-    doFetch()
+    let debounceTimer: ReturnType<typeof setTimeout>
 
     const scheduleRefetch = () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(fetchRows, 100)
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['target_progress_global'] })
+      }, 100)
     }
 
     const channel = supabase
@@ -55,10 +54,10 @@ export function useTargetProgress() {
       .subscribe()
 
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
+      clearTimeout(debounceTimer)
       supabase.removeChannel(channel)
     }
-  }, [supabase])
+  }, [supabase, queryClient])
 
-  return { rows, loading, refetch: fetchRows }
+  return { rows, loading, refetch }
 }

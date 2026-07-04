@@ -2,7 +2,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useTargetProgress } from '@/hooks/useTargetProgress'
 import { rupiahCompact } from '@/lib/format'
-import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, ChevronLeft, ChevronRight, Lightbulb } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
 
@@ -166,8 +166,8 @@ export function DailyTargetBoard() {
               {paginatedItems.map((r) => {
                 const pct = r.pct
                 const pctClamped = Math.min(pct, 100)
-                const isGreen = pct >= 75
-                const isYellow = pct >= 30 && pct < 75
+                const isGreen = pct >= 100
+                const isYellow = pct >= 30 && pct < 100
                 
                 const colorText = isGreen ? 'text-suka-green' : isYellow ? 'text-suka-orange' : 'text-red-500'
                 const colorBg = isGreen ? 'bg-suka-green' : isYellow ? 'bg-suka-orange' : 'bg-red-500'
@@ -188,7 +188,13 @@ export function DailyTargetBoard() {
                     className={`rounded-xl border p-3 transition-all cursor-pointer hover:shadow-md ${cardStyle}`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="text-xs font-extrabold text-suka-ink truncate">{cleanName(r.outlet_name)}</span>
+                      <div className="flex items-center gap-1.5 truncate">
+                        <div className="relative flex items-center justify-center w-3 h-3 shrink-0 ml-0.5 mr-1">
+                          <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 animate-pulse ${colorBg}`}></div>
+                          <Lightbulb className={`relative w-3 h-3 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] ${colorText} fill-current drop-shadow-md`} />
+                        </div>
+                        <span className="text-xs font-extrabold text-suka-ink truncate">{cleanName(r.outlet_name)}</span>
+                      </div>
                       <span className={`text-xs font-extrabold shrink-0 ${colorText}`}>
                         {Math.round(r.pct)}%
                       </span>

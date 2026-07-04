@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
-import { Target, PartyPopper } from 'lucide-react'
+import { Target, PartyPopper, Lightbulb } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
 interface Progress {
   outlet_name: string
@@ -26,76 +27,50 @@ function rupiahCompact(n: number): string {
 
 /**
  * Bar progress target harian — sticky di atas konten kasir, selalu terlihat.
- * Realtime: refetch (debounced) tiap ada perubahan `orders` outlet ini.
+ * Realtime: React Query akan di-invalidate saat ada perubahan orders.
  * Tampil hanya bila outlet punya target > 0. Selebrasi saat tercapai 100%.
  */
 export default function TargetProgressBar() {
   const { outletId, loaded } = useMyOutlet()
-  const [data, setData] = useState<Progress | null>(null)
   const [celebrate, setCelebrate] = useState(false)
   const wasDoneRef = useRef(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const fetchProgress = useCallback(async () => {
-    const supabase = createClient()
-    const { data: rows } = await supabase.rpc('get_my_target_progress')
-    const row = Array.isArray(rows) ? rows[0] : null
-    if (!row) {
-      setData(null)
-      return
-    }
-    const next: Progress = {
-      outlet_name: row.outlet_name,
-      target_amount: Number(row.target_amount) || 0,
-      omzet_today: Number(row.omzet_today) || 0,
-    }
-    setData(next)
-
-    // Selebrasi sekali saat baru tercapai
-    const done = next.target_amount > 0 && next.omzet_today >= next.target_amount
-    if (done && !wasDoneRef.current) {
-      setCelebrate(true)
-      setTimeout(() => setCelebrate(false), 5000)
-    }
-    wasDoneRef.current = done
-  }, [])
+  
+  const { data } = useQuery<Progress | null>({
+    queryKey: ['target_progress', outletId],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data: rows } = await supabase.rpc('get_my_target_progress')
+      const row = Array.isArray(rows) ? rows[0] : null
+      if (!row) return null
+      return {
+        outlet_name: row.outlet_name,
+        target_amount: Number(row.target_amount) || 0,
+        omzet_today: Number(row.omzet_today) || 0,
+      }
+    },
+    enabled: loaded && !!outletId,
+    staleTime: 0,
+  })
 
   useEffect(() => {
-    if (!loaded || !outletId) return
-    fetchProgress()
-
-    const supabase = createClient()
-    const scheduleRefetch = () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(fetchProgress, 100)
+    if (data && data.target_amount > 0) {
+      const done = data.omzet_today >= data.target_amount
+      if (done && !wasDoneRef.current) {
+        setCelebrate(true)
+        setTimeout(() => setCelebrate(false), 5000)
+      }
+      wasDoneRef.current = done
     }
+  }, [data])
 
-    const channel = supabase
-      .channel(`kasir-target-progress`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        scheduleRefetch
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'daily_sales_targets' },
-        scheduleRefetch
-      )
-      .subscribe()
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      supabase.removeChannel(channel)
-    }
-  }, [loaded, outletId, fetchProgress])
 
   if (!data || data.target_amount <= 0) return null
 
   const pct = Math.min((data.omzet_today / data.target_amount) * 100, 100)
   const pctRaw = Math.round((data.omzet_today / data.target_amount) * 100)
-  const isGreen = pctRaw >= 75
-  const isYellow = pctRaw >= 30 && pctRaw < 75
+  const isGreen = pctRaw >= 100
+  const isYellow = pctRaw >= 30 && pctRaw < 100
   const isRed = pctRaw < 30
   const done = data.omzet_today >= data.target_amount
 
@@ -131,6 +106,10 @@ export default function TargetProgressBar() {
             <span className="text-[11px] font-extrabold uppercase tracking-wider hidden sm:inline">
               {done ? 'Target Tercapai!' : 'Target Hari Ini'}
             </span>
+            <div className="relative flex items-center justify-center w-3.5 h-3.5 ml-1">
+              <div className={`absolute inset-0 rounded-full blur-[4px] opacity-60 animate-pulse ${barColor}`}></div>
+              <Lightbulb className={`relative w-3.5 h-3.5 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] ${barColor.replace('bg-', 'text-')} fill-current drop-shadow-md`} />
+            </div>
           </div>
 
           <div className="flex-1 min-w-0">

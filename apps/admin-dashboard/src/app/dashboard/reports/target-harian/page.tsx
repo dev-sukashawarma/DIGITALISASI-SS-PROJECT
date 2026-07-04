@@ -152,7 +152,7 @@ export default function LaporanTargetHarianPage() {
                                 className={`h-1.5 rounded-full transition-all duration-500
                                   ${record.achieved_pct >= 100 ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'}
                                 `}
-                                style={{ width: \`\${Math.min(record.achieved_pct, 100)}%\` }}
+                                style={{ width: `${Math.min(record.achieved_pct, 100)}%` }}
                               ></div>
                             </div>
                           </div>

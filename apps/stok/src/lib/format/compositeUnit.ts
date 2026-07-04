@@ -9,11 +9,18 @@ export function formatCompositeSaldo(
   faktorTampilan: number | null
 ): string {
   if (!satuanKecil || !faktorTampilan) {
+    // Fallback tanpa tanda '+': saldo = total absolut, beda dari delta (pergerakan bertanda).
     return `${qty} ${satuan}`
   }
-  const whole = Math.floor(qty)
+  let whole = Math.floor(qty)
   const remainderRaw = (qty - whole) * faktorTampilan
-  const remainder = Math.round(remainderRaw * 100) / 100
+  let remainder = Math.round(remainderRaw * 100) / 100
+  // Floating-point drift (mis. qty = 2.9999999999) bisa bikin whole floor turun
+  // tapi remainder dibulatkan naik jadi persis faktorTampilan. Carry-kan.
+  if (remainder >= faktorTampilan) {
+    whole += 1
+    remainder = 0
+  }
   return `${whole} ${satuan} + ${remainder} ${satuanKecil}`
 }
 
@@ -38,6 +45,8 @@ export function formatCompositeDelta(
 /**
  * Gabung input 2-field opname (kontainer utuh + sisa dalam satuan kecil)
  * jadi satu qty_fisik desimal dalam satuan besar.
+ *
+ * Asumsi: faktorTampilan > 0 (dijamin `CHECK (faktor_tampilan > 0)` di DB).
  */
 export function combineOpnameInput(
   containers: number,

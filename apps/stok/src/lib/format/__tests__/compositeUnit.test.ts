@@ -25,6 +25,10 @@ describe('formatCompositeSaldo', () => {
   it('fallback ke tampilan lama kalau faktor_tampilan null', () => {
     expect(formatCompositeSaldo(4.5, 'kg', 'gram', null)).toBe('4.5 kg')
   })
+
+  it('carry: qty mendekati batas integer akibat floating-point drift', () => {
+    expect(formatCompositeSaldo(2.9999999999, 'roll', 'cm', 760)).toBe('3 roll + 0 cm')
+  })
 })
 
 describe('formatCompositeDelta', () => {

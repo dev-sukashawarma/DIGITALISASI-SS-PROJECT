@@ -1,164 +1,164 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useHistoricalTargets } from '@/hooks/useHistoricalTargets'
+import { useOutlets } from '@/hooks/useOutlets'
+import { useScopedFilter } from '@/hooks/useScopedFilter'
+import { PeriodFilter } from '@/components/PeriodFilter'
+import { PageHeader } from '@/components/ui'
+import { Target, Search, FileText } from 'lucide-react'
 
 const formatRupiah = (num: number) => {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 0
   }).format(num)
 }
 
-export default function LaporanTargetHarianPage() {
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const year = currentDate.getFullYear()
-  const month = currentDate.getMonth() + 1 // 1-12
+export default function TargetHarianPage() {
+  const { data: outlets = [] } = useOutlets()
+  const { filter, setFilter, lockedOutletId } = useScopedFilter()
+  const scopedOutlets = useMemo(
+    () => (lockedOutletId ? outlets.filter((o) => o.id === lockedOutletId) : outlets),
+    [outlets, lockedOutletId]
+  )
+  
+  const { rows, isLoading } = useHistoricalTargets(filter)
 
-  const { groupedByDate, isLoading } = useHistoricalTargets(year, month)
+  // Group by date
+  const groupedData = useMemo(() => {
+    const groups: Record<string, typeof rows> = {}
+    rows.forEach(row => {
+      if (!groups[row.record_date]) {
+        groups[row.record_date] = []
+      }
+      groups[row.record_date].push(row)
+    })
+    
+    // Sort dates descending
+    return Object.keys(groups)
+      .sort((a, b) => b.localeCompare(a))
+      .map(date => ({
+        date,
+        records: groups[date]
+      }))
+  }, [rows])
 
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(year, month - 2, 1))
-  }
-
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(year, month, 1))
-  }
-
-  // Get days array sorted descending
-  const sortedDates = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a))
+  const dateRangeLabel = useMemo(() => {
+    try {
+      if (filter.from === filter.to) {
+        return format(parseISO(filter.from), 'dd MMMM yyyy', { locale: id })
+      }
+      return `${format(parseISO(filter.from), 'dd MMM yyyy', { locale: id })} - ${format(parseISO(filter.to), 'dd MMM yyyy', { locale: id })}`
+    } catch {
+      return ''
+    }
+  }, [filter.from, filter.to])
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-8 pb-24">
-      {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/70 backdrop-blur-xl border border-white/50 p-6 rounded-3xl shadow-sm">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-br from-gray-900 to-gray-600 bg-clip-text text-transparent">
-            Laporan Target Harian
-          </h1>
-          <p className="text-gray-500 mt-1">Rekapitulasi pencapaian target harian per outlet.</p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader 
+        title="Laporan Target Harian" 
+        description="Rekapitulasi historis pencapaian target harian per outlet."
+      >
+        <PeriodFilter 
+          value={filter} 
+          onChange={setFilter} 
+          outlets={scopedOutlets} 
+          lockedOutletId={lockedOutletId} 
+        />
+      </PageHeader>
 
-        {/* Month Picker */}
-        <div className="flex items-center gap-3 bg-gray-50 p-1.5 rounded-2xl border border-gray-100 shadow-inner">
-          <button
-            onClick={handlePrevMonth}
-            className="p-2 hover:bg-white rounded-xl transition-all text-gray-500 hover:text-gray-900 hover:shadow-sm"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <span className="font-semibold text-gray-700 min-w-[120px] text-center">
-            {format(currentDate, 'MMMM yyyy', { locale: id })}
-          </span>
-          <button
-            onClick={handleNextMonth}
-            className="p-2 hover:bg-white rounded-xl transition-all text-gray-500 hover:text-gray-900 hover:shadow-sm"
-            disabled={year === new Date().getFullYear() && month === new Date().getMonth() + 1}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Content section */}
       {isLoading ? (
-        <div className="flex justify-center items-center py-24">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <div className="flex flex-col items-center justify-center py-20 text-suka-brown font-bold text-sm bg-white rounded-3xl border border-suka-brown/10 shadow-sm">
+          <div className="w-8 h-8 border-4 border-suka-orange border-t-transparent rounded-full animate-spin mb-4"></div>
+          Memuat data laporan...
         </div>
-      ) : sortedDates.length === 0 ? (
-        <div className="text-center py-24 bg-white rounded-3xl border border-gray-100 border-dashed shadow-sm">
-          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
+      ) : rows.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-suka-brown/10 shadow-sm border-dashed">
+          <div className="w-16 h-16 bg-suka-cream/50 rounded-2xl flex items-center justify-center mb-4 text-suka-brown/30">
+            <FileText className="w-8 h-8" />
           </div>
-          <p className="text-xl font-medium text-gray-900">Belum Ada Data Laporan</p>
-          <p className="text-gray-500 mt-2">Data laporan untuk bulan {format(currentDate, 'MMMM yyyy', { locale: id })} belum tersedia.</p>
+          <h3 className="text-lg font-bold text-suka-brown mb-1">Belum Ada Data Laporan</h3>
+          <p className="text-sm text-suka-brown/50 text-center max-w-sm">
+            Data laporan untuk periode {dateRangeLabel} belum tersedia.
+          </p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {sortedDates.map((dateStr) => {
-            const dayRecords = groupedByDate[dateStr]
-            const totalTarget = dayRecords.reduce((sum, r) => sum + r.target_amount, 0)
-            const totalOmzet = dayRecords.reduce((sum, r) => sum + r.omzet_achieved, 0)
-            const overallPct = totalTarget > 0 ? (totalOmzet / totalTarget) * 100 : 0
+        <div className="space-y-8">
+          {groupedData.map((group) => {
+            const formattedDate = format(parseISO(group.date), 'EEEE, dd MMMM yyyy', { locale: id })
             
             return (
-              <div key={dateStr} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-                {/* Date Header */}
-                <div className="bg-gray-50/50 border-b border-gray-100 p-5 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900">
-                      {format(parseISO(dateStr), 'EEEE, d MMMM yyyy', { locale: id })}
-                    </h2>
-                    <div className="flex items-center gap-4 mt-2">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Target</span>
-                        <span className="font-semibold text-gray-700">{formatRupiah(totalTarget)}</span>
-                      </div>
-                      <div className="w-px h-8 bg-gray-200"></div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Omzet</span>
-                        <span className="font-semibold text-gray-900">{formatRupiah(totalOmzet)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Overall Progress for the day */}
-                  <div className="flex flex-col items-end min-w-[120px]">
-                    <span className="text-sm font-medium text-gray-500 mb-1">Pencapaian Total</span>
-                    <div className="flex items-center gap-3 w-full justify-end">
-                      <span className={`text-2xl font-bold ${overallPct >= 100 ? 'text-emerald-500' : overallPct >= 80 ? 'text-amber-500' : 'text-rose-500'}`}>
-                        {overallPct.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
+              <div key={group.date} className="bg-white rounded-3xl shadow-sm border border-suka-brown/10 overflow-hidden">
+                <div className="px-6 py-4 bg-gradient-to-r from-suka-cream/30 to-transparent border-b border-suka-brown/10">
+                  <h3 className="font-bold text-suka-brown flex items-center gap-2">
+                    <Target className="w-4 h-4 text-suka-orange" />
+                    {formattedDate}
+                  </h3>
                 </div>
-
-                {/* Outlet List */}
-                <div className="p-2 sm:p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {dayRecords.map((record) => (
-                      <div key={record.id} className="p-4 rounded-2xl border border-gray-100 bg-white hover:bg-gray-50/50 transition-colors">
-                        <div className="flex justify-between items-start mb-3">
-                          <h3 className="font-semibold text-gray-800 line-clamp-1">{record.outlet_name}</h3>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
-                            ${record.achieved_pct >= 100 ? 'bg-emerald-100 text-emerald-700' 
-                              : record.achieved_pct >= 80 ? 'bg-amber-100 text-amber-700' 
-                              : 'bg-rose-100 text-rose-700'}`}
-                          >
-                            {record.achieved_pct.toFixed(1)}%
-                          </span>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Target</span>
-                            <span className="font-medium text-gray-700">{formatRupiah(record.target_amount)}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Tercapai</span>
-                            <span className="font-medium text-gray-900">{formatRupiah(record.omzet_achieved)}</span>
-                          </div>
+                
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {group.records.map((record) => {
+                      const isAchieved = record.achieved_pct >= 100
+                      
+                      return (
+                        <div 
+                          key={record.id}
+                          className="p-4 rounded-2xl border border-suka-gray-200 bg-white hover:border-suka-orange/30 hover:shadow-md transition-all duration-300 relative overflow-hidden group"
+                        >
+                          <div className={`absolute top-0 left-0 w-1 h-full ${
+                            isAchieved ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'
+                          }`} />
                           
-                          {/* Progress bar */}
-                          <div className="pt-2">
-                            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                              <div 
-                                className={`h-1.5 rounded-full transition-all duration-500
-                                  ${record.achieved_pct >= 100 ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'}
-                                `}
-                                style={{ width: `${Math.min(record.achieved_pct, 100)}%` }}
-                              ></div>
+                          <div className="pl-3">
+                            <h4 className="font-bold text-suka-brown text-sm mb-3">
+                              {record.outlets?.name || 'Outlet Tidak Diketahui'}
+                            </h4>
+                            
+                            <div className="space-y-3">
+                              <div>
+                                <div className="text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider mb-0.5">Omzet Dicapai</div>
+                                <div className="font-extrabold text-suka-brown text-lg">
+                                  {formatRupiah(record.omzet_achieved)}
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <div className="flex justify-between items-end mb-1">
+                                  <div className="text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider">Target</div>
+                                  <div className="font-bold text-suka-gray-600 text-xs">
+                                    {formatRupiah(record.target_amount)}
+                                  </div>
+                                </div>
+                                <div className="h-1.5 w-full bg-suka-gray-100 rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-1.5 rounded-full transition-all duration-500
+                                      ${isAchieved ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'}
+                                    `}
+                                    style={{ width: `${Math.min(record.achieved_pct, 100)}%` }}
+                                  ></div>
+                                </div>
+                                <div className="mt-1.5 text-right">
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                    isAchieved ? 'bg-emerald-50 text-emerald-600' : 
+                                    record.achieved_pct >= 80 ? 'bg-amber-50 text-amber-600' : 
+                                    'bg-rose-50 text-rose-600'
+                                  }`}>
+                                    {record.achieved_pct.toFixed(1)}%
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               </div>

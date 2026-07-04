@@ -13,19 +13,16 @@ export interface HistoricalTargetRow {
   achieved_pct: number
 }
 
-export function useHistoricalTargets(year: number, month: number) {
+export function useHistoricalTargets(filter: { from: string; to: string; outletId?: string | null }) {
   const supabase = createSupabaseBrowserClient()
 
-  // Format YYYY-MM
-  const monthStr = `${year}-${month.toString().padStart(2, '0')}`
-  const startDate = `${monthStr}-01`
-  // Get last day of month
-  const endDate = new Date(year, month, 0).toISOString().split('T')[0]
+  const startDate = filter.from
+  const endDate = filter.to
 
   const { data: rows = [], isLoading } = useQuery<HistoricalTargetRow[]>({
-    queryKey: ['historical_targets', monthStr],
+    queryKey: ['historical_targets', startDate, endDate, filter.outletId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('historical_daily_targets')
         .select(`
           id,
@@ -41,7 +38,11 @@ export function useHistoricalTargets(year: number, month: number) {
         .order('record_date', { ascending: false })
         .order('achieved_pct', { ascending: false })
 
-      if (error) {
+      if (filter.outletId && filter.outletId !== 'all') {
+        query = query.eq('outlet_id', filter.outletId)
+      }
+
+      const { data, error } = await query
         console.error('Error fetching historical targets:', error)
         return []
       }

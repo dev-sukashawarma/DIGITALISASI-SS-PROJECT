@@ -62,6 +62,12 @@ describe('fetchItemDetail access control', () => {
       }
       if (table === 'ledger_stok') return createQueryBuilderMock({ data: [], error: null });
       if (table === 'opname_item') return createQueryBuilderMock({ data: null, error: null });
+      if (table === 'bahan_baku') {
+        return createQueryBuilderMock({
+          data: { satuan_kecil: null, faktor_tampilan: null },
+          error: null,
+        });
+      }
       throw new Error(`unexpected table: ${table}`);
     });
 

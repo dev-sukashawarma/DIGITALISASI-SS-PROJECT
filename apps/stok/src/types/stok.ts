@@ -1,4 +1,5 @@
-export type Satuan = 'kg'|'gram'|'liter'|'ml'|'pcs'|'box'|'pack'|'ikat'|'botol'
+export type Satuan = 'kg'|'gram'|'liter'|'ml'|'pcs'|'box'|'pack'|'ikat'|'botol'|'crt'|'kompan'
+export type SatuanKecil = 'liter'|'ml'|'gram'|'cm'|'lembar'
 export type Kategori = 'protein'|'sayur'|'bumbu'|'saus'|'roti'|'kemasan'|'minuman'|'lainnya'
 export type LedgerTipe =
   | 'terima_kiriman' | 'pemakaian' | 'waste' | 'adjustment'
@@ -10,6 +11,9 @@ export type StokLevel = 'aman'|'menipis'|'kritis'|'unknown'
 export interface BahanBaku {
   id: string; nama: string; satuan: Satuan; kategori: Kategori
   default_reorder_point: number; is_active: boolean; created_at: string
+  faktor_konversi: number
+  satuan_kecil: SatuanKecil | null
+  faktor_tampilan: number | null
 }
 export interface Opname {
   id: string; outlet_id: string; tanggal: string; tipe: OpnameTipe
@@ -31,7 +35,7 @@ export interface OpnameItem {
 export interface LedgerStok {
   id: string; outlet_id: string; bahan_baku_id: string; tipe: LedgerTipe
   qty: number; catatan: string | null; ref_shipment_id: string | null
-  ref_opname_id: string | null; ref_transfer_id: string | null
+  ref_opname_id: string | null; ref_transfer_id: string | null; ref_order_id: string | null
   created_by: string | null; created_at: string
   saldo_sebelum: number; saldo_sesudah: number
 }

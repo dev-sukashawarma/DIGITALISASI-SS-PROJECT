@@ -11,7 +11,7 @@ export type AggregatedMenuSales = {
 }
 
 export async function getAggregatedMenuSales(filter: PeriodFilterValue): Promise<AggregatedMenuSales[]> {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: (cookiesToSet) => {

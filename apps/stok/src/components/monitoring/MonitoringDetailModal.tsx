@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { StatusBadge } from './StatusBadge';
 import { fetchItemDetail } from '@/lib/queries/monitoring';
 import type { MonitoringItem, DetailItem } from '@/lib/types/monitoring';
+import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
 
 interface MonitoringDetailModalProps {
   item: MonitoringItem;
@@ -63,7 +64,7 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
                 <div>
                   <p className="text-[10px] font-bold text-[#544437]/70 uppercase tracking-wider">Stok Aktual</p>
                   <p className="text-2xl font-black text-[#904d00] mt-1">
-                    {detail.current_qty} <span className="text-xs font-bold text-[#544437]/50 capitalize">{detail.satuan}</span>
+                    {formatCompositeSaldo(detail.current_qty, detail.satuan ?? '', detail.satuan_kecil, detail.faktor_tampilan)}
                   </p>
                 </div>
                 <div>
@@ -145,7 +146,7 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
                           </p>
                         </div>
                         <p className={`font-black text-sm ml-4 whitespace-nowrap ${ledger.qty > 0 ? 'text-[#006e24]' : 'text-[#ba1a1a]'}`}>
-                          {ledger.qty > 0 ? '+' : ''}{ledger.qty} {detail.satuan}
+                          {formatCompositeDelta(ledger.qty, detail.satuan ?? '', detail.satuan_kecil, detail.faktor_tampilan)}
                         </p>
                       </div>
                     ))}

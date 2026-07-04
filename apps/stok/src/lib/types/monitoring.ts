@@ -42,6 +42,8 @@ export interface OpnameStatus {
 }
 
 export interface DetailItem extends MonitoringItem {
+  satuan_kecil: string | null;
+  faktor_tampilan: number | null;
   recent_ledger: {
     type: string;
     qty: number;

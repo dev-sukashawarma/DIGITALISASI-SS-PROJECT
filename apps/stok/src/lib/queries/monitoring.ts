@@ -180,6 +180,15 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 
   if (itemError) throw itemError;
 
+  // monitoring_view_spv doesn't carry satuan_kecil/faktor_tampilan (view is
+  // intentionally left untouched to avoid drift risk). Fetch them separately
+  // from bahan_baku so the modal can render composite unit format.
+  const { data: bahanExtra } = await supabase
+    .from('bahan_baku')
+    .select('satuan_kecil, faktor_tampilan')
+    .eq('id', bahan_baku_id)
+    .maybeSingle();
+
   // Fetch recent ledger entries. Alias tipe→type and catatan→notes so the
   // returned shape matches what MonitoringDetailModal renders (it reads
   // ledger.type / ledger.notes — the raw column names would be undefined and
@@ -218,6 +227,8 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 
   return {
     ...itemData,
+    satuan_kecil: bahanExtra?.satuan_kecil ?? null,
+    faktor_tampilan: bahanExtra?.faktor_tampilan ?? null,
     recent_ledger: ledgerData || [],
     discrepancy_details: discrepancyDetails,
   };

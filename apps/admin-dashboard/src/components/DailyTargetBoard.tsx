@@ -190,8 +190,8 @@ export function DailyTargetBoard() {
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-1.5 truncate">
                         <div className="relative flex items-center justify-center w-3 h-3 shrink-0 ml-0.5 mr-1">
-                          <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 ${colorBg} ${isGreen ? '' : isYellow ? 'animate-pulse' : 'animate-blink-fast'}`}></div>
-                          <div className={`relative w-2 h-2 rounded-full ${colorBg} shadow-sm ${isGreen ? '' : isYellow ? 'animate-pulse' : 'animate-blink-fast'}`}></div>
+                          <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 ${colorBg} ${isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
+                          <div className={`relative w-2 h-2 rounded-full ${colorBg} shadow-sm ${isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
                         </div>
                         <span className="text-xs font-extrabold text-suka-ink truncate">{cleanName(r.outlet_name)}</span>
                       </div>
@@ -303,6 +303,15 @@ export function DailyTargetBoard() {
           </div>
         </div>
       )}
+      <style>{`
+        @keyframes manual-blink {
+          0%, 49% { opacity: 1; }
+          50%, 100% { opacity: 0; }
+        }
+        .manual-blink-fast {
+          animation: manual-blink 0.4s infinite;
+        }
+      `}</style>
     </>
   )
 }

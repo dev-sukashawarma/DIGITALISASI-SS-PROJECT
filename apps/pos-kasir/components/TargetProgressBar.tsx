@@ -107,8 +107,8 @@ export default function TargetProgressBar() {
               {done ? 'Target Tercapai!' : 'Target Hari Ini'}
             </span>
             <div className="relative flex items-center justify-center w-3.5 h-3.5 ml-1">
-              <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 ${barColor} ${done || isGreen ? '' : isYellow ? 'animate-pulse' : 'animate-blink-fast'}`}></div>
-              <div className={`relative w-2.5 h-2.5 rounded-full ${barColor} shadow-sm ${done || isGreen ? '' : isYellow ? 'animate-pulse' : 'animate-blink-fast'}`}></div>
+              <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 ${barColor} ${done || isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
+              <div className={`relative w-2 h-2 rounded-full ${barColor} shadow-sm ${done || isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
             </div>
           </div>
 
@@ -138,6 +138,15 @@ export default function TargetProgressBar() {
           </div>
         </div>
       )}
+      <style>{`
+        @keyframes manual-blink {
+          0%, 49% { opacity: 1; }
+          50%, 100% { opacity: 0; }
+        }
+        .manual-blink-fast {
+          animation: manual-blink 0.4s infinite;
+        }
+      `}</style>
     </div>
   )
 }

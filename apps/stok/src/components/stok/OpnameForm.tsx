@@ -6,6 +6,7 @@ import { useBahanBaku } from '@/hooks/useBahanBaku';
 import { useStokBalance } from '@/hooks/useStokBalance';
 import { useOpnameActions } from '@/hooks/useOpname';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
+import { combineOpnameInput } from '@/lib/format/compositeUnit';
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'Semua',
@@ -27,6 +28,9 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
 
   const [tipe, setTipe] = useState('harian');
   const [fisik, setFisik] = useState<Record<string, string>>({});
+  const [containerInput, setContainerInput] = useState<Record<string, string>>({});
+  const [remainderInput, setRemainderInput] = useState<Record<string, string>>({});
+  const [remainderError, setRemainderError] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -71,6 +75,39 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
     });
   };
 
+  const handleCompositeChange = (
+    bahanId: string,
+    containers: string,
+    remainder: string,
+    faktorTampilan: number
+  ) => {
+    setContainerInput((prev) => ({ ...prev, [bahanId]: containers }));
+    setRemainderInput((prev) => ({ ...prev, [bahanId]: remainder }));
+
+    const remainderNum = remainder === '' ? 0 : Number(remainder);
+    if (remainderNum >= faktorTampilan) {
+      setRemainderError((prev) => ({ ...prev, [bahanId]: `Sisa harus kurang dari ${faktorTampilan}` }));
+      return;
+    }
+    setRemainderError((prev) => {
+      const next = { ...prev };
+      delete next[bahanId];
+      return next;
+    });
+
+    const containersNum = containers === '' ? 0 : Number(containers);
+    if (containers === '' && remainder === '') {
+      setFisik((prev) => {
+        const next = { ...prev };
+        delete next[bahanId];
+        return next;
+      });
+      return;
+    }
+    const combined = combineOpnameInput(containersNum, remainderNum, faktorTampilan);
+    setFisik((prev) => ({ ...prev, [bahanId]: combined.toString() }));
+  };
+
   // Filter materials based on search and category
   const filteredBahan = useMemo(() => {
     return bahanBaku.filter((b) => {
@@ -81,6 +118,10 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
   }, [bahanBaku, searchTerm, activeCategory]);
 
   async function handleFinalize() {
+    if (Object.keys(remainderError).length > 0) {
+      showToast('🔴 Perbaiki dulu input sisa yang melebihi batas kontainer.', 'warning');
+      return;
+    }
     setBusy(true);
     try {
       const opname = await createDraft(outletId, tipe, createdBy, notes);
@@ -260,35 +301,69 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
               </div>
 
               {/* Card Bottom: Input Actions */}
-              <div className="mt-3.5 flex items-center justify-end">
-                <div className="flex items-center bg-[#faf2e9]/40 border border-[#d9c2b2]/45 rounded-lg overflow-hidden p-0.5 shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => handleDecrement(b.id, step)}
-                    className="w-8 h-8 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-90 transition-all rounded-md text-xs cursor-pointer"
-                  >
-                    —
-                  </button>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    className="w-14 text-center bg-transparent border-none focus:outline-none focus:ring-0 font-extrabold text-xs text-[#701604] focus:ring-transparent focus:border-transparent py-1 no-spinner"
-                    placeholder="fisik"
-                    value={val}
-                    onChange={(e) => {
-                      const inputVal = e.target.value;
-                      setFisik((prev) => ({ ...prev, [b.id]: inputVal }));
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleIncrement(b.id, step)}
-                    className="w-8 h-8 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-90 transition-all rounded-md text-xs cursor-pointer"
-                  >
-                    +
-                  </button>
+              {b.satuan_kecil && b.faktor_tampilan ? (
+                <div className="mt-3.5 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      className="w-16 text-center bg-white border border-[#d9c2b2]/45 rounded-lg font-extrabold text-xs text-[#701604] py-1.5 no-spinner"
+                      placeholder="0"
+                      value={containerInput[b.id] ?? ''}
+                      onChange={(e) =>
+                        handleCompositeChange(b.id, e.target.value, remainderInput[b.id] ?? '', b.faktor_tampilan!)
+                      }
+                    />
+                    <span className="text-[9px] font-bold text-[#544437]/60">{b.satuan} +</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      className="w-16 text-center bg-white border border-[#d9c2b2]/45 rounded-lg font-extrabold text-xs text-[#701604] py-1.5 no-spinner"
+                      placeholder="0"
+                      value={remainderInput[b.id] ?? ''}
+                      onChange={(e) =>
+                        handleCompositeChange(b.id, containerInput[b.id] ?? '', e.target.value, b.faktor_tampilan!)
+                      }
+                    />
+                    <span className="text-[9px] font-bold text-[#544437]/60">{b.satuan_kecil}</span>
+                  </div>
+                  {remainderError[b.id] && (
+                    <p className="text-[9px] font-bold text-[#ba1a1a]">{remainderError[b.id]}</p>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="mt-3.5 flex items-center justify-end">
+                  <div className="flex items-center bg-[#faf2e9]/40 border border-[#d9c2b2]/45 rounded-lg overflow-hidden p-0.5 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => handleDecrement(b.id, step)}
+                      className="w-8 h-8 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-90 transition-all rounded-md text-xs cursor-pointer"
+                    >
+                      —
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      className="w-14 text-center bg-transparent border-none focus:outline-none focus:ring-0 font-extrabold text-xs text-[#701604] focus:ring-transparent focus:border-transparent py-1 no-spinner"
+                      placeholder="fisik"
+                      value={val}
+                      onChange={(e) => {
+                        const inputVal = e.target.value;
+                        setFisik((prev) => ({ ...prev, [b.id]: inputVal }));
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleIncrement(b.id, step)}
+                      className="w-8 h-8 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-90 transition-all rounded-md text-xs cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

@@ -47,3 +47,33 @@ export interface ResepItem {
   id: string; resep_id: string; bahan_baku_id: string
   qty_per_porsi: number; satuan: string
 }
+
+export interface LedgerTransaksiSummary {
+  transaksi_key: string
+  outlet_id: string
+  created_at: string
+  jumlah_bahan: number
+  ref_order_id: string | null
+  ref_opname_id: string | null
+  ref_shipment_id: string | null
+  ref_transfer_id: string | null
+  single_bahan_baku_id: string | null
+  single_tipe: LedgerTipe | null
+  single_qty: number | null
+  single_catatan: string | null
+  single_saldo_sesudah: number | null
+  order_number?: number | null
+  opname_tanggal?: string | null
+  opname_tipe?: OpnameTipe | null
+}
+
+export interface LedgerTransaksiDetailRow {
+  id: string
+  tipe: LedgerTipe
+  qty: number
+  catatan: string | null
+  saldo_sebelum: number
+  saldo_sesudah: number
+  created_at: string
+  bahan_baku: { nama: string; satuan: Satuan; satuan_kecil: SatuanKecil | null; faktor_tampilan: number | null } | null
+}

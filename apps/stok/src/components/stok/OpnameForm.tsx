@@ -89,14 +89,29 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
 
     if (containersNum < 0) {
       setRemainderError((prev) => ({ ...prev, [bahanId]: 'Jumlah kontainer tidak boleh negatif' }));
+      setFisik((prev) => {
+        const next = { ...prev };
+        delete next[bahanId];
+        return next;
+      });
       return;
     }
     if (remainderNum < 0) {
       setRemainderError((prev) => ({ ...prev, [bahanId]: 'Sisa tidak boleh negatif' }));
+      setFisik((prev) => {
+        const next = { ...prev };
+        delete next[bahanId];
+        return next;
+      });
       return;
     }
     if (remainderNum >= faktorTampilan) {
       setRemainderError((prev) => ({ ...prev, [bahanId]: `Sisa harus kurang dari ${faktorTampilan}` }));
+      setFisik((prev) => {
+        const next = { ...prev };
+        delete next[bahanId];
+        return next;
+      });
       return;
     }
     setRemainderError((prev) => {

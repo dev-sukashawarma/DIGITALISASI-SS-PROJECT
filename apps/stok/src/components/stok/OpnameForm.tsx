@@ -105,15 +105,6 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
       });
       return;
     }
-    if (remainderNum >= faktorTampilan) {
-      setRemainderError((prev) => ({ ...prev, [bahanId]: `Sisa harus kurang dari ${faktorTampilan}` }));
-      setFisik((prev) => {
-        const next = { ...prev };
-        delete next[bahanId];
-        return next;
-      });
-      return;
-    }
     setRemainderError((prev) => {
       const next = { ...prev };
       delete next[bahanId];

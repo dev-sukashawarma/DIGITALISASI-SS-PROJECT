@@ -214,7 +214,7 @@ export default function PanduanEditorPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/panduan" className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors">
+        <Link href={`/dashboard/panduan/${system_code}`} className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors">
           <ArrowLeft size={20} />
         </Link>
         <div className="flex-1">

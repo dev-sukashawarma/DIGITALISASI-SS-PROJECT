@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 import {
   Loader2,
   Sandwich, ToggleLeft, ToggleRight,
-  FileArchive, Search, Star, PlusCircle, Globe, ThumbsUp, ChevronDown, Check
+  FileArchive, Search, Star, PlusCircle, Globe, ThumbsUp, ChevronDown, Check, CheckCircle2, AlertCircle
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
@@ -51,11 +51,19 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
   }
 }
 
+type Toast = { type: 'success' | 'error'; message: string } | null
+
 export default function KasirMenuPage() {
   const { outletId } = useMyOutlet()
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+  const [toast, setToast] = useState<Toast>(null)
+
+  const showToast = useCallback((t: Toast) => {
+    setToast(t)
+    if (t) setTimeout(() => setToast(null), 3500)
+  }, [])
 
   const { data, isLoading: loading } = useQuery({
     queryKey: ['menu', outletId],
@@ -88,21 +96,28 @@ export default function KasirMenuPage() {
     if (!outletId) return
     const supabase = createClient()
 
-    if (item.outlet_id === outletId) {
-      await supabase.from('menu_items').update({ is_available: !item.is_available }).eq('id', item.id)
-    } else {
-      const isUnav = unavailableIds.includes(item.id)
-      const newUnav = isUnav
-        ? unavailableIds.filter(id => id !== item.id)
-        : [...unavailableIds, item.id]
+    try {
+      if (item.outlet_id === outletId) {
+        const { error } = await supabase.from('menu_items').update({ is_available: !item.is_available }).eq('id', item.id)
+        if (error) throw error
+      } else {
+        const isUnav = unavailableIds.includes(item.id)
+        const newUnav = isUnav
+          ? unavailableIds.filter(id => id !== item.id)
+          : [...unavailableIds, item.id]
 
-      await supabase.from('kiosk_settings').upsert({
-        outlet_id: outletId,
-        key: 'unavailable_menu_ids',
-        value: JSON.stringify(newUnav)
-      })
+        const { error } = await supabase.from('kiosk_settings').upsert({
+          outlet_id: outletId,
+          key: 'unavailable_menu_ids',
+          value: JSON.stringify(newUnav)
+        })
+        if (error) throw error
+      }
+      invalidateMenu()
+      showToast({ type: 'success', message: `Status menu ${item.name} berhasil diubah` })
+    } catch (e) {
+      showToast({ type: 'error', message: `Gagal mengubah status menu ${item.name}` })
     }
-    invalidateMenu()
   }
 
   async function toggleBestseller(item: MenuItem) {
@@ -112,13 +127,19 @@ export default function KasirMenuPage() {
       ? bestsellers.filter(id => id !== item.id)
       : [...bestsellers, item.id]
 
-    const supabase = createClient()
-    await supabase.from('kiosk_settings').upsert({
-      outlet_id: outletId,
-      key: 'bestseller_ids',
-      value: JSON.stringify(newBs)
-    })
-    invalidateMenu()
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('kiosk_settings').upsert({
+        outlet_id: outletId,
+        key: 'bestseller_ids',
+        value: JSON.stringify(newBs)
+      })
+      if (error) throw error
+      invalidateMenu()
+      showToast({ type: 'success', message: isBs ? `${item.name} dihapus dari Best Seller` : `${item.name} ditandai sebagai Best Seller` })
+    } catch (e) {
+      showToast({ type: 'error', message: 'Gagal mengubah Best Seller' })
+    }
   }
 
   async function toggleUpsell(item: MenuItem) {
@@ -128,13 +149,19 @@ export default function KasirMenuPage() {
       ? upsells.filter(id => id !== item.id)
       : [...upsells, item.id]
 
-    const supabase = createClient()
-    await supabase.from('kiosk_settings').upsert({
-      outlet_id: outletId,
-      key: 'upsell_ids',
-      value: JSON.stringify(newUp)
-    })
-    invalidateMenu()
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('kiosk_settings').upsert({
+        outlet_id: outletId,
+        key: 'upsell_ids',
+        value: JSON.stringify(newUp)
+      })
+      if (error) throw error
+      invalidateMenu()
+      showToast({ type: 'success', message: isUp ? `${item.name} dihapus dari Menu Ekstra` : `${item.name} dijadikan Menu Ekstra` })
+    } catch (e) {
+      showToast({ type: 'error', message: 'Gagal mengubah Menu Ekstra' })
+    }
   }
 
   async function toggleRecommendation(item: MenuItem) {
@@ -144,13 +171,19 @@ export default function KasirMenuPage() {
       ? recommendations.filter(id => id !== item.id)
       : [...recommendations, item.id]
 
-    const supabase = createClient()
-    await supabase.from('kiosk_settings').upsert({
-      outlet_id: outletId,
-      key: 'recommendation_ids',
-      value: JSON.stringify(newRec)
-    })
-    invalidateMenu()
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('kiosk_settings').upsert({
+        outlet_id: outletId,
+        key: 'recommendation_ids',
+        value: JSON.stringify(newRec)
+      })
+      if (error) throw error
+      invalidateMenu()
+      showToast({ type: 'success', message: isRec ? `${item.name} dihapus dari Menu Rekomendasi` : `${item.name} dijadikan Menu Rekomendasi` })
+    } catch (e) {
+      showToast({ type: 'error', message: 'Gagal mengubah Menu Rekomendasi' })
+    }
   }
 
 
@@ -321,6 +354,16 @@ export default function KasirMenuPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[999] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg font-semibold text-sm animate-fade-up ${
+          toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+          {toast.message}
         </div>
       )}
     </div>

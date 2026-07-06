@@ -86,7 +86,7 @@ export default function AdminOverviewPage() {
 
     let q = supabase
       .from('sales_hourly_spv')
-      .select('sales_date, revenue')
+      .select('sales_date, omzet')
       .order('sales_date', { ascending: true })
 
     if (selectedOutlet !== 'all') {
@@ -113,15 +113,8 @@ export default function AdminOverviewPage() {
     }
 
     const { data } = await q
-    
-    // Karena kita pakai sales_hourly_spv, kolomnya adalah 'revenue' bukan 'omzet'.
-    // Kita petakan ke format omzet agar tidak mengubah logic chart di bawahnya.
-    const mappedData = (data as any[])?.map(row => ({
-      sales_date: row.sales_date,
-      omzet: row.revenue
-    })) || []
-    
-    setChartDaily(mappedData)
+
+    setChartDaily(data ?? [])
     setIsChartLoading(false)
   }, [selectedOutlet, chartRange, customStartDate, customEndDate])
 

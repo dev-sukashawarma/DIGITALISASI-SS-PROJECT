@@ -1,8 +1,8 @@
 'use client'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase'
 import type { ExpenseCategory } from '@/lib/expenseCategories'
+import { upsertExpensesAction } from '@/app/actions/expenses'
 
 export interface UpsertExpenseInput {
   outletId: string | null   // null = pusat
@@ -12,20 +12,10 @@ export interface UpsertExpenseInput {
 }
 
 export function useUpsertExpenses() {
-  const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (items: UpsertExpenseInput[]) => {
-      for (const it of items) {
-        const { error } = await supabase.rpc('upsert_expense', {
-          p_outlet: it.outletId,
-          p_category: it.category,
-          p_period_month: it.periodMonth,
-          p_amount: it.amount,
-          p_description: null,
-        })
-        if (error) throw new Error(error.message)
-      }
+      await upsertExpensesAction(items)
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['expenses'] }),
   })

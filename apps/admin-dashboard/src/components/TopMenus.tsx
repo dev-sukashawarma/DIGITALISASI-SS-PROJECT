@@ -1,22 +1,14 @@
 'use client'
 import { useState, useMemo } from 'react'
-import type { MenuSalesRow } from '@/lib/types'
+import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import { rupiah } from '@/lib/format'
 import { Crown } from 'lucide-react'
 
-export function TopMenus({ rows }: { rows: MenuSalesRow[] }) {
+export function TopMenus({ rows }: { rows: AggregatedMenuSales[] }) {
   const [mode, setMode] = useState<'qty' | 'revenue'>('qty')
 
   const list = useMemo(() => {
-    const agg = new Map<string, { name: string; qty: number; revenue: number }>()
-    for (const r of rows) {
-      const cleanName = r.menu_name.split('|')[0].trim()
-      const cur = agg.get(cleanName) ?? { name: cleanName, qty: 0, revenue: 0 }
-      cur.qty += r.qty
-      cur.revenue += r.revenue
-      agg.set(cleanName, cur)
-    }
-    return [...agg.values()].sort((a, b) => b[mode] - a[mode]).slice(0, 10)
+    return [...rows].sort((a, b) => b[mode] - a[mode]).slice(0, 10)
   }, [rows, mode])
 
   // Get max value to compute percentage width for progress bars

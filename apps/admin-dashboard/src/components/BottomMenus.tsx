@@ -1,24 +1,10 @@
-import type { MenuSalesRow } from '@/lib/types'
+import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import { rupiah } from '@/lib/format'
 import { AlertCircle } from 'lucide-react'
 
-export function BottomMenus({ rows }: { rows: MenuSalesRow[] }) {
-  // Clean name helper
-  const cleanName = (name: string) => name.split('|')[0].trim()
-
-  // Aggregate menu sales
-  const byMenu = new Map<string, { qty: number; revenue: number }>()
-  for (const r of rows) {
-    const name = cleanName(r.menu_name)
-    const cur = byMenu.get(name) ?? { qty: 0, revenue: 0 }
-    cur.qty += r.qty
-    cur.revenue += r.revenue
-    byMenu.set(name, cur)
-  }
-
+export function BottomMenus({ rows }: { rows: AggregatedMenuSales[] }) {
   // Sort ascending by qty, then by revenue
-  const data = [...byMenu.entries()]
-    .map(([name, val]) => ({ name, ...val }))
+  const data = [...rows]
     .sort((a, b) => a.qty - b.qty || a.revenue - b.revenue)
     .slice(0, 5)
 

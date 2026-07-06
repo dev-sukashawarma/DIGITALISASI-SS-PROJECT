@@ -14,7 +14,7 @@ export default function PanduanIndexPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-extrabold text-suka-ink">Panduan Sistem</h2>
-        <p className="text-sm text-gray-500">Pilih modul di bawah ini untuk melihat atau mengedit konten panduan pengguna.</p>
+        <p className="text-sm text-gray-500">Pilih kategori modul di bawah ini untuk mengelola panduan penggunanya.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">

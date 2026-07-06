@@ -1,303 +1,249 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Loader2, Bold, Italic, List, ListOrdered, Heading1, Heading2, ImageIcon } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
+import { BookOpen, Plus, Trash2, Loader2, ArrowLeft, X } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { Button } from '@suka/design-system'
 import { toast } from 'sonner'
-import Link from 'next/link'
+import { createPanduan, deletePanduan } from './actions'
 
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
-
-import { savePanduan } from './actions'
-
-interface PageProps {
-  params: {
-    system_code: string
-  }
+interface Guide {
+  id: string;
+  system_code: string;
+  title: string;
+  desc?: string;
 }
 
-export default function PanduanEditorPage({ params: { system_code } }: PageProps) {
-  const router = useRouter()
-  const supabase = createSupabaseBrowserClient()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  
-  const [title, setTitle] = useState('')
-  const [contentHtml, setContentHtml] = useState('')
+const CATEGORY_NAMES: Record<string, string> = {
+  'absensi': 'Sistem Absensi',
+  'pos': 'Sistem POS (Kasir)',
+  'stok': 'Sistem Stok & Opname',
+  'distribusi': 'Sistem Distribusi',
+}
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Image.configure({
-        inline: true,
-      }),
-    ],
-    content: '',
-    onUpdate: ({ editor }: any) => {
-      setContentHtml(editor.getHTML())
-    },
-    editorProps: {
-      attributes: {
-        class: 'prose prose-sm sm:prose-base focus:outline-none min-h-[500px] w-full p-4',
-      },
-    },
-  })
+export default function SystemCategoryPage() {
+  const router = useRouter()
+  const params = useParams()
+  const system_code = params.system_code as string
+  const supabase = createSupabaseBrowserClient()
+  const [guides, setGuides] = useState<Guide[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+
+  // Delete state
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const categoryName = CATEGORY_NAMES[system_code] || system_code
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const { data, error } = await supabase
-          .from('system_guides')
-          .select('*')
-          .eq('system_code', system_code)
-          .single()
+    if (system_code) {
+      loadGuides()
+    }
+  }, [system_code])
 
-        if (error) {
-          if (error.code === 'PGRST116') {
-            setTitle(`Panduan Sistem ${system_code.toUpperCase()}`)
-            const defaultText = '<p>Tulis panduan Anda di sini...</p>'
-            setContentHtml(defaultText)
-            editor?.commands.setContent(defaultText)
-          } else {
-            console.error('Error loading guide:', error)
-            toast.error('Gagal memuat panduan sistem')
-          }
-        } else if (data) {
-          setTitle(data.title)
-          // Handle legacy content_md just in case it wasn't migrated
-          const content = data.content_html || data.content_md || '<p></p>'
-          setContentHtml(content)
-          editor?.commands.setContent(content)
-        }
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setIsLoading(false)
+  const loadGuides = async () => {
+    setIsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('system_guides')
+        .select('id, system_code, title')
+        .eq('system_code', system_code)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        toast.error('Gagal memuat daftar panduan')
+      } else if (data) {
+        setGuides(data)
       }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsLoading(false)
     }
-    
-    if (editor) {
-      loadData()
-    }
-  }, [supabase, system_code, editor])
+  }
 
-  const handleSave = async () => {
-    if (!title.trim() || !contentHtml.trim()) {
-      toast.error('Judul dan konten panduan tidak boleh kosong')
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newTitle.trim()) {
+      toast.error('Judul wajib diisi')
       return
     }
 
-    setIsSaving(true)
+    setIsCreating(true)
     try {
       const { data: userData } = await supabase.auth.getUser()
       const userId = userData?.user?.id
 
       if (!userId) {
-        toast.error('Anda harus login terlebih dahulu')
-        setIsSaving(false)
+        toast.error('Anda belum login')
+        setIsCreating(false)
         return
       }
 
-      const res = await savePanduan({
-        system_code,
-        title,
-        content_html: contentHtml,
-        userId,
+      const res = await createPanduan({
+        system_code: system_code,
+        title: newTitle,
+        userId
       })
 
-      if (res.error) {
-        toast.error(res.error)
+      if (res.error || !res.id) {
+        toast.error(res.error || 'Gagal membuat panduan')
       } else {
-        toast.success('Panduan berhasil disimpan!')
-        router.refresh()
+        toast.success('Panduan berhasil dibuat')
+        setIsModalOpen(false)
+        setNewTitle('')
+        // Redirect to the new guide's editor
+        router.push(`/dashboard/panduan/${system_code}/${res.id}`)
       }
     } catch (err) {
       console.error(err)
-      toast.error('Terjadi kesalahan yang tidak diketahui.')
+      toast.error('Terjadi kesalahan')
     } finally {
-      setIsSaving(false)
+      setIsCreating(false)
     }
   }
 
-  const uploadImage = async (file: File) => {
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`
-    const filePath = `${system_code}/${fileName}`
-
-    setIsUploading(true)
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from('guide-images')
-        .upload(filePath, file, { upsert: true })
-
-      if (uploadError) {
-        throw uploadError
-      }
-
-      const { data } = supabase.storage
-        .from('guide-images')
-        .getPublicUrl(filePath)
-
-      return data.publicUrl
-    } catch (err) {
-      console.error('Upload Error:', err)
-      toast.error('Gagal mengunggah gambar')
-      return null
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Hanya file gambar yang diperbolehkan')
+  const handleDelete = async (id: string, title: string) => {
+    if (!window.confirm(`Yakin ingin menghapus panduan "${title}"?`)) {
       return
     }
 
-    const toastId = toast.loading('Mengunggah gambar...')
-    const url = await uploadImage(file)
-    
-    if (url && editor) {
-      editor.chain().focus().setImage({ src: url }).run()
-      toast.success('Gambar berhasil ditambahkan', { id: toastId })
-    } else {
-      toast.dismiss(toastId)
-    }
+    setDeletingId(id)
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData?.user?.id
 
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-  }
+      if (!userId) {
+        toast.error('Anda belum login')
+        setDeletingId(null)
+        return
+      }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-suka-orange" />
-      </div>
-    )
+      const res = await deletePanduan(id, userId)
+      if (res.error) {
+        toast.error(res.error)
+      } else {
+        toast.success('Panduan berhasil dihapus')
+        loadGuides()
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Terjadi kesalahan')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/panduan" className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors">
-          <ArrowLeft size={20} />
+        <Link href="/dashboard/panduan" className="p-2 rounded-full hover:bg-suka-gray-100 transition-colors">
+          <ArrowLeft size={20} className="text-gray-500" />
         </Link>
-        <div className="flex-1">
-          <h2 className="text-2xl font-extrabold text-suka-ink">Edit Panduan Sistem</h2>
-          <p className="text-sm text-gray-500 uppercase tracking-wider">{system_code}</p>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-2xl font-extrabold text-suka-ink">Panduan {categoryName}</h2>
+          <p className="text-sm text-gray-500">Kelola daftar panduan untuk modul ini.</p>
         </div>
-        <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-          {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-          Simpan Panduan
-        </Button>
+        <div className="ml-auto">
+          <Button onClick={() => setIsModalOpen(true)} className="gap-2">
+            <Plus size={16} />
+            Tambah Panduan
+          </Button>
+        </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <label className="text-sm font-semibold text-suka-ink">Judul Panduan</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Contoh: Panduan Sistem Absensi"
-            className="w-full rounded-xl border border-suka-gray-200 px-4 py-2.5 text-sm focus:border-suka-orange focus:outline-none focus:ring-1 focus:ring-suka-orange"
-          />
+      {isLoading ? (
+        <div className="flex h-32 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-suka-orange" />
         </div>
-
-        <div className="space-y-1.5">
-          <label className="text-sm font-semibold text-suka-ink">Konten Panduan</label>
-          <div className="rounded-xl border border-suka-gray-200 bg-white overflow-hidden focus-within:border-suka-orange focus-within:ring-1 focus-within:ring-suka-orange">
-            
-            {/* Toolbar */}
-            {editor && (
-              <div className="bg-suka-gray-50 px-3 py-2 border-b border-suka-gray-200 flex flex-wrap gap-2 items-center">
-                <button
-                  onClick={() => editor.chain().focus().toggleBold().run()}
-                  className={`p-1.5 rounded hover:bg-suka-gray-200 ${editor.isActive('bold') ? 'bg-suka-gray-200 text-suka-orange' : 'text-gray-600'}`}
-                  title="Bold"
-                >
-                  <Bold size={16} />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleItalic().run()}
-                  className={`p-1.5 rounded hover:bg-suka-gray-200 ${editor.isActive('italic') ? 'bg-suka-gray-200 text-suka-orange' : 'text-gray-600'}`}
-                  title="Italic"
-                >
-                  <Italic size={16} />
-                </button>
-                
-                <div className="w-px h-6 bg-suka-gray-200 mx-1"></div>
-                
-                <button
-                  onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                  className={`p-1.5 rounded hover:bg-suka-gray-200 ${editor.isActive('heading', { level: 1 }) ? 'bg-suka-gray-200 text-suka-orange' : 'text-gray-600'}`}
-                  title="Heading 1"
-                >
-                  <Heading1 size={16} />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                  className={`p-1.5 rounded hover:bg-suka-gray-200 ${editor.isActive('heading', { level: 2 }) ? 'bg-suka-gray-200 text-suka-orange' : 'text-gray-600'}`}
-                  title="Heading 2"
-                >
-                  <Heading2 size={16} />
-                </button>
-
-                <div className="w-px h-6 bg-suka-gray-200 mx-1"></div>
-
-                <button
-                  onClick={() => editor.chain().focus().toggleBulletList().run()}
-                  className={`p-1.5 rounded hover:bg-suka-gray-200 ${editor.isActive('bulletList') ? 'bg-suka-gray-200 text-suka-orange' : 'text-gray-600'}`}
-                  title="Bullet List"
-                >
-                  <List size={16} />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                  className={`p-1.5 rounded hover:bg-suka-gray-200 ${editor.isActive('orderedList') ? 'bg-suka-gray-200 text-suka-orange' : 'text-gray-600'}`}
-                  title="Ordered List"
-                >
-                  <ListOrdered size={16} />
-                </button>
-
-                <div className="w-px h-6 bg-suka-gray-200 mx-1"></div>
-                
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                  className="hidden" 
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="p-1.5 rounded hover:bg-suka-gray-200 text-gray-600 flex items-center gap-1 disabled:opacity-50"
-                  title="Upload Gambar"
-                >
-                  {isUploading ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
-                  <span className="text-xs font-medium mr-1">Gambar</span>
-                </button>
+      ) : guides.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+          <BookOpen className="w-12 h-12 text-gray-300 mb-3" />
+          <h3 className="text-lg font-bold text-gray-600">Belum ada panduan</h3>
+          <p className="text-sm text-gray-500 mt-1 mb-4 text-center">Buat panduan sistem pertama Anda di kategori ini.</p>
+          <Button onClick={() => setIsModalOpen(true)} variant="secondary">
+            Buat Panduan
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+          {guides.map((sys) => (
+            <div
+              key={sys.id}
+              className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-suka-gray-100 shadow-sm hover:shadow-md hover:border-suka-orange/30 transition-all group relative"
+            >
+              <div className="p-3 rounded-xl bg-suka-orange/10 text-suka-orange group-hover:bg-suka-orange group-hover:text-white transition-colors">
+                <BookOpen size={24} />
               </div>
-            )}
-
-            {/* Editor Area */}
-            <div className="w-full">
-              <EditorContent editor={editor} />
+              <div className="flex-1 min-w-0 pr-8">
+                <Link href={`/dashboard/panduan/${system_code}/${sys.id}`} className="block">
+                  <h3 className="font-bold text-suka-ink truncate hover:text-suka-orange transition-colors">{sys.title}</h3>
+                </Link>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleDelete(sys.id, sys.title)
+                }}
+                disabled={deletingId === sys.id}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                title="Hapus Panduan"
+              >
+                {deletingId === sys.id ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Trash2 size={18} />
+                )}
+              </button>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-suka-ink">Buat Panduan Baru</h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreate} className="p-4 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-suka-ink">Judul Panduan</label>
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Contoh: Panduan Absensi Staff"
+                  className="w-full rounded-xl border border-suka-gray-200 px-4 py-2.5 text-sm focus:border-suka-orange focus:outline-none focus:ring-1 focus:ring-suka-orange"
+                  required
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-3">
+                <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
+                  Batal
+                </Button>
+                <Button type="submit" disabled={isCreating} className="min-w-[100px]">
+                  {isCreating ? <Loader2 size={16} className="animate-spin" /> : 'Simpan'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

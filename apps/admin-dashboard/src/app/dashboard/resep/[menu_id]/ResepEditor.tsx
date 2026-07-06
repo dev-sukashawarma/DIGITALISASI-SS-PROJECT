@@ -109,7 +109,7 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
       </div>
 
       <div className="p-6 space-y-4">
-        {items.map((item, index) => (
+        {items.map((item) => (
           <div key={item.id} className="flex items-end gap-4 p-4 border border-gray-100 bg-gray-50/50 rounded-lg">
             <div className="flex-1">
               <label className="block text-xs font-medium text-gray-500 mb-1">Pilih Bahan Baku</label>

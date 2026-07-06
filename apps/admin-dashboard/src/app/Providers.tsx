@@ -7,6 +7,7 @@ import type { OutletStaffProfile } from '@suka/auth'
 import { Toaster } from 'sonner'
 
 import { RoleProvider } from '@/components/layout/RoleContext'
+import { GlobalDialogs } from '@/components/GlobalDialogs'
 
 export function Providers({
   children,
@@ -37,6 +38,7 @@ export function Providers({
         <RoleProvider>
           {children}
           <Toaster richColors position="top-center" />
+          <GlobalDialogs />
         </RoleProvider>
       </AuthProvider>
     </QueryClientProvider>

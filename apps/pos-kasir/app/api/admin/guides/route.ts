@@ -9,8 +9,9 @@ export async function GET() {
     const supabase = createServiceClient()
 
     const { data, error } = await supabase
-      .from('guides')
-      .select('*')
+      .from('system_guides')
+      .select('id, category, title, content_html, image_url, sort_order')
+      .eq('system_code', 'pos')
       .order('category', { ascending: true })
       .order('sort_order', { ascending: true })
 
@@ -33,13 +34,13 @@ export async function POST(request: Request) {
     if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json()
-    const { category, title, content, image_url, sort_order } = body
+    const { category, title, content_html, image_url, sort_order } = body
 
     // Tulis pakai service client agar tidak terhalang RLS tabel `guides`
     const db = createServiceClient()
     const { data, error } = await db
-      .from('guides')
-      .insert([{ category, title, content, image_url, sort_order }])
+      .from('system_guides')
+      .insert([{ system_code: 'pos', category, title, content_html, image_url, sort_order }])
       .select()
       .single()
 
@@ -62,13 +63,13 @@ export async function PUT(request: Request) {
     if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json()
-    const { id, category, title, content, image_url, sort_order } = body
+    const { id, category, title, content_html, image_url, sort_order } = body
 
     // Update pakai service client agar tidak terhalang RLS tabel `guides`
     const db = createServiceClient()
     const { data, error } = await db
-      .from('guides')
-      .update({ category, title, content, image_url, sort_order, updated_at: new Date().toISOString() })
+      .from('system_guides')
+      .update({ category, title, content_html, image_url, sort_order, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
       .single()
@@ -98,7 +99,7 @@ export async function DELETE(request: Request) {
 
     // Hapus pakai service client agar tidak terhalang RLS tabel `guides`
     const db = createServiceClient()
-    const { error } = await db.from('guides').delete().eq('id', id)
+    const { error } = await db.from('system_guides').delete().eq('id', id)
     if (error) throw error
 
     return NextResponse.json({ success: true })

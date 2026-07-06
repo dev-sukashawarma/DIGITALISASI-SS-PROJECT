@@ -7,6 +7,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function savePanduan(data: {
   id: string;
+  system_code: string;
   title: string;
   content_html: string;
   image_url?: string | null;
@@ -31,6 +32,7 @@ export async function savePanduan(data: {
       .upsert(
         {
           id: data.id,
+          system_code: data.system_code,
           title: data.title,
           content_html: data.content_html,
           image_url: data.image_url,

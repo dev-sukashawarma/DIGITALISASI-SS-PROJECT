@@ -39,14 +39,14 @@ describe('accessibleGroups (pintu berlapis)', () => {
     expect(groups.map((g) => g.title)).toEqual(['Bisnis'])
     expect(groups[0].items).toHaveLength(4)
   })
-  it('ADMIN melihat 5 pintu', () => {
+  it('ADMIN melihat 6 pintu', () => {
     expect(accessibleGroups('ADMIN').map((g) => g.title)).toEqual([
-      'Bisnis', 'Karyawan', 'Produk & Stok', 'Laporan', 'Sistem',
+      'Bisnis', 'Karyawan', 'Produk & Stok', 'Laporan', 'Sistem', 'Manajemen POS',
     ])
   })
-  it('OWNER melihat pintu Bisnis, Laporan, Sistem (tanpa Karyawan/Produk)', () => {
+  it('OWNER melihat pintu Bisnis, Laporan, Sistem, Manajemen POS (tanpa Karyawan/Produk)', () => {
     const titles = accessibleGroups('OWNER').map((g) => g.title)
-    expect(titles).toEqual(['Bisnis', 'Laporan', 'Sistem'])
+    expect(titles).toEqual(['Bisnis', 'Laporan', 'Sistem', 'Manajemen POS'])
   })
   it('setiap pintu yang tampil punya minimal 1 item', () => {
     for (const role of ['ADMIN', 'OWNER', 'ADMIN_HR', 'MITRA'] as const) {

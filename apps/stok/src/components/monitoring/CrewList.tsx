@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import { Skeleton } from '@suka/design-system';
+import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 
 interface CrewListProps {
   items: MonitoringItem[];
@@ -235,7 +236,7 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
                 
                 <div className="flex flex-col items-end">
                   <span className="font-bold text-gray-900 text-sm">
-                    {item.current_qty} {item.satuan} / {item.threshold} {item.satuan} {item.threshold === 0 ? ' (no threshold)' : ''}
+                    {formatCompositeSaldo(item.current_qty, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / {item.threshold} {item.satuan} {item.threshold === 0 ? ' (no threshold)' : ''}
                   </span>
                   <span className={`text-[10px] font-extrabold uppercase tracking-wider ${statusLabelColor}`}>
                     {statusLabelText} {item.is_flagged && <span className="text-[#ba1a1a] font-bold">*</span>}

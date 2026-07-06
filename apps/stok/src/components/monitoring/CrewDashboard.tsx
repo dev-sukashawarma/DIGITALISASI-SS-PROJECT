@@ -9,6 +9,7 @@ import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
 import { Skeleton } from '@suka/design-system';
 import { BottomNav } from '@/components/common/BottomNav';
+import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 
 export function CrewDashboard() {
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
@@ -211,7 +212,7 @@ export function CrewDashboard() {
                       <div className="flex flex-col">
                         <span className="font-bold text-[#a43c26] text-sm">{item.item_name}</span>
                         <span className="text-xs text-gray-600">
-                          {item.current_qty} {item.satuan} / <span className="font-bold text-[#a43c26]">Reorder {item.threshold} {item.satuan}</span>
+                          {formatCompositeSaldo(item.current_qty, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / <span className="font-bold text-[#a43c26]">Reorder {item.threshold} {item.satuan}</span>
                         </span>
                       </div>
                       <span className="text-[#ba1a1a] font-bold text-lg">↓</span>

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Papan Uji E2E Manual — Suka Shawarma</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.30.0/tabler-icons.min.css" />
+<style>
+  :root {
+    --surface-0:#f5f3ee; --surface-1:#efece5; --surface-2:#ffffff;
+    --text-primary:#26251f; --text-secondary:#5f5e57; --text-muted:#8a887f;
+    --border:#e2ded4; --border-strong:#cfcabd; --radius:8px;
+    --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --bg-success:#e1f5ee; --text-success:#0f6e56; --border-success:#9fe1cb; --fill-success:#1d9e75;
+    --bg-danger:#fcebeb; --text-danger:#a32d2d; --border-danger:#f09595; --fill-danger:#e24b4a;
+    --bg-warning:#faeeda; --text-warning:#854f0b; --border-warning:#fac775; --fill-warning:#ef9f27;
+  }
+  html[data-theme="dark"] {
+    --surface-0:#1c1b18; --surface-1:#26251f; --surface-2:#2f2e27;
+    --text-primary:#f1efe8; --text-secondary:#b4b2a9; --text-muted:#888780;
+    --border:#3a382f; --border-strong:#4a473b;
+    --bg-success:#085041; --text-success:#9fe1cb; --border-success:#0f6e56; --fill-success:#1d9e75;
+    --bg-danger:#791f1f; --text-danger:#f7c1c1; --border-danger:#a32d2d; --fill-danger:#e24b4a;
+    --bg-warning:#633806; --text-warning:#fac775; --border-warning:#854f0b; --fill-warning:#ef9f27;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--surface-0); color:var(--text-primary);
+    font-family:var(--font-sans); font-size:14px; line-height:1.5; }
+  .wrap { max-width:820px; margin:0 auto; padding:1.5rem 1rem 4rem; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+  h1 { font-size:20px; font-weight:500; margin:0; }
+  .sub { font-size:13px; color:var(--text-secondary); }
+  select, input, button { font-family:inherit; font-size:13px; color:var(--text-primary);
+    background:var(--surface-2); border:0.5px solid var(--border-strong); border-radius:var(--radius);
+    padding:7px 10px; outline:none; }
+  input:focus, select:focus { box-shadow:0 0 0 2px var(--border-strong); }
+  button { cursor:pointer; }
+  button:hover { background:var(--surface-1); }
+  .stat { background:var(--surface-1); border-radius:var(--radius); padding:.6rem .75rem; }
+  .stat .l { font-size:12px; color:var(--text-secondary); }
+  .stat .v { font-size:22px; font-weight:500; }
+  .pill { font-family:var(--font-mono); font-size:11px; padding:2px 6px; border-radius:var(--radius);
+    white-space:nowrap; min-width:66px; text-align:center; border:0.5px solid var(--border); }
+  .sbtn { border-radius:var(--radius); padding:3px 8px; font-size:12px; display:inline-flex;
+    align-items:center; gap:4px; border:0.5px solid var(--border); background:transparent;
+    color:var(--text-muted); cursor:pointer; }
+  .sbtn:hover { background:var(--surface-1); }
+  .sbtn i { font-size:14px; }
+</style>
+</head>
+<body>
+<h2 class="sr-only">Papan uji E2E manual Suka Shawarma: 155 kasus lintas 18 kelompok, dapat ditandai lulus, gagal, atau lewati dengan progres tersimpan di browser.</h2>
+<div class="wrap">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:1rem; flex-wrap:wrap;">
+    <div>
+      <h1>Papan uji E2E manual</h1>
+      <div class="sub">Suka Shawarma — hulu ke hilir, semua role</div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button id="theme-btn" aria-label="Ganti tema"><i class="ti ti-moon" aria-hidden="true"></i></button>
+      <button id="export-btn" title="Salin ringkasan hasil"><i class="ti ti-clipboard" aria-hidden="true" style="vertical-align:-2px; margin-right:5px;"></i>Salin hasil</button>
+      <button id="reset-btn" aria-label="Reset semua status"><i class="ti ti-refresh" aria-hidden="true" style="vertical-align:-2px; margin-right:5px;"></i>Reset</button>
+    </div>
+  </div>
+
+  <div id="stats" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(96px,1fr)); gap:10px; margin-bottom:12px;"></div>
+
+  <div style="background:var(--surface-1); border-radius:var(--radius); height:10px; overflow:hidden; display:flex; margin-bottom:1.25rem;">
+    <div id="bar-pass" style="height:100%; width:0%; background:var(--fill-success); transition:width .25s;"></div>
+    <div id="bar-fail" style="height:100%; width:0%; background:var(--fill-danger); transition:width .25s;"></div>
+    <div id="bar-skip" style="height:100%; width:0%; background:var(--fill-warning); transition:width .25s;"></div>
+  </div>
+
+  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+    <select id="scope" style="min-width:200px;"></select>
+    <select id="statusfilter" style="min-width:150px;">
+      <option value="all">Semua status</option>
+      <option value="untested">Belum diuji</option>
+      <option value="pass">Lulus</option>
+      <option value="fail">Gagal</option>
+      <option value="skip">Dilewati</option>
+    </select>
+    <input id="search" type="text" placeholder="Cari id atau kata kunci" style="flex:1; min-width:160px;" />
+  </div>
+
+  <div id="list"></div>
+  <div id="empty" style="display:none; text-align:center; padding:2rem 0; color:var(--text-muted);">Tidak ada kasus yang cocok dengan filter.</div>
+</div>
+
+<script>
+(function(){
+  var GROUPS = [
+    {code:"PREP", title:"Persiapan data uji", cases:[
+      ["P-01","Buat 2 outlet uji E2E Outlet A & B"],
+      ["P-02","Buat 11 akun per role (auth + outlet_staff)"],
+      ["P-03","Buat 3 bahan: daging, roti, saus (kompan)"],
+      ["P-04","Buat supplier E2E"],
+      ["P-05","Buat menu + resep/BOM"],
+      ["P-06","Daftarkan outlet A ke allowlist BOM"],
+      ["P-07","Set reorder point item di A & B"],
+      ["P-08","Set outlet_attendance_config outlet A"],
+    ]},
+    {code:"S0", title:"S0 — Login, logout & matriks akses", cases:[
+      ["A-01","Login 11 akun berhasil, mendarat sesuai role"],
+      ["A-02","Password salah ditolak"],
+      ["A-03","Email tak terdaftar ditolak, no info bocor"],
+      ["A-04","SSO: buka app lain tanpa login ulang"],
+      ["A-05","Logout mengakhiri session & back-button aman"],
+      ["MTX-admin","admin: semua 6 app boleh"],
+      ["MTX-admin_hr","admin_hr: hanya absensi + admin-dash"],
+      ["MTX-owner","owner: hanya owner-dash + admin-dash"],
+      ["MTX-spv","spv: absensi, stok, distribusi"],
+      ["MTX-leader","leader: pos, absensi, stok, distribusi"],
+      ["MTX-crew","crew: pos, absensi, stok, distribusi"],
+      ["MTX-kiosk","kiosk: hanya pos-kasir"],
+      ["MTX-kitchen","kitchen: stok + distribusi"],
+      ["MTX-mitra","mitra: hanya admin-dash"],
+      ["MTX-staff_pusat","staff_pusat: hanya absensi"],
+    ]},
+    {code:"S1", title:"S1 — Purchase order supplier→kitchen", cases:[
+      ["PO-01","Buat PO daging 10kg ke supplier"],
+      ["PO-02","PO tanpa item ditolak form"],
+      ["PO-03","Proses PO sampai diterima kitchen"],
+      ["PO-04","Stok kitchen naik persis 10kg"],
+      ["PO-05","PO masuk laporan pembelian"],
+      ["PO-06","mitra ditolak buka /pembelian"],
+    ]},
+    {code:"S2", title:"S2 — Surat jalan kitchen→outlet", cases:[
+      ["SJ-01","kitchen buat SJ ke outlet A"],
+      ["SJ-02","crew A melihat SJ di daftar terima"],
+      ["SJ-03","Terima penuh → ledger terima_kiriman"],
+      ["SJ-04","Terima selisih → rejected_kiriman"],
+      ["SJ-05","crew B tak lihat SJ outlet A (RLS)"],
+      ["SJ-06","Riwayat SJ status akhir benar"],
+      ["SJ-07","Tak bisa dobel-terima SJ selesai"],
+    ]},
+    {code:"S3", title:"S3 — Permintaan bahan crew→spv", cases:[
+      ["PM-01","crew A buat permintaan roti 20"],
+      ["PM-02","spv approve permintaan"],
+      ["PM-03","spv tolak permintaan kedua"],
+      ["PM-04","crew B tak lihat permintaan A (RLS)"],
+      ["PM-05","qty 0/kosong ditolak"],
+    ]},
+    {code:"S4", title:"S4 — Ledger manual", cases:[
+      ["LG-01","Pemakaian daging 1kg, saldo turun"],
+      ["LG-02","Waste roti 2 tercatat"],
+      ["LG-03","Adjustment NEGATIF bisa submit (regresi)"],
+      ["LG-04","Adjustment 0 ditolak"],
+      ["LG-05","Waste negatif/0 ditolak"],
+      ["LG-06","Tampilan satuan majemuk kompan+liter"],
+      ["LG-07","Detail ledger render (regresi RSC 500)"],
+      ["LG-08","1 card per order dari POS"],
+    ]},
+    {code:"S5", title:"S5 — Opname → selisih", cases:[
+      ["OP-01","Selisih -3 → opname_selisih & koreksi"],
+      ["OP-02","Selisih 0 tak buat koreksi liar"],
+      ["OP-03","Composite remainder ≥ faktor diterima"],
+      ["OP-04","Detail opname render normal"],
+    ]},
+    {code:"S6", title:"S6 — POS checkout → BOM", cases:[
+      ["PS-01","Order shawarma → checkout sukses"],
+      ["PS-02","Ledger pemakaian daging -0.1 & roti -1"],
+      ["PS-03","Menu tanpa resep tak sentuh stok"],
+      ["PS-04","Order 3x → deduction terkali 3"],
+      ["PS-05","kiosk self-service order sukses"],
+      ["PS-06","Histori mencatat semua order"],
+      ["PS-07","Penjualan masuk dashboard admin"],
+    ]},
+    {code:"S7", title:"S7 — Monitoring crew & SPV", cases:[
+      ["MO-01","crew dashboard tampil item outlet"],
+      ["MO-02","Modal detail tanpa error (regresi alias)"],
+      ["MO-03","SPV monitoring-live banyak outlet"],
+      ["MO-04","Drill-down detail per outlet"],
+      ["MO-05","Saldo < ORP → status kritis"],
+      ["MO-06","Saldo > ORP → status kembali ok"],
+      ["MO-07","leader hanya outlet binaan"],
+    ]},
+    {code:"S8", title:"S8 — Transfer suggestion (WIP)", cases:[
+      ["TF-01","Surplus A + defisit B → usulan A→B"],
+      ["TF-02","Kedua sehat → panel kosong"],
+      ["TF-03","Eksekusi → transfer_keluar/masuk"],
+    ]},
+    {code:"S9", title:"S9 — Absensi (termasuk kamera)", cases:[
+      ["AB-01","spv buat akun crew baru"],
+      ["AB-02","Enroll wajah 3 frame frontal + consent"],
+      ["AB-03","Enroll tanpa consent ditolak"],
+      ["AB-04","Enroll ulang isi audit kolom"],
+      ["AB-05","crew diblokir dari /enroll"],
+      ["AB-06","leader bisa buka /enroll"],
+      ["AB-07","Clock-in wajah sendiri sukses"],
+      ["AB-08","Wajah orang lain ditolak (1:1)"],
+      ["AB-09","Spoof foto layar ditolak liveness"],
+      ["AB-10","Di luar window → overlay belum waktunya"],
+      ["AB-11","Emergency lock → overlay terkunci"],
+      ["AB-12","Mode manual toggle buka/tutup"],
+      ["AB-13","Clock-out < 30 mnt diizinkan"],
+      ["AB-14","Papan kehadiran & rekap benar"],
+      ["AB-15","crew lihat riwayat pribadi saja"],
+      ["AB-16","staff_pusat masuk absensi"],
+      ["AB-17","Smoke checklist/cuti/kasbon"],
+    ]},
+    {code:"S10", title:"S10 — Reporting & isolasi dashboard", cases:[
+      ["RP-01","owner lihat omzet outlet A = order S6"],
+      ["RP-02","Expense outlet + pusat tersimpan"],
+      ["RP-03","admin: opsi pusat tak tersedia"],
+      ["RP-04","Profit outlet vs perusahaan konsisten"],
+      ["RP-05","mitra hanya 4 menu"],
+      ["RP-06","mitra filter terkunci, no outlet lain"],
+      ["RP-07","mitra targets read-only"],
+      ["RP-08","mitra direct-URL redirect ke owner"],
+      ["RP-09","admin_hr hanya menu HR"],
+      ["RP-10","system-health admin-only"],
+      ["RP-11","Shrinkage hitung waste + opname"],
+      ["RP-12","owner-dashboard smoke tanpa error"],
+    ]},
+    {code:"S11", title:"S11 — Simulasi hari operasional", cases:[
+      ["RC-01","07:00 admin PO pagi"],
+      ["RC-02","08:00 kitchen SJ kiriman pagi"],
+      ["RC-03","08:30 crew clock-in + terima kiriman"],
+      ["RC-04","09:00 spv pantau 2 papan"],
+      ["RC-05","10-12 jam sibuk 10 order paralel"],
+      ["RC-06","12:05 ledger = akumulasi persis"],
+      ["RC-07","12:30 waste + permintaan"],
+      ["RC-08","13:00 spv approve dari HP"],
+      ["RC-09","14:00 SJ susulan terima selisih"],
+      ["RC-10","15:00 papan TV 5 jam tetap segar"],
+      ["RC-11","17:00 daging menembus ORP → kritis"],
+      ["RC-12","21:00 opname malam selisih -1"],
+      ["RC-13","21:15 clock-out"],
+      ["RC-14","21:30 owner review angka rekonsiliasi"],
+      ["RC-15","21:45 mitra lihat outlet A saja"],
+      ["RC-16","chaos: WiFi mati saat bayar"],
+      ["RC-17","chaos: 2 device rebut stok terakhir"],
+      ["RC-18","chaos: 2 approve permintaan bersamaan"],
+      ["RC-19","chaos: refresh di tengah isi form"],
+      ["RC-20","chaos: double-tap submit → 1 entri"],
+      ["RC-21","chaos: idle 1 jam lalu submit"],
+      ["RC-22","chaos: alur crew di browser HP"],
+    ]},
+    {code:"S12", title:"S12 — Keamanan lapis data (RLS)", cases:[
+      ["SEC-01","Token crew B query ledger A → kosong"],
+      ["SEC-02","Token crew B query permintaan/SJ A → kosong"],
+      ["SEC-03","Token crew A tulis ledger B → ditolak"],
+      ["SEC-04","Token mitra query view unscoped → ditolak"],
+      ["SEC-05","Token mitra RPC expense pusat → ditolak"],
+      ["SEC-06","Token spv query system_health → ditolak"],
+      ["SEC-07","RPC _svc approve lintas outlet → ditolak"],
+      ["SEC-08","Anon query tabel telanjang → ditolak"],
+      ["SEC-09","Input <script> → escaped, no XSS"],
+      ["SEC-10","Replay token setelah logout → ditolak"],
+    ]},
+    {code:"S13", title:"S13 — Fitur operasional sisa", cases:[
+      ["OF-01","Shift kasir buka→tutup + kas cocok"],
+      ["OF-02","Order manual walk-in"],
+      ["OF-03","Void terpisah dari penjualan bersih"],
+      ["OF-04","Promo memotong harga di kasir"],
+      ["OF-05","Petty cash masuk/keluar"],
+      ["OF-06","Cuti ajukan → approve"],
+      ["OF-07","Kasbon + currentRemaining benar"],
+      ["OF-08","Checklist + monitor spv"],
+      ["OF-09","Set target harian + progres"],
+      ["OF-10","Owner messages & push center"],
+      ["OF-11","Panduan render per sistem"],
+      ["OF-12","QR login kiosk"],
+      ["OF-13","Rekomendasi + QRIS"],
+    ]},
+    {code:"S14", title:"S14 — Waktu, perangkat & jaringan", cases:[
+      ["BD-01","Transaksi lintas tengah malam WIB"],
+      ["BD-02","Batas hari laporan tak geser timezone"],
+      ["BD-03","Browser matrix Chrome/FF/Safari/Edge"],
+      ["BD-04","Kamera Safari iOS"],
+      ["BD-05","Monitoring TV 1920px readability 3 dtk"],
+      ["BD-06","Koneksi Slow 3G loading state"],
+      ["BD-07","Zoom 150% layout tak pecah"],
+      ["BD-08","Dua tab data konsisten"],
+    ]},
+    {code:"CLEAN", title:"Pembersihan setelah uji", cases:[
+      ["C-01","Hapus/void data transaksi E2E"],
+      ["C-02","Master data dipertahankan/nonaktifkan"],
+      ["C-03","Hapus akun E2E Crew Baru"],
+    ]},
+  ];
+
+  var KEY = "e2e-suka-progress-v1";
+  var THEME_KEY = "e2e-suka-theme";
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch(e){ state = {}; }
+
+  var ORDER = ["untested","pass","fail","skip"];
+  var META = {
+    untested:{label:"Belum", icon:"ti-circle", bg:"var(--surface-1)", fg:"var(--text-muted)", bd:"var(--border)"},
+    pass:{label:"Lulus", icon:"ti-circle-check", bg:"var(--bg-success)", fg:"var(--text-success)", bd:"var(--border-success)"},
+    fail:{label:"Gagal", icon:"ti-circle-x", bg:"var(--bg-danger)", fg:"var(--text-danger)", bd:"var(--border-danger)"},
+    skip:{label:"Lewati", icon:"ti-arrow-right-circle", bg:"var(--bg-warning)", fg:"var(--text-warning)", bd:"var(--border-warning)"},
+  };
+
+  var scopeSel = document.getElementById("scope");
+  var statusSel = document.getElementById("statusfilter");
+  var searchInp = document.getElementById("search");
+  var listEl = document.getElementById("list");
+  var emptyEl = document.getElementById("empty");
+  var statsEl = document.getElementById("stats");
+
+  var o0 = document.createElement("option");
+  o0.value = "all"; o0.textContent = "Semua kelompok";
+  scopeSel.appendChild(o0);
+  GROUPS.forEach(function(g){
+    var o = document.createElement("option");
+    o.value = g.code; o.textContent = g.title;
+    scopeSel.appendChild(o);
+  });
+
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+  function statusOf(id){ return state[id] || "untested"; }
+  function setStatus(id, s){ if(s==="untested"){ delete state[id]; } else { state[id]=s; } persist(); render(); }
+  function persist(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
+
+  function counts(){
+    var c={total:0,pass:0,fail:0,skip:0,untested:0};
+    GROUPS.forEach(function(g){ g.cases.forEach(function(cs){ c.total++; c[statusOf(cs[0])]++; }); });
+    return c;
+  }
+
+  function renderStats(){
+    var c=counts();
+    var cards=[["Total",c.total,"var(--text-primary)"],["Lulus",c.pass,"var(--text-success)"],
+      ["Gagal",c.fail,"var(--text-danger)"],["Lewati",c.skip,"var(--text-warning)"],["Belum",c.untested,"var(--text-muted)"]];
+    statsEl.innerHTML=cards.map(function(x){
+      return '<div class="stat"><div class="l">'+x[0]+'</div><div class="v" style="color:'+x[2]+'">'+x[1]+'</div></div>'; }).join("");
+    var tot=c.total||1;
+    document.getElementById("bar-pass").style.width=(100*c.pass/tot)+"%";
+    document.getElementById("bar-fail").style.width=(100*c.fail/tot)+"%";
+    document.getElementById("bar-skip").style.width=(100*c.skip/tot)+"%";
+  }
+
+  function render(){
+    renderStats();
+    var scope=scopeSel.value, sf=statusSel.value, q=(searchInp.value||"").toLowerCase().trim();
+    listEl.innerHTML=""; var shown=0;
+    GROUPS.forEach(function(g){
+      if(scope!=="all" && scope!==g.code) return;
+      var rows=g.cases.filter(function(cs){
+        var st=statusOf(cs[0]);
+        if(sf!=="all" && st!==sf) return false;
+        if(q && cs[0].toLowerCase().indexOf(q)===-1 && cs[1].toLowerCase().indexOf(q)===-1) return false;
+        return true;
+      });
+      if(!rows.length) return;
+      var gc={pass:0,fail:0,skip:0,untested:0};
+      g.cases.forEach(function(cs){ gc[statusOf(cs[0])]++; });
+      var sec=document.createElement("div");
+      sec.style.cssText="margin-bottom:1.25rem;";
+      sec.innerHTML='<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">'+
+        '<div style="font-size:15px; font-weight:500;">'+esc(g.title)+'</div>'+
+        '<div style="font-size:12px; color:var(--text-secondary); white-space:nowrap;">'+
+        gc.pass+' lulus · '+gc.fail+' gagal · '+gc.skip+' lewati · '+gc.untested+' belum</div></div>';
+      var wrap=document.createElement("div");
+      wrap.style.cssText="border:0.5px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface-2);";
+      rows.forEach(function(cs,i){
+        var id=cs[0], desc=cs[1], st=statusOf(id), m=META[st];
+        var row=document.createElement("div");
+        row.style.cssText="display:flex; align-items:center; gap:10px; padding:9px 12px;"+(i>0?"border-top:0.5px solid var(--border);":"");
+        var btns=ORDER.filter(function(s){return s!=="untested";}).map(function(s){
+          var mm=META[s], active=(st===s);
+          return '<button class="sbtn" data-id="'+esc(id)+'" data-s="'+s+'" aria-label="'+mm.label+' '+esc(id)+'" '+
+            'style="'+(active?'border-color:'+mm.bd+'; background:'+mm.bg+'; color:'+mm.fg+';':'')+'">'+
+            '<i class="ti '+mm.icon+'" aria-hidden="true"></i>'+mm.label+'</button>';
+        }).join("");
+        row.innerHTML='<span class="pill" style="color:'+m.fg+'; background:'+m.bg+'; border-color:'+m.bd+';">'+esc(id)+'</span>'+
+          '<span style="flex:1; font-size:13px; line-height:1.4;">'+esc(desc)+'</span>'+
+          '<span style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;">'+btns+'</span>';
+        wrap.appendChild(row); shown++;
+      });
+      sec.appendChild(wrap); listEl.appendChild(sec);
+    });
+    emptyEl.style.display=shown?"none":"block";
+    listEl.querySelectorAll("button[data-id]").forEach(function(b){
+      b.addEventListener("click",function(){
+        var id=b.getAttribute("data-id"), s=b.getAttribute("data-s");
+        setStatus(id, statusOf(id)===s?"untested":s);
+      });
+    });
+  }
+
+  scopeSel.addEventListener("change",render);
+  statusSel.addEventListener("change",render);
+  searchInp.addEventListener("input",render);
+  document.getElementById("reset-btn").addEventListener("click",function(){
+    if(confirm("Reset semua status uji?")){ state={}; persist(); render(); }
+  });
+
+  document.getElementById("export-btn").addEventListener("click",function(){
+    var lines=["# Hasil uji E2E — Suka Shawarma","Tanggal: "+new Date().toLocaleString("id-ID"),""];
+    var c=counts();
+    lines.push("Ringkasan: "+c.pass+" lulus, "+c.fail+" gagal, "+c.skip+" lewati, "+c.untested+" belum (total "+c.total+")","");
+    GROUPS.forEach(function(g){
+      var rows=g.cases.filter(function(cs){ return statusOf(cs[0])!=="untested"; });
+      if(!rows.length) return;
+      lines.push("## "+g.title);
+      rows.forEach(function(cs){
+        var lbl=META[statusOf(cs[0])].label.toUpperCase();
+        lines.push("- ["+lbl+"] "+cs[0]+" — "+cs[1]);
+      });
+      lines.push("");
+    });
+    var txt=lines.join("\n");
+    if(navigator.clipboard){ navigator.clipboard.writeText(txt).then(function(){ alert("Ringkasan hasil disalin ke clipboard."); },
+      function(){ prompt("Salin manual:", txt); }); }
+    else { prompt("Salin manual:", txt); }
+  });
+
+  var themeBtn=document.getElementById("theme-btn");
+  function applyTheme(t){ document.documentElement.setAttribute("data-theme",t);
+    themeBtn.innerHTML='<i class="ti '+(t==="dark"?"ti-sun":"ti-moon")+'" aria-hidden="true"></i>';
+    try{ localStorage.setItem(THEME_KEY,t); }catch(e){} }
+  var savedTheme; try{ savedTheme=localStorage.getItem(THEME_KEY); }catch(e){}
+  applyTheme(savedTheme || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+  themeBtn.addEventListener("click",function(){
+    applyTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark");
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

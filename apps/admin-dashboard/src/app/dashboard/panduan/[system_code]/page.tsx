@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { BookOpen, Plus, Trash2, Loader2, ArrowLeft, X } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { Button } from '@suka/design-system'
@@ -22,8 +22,10 @@ const CATEGORY_NAMES: Record<string, string> = {
   'distribusi': 'Sistem Distribusi',
 }
 
-export default function SystemCategoryPage({ params }: { params: { system_code: string } }) {
+export default function SystemCategoryPage() {
   const router = useRouter()
+  const params = useParams()
+  const system_code = params.system_code as string
   const supabase = createSupabaseBrowserClient()
   const [guides, setGuides] = useState<Guide[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -36,11 +38,13 @@ export default function SystemCategoryPage({ params }: { params: { system_code: 
   // Delete state
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const categoryName = CATEGORY_NAMES[params.system_code] || params.system_code
+  const categoryName = CATEGORY_NAMES[system_code] || system_code
 
   useEffect(() => {
-    loadGuides()
-  }, [params.system_code])
+    if (system_code) {
+      loadGuides()
+    }
+  }, [system_code])
 
   const loadGuides = async () => {
     setIsLoading(true)
@@ -48,7 +52,7 @@ export default function SystemCategoryPage({ params }: { params: { system_code: 
       const { data, error } = await supabase
         .from('system_guides')
         .select('id, system_code, title')
-        .eq('system_code', params.system_code)
+        .eq('system_code', system_code)
         .order('created_at', { ascending: true })
 
       if (error) {
@@ -82,7 +86,7 @@ export default function SystemCategoryPage({ params }: { params: { system_code: 
       }
 
       const res = await createPanduan({
-        system_code: params.system_code,
+        system_code: system_code,
         title: newTitle,
         userId
       })
@@ -94,7 +98,7 @@ export default function SystemCategoryPage({ params }: { params: { system_code: 
         setIsModalOpen(false)
         setNewTitle('')
         // Redirect to the new guide's editor
-        router.push(`/dashboard/panduan/${params.system_code}/${res.id}`)
+        router.push(`/dashboard/panduan/${system_code}/${res.id}`)
       }
     } catch (err) {
       console.error(err)
@@ -177,7 +181,7 @@ export default function SystemCategoryPage({ params }: { params: { system_code: 
                 <BookOpen size={24} />
               </div>
               <div className="flex-1 min-w-0 pr-8">
-                <Link href={`/dashboard/panduan/${params.system_code}/${sys.id}`} className="block">
+                <Link href={`/dashboard/panduan/${system_code}/${sys.id}`} className="block">
                   <h3 className="font-bold text-suka-ink truncate hover:text-suka-orange transition-colors">{sys.title}</h3>
                 </Link>
               </div>

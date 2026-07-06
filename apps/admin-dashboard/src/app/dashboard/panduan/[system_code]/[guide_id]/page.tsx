@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Loader2, ArrowLeft, Save, Bold, Italic, Heading1, Heading2, List, ListOrdered, ImageIcon, X } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { Button } from '@suka/design-system'
@@ -13,15 +13,11 @@ import Image from '@tiptap/extension-image'
 
 import { savePanduan } from '../actions'
 
-interface PageProps {
-  params: {
-    system_code: string
-    guide_id: string
-  }
-}
-
-export default function PanduanEditorPage({ params: { system_code, guide_id } }: PageProps) {
+export default function PanduanEditorPage() {
   const router = useRouter()
+  const params = useParams()
+  const system_code = params.system_code as string
+  const guide_id = params.guide_id as string
   const supabase = createSupabaseBrowserClient()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -82,10 +78,10 @@ export default function PanduanEditorPage({ params: { system_code, guide_id } }:
       }
     }
     
-    if (editor) {
+    if (guide_id && editor) {
       loadData()
     }
-  }, [supabase, guide_id, system_code, editor, router])
+  }, [guide_id, editor])
 
   const handleSave = async () => {
     if (!title.trim() || !contentHtml.trim()) {

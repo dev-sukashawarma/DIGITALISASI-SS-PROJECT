@@ -108,6 +108,10 @@ erDiagram
     shipments ||--o{ goods_receipts : "diverifikasi"
     raw_materials ||--o{ goods_receipts : "item"
     outlet_staff ||--o{ goods_receipts : "verifikator"
+    supplier ||--o{ purchase_order : "supply"
+    outlet_staff ||--o{ purchase_order : "pembuat/verifikator"
+    purchase_order ||--o{ purchase_order_item : "berisi"
+    raw_materials ||--o{ purchase_order_item : "bahan"
 
     outlets {
         uuid id PK "sama dgn Ecosystem"
@@ -153,7 +157,7 @@ erDiagram
         uuid id PK
         uuid outlet_id FK
         uuid material_id FK
-        text type "masuk|keluar|waste|adjust"
+        text type "masuk|keluar|waste|adjust|pembelian_supplier"
         numeric qty
         text source "opname|shipment|manual"
         uuid ref_id
@@ -194,6 +198,29 @@ erDiagram
         text photo_url
         uuid verified_by FK
         timestamptz verified_at
+    }
+    supplier {
+        uuid id PK
+        text nama
+        text kontak
+        text kategori
+    }
+    purchase_order {
+        uuid id PK
+        text nomor_po
+        uuid supplier_id FK
+        text status "draft|dikirim_ke_supplier|sebagian_diterima|diterima_lengkap|dibatalkan"
+        uuid dibuat_oleh FK
+        uuid diverifikasi_oleh FK
+    }
+    purchase_order_item {
+        uuid id PK
+        uuid purchase_order_id FK
+        uuid bahan_baku_id FK
+        numeric qty_pesan
+        numeric harga_pesan
+        numeric qty_terima
+        numeric harga_terima
     }
 ```
 

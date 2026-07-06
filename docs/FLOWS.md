@@ -119,6 +119,30 @@ sequenceDiagram
 
 ---
 
+## 5.5. Purchase Order & Terima dari Supplier (PO)
+
+```mermaid
+sequenceDiagram
+    participant M as Manajemen/Admin
+    participant AppA as Admin Dashboard
+    participant S as Supabase
+    participant K as Kitchen
+    participant AppD as App Distribusi
+
+    M->>AppA: Buat PO (Pilih Supplier, Bahan, Qty, Harga Estimasi)
+    AppA->>S: insert purchase_order (status: draft) + items
+    M->>AppA: Approve & Kirim ke Supplier
+    AppA->>S: update status = dikirim_ke_supplier
+    Note over M,K: Barang fisik sampai di Kitchen Bogor
+    K->>AppD: Buka PO, timbang aktual, input harga real, foto invoice fisik
+    AppD->>S: rpc verifikasi_terima_po() (isi qty_terima, harga_terima)
+    S->>S: TRIGGER insert stock_ledger (tipe: pembelian_supplier)
+    S->>S: TRIGGER update bahan_baku_harga (harga_beli)
+    Note over S: Stok Kitchen Naik + Harga HPP Terupdate Otomatis
+```
+
+---
+
 ## 6. Owner Dashboard — Reporting Hub (M4)
 
 ```mermaid

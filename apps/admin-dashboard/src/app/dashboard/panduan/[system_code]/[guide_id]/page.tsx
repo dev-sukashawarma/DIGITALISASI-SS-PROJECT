@@ -102,6 +102,7 @@ export default function PanduanEditorPage() {
 
       const res = await savePanduan({
         id: guide_id,
+        system_code,
         title,
         content_html: contentHtml,
         image_url: imageUrl,

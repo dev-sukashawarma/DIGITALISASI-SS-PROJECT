@@ -1,6 +1,6 @@
 # Satuan Majemuk di Dashboard Monitoring Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Papan monitoring-live (TV board), dashboard crew/SPV, dan tabelnya menampilkan qty stok dalam format satuan majemuk ("2 kompan + 8 liter") untuk bahan yang punya `satuan_kecil`, bukan cuma di halaman ledger/detail modal yang sudah dikerjakan sebelumnya.
 
@@ -22,7 +22,7 @@
 - Modify: `apps/stok/src/lib/types/monitoring.ts`
 - Modify: `apps/stok/src/lib/queries/monitoring.ts`
 
-- [ ] **Step 1: Extend types**
+- [x] **Step 1: Extend types**
 
 Di `apps/stok/src/lib/types/monitoring.ts`, tambah 2 field ke `MonitoringItem` (setelah `satuan: string;`):
 ```typescript
@@ -44,7 +44,7 @@ export interface MonitoringItem {
 }
 ```
 
-- [ ] **Step 2: Tambah helper `attachSatuanKecil` di `monitoring.ts`**
+- [x] **Step 2: Tambah helper `attachSatuanKecil` di `monitoring.ts`**
 
 Tambah setelah fungsi `assertOutletAccessible` (sebelum `fetchSPVMonitoringData`):
 ```typescript
@@ -75,7 +75,7 @@ async function attachSatuanKecil<T extends { bahan_baku_id: string }>(
 }
 ```
 
-- [ ] **Step 3: Wire ke `fetchSPVMonitoringData`**
+- [x] **Step 3: Wire ke `fetchSPVMonitoringData`**
 
 Ganti `return` di akhir fungsi (baris ~60-63):
 ```typescript
@@ -87,7 +87,7 @@ Ganti `return` di akhir fungsi (baris ~60-63):
   };
 ```
 
-- [ ] **Step 4: Wire ke `fetchLeaderMonitoringData`**
+- [x] **Step 4: Wire ke `fetchLeaderMonitoringData`**
 
 Sama persis, ganti `return` di akhir fungsi (baris ~92-95):
 ```typescript
@@ -99,7 +99,7 @@ Sama persis, ganti `return` di akhir fungsi (baris ~92-95):
   };
 ```
 
-- [ ] **Step 5: Wire ke `fetchCrewMonitoringData`**
+- [x] **Step 5: Wire ke `fetchCrewMonitoringData`**
 
 Fungsi ini punya `summary` dihitung dari `dedupedData` SEBELUM enrichment — panggil `attachSatuanKecil` setelah `dedupedData` didapat, sebelum `summary` dihitung (urutan tidak masalah karena `summary` cuma baca `status`/`is_flagged`, bukan field baru), lalu pakai hasil enriched di `items`:
 ```typescript
@@ -131,7 +131,7 @@ Fungsi ini punya `summary` dihitung dari `dedupedData` SEBELUM enrichment — pa
   };
 ```
 
-- [ ] **Step 6: Extend `LedgerFeedEntry` type & wire ke `fetchRecentLedger`**
+- [x] **Step 6: Extend `LedgerFeedEntry` type & wire ke `fetchRecentLedger`**
 
 Di `apps/stok/src/lib/queries/monitoring.ts`, tambah 2 field ke interface `LedgerFeedEntry` (setelah `satuan: string | null;`):
 ```typescript
@@ -167,7 +167,7 @@ export async function fetchRecentLedger(limit = 50): Promise<LedgerFeedEntry[]> 
 }
 ```
 
-- [ ] **Step 7: Extend `StockoutForecastItem` type & wire ke `fetchStockoutForecast`**
+- [x] **Step 7: Extend `StockoutForecastItem` type & wire ke `fetchStockoutForecast`**
 
 Tambah 2 field ke interface `StockoutForecastItem` (setelah `satuan: string | null;`):
 ```typescript
@@ -202,17 +202,17 @@ export async function fetchStockoutForecast(maxDays = 1, limit = 6): Promise<Sto
 }
 ```
 
-- [ ] **Step 8: Type-check**
+- [x] **Step 8: Type-check**
 
 Run: `cd apps/stok && yarn type-check`
 Expected: 0 error baru (error `OpnameForm.tsx` TS6133 pra-eksisting, sudah dikonfirmasi tidak terkait di sesi sebelumnya, boleh tetap ada).
 
-- [ ] **Step 9: Jalankan test yang ada, perbaiki mock kalau perlu**
+- [x] **Step 9: Jalankan test yang ada, perbaiki mock kalau perlu**
 
 Run: `cd apps/stok && yarn vitest run src/hooks/__tests__/useMonitoringData.test.tsx`
 Kalau ada test yang mock `supabase.from()` dan gagal karena `attachSatuanKecil` sekarang query tambahan ke `bahan_baku`, tambah case `bahan_baku` di mock (kembalikan array kosong/data null cukup) — sama seperti pola fix yang sudah dilakukan di `monitoring-detail-access.test.ts` pada sesi sebelumnya.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add apps/stok/src/lib/types/monitoring.ts apps/stok/src/lib/queries/monitoring.ts apps/stok/src/hooks/__tests__/useMonitoringData.test.tsx
@@ -227,14 +227,14 @@ git commit -m "feat(stok): batch-join satuan_kecil/faktor_tampilan into monitori
 **Files:**
 - Modify: `apps/stok/src/components/monitoring/LiveMonitoringPage.tsx`
 
-- [ ] **Step 1: Tambah import**
+- [x] **Step 1: Tambah import**
 
 Tambah setelah import `fetchOutletsList`:
 ```typescript
 import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 ```
 
-- [ ] **Step 2: Ganti tampilan qty di outlet card (low-item row)**
+- [x] **Step 2: Ganti tampilan qty di outlet card (low-item row)**
 
 Cari blok ini (sekitar baris 297-300):
 ```typescript
@@ -250,7 +250,7 @@ Ganti jadi:
 ```
 Catatan: `satuan` sengaja dikosongkan (`''`) di panggilan ini karena tampilan aslinya memang tidak menyertakan satuan di sini (cuma angka current_qty/threshold) — kalau `item.satuan_kecil` null, formatter fallback ke `"{qty} "` (ada spasi trailing kosong), makanya di-`.replace(/\s*$/, '')` untuk buang spasi sisa supaya tampilan tidak berubah untuk bahan tanpa satuan_kecil.
 
-- [ ] **Step 3: Ganti tampilan qty di Top-3 Kritis panel**
+- [x] **Step 3: Ganti tampilan qty di Top-3 Kritis panel**
 
 Cari blok ini (sekitar baris 460-462):
 ```typescript
@@ -266,12 +266,12 @@ Ganti jadi:
 ```
 Catatan: di sini `satuan` sudah ikut ditampilkan oleh formatter (baik fallback plain `"{qty} {satuan}"` maupun majemuk `"N {satuan} + M {satuan_kecil}"`), jadi `<span>{it.satuan}</span>` yang lama DIHAPUS (sudah termasuk dalam output formatter).
 
-- [ ] **Step 4: Type-check**
+- [x] **Step 4: Type-check**
 
 Run: `cd apps/stok && yarn type-check`
 Expected: 0 error baru.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/stok/src/components/monitoring/LiveMonitoringPage.tsx
@@ -286,14 +286,14 @@ git commit -m "feat(stok): show composite unit format in monitoring-live board"
 - Modify: `apps/stok/src/components/monitoring/CrewDashboard.tsx`
 - Modify: `apps/stok/src/components/monitoring/CrewList.tsx`
 
-- [ ] **Step 1: `CrewDashboard.tsx` — tambah import**
+- [x] **Step 1: `CrewDashboard.tsx` — tambah import**
 
 Tambah setelah `import { BottomNav } ...`:
 ```typescript
 import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 ```
 
-- [ ] **Step 2: Ganti blok "Peringatan Kritis" (sekitar baris 213-215)**
+- [x] **Step 2: Ganti blok "Peringatan Kritis" (sekitar baris 213-215)**
 
 Dari:
 ```typescript
@@ -308,14 +308,14 @@ Jadi:
                         </span>
 ```
 
-- [ ] **Step 3: `CrewList.tsx` — tambah import**
+- [x] **Step 3: `CrewList.tsx` — tambah import**
 
 Tambah setelah `import { Skeleton } ...`:
 ```typescript
 import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 ```
 
-- [ ] **Step 4: Ganti blok qty (sekitar baris 236-238)**
+- [x] **Step 4: Ganti blok qty (sekitar baris 236-238)**
 
 Dari:
 ```typescript
@@ -330,17 +330,17 @@ Jadi:
                   </span>
 ```
 
-- [ ] **Step 5: Type-check**
+- [x] **Step 5: Type-check**
 
 Run: `cd apps/stok && yarn type-check`
 Expected: 0 error baru.
 
-- [ ] **Step 6: Jalankan test terkait**
+- [x] **Step 6: Jalankan test terkait**
 
 Run: `cd apps/stok && yarn vitest run src/components/monitoring/__tests__/CrewDashboard.test.tsx`
 Catatan: file ini punya kegagalan pra-eksisting yang TIDAK terkait perubahan ini (dikonfirmasi di sesi sebelumnya — masalah environment/mock, bukan kode). Kalau ada kegagalan BARU yang jelas disebabkan perubahan qty formatting, perbaiki; kalau kegagalan sama seperti sebelumnya, itu bukan tanggung jawab task ini.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/stok/src/components/monitoring/CrewDashboard.tsx apps/stok/src/components/monitoring/CrewList.tsx
@@ -355,14 +355,14 @@ git commit -m "feat(stok): show composite unit format in crew dashboard"
 - Modify: `apps/stok/src/components/monitoring/SPVDashboard.tsx`
 - Modify: `apps/stok/src/components/monitoring/SPVTable.tsx`
 
-- [ ] **Step 1: `SPVDashboard.tsx` — tambah import**
+- [x] **Step 1: `SPVDashboard.tsx` — tambah import**
 
 Tambah di antara import lain (setelah `import { useSPVMonitoringData, ... } from '@/hooks/useMonitoringData';` atau baris import sejenis):
 ```typescript
 import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
 ```
 
-- [ ] **Step 2: Ganti blok Critical Stock Alerts (sekitar baris 320)**
+- [x] **Step 2: Ganti blok Critical Stock Alerts (sekitar baris 320)**
 
 Dari:
 ```typescript
@@ -377,7 +377,7 @@ Jadi:
                         </p>
 ```
 
-- [ ] **Step 3: Ganti blok Prediksi Habis (sekitar baris 798)**
+- [x] **Step 3: Ganti blok Prediksi Habis (sekitar baris 798)**
 
 Dari:
 ```typescript
@@ -388,7 +388,7 @@ Jadi:
                             <p className="text-[10px] text-red-800 font-medium">Sisa {f.days_left * 24} jam ({formatCompositeSaldo(f.current_qty, f.satuan ?? '', f.satuan_kecil, f.faktor_tampilan)})</p>
 ```
 
-- [ ] **Step 4: Ganti blok Live Activity feed qty (sekitar baris 837)**
+- [x] **Step 4: Ganti blok Live Activity feed qty (sekitar baris 837)**
 
 Dari:
 ```typescript
@@ -400,14 +400,14 @@ Jadi:
 ```
 Catatan: `formatCompositeDelta` sudah menyertakan tanda `+`/`-` sendiri, jadi `{isAdd ? '+' : ''}` yang lama dihapus (tidak dobel tanda plus).
 
-- [ ] **Step 5: `SPVTable.tsx` — tambah import**
+- [x] **Step 5: `SPVTable.tsx` — tambah import**
 
 Tambah setelah `import { Skeleton } ...`:
 ```typescript
 import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 ```
 
-- [ ] **Step 6: Ganti blok qty kolom tabel (sekitar baris 334-337)**
+- [x] **Step 6: Ganti blok qty kolom tabel (sekitar baris 334-337)**
 
 Dari:
 ```typescript
@@ -422,12 +422,12 @@ Jadi:
 ```
 Catatan: kolom threshold di baris ~366 (`{item.threshold}`, editable cell) **tidak diubah** — itu angka konfigurasi, bukan qty stok aktual.
 
-- [ ] **Step 7: Type-check**
+- [x] **Step 7: Type-check**
 
 Run: `cd apps/stok && yarn type-check`
 Expected: 0 error baru.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/stok/src/components/monitoring/SPVDashboard.tsx apps/stok/src/components/monitoring/SPVTable.tsx
@@ -438,17 +438,17 @@ git commit -m "feat(stok): show composite unit format in SPV dashboard and table
 
 ### Task 5: Full verification
 
-- [ ] **Step 1: Jalankan semua test**
+- [x] **Step 1: Jalankan semua test**
 
 Run: `cd apps/stok && yarn vitest run`
 Expected: hasil sama seperti baseline sesi sebelumnya (108 lolos, 3 gagal pra-eksisting tidak terkait: `SPVDashboard.test.tsx`, `CrewDashboard.test.tsx`, `PermintaanForm.test.tsx`) — tidak ada kegagalan BARU.
 
-- [ ] **Step 2: Type-check seluruh app**
+- [x] **Step 2: Type-check seluruh app**
 
 Run: `cd apps/stok && yarn type-check`
 Expected: hanya error pra-eksisting `OpnameForm.tsx` TS6133.
 
-- [ ] **Step 3: Manual smoke test (browser)** — catat sebagai pending untuk manusia (tidak ada dev server/DB live selama implementasi).
+- [ ] **Step 3: Manual smoke test (browser)** — PENDING, belum dijalankan manusia (tidak ada dev server/DB live selama implementasi).
 
 Checklist untuk manusia:
 - [ ] Papan monitoring-live: outlet card & Top-3 Kritis tampilkan format majemuk untuk 8 bahan yang sudah dikonfigurasi (MINYAK SAYUR, FOIL, KULIT 25/28/32, KEJU, SAPI, GAS 3Kg), bahan lain tampil seperti biasa
@@ -456,7 +456,7 @@ Checklist untuk manusia:
 - [ ] Dashboard SPV: Critical Alerts, Prediksi Habis, Live Activity feed format majemuk
 - [ ] Tabel SPV & CrewList: kolom qty format majemuk, kolom threshold tidak berubah
 
-- [ ] **Step 4: Final commit (kalau ada perbaikan dari smoke test)**
+- [x] **Step 4: Final commit (kalau ada perbaikan dari smoke test)** — skip, tidak ada perbaikan diperlukan setelah verifikasi otomatis (test+type-check bersih)
 
 ```bash
 git add -A

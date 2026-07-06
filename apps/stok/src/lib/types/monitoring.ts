@@ -6,6 +6,8 @@ export interface MonitoringItem {
   bahan_baku_id: string;
   item_name: string;
   satuan: string;
+  satuan_kecil: string | null;
+  faktor_tampilan: number | null;
   kategori: string;
   current_qty: number;
   threshold: number;

@@ -35,6 +35,32 @@ async function assertOutletAccessible(supabase: SupabaseBrowserClient, outletId:
 }
 
 /**
+ * Batch-join satuan_kecil/faktor_tampilan dari bahan_baku ke sekumpulan item
+ * monitoring (1 query per outletnya-outlet, bukan per-item -- hindari N+1).
+ * Dipakai di semua fetcher monitoring supaya UI bisa pakai formatCompositeSaldo/
+ * Delta tanpa perlu query terpisah per komponen.
+ */
+async function attachSatuanKecil<T extends { bahan_baku_id: string }>(
+  supabase: SupabaseBrowserClient,
+  items: T[]
+): Promise<(T & { satuan_kecil: string | null; faktor_tampilan: number | null })[]> {
+  const ids = [...new Set(items.map((i) => i.bahan_baku_id))];
+  if (ids.length === 0) return items as (T & { satuan_kecil: string | null; faktor_tampilan: number | null })[];
+
+  const { data } = await supabase
+    .from('bahan_baku')
+    .select('id, satuan_kecil, faktor_tampilan')
+    .in('id', ids);
+
+  const map = new Map((data ?? []).map((b) => [b.id, b]));
+  return items.map((item) => ({
+    ...item,
+    satuan_kecil: map.get(item.bahan_baku_id)?.satuan_kecil ?? null,
+    faktor_tampilan: map.get(item.bahan_baku_id)?.faktor_tampilan ?? null,
+  }));
+}
+
+/**
  * Fetch monitoring data for SPV (multi-outlet view)
  * RLS enforced: SPV role can see all outlets
  */
@@ -57,8 +83,10 @@ export async function fetchSPVMonitoringData() {
     return true;
   });
 
+  const enrichedItems = await attachSatuanKecil(supabase, dedupedItems);
+
   return {
-    items: dedupedItems,
+    items: enrichedItems,
     lastFetched: new Date().toISOString(),
   };
 }
@@ -89,8 +117,10 @@ export async function fetchLeaderMonitoringData() {
     return true;
   });
 
+  const enrichedItems = await attachSatuanKecil(supabase, dedupedItems);
+
   return {
-    items: dedupedItems,
+    items: enrichedItems,
     lastFetched: new Date().toISOString(),
   };
 }
@@ -141,6 +171,8 @@ export async function fetchCrewMonitoringData(userId?: string) {
     return true;
   });
 
+  const enrichedData = await attachSatuanKecil(supabase, dedupedData);
+
   // Calculate summary
   // Note: "below_threshold" counts only items strictly below threshold (status === 'below').
   // "warning" items (80-100% of threshold) are tracked separately and not included in this count.
@@ -154,7 +186,7 @@ export async function fetchCrewMonitoringData(userId?: string) {
   return {
     outlet_id: staffData.outlet_id,
     outlet_name: outletName,
-    items: dedupedData,
+    items: enrichedData,
     summary,
     lastFetched: new Date().toISOString(),
   };
@@ -287,6 +319,8 @@ export interface LedgerFeedEntry {
   bahan_baku_id: string;
   item_name: string;
   satuan: string | null;
+  satuan_kecil: string | null;
+  faktor_tampilan: number | null;
   tipe: LedgerFeedTipe;
   qty: number;
   catatan: string | null;
@@ -308,7 +342,7 @@ export async function fetchRecentLedger(limit = 50): Promise<LedgerFeedEntry[]> 
     .limit(limit);
 
   if (error) throw error;
-  return (data || []) as LedgerFeedEntry[];
+  return await attachSatuanKecil(supabase, (data || []) as LedgerFeedEntry[]);
 }
 
 export interface StockoutForecastItem {
@@ -317,6 +351,8 @@ export interface StockoutForecastItem {
   bahan_baku_id: string;
   item_name: string;
   satuan: string | null;
+  satuan_kecil: string | null;
+  faktor_tampilan: number | null;
   current_qty: number;
   threshold: number;
   daily_rate: number;
@@ -338,7 +374,7 @@ export async function fetchStockoutForecast(maxDays = 1, limit = 6): Promise<Sto
     .limit(limit);
 
   if (error) throw error;
-  return (data || []) as StockoutForecastItem[];
+  return await attachSatuanKecil(supabase, (data || []) as StockoutForecastItem[]);
 }
 
 const LOSS_TIPE = ['waste', 'rejected_kiriman', 'opname_selisih'] as const;

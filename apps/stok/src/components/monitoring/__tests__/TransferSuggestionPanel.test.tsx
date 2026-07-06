@@ -11,6 +11,8 @@ function makeItem(overrides: Partial<MonitoringItem>): MonitoringItem {
     bahan_baku_id: 'b1',
     item_name: 'Daging',
     satuan: 'kg',
+    satuan_kecil: null,
+    faktor_tampilan: null,
     kategori: 'protein',
     current_qty: 10,
     threshold: 10,

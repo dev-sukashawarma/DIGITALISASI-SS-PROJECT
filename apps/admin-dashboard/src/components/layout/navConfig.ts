@@ -2,8 +2,9 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, MessageSquareHeart, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, Ban, Boxes, TrendingDown, type LucideIcon,
+  Package, FileText, Settings, Ban, Boxes, TrendingDown, ShoppingCart, Truck, type LucideIcon,
 } from 'lucide-react'
+
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA'
 
@@ -35,6 +36,16 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/hr/attendance', label: 'Absensi & Shift', shortLabel: 'Absensi', icon: CalendarClock, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/leave', label: 'Cuti & Izin', shortLabel: 'Cuti', icon: CalendarHeart, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/payroll', label: 'Payroll & Kasbon', shortLabel: 'Payroll', icon: Banknote, roles: ['ADMIN_HR', 'ADMIN'] },
+    ],
+  },
+  {
+    title: 'Pengadaan',
+    icon: ShoppingCart,
+    roles: ['ADMIN'],
+    items: [
+      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['ADMIN'] },
+      { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN'] },
+      { href: '/dashboard/pembelian/laporan', label: 'Laporan Pembelian', shortLabel: 'Lap. Beli', icon: FileText, roles: ['ADMIN'] },
     ],
   },
   {

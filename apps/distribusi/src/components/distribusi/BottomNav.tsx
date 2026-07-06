@@ -5,7 +5,7 @@ import { useAuth } from '@suka/auth'
 import { getCrossAppUrl } from '@/lib/navigation'
 
 interface BottomNavProps {
-  activeTab: 'dashboard' | 'terima' | 'riwayat' | 'surat-jalan' | 'pengiriman' | 'none'
+  activeTab: 'dashboard' | 'terima' | 'riwayat' | 'surat-jalan' | 'pengiriman' | 'terima-supplier' | 'none'
 }
 
 export function BottomNav({ activeTab }: BottomNavProps) {
@@ -15,6 +15,7 @@ export function BottomNav({ activeTab }: BottomNavProps) {
   if (loading || !outletStaff) return null
 
   const isPusat = ['leader', 'kitchen', 'admin', 'admin_hr'].includes(outletStaff.role)
+  const isKitchen = outletStaff.role === 'kitchen'
 
   const handleNavigate = (path: string) => {
     const resolvedUrl = getCrossAppUrl(path)
@@ -54,6 +55,21 @@ export function BottomNav({ activeTab }: BottomNavProps) {
             <span className="text-xl">➕</span>
             <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Surat Jalan</span>
           </button>
+
+          {/* Terima Bahan (khusus kitchen) */}
+          {isKitchen && (
+            <button
+              onClick={() => handleNavigate('/distribusi/terima-bahan')}
+              className={`flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer ${
+                activeTab === 'terima-supplier'
+                  ? 'bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200'
+                  : 'text-[#544437]/75 hover:text-[#701604] px-4 py-1'
+              }`}
+            >
+              <span className="text-xl">📥</span>
+              <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Terima Bahan</span>
+            </button>
+          )}
 
           {/* Riwayat */}
           <button

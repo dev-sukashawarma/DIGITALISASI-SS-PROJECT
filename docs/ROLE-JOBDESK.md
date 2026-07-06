@@ -1,10 +1,10 @@
 # Jobdesk & Wewenang Role — Suka Shawarma Outlet Suite
 
-**Tanggal:** 2026-06-13
-**Status:** Disepakati (brainstorming login SSO per role)
+**Tanggal:** 2026-06-13 | **Terakhir diupdate:** 2026-07-06
+**Status:** Aktif
 **Sumber kebenaran identitas:** tabel `outlet_staff` (1 baris per user) + tabel pemetaan `staff_outlets` untuk role multi-outlet
 
-Dokumen ini mendefinisikan **7 role** sistem, jobdesk masing-masing, hak akses per aplikasi, dan batasannya. Menjadi acuan untuk: pemberian akun, guard akses per app, RLS, dan portal launcher SSO.
+Dokumen ini mendefinisikan **10 role** sistem, jobdesk masing-masing, hak akses per aplikasi, dan batasannya. Menjadi acuan untuk: pemberian akun, guard akses per app, RLS, dan portal launcher SSO.
 
 > Disusun selaras dengan SOP resmi: *JOBDESK SPV* dan *SOP + JOBDESK LEADER OUTLET* Suka Shawarma.
 
@@ -41,10 +41,12 @@ Pemetaan istilah SOP → role sistem:
 | 2 | `admin_hr` | HR/Personalia | Semua outlet (19) | Manusia (pusat) |
 | 3 | `owner` | Pemilik usaha | Semua outlet, read-only | Manusia (pusat) |
 | 4 | `spv` | Supervisor pembina outlet | **Semua outlet (19)**, monitoring/evaluasi | Manusia (lapangan, lintas outlet) |
-| 5 | `leader` | Leader Outlet (PIC beberapa outlet) | **Beberapa outlet (subset)** via `staff_outlets` | Manusia (outlet) |
-| 6 | `kasir` | Kasir | 1 outlet | Manusia (outlet) |
-| 7 | `crew` | Kru produksi/operasional | 1 outlet, data diri | Manusia (outlet) |
+| 5 | `kitchen` | Staff Gudang Pusat / Dapur | Semua outlet (distribusi & stok) | Manusia (pusat) |
+| 6 | `leader` | Leader Outlet (PIC beberapa outlet) | **Beberapa outlet (subset)** via `staff_outlets` | Manusia (outlet) |
+| 7 | `crew` | Kru produksi/operasional | 1 outlet | Manusia (outlet) |
 | 8 | `kiosk` | Device POS/antrian | 1 outlet (terikat device) | Mesin (bukan manusia) |
+| 9 | `mitra` | Partner/investor outlet | 1 outlet (home outlet), read-only | Manusia (eksternal) |
+| 10 | `staff_pusat` | Staf kantor pusat (non-IT) | 1 outlet (absensi saja) | Manusia (pusat) |
 
 > **Catatan `spv`:** satu role tunggal, **berada di atas Leader Outlet** dan **mengawasi seluruh 19 outlet** (bukan 1 outlet). Sifat aksesnya monitoring/evaluasi (read-heavy) lintas outlet, memakai view definer SPV yang sudah bypass RLS. Pembagian "produksi" vs "stok" adalah divisi/penugasan, bukan beda hak akses.
 
@@ -52,16 +54,20 @@ Pemetaan istilah SOP → role sistem:
 
 ## Matriks Akses Role → Aplikasi
 
-| Role | pos-kasir | absensi | stok | distribusi | admin-dashboard (View Owner) | admin-dashboard (View HR & System) |
+| Role | pos-kasir | absensi | stok | distribusi | owner-dashboard | admin-dashboard |
 |------|:---:|:---:|:---:|:---:|:---:|:---:|
 | **admin** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **admin_hr** | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ (HR saja) |
-| **owner** | ❌ | ❌ | ❌ | ❌ | ✅ (read-only) | ❌ |
-| **spv** | ❌ | ✅ semua outlet | ✅ semua outlet (monitor) | ✅ (monitor) | ❌ | ❌ |
+| **owner** | ❌ | ❌ | ❌ | ❌ | ✅ (read-only) | ✅ (read-only) |
+| **spv** | ❌ | ✅ semua outlet | ✅ semua outlet | ✅ | ❌ | ❌ |
+| **kitchen** | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
 | **leader** | ✅ | ✅ (outlet binaan) | ✅ (outlet binaan) | ✅ | ❌ | ❌ |
-| **kasir** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **crew** | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **crew** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **kiosk** | ✅ (kiosk mode) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **mitra** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (outlet sendiri) |
+| **staff_pusat** | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+> **Catatan:** Role `kasir` sudah dihapus (migration `20260626102000`) — semua user kasir dimigrate ke role `crew`. Role `kepala_outlet` sudah direname ke `leader` (migration `20260620000000`).
 
 Matriks ini adalah satu-satunya sumber untuk konstanta `ROLE_APP_ACCESS` dan guard middleware tiap app.
 Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / view definer, bukan oleh matriks ini.
@@ -322,8 +328,12 @@ staff_outlets (many-to-many, HANYA untuk leader)
 ## Daftar Role Final (untuk enum/constraint `outlet_staff.role`)
 
 ```
-admin | owner | spv | leader | kasir | crew | kiosk
+admin | admin_hr | owner | spv | kitchen | leader | crew | kiosk | mitra | staff_pusat
 ```
+
+> Sumber kebenaran: migration `20260707000000_fix_mitra_role_lost_in_staff_pusat_migration.sql`
+> TypeScript type: `packages/auth/src/types.ts`
+> App access matrix: `packages/auth/src/access.ts`
 
 ---
 

@@ -53,6 +53,15 @@
 
 /* Komponen bawaan halaman pos-admin (migrasi dari pos-kasir) */
 @layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-gray-100;
+  }
+
+  .card-hover {
+    @apply bg-white rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover hover:-translate-y-0.5
+           transition-all duration-200;
+  }
+
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2
            bg-amber-500 text-white font-semibold

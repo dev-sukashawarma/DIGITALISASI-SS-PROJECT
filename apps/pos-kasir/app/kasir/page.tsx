@@ -169,7 +169,21 @@ export default function CashierOrdersPage() {
     queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
       prev?.map(o => o.id === id ? { ...o, status: 'preparing' } : o)
     )
-    await supabase.from('orders').update({ status: 'preparing', updated_at: new Date().toISOString() }).eq('id', id)
+    
+    try {
+      const res = await fetch('/api/orders/update-status-internal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: id, status: 'preparing' })
+      })
+      if (!res.ok) {
+        throw new Error('Gagal update database')
+      }
+    } catch (error: any) {
+      console.error('Update preparing failed:', error)
+      showAlert(`Gagal memproses pesanan: ${error.message}`)
+    }
+    
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
   }
 
@@ -179,7 +193,21 @@ export default function CashierOrdersPage() {
     queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
       prev?.map(o => o.id === id ? { ...o, status: 'completed' } : o)
     )
-    await supabase.from('orders').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', id)
+    
+    try {
+      const res = await fetch('/api/orders/update-status-internal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: id, status: 'completed' })
+      })
+      if (!res.ok) {
+        throw new Error('Gagal update database')
+      }
+    } catch (error: any) {
+      console.error('Update failed:', error)
+      showAlert(`Gagal mengupdate pesanan: ${error.message}`)
+    }
+    
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
     queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
 
@@ -219,14 +247,23 @@ export default function CashierOrdersPage() {
         prev?.map(o => o.id === id ? { ...o, status: 'cancelled' } : o)
       )
       
-      // Update DB with security audit trail
-      await supabase.from('orders').update({ 
-        status: 'cancelled', 
-        updated_at: new Date().toISOString(),
-        void_reason: voidReason,
-        void_at: new Date().toISOString()
-        // voided_by: currentUserId // Diambil dari session user SPV yang input PIN
-      }).eq('id', id)
+      // Update DB via internal API
+      try {
+        const res = await fetch('/api/orders/update-status-internal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            order_id: id, 
+            status: 'cancelled',
+            void_reason: voidReason,
+            void_at: new Date().toISOString()
+          })
+        })
+        if (!res.ok) throw new Error('Gagal update database')
+      } catch (err: any) {
+        console.error('Cancel order failed:', err)
+        showAlert(`Gagal membatalkan pesanan: ${err.message}`)
+      }
       
       queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
 

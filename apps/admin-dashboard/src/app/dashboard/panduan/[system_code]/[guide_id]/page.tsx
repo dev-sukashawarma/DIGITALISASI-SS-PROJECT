@@ -235,9 +235,9 @@ export default function PanduanEditorPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-4">
-        <Link href={`/dashboard/panduan/${system_code}`} className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors">
+        <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors">
           <ArrowLeft size={20} />
-        </Link>
+        </button>
         <div className="flex-1">
           <h2 className="text-2xl font-extrabold text-suka-ink">
             {isNew ? 'Buat Panduan Baru' : 'Edit Panduan Sistem'}

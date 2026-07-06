@@ -26,8 +26,7 @@ export default function AdminGuidesPage() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [sortOrder, setSortOrder] = useState(0)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
+  const [images, setImages] = useState<{file: File | null, url: string | null, title: string}[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const fetchGuides = async () => {
@@ -55,26 +54,56 @@ export default function AdminGuidesPage() {
       setTitle(guide.title)
       setContent(guide.content)
       setSortOrder(guide.sort_order)
-      setPreview(guide.image_url)
-      setImageFile(null)
+      
+      let parsedImages = []
+      if (guide.image_url) {
+        try {
+          const parsed = JSON.parse(guide.image_url)
+          if (Array.isArray(parsed)) {
+            parsedImages = parsed.map((p: any) => ({ file: null, url: p.url, title: p.title || '' }))
+          } else {
+            parsedImages = [{ file: null, url: guide.image_url, title: '' }]
+          }
+        } catch {
+          parsedImages = [{ file: null, url: guide.image_url, title: '' }]
+        }
+      }
+      setImages(parsedImages)
     } else {
       setEditingGuide(null)
       setCategory('')
       setTitle('')
       setContent('')
       setSortOrder(0)
-      setPreview(null)
-      setImageFile(null)
+      setImages([])
     }
     setIsModalOpen(true)
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddImage = () => {
+    setImages([...images, { file: null, url: null, title: '' }])
+  }
+
+  const handleRemoveImage = (index: number) => {
+    setImages(images.filter((_, i) => i !== index))
+  }
+
+  const handleImageTitleChange = (index: number, title: string) => {
+    const newImages = [...images]
+    newImages[index].title = title
+    setImages(newImages)
+  }
+
+  const handleImageFileChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      setImageFile(file)
+      const newImages = [...images]
+      newImages[index].file = file
       const reader = new FileReader()
-      reader.onloadend = () => setPreview(reader.result as string)
+      reader.onloadend = () => {
+        newImages[index].url = reader.result as string
+        setImages([...newImages])
+      }
       reader.readAsDataURL(file)
     }
   }
@@ -84,29 +113,34 @@ export default function AdminGuidesPage() {
     setIsSubmitting(true)
     
     try {
-      let finalImageUrl = preview
+      const supabase = createClient()
+      const finalImages = []
       
-      // Upload if new file
-      if (imageFile) {
-        const supabase = createClient()
-        const fileExt = imageFile.name.split('.').pop()
-        const fileName = `guide-${Date.now()}.${fileExt}`
-        const { error: uploadError } = await supabase.storage
-          .from('kiosk-assets')
-          .upload(fileName, imageFile, { upsert: true })
-          
-        if (uploadError) throw uploadError
-        const { data: { publicUrl } } = supabase.storage.from('kiosk-assets').getPublicUrl(fileName)
-        finalImageUrl = publicUrl
-      } else if (!preview) {
-        finalImageUrl = null
+      for (const img of images) {
+        let imgUrl = img.url
+        if (img.file) {
+          const fileExt = img.file.name.split('.').pop()
+          const fileName = `guide-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+          const { error: uploadError } = await supabase.storage
+            .from('kiosk-assets')
+            .upload(fileName, img.file, { upsert: true })
+            
+          if (uploadError) throw uploadError
+          const { data: { publicUrl } } = supabase.storage.from('kiosk-assets').getPublicUrl(fileName)
+          imgUrl = publicUrl
+        }
+        if (imgUrl) {
+          finalImages.push({ url: imgUrl, title: img.title })
+        }
       }
+      
+      const finalImageUrl = finalImages.length > 0 ? JSON.stringify(finalImages) : null
 
       const payload = {
         id: editingGuide?.id,
         category,
         title,
-        content,
+        content_html: content,
         image_url: finalImageUrl,
         sort_order: Number(sortOrder)
       }
@@ -248,28 +282,57 @@ export default function AdminGuidesPage() {
                   <textarea required value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder="Jelaskan langkah-langkahnya di sini..." className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 rounded-xl px-4 py-3 outline-none transition-colors font-medium text-gray-900 resize-none" />
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-sm font-bold text-gray-900">Screenshot / Gambar Pendukung (Opsional)</label>
-                  <div className="flex flex-col sm:flex-row items-start gap-4">
-                    {preview ? (
-                      <div className="relative w-full sm:w-48 aspect-video rounded-xl border border-gray-200 overflow-hidden bg-gray-50 group shrink-0">
-                        <img src={preview} alt="Preview" className="w-full h-full object-contain" />
-                        <button type="button" onClick={() => { setPreview(null); setImageFile(null); }} className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <X className="w-6 h-6 text-white" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-full sm:w-48 aspect-video rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center bg-gray-50 shrink-0 text-gray-400">
-                        <ImageIcon className="w-8 h-8 mb-2" strokeWidth={1.5} />
-                        <span className="text-xs font-semibold">Tidak ada gambar</span>
-                      </div>
-                    )}
-                    
-                    <label className="inline-flex items-center justify-center px-4 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl cursor-pointer hover:bg-gray-200 transition-colors text-sm w-full sm:w-auto">
-                      <span>Pilih Gambar</span>
-                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} className="hidden" />
-                    </label>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-bold text-gray-900">Screenshot / Gambar Pendukung (Opsional)</label>
+                    <button type="button" onClick={handleAddImage} className="text-sm bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-100 flex items-center gap-1">
+                      <Plus className="w-4 h-4" /> Tambah Gambar
+                    </button>
                   </div>
+                  
+                  {images.length === 0 ? (
+                    <div className="w-full aspect-[4/1] rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center bg-gray-50 text-gray-400">
+                      <ImageIcon className="w-8 h-8 mb-2" strokeWidth={1.5} />
+                      <span className="text-xs font-semibold">Tidak ada gambar</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                      {images.map((img, index) => (
+                        <div key={index} className="flex flex-col sm:flex-row gap-4 p-4 border border-gray-200 rounded-xl bg-gray-50 relative">
+                          <button type="button" onClick={() => handleRemoveImage(index)} className="absolute top-2 right-2 p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200">
+                            <X className="w-4 h-4" />
+                          </button>
+                          
+                          <div className="shrink-0 space-y-2">
+                            {img.url ? (
+                              <div className="relative w-full sm:w-32 aspect-video rounded-lg border border-gray-200 overflow-hidden bg-white">
+                                <img src={img.url} alt="Preview" className="w-full h-full object-contain" />
+                              </div>
+                            ) : (
+                              <div className="w-full sm:w-32 aspect-video rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center bg-white text-gray-400">
+                                <ImageIcon className="w-6 h-6 mb-1" />
+                              </div>
+                            )}
+                            <label className="block text-center cursor-pointer text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1.5 rounded hover:bg-blue-100">
+                              Pilih File
+                              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleImageFileChange(index, e)} className="hidden" />
+                            </label>
+                          </div>
+                          
+                          <div className="flex-1 space-y-2">
+                            <label className="text-xs font-bold text-gray-700">Judul Gambar (Opsional)</label>
+                            <input 
+                              type="text" 
+                              value={img.title} 
+                              onChange={(e) => handleImageTitleChange(index, e.target.value)} 
+                              placeholder="Misal: Tampilan saat pesanan baru masuk" 
+                              className="w-full bg-white border border-gray-200 focus:border-amber-400 rounded-lg px-3 py-2 outline-none text-sm" 
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </form>
             </div>

@@ -11,17 +11,21 @@
 -- MAX() atas 1 baris = nilai baris itu sendiri, dipakai UI supaya card manual
 -- tidak perlu extra query terpisah.
 
+-- Catatan: Postgres tidak punya aggregate MAX/MIN bawaan untuk tipe uuid
+-- (beda dari yang diasumsikan awalnya) -- semua kolom uuid di-cast ::text dulu
+-- sebelum MAX(). Ini aman: konsumen TypeScript (LedgerTransaksiSummary) sudah
+-- mendefinisikan ref_*/single_bahan_baku_id sebagai string | null, bukan tipe UUID native.
 CREATE VIEW ledger_transaksi_ringkas AS
 SELECT
   COALESCE(ref_order_id::text, ref_opname_id::text, ref_shipment_id::text, ref_transfer_id::text, id::text) AS transaksi_key,
   outlet_id,
   MIN(created_at) AS created_at,
   COUNT(*) AS jumlah_bahan,
-  MAX(ref_order_id) AS ref_order_id,
-  MAX(ref_opname_id) AS ref_opname_id,
-  MAX(ref_shipment_id) AS ref_shipment_id,
-  MAX(ref_transfer_id) AS ref_transfer_id,
-  MAX(bahan_baku_id) AS single_bahan_baku_id,
+  MAX(ref_order_id::text) AS ref_order_id,
+  MAX(ref_opname_id::text) AS ref_opname_id,
+  MAX(ref_shipment_id::text) AS ref_shipment_id,
+  MAX(ref_transfer_id::text) AS ref_transfer_id,
+  MAX(bahan_baku_id::text) AS single_bahan_baku_id,
   MAX(tipe) AS single_tipe,
   MAX(qty) AS single_qty,
   MAX(catatan) AS single_catatan,

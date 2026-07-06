@@ -15,6 +15,7 @@
     --bg-success:#e1f5ee; --text-success:#0f6e56; --border-success:#9fe1cb; --fill-success:#1d9e75;
     --bg-danger:#fcebeb; --text-danger:#a32d2d; --border-danger:#f09595; --fill-danger:#e24b4a;
     --bg-warning:#faeeda; --text-warning:#854f0b; --border-warning:#fac775; --fill-warning:#ef9f27;
+    --bg-accent:#e6f1fb; --text-accent:#185fa5; --border-accent:#85b7eb;
   }
   html[data-theme="dark"] {
     --surface-0:#1c1b18; --surface-1:#26251f; --surface-2:#2f2e27;
@@ -23,11 +24,12 @@
     --bg-success:#085041; --text-success:#9fe1cb; --border-success:#0f6e56; --fill-success:#1d9e75;
     --bg-danger:#791f1f; --text-danger:#f7c1c1; --border-danger:#a32d2d; --fill-danger:#e24b4a;
     --bg-warning:#633806; --text-warning:#fac775; --border-warning:#854f0b; --fill-warning:#ef9f27;
+    --bg-accent:#0c447c; --text-accent:#b5d4f4; --border-accent:#185fa5;
   }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--surface-0); color:var(--text-primary);
     font-family:var(--font-sans); font-size:14px; line-height:1.5; }
-  .wrap { max-width:820px; margin:0 auto; padding:1.5rem 1rem 4rem; }
+  .wrap { max-width:860px; margin:0 auto; padding:1.5rem 1rem 4rem; }
   .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
   h1 { font-size:20px; font-weight:500; margin:0; }
   .sub { font-size:13px; color:var(--text-secondary); }
@@ -41,27 +43,49 @@
   .stat .l { font-size:12px; color:var(--text-secondary); }
   .stat .v { font-size:22px; font-weight:500; }
   .pill { font-family:var(--font-mono); font-size:11px; padding:2px 6px; border-radius:var(--radius);
-    white-space:nowrap; min-width:66px; text-align:center; border:0.5px solid var(--border); }
+    white-space:nowrap; min-width:70px; text-align:center; border:0.5px solid var(--border); }
   .sbtn { border-radius:var(--radius); padding:3px 8px; font-size:12px; display:inline-flex;
     align-items:center; gap:4px; border:0.5px solid var(--border); background:transparent;
     color:var(--text-muted); cursor:pointer; }
   .sbtn:hover { background:var(--surface-1); }
   .sbtn i { font-size:14px; }
+  .row-main { display:flex; align-items:center; gap:10px; padding:9px 12px; }
+  .step { flex:1; font-size:13px; line-height:1.4; cursor:pointer; }
+  .chev { color:var(--text-muted); font-size:16px; cursor:pointer; transition:transform .15s; }
+  .detail { padding:0 12px 11px 12px; font-size:13px; }
+  .detail .lbl { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin-bottom:2px; }
+  .detail .expect { background:var(--bg-accent); color:var(--text-accent); border:0.5px solid var(--border-accent);
+    border-radius:var(--radius); padding:8px 10px; line-height:1.5; }
+  .note { background:var(--surface-2); border:0.5px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:1.25rem; }
+  .note ul { margin:6px 0 0; padding-left:18px; } .note li { margin:3px 0; color:var(--text-secondary); }
+  .note code { font-family:var(--font-mono); font-size:12px; background:var(--surface-1); padding:1px 5px; border-radius:4px; color:var(--text-primary); }
 </style>
 </head>
 <body>
-<h2 class="sr-only">Papan uji E2E manual Suka Shawarma: 155 kasus lintas 18 kelompok, dapat ditandai lulus, gagal, atau lewati dengan progres tersimpan di browser.</h2>
+<h2 class="sr-only">Papan uji E2E manual Suka Shawarma: 155 kasus lintas 18 kelompok dengan langkah dan hasil diharapkan, dapat ditandai lulus, gagal, atau lewati dengan progres tersimpan di browser.</h2>
 <div class="wrap">
   <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:1rem; flex-wrap:wrap;">
     <div>
       <h1>Papan uji E2E manual</h1>
-      <div class="sub">Suka Shawarma — hulu ke hilir, semua role</div>
+      <div class="sub">Suka Shawarma — hulu ke hilir, semua role · klik baris untuk lihat hasil diharapkan</div>
     </div>
     <div style="display:flex; gap:8px;">
       <button id="theme-btn" aria-label="Ganti tema"><i class="ti ti-moon" aria-hidden="true"></i></button>
+      <button id="expand-btn" title="Buka/tutup semua detail"><i class="ti ti-arrows-diagonal" aria-hidden="true" style="vertical-align:-2px;"></i></button>
       <button id="export-btn" title="Salin ringkasan hasil"><i class="ti ti-clipboard" aria-hidden="true" style="vertical-align:-2px; margin-right:5px;"></i>Salin hasil</button>
       <button id="reset-btn" aria-label="Reset semua status"><i class="ti ti-refresh" aria-hidden="true" style="vertical-align:-2px; margin-right:5px;"></i>Reset</button>
     </div>
+  </div>
+
+  <div class="note">
+    <div style="font-weight:500; margin-bottom:2px;"><i class="ti ti-info-circle" aria-hidden="true" style="vertical-align:-2px; margin-right:6px;"></i>Tentang &amp; lingkungan uji</div>
+    <ul>
+      <li>Penguji <strong>manusia</strong>, semua app web. Mobile native (native-superapp/native-pos/pos-mobile) <strong>di-exclude</strong>.</li>
+      <li>Port lokal: portal <code>3010</code>, stok <code>3001</code>, distribusi <code>3002</code>, owner <code>3003</code>, pos-kasir <code>3004</code>, admin <code>3005</code>, absensi <code>3006</code>.</li>
+      <li>Semua data uji berprefix <code>E2E </code> — jangan sentuh data outlet nyata. DB remote dipakai bersama.</li>
+      <li><strong>Wajib uji build produksi</strong> (<code>yarn build &amp;&amp; yarn start</code>) untuk S0 + semua halaman detail — regresi RSC 500 tak muncul di <code>yarn dev</code>.</li>
+      <li>Kerjakan berurutan: alur menyambung (barang PO di S1 mengalir sampai laporan S10). Detail lengkap: <code>docs/E2E-MANUAL-TEST-PLAN.md</code>.</li>
+    </ul>
   </div>
 
   <div id="stats" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(96px,1fr)); gap:10px; margin-bottom:12px;"></div>
@@ -81,7 +105,7 @@
       <option value="fail">Gagal</option>
       <option value="skip">Dilewati</option>
     </select>
-    <input id="search" type="text" placeholder="Cari id atau kata kunci" style="flex:1; min-width:160px;" />
+    <input id="search" type="text" placeholder="Cari id, langkah, atau hasil" style="flex:1; min-width:160px;" />
   </div>
 
   <div id="list"></div>
@@ -92,193 +116,193 @@
 (function(){
   var GROUPS = [
     {code:"PREP", title:"Persiapan data uji", cases:[
-      ["P-01","Buat 2 outlet uji E2E Outlet A & B"],
-      ["P-02","Buat 11 akun per role (auth + outlet_staff)"],
-      ["P-03","Buat 3 bahan: daging, roti, saus (kompan)"],
-      ["P-04","Buat supplier E2E"],
-      ["P-05","Buat menu + resep/BOM"],
-      ["P-06","Daftarkan outlet A ke allowlist BOM"],
-      ["P-07","Set reorder point item di A & B"],
-      ["P-08","Set outlet_attendance_config outlet A"],
+      ["P-01","Buat 2 outlet uji E2E Outlet A & B (tabel outlets)","Dua outlet E2E tersedia"],
+      ["P-02","Buat akun uji per role (auth user + baris outlet_staff); leader di-map ke A & B via staff_outlets","11 akun siap login sesuai role & outlet"],
+      ["P-03","Buat 3 bahan: E2E Daging Shawarma (kg), E2E Roti Pita (pcs), E2E Saus Garlic (kompan, isi faktor_tampilan)","3 bahan uji tersedia; saus bersatuan majemuk"],
+      ["P-04","Buat 1 supplier E2E (admin-dashboard → Pembelian → Supplier)","Supplier E2E tersedia"],
+      ["P-05","Buat menu POS E2E Shawarma Original + resep/BOM (daging 0.1kg, roti 1pcs)","Menu + resep siap"],
+      ["P-06","Daftarkan E2E Outlet A ke allowlist BOM (cek migration 20260703000000_bom_automation.sql)","Auto-deduct aktif utk outlet A — tanpa ini S6 pasti gagal"],
+      ["P-07","Set reorder point item di A & B (mis. daging ORP 5kg, roti ORP 50pcs)","ORP terisi utk uji status monitoring & transfer"],
+      ["P-08","Set outlet_attendance_config outlet A: jam masuk/keluar + mode auto","Konfigurasi absensi siap utk S9"],
     ]},
     {code:"S0", title:"S0 — Login, logout & matriks akses", cases:[
-      ["A-01","Login 11 akun berhasil, mendarat sesuai role"],
-      ["A-02","Password salah ditolak"],
-      ["A-03","Email tak terdaftar ditolak, no info bocor"],
-      ["A-04","SSO: buka app lain tanpa login ulang"],
-      ["A-05","Logout mengakhiri session & back-button aman"],
-      ["MTX-admin","admin: semua 6 app boleh"],
-      ["MTX-admin_hr","admin_hr: hanya absensi + admin-dash"],
-      ["MTX-owner","owner: hanya owner-dash + admin-dash"],
-      ["MTX-spv","spv: absensi, stok, distribusi"],
-      ["MTX-leader","leader: pos, absensi, stok, distribusi"],
-      ["MTX-crew","crew: pos, absensi, stok, distribusi"],
-      ["MTX-kiosk","kiosk: hanya pos-kasir"],
-      ["MTX-kitchen","kitchen: stok + distribusi"],
-      ["MTX-mitra","mitra: hanya admin-dash"],
-      ["MTX-staff_pusat","staff_pusat: hanya absensi"],
+      ["A-01","Login tiap akun (11) via portal/halaman login","Semua berhasil masuk; mendarat sesuai role (admin→admin-dash, crew→dashboard crew, dst)"],
+      ["A-02","Login crew.e2e dengan password salah","Ditolak dengan pesan error jelas; tidak masuk"],
+      ["A-03","Login email yang tidak terdaftar","Ditolak; tidak ada info bocor (pesan boleh generik)"],
+      ["A-04","Setelah login di satu app, buka app lain yang di-grant tanpa login ulang","SSO jalan — langsung masuk tanpa diminta login lagi"],
+      ["A-05","Klik Keluar di app mana pun","Session berakhir; dilempar ke login; back-button tidak membuka halaman ber-data"],
+      ["MTX-admin","Login admin → buka URL 6 app langsung","Boleh SEMUA: pos-kasir, absensi, stok, distribusi, owner-dash, admin-dash"],
+      ["MTX-admin_hr","Login admin_hr → buka URL 6 app langsung","Boleh: absensi, admin-dash. Ditolak: pos-kasir, stok, distribusi, owner-dash"],
+      ["MTX-owner","Login owner → buka URL 6 app langsung","Boleh: owner-dash, admin-dash. Ditolak: pos-kasir, absensi, stok, distribusi"],
+      ["MTX-spv","Login spv → buka URL 6 app langsung","Boleh: absensi, stok, distribusi. Ditolak: pos-kasir, owner-dash, admin-dash"],
+      ["MTX-leader","Login leader → buka URL 6 app langsung","Boleh: pos-kasir, absensi, stok, distribusi. Ditolak: owner-dash, admin-dash"],
+      ["MTX-crew","Login crew → buka URL 6 app langsung","Boleh: pos-kasir, absensi, stok, distribusi. Ditolak: owner-dash, admin-dash"],
+      ["MTX-kiosk","Login kiosk → buka URL 6 app langsung","Boleh: pos-kasir saja. Ditolak: 5 lainnya"],
+      ["MTX-kitchen","Login kitchen → buka URL 6 app langsung","Boleh: stok, distribusi. Ditolak: pos-kasir, absensi, owner-dash, admin-dash"],
+      ["MTX-mitra","Login mitra → buka URL 6 app langsung","Boleh: admin-dash saja. Ditolak: 5 lainnya"],
+      ["MTX-staff_pusat","Login staff_pusat → buka URL 6 app langsung","Boleh: absensi saja. Ditolak: 5 lainnya"],
     ]},
     {code:"S1", title:"S1 — Purchase order supplier→kitchen", cases:[
-      ["PO-01","Buat PO daging 10kg ke supplier"],
-      ["PO-02","PO tanpa item ditolak form"],
-      ["PO-03","Proses PO sampai diterima kitchen"],
-      ["PO-04","Stok kitchen naik persis 10kg"],
-      ["PO-05","PO masuk laporan pembelian"],
-      ["PO-06","mitra ditolak buka /pembelian"],
+      ["PO-01","Buat PO baru: supplier E2E Supplier, item E2E Daging Shawarma 10 kg","PO tersimpan, muncul di daftar dengan status awal benar"],
+      ["PO-02","Coba submit PO tanpa item","Form menolak (tombol disabled / pesan validasi)"],
+      ["PO-03","Proses PO sampai status diterima di kitchen (ikuti docs/FLOWS.md)","Status berubah sesuai state machine; tidak bisa loncat status"],
+      ["PO-04","Cek stok kitchen E2E Daging Shawarma (app stok / akun kitchen / monitoring SPV)","Saldo kitchen naik 10 kg — angka pasti, bukan kira-kira"],
+      ["PO-05","Buka laporan pembelian (/dashboard/pembelian/laporan)","PO tadi terhitung di laporan periode berjalan"],
+      ["PO-06","Login mitra, buka URL /dashboard/pembelian langsung","Ditolak/redirect — mitra tidak boleh lihat pembelian"],
     ]},
     {code:"S2", title:"S2 — Surat jalan kitchen→outlet", cases:[
-      ["SJ-01","kitchen buat SJ ke outlet A"],
-      ["SJ-02","crew A melihat SJ di daftar terima"],
-      ["SJ-03","Terima penuh → ledger terima_kiriman"],
-      ["SJ-04","Terima selisih → rejected_kiriman"],
-      ["SJ-05","crew B tak lihat SJ outlet A (RLS)"],
-      ["SJ-06","Riwayat SJ status akhir benar"],
-      ["SJ-07","Tak bisa dobel-terima SJ selesai"],
+      ["SJ-01","Login kitchen → buat Surat Jalan ke E2E Outlet A: daging 5 kg, roti 100 pcs","SJ tersimpan dengan nomor; stok kitchen berkurang sesuai flow"],
+      ["SJ-02","Login crew A → menu Terima","SJ dari SJ-01 muncul di daftar"],
+      ["SJ-03","Terima penuh SJ tsb","Sukses; ledger terima_kiriman +5kg daging & +100pcs roti; saldo A naik persis"],
+      ["SJ-04","(Kitchen) buat SJ kedua daging 5kg → (crew A) terima hanya 3kg (selisih 2)","Selisih tercatat rejected_kiriman 2kg; saldo A hanya naik 3kg"],
+      ["SJ-05","Login crew B → menu Terima","SJ milik outlet A tidak terlihat (RLS per outlet)"],
+      ["SJ-06","Buka Riwayat (/distribusi/riwayat) sebagai kitchen","Kedua SJ muncul dengan status akhir benar"],
+      ["SJ-07","(Crew A) coba terima ulang SJ yang sudah selesai","Tidak bisa — tidak ada dobel-terima / dobel ledger"],
     ]},
     {code:"S3", title:"S3 — Permintaan bahan crew→spv", cases:[
-      ["PM-01","crew A buat permintaan roti 20"],
-      ["PM-02","spv approve permintaan"],
-      ["PM-03","spv tolak permintaan kedua"],
-      ["PM-04","crew B tak lihat permintaan A (RLS)"],
-      ["PM-05","qty 0/kosong ditolak"],
+      ["PM-01","Login crew A → buat permintaan E2E Roti Pita 20 pcs","Tersimpan status menunggu/pending"],
+      ["PM-02","Login SPV → buka permintaan → Approve PM-01","Status jadi disetujui; terlihat juga di sisi crew"],
+      ["PM-03","Crew A buat permintaan kedua (5 pcs) → SPV Tolak","Status ditolak + (bila ada) alasan tampil ke crew"],
+      ["PM-04","Login crew B → buka halaman permintaan","Permintaan outlet A tidak terlihat"],
+      ["PM-05","Crew A submit permintaan dengan qty 0/kosong","Form menolak"],
     ]},
     {code:"S4", title:"S4 — Ledger manual", cases:[
-      ["LG-01","Pemakaian daging 1kg, saldo turun"],
-      ["LG-02","Waste roti 2 tercatat"],
-      ["LG-03","Adjustment NEGATIF bisa submit (regresi)"],
-      ["LG-04","Adjustment 0 ditolak"],
-      ["LG-05","Waste negatif/0 ditolak"],
-      ["LG-06","Tampilan satuan majemuk kompan+liter"],
-      ["LG-07","Detail ledger render (regresi RSC 500)"],
-      ["LG-08","1 card per order dari POS"],
+      ["LG-01","Entri Pemakaian daging 1 kg","Tersimpan; saldo daging A berkurang 1; muncul di daftar ledger"],
+      ["LG-02","Entri Waste roti 2 pcs","Tersimpan sebagai outflow; saldo berkurang 2"],
+      ["LG-03","Entri Penyesuaian (adjustment) nilai NEGATIF (mis. −2)","HARUS BISA disubmit (regresi fix 2026-06-25: dulu tombol disabled); saldo berkurang 2"],
+      ["LG-04","Entri Penyesuaian nilai 0","Ditolak (≠ 0 wajib)"],
+      ["LG-05","Entri Waste dengan nilai negatif/0","Ditolak (waste wajib > 0)"],
+      ["LG-06","Entri pemakaian E2E Saus Garlic lalu lihat daftar ledger","Tampilan satuan majemuk benar: X kompan Y liter sesuai faktor_tampilan"],
+      ["LG-07","Buka detail salah satu entri ledger dari daftar","Halaman detail terbuka normal (regresi RSC 500 di build produksi)"],
+      ["LG-08","(Jika POS jalan) cek ledger setelah 1 order POS","Pemakaian 1 order tampil 1 card per order, bukan tercecer per bahan"],
     ]},
     {code:"S5", title:"S5 — Opname → selisih", cases:[
-      ["OP-01","Selisih -3 → opname_selisih & koreksi"],
-      ["OP-02","Selisih 0 tak buat koreksi liar"],
-      ["OP-03","Composite remainder ≥ faktor diterima"],
-      ["OP-04","Detail opname render normal"],
+      ["OP-01","Catat saldo sistem roti (N). Buat opname fisik = N − 3","Opname tersimpan; ledger opname_selisih −3; saldo terkoreksi jadi N−3"],
+      ["OP-02","Opname dengan fisik = saldo sistem (selisih 0)","Tersimpan tanpa menciptakan koreksi liar"],
+      ["OP-03","Input composite E2E Saus Garlic: remainder ≥ faktor_tampilan (mis. 1 kompan 25 liter saat faktor 20)","Diterima dan terkonversi benar (regresi fix 9e1fb8fb)"],
+      ["OP-04","Buka detail opname dari daftar /stok/opname","Halaman detail render normal, riwayat item benar"],
     ]},
     {code:"S6", title:"S6 — POS checkout → BOM", cases:[
-      ["PS-01","Order shawarma → checkout sukses"],
-      ["PS-02","Ledger pemakaian daging -0.1 & roti -1"],
-      ["PS-03","Menu tanpa resep tak sentuh stok"],
-      ["PS-04","Order 3x → deduction terkali 3"],
-      ["PS-05","kiosk self-service order sukses"],
-      ["PS-06","Histori mencatat semua order"],
-      ["PS-07","Penjualan masuk dashboard admin"],
+      ["PS-01","Login crew A → kasir → order 1× E2E Shawarma Original → checkout tunai","Order sukses, struk/konfirmasi muncul"],
+      ["PS-02","Cek app stok (ledger outlet A) beberapa detik setelah PS-01","Ledger pemakaian otomatis: daging −0.1kg & roti −1pcs (angka pasti sesuai resep)"],
+      ["PS-03","Order menu tanpa resep (buat 1 menu polos bila belum ada) → checkout","Order sukses; tidak ada ledger stok baru"],
+      ["PS-04","Order 3× shawarma dalam 1 transaksi","Deduction terkali-3 (daging −0.3, roti −3)"],
+      ["PS-05","Login kiosk di device lain → mode kiosk → order self-service","Alur kiosk jalan sampai sukses; kiosk tidak bisa keluar ke app lain"],
+      ["PS-06","Buka Histori (/kasir/histori)","Semua order E2E hari ini tercatat benar"],
+      ["PS-07","Cek dashboard admin: laporan penjualan hari ini","Omzet order E2E masuk (dipakai lagi di S10)"],
     ]},
     {code:"S7", title:"S7 — Monitoring crew & SPV", cases:[
-      ["MO-01","crew dashboard tampil item outlet"],
-      ["MO-02","Modal detail tanpa error (regresi alias)"],
-      ["MO-03","SPV monitoring-live banyak outlet"],
-      ["MO-04","Drill-down detail per outlet"],
-      ["MO-05","Saldo < ORP → status kritis"],
-      ["MO-06","Saldo > ORP → status kembali ok"],
-      ["MO-07","leader hanya outlet binaan"],
+      ["MO-01","Login crew A → /dashboard","Item E2E outlet A tampil dengan saldo terkini"],
+      ["MO-02","Klik salah satu item → modal detail","Modal terbuka tanpa error boundary Oops! (regresi alias type/notes); riwayat tampil dengan tipe & catatan terbaca"],
+      ["MO-03","Login SPV → /stok/monitoring-live","Papan menampilkan outlet termasuk E2E A & B; panel Kitchen tampil"],
+      ["MO-04","Klik card E2E Outlet A","Masuk detail per outlet (/stok/monitoring-live/[outlet-id]) dengan breakdown item"],
+      ["MO-05","Buat kondisi kritis: pakai ledger/opname sampai saldo daging A di bawah ORP","Status berubah below/kritis di monitoring crew & SPV; jika Top-3 tampil di section atas"],
+      ["MO-06","Naikkan saldo lagi di atas ORP (adjustment +)","Status kembali ok/warning sesuai threshold"],
+      ["MO-07","Login leader → dashboard stok","Hanya outlet binaan (A & B); outlet nyata lain (mis. Empang) tidak tampil"],
     ]},
     {code:"S8", title:"S8 — Transfer suggestion (WIP)", cases:[
-      ["TF-01","Surplus A + defisit B → usulan A→B"],
-      ["TF-02","Kedua sehat → panel kosong"],
-      ["TF-03","Eksekusi → transfer_keluar/masuk"],
+      ["TF-01","Kondisikan: outlet A surplus daging (jauh di atas ORP), outlet B defisit (di bawah ORP)","Panel suggestion menampilkan usulan transfer A → B untuk daging, qty masuk akal"],
+      ["TF-02","Kondisikan kedua outlet sehat (di atas ORP)","Panel kosong / empty state, bukan error"],
+      ["TF-03","(Bila aksi transfer ada) eksekusi transfer sesuai suggestion","Ledger transfer_keluar di A dan transfer_masuk di B dengan qty sama"],
     ]},
     {code:"S9", title:"S9 — Absensi (termasuk kamera)", cases:[
-      ["AB-01","spv buat akun crew baru"],
-      ["AB-02","Enroll wajah 3 frame frontal + consent"],
-      ["AB-03","Enroll tanpa consent ditolak"],
-      ["AB-04","Enroll ulang isi audit kolom"],
-      ["AB-05","crew diblokir dari /enroll"],
-      ["AB-06","leader bisa buka /enroll"],
-      ["AB-07","Clock-in wajah sendiri sukses"],
-      ["AB-08","Wajah orang lain ditolak (1:1)"],
-      ["AB-09","Spoof foto layar ditolak liveness"],
-      ["AB-10","Di luar window → overlay belum waktunya"],
-      ["AB-11","Emergency lock → overlay terkunci"],
-      ["AB-12","Mode manual toggle buka/tutup"],
-      ["AB-13","Clock-out < 30 mnt diizinkan"],
-      ["AB-14","Papan kehadiran & rekap benar"],
-      ["AB-15","crew lihat riwayat pribadi saja"],
-      ["AB-16","staff_pusat masuk absensi"],
-      ["AB-17","Smoke checklist/cuti/kasbon"],
+      ["AB-01","spv: Manajemen Kru → buat akun crew baru E2E Crew Baru (username unik)","Akun terbuat, muncul di daftar staff outlet A"],
+      ["AB-02","spv: /dashboard/enroll → daftarkan wajah crew baru: centang consent UU PDP → capture 3 frame frontal","Enrollment sukses; staff pindah ke section Sudah Terdaftar"],
+      ["AB-03","spv: Enroll tanpa mencentang consent","Tidak bisa lanjut"],
+      ["AB-04","spv: Enroll Ulang staff yang sudah terdaftar (isi alasan)","Konfirmasi timpa muncul; audit re_enrolled_at/by/reason terisi (cek DB)"],
+      ["AB-05","crew: Buka URL /dashboard/enroll langsung","Diblokir/redirect — halaman khusus SPV/leader"],
+      ["AB-06","leader: Buka /dashboard/enroll","Bisa masuk"],
+      ["AB-07","Crew ter-enroll absen di kiosk E2E Outlet A dengan wajahnya sendiri, dalam window","Liveness 2-fase (gerakan → kembali frontal) → dikenali, clock-in sukses, status ON_TIME/LATE sesuai jam"],
+      ["AB-08","Orang lain (belum/beda enroll) coba absen di panel pribadi akun crew tsb (mode 1:1)","DITOLAK dengan pesan jelas — wajah B tidak bisa absen untuk akun A"],
+      ["AB-09","Foto wajah dari layar HP diarahkan ke kamera (spoof)","Liveness menolak (tidak lolos tanpa gerakan hidup)"],
+      ["AB-10","Absen di luar window (mode auto: >1 jam sebelum jam masuk)","Overlay Belum Waktunya Absen + jam buka; scan tidak jalan"],
+      ["AB-11","SPV set Emergency Lock (is_active off, mode auto)","Kiosk menampilkan overlay terkunci"],
+      ["AB-12","SPV ganti mode outlet ke manual, toggle Status Kiosk off/on","Off → overlay Outlet Ditutup; on → bisa absen kapan pun (window diabaikan)"],
+      ["AB-13","Clock-out < 30 menit sebelum jam keluar (mode auto)","Diizinkan; lebih awal dari itu ditolak too_early_out"],
+      ["AB-14","spv: Papan kehadiran & rekap tanggal hari ini","Clock-in AB-07 muncul dengan status benar"],
+      ["AB-15","crew: Dashboard kru → riwayat pribadi","Hanya data dirinya sendiri"],
+      ["AB-16","staff_pusat: Login → app absensi","Masuk normal (outlet Kantor Pusat); tidak bisa buka app lain"],
+      ["AB-17","crew: Smoke checklist, cuti, kasbon","Halaman terbuka tanpa error; submit satu item sukses"],
     ]},
     {code:"S10", title:"S10 — Reporting & isolasi dashboard", cases:[
-      ["RP-01","owner lihat omzet outlet A = order S6"],
-      ["RP-02","Expense outlet + pusat tersimpan"],
-      ["RP-03","admin: opsi pusat tak tersedia"],
-      ["RP-04","Profit outlet vs perusahaan konsisten"],
-      ["RP-05","mitra hanya 4 menu"],
-      ["RP-06","mitra filter terkunci, no outlet lain"],
-      ["RP-07","mitra targets read-only"],
-      ["RP-08","mitra direct-URL redirect ke owner"],
-      ["RP-09","admin_hr hanya menu HR"],
-      ["RP-10","system-health admin-only"],
-      ["RP-11","Shrinkage hitung waste + opname"],
-      ["RP-12","owner-dashboard smoke tanpa error"],
+      ["RP-01","owner: /dashboard/owner filter E2E Outlet A hari ini","Omzet = total order S6 (angka cocok dengan histori POS)"],
+      ["RP-02","owner: Input Pengeluaran expense Outlet utk A + expense Pusat","Keduanya tersimpan; kartu Biaya Pusat hanya muncul saat filter Semua Outlet"],
+      ["RP-03","admin: Buka form input pengeluaran","Opsi scope Pusat tidak tersedia (owner-only)"],
+      ["RP-04","owner: Halaman Profit","Laba Outlet (exclude biaya pusat) vs Laba Perusahaan (include) tampil & konsisten dgn RP-02"],
+      ["RP-05","mitra: Login → dashboard","Hanya grup Dashboard Mitra (4 menu: owner, targets, profit, expenses)"],
+      ["RP-06","mitra: Perhatikan filter outlet","Label statis E2E Outlet A — bukan dropdown; tidak ada nama outlet lain (leaderboard, chart)"],
+      ["RP-07","mitra: Halaman targets","Read-only: tidak ada tombol Set Target / input / Save"],
+      ["RP-08","mitra: Buka URL /dashboard/hr, /pembelian, /system-health langsung","Semua redirect balik ke /dashboard/owner"],
+      ["RP-09","admin_hr: Login → admin-dashboard","Hanya menu HR relevan; halaman HR (staff, attendance, leave, payroll) terbuka"],
+      ["RP-10","admin: /dashboard/system-health","Terbuka utk admin; login role lain (owner) → tidak bisa"],
+      ["RP-11","admin: Laporan shrinkage (/dashboard/reports/shrinkage)","Waste (LG-02) & selisih opname (OP-01) outlet A terhitung"],
+      ["RP-12","owner: owner-dashboard (:3003) smoke","Dashboard, expenses, profit terbuka tanpa error"],
     ]},
     {code:"S11", title:"S11 — Simulasi hari operasional", cases:[
-      ["RC-01","07:00 admin PO pagi"],
-      ["RC-02","08:00 kitchen SJ kiriman pagi"],
-      ["RC-03","08:30 crew clock-in + terima kiriman"],
-      ["RC-04","09:00 spv pantau 2 papan"],
-      ["RC-05","10-12 jam sibuk 10 order paralel"],
-      ["RC-06","12:05 ledger = akumulasi persis"],
-      ["RC-07","12:30 waste + permintaan"],
-      ["RC-08","13:00 spv approve dari HP"],
-      ["RC-09","14:00 SJ susulan terima selisih"],
-      ["RC-10","15:00 papan TV 5 jam tetap segar"],
-      ["RC-11","17:00 daging menembus ORP → kritis"],
-      ["RC-12","21:00 opname malam selisih -1"],
-      ["RC-13","21:15 clock-out"],
-      ["RC-14","21:30 owner review angka rekonsiliasi"],
-      ["RC-15","21:45 mitra lihat outlet A saja"],
-      ["RC-16","chaos: WiFi mati saat bayar"],
-      ["RC-17","chaos: 2 device rebut stok terakhir"],
-      ["RC-18","chaos: 2 approve permintaan bersamaan"],
-      ["RC-19","chaos: refresh di tengah isi form"],
-      ["RC-20","chaos: double-tap submit → 1 entri"],
-      ["RC-21","chaos: idle 1 jam lalu submit"],
-      ["RC-22","chaos: alur crew di browser HP"],
+      ["RC-01","07:00 · Admin: Buat PO pagi ke E2E Supplier utk restock kitchen, proses sampai diterima","Stok kitchen siap utk hari ini"],
+      ["RC-02","08:00 · Kitchen: Buat 1 surat jalan kiriman pagi ke outlet A (daging+roti+saus, qty realistis 1 hari)","SJ terkirim"],
+      ["RC-03","08:30 · Crew A: Clock-in wajah di kiosk (dalam window) → lalu terima kiriman SJ pagi","Absen ON_TIME; saldo outlet A terisi utk jualan"],
+      ["RC-04","09:00 · SPV: Lihat papan kehadiran (crew masuk) + monitoring-live (stok A hijau)","Kondisi pagi sehat terbaca dari 2 papan"],
+      ["RC-05","10:00–12:00 · Crew A + Kiosk: Jam sibuk 10 order beruntun — kasir 6 order (ada 2–3 item) + kiosk 4 order self-service bersamaan","Semua order sukses tanpa nyangkut; tidak ada order hilang/dobel di histori"],
+      ["RC-06","12:05 · Penguji-1: Cek ledger outlet A setelah jam sibuk","Deduction BOM = akumulasi persis 10 order (hitung manual); 1 card per order, tanpa selisih"],
+      ["RC-07","12:30 · Crew A: roti jatuh 3 pcs → Waste; saus menipis → Permintaan Bahan","Keduanya tercatat; permintaan pending"],
+      ["RC-08","13:00 · SPV: Dari HP approve permintaan RC-07 sambil memantau monitoring","Approve dari perangkat berbeda jalan"],
+      ["RC-09","14:00 · Kitchen: Kirim SJ susulan (saus) → Crew A terima dengan selisih (kirim 5, terima 4, 1 tumpah)","rejected_kiriman 1 tercatat; saldo naik 4"],
+      ["RC-10","15:00 · Monitor TV: Papan monitoring-live sudah terbuka ±5 jam tanpa reload","Data tetap segar (auto-refresh), tidak memutih/crash/logout sendiri"],
+      ["RC-11","17:00 · Crew A: Jualan sore 5 order lagi sampai daging menembus di bawah ORP","Monitoring berubah kritis; masuk Top-3 papan SPV"],
+      ["RC-12","21:00 · Crew A: Tutup toko, opname malam semua item E2E (1 item sengaja selisih −1)","opname_selisih tercatat; saldo terkoreksi"],
+      ["RC-13","21:15 · Crew A: Clock-out wajah (dalam window keluar)","Status pulang tercatat benar"],
+      ["RC-14","21:30 · Owner: Review malam — omzet hari ini (=15 order), profit, shrinkage (waste RC-07 + selisih RC-09/RC-12)","Semua angka laporan rekonsiliasi persis dengan kejadian hari ini — hitung manual"],
+      ["RC-15","21:45 · Mitra: Buka dashboard dari HP","Melihat performa outlet A hari ini saja; tak ada bocoran outlet lain"],
+      ["RC-16","chaos: Saat checkout POS, matikan WiFi device tepat setelah tekan bayar → nyalakan lagi","Order tidak hilang & tidak dobel (offline-queue/retry); kalau gagal, pesan jelas & bisa diulang aman"],
+      ["RC-17","chaos: Dua device kasir & kiosk order item terakhir yang sama hampir bersamaan (stok mepet)","Tidak ada saldo minus liar / dua-duanya lolos tanpa kontrol; perilaku konsisten"],
+      ["RC-18","chaos: SPV dan Leader buka permintaan yang sama, dua-duanya tekan Approve hampir bersamaan","Hanya satu approve efektif; tidak dobel status/dobel efek"],
+      ["RC-19","chaos: Crew refresh browser di tengah mengisi form opname/ledger sebelum submit","Tidak ada data setengah-tersimpan; form kembali bersih atau draft jelas"],
+      ["RC-20","chaos: Crew tekan tombol submit ledger 2× cepat (double-tap)","Hanya 1 entri tercatat"],
+      ["RC-21","chaos: Session dibiarkan idle >1 jam lalu langsung dipakai submit","Tidak silent-fail: sukses (token refresh) atau diminta login ulang dengan jelas"],
+      ["RC-22","chaos: Buka app di HP (browser mobile) utk alur crew: terima SJ, entri ledger, absen","Layout tetap bisa dipakai (tombol terjangkau, tabel tidak terpotong fatal)"],
     ]},
     {code:"S12", title:"S12 — Keamanan lapis data (RLS)", cases:[
-      ["SEC-01","Token crew B query ledger A → kosong"],
-      ["SEC-02","Token crew B query permintaan/SJ A → kosong"],
-      ["SEC-03","Token crew A tulis ledger B → ditolak"],
-      ["SEC-04","Token mitra query view unscoped → ditolak"],
-      ["SEC-05","Token mitra RPC expense pusat → ditolak"],
-      ["SEC-06","Token spv query system_health → ditolak"],
-      ["SEC-07","RPC _svc approve lintas outlet → ditolak"],
-      ["SEC-08","Anon query tabel telanjang → ditolak"],
-      ["SEC-09","Input <script> → escaped, no XSS"],
-      ["SEC-10","Replay token setelah logout → ditolak"],
+      ["SEC-01","Token crew B → query ledger_stok difilter outlet_id outlet A","Kosong (RLS ledger_read menyaring), bukan data outlet A"],
+      ["SEC-02","Token crew B → query permintaan & surat_jalan outlet A","Kosong"],
+      ["SEC-03","Token crew A → coba POST/PATCH ledger_stok untuk outlet B","Ditolak RLS"],
+      ["SEC-04","Token mitra → query view unscoped (sales_hourly_spv, menu_sales_spv) langsung","Ditolak/kosong — mitra hanya boleh via view *_scoped; accessible_outlet_ids() menahan di DB"],
+      ["SEC-05","Token mitra → panggil RPC upsert_expense scope pusat","Ditolak (pusat = owner-only di DB, bukan cuma disembunyikan di form RP-03)"],
+      ["SEC-06","Token spv (non-admin) → query view system_health_*","Ditolak (is_admin() only; view wajib security_invoker=true)"],
+      ["SEC-07","Token role apa pun → RPC _svc permintaan (buat/approve) utk outlet bukan haknya","Server action validasi identitas — tak bisa approve lintas outlet"],
+      ["SEC-08","Tanpa token (anon key saja) → query outlet_staff, ledger_stok, orders","Ditolak/kosong — tidak ada tabel telanjang utk anon"],
+      ["SEC-09","crew isi field catatan ledger/permintaan <script>alert(1)</script> → buka di monitoring SPV","Ter-escape sebagai teks, TIDAK tereksekusi (no stored XSS)"],
+      ["SEC-10","Setelah logout, replay request lama (token dari history/network)","Ditolak — token tak berlaku"],
     ]},
     {code:"S13", title:"S13 — Fitur operasional sisa", cases:[
-      ["OF-01","Shift kasir buka→tutup + kas cocok"],
-      ["OF-02","Order manual walk-in"],
-      ["OF-03","Void terpisah dari penjualan bersih"],
-      ["OF-04","Promo memotong harga di kasir"],
-      ["OF-05","Petty cash masuk/keluar"],
-      ["OF-06","Cuti ajukan → approve"],
-      ["OF-07","Kasbon + currentRemaining benar"],
-      ["OF-08","Checklist + monitor spv"],
-      ["OF-09","Set target harian + progres"],
-      ["OF-10","Owner messages & push center"],
-      ["OF-11","Panduan render per sistem"],
-      ["OF-12","QR login kiosk"],
-      ["OF-13","Rekomendasi + QRIS"],
+      ["OF-01","pos-kasir/crew: Shift kasir (/kasir/shift) buka shift → transaksi → tutup + hitung kas","Saldo awal → transaksi → saldo akhir cocok; laporan shift benar"],
+      ["OF-02","pos-kasir/crew: Order manual (/kasir/order-manual) walk-in","Order tercatat, struk keluar"],
+      ["OF-03","admin: Void transaksi (/dashboard/reports/voids)","Void tercatat & terpisah dari penjualan bersih; stok kembali bila berlaku"],
+      ["OF-04","admin: Promo (/dashboard/pos-admin/promo) → berlaku di kasir","Harga terpotong sesuai promo saat checkout"],
+      ["OF-05","admin: Petty cash (/dashboard/pos-admin/petty-cash)","Kas kecil masuk/keluar tercatat"],
+      ["OF-06","crew→spv: Cuti (/dashboard/cuti) ajukan → approve","Alur pengajuan→approval jalan; muncul di rekap"],
+      ["OF-07","crew→spv: Kasbon (/dashboard/kasbon) ajukan → approve; cek currentRemaining","Sisa kasbon terhitung benar (regresi bug remaining)"],
+      ["OF-08","crew→spv: Checklist harian (/dashboard/checklist) + monitor spv","Item tercentang tersimpan; spv lihat di checklist-monitor"],
+      ["OF-09","owner: Set target harian (/dashboard/owner/targets)","Target tersimpan; progres muncul di dashboard"],
+      ["OF-10","owner: Owner messages & push center","Pesan terkirim/tersimpan"],
+      ["OF-11","admin: Panduan (/dashboard/panduan/[system_code])","Halaman panduan render per sistem"],
+      ["OF-12","kiosk: QR login kiosk (/kiosk/qr-login)","Login via QR jalan; masuk mode kiosk"],
+      ["OF-13","pos-kasir: Rekomendasi (/recommendations) + QRIS (/payment/qris)","Halaman tampil; alur QRIS sampai sukses (atau simulasi)"],
     ]},
     {code:"S14", title:"S14 — Waktu, perangkat & jaringan", cases:[
-      ["BD-01","Transaksi lintas tengah malam WIB"],
-      ["BD-02","Batas hari laporan tak geser timezone"],
-      ["BD-03","Browser matrix Chrome/FF/Safari/Edge"],
-      ["BD-04","Kamera Safari iOS"],
-      ["BD-05","Monitoring TV 1920px readability 3 dtk"],
-      ["BD-06","Koneksi Slow 3G loading state"],
-      ["BD-07","Zoom 150% layout tak pecah"],
-      ["BD-08","Dua tab data konsisten"],
+      ["BD-01","Tengah malam WIB: Transaksi POS 23:58 lalu 00:05","Masuk hari yang benar di laporan (agregasi Asia/Jakarta, bukan UTC)"],
+      ["BD-02","Rentang tanggal: Laporan owner filter kemarin vs hari ini","Batas hari benar, tidak geser karena timezone"],
+      ["BD-03","Browser matrix: S0 login + 1 alur crew di Chrome, Firefox, Safari iOS, Edge","Jalan di semua; catat yang patah"],
+      ["BD-04","Kamera Safari/iOS: Enroll + clock-in di iPhone Safari","Kamera + liveness jalan (getUserMedia/WebGL beda perilaku di iOS)"],
+      ["BD-05","Monitoring TV 1920px: Buka monitoring-live di 1920px, tangkap dari ~2–3 m","Readability 3 detik; grid 18 outlet rapi, tidak terpotong"],
+      ["BD-06","Koneksi lambat: DevTools throttle Slow 3G, buka dashboard & POS","Ada loading state (bukan layar putih); tidak infinite spinner"],
+      ["BD-07","Zoom 150%: Browser zoom di dashboard","Layout tidak pecah fatal"],
+      ["BD-08","Dua tab: App sama di 2 tab, aksi di tab 1, refresh tab 2","Data konsisten; tak ada state korup antar-tab"],
     ]},
     {code:"CLEAN", title:"Pembersihan setelah uji", cases:[
-      ["C-01","Hapus/void data transaksi E2E"],
-      ["C-02","Master data dipertahankan/nonaktifkan"],
-      ["C-03","Hapus akun E2E Crew Baru"],
+      ["C-01","Hapus/void data transaksi E2E: orders, ledger, opname, permintaan, surat jalan, PO, attendance (filter E2E)","Transaksi uji bersih"],
+      ["C-02","Master data (outlet E2E, akun, bahan, menu) boleh dipertahankan; kalau mengotori laporan nyata, nonaktifkan outlet E2E","Tidak mengotori laporan manajemen nyata"],
+      ["C-03","Hapus akun E2E Crew Baru (AB-01) atau nonaktifkan","Akun uji dibersihkan"],
     ]},
   ];
 
@@ -286,6 +310,7 @@
   var THEME_KEY = "e2e-suka-theme";
   var state = {};
   try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch(e){ state = {}; }
+  var expanded = {};
 
   var ORDER = ["untested","pass","fail","skip"];
   var META = {
@@ -344,7 +369,7 @@
       var rows=g.cases.filter(function(cs){
         var st=statusOf(cs[0]);
         if(sf!=="all" && st!==sf) return false;
-        if(q && cs[0].toLowerCase().indexOf(q)===-1 && cs[1].toLowerCase().indexOf(q)===-1) return false;
+        if(q && cs[0].toLowerCase().indexOf(q)===-1 && cs[1].toLowerCase().indexOf(q)===-1 && (cs[2]||"").toLowerCase().indexOf(q)===-1) return false;
         return true;
       });
       if(!rows.length) return;
@@ -359,27 +384,33 @@
       var wrap=document.createElement("div");
       wrap.style.cssText="border:0.5px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface-2);";
       rows.forEach(function(cs,i){
-        var id=cs[0], desc=cs[1], st=statusOf(id), m=META[st];
-        var row=document.createElement("div");
-        row.style.cssText="display:flex; align-items:center; gap:10px; padding:9px 12px;"+(i>0?"border-top:0.5px solid var(--border);":"");
+        var id=cs[0], step=cs[1], expect=cs[2]||"", st=statusOf(id), m=META[st], open=!!expanded[id];
+        var cell=document.createElement("div");
+        if(i>0) cell.style.cssText="border-top:0.5px solid var(--border);";
         var btns=ORDER.filter(function(s){return s!=="untested";}).map(function(s){
           var mm=META[s], active=(st===s);
-          return '<button class="sbtn" data-id="'+esc(id)+'" data-s="'+s+'" aria-label="'+mm.label+' '+esc(id)+'" '+
+          return '<button class="sbtn" data-act="status" data-id="'+esc(id)+'" data-s="'+s+'" aria-label="'+mm.label+' '+esc(id)+'" '+
             'style="'+(active?'border-color:'+mm.bd+'; background:'+mm.bg+'; color:'+mm.fg+';':'')+'">'+
             '<i class="ti '+mm.icon+'" aria-hidden="true"></i>'+mm.label+'</button>';
         }).join("");
-        row.innerHTML='<span class="pill" style="color:'+m.fg+'; background:'+m.bg+'; border-color:'+m.bd+';">'+esc(id)+'</span>'+
-          '<span style="flex:1; font-size:13px; line-height:1.4;">'+esc(desc)+'</span>'+
-          '<span style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;">'+btns+'</span>';
-        wrap.appendChild(row); shown++;
+        var detail = open ? ('<div class="detail"><div class="lbl">Hasil diharapkan</div><div class="expect">'+esc(expect)+'</div></div>') : '';
+        cell.innerHTML=
+          '<div class="row-main">'+
+            '<span class="pill" style="color:'+m.fg+'; background:'+m.bg+'; border-color:'+m.bd+';">'+esc(id)+'</span>'+
+            '<span class="step" data-act="toggle" data-id="'+esc(id)+'">'+esc(step)+'</span>'+
+            '<i class="ti ti-chevron-'+(open?'up':'down')+' chev" data-act="toggle" data-id="'+esc(id)+'" aria-hidden="true"></i>'+
+            '<span style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;">'+btns+'</span>'+
+          '</div>'+detail;
+        wrap.appendChild(cell); shown++;
       });
       sec.appendChild(wrap); listEl.appendChild(sec);
     });
     emptyEl.style.display=shown?"none":"block";
-    listEl.querySelectorAll("button[data-id]").forEach(function(b){
+    listEl.querySelectorAll("[data-act]").forEach(function(b){
       b.addEventListener("click",function(){
-        var id=b.getAttribute("data-id"), s=b.getAttribute("data-s");
-        setStatus(id, statusOf(id)===s?"untested":s);
+        var id=b.getAttribute("data-id"), act=b.getAttribute("data-act");
+        if(act==="status"){ var s=b.getAttribute("data-s"); setStatus(id, statusOf(id)===s?"untested":s); }
+        else { expanded[id]=!expanded[id]; render(); }
       });
     });
   }
@@ -389,6 +420,12 @@
   searchInp.addEventListener("input",render);
   document.getElementById("reset-btn").addEventListener("click",function(){
     if(confirm("Reset semua status uji?")){ state={}; persist(); render(); }
+  });
+  document.getElementById("expand-btn").addEventListener("click",function(){
+    var anyOpen=Object.keys(expanded).some(function(k){return expanded[k];});
+    expanded={};
+    if(!anyOpen){ GROUPS.forEach(function(g){ g.cases.forEach(function(cs){ expanded[cs[0]]=true; }); }); }
+    render();
   });
 
   document.getElementById("export-btn").addEventListener("click",function(){

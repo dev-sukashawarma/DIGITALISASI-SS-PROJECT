@@ -12,10 +12,20 @@ CREATE TABLE IF NOT EXISTS public.historical_daily_targets (
 
 ALTER TABLE public.historical_daily_targets ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Enable read access for authenticated users" 
-  ON public.historical_daily_targets FOR SELECT 
-  TO authenticated 
-  USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'historical_daily_targets' 
+    AND policyname = 'Enable read access for authenticated users'
+  ) THEN
+    CREATE POLICY "Enable read access for authenticated users" 
+      ON public.historical_daily_targets FOR SELECT 
+      TO authenticated 
+      USING (true);
+  END IF;
+END
+$$;
 
 -- Function to snapshot the targets
 -- This should be run just before midnight (e.g. 23:55)

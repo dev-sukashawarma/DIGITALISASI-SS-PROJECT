@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useHistoricalTargets } from '@/hooks/useHistoricalTargets'
@@ -8,7 +8,7 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { PageHeader } from '@/components/ui'
-import { Target, FileText } from 'lucide-react'
+import { Target, FileText, ChevronUp, ChevronDown } from 'lucide-react'
 
 const formatRupiah = (num: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -28,6 +28,14 @@ export default function TargetHarianPage() {
   )
   
   const { rows, isLoading } = useHistoricalTargets(filter)
+
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  const toggleGroup = (date: string) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [date]: !prev[date]
+    }))
+  }
 
   // Group by date
   const groupedData = useMemo(() => {
@@ -92,18 +100,26 @@ export default function TargetHarianPage() {
         <div className="space-y-8">
           {groupedData.map((group) => {
             const formattedDate = format(parseISO(group.date), 'EEEE, dd MMMM yyyy', { locale: id })
+            const isCollapsed = collapsedGroups[group.date] || false
             
             return (
               <div key={group.date} className="bg-white rounded-3xl shadow-sm border border-suka-brown/10 overflow-hidden">
-                <div className="px-6 py-4 bg-gradient-to-r from-suka-cream/30 to-transparent border-b border-suka-brown/10">
+                <div 
+                  className="px-6 py-4 bg-gradient-to-r from-suka-cream/30 to-transparent border-b border-suka-brown/10 flex items-center justify-between cursor-pointer hover:bg-suka-cream/40 transition-colors"
+                  onClick={() => toggleGroup(group.date)}
+                >
                   <h3 className="font-bold text-suka-brown flex items-center gap-2">
                     <Target className="w-4 h-4 text-suka-orange" />
                     {formattedDate}
                   </h3>
+                  <button className="text-suka-brown/50 hover:text-suka-brown transition-colors">
+                    {isCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                  </button>
                 </div>
                 
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {!isCollapsed && (
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {group.records.map((record) => {
                       const isAchieved = record.achieved_pct >= 100
                       
@@ -161,6 +177,7 @@ export default function TargetHarianPage() {
                     })}
                   </div>
                 </div>
+                )}
               </div>
             )
           })}

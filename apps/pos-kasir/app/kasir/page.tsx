@@ -171,13 +171,13 @@ export default function CashierOrdersPage() {
     )
     
     try {
-      const res = await fetch('/api/orders/update-status-internal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_id: id, status: 'preparing' })
-      })
-      if (!res.ok) {
-        throw new Error('Gagal update database')
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'preparing' })
+        .eq('id', id)
+      
+      if (error) {
+        throw new Error(error.message)
       }
     } catch (error: any) {
       console.error('Update preparing failed:', error)
@@ -195,13 +195,13 @@ export default function CashierOrdersPage() {
     )
     
     try {
-      const res = await fetch('/api/orders/update-status-internal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_id: id, status: 'completed' })
-      })
-      if (!res.ok) {
-        throw new Error('Gagal update database')
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'completed' })
+        .eq('id', id)
+
+      if (error) {
+        throw new Error(error.message)
       }
     } catch (error: any) {
       console.error('Update failed:', error)
@@ -247,19 +247,18 @@ export default function CashierOrdersPage() {
         prev?.map(o => o.id === id ? { ...o, status: 'cancelled' } : o)
       )
       
-      // Update DB via internal API
+      // Update DB directly
       try {
-        const res = await fetch('/api/orders/update-status-internal', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            order_id: id, 
+        const { error } = await supabase
+          .from('orders')
+          .update({
             status: 'cancelled',
             void_reason: voidReason,
             void_at: new Date().toISOString()
           })
-        })
-        if (!res.ok) throw new Error('Gagal update database')
+          .eq('id', id)
+
+        if (error) throw new Error(error.message)
       } catch (err: any) {
         console.error('Cancel order failed:', err)
         showAlert(`Gagal membatalkan pesanan: ${err.message}`)

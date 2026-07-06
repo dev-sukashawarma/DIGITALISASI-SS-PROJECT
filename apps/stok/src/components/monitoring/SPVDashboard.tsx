@@ -15,6 +15,7 @@ import {
   useWasteToday
 } from '@/hooks/useMonitoringData';
 import type { MonitoringItem } from '@/lib/types/monitoring';
+import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
 import Link from 'next/link';
 import { useAuth } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
@@ -317,7 +318,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       <div className="flex-1">
                         <p className="text-xs font-black text-red-950 uppercase tracking-wide">{alert.item_name}</p>
                         <p className="text-[10px] text-red-800 font-medium">
-                          Stok kritis di {alert.outlet_name.replace('SUKA SHAWARMA ', '')} ({alert.current_qty} {alert.satuan})
+                          Stok kritis di {alert.outlet_name.replace('SUKA SHAWARMA ', '')} ({formatCompositeSaldo(alert.current_qty, alert.satuan, alert.satuan_kecil, alert.faktor_tampilan)})
                         </p>
                       </div>
                     </div>
@@ -795,7 +796,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                         <div key={f.bahan_baku_id} className="p-2.5 bg-red-50 border border-red-200/80 rounded-xl flex items-center justify-between text-xs">
                           <div>
                             <p className="font-extrabold text-red-950 uppercase tracking-wide">{f.item_name}</p>
-                            <p className="text-[10px] text-red-800 font-medium">Sisa {f.days_left * 24} jam ({f.current_qty} {f.satuan})</p>
+                            <p className="text-[10px] text-red-800 font-medium">Sisa {f.days_left * 24} jam ({formatCompositeSaldo(f.current_qty, f.satuan ?? '', f.satuan_kecil, f.faktor_tampilan)})</p>
                           </div>
                           <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black uppercase">
                             Warning
@@ -834,7 +835,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                               <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-black ${
                                 isAdd ? 'bg-suka-green/10 text-suka-green' : 'bg-red-50 text-[#ba1a1a]'
                               }`}>
-                                {isAdd ? '+' : ''}{l.qty}
+                                {formatCompositeDelta(l.qty, l.satuan ?? '', l.satuan_kecil, l.faktor_tampilan)}
                               </span>
                             </div>
                             <div className="flex justify-between items-center text-[9px] text-suka-brown/50">

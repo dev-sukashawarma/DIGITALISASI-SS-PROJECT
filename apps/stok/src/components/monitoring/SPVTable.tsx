@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import { Skeleton } from '@suka/design-system';
+import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 
 interface SPVTableProps {
   items: MonitoringItem[];
@@ -331,10 +332,7 @@ export function SPVTable({
                       item.status === 'below' ? 'text-red-600' :
                       item.status === 'warning' ? 'text-orange-600' : 'text-green-700'
                     }`}>
-                      {item.current_qty}{' '}
-                      <span className="text-xs font-normal text-suka-brown/50">
-                        {item.satuan || 'kg'}
-                      </span>
+                      {formatCompositeSaldo(item.current_qty, item.satuan || 'kg', item.satuan_kecil, item.faktor_tampilan)}
                     </td>
                     <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                       {isEditing ? (

@@ -297,7 +297,7 @@ export function LiveMonitoringPage() {
                     {item.item_name}
                   </p>
                   <p className="text-xs font-black font-mono text-[#ba1a1a] leading-none flex-shrink-0">
-                    {formatCompositeSaldo(item.current_qty, '', item.satuan_kecil, item.faktor_tampilan).replace(/\s*$/, '')}<span className="text-[10px] font-medium text-suka-brown/50 font-sans">/{item.threshold}</span>
+                    {formatCompositeSaldo(item.current_qty, '', item.satuan_kecil, item.faktor_tampilan).replace(/\s+/g, ' ').trim()}<span className="text-[10px] font-medium text-suka-brown/50 font-sans">/{item.threshold}</span>
                   </p>
                 </div>
               ))}

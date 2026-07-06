@@ -9,6 +9,8 @@ export async function savePanduan(data: {
   id: string;
   system_code: string;
   title: string;
+  category?: string;
+  sort_order?: number;
   content_html: string;
   image_url?: string | null;
   userId: string;
@@ -34,6 +36,8 @@ export async function savePanduan(data: {
           id: data.id,
           system_code: data.system_code,
           title: data.title,
+          category: data.category || null,
+          sort_order: data.sort_order || 0,
           content_html: data.content_html,
           image_url: data.image_url,
           updated_at: new Date().toISOString(),
@@ -47,7 +51,7 @@ export async function savePanduan(data: {
       return { error: 'Gagal menyimpan panduan ke database.' }
     }
 
-    return { success: true }
+    return { success: true, id: data.id }
   } catch (err: any) {
     console.error(err)
     return { error: 'Terjadi kesalahan server.' }
@@ -57,6 +61,10 @@ export async function savePanduan(data: {
 export async function createPanduan(data: {
   system_code: string;
   title: string;
+  category?: string;
+  sort_order?: number;
+  content_html: string;
+  image_url?: string | null;
   userId: string;
 }) {
   try {
@@ -78,7 +86,10 @@ export async function createPanduan(data: {
       .insert({
         system_code: data.system_code,
         title: data.title,
-        content_html: '<p>Konten panduan baru...</p>',
+        category: data.category || null,
+        sort_order: data.sort_order || 0,
+        content_html: data.content_html || '<p></p>',
+        image_url: data.image_url,
         created_by: data.userId,
       })
       .select('id')

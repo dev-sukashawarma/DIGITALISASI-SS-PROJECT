@@ -779,7 +779,7 @@ export default function ShiftPage() {
                       )}
                     </div>
                     <div className="text-left mt-4">
-                      <label className="block text-sm font-bold text-gray-700 mb-1.5">Dana Operasional (Hitungan Manual)</label>
+                      <label className="block text-sm font-bold text-gray-700 mb-1.5">Hitung sisa dana oprasional</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                           <span className="text-gray-500 font-semibold">Rp</span>

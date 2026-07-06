@@ -9,7 +9,7 @@ interface Guide {
   id: string
   category: string
   title: string
-  content: string
+  content_html: string
   image_url: string | null
   sort_order: number
 }
@@ -127,9 +127,10 @@ export default function PanduanPage() {
                       {guide.title}
                     </h3>
                     
-                    <div className="prose prose-gray max-w-none ml-11">
-                      <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{guide.content}</p>
-                    </div>
+                    <div 
+                      className="prose prose-gray max-w-none ml-11 prose-p:leading-relaxed prose-p:text-gray-600 prose-a:text-amber-600 hover:prose-a:text-amber-700" 
+                      dangerouslySetInnerHTML={{ __html: guide.content_html }} 
+                    />
 
                     {guide.image_url && (
                       <div className="ml-11 mt-6 rounded-2xl border border-gray-200 overflow-hidden shadow-sm bg-white p-2">

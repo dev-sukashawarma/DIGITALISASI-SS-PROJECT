@@ -9,9 +9,11 @@ import { toast } from 'sonner'
 import { createPanduan, deletePanduan } from './actions'
 
 interface Guide {
-  id: string;
-  system_code: string;
-  title: string;
+  id: string
+  system_code: string
+  title: string
+  category?: string
+  sort_order?: number
   desc?: string;
 }
 
@@ -51,9 +53,10 @@ export default function SystemCategoryPage() {
     try {
       const { data, error } = await supabase
         .from('system_guides')
-        .select('id, system_code, title')
+        .select('id, system_code, title, category, sort_order')
         .eq('system_code', system_code)
-        .order('created_at', { ascending: true })
+        .order('category', { ascending: true })
+        .order('sort_order', { ascending: true })
 
       if (error) {
         toast.error('Gagal memuat daftar panduan')
@@ -184,6 +187,9 @@ export default function SystemCategoryPage() {
                 <Link href={`/dashboard/panduan/${system_code}/${sys.id}`} className="block">
                   <h3 className="font-bold text-suka-ink truncate hover:text-suka-orange transition-colors">{sys.title}</h3>
                 </Link>
+                {sys.category && (
+                  <p className="text-sm text-gray-500 mt-1">{sys.category}</p>
+                )}
               </div>
               <button
                 onClick={(e) => {

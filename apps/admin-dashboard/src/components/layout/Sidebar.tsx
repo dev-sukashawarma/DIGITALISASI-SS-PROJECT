@@ -19,7 +19,7 @@ export const Sidebar = () => {
   const [openDoor, setOpenDoor] = useState<string | null>(activeGroupTitle ?? groups[0]?.title ?? null)
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-suka-gray-200 bg-white md:flex md:flex-col">
+    <aside className="hidden w-64 shrink-0 border-r border-suka-gray-200 bg-white md:flex md:flex-col print:hidden">
       <div className="p-5 border-b border-suka-gray-100">
         <div className="text-xl font-extrabold text-suka-brown tracking-tight">Admin<span className="text-suka-orange">Hub</span></div>
       </div>
@@ -32,45 +32,69 @@ export const Sidebar = () => {
 
           return (
             <div key={group.title}>
-              {/* Kepala pintu — klik untuk buka/tutup */}
-              <button
-                type="button"
-                onClick={() => setOpenDoor(isOpen ? null : group.title)}
-                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition-colors ${
-                  doorActive ? 'text-suka-brown' : 'text-suka-ink'
-                } hover:bg-suka-gray-50`}
-              >
-                <DoorIcon size={18} className={doorActive ? 'text-suka-orange' : 'text-suka-gray-400'} />
-                <span className="flex-1 text-left">{group.title}</span>
-                <ChevronDown size={16} className={`text-suka-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Isi pintu — hanya tampil saat dibuka */}
-              {isOpen && (
-                <div className="mt-0.5 mb-1 ml-3 pl-3 border-l border-suka-gray-100 space-y-0.5">
+              {group.items.length === 1 ? (
+                <div className="mt-1">
                   {group.items.map(({ href, label, icon: Icon }) => {
                     const active = isItemActive(href, pathname)
                     return (
                       <Link
                         key={href}
                         href={href}
-                        className={`flex items-center gap-3 rounded-xl px-3 py-2 font-medium transition-colors ${
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition-colors ${
                           active
                             ? 'bg-suka-orange/10 text-suka-orange'
                             : 'text-gray-600 hover:bg-suka-gray-50 hover:text-suka-ink'
                         }`}
                       >
-                        <Icon size={16} className={active ? 'text-suka-orange' : 'text-gray-400'} />
+                        <Icon size={18} className={active ? 'text-suka-orange' : 'text-suka-gray-400'} />
                         <span className="flex-1">{label}</span>
-                        {href === '/dashboard/hr/leave' && pendingCount > 0 && (
-                          <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                            {pendingCount}
-                          </span>
-                        )}
                       </Link>
                     )
                   })}
                 </div>
+              ) : (
+                <>
+                  {/* Kepala pintu — klik untuk buka/tutup */}
+                  <button
+                    type="button"
+                    onClick={() => setOpenDoor(isOpen ? null : group.title)}
+                    className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition-colors ${
+                      doorActive ? 'text-suka-brown' : 'text-suka-ink'
+                    } hover:bg-suka-gray-50`}
+                  >
+                    <DoorIcon size={18} className={doorActive ? 'text-suka-orange' : 'text-suka-gray-400'} />
+                    <span className="flex-1 text-left">{group.title}</span>
+                    <ChevronDown size={16} className={`text-suka-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Items */}
+                  {isOpen && (
+                    <div className="mt-0.5 mb-1 ml-3 pl-3 border-l border-suka-gray-100 space-y-0.5">
+                      {group.items.map(({ href, label, icon: Icon }) => {
+                        const active = isItemActive(href, pathname)
+                        return (
+                          <Link
+                            key={href}
+                            href={href}
+                            className={`flex items-center gap-3 rounded-xl px-3 py-2 font-medium transition-colors ${
+                              active
+                                ? 'bg-suka-orange/10 text-suka-orange'
+                                : 'text-gray-600 hover:bg-suka-gray-50 hover:text-suka-ink'
+                            }`}
+                          >
+                            <Icon size={16} className={active ? 'text-suka-orange' : 'text-gray-400'} />
+                            <span className="flex-1">{label}</span>
+                            {href === '/dashboard/hr/leave' && pendingCount > 0 && (
+                              <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                {pendingCount}
+                              </span>
+                            )}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )

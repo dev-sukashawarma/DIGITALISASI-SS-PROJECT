@@ -1,0 +1,32 @@
+DAFTAR AKUN LOGIN MITRA - SUKA SHAWARMA
+=======================================
+Semua akun menggunakan kredensial default berikut:
+Password: password123
+Role: Mitra
+
+Daftar Outlet & Email Login:
+---------------------------------------
+
+1. MITRA SUKA SHAWARMA CIBINONG
+   Email: mitra_cibinong@sukashawarma.com
+
+2. MITRA SUKA Shawarma Kalisari
+   Email: mitra_kalisari@sukashawarma.com
+
+3. MITRA SUKA SHAWARMA CISEENG
+   Email: mitra_ciseeng@sukashawarma.com
+
+4. SUKA SHAWARMA CIBUBUR
+   Email: mitra_cibubur@sukashawarma.com
+
+5. MITRA SUKA SHAWARMA CITAYAM
+   Email: mitra_citayam@sukashawarma.com
+
+6. MITRA SUKA SHAWARMA TEBET
+   Email: mitra_tebet@sukashawarma.com
+
+7. MITRA SUKA Shawarma Pekayon
+   Email: mitra_pekayon@sukashawarma.com
+
+=======================================
+Harap ganti password default jika sudah login demi keamanan.

@@ -22,7 +22,7 @@ export const BottomNav = () => {
     <>
       {/* Bottom Tab Bar (mobile only) */}
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-lg border-t border-suka-gray-200 shadow-[0_-4px_24px_-8px_rgba(112,22,4,0.18)]"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-lg border-t border-suka-gray-200 shadow-[0_-4px_24px_-8px_rgba(112,22,4,0.18)] print:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-stretch h-16 px-1">

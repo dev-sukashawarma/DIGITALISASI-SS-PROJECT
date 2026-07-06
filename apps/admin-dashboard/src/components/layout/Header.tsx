@@ -23,7 +23,7 @@ export const Header = () => {
   }
 
   return (
-    <header className="bg-white border-b border-suka-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center gap-3 shadow-sm flex-shrink-0">
+    <header className="bg-white border-b border-suka-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center gap-3 shadow-sm flex-shrink-0 print:hidden">
       <div className="min-w-0">
         <h1 className="text-base sm:text-lg font-extrabold text-suka-brown tracking-tight truncate">{title}</h1>
         {outletStaff && (

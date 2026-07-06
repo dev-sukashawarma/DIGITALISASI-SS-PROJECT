@@ -11,7 +11,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 
-import { savePanduan } from '../actions'
+import { savePanduan, createPanduan } from '../actions'
 
 export default function PanduanEditorPage() {
   const router = useRouter()
@@ -25,8 +25,12 @@ export default function PanduanEditorPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [title, setTitle] = useState('')
+  const [category, setCategory] = useState('')
+  const [sortOrder, setSortOrder] = useState<number>(0)
   const [contentHtml, setContentHtml] = useState('')
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  
+  const isNew = guide_id === 'new'
 
   const editor = useEditor({
     extensions: [
@@ -65,6 +69,8 @@ export default function PanduanEditorPage() {
           }
         } else if (data) {
           setTitle(data.title)
+          setCategory(data.category || '')
+          setSortOrder(data.sort_order || 0)
           setImageUrl(data.image_url)
           // Handle legacy content_md just in case it wasn't migrated
           const content = data.content_html || data.content_md || '<p></p>'
@@ -78,10 +84,12 @@ export default function PanduanEditorPage() {
       }
     }
     
-    if (guide_id && editor) {
+    if (isNew) {
+      setIsLoading(false)
+    } else if (guide_id && editor) {
       loadData()
     }
-  }, [guide_id, editor])
+  }, [guide_id, editor, isNew])
 
   const handleSave = async () => {
     if (!title.trim() || !contentHtml.trim()) {
@@ -100,17 +108,35 @@ export default function PanduanEditorPage() {
         return
       }
 
-      const res = await savePanduan({
-        id: guide_id,
-        system_code,
-        title,
-        content_html: contentHtml,
-        image_url: imageUrl,
-        userId,
-      })
+      let res;
+      if (isNew) {
+        res = await createPanduan({
+          system_code,
+          title,
+          category,
+          sort_order: sortOrder,
+          content_html: contentHtml,
+          image_url: imageUrl,
+          userId,
+        })
+      } else {
+        res = await savePanduan({
+          id: guide_id,
+          system_code,
+          title,
+          category,
+          sort_order: sortOrder,
+          content_html: contentHtml,
+          image_url: imageUrl,
+          userId,
+        })
+      }
 
-      if (res.error) {
-        toast.error(res.error)
+      if ('error' in res) {
+        toast.error(res.error || 'Gagal menyimpan panduan')
+      } else if ('id' in res) {
+        toast.success('Panduan berhasil disimpan!')
+        router.replace(`/dashboard/panduan/${system_code}/${res.id}`)
       } else {
         toast.success('Panduan berhasil disimpan!')
         router.refresh()
@@ -192,7 +218,9 @@ export default function PanduanEditorPage() {
           <ArrowLeft size={20} />
         </Link>
         <div className="flex-1">
-          <h2 className="text-2xl font-extrabold text-suka-ink">Edit Panduan Sistem</h2>
+          <h2 className="text-2xl font-extrabold text-suka-ink">
+            {isNew ? 'Buat Panduan Baru' : 'Edit Panduan Sistem'}
+          </h2>
           <p className="text-sm text-gray-500 uppercase tracking-wider">{system_code}</p>
         </div>
         <Button onClick={handleSave} disabled={isSaving} className="gap-2">
@@ -208,9 +236,33 @@ export default function PanduanEditorPage() {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Contoh: Panduan Sistem Absensi"
+            placeholder="Contoh: Cara Membuat Akun"
             className="w-full rounded-xl border border-suka-gray-200 px-4 py-2.5 text-sm focus:border-suka-orange focus:outline-none focus:ring-1 focus:ring-suka-orange"
           />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-suka-ink">Kategori / Bab (Opsional)</label>
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="Contoh: Bab 1: Pendahuluan"
+              className="w-full rounded-xl border border-suka-gray-200 px-4 py-2.5 text-sm focus:border-suka-orange focus:outline-none focus:ring-1 focus:ring-suka-orange"
+            />
+          </div>
+          
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-suka-ink">Urutan (Sort Order)</label>
+            <input
+              type="number"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(Number(e.target.value))}
+              placeholder="1"
+              className="w-full rounded-xl border border-suka-gray-200 px-4 py-2.5 text-sm focus:border-suka-orange focus:outline-none focus:ring-1 focus:ring-suka-orange"
+            />
+          </div>
         </div>
 
         <div className="space-y-1.5">

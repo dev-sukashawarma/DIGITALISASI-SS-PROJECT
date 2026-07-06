@@ -132,11 +132,33 @@ export default function PanduanPage() {
                       dangerouslySetInnerHTML={{ __html: guide.content_html }} 
                     />
 
-                    {guide.image_url && (
-                      <div className="ml-11 mt-6 rounded-2xl border border-gray-200 overflow-hidden shadow-sm bg-white p-2">
-                        <img src={guide.image_url} alt={guide.title} className="w-full h-auto rounded-xl object-contain bg-gray-50 max-h-[500px]" />
-                      </div>
-                    )}
+                    {(() => {
+                      if (!guide.image_url) return null;
+                      try {
+                        const parsed = JSON.parse(guide.image_url);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                          return (
+                            <div className="ml-11 mt-6 space-y-4">
+                              {parsed.map((img: { url: string, title: string }, i: number) => (
+                                <div key={i} className="rounded-2xl border border-gray-200 overflow-hidden shadow-sm bg-white p-4 space-y-3">
+                                  <img src={img.url} alt={img.title || guide.title} className="w-full h-auto rounded-xl object-contain bg-gray-50 max-h-[500px]" />
+                                  {img.title && (
+                                    <p className="text-sm font-medium text-gray-700 text-center">{img.title}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                      } catch (e) {
+                        return (
+                          <div className="ml-11 mt-6 rounded-2xl border border-gray-200 overflow-hidden shadow-sm bg-white p-2">
+                            <img src={guide.image_url} alt={guide.title} className="w-full h-auto rounded-xl object-contain bg-gray-50 max-h-[500px]" />
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 ))}
               </div>

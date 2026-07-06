@@ -28,7 +28,7 @@ export default function PanduanEditorPage() {
   const [category, setCategory] = useState('')
   const [sortOrder, setSortOrder] = useState<number>(0)
   const [contentHtml, setContentHtml] = useState('')
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [images, setImages] = useState<{url: string; title: string}[]>([])
   
   const isNew = guide_id === 'new'
 
@@ -71,7 +71,20 @@ export default function PanduanEditorPage() {
           setTitle(data.title)
           setCategory(data.category || '')
           setSortOrder(data.sort_order || 0)
-          setImageUrl(data.image_url)
+          let parsedImages = []
+          if (data.image_url) {
+            try {
+              const parsed = JSON.parse(data.image_url)
+              if (Array.isArray(parsed)) {
+                parsedImages = parsed
+              } else {
+                parsedImages = [{ url: data.image_url, title: '' }]
+              }
+            } catch(e) {
+              parsedImages = [{ url: data.image_url, title: '' }]
+            }
+          }
+          setImages(parsedImages)
           // Handle legacy content_md just in case it wasn't migrated
           const content = data.content_html || data.content_md || '<p></p>'
           setContentHtml(content)
@@ -116,7 +129,7 @@ export default function PanduanEditorPage() {
           category,
           sort_order: sortOrder,
           content_html: contentHtml,
-          image_url: imageUrl,
+          image_url: JSON.stringify(images),
           userId,
         })
       } else {
@@ -127,7 +140,7 @@ export default function PanduanEditorPage() {
           category,
           sort_order: sortOrder,
           content_html: contentHtml,
-          image_url: imageUrl,
+          image_url: JSON.stringify(images),
           userId,
         })
       }
@@ -191,7 +204,7 @@ export default function PanduanEditorPage() {
     const url = await uploadImage(file)
     
     if (url) {
-      setImageUrl(url)
+      setImages(prev => [...prev, { url, title: '' }])
       toast.success('Gambar berhasil ditambahkan', { id: toastId })
     } else {
       toast.dismiss(toastId)
@@ -201,6 +214,14 @@ export default function PanduanEditorPage() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
+  }
+
+  const updateImageTitle = (index: number, newTitle: string) => {
+    setImages(prev => prev.map((img, i) => i === index ? { ...img, title: newTitle } : img))
+  }
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index))
   }
 
   if (isLoading) {
@@ -265,8 +286,38 @@ export default function PanduanEditorPage() {
           </div>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-3">
           <label className="text-sm font-semibold text-suka-ink">Gambar Panduan (Opsional)</label>
+          
+          {images.length > 0 && (
+            <div className="space-y-4 mb-4">
+              {images.map((img, index) => (
+                <div key={index} className="flex gap-4 p-4 border border-suka-gray-200 rounded-xl bg-suka-gray-50 items-start">
+                  <div className="w-1/3 rounded-lg overflow-hidden bg-white border border-suka-gray-200">
+                    <img src={img.url} alt={`Gambar ${index+1}`} className="w-full h-32 object-contain" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <label className="text-xs font-semibold text-suka-ink uppercase tracking-wider">Judul Gambar (Opsional)</label>
+                    <input
+                      type="text"
+                      value={img.title}
+                      onChange={(e) => updateImageTitle(index, e.target.value)}
+                      placeholder="Contoh: Tampilan layar kasir"
+                      className="w-full rounded-lg border border-suka-gray-200 px-3 py-2 text-sm focus:border-suka-orange focus:outline-none focus:ring-1 focus:ring-suka-orange"
+                    />
+                  </div>
+                  <button
+                    onClick={() => removeImage(index)}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors mt-6"
+                    title="Hapus Gambar"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="rounded-xl border border-suka-gray-200 bg-white overflow-hidden p-4 relative min-h-[150px] flex items-center justify-center">
             <input 
               type="file" 
@@ -275,31 +326,18 @@ export default function PanduanEditorPage() {
               onChange={handleFileChange} 
               className="hidden" 
             />
-            {imageUrl ? (
-              <div className="relative w-full">
-                <img src={imageUrl} alt="Panduan" className="max-h-[300px] w-auto mx-auto rounded-lg shadow-sm" />
-                <button
-                  onClick={() => setImageUrl(null)}
-                  className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md"
-                  title="Hapus Gambar"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="w-full justify-center gap-2 border-dashed border-2 border-suka-gray-300 py-8 hover:bg-suka-gray-50 text-gray-500"
-              >
-                {isUploading ? <Loader2 size={24} className="animate-spin text-suka-orange" /> : <ImageIcon size={24} className="text-gray-400" />}
-                <span className="font-medium text-gray-600">
-                  {isUploading ? 'Mengunggah...' : 'Pilih Gambar'}
-                </span>
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="w-full justify-center gap-2 border-dashed border-2 border-suka-gray-300 py-8 hover:bg-suka-gray-50 text-gray-500"
+            >
+              {isUploading ? <Loader2 size={24} className="animate-spin text-suka-orange" /> : <ImageIcon size={24} className="text-gray-400" />}
+              <span className="font-medium text-gray-600">
+                {isUploading ? 'Mengunggah...' : 'Tambah Gambar'}
+              </span>
+            </Button>
           </div>
         </div>
 

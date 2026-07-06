@@ -411,11 +411,12 @@ export function VerifikasiForm({ id }: { id: string }) {
               <div className="flex items-center gap-1.5">
                 <input
                   type="number"
+                  step="0.01"
                   min={0}
                   max={currentItem?.qty_dikirim}
                   value={currentVerif.qty_terima}
                   onChange={(e) => {
-                    const val = parseInt(e.target.value) || 0
+                    const val = parseFloat(e.target.value) || 0
                     setVerif({ qty_terima: val, kondisi: val < (currentItem?.qty_dikirim ?? 0) ? 'jelek' : currentVerif.kondisi })
                   }}
                   className={`border-2 rounded-xl px-2 py-1.5 text-lg font-extrabold text-center w-20 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] transition-all ${

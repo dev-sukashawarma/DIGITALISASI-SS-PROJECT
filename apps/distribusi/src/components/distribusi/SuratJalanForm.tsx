@@ -26,7 +26,7 @@ export function SuratJalanForm() {
 
   const addItem = () => {
     if (!selectedBahan || !qty) return
-    setItems([...items, { bahanId: selectedBahan, qty: parseInt(qty) }])
+    setItems([...items, { bahanId: selectedBahan, qty: parseFloat(qty) }])
     setSelectedBahan('')
     setQty('')
   }
@@ -150,6 +150,8 @@ export function SuratJalanForm() {
                     <div className="flex gap-2 w-full sm:w-auto shrink-0">
                       <input
                         type="number"
+                        step="0.01"
+                        min="0"
                         value={qty}
                         onChange={(e) => setQty(e.target.value)}
                         placeholder="Qty"

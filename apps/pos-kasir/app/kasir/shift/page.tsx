@@ -316,18 +316,22 @@ export default function ShiftPage() {
       if (isNaN(amount) || amount <= 0) throw new Error('Nominal top-up tidak valid')
       if (!topupDesc.trim()) throw new Error('Keterangan harus diisi')
       
-      const { error } = await supabase.from('petty_cash_topups').insert({
+      const approvalToken = crypto.randomUUID()
+      const { data: insertedData, error } = await supabase.from('petty_cash_topups').insert({
         outlet_id: outletId,
         amount,
         description: topupDesc.trim(),
+        approval_token: approvalToken,
         created_by: (await supabase.auth.getUser()).data.user?.id
-      })
+      }).select('id').single()
 
       if (error) throw error
 
       setSuccessMsg('Pengajuan top up petty cash berhasil dikirim. Menunggu persetujuan Leader/Manajer.')
       
-      const waText = encodeURIComponent(`Halo SPV, saya mengajukan Top Up Dana Operasional sebesar ${formatRupiah(amount)}.\n\nAlasan: ${topupDesc.trim()}`)
+      const appUrl = window.location.origin
+      const approveLink = `${appUrl}/api/topup/approve?id=${insertedData.id}&token=${approvalToken}`
+      const waText = encodeURIComponent(`Halo SPV, saya mengajukan Top Up Dana Operasional sebesar ${formatRupiah(amount)}.\n\nAlasan: ${topupDesc.trim()}\n\nKlik link berikut untuk menyetujui:\n${approveLink}`)
       window.open(`https://wa.me/6285885497377?text=${waText}`, '_blank')
 
       setTopupAmount('')

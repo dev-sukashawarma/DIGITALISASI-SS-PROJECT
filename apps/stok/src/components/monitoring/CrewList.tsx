@@ -16,15 +16,18 @@ type SortBy = 'status' | 'name';
 const getStorageLocation = (category: string, name: string) => {
   const nameLower = name.toLowerCase();
   const catLower = (category || '').toLowerCase();
-  if (nameLower.includes('daging') || nameLower.includes('ayam') || catLower === 'protein') {
+  
+  if (catLower === 'protein' || nameLower.includes('daging') || nameLower.includes('ayam')) {
     return 'Frozen Storage';
   }
-  if (nameLower.includes('saus') || nameLower.includes('garlic') || catLower === 'sauce' || catLower === 'chilled') {
+  if (catLower === 'sayur' || catLower === 'saus' || catLower === 'minuman' || nameLower.includes('garlic')) {
     return 'Chilled Storage';
   }
-  if (nameLower.includes('gas') || nameLower.includes('lpg') || nameLower.includes('utility')) {
+  if (catLower === 'gas' || nameLower.includes('lpg')) {
     return 'Utility Area';
   }
+  
+  // Default untuk kategori 'bumbu', 'kemasan', 'lainnya', atau yang tidak diketahui
   return 'Dry Storage';
 };
 
@@ -65,8 +68,13 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
       return a.item_name.localeCompare(b.item_name);
     };
 
-    const core = result.filter((item) => !!item.kategori_core).sort(compare);
-    const other = result.filter((item) => !item.kategori_core).sort(compare);
+    const isCore = (item: MonitoringItem) => {
+      const catLower = (item.kategori || '').toLowerCase();
+      return catLower === 'item core' || !!item.kategori_core;
+    };
+
+    const core = result.filter((item) => isCore(item)).sort(compare);
+    const other = result.filter((item) => !isCore(item)).sort(compare);
 
     return { coreItems: core, otherItems: other };
   }, [items, sortBy, filterStatus, searchTerm]);

@@ -6,13 +6,10 @@ import { Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
 
 const KATEGORI_OPTIONS = [
-  { value: 'protein', label: '🥩 Protein' },
-  { value: 'sayur', label: '🥬 Sayur' },
+  { value: 'item core', label: '⭐ Item Core' },
   { value: 'bumbu', label: '🌶️ Bumbu' },
-  { value: 'saus', label: '🫙 Saus' },
-  { value: 'kemasan', label: '📦 Kemasan' },
   { value: 'minuman', label: '🥤 Minuman' },
-  { value: 'gas', label: '🔥 Gas' },
+  { value: 'kemasan', label: '📦 Kemasan' },
   { value: 'lainnya', label: '📋 Lainnya' },
 ]
 

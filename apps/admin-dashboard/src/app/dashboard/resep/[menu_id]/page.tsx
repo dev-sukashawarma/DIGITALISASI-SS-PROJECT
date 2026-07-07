@@ -25,16 +25,16 @@ export default async function EditResepPage({ params }: { params: Promise<{ menu
     return <div>Menu tidak ditemukan</div>
   }
 
-  // Fetch all bahan baku for dropdown (+ harga & faktor untuk HPP)
+  // Fetch all bahan baku for dropdown (+ harga & isi kemasan untuk kartu HPP)
   const { data: bahanBakuList } = await supabase
     .from('bahan_baku')
-    .select('id, nama, satuan, satuan_kecil, kategori, faktor_konversi, bahan_baku_harga(harga_beli)')
+    .select('id, nama, satuan, satuan_kecil, kategori, faktor_konversi, bahan_baku_harga(harga_beli, harga_beli_display, kemasan_qty, kemasan_satuan)')
     .order('nama')
 
-  // Fetch existing global recipe
+  // Fetch existing global recipe (+ buffer Loss & catatan)
   const { data: existingRecipe } = await supabase
     .from('resep')
-    .select('id, nama, is_active, scope, resep_item(id, bahan_baku_id, qty_per_porsi, satuan)')
+    .select('id, nama, is_active, scope, buffer_amount, catatan, resep_item(id, bahan_baku_id, qty_per_porsi, satuan)')
     .eq('menu_item_ref', menu_id)
     .eq('scope', 'global')
     .maybeSingle()
@@ -49,6 +49,9 @@ export default async function EditResepPage({ params }: { params: Promise<{ menu
       kategori: bb.kategori,
       faktor_konversi: Number(bb.faktor_konversi) || 1,
       harga_beli: Number(h?.harga_beli) || 0,
+      harga_beli_display: Number(h?.harga_beli_display) || 0,
+      kemasan_qty: Number(h?.kemasan_qty) || 0,
+      kemasan_satuan: h?.kemasan_satuan || '',
     }
   })
 

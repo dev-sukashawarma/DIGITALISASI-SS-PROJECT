@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 
     if (topup.status === 'rejected') {
       return new NextResponse(
-        generateHtmlMsg('Sudah Ditolak', 'Top up ini sebelumnya sudah ditolak.', false),
+        generateHtmlMsg('Sudah Ditolak', 'Top up ini sebelumnya sudah ditolak.', true),
         { headers: { 'Content-Type': 'text/html' } }
       )
     }
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
       )
     } else {
       return new NextResponse(
-        generateHtmlMsg('Berhasil Ditolak', 'Pengajuan dana telah ditolak.', false),
+        generateHtmlMsg('Berhasil Ditolak', 'Pengajuan dana telah ditolak.', true),
         { headers: { 'Content-Type': 'text/html' } }
       )
     }

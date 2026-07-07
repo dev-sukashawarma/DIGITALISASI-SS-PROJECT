@@ -9,12 +9,14 @@ CREATE TABLE IF NOT EXISTS global_settings (
 ALTER TABLE global_settings ENABLE ROW LEVEL SECURITY;
 
 -- Allow read access to authenticated users
+DROP POLICY IF EXISTS "Allow authenticated users to read global_settings" ON global_settings;
 CREATE POLICY "Allow authenticated users to read global_settings"
 ON global_settings FOR SELECT
 TO authenticated
 USING (true);
 
 -- Allow write access to authenticated users (leaders/admins can write, this could be restricted by role later)
+DROP POLICY IF EXISTS "Allow authenticated users to update global_settings" ON global_settings;
 CREATE POLICY "Allow authenticated users to update global_settings"
 ON global_settings FOR ALL
 TO authenticated

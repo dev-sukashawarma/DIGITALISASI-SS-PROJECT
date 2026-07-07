@@ -79,7 +79,7 @@ export default function MenuPage() {
     const channel = supabase.channel('kiosk-realtime')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'menu_items' },
+        { event: '*', schema: 'public', table: 'menu_items' },
         (payload) => {
           if (!outletId) return; // tunggu sampai outletId diketahui
           const updatedItem = payload.new as MenuItemType;
@@ -88,7 +88,7 @@ export default function MenuPage() {
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'kiosk_settings' },
+        { event: '*', schema: 'public', table: 'kiosk_settings' },
         (payload) => {
           const updated = payload.new;
           if (updated.key === 'unavailable_menu_ids') {

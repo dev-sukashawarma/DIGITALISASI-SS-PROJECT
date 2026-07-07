@@ -147,6 +147,7 @@ export default function KasirOrderClient({
         { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` },
         () => {
           queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
+          queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
         }
       )
       .on(
@@ -232,25 +233,7 @@ export default function KasirOrderClient({
     if (hasNewPendingOrder) playNotification()
   }, [orders, ordersFetched, playNotification])
 
-  // Realtime: invalidate cache instan saat ada perubahan order, jangan tunggu polling 3s
-  useEffect(() => {
-    if (!outletId) return
-    const channel = supabase
-      .channel('orders_channel')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
-          queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
-        }
-      )
-      .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase, queryClient, outletId])
 
   // Mark as Preparing
   async function markAsPreparing(id: string) {

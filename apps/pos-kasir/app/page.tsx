@@ -72,7 +72,48 @@ export default function MenuPage() {
       setLoading(false)
     }
     fetchData()
-  }, [])
+
+    const supabase = createClient()
+    
+    // Real-time listener untuk sinkronisasi seketika saat kasir ubah ketersediaan (is_available)
+    const channel = supabase.channel('kiosk-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'menu_items' },
+        (payload) => {
+          if (!outletId) return; // tunggu sampai outletId diketahui
+          const updatedItem = payload.new as MenuItemType;
+          setMenuItems(prev => prev.map(item => item.id === updatedItem.id ? { ...item, ...updatedItem } : item));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'kiosk_settings' },
+        (payload) => {
+          const updated = payload.new;
+          if (updated.key === 'unavailable_menu_ids') {
+            try {
+              const unavIds: string[] = JSON.parse(updated.value || '[]');
+              setMenuItems(prev => prev.map(item => {
+                if (item.outlet_id === null) {
+                  return { ...item, is_available: !unavIds.includes(item.id) };
+                }
+                return item;
+              }));
+            } catch (e) {}
+          } else if (updated.key === 'bestseller_ids') {
+             try { setBestsellerIds(JSON.parse(updated.value || '[]')); } catch (e) {}
+          } else if (updated.key === 'cover_image_url') {
+             setCoverUrl(updated.value || null);
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [outletId])
 
 
 

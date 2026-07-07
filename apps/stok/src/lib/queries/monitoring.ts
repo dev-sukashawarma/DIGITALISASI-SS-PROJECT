@@ -43,13 +43,13 @@ async function assertOutletAccessible(supabase: SupabaseBrowserClient, outletId:
 async function attachSatuanKecil<T extends { bahan_baku_id: string }>(
   supabase: SupabaseBrowserClient,
   items: T[]
-): Promise<(T & { satuan_kecil: string | null; faktor_tampilan: number | null })[]> {
+): Promise<(T & { satuan_kecil: string | null; faktor_tampilan: number | null; kategori_core: string | null })[]> {
   const ids = [...new Set(items.map((i) => i.bahan_baku_id))];
-  if (ids.length === 0) return items as (T & { satuan_kecil: string | null; faktor_tampilan: number | null })[];
+  if (ids.length === 0) return items as (T & { satuan_kecil: string | null; faktor_tampilan: number | null; kategori_core: string | null })[];
 
   const { data } = await supabase
     .from('bahan_baku')
-    .select('id, satuan_kecil, faktor_tampilan')
+    .select('id, satuan_kecil, faktor_tampilan, kategori_core')
     .in('id', ids);
 
   const map = new Map((data ?? []).map((b) => [b.id, b]));
@@ -57,6 +57,7 @@ async function attachSatuanKecil<T extends { bahan_baku_id: string }>(
     ...item,
     satuan_kecil: map.get(item.bahan_baku_id)?.satuan_kecil ?? null,
     faktor_tampilan: map.get(item.bahan_baku_id)?.faktor_tampilan ?? null,
+    kategori_core: map.get(item.bahan_baku_id)?.kategori_core ?? null,
   }));
 }
 

@@ -30,6 +30,7 @@ const mockItem: MonitoringItem = {
   satuan_kecil: null,
   faktor_tampilan: null,
   kategori: 'bumbu',
+  kategori_core: null,
   current_qty: 8,
   threshold: 15,
   status: 'below',

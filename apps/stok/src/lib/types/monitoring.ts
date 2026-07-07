@@ -9,6 +9,7 @@ export interface MonitoringItem {
   satuan_kecil: string | null;
   faktor_tampilan: number | null;
   kategori: string;
+  kategori_core: string | null;
   current_qty: number;
   threshold: number;
   status: StockStatus;

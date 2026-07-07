@@ -12,6 +12,7 @@ function makeItem(overrides: Partial<MonitoringItem>): MonitoringItem {
     satuan_kecil: null,
     faktor_tampilan: null,
     kategori: 'protein',
+    kategori_core: null,
     current_qty: 10,
     threshold: 10,
     status: 'ok',

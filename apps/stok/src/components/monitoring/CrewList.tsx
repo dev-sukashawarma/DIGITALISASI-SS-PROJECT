@@ -36,7 +36,10 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
   // useMemo WAJIB dieksekusi sebelum early-return `loading` (Rules of Hooks).
   // Sebelumnya ada di bawah `if (loading) return` → jumlah hook berubah saat
   // loading flip true→false → React error #310 (crash di useMemo).
-  const filteredAndSorted = useMemo(() => {
+  // Item Core (kategori_core terisi) selalu tampil di atas, dipisah separator,
+  // baru diikuti bahan lain — berlaku di kedua mode sort (status/nama);
+  // dalam masing-masing grup, urutan mengikuti sortBy.
+  const { coreItems, otherItems } = useMemo(() => {
     let result = [...items];
 
     // Filter by status
@@ -52,21 +55,23 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
       result = result.filter((item) => item.item_name.toLowerCase().includes(term));
     }
 
-    // Sort
-    result.sort((a, b) => {
+    const compare = (a: MonitoringItem, b: MonitoringItem) => {
       if (sortBy === 'status') {
         const statusOrder = { below: 0, warning: 1, ok: 2 };
         const aOrder = statusOrder[a.status];
         const bOrder = statusOrder[b.status];
         if (aOrder !== bOrder) return aOrder - bOrder;
-        return a.item_name.localeCompare(b.item_name);
-      } else {
-        return a.item_name.localeCompare(b.item_name);
       }
-    });
+      return a.item_name.localeCompare(b.item_name);
+    };
 
-    return result;
+    const core = result.filter((item) => !!item.kategori_core).sort(compare);
+    const other = result.filter((item) => !item.kategori_core).sort(compare);
+
+    return { coreItems: core, otherItems: other };
   }, [items, sortBy, filterStatus, searchTerm]);
+
+  const filteredAndSorted = [...coreItems, ...otherItems];
 
   if (loading) {
     return (
@@ -109,6 +114,54 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
   const belowCount = items.filter((item) => item.status === 'below').length;
   const flaggedCount = items.filter((item) => item.is_flagged).length;
   const okCount = items.filter((item) => item.status === 'ok' && !item.is_flagged).length;
+
+  const renderItemRow = (item: MonitoringItem) => {
+    const statusDotColor =
+      item.status === 'below'
+        ? 'bg-[#ba1a1a] ring-[#ffdad6]'
+        : item.status === 'warning'
+        ? 'bg-[#fd7e62] ring-[#ffdad3]'
+        : 'bg-[#006e24] ring-[#93f997]/35';
+
+    const statusLabelText =
+      item.status === 'below'
+        ? 'Kritis'
+        : item.status === 'warning'
+        ? 'Warning'
+        : 'Ready';
+
+    const statusLabelColor =
+      item.status === 'below'
+        ? 'text-[#ba1a1a]'
+        : item.status === 'warning'
+        ? 'text-[#a43c26]'
+        : 'text-[#006e24]';
+
+    return (
+      <div
+        key={item.bahan_baku_id}
+        onClick={() => onItemClick(item)}
+        className="flex justify-between items-center p-4 hover:bg-gray-50/50 cursor-pointer transition-colors min-h-[56px]"
+      >
+        <div className="flex items-center gap-3">
+          <div className={`w-2.5 h-2.5 rounded-full ${statusDotColor} ring-4`}></div>
+          <div className="flex flex-col">
+            <span className="font-semibold text-gray-900 text-sm">{item.item_name}</span>
+            <span className="text-[11px] text-gray-500 capitalize">{getStorageLocation(item.kategori, item.item_name)}</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end">
+          <span className="font-bold text-gray-900 text-sm">
+            {formatCompositeSaldo(item.current_qty, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / {item.threshold} {item.satuan} {item.threshold === 0 ? ' (no threshold)' : ''}
+          </span>
+          <span className={`text-[10px] font-extrabold uppercase tracking-wider ${statusLabelColor}`}>
+            {statusLabelText} {item.is_flagged && <span className="text-[#ba1a1a] font-bold">*</span>}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -198,53 +251,20 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
             {searchTerm ? 'Bahan tidak ditemukan' : (filterStatus === 'all' ? 'No items found' : `No ${filterStatus} items`)}
           </div>
         ) : (
-          filteredAndSorted.map((item) => {
-            const statusDotColor =
-              item.status === 'below'
-                ? 'bg-[#ba1a1a] ring-[#ffdad6]'
-                : item.status === 'warning'
-                ? 'bg-[#fd7e62] ring-[#ffdad3]'
-                : 'bg-[#006e24] ring-[#93f997]/35';
-
-            const statusLabelText =
-              item.status === 'below'
-                ? 'Kritis'
-                : item.status === 'warning'
-                ? 'Warning'
-                : 'Ready';
-
-            const statusLabelColor =
-              item.status === 'below'
-                ? 'text-[#ba1a1a]'
-                : item.status === 'warning'
-                ? 'text-[#a43c26]'
-                : 'text-[#006e24]';
-
-            return (
-              <div
-                key={item.bahan_baku_id}
-                onClick={() => onItemClick(item)}
-                className="flex justify-between items-center p-4 hover:bg-gray-50/50 cursor-pointer transition-colors min-h-[56px]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full ${statusDotColor} ring-4`}></div>
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-gray-900 text-sm">{item.item_name}</span>
-                    <span className="text-[11px] text-gray-500 capitalize">{getStorageLocation(item.kategori, item.item_name)}</span>
-                  </div>
+          <>
+            {coreItems.length > 0 && (
+              <>
+                <div className="px-4 py-2 bg-[#faf2e9] text-[10px] font-extrabold uppercase tracking-wider text-[#904d00]">
+                  Item Core
                 </div>
-                
-                <div className="flex flex-col items-end">
-                  <span className="font-bold text-gray-900 text-sm">
-                    {formatCompositeSaldo(item.current_qty, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / {item.threshold} {item.satuan} {item.threshold === 0 ? ' (no threshold)' : ''}
-                  </span>
-                  <span className={`text-[10px] font-extrabold uppercase tracking-wider ${statusLabelColor}`}>
-                    {statusLabelText} {item.is_flagged && <span className="text-[#ba1a1a] font-bold">*</span>}
-                  </span>
+                {coreItems.map((item) => renderItemRow(item))}
+                <div className="px-4 py-2 bg-[#faf2e9] text-[10px] font-extrabold uppercase tracking-wider text-[#544437]">
+                  Bahan Lain
                 </div>
-              </div>
-            );
-          })
+              </>
+            )}
+            {otherItems.map((item) => renderItemRow(item))}
+          </>
         )}
       </div>
     </div>

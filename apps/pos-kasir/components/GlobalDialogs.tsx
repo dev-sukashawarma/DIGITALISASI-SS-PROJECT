@@ -44,7 +44,7 @@ export function GlobalDialogs() {
             <div className="p-4 bg-slate-50 dark:bg-slate-800/50">
               <button
                 onClick={closeAlert}
-                className="w-full py-2.5 px-4 bg-suka-orange hover:bg-orange-600 text-white font-bold rounded-xl transition-colors active:scale-95"
+                className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition-colors active:scale-95"
               >
                 OK
               </button>
@@ -58,7 +58,7 @@ export function GlobalDialogs() {
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 text-center">
-              <div className="mx-auto w-12 h-12 bg-suka-orange/10 text-suka-orange rounded-full flex items-center justify-center mb-4">
+              <div className="mx-auto w-12 h-12 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mb-4">
                 <CircleCheck size={24} />
               </div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
@@ -77,7 +77,7 @@ export function GlobalDialogs() {
               </button>
               <button
                 onClick={() => closeConfirm(true)}
-                className="flex-1 py-2.5 px-4 bg-suka-orange hover:bg-orange-600 text-white font-bold rounded-xl transition-colors active:scale-95"
+                className="flex-1 py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition-colors active:scale-95"
               >
                 {confirmOptions.confirmText || "Ya, Yakin"}
               </button>

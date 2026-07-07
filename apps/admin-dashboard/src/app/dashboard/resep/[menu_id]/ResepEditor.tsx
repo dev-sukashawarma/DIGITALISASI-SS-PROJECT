@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
 import { Plus, Trash2, Save } from 'lucide-react'
+import { computeResepHpp, type HppBahan } from '@/lib/hpp'
 
 export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
   const router = useRouter()
@@ -15,6 +16,25 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
   )
   const [isActive, setIsActive] = useState(existingRecipe?.is_active ?? true)
   const [isSaving, setIsSaving] = useState(false)
+
+  const bahanById = useMemo(() => {
+    const m: Record<string, HppBahan & { satuan?: string }> = {}
+    for (const bb of bahanBakuList as any[]) {
+      m[bb.id] = { harga_beli: bb.harga_beli || 0, faktor_konversi: bb.faktor_konversi || 1, satuan: bb.satuan }
+    }
+    return m
+  }, [bahanBakuList])
+
+  const hpp = useMemo(
+    () => computeResepHpp(
+      items.map((i) => ({ bahan_baku_id: i.bahan_baku_id, qty_per_porsi: Number(i.qty_per_porsi) || 0, satuan: i.satuan || '' })),
+      bahanById,
+      Number(menu.price) || 0,
+    ),
+    [items, bahanById, menu.price],
+  )
+
+  const rupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
 
   const addItem = () => {
     setItems([...items, { id: crypto.randomUUID(), bahan_baku_id: '', qty_per_porsi: 0 }])
@@ -145,7 +165,18 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
               </div>
             </div>
 
-            <button 
+            <div className="w-28 text-right">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Subtotal</label>
+              {(() => {
+                const line = hpp.lines.find((l) => l.bahan_baku_id === item.bahan_baku_id)
+                if (!item.bahan_baku_id) return <span className="text-sm text-gray-300">—</span>
+                if (line && !line.hasPrice)
+                  return <span className="text-xs text-amber-600">harga belum diset</span>
+                return <span className="text-sm font-semibold text-gray-800">{rupiah(line?.subtotal || 0)}</span>
+              })()}
+            </div>
+
+            <button
               onClick={() => removeItem(item.id)}
               className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"
               title="Hapus Bahan"
@@ -167,6 +198,35 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
         >
           <Plus className="w-4 h-4" /> Tambah Bahan Baku
         </button>
+      </div>
+
+      <div className="px-6 py-4 border-t bg-white grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div>
+          <div className="text-xs text-gray-500">Total HPP / porsi</div>
+          <div className="text-lg font-bold text-suka-brown">{rupiah(hpp.totalHpp)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-gray-500">Harga jual</div>
+          <div className="text-lg font-semibold text-gray-800">{rupiah(Number(menu.price) || 0)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-gray-500">Margin</div>
+          <div className="text-lg font-bold text-green-700">
+            {rupiah(hpp.marginRp)}
+            {hpp.marginPct !== null && <span className="text-sm font-medium text-green-600"> ({Math.round(hpp.marginPct)}%)</span>}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-gray-500">Food cost</div>
+          <div className="text-lg font-semibold text-gray-800">
+            {hpp.foodcostPct !== null ? `${Math.round(hpp.foodcostPct)}%` : '—'}
+          </div>
+        </div>
+        {hpp.anyMissingPrice && (
+          <div className="col-span-2 md:col-span-4 text-xs text-amber-600">
+            ⚠️ HPP parsial — sebagian bahan belum ada harga di Master Bahan Baku.
+          </div>
+        )}
       </div>
 
       <div className="p-4 bg-gray-50 border-t flex justify-end">

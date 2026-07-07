@@ -15,6 +15,7 @@ import type { MenuItem, Category } from '@/types'
 import { postToNative } from '@suka/design-system'
 import { WalkInCartPanel, type Payment as WalkInPayment } from '@/components/kasir/WalkInCartPanel'
 import { printReceipt, type ReceiptData } from '@/lib/printReceipt'
+import { useQueryClient } from '@tanstack/react-query'
 
 type Mode = 'walkin' | 'online'
 
@@ -28,6 +29,7 @@ type Payment = 'cash' | 'qris'
 
 export default function OrderManualPage() {
   const supabase = createClient()
+  const queryClient = useQueryClient()
   const { outletId, outletName, loaded } = useMyOutlet()
   const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
 
@@ -192,6 +194,8 @@ export default function OrderManualPage() {
         method: payment,
         change: data.change_amount ?? null
       })
+      // invalidate cache
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
       // reset untuk order berikutnya
       setLines({})
       setChannel(null)
@@ -275,6 +279,9 @@ export default function OrderManualPage() {
         change: data.change_amount ?? null,
         receipt,
       })
+
+      // invalidate cache
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
 
       // Reset keranjang untuk transaksi berikutnya
       setLines({})

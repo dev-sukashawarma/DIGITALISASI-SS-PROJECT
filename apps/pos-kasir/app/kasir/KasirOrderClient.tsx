@@ -513,22 +513,41 @@ export default function KasirOrderClient({
               Tunggu QRIS
             </div>
           ) : isPending ? (
-             <button
-              onClick={(e) => { e.stopPropagation(); markAsPreparing(order.id) }}
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
-            >
-              <ChefHat size={18} />
-              Mulai Masak
-            </button>
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); cancelOrder(order.id) }}
+                className="w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
+              >
+                <XCircle size={18} />
+                Batal
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); markAsPreparing(order.id) }}
+                className="w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
+              >
+                <ChefHat size={18} />
+                Mulai Masak
+              </button>
+            </>
           ) : (
-             <button
-              onClick={(e) => { e.stopPropagation(); markAsCompleted(order.id) }}
-              className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
-            >
-              <CheckCircle2 size={18} />
-              Pesanan Siap
-            </button>
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); cancelOrder(order.id) }}
+                className="w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
+              >
+                <XCircle size={18} />
+                Batal
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); markAsCompleted(order.id) }}
+                className="w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+              >
+                <CheckCircle2 size={18} />
+                Pesanan Siap
+              </button>
+            </>
           )}
+
         </div>
       </div>
     );

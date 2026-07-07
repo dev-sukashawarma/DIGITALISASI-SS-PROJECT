@@ -1,5 +1,5 @@
-import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { createSupabaseServerClient } from '@suka/auth'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { ResepEditor } from './ResepEditor'
@@ -9,17 +9,10 @@ export const dynamic = 'force-dynamic'
 export default async function EditResepPage({ params }: { params: Promise<{ menu_id: string }> }) {
   const menu_id = (await params).menu_id
   const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  )
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: () => {},
+  })
 
   // Fetch Menu Item
   const { data: menu } = await supabase

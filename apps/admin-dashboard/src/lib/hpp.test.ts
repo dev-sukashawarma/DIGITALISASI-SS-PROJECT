@@ -21,7 +21,7 @@ describe('computeResepHpp', () => {
     expect(r.lines[1].subtotal).toBe(1350)
     expect(r.totalHpp).toBe(6130)
     expect(r.marginRp).toBe(23418 - 6130)
-    expect(Math.round(r.marginPct)).toBe(74)
+    expect(Math.round(r.marginPct ?? NaN)).toBe(74)
     expect(r.anyMissingPrice).toBe(false)
   })
 

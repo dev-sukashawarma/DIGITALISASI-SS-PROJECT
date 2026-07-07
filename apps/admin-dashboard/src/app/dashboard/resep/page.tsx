@@ -1,22 +1,15 @@
-import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { createSupabaseServerClient } from '@suka/auth'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ResepPage() {
   const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  )
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: () => {},
+  })
 
   // Fetch all menu items (category lives in the joined `categories` table)
   const { data: menuItems, error } = await supabase

@@ -271,7 +271,7 @@
       ["SEC-06","Token spv (non-admin) → query view system_health_*","Ditolak (is_admin() only; view wajib security_invoker=true)"],
       ["SEC-07","Token role apa pun → RPC _svc permintaan (buat/approve) utk outlet bukan haknya","Server action validasi identitas — tak bisa approve lintas outlet"],
       ["SEC-08","Tanpa token (anon key saja) → query outlet_staff, ledger_stok, orders","Ditolak/kosong — tidak ada tabel telanjang utk anon"],
-      ["SEC-09","crew isi field catatan ledger/permintaan <script>alert(1)</script> → buka di monitoring SPV","Ter-escape sebagai teks, TIDAK tereksekusi (no stored XSS)"],
+      ["SEC-09","crew isi field catatan ledger/permintaan dengan payload skrip mis. <script>alert(1)<\/script> → buka di monitoring SPV","Ter-escape sebagai teks, TIDAK tereksekusi (no stored XSS)"],
       ["SEC-10","Setelah logout, replay request lama (token dari history/network)","Ditolak — token tak berlaku"],
     ]},
     {code:"S13", title:"S13 — Fitur operasional sisa", cases:[

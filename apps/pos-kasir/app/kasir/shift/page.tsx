@@ -326,6 +326,10 @@ export default function ShiftPage() {
       if (error) throw error
 
       setSuccessMsg('Pengajuan top up petty cash berhasil dikirim. Menunggu persetujuan Leader/Manajer.')
+      
+      const waText = encodeURIComponent(`Halo SPV, saya mengajukan Top Up Dana Operasional sebesar ${formatRupiah(amount)}.\n\nAlasan: ${topupDesc.trim()}`)
+      window.open(`https://wa.me/6285885497377?text=${waText}`, '_blank')
+
       setTopupAmount('')
       setTopupDesc('')
       setShowTopupModal(false)
@@ -453,10 +457,7 @@ export default function ShiftPage() {
         </div>
         {activeShift && (
           <button
-            onClick={() => {
-              const text = encodeURIComponent("Halo SPV, saya ingin mengajukan Top Up Dana Operasional.")
-              window.open(`https://wa.me/6285885497377?text=${text}`, '_blank')
-            }}
+            onClick={() => setShowTopupModal(true)}
             className="flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-blue-200"
           >
             <ArrowDownToLine className="w-4 h-4" />

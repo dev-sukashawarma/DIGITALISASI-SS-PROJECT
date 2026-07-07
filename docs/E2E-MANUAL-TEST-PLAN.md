@@ -2,7 +2,11 @@
 
 **Tanggal:** 2026-07-06 · **Penguji:** manusia (bukan otomasi) · **Scope:** semua app web. **EXCLUDE:** semua yang berkaitan mobile (`mobile/native-superapp`, `mobile/native-pos`, `mobile/pos-mobile`, desain Stitch SUPERAPP SS).
 
-**Cara pakai:** kerjakan skenario berurutan S0 → S10 (alurnya menyambung: barang yang dibeli di S1 adalah barang yang dikirim di S2, dst). Isi kolom **Hasil** dengan ✅ PASS / ❌ FAIL / ⏭️ SKIP + catatan. Setiap FAIL dicatat dengan format bug report di bagian paling bawah.
+**Cara pakai — urutan langkah wajib:**
+1. **P-00** (§2) — snapshot/backup saldo bahan di 3 lokasi (Kitchen/Pusat, Empang, Sukmajaya Depok). **Jangan lewati, kerjakan paling pertama sebelum apa pun.**
+2. **P-01 → P-08** (§2) — persiapan data uji (konfirmasi outlet, buat akun, bahan, supplier, menu, allowlist BOM, ORP, config absensi).
+3. **S0 → S14** (§3–§17) — kerjakan skenario **berurutan**, alurnya menyambung (barang yang dibeli di S1 adalah barang yang dikirim di S2, dst). Isi kolom **Hasil** dengan ✅ PASS / ❌ FAIL / ⏭️ SKIP + catatan. Setiap FAIL dicatat dengan format bug report (§19).
+4. **C-01 → C-07** (§18) — pembersihan **wajib**, ditutup dengan C-07 (verifikasi akhir vs snapshot P-00).
 
 ---
 

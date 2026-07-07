@@ -85,7 +85,7 @@
       <li><strong>3 lokasi nyata terlibat</strong>: Kitchen/Pusat (PO di S1, SJ di S2), SUKA SHAWARMA EMPANG, SUKA SHAWARMA DEPOK SUKMAJAYA. Item/menu/supplier uji tetap berprefix <code>E2E </code> (aman, tak sentuh resep/stok asli), tapi transaksi uji WAJIB dibersihkan setelah selesai. <strong>Wajib snapshot saldo P-00 dulu</strong> di ketiga lokasi sebelum mulai — jaring pengaman terakhir.</li>
       <li><strong>Kasus RS-00..RS-07 (grup S3)</strong> sengaja pakai <strong>core item asli</strong> (bukan dummy) utk uji stok kritis → pemesanan outlet senyata mungkin. Wajib: catat baseline (RS-00) → uji → kembalikan persis (RS-04/RS-07/C-06). Kerjakan di luar jam sibuk.</li>
       <li><strong>Wajib uji build produksi</strong> (<code>yarn build &amp;&amp; yarn start</code>) untuk S0 + semua halaman detail — regresi RSC 500 tak muncul di <code>yarn dev</code>.</li>
-      <li>Kerjakan berurutan: alur menyambung (barang PO di S1 mengalir sampai laporan S10). Detail lengkap: <code>docs/E2E-MANUAL-TEST-PLAN.md</code>.</li>
+      <li><strong>Urutan wajib:</strong> P-00 (backup) → P-01..P-08 (persiapan) → S0..S14 berurutan (alur menyambung, barang PO di S1 mengalir sampai laporan S10) → C-01..C-07 (pembersihan, ditutup verifikasi vs snapshot P-00). Detail lengkap: <code>docs/E2E-MANUAL-TEST-PLAN.md</code>.</li>
     </ul>
   </div>
 

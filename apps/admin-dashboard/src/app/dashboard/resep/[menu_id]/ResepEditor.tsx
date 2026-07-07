@@ -108,7 +108,7 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
             resep_id: resepId,
             bahan_baku_id: i.bahan_baku_id,
             qty_per_porsi: i.qty_per_porsi,
-            satuan: bb?.satuan || '',
+            satuan: bb?.kemasan_satuan || '',
           }
         })
         const { error: insError } = await supabase.from('resep_item').insert(itemsPayload)
@@ -176,7 +176,7 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
                       placeholder="0.00"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                      {bahanBakuList.find((b: any) => b.id === item.bahan_baku_id)?.satuan || ''}
+                      {bahanBakuList.find((b: any) => b.id === item.bahan_baku_id)?.kemasan_satuan || ''}
                     </span>
                   </div>
                 </div>
@@ -286,36 +286,36 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
             <table className="w-full text-sm mt-2">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 border-b">
-                  <th className="px-4 py-2 font-medium">Bahan</th>
-                  <th className="px-4 py-2 font-medium text-right">Harga Beli</th>
-                  <th className="px-4 py-2 font-medium text-right">Isi Kemasan</th>
-                  <th className="px-4 py-2 font-medium text-right">Dipakai/Porsi</th>
-                  <th className="px-4 py-2 font-medium text-right">Subtotal</th>
+                  <th className="px-4 py-3 font-medium">Bahan</th>
+                  <th className="px-4 py-3 font-medium text-center">Harga Beli</th>
+                  <th className="px-4 py-3 font-medium text-center">Isi Kemasan</th>
+                  <th className="px-4 py-3 font-medium text-center">Dipakai/Porsi</th>
+                  <th className="px-4 py-3 font-medium text-right">Subtotal</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {hpp.lines.map((l, idx) => (
                   <tr key={idx}>
-                    <td className="px-4 py-2 text-gray-900">{bahanNameById[l.bahan_baku_id] || '—'}</td>
-                    <td className="px-4 py-2 text-right text-gray-500">
+                    <td className="px-4 py-3 text-gray-900">{bahanNameById[l.bahan_baku_id] || '—'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500">
                       {l.hasPrice ? rupiah(l.hargaBeliDisplay) : <span className="text-amber-600">belum diset</span>}
                     </td>
-                    <td className="px-4 py-2 text-right text-gray-500">
+                    <td className="px-4 py-3 text-center text-gray-500">
                       {l.hasPrice ? `${l.kemasanQty} ${l.kemasanSatuan}` : '—'}
                     </td>
-                    <td className="px-4 py-2 text-right text-gray-500">
-                      {l.qty_per_porsi} {l.satuan}
+                    <td className="px-4 py-3 text-center text-gray-500">
+                      {l.qty_per_porsi} {l.kemasanSatuan}
                     </td>
-                    <td className="px-4 py-2 text-right font-semibold text-gray-900">{rupiah(l.subtotal)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900">{rupiah(l.subtotal)}</td>
                   </tr>
                 ))}
                 {hpp.buffer > 0 && (
                   <tr>
-                    <td className="px-4 py-2 text-gray-900">Loss</td>
-                    <td className="px-4 py-2 text-right text-gray-500">{rupiah(hpp.buffer)}</td>
-                    <td className="px-4 py-2 text-right text-gray-500">1 butir</td>
-                    <td className="px-4 py-2 text-right text-gray-500">1 butir</td>
-                    <td className="px-4 py-2 text-right font-semibold text-gray-900">{rupiah(hpp.buffer)}</td>
+                    <td className="px-4 py-3 text-gray-900">Loss</td>
+                    <td className="px-4 py-3 text-center text-gray-500">{rupiah(hpp.buffer)}</td>
+                    <td className="px-4 py-3 text-center text-gray-500">1 butir</td>
+                    <td className="px-4 py-3 text-center text-gray-500">1 butir</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900">{rupiah(hpp.buffer)}</td>
                   </tr>
                 )}
               </tbody>

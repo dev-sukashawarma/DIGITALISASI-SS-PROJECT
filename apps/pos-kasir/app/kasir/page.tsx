@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
-  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer
+  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer, MessageSquare
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
@@ -46,6 +46,59 @@ async function fetchTodayOrders(outletId: string): Promise<OrderWithItems[]> {
 
   return data ?? []
 }
+
+const renderOrderNotes = (notes: string | null) => {
+  if (!notes) return null;
+
+  if (!notes.includes('-- INFO PEMESAN ONLINE --')) {
+    return (
+      <div className="mt-4 p-3 bg-red-50 border border-red-200/60 rounded-xl text-sm">
+        <span className="font-bold text-red-900 mb-0.5 flex items-center gap-1"><Info size={14}/> Catatan Penting:</span>
+        <span className="text-red-800/90 leading-snug font-medium break-words whitespace-pre-wrap">{notes}</span>
+      </div>
+    );
+  }
+
+  const parts = notes.split('-- CATATAN PELANGGAN --');
+  const infoPart = parts[0].replace('-- INFO PEMESAN ONLINE --', '').trim();
+  const customerNote = parts[1] ? parts[1].trim() : '';
+
+  const infoLines = infoPart.split('\n').filter(l => l.trim());
+  const infoData = infoLines.reduce((acc, line) => {
+    const [key, ...rest] = line.split(':');
+    if (key && rest.length) {
+      acc[key.trim()] = rest.join(':').trim();
+    }
+    return acc;
+  }, {} as Record<string, string>);
+
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <div className="bg-blue-50/80 border border-blue-100 rounded-xl p-3 flex flex-col gap-2">
+        <div className="flex items-center gap-1.5 text-blue-700 font-bold text-xs border-b border-blue-200/50 pb-1.5">
+          <Globe size={14} /> Informasi Pemesan Online
+        </div>
+        <div className="grid grid-cols-2 gap-x-2 gap-y-2 text-xs">
+          {Object.entries(infoData).map(([key, value]) => (
+            <div key={key} className="flex flex-col">
+              <span className="text-blue-500/80 text-[10px] font-bold uppercase tracking-wider">{key}</span>
+              <span className="text-blue-900 font-semibold">{key.toLowerCase() === 'pembayaran' ? value.replace('_', ' ').toUpperCase() : value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {customerNote && (
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+          <div className="flex items-center gap-1.5 text-amber-700 font-bold text-xs mb-1">
+            <MessageSquare size={14} /> Catatan Pelanggan
+          </div>
+          <p className="text-amber-900 text-xs font-medium italic break-words whitespace-pre-wrap">{customerNote}</p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function CashierOrdersPage() {
   const { showConfirm, showAlert, showPrompt } = useDialogStore()
@@ -429,12 +482,7 @@ export default function CashierOrdersPage() {
             </div>
 
             {/* Catatan Keseluruhan */}
-            {order.notes && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200/60 rounded-xl text-sm">
-                <span className="font-bold text-red-900 block mb-0.5 flex items-center gap-1"><Info size={14}/> Catatan Penting:</span>
-                <span className="text-red-800/90 leading-snug font-medium">{order.notes}</span>
-              </div>
-            )}
+            {renderOrderNotes(order.notes)}
           </div>
         </div>
         
@@ -779,11 +827,7 @@ export default function CashierOrdersPage() {
                     })()}
                   </div>
 
-                  {order.notes && (
-                    <div className="mt-3 bg-[#fff8f1] rounded-lg p-2.5 text-xs text-slate-800/80 font-medium border border-[#701604]/10 break-words whitespace-pre-wrap">
-                      <span className="font-bold">Catatan Pesanan:</span> {order.notes}
-                    </div>
-                  )}
+                  {renderOrderNotes(order.notes)}
                 </div>
               ))
             )}

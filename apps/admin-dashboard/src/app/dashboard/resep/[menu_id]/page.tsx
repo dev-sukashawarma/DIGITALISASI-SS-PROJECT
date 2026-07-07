@@ -24,7 +24,7 @@ export default async function EditResepPage({ params }: { params: Promise<{ menu
   // Fetch Menu Item
   const { data: menu } = await supabase
     .from('menu_items')
-    .select('*')
+    .select('*, categories(name)')
     .eq('id', menu_id)
     .single()
 
@@ -57,7 +57,7 @@ export default async function EditResepPage({ params }: { params: Promise<{ menu
           Resep BOM: {menu.name}
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Kategori: {menu.category} | Harga: Rp {menu.price?.toLocaleString('id-ID')}
+          Kategori: {menu.categories?.name || '—'} | Harga: Rp {menu.price?.toLocaleString('id-ID')}
         </p>
       </div>
 

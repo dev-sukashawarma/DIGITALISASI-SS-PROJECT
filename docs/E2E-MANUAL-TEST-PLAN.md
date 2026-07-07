@@ -20,12 +20,13 @@
 
 **Rekomendasi:** uji di **lokal dev** dengan database Supabase remote (kondisi paling lengkap & terbaru), KECUALI skenario absensi kamera (S9) yang lebih realistis diuji di HP/tablet via URL produksi. Kalau uji di produksi, pastikan versi ter-deploy sudah memuat fix terbaru (beberapa sesi mencatat "perlu redeploy").
 
-⚠️ **Outlet uji = OUTLET NYATA (bukan dummy).** Plan ini memakai 2 outlet operasional sungguhan: **SUKA SHAWARMA EMPANG** (leader nyata: Abdurrahman) dan **SUKA SHAWARMA DEPOK SUKMAJAYA** (leader nyata: Chairul Rizky). Konsekuensi:
-- **Item uji (bahan `E2E Daging Shawarma`/`E2E Roti Pita`/`E2E Saus Garlic` & menu `E2E Shawarma Original`) tetap wajib berprefix `E2E `** — ini item BARU yang tidak dipakai resep/menu asli outlet, jadi tidak mengganggu operasional nyata.
-- **Akun staff uji** (`crew.e2e@test.com`, dst) adalah staff **tambahan** di outlet tsb — tidak menggantikan staff/leader asli.
-- **TAPI transaksi uji (ledger, opname, order POS, absensi) akan tercampur dengan laporan operasional nyata outlet tsb** selama belum dibersihkan (lihat §18). Karena itu: **jadwalkan uji di luar jam operasional** (mis. sebelum buka/setelah tutup) dan **wajib bersihkan transaksi uji sesegera mungkin** setelah selesai — jangan biarkan mengendap dan mendistorsi laporan omzet/shrinkage asli.
-- Jangan sentuh/nonaktifkan konfigurasi asli outlet (allowlist BOM, ORP, jam shift) — semua langkah P-06/P-07/P-08 di bawah bersifat **tambah** (upsert item baru), bukan mengubah konfigurasi item/menu yang sudah ada.
-- **Pengecualian sengaja: S3-B** memang menyentuh **core item asli** (bukan dummy) untuk menguji kondisi kritis → pemesanan outlet senyata mungkin. Wajib ikuti prosedur **catat baseline (RS-00) → uji → kembalikan persis (RS-04/RS-07/C-06)** — lihat §6.
+⚠️ **3 LOKASI NYATA TERLIBAT — stoknya harus aman dulu sebelum mulai:** **Kitchen/Pusat** (terima PO di S1, kirim surat jalan di S2), **SUKA SHAWARMA EMPANG** (leader nyata: Abdurrahman), dan **SUKA SHAWARMA DEPOK SUKMAJAYA** (leader nyata: Chairul Rizky). Ketiganya dipakai operasional sungguhan setiap hari — bukan cuma 2 outlet, kitchen ikut kena karena PO/SJ singgah di sana. Konsekuensi & aturan main:
+- **Item uji (bahan `E2E Daging Shawarma`/`E2E Roti Pita`/`E2E Saus Garlic` & menu `E2E Shawarma Original`) tetap wajib berprefix `E2E `** — ini item BARU yang tidak dipakai resep/menu asli, jadi PO (S1) & surat jalan (S2) yang lewat Kitchen **tidak menyentuh saldo bahan asli kitchen sama sekali**.
+- **Akun staff uji** (`crew.e2e@test.com`, dst) adalah staff **tambahan** di outlet tsb — tidak menggantikan staff/leader/staff kitchen asli.
+- **TAPI transaksi uji (ledger, opname, order POS, absensi) akan tercampur dengan laporan operasional nyata** selama belum dibersihkan (lihat §18). Karena itu: **jadwalkan uji di luar jam operasional** (mis. sebelum buka/setelah tutup) dan **wajib bersihkan transaksi uji sesegera mungkin** setelah selesai — jangan biarkan mengendap dan mendistorsi laporan omzet/shrinkage asli.
+- Jangan sentuh/nonaktifkan konfigurasi asli (allowlist BOM, ORP, jam shift, saldo bahan kitchen) — semua langkah P-06/P-07/P-08 di bawah bersifat **tambah** (upsert item baru), bukan mengubah konfigurasi/item yang sudah ada.
+- **Wajib snapshot/backup dulu (P-00)** sebelum menyentuh apa pun — jaring pengaman terakhir kalau ada bug tak terduga yang bocor ke item/saldo asli.
+- **Pengecualian sengaja: S3-B** memang menyentuh **core item asli** (bukan dummy) di Empang & Sukmajaya untuk menguji kondisi kritis → pemesanan outlet senyata mungkin. Wajib ikuti prosedur **catat baseline (RS-00) → uji → kembalikan persis (RS-04/RS-07/C-06)** — lihat §6.
 
 ⚠️ **WAJIB uji build produksi, bukan hanya `yarn dev`.** Pengalaman terdokumentasi (sesi 2026-06-25): bug RSC 500 di route detail **hanya muncul di build produksi** karena dev server selalu dynamic. Kalau uji lokal, jalankan `yarn build && yarn start` per app (atau uji langsung di subdomain produksi). Minimal: seluruh S0 + halaman detail (ledger/opname/monitoring-live drill-down) harus dicoba di build prod.
 
@@ -35,6 +36,7 @@
 
 Dilakukan oleh admin/dev via Supabase Dashboard + UI app:
 
+- [ ] **P-00 (WAJIB, paling pertama)** Ambil **snapshot/backup saldo bahan** untuk **3 lokasi**: Kitchen/Pusat, SUKA SHAWARMA EMPANG, SUKA SHAWARMA DEPOK SUKMAJAYA. Export/query saldo semua item di `bahan_baku`/`stok_balance` per outlet ini (mis. lewat Supabase Dashboard atau halaman monitoring, simpan sebagai CSV/screenshot bertanggal) **sebelum langkah lain apa pun dimulai**. Ini jaring pengaman terakhir — kalau ada bug tak terduga yang bocor ke saldo asli, kita punya angka pasti untuk membandingkan & mengembalikan.
 - [ ] **P-01** Konfirmasi 2 outlet **sudah ada** di tabel `outlets`: `SUKA SHAWARMA EMPANG` & `SUKA SHAWARMA DEPOK SUKMAJAYA` (tidak perlu dibuat baru — catat `id` masing-masing utk P-02 dst).
 - [ ] **P-02** Buat akun uji per role (auth user + baris `outlet_staff`) sebagai staff **tambahan** di 2 outlet tsb — tidak mengganti staff/leader asli. Password seragam, catat di tabel bawah. `leader` (akun uji) di-map ke **Empang dan Sukmajaya Depok** via `staff_outlets` (many-to-many; tidak menghapus mapping leader asli Abdurrahman/Chairul Rizky).
 - [ ] **P-03** Buat 3 bahan baku uji: `E2E Daging Shawarma` (kg), `E2E Roti Pita` (pcs), `E2E Saus Garlic` (satuan majemuk **kompan**, isi faktor_tampilan — untuk uji tampilan kompan+liter). Item BARU, terpisah dari bahan resep asli outlet.
@@ -403,14 +405,15 @@ S1–S11 fokus alur inti stok/POS/absensi. Fitur berikut ada di route tapi belum
 
 ## 18. Pembersihan Setelah Uji
 
-⚠️ **Karena outlet uji adalah outlet nyata (Empang & Sukmajaya Depok), pembersihan ini WAJIB dilakukan — bukan opsional** — supaya laporan omzet/shrinkage/absensi asli tidak terdistorsi transaksi uji.
+⚠️ **Karena outlet uji adalah outlet nyata (Empang & Sukmajaya Depok) dan Kitchen ikut tersinggung PO/SJ, pembersihan ini WAJIB dilakukan — bukan opsional** — supaya laporan omzet/shrinkage/absensi/stok kitchen asli tidak terdistorsi transaksi uji.
 
-- [ ] C-01 Hapus/void SEMUA transaksi yang tercipta selama uji di kedua outlet ini: orders POS (menu `E2E Shawarma Original`), ledger (item berprefix `E2E `), opname, permintaan, surat jalan, PO uji, attendance record akun uji.
-- [ ] C-02 Item/menu uji berprefix `E2E ` (bahan, menu, supplier) **dihapus atau dinonaktifkan** — jangan ditinggalkan tercampur di daftar bahan/menu asli outlet.
-- [ ] C-03 Hapus atau nonaktifkan SEMUA akun uji (`*.e2e@test.com`, termasuk `E2E Crew Baru` dari AB-01) dari `outlet_staff` & `staff_outlets` — outlet Empang/Sukmajaya sendiri **tidak dihapus** (itu outlet nyata, hanya staff tambahannya yang dibersihkan).
+- [ ] C-01 Hapus/void SEMUA transaksi yang tercipta selama uji: orders POS (menu `E2E Shawarma Original`), ledger (item berprefix `E2E `) di Empang & Sukmajaya, opname, permintaan, surat jalan & PO uji (Kitchen↔outlet), attendance record akun uji.
+- [ ] C-02 Item/menu uji berprefix `E2E ` (bahan, menu, supplier) **dihapus atau dinonaktifkan** di ketiga lokasi (Kitchen, Empang, Sukmajaya) — jangan ditinggalkan tercampur di daftar bahan/menu asli.
+- [ ] C-03 Hapus atau nonaktifkan SEMUA akun uji (`*.e2e@test.com`, termasuk `E2E Crew Baru` dari AB-01) dari `outlet_staff` & `staff_outlets` — Kitchen/Empang/Sukmajaya sendiri **tidak dihapus** (itu lokasi nyata, hanya staff tambahannya yang dibersihkan).
 - [ ] C-04 Kembalikan `outlet_attendance_config` outlet Empang ke nilai asli (jam shift/mode) sesuai catatan sebelum P-08, bila sempat diubah.
 - [ ] C-05 Verifikasi laporan omzet/shrinkage Empang & Sukmajaya Depok periode uji **sudah bersih** dari angka transaksi E2E (bandingkan sebelum/sesudah cleanup).
 - [ ] C-06 **Cek ulang core item S3-B**: bandingkan saldo sistem saat ini dengan baseline RS-00 utk kedua core item (Empang & Sukmajaya Depok) — kalau RS-04/RS-07 belum sempat dieksekusi saat itu, lakukan sekarang via ledger Penyesuaian sampai persis cocok.
+- [ ] C-07 **Verifikasi akhir vs snapshot P-00**: bandingkan saldo bahan asli di ketiga lokasi (Kitchen/Pusat, Empang, Sukmajaya) dengan snapshot P-00 sebelum uji dimulai. Semua item **non-E2E** harus persis sama — kalau ada selisih tak terjelaskan, itu bug yang harus diinvestigasi sebelum uji dianggap selesai.
 
 ---
 

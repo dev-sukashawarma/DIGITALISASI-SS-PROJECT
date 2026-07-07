@@ -82,7 +82,7 @@
     <ul>
       <li>Penguji <strong>manusia</strong>, semua app web. Mobile native (native-superapp/native-pos/pos-mobile) <strong>di-exclude</strong>.</li>
       <li>Port lokal: portal <code>3010</code>, stok <code>3001</code>, distribusi <code>3002</code>, owner <code>3003</code>, pos-kasir <code>3004</code>, admin <code>3005</code>, absensi <code>3006</code>.</li>
-      <li>Outlet uji = <strong>outlet nyata</strong>: SUKA SHAWARMA EMPANG & SUKA SHAWARMA DEPOK SUKMAJAYA. Item/menu/supplier uji tetap berprefix <code>E2E </code> (aman, tak sentuh resep asli), tapi transaksi uji WAJIB dibersihkan setelah selesai supaya laporan asli tidak terdistorsi.</li>
+      <li><strong>3 lokasi nyata terlibat</strong>: Kitchen/Pusat (PO di S1, SJ di S2), SUKA SHAWARMA EMPANG, SUKA SHAWARMA DEPOK SUKMAJAYA. Item/menu/supplier uji tetap berprefix <code>E2E </code> (aman, tak sentuh resep/stok asli), tapi transaksi uji WAJIB dibersihkan setelah selesai. <strong>Wajib snapshot saldo P-00 dulu</strong> di ketiga lokasi sebelum mulai — jaring pengaman terakhir.</li>
       <li><strong>Kasus RS-00..RS-07 (grup S3)</strong> sengaja pakai <strong>core item asli</strong> (bukan dummy) utk uji stok kritis → pemesanan outlet senyata mungkin. Wajib: catat baseline (RS-00) → uji → kembalikan persis (RS-04/RS-07/C-06). Kerjakan di luar jam sibuk.</li>
       <li><strong>Wajib uji build produksi</strong> (<code>yarn build &amp;&amp; yarn start</code>) untuk S0 + semua halaman detail — regresi RSC 500 tak muncul di <code>yarn dev</code>.</li>
       <li>Kerjakan berurutan: alur menyambung (barang PO di S1 mengalir sampai laporan S10). Detail lengkap: <code>docs/E2E-MANUAL-TEST-PLAN.md</code>.</li>
@@ -117,6 +117,7 @@
 (function(){
   var GROUPS = [
     {code:"PREP", title:"Persiapan data uji", cases:[
+      ["P-00","WAJIB PALING PERTAMA: snapshot/backup saldo bahan di 3 lokasi — Kitchen/Pusat, Empang, Sukmajaya Depok (export/query saldo semua item, simpan CSV/screenshot bertanggal)","Snapshot tersimpan sbg jaring pengaman & pembanding di C-07"],
       ["P-01","Konfirmasi 2 outlet SUDAH ADA: SUKA SHAWARMA EMPANG & SUKA SHAWARMA DEPOK SUKMAJAYA (tak perlu dibuat baru, catat id-nya)","Dua outlet nyata terkonfirmasi utk dipakai uji"],
       ["P-02","Buat akun uji per role sbg staff TAMBAHAN (tak ganti staff/leader asli); leader uji di-map ke Empang & Sukmajaya Depok via staff_outlets","11 akun siap login; leader asli (Abdurrahman/Chairul Rizky) tak terganggu"],
       ["P-03","Buat 3 bahan BARU: E2E Daging Shawarma (kg), E2E Roti Pita (pcs), E2E Saus Garlic (kompan, isi faktor_tampilan)","3 bahan uji tersedia, terpisah dari resep asli; saus bersatuan majemuk"],
@@ -315,6 +316,7 @@
       ["C-04","Kembalikan outlet_attendance_config Empang ke nilai asli (jam shift/mode) sesuai catatan sebelum P-08","Konfigurasi absensi crew asli kembali normal"],
       ["C-05","Verifikasi laporan omzet/shrinkage Empang & Sukmajaya Depok periode uji sudah bersih dari angka E2E","Laporan manajemen nyata akurat kembali"],
       ["C-06","Cek ulang core item S3-B: bandingkan saldo sistem saat ini dgn baseline RS-00 kedua outlet; kalau RS-04/RS-07 belum sempat, eksekusi sekarang via ledger Penyesuaian","Saldo core item persis cocok baseline, tak ada distorsi tertinggal"],
+      ["C-07","Verifikasi akhir vs snapshot P-00: bandingkan saldo bahan asli di Kitchen/Pusat, Empang & Sukmajaya dgn snapshot sebelum uji — semua item non-E2E harus persis sama","Tak ada selisih tak terjelaskan; kalau ada, investigasi sebagai bug sebelum uji dianggap selesai"],
     ]},
   ];
 

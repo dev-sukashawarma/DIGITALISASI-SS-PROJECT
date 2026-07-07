@@ -46,8 +46,9 @@ export function usePromos(outletId: string | undefined) {
     load()
 
     const supabase = createClient()
+    const uniqueId = Math.random().toString(36).substring(7)
     const channel = supabase
-      .channel(`promos-realtime-${outletId}`)
+      .channel(`promos-realtime-${outletId}-${uniqueId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'outlet_promos', filter: `outlet_id=eq.${outletId}` },

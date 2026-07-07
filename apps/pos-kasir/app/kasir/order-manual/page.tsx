@@ -106,7 +106,18 @@ export default function OrderManualPage() {
       } catch { setUnavailableIds(new Set()) }
       setLoading(false)
     }
+
     fetchMenu()
+
+    const channel = supabase
+      .channel(`kasir-order-manual-${outletId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => fetchMenu())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kiosk_settings', filter: `outlet_id=eq.${outletId}` }, () => fetchMenu())
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [supabase, outletId, loaded])
 
   // ── Menu terfilter (tersedia + kategori + pencarian) ──────────────────────

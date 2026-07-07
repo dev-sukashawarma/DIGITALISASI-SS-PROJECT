@@ -156,8 +156,21 @@ export default function ShiftPage() {
   }, [expenses, topups, cashOrders])
 
   useEffect(() => {
-    if (outletId) fetchCurrentState()
-  }, [outletId])
+    if (outletId) {
+      fetchCurrentState()
+
+      const channel = supabase
+        .channel(`shift-realtime-${outletId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_topups', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState())
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [outletId, supabase])
 
   async function fetchCurrentState() {
     try {

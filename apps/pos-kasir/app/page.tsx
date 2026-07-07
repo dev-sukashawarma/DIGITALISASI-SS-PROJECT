@@ -90,7 +90,7 @@ export default function MenuPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'kiosk_settings' },
         (payload) => {
-          const updated = payload.new;
+          const updated = payload.new as any;
           if (updated.key === 'unavailable_menu_ids') {
             try {
               const unavIds: string[] = JSON.parse(updated.value || '[]');

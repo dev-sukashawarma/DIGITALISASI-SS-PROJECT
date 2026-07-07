@@ -22,6 +22,10 @@ export default function PanduanPage() {
   const { brandName } = useBrand()
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [activeCategoryId])
+
+  useEffect(() => {
     fetch('/api/admin/guides')
       .then(res => res.json())
       .then(data => {
@@ -65,7 +69,7 @@ export default function PanduanPage() {
               <Book className="w-4 h-4 text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="font-bold text-gray-900 leading-none">Buku Panduan</h1>
+              <h1 className="font-bold text-gray-900 leading-none">Panduan</h1>
               <p className="text-[11px] font-bold text-amber-500 uppercase tracking-widest mt-1">{brandName} POS</p>
             </div>
           </div>

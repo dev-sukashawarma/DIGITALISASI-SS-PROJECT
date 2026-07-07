@@ -377,7 +377,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
       </div>
 
       {/* Sticky Bottom Bar with safe padding */}
-      <div className="sticky bottom-0 -mx-3 sm:-mx-6 lg:-mx-8 -mb-24 md:-mb-8 mt-12 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)] z-40 flex justify-end">
+      <div className="sticky bottom-0 -mx-3 sm:-mx-6 lg:-mx-8 mt-12 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)] z-40 flex justify-end">
         <button 
           className="btn-primary px-8 py-3.5 rounded-xl shadow-lg shadow-amber-500/30 flex items-center gap-2 text-sm font-bold sm:text-base w-full sm:w-auto justify-center transition-transform active:scale-95"
           onClick={handleSave}

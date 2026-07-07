@@ -9,10 +9,10 @@
     "mobile/*"
   ],
   "scripts": {
-    "dev": "yarn workspaces foreach -p run dev",
-    "build": "yarn workspaces foreach -p run build",
-    "lint": "yarn workspaces foreach -p run lint",
-    "type-check": "yarn workspaces foreach -p run type-check",
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "type-check": "npm run type-check --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },
   "devDependencies": {

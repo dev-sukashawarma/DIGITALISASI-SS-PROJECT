@@ -164,10 +164,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Process Update
+    const newStatus = action === 'approve' ? 'approved' : 'rejected';
     const { error: updateError } = await supabase
       .from('petty_cash_topups')
       .update({ 
-        status: action,
+        status: newStatus,
         approved_at: new Date().toISOString()
       })
       .eq('id', id)

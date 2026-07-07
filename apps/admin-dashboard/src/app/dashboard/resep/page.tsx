@@ -18,11 +18,10 @@ export default async function ResepPage() {
     }
   )
 
-  // Fetch all menu items
+  // Fetch all menu items (category lives in the joined `categories` table)
   const { data: menuItems, error } = await supabase
     .from('menu_items')
-    .select('id, name, category, price, is_available')
-    .order('category')
+    .select('id, name, price, is_available, categories(name)')
     .order('name')
 
   if (error) {
@@ -40,6 +39,7 @@ export default async function ResepPage() {
     const bom = recipes?.find((r) => r.menu_item_ref === menu.id)
     return {
       ...menu,
+      category: (menu as any).categories?.name || '—',
       hasBOM: !!bom,
       bomActive: bom?.is_active,
       itemCount: bom?.resep_item?.[0]?.count || 0

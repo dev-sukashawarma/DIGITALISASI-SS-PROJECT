@@ -26,7 +26,7 @@ async function setupAllMitra() {
     if (!cleanName) cleanName = outlet.slug
     
     // Capitalize first letter of each word
-    const displayName = cleanName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+    const displayName = cleanName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
     const area = cleanName.toLowerCase().replace(/\s+/g, '_')
     
     const email = `mitra_${area}@sukashawarma.com`

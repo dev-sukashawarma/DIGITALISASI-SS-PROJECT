@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { Providers } from './Providers'
+import NextTopLoader from 'nextjs-toploader'
 import './globals.css'
 
 export const metadata = {
@@ -22,12 +23,13 @@ export const viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const initialStaff = parseStaffHeader((await headers()).get(STAFF_HEADER))
   return (
-    <html lang="id">
+    <html lang="id" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
+        <NextTopLoader color="#ea580c" showSpinner={false} />
         <Providers initialStaff={initialStaff}>{children}</Providers>
       </body>
     </html>

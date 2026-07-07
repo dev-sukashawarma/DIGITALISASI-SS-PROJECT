@@ -51,36 +51,14 @@ export default function AdminSettingsPage() {
     setIsSubmitting(true)
     
     try {
-      let finalLogoUrl = preview // keep existing or null
-
-      // Upload file to supabase storage if there is a new file
-      if (logoFile) {
-        const supabase = createClient()
-        const fileExt = logoFile.name.split('.').pop()
-        const fileName = `brand-logo-${Date.now()}.${fileExt}`
-        const { error: uploadError, data } = await supabase.storage
-          .from('kiosk-assets')
-          .upload(fileName, logoFile, { upsert: true })
-          
-        if (uploadError) throw uploadError
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('kiosk-assets')
-          .getPublicUrl(fileName)
-          
-        finalLogoUrl = publicUrl
-      } else if (!preview) {
-        // user removed the logo
-        finalLogoUrl = null
-      }
-
-      // Update API
+      // Send base64 preview or null (if removed) to API
+      // Let the API handle the upload with a service role to bypass RLS limits
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           brand_name: name,
-          brand_logo: finalLogoUrl
+          brand_logo: preview // This contains data:image/... if new file, or existing url, or null
         })
       })
 

@@ -77,9 +77,10 @@ export type BahanBakuOption = {
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
-export function usePurchaseOrders(filters?: { from?: string; to?: string; status?: string }) {
+export function usePurchaseOrders(filters?: { from?: string; to?: string; status?: string }, initialData?: POSummary[]) {
   return useQuery({
     queryKey: ['purchase-orders', filters],
+    initialData,
     queryFn: async (): Promise<POSummary[]> => {
       const { data, error } = await supabase.rpc('get_purchase_orders', {
         p_from: filters?.from ?? new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
@@ -92,10 +93,11 @@ export function usePurchaseOrders(filters?: { from?: string; to?: string; status
   })
 }
 
-export function usePODetail(id: string | null) {
+export function usePODetail(id: string | null, initialData?: POWithItems) {
   return useQuery({
     queryKey: ['purchase-order', id],
     enabled: !!id,
+    initialData,
     queryFn: async (): Promise<POWithItems> => {
       const { data: po, error } = await supabase
         .from('purchase_order')

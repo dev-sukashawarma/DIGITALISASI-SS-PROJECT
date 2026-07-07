@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { Outlet } from '@/lib/types'
 
-export function useOutlets() {
+export function useOutlets(initialData?: Outlet[]) {
   const supabase = createClient()
   return useQuery<Outlet[]>({
     queryKey: ['outlets'],
+    initialData,
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase

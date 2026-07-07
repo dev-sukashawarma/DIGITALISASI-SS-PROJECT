@@ -27,7 +27,9 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         const data = await res.json()
         if (data.brand_name) setBrandName(data.brand_name)
-        if (data.brand_logo !== undefined) setBrandLogo(data.brand_logo)
+        if (data.brand_logo !== undefined) {
+          setBrandLogo(data.brand_logo === 'null' ? null : data.brand_logo)
+        }
       }
     } catch (e) {
       console.error('Failed to load brand settings', e)

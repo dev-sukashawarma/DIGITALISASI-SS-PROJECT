@@ -7,11 +7,11 @@ import { createClient as createServerClientConfig } from '@/lib/supabase/server'
 
 export async function GET() {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createServerClientConfig()
+    // Using service role to ensure settings are always fetchable regardless of RLS
+    const serviceClient = require('@/lib/supabase/server').createServiceClient()
 
-    const { data, error } = await supabase.from('global_settings').select('*')
+    const { data, error } = await serviceClient.from('global_settings').select('*')
     if (error) throw error
 
     const settings = data.reduce((acc: any, row: any) => {

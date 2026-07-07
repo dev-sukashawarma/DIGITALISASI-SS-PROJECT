@@ -82,7 +82,8 @@
     <ul>
       <li>Penguji <strong>manusia</strong>, semua app web. Mobile native (native-superapp/native-pos/pos-mobile) <strong>di-exclude</strong>.</li>
       <li>Port lokal: portal <code>3010</code>, stok <code>3001</code>, distribusi <code>3002</code>, owner <code>3003</code>, pos-kasir <code>3004</code>, admin <code>3005</code>, absensi <code>3006</code>.</li>
-      <li>Outlet uji = <strong>outlet nyata</strong>: SUKA SHAWARMA EMPANG & SUKA SHAWARMA DEPOK SUKMAJAYA. Item/menu/supplier uji tetap berprefix <code>E2E </code> (aman, tak sentuh resep asli), tapi transaksi uji WAJIB dibersihkan setelah selesai (§18) supaya laporan asli tidak terdistorsi.</li>
+      <li>Outlet uji = <strong>outlet nyata</strong>: SUKA SHAWARMA EMPANG & SUKA SHAWARMA DEPOK SUKMAJAYA. Item/menu/supplier uji tetap berprefix <code>E2E </code> (aman, tak sentuh resep asli), tapi transaksi uji WAJIB dibersihkan setelah selesai supaya laporan asli tidak terdistorsi.</li>
+      <li><strong>Kasus RS-00..RS-07 (grup S3)</strong> sengaja pakai <strong>core item asli</strong> (bukan dummy) utk uji stok kritis → pemesanan outlet senyata mungkin. Wajib: catat baseline (RS-00) → uji → kembalikan persis (RS-04/RS-07/C-06). Kerjakan di luar jam sibuk.</li>
       <li><strong>Wajib uji build produksi</strong> (<code>yarn build &amp;&amp; yarn start</code>) untuk S0 + semua halaman detail — regresi RSC 500 tak muncul di <code>yarn dev</code>.</li>
       <li>Kerjakan berurutan: alur menyambung (barang PO di S1 mengalir sampai laporan S10). Detail lengkap: <code>docs/E2E-MANUAL-TEST-PLAN.md</code>.</li>
     </ul>
@@ -165,6 +166,14 @@
       ["PM-03","Crew A buat permintaan kedua (5 pcs) → SPV Tolak","Status ditolak + (bila ada) alasan tampil ke crew"],
       ["PM-04","Login crew B → buka halaman permintaan","Permintaan outlet A tidak terlihat"],
       ["PM-05","Crew A submit permintaan dengan qty 0/kosong","Form menolak"],
+      ["RS-00","[S3-B real] Pilih 1 core item nyata di Empang & 1 di Sukmajaya (dipakai resep, sudah py ORP asli). CATAT baseline: saldo sistem + ORP sebelum uji","Baseline tercatat, dipakai lagi di RS-04/RS-07 utk verifikasi restore persis"],
+      ["RS-01","[S3-B real] Empang: turunkan stok core item via ledger Pemakaian (entri wajar) sampai saldo < ORP asli","Monitoring crew & SPV kritis/below utk item nyata tsb — bukan simulasi"],
+      ["RS-02","[S3-B real] Crew Empang buat Permintaan Bahan utk item kritis, qty realistis (cukup ke atas ORP)","Permintaan tersimpan pending"],
+      ["RS-03","[S3-B real] SPV/leader approve permintaan RS-02","Status disetujui — alur pemesanan akibat kondisi kritis terbukti jalan ujung ke ujung"],
+      ["RS-04","[S3-B real] WAJIB: kembalikan saldo core item Empang ke baseline RS-00 (ledger Penyesuaian bila belum difulfillment nyata via SJ)","Saldo persis sama dgn baseline; status monitoring kembali normal"],
+      ["RS-05","[S3-B real] Sukmajaya Depok: ulangi turunkan core item terpilih sampai < ORP asli","Monitoring kritis utk item nyata di outlet ini"],
+      ["RS-06","[S3-B real] Crew Sukmajaya buat Permintaan Bahan → SPV/leader approve","Alur pemesanan jalan sama seperti Empang"],
+      ["RS-07","[S3-B real] WAJIB: kembalikan saldo core item Sukmajaya Depok ke baseline RS-00","Saldo persis sama dgn baseline; tak ada jejak distorsi tertinggal"],
     ]},
     {code:"S4", title:"S4 — Ledger manual", cases:[
       ["LG-01","Entri Pemakaian daging 1 kg","Tersimpan; saldo daging A berkurang 1; muncul di daftar ledger"],
@@ -305,6 +314,7 @@
       ["C-03","Hapus/nonaktifkan SEMUA akun uji (*.e2e@test.com termasuk E2E Crew Baru) dari outlet_staff & staff_outlets — outlet sendiri TIDAK dihapus","Akun uji dibersihkan, outlet nyata tak tersentuh"],
       ["C-04","Kembalikan outlet_attendance_config Empang ke nilai asli (jam shift/mode) sesuai catatan sebelum P-08","Konfigurasi absensi crew asli kembali normal"],
       ["C-05","Verifikasi laporan omzet/shrinkage Empang & Sukmajaya Depok periode uji sudah bersih dari angka E2E","Laporan manajemen nyata akurat kembali"],
+      ["C-06","Cek ulang core item S3-B: bandingkan saldo sistem saat ini dgn baseline RS-00 kedua outlet; kalau RS-04/RS-07 belum sempat, eksekusi sekarang via ledger Penyesuaian","Saldo core item persis cocok baseline, tak ada distorsi tertinggal"],
     ]},
   ];
 

@@ -25,6 +25,7 @@
 - **Akun staff uji** (`crew.e2e@test.com`, dst) adalah staff **tambahan** di outlet tsb — tidak menggantikan staff/leader asli.
 - **TAPI transaksi uji (ledger, opname, order POS, absensi) akan tercampur dengan laporan operasional nyata outlet tsb** selama belum dibersihkan (lihat §18). Karena itu: **jadwalkan uji di luar jam operasional** (mis. sebelum buka/setelah tutup) dan **wajib bersihkan transaksi uji sesegera mungkin** setelah selesai — jangan biarkan mengendap dan mendistorsi laporan omzet/shrinkage asli.
 - Jangan sentuh/nonaktifkan konfigurasi asli outlet (allowlist BOM, ORP, jam shift) — semua langkah P-06/P-07/P-08 di bawah bersifat **tambah** (upsert item baru), bukan mengubah konfigurasi item/menu yang sudah ada.
+- **Pengecualian sengaja: S3-B** memang menyentuh **core item asli** (bukan dummy) untuk menguji kondisi kritis → pemesanan outlet senyata mungkin. Wajib ikuti prosedur **catat baseline (RS-00) → uji → kembalikan persis (RS-04/RS-07/C-06)** — lihat §6.
 
 ⚠️ **WAJIB uji build produksi, bukan hanya `yarn dev`.** Pengalaman terdokumentasi (sesi 2026-06-25): bug RSC 500 di route detail **hanya muncul di build produksi** karena dev server selalu dynamic. Kalau uji lokal, jalankan `yarn build && yarn start` per app (atau uji langsung di subdomain produksi). Minimal: seluruh S0 + halaman detail (ledger/opname/monitoring-live drill-down) harus dicoba di build prod.
 
@@ -129,6 +130,8 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 
 ## 6. S3 — Permintaan Bahan (crew → SPV)
 
+### S3-A. Alur dasar (pakai item dummy E2E — aman, tak sentuh saldo nyata)
+
 **App:** stok → `/stok/permintaan`.
 
 | ID | Langkah | Hasil diharapkan | Hasil |
@@ -138,6 +141,25 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 | PM-03 | Crew A buat permintaan kedua (5 pcs) → SPV **Tolak** | Status ditolak + (bila ada) alasan tampil ke crew | |
 | PM-04 | Login **crew B** → buka halaman permintaan | Permintaan outlet A **tidak terlihat** | |
 | PM-05 | Crew A submit permintaan dengan qty 0/kosong | Form menolak | |
+
+### S3-B. Uji realistis: stok CORE ITEM (nyata) kritis → pemesanan dari outlet
+
+**Kenapa terpisah dari S3-A:** ini sengaja pakai **bahan asli** yang dipakai resep sungguhan (bukan item dummy `E2E `), supaya kondisi "stok menipis → outlet memesan" senyata mungkin. Karena menyentuh saldo nyata, **wajib ikuti prosedur baseline-dan-kembalikan** di bawah — jangan lewati langkah restore.
+
+**Prasyarat (kerjakan sebelum RS-01):**
+- **RS-00** Pilih 1 core item nyata di **Empang** dan 1 di **Sukmajaya Depok** (item yang benar dipakai resep & sudah punya ORP asli — cek di `/stok/settings/threshold`). **Catat baseline**: nama item, saldo sistem saat ini, ORP asli. Simpan catatan ini — dipakai lagi di RS-04/RS-07 utk memastikan saldo dikembalikan **persis sama**.
+
+| ID | Langkah | Hasil diharapkan | Hasil |
+|---|---|---|---|
+| RS-01 | **Empang** — turunkan stok core item terpilih via ledger **Pemakaian** (entri wajar, boleh beberapa kali) sampai saldo **< ORP asli** | Monitoring crew & SPV menampilkan status **kritis/below** utk item nyata tsb — bukan simulasi | |
+| RS-02 | Crew Empang buat **Permintaan Bahan** utk item kritis tsb, qty realistis (cukup mengembalikan saldo ke atas ORP) | Permintaan tersimpan status pending | |
+| RS-03 | SPV/leader **approve** permintaan RS-02 | Status disetujui — alur pemesanan dari outlet akibat kondisi kritis terbukti jalan ujung ke ujung | |
+| RS-04 | **WAJIB:** kembalikan saldo core item Empang ke baseline RS-00 — kalau tidak sempat difulfillment nyata via Surat Jalan, gunakan ledger **Penyesuaian (adjustment)** sebesar selisihnya | Saldo sistem **persis sama** dengan catatan baseline RS-00; status monitoring kembali normal seperti semula | |
+| RS-05 | **Sukmajaya Depok** — ulangi RS-01 pada core item terpilih di outlet ini (turunkan sampai < ORP asli) | Monitoring menampilkan kritis utk item nyata di outlet ini | |
+| RS-06 | Crew Sukmajaya Depok buat Permintaan Bahan → SPV/leader approve | Alur pemesanan jalan sama seperti Empang | |
+| RS-07 | **WAJIB:** kembalikan saldo core item Sukmajaya Depok ke baseline RS-00 (ledger Penyesuaian bila belum difulfillment nyata) | Saldo sistem persis sama dengan baseline; tak ada jejak distorsi tertinggal | |
+
+⚠️ Kerjakan S3-B **di luar jam sibuk** (idealnya sebelum buka/setelah tutup) supaya kondisi kritis buatan tidak mengganggu operasional nyata saat sedang berjalan, dan segera eksekusi RS-04/RS-07 — jangan biarkan saldo core item dalam keadaan "dipalsukan" lebih lama dari perlu.
 
 ---
 
@@ -388,6 +410,7 @@ S1–S11 fokus alur inti stok/POS/absensi. Fitur berikut ada di route tapi belum
 - [ ] C-03 Hapus atau nonaktifkan SEMUA akun uji (`*.e2e@test.com`, termasuk `E2E Crew Baru` dari AB-01) dari `outlet_staff` & `staff_outlets` — outlet Empang/Sukmajaya sendiri **tidak dihapus** (itu outlet nyata, hanya staff tambahannya yang dibersihkan).
 - [ ] C-04 Kembalikan `outlet_attendance_config` outlet Empang ke nilai asli (jam shift/mode) sesuai catatan sebelum P-08, bila sempat diubah.
 - [ ] C-05 Verifikasi laporan omzet/shrinkage Empang & Sukmajaya Depok periode uji **sudah bersih** dari angka transaksi E2E (bandingkan sebelum/sesudah cleanup).
+- [ ] C-06 **Cek ulang core item S3-B**: bandingkan saldo sistem saat ini dengan baseline RS-00 utk kedua core item (Empang & Sukmajaya Depok) — kalau RS-04/RS-07 belum sempat dieksekusi saat itu, lakukan sekarang via ledger Penyesuaian sampai persis cocok.
 
 ---
 
@@ -420,4 +443,4 @@ Konsol/network: (error merah di DevTools bila ada)
 | mitra | S0, S1 (gating), S10 (isolasi penuh) |
 | staff_pusat | S0, S9 (AB-16) |
 
-**Total ± 155 kasus:** S0–S10 ±90 (fitur inti) + S11 22 (simulasi hari operasional + chaos) + S12 10 (keamanan RLS) + S13 13 (fitur belum tersentuh) + S14 8 (waktu/perangkat/jaringan). Estimasi: 2–3 penguji × 2–3 hari — hari 1: S0–S10; hari 2: S11 simulasi penuh (S9/S11 kamera butuh 2 orang + HP); hari 3: S12 keamanan + S13 fitur sisa + S14 lintas-perangkat.
+**Total ± 162 kasus:** S0–S10 ±90 (fitur inti, termasuk S3-B 7 kasus stok core item kritis→pemesanan pakai outlet nyata) + S11 22 (simulasi hari operasional + chaos) + S12 10 (keamanan RLS) + S13 13 (fitur belum tersentuh) + S14 8 (waktu/perangkat/jaringan). Estimasi: 2–3 penguji × 2–3 hari — hari 1: S0–S10 (S3-B dikerjakan di luar jam sibuk); hari 2: S11 simulasi penuh (S9/S11 kamera butuh 2 orang + HP); hari 3: S12 keamanan + S13 fitur sisa + S14 lintas-perangkat.

@@ -48,3 +48,56 @@
 body {
   animation: suka-page-fadein 0.4s ease forwards;
 }
+
+/* ── Buku Panduan: styling konten HTML dari system_guides ──
+   Tailwind app ini tidak memakai plugin typography (`prose`),
+   jadi elemen h3/p/ol/ul/li hasil dangerouslySetInnerHTML
+   di-styling manual lewat kelas .guide-content. */
+.guide-content h3 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--suka-orange);
+  margin-bottom: 0.65rem;
+}
+.guide-content p {
+  margin: 0.65rem 0;
+  font-size: 0.925rem;
+  line-height: 1.75;
+  color: #4b5563;
+}
+.guide-content p:first-of-type { margin-top: 0; }
+.guide-content p:last-child { margin-bottom: 0; }
+.guide-content ol,
+.guide-content ul {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.guide-content ol { list-style: decimal; }
+.guide-content ul { list-style: disc; }
+.guide-content li {
+  font-size: 0.925rem;
+  line-height: 1.7;
+  color: #4b5563;
+  padding-left: 0.25rem;
+}
+.guide-content li::marker {
+  color: var(--suka-orange);
+  font-weight: 700;
+}
+.guide-content strong {
+  color: var(--suka-ink);
+  font-weight: 700;
+}
+
+/* Pill nav bab: sembunyikan scrollbar horizontal di mobile */
+.guide-pills {
+  scrollbar-width: none;
+}
+.guide-pills::-webkit-scrollbar {
+  display: none;
+}

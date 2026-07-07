@@ -118,7 +118,7 @@ export default function KasirNav() {
       {/* Sidebar */}
       <aside
         className={`print:hidden fixed lg:sticky top-0 left-0 z-50 lg:z-auto
-          h-screen shrink-0 self-start
+          h-[100dvh] shrink-0 self-start
           bg-[#f5ede3] border-r border-[#d9c2b2]
           flex flex-col
           transition-all duration-300 ease-in-out

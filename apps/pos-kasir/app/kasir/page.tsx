@@ -497,6 +497,8 @@ export default function CashierOrdersPage() {
         </button>
       )}
 
+      <StockWidget />
+
       {/* ── Header & Stats ── */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 flex-wrap pb-4 border-b border-slate-200">
         <div className="min-w-0">
@@ -567,7 +569,6 @@ export default function CashierOrdersPage() {
             </div>
           );
         })()}
-        <StockWidget />
       </div>
 
       {/* Bento Grid columns */}

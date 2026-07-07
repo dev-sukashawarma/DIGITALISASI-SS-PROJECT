@@ -453,7 +453,10 @@ export default function ShiftPage() {
         </div>
         {activeShift && (
           <button
-            onClick={() => setShowTopupModal(true)}
+            onClick={() => {
+              const text = encodeURIComponent("Halo Admin, saya ingin mengajukan Top Up Dana Operasional.")
+              window.open(`https://wa.me/?text=${text}`, '_blank')
+            }}
             className="flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-blue-200"
           >
             <ArrowDownToLine className="w-4 h-4" />

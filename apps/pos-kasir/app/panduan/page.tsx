@@ -23,6 +23,10 @@ export default function PanduanPage() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
+    document.documentElement.scrollTo({ top: 0, behavior: 'smooth' })
+    setTimeout(() => {
+      window.scrollTo(0, 0)
+    }, 50)
   }, [activeCategoryId])
 
   useEffect(() => {

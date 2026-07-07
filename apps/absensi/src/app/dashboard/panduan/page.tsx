@@ -66,7 +66,8 @@ export default function PanduanPage() {
   const currentIndex = categories.indexOf(currentCategory);
   const activeGuides = groupedGuides[currentCategory] || [];
   const prevCategory = currentIndex > 0 ? categories[currentIndex - 1] : null;
-  const nextCategory = currentIndex >= 0 && currentIndex < categories.length - 1 ? categories[currentIndex + 1] : null;
+  const nextCategory =
+    currentIndex >= 0 && currentIndex < categories.length - 1 ? categories[currentIndex + 1] : null;
 
   // Scroll balik ke atas tiap ganti bab (kecuali render pertama)
   useEffect(() => {
@@ -98,20 +99,20 @@ export default function PanduanPage() {
   const currentMeta = splitCategory(currentCategory);
 
   return (
-    <div className="space-y-5" ref={topRef}>
+    <div className="mx-auto max-w-2xl space-y-6" ref={topRef}>
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-suka-orange flex items-center justify-center shrink-0 shadow-sm">
-          <BookOpen className="text-white" size={22} />
+      <header className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-suka-orange/10 text-suka-orange">
+          <BookOpen size={20} />
         </div>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-suka-ink leading-tight">Buku Panduan</h1>
-          <p className="text-gray-500 text-xs sm:text-sm">Panduan penggunaan Sistem Absensi Suka Shawarma</p>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold leading-tight text-suka-ink">Buku Panduan</h1>
+          <p className="truncate text-sm text-gray-500">Sistem Absensi Suka Shawarma</p>
         </div>
-      </div>
+      </header>
 
-      {/* Bab pills — geser ke samping di layar kecil */}
-      <nav className="guide-pills flex gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap pb-1">
+      {/* Chapter selector — satu baris, geser ke samping (tidak pernah pecah baris) */}
+      <nav className="guide-pills -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
         {categories.map((cat) => {
           const { num, name } = splitCategory(cat);
           const active = currentCategory === cat;
@@ -119,15 +120,15 @@ export default function PanduanPage() {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`flex items-center gap-2 shrink-0 pl-1.5 pr-3.5 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+              className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-2 pl-2 pr-4 text-sm font-medium transition-colors ${
                 active
-                  ? "bg-suka-orange border-suka-orange text-white shadow-sm"
-                  : "bg-white border-gray-200 text-gray-600 hover:border-suka-orange/40 hover:text-suka-ink"
+                  ? "bg-suka-orange text-white shadow-sm"
+                  : "bg-white text-gray-600 ring-1 ring-gray-200 hover:text-suka-ink"
               }`}
             >
               <span
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                  active ? "bg-white/25 text-white" : "bg-suka-orange/10 text-suka-orange"
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                  active ? "bg-white/25 text-white" : "bg-gray-100 text-gray-500"
                 }`}
               >
                 {num ?? <Book size={12} />}
@@ -139,47 +140,44 @@ export default function PanduanPage() {
       </nav>
 
       {/* Judul bab aktif */}
-      <div className="flex items-center justify-between gap-3 pt-1">
-        <div>
-          {currentMeta.num && (
-            <p className="text-[11px] font-bold uppercase tracking-widest text-suka-orange">Bab {currentMeta.num} dari {categories.length}</p>
-          )}
-          <h2 className="text-lg sm:text-xl font-bold text-suka-ink">{currentMeta.name}</h2>
-        </div>
-        <span className="shrink-0 text-xs font-semibold text-gray-400 bg-white border border-gray-200 rounded-full px-3 py-1">
-          {activeGuides.length} topik
-        </span>
+      <div className="border-b border-gray-200 pb-4">
+        {currentMeta.num && (
+          <p className="text-xs font-semibold uppercase tracking-wider text-suka-orange">
+            Bab {currentMeta.num} dari {categories.length}
+          </p>
+        )}
+        <h2 className="mt-1 text-2xl font-bold leading-tight text-suka-ink">{currentMeta.name}</h2>
       </div>
 
-      {/* Kartu per topik */}
-      <div className="space-y-4">
+      {/* Topik-topik */}
+      <div className="space-y-8">
         {activeGuides.map((guide, idx) => {
           const images = parseImages(guide.image_url);
           return (
-            <article key={guide.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 bg-slate-50/60">
-                <span className="w-8 h-8 shrink-0 rounded-full bg-suka-orange text-white flex items-center justify-center text-sm font-bold shadow-sm">
+            <article key={guide.id} className="scroll-mt-6">
+              <h3 className="mb-3 flex items-baseline gap-3 text-lg font-bold text-suka-ink">
+                <span className="flex h-7 w-7 shrink-0 translate-y-0.5 items-center justify-center rounded-full bg-suka-orange text-sm font-bold text-white">
                   {idx + 1}
                 </span>
-                <h3 className="font-bold text-suka-ink text-base leading-snug">{guide.title}</h3>
-              </div>
+                <span className="leading-snug">{guide.title}</span>
+              </h3>
 
-              <div className="px-5 py-4 sm:px-6 sm:py-5">
+              <div className="ml-10 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm sm:px-6 sm:py-5">
                 <div className="guide-content" dangerouslySetInnerHTML={{ __html: guide.content_html }} />
 
                 {images.length > 0 && (
                   <div className="mt-5 space-y-3">
                     {images.map((img, i) => (
-                      <figure key={i} className="rounded-xl border border-gray-200 overflow-hidden bg-slate-50">
+                      <figure key={i} className="overflow-hidden rounded-xl border border-gray-200 bg-slate-50">
                         <img
                           src={img.url}
                           alt={img.title || guide.title}
                           loading="lazy"
                           decoding="async"
-                          className="w-full h-auto object-contain bg-white max-h-[480px]"
+                          className="max-h-[480px] w-full bg-white object-contain"
                         />
                         {img.title && (
-                          <figcaption className="text-xs font-medium text-gray-500 text-center px-3 py-2 border-t border-gray-100">
+                          <figcaption className="border-t border-gray-100 px-3 py-2 text-center text-xs font-medium text-gray-500">
                             {img.title}
                           </figcaption>
                         )}
@@ -194,16 +192,16 @@ export default function PanduanPage() {
       </div>
 
       {/* Navigasi bab sebelumnya / selanjutnya */}
-      <div className="flex items-stretch gap-3 pt-1">
+      <div className="flex items-stretch gap-3 border-t border-gray-200 pt-6">
         {prevCategory ? (
           <button
             onClick={() => setActiveCategory(prevCategory)}
-            className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 text-left hover:border-suka-orange/40 transition-colors group"
+            className="group flex flex-1 items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:border-suka-orange/40"
           >
             <ChevronLeft size={18} className="shrink-0 text-gray-400 group-hover:text-suka-orange" />
             <span className="min-w-0">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">Sebelumnya</span>
-              <span className="block text-sm font-semibold text-suka-ink truncate">{splitCategory(prevCategory).name}</span>
+              <span className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400">Sebelumnya</span>
+              <span className="block truncate text-sm font-semibold text-suka-ink">{splitCategory(prevCategory).name}</span>
             </span>
           </button>
         ) : (
@@ -212,11 +210,11 @@ export default function PanduanPage() {
         {nextCategory ? (
           <button
             onClick={() => setActiveCategory(nextCategory)}
-            className="flex-1 flex items-center justify-end gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 text-right hover:border-suka-orange/40 transition-colors group"
+            className="group flex flex-1 items-center justify-end gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-right transition-colors hover:border-suka-orange/40"
           >
             <span className="min-w-0">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">Selanjutnya</span>
-              <span className="block text-sm font-semibold text-suka-ink truncate">{splitCategory(nextCategory).name}</span>
+              <span className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400">Selanjutnya</span>
+              <span className="block truncate text-sm font-semibold text-suka-ink">{splitCategory(nextCategory).name}</span>
             </span>
             <ChevronRight size={18} className="shrink-0 text-gray-400 group-hover:text-suka-orange" />
           </button>

@@ -14,7 +14,7 @@ export default async function ResepPage() {
   // Fetch all menu items (category lives in the joined `categories` table)
   const { data: menuItems, error } = await supabase
     .from('menu_items')
-    .select('id, name, price, is_available, categories(name)')
+    .select('id, name, price, is_available, sort_order, categories(name, sort_order)')
     .order('name')
 
   if (error) {
@@ -30,14 +30,29 @@ export default async function ResepPage() {
   // Map BOM status
   const menuWithBOM = menuItems?.map((menu) => {
     const bom = recipes?.find((r) => r.menu_item_ref === menu.id)
+    const categoryInfo = (menu as any).categories || {}
     return {
       ...menu,
-      category: (menu as any).categories?.name || '—',
+      category: categoryInfo.name || '—',
+      categoryOrder: categoryInfo.sort_order || 999,
       hasBOM: !!bom,
       bomActive: bom?.is_active,
       itemCount: bom?.resep_item?.[0]?.count || 0
     }
   }) || []
+
+  // Sort by Category Order -> Menu Order -> Menu Name
+  menuWithBOM.sort((a, b) => {
+    if (a.categoryOrder !== b.categoryOrder) {
+      return a.categoryOrder - b.categoryOrder
+    }
+    const aMenuOrder = (a as any).sort_order || 0
+    const bMenuOrder = (b as any).sort_order || 0
+    if (aMenuOrder !== bMenuOrder) {
+      return aMenuOrder - bMenuOrder
+    }
+    return a.name.localeCompare(b.name)
+  })
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">

@@ -14,6 +14,7 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
   const [items, setItems] = useState<any[]>(existingRecipe?.resep_item || [])
   const [isActive, setIsActive] = useState(existingRecipe?.is_active ?? true)
   const [catatan, setCatatan] = useState<string>(existingRecipe?.catatan ?? '')
+  const [hargaJual, setHargaJual] = useState<number>(Number(menu.price) || 0)
   const [isSaving, setIsSaving] = useState(false)
 
   const buffer = Number(existingRecipe?.buffer_amount) || 0
@@ -41,10 +42,10 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
       computeResepHpp(
         items.map((i) => ({ bahan_baku_id: i.bahan_baku_id, qty_per_porsi: Number(i.qty_per_porsi) || 0, satuan: i.satuan || '' })),
         bahanById,
-        Number(menu.price) || 0,
+        hargaJual,
         buffer,
       ),
-    [items, bahanById, menu.price, buffer],
+    [items, bahanById, hargaJual, buffer],
   )
 
   const rupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
@@ -115,7 +116,13 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
         if (insError) throw insError
       }
 
-      toast.success('Resep berhasil disimpan!')
+      // Update Harga Jual in menu_items
+      if (hargaJual !== Number(menu.price)) {
+        const { error: menuError } = await supabase.from('menu_items').update({ price: hargaJual }).eq('id', menu.id)
+        if (menuError) throw menuError
+      }
+
+      toast.success('Resep dan Harga berhasil disimpan!')
       router.refresh()
     } catch (e: any) {
       console.error(e)
@@ -153,8 +160,16 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
         </div>
         <div>
           <div className="text-[11px] uppercase tracking-wider text-gray-400">Harga jual</div>
-          <div className="text-3xl font-extrabold text-suka-orange">{rupiah(Number(menu.price) || 0)}</div>
-          <div className="text-xs text-gray-400 mt-1">per unit (publish)</div>
+          <div className="mt-1 flex items-center relative">
+            <span className="absolute left-3 text-lg font-bold text-suka-orange">Rp</span>
+            <input
+              type="number"
+              value={hargaJual || ''}
+              onChange={(e) => setHargaJual(Number(e.target.value))}
+              className="w-full bg-black/20 text-3xl font-extrabold text-suka-orange rounded-lg py-1 pl-10 pr-3 border border-transparent focus:border-suka-orange focus:ring-1 focus:ring-suka-orange"
+            />
+          </div>
+          <div className="text-xs text-gray-400 mt-1">per unit (editable)</div>
         </div>
         <div>
           <div className="text-[11px] uppercase tracking-wider text-gray-400">Profit per piece</div>
@@ -168,7 +183,7 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
       {/* Margin bar */}
       <div className="rounded-xl border bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold text-gray-800">Margin keuntungan</span>
+          <span className="text-sm font-semibold text-gray-800">Simulasi Margin Keuntungan</span>
           <div className="flex items-center gap-2">
             <span className="text-2xl font-extrabold text-gray-900">
               {marginPct !== null ? `${marginPct.toFixed(1)}%` : '—'}
@@ -178,11 +193,34 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
             </span>
           </div>
         </div>
-        <div className="h-3 w-full rounded-full bg-gray-100 overflow-hidden shadow-inner">
-          <div
-            className="h-full rounded-full bg-suka-ink transition-all duration-500 ease-out"
-            style={{ width: `${Math.max(0, Math.min(100, marginPct ?? 0))}%` }}
+        
+        <div className="relative pt-1">
+          <input
+            type="range"
+            min="0"
+            max="95"
+            step="1"
+            value={marginPct !== null ? Math.round(marginPct) : 0}
+            disabled={hpp.totalHpp <= 0}
+            onChange={(e) => {
+              const newMarginPct = Number(e.target.value)
+              if (newMarginPct >= 100 || hpp.totalHpp <= 0) return
+              const calculatedPrice = hpp.totalHpp / (1 - (newMarginPct / 100))
+              // Bulatkan ke kelipatan 500 terdekat agar harga jual masuk akal
+              const roundedPrice = Math.ceil(calculatedPrice / 500) * 500
+              setHargaJual(roundedPrice)
+            }}
+            className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer accent-suka-ink focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-suka-primary disabled:opacity-50"
+            style={{
+              background: marginPct !== null 
+                ? `linear-gradient(to right, #1f2937 ${Math.max(0, Math.min(100, marginPct))}%, #f3f4f6 ${Math.max(0, Math.min(100, marginPct))}%)` 
+                : '#f3f4f6'
+            }}
           />
+        </div>
+        <div className="flex justify-between text-xs text-gray-400 mt-2">
+          <span>Geser slider untuk mencari margin ideal</span>
+          <span>Max 95%</span>
         </div>
       </div>
 

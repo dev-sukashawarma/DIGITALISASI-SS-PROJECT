@@ -43,10 +43,13 @@ Dilakukan oleh admin/dev via Supabase Dashboard + UI app:
 - [ ] **P-00 (WAJIB, paling pertama)** Ambil **snapshot/backup saldo bahan** untuk **3 lokasi**: Kitchen/Pusat, SUKA SHAWARMA EMPANG, SUKA SHAWARMA DEPOK SUKMAJAYA. Export/query saldo semua item di `bahan_baku`/`stok_balance` per outlet ini (mis. lewat Supabase Dashboard atau halaman monitoring, simpan sebagai CSV/screenshot bertanggal) **sebelum langkah lain apa pun dimulai**. Ini jaring pengaman terakhir — kalau ada bug tak terduga yang bocor ke saldo asli, kita punya angka pasti untuk membandingkan & mengembalikan.
 - [ ] **P-01** Konfirmasi 2 outlet **sudah ada** di tabel `outlets`: `SUKA SHAWARMA EMPANG` & `SUKA SHAWARMA DEPOK SUKMAJAYA` (tidak perlu dibuat baru — catat `id` masing-masing utk P-02 dst).
 - [ ] **P-02** Buat akun uji per role (auth user + baris `outlet_staff`) sebagai staff **tambahan** di 2 outlet tsb — tidak mengganti staff/leader asli. Password seragam, catat di tabel bawah. `leader` (akun uji) di-map ke **Empang dan Sukmajaya Depok** via `staff_outlets` (many-to-many; tidak menghapus mapping leader asli Abdurrahman/Chairul Rizky).
-- [ ] **P-03** Buat 3 bahan baku uji: `E2E Daging Shawarma` (kg), `E2E Roti Pita` (pcs), `E2E Saus Garlic` (satuan majemuk **kompan**, isi faktor_tampilan — untuk uji tampilan kompan+liter). Item BARU, terpisah dari bahan resep asli outlet. **Karena tahap supplier (S1) di-skip**, isi stok awal item ini di Kitchen langsung via ledger **Penyesuaian (adjustment)** positif secukupnya (mis. daging +20kg, roti +200pcs, saus +5 kompan) — pengganti sementara alur PO, supaya S2 (kirim SJ) tetap punya stok utk dikirim.
+- [ ] **P-03** Buat 3 bahan baku uji: `E2E Daging Shawarma` (kg), `E2E Roti Pita` (pcs), `E2E Saus Garlic` (satuan majemuk **kompan**, isi faktor_tampilan — untuk uji tampilan kompan+liter). Item BARU, terpisah dari bahan resep asli outlet. **Karena tahap supplier (S1) di-skip**, isi stok awal via ledger **Penyesuaian (adjustment)** — pakai formula rasional **ORP (dari P-07) + 5**, bukan angka besar sembarang:
+  - **Kitchen**: daging **10 kg** (ORP 5+5), roti **55 pcs** (ORP 50+5) — pengganti sementara alur PO, supaya S2 (kirim SJ) tetap punya stok utk dikirim (S2 hanya kirim daging+roti, lihat SJ-01/SJ-04).
+  - **Empang & Sukmajaya Depok (langsung di outlet)**: saus **8 kompan** (ORP 3+5) di masing-masing outlet — S2 tidak mengirim saus, jadi diisi langsung di outlet supaya LG-06 (S4) & OP-03 (S5) bisa diuji tanpa bergantung pengiriman.
+  - Semua angka ini sengaja pas di atas ambang kritis (ORP+5) — mudah diturunkan lagi ke bawah ORP saat butuh uji status kritis (S7/S3-B), dan tidak menyisakan stok gelembung besar yang harus dibersihkan.
 - [ ] **P-05** Buat 1 menu POS `E2E Shawarma Original` + resep/BOM (daging 0.1 kg, roti 1 pcs) via admin-dashboard → Resep. Menu BARU, tidak menimpa menu asli outlet.
 - [ ] **P-06** Daftarkan `SUKA SHAWARMA EMPANG` ke **allowlist BOM** kalau belum (Empang kemungkinan sudah masuk allowlist dari kerja COGS/BOM sebelumnya — cek dulu sebelum insert baru; lihat migration `20260703000000_bom_automation.sql` & `20260704180000_cogs_enable_bom_automation_empang.sql`). Tanpa allowlist aktif, S6 pasti gagal.
-- [ ] **P-07** Set reorder point (ORP) **khusus untuk item E2E** di kedua outlet (untuk uji status monitoring & transfer suggestion): mis. `E2E Daging Shawarma` ORP 5 kg, `E2E Roti Pita` ORP 50 pcs. **Jangan ubah ORP item resep asli.**
+- [ ] **P-07** Set reorder point (ORP) **khusus untuk item E2E** di kedua outlet (untuk uji status monitoring & transfer suggestion): `E2E Daging Shawarma` ORP **5 kg**, `E2E Roti Pita` ORP **50 pcs**, `E2E Saus Garlic` ORP **3 kompan**. **Jangan ubah ORP item resep asli.**
 - [ ] **P-08** Set `outlet_attendance_config` untuk `SUKA SHAWARMA EMPANG`: jam masuk/keluar shift + mode `auto` (untuk S9). **Catat nilai lama sebelum diubah** supaya bisa dikembalikan setelah uji (konfigurasi ini dipakai crew asli sehari-hari).
 
 **Tabel akun uji** (isi saat P-02; login username tanpa `@` otomatis jadi `<username>@outlet.local`):
@@ -125,10 +128,10 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 
 | ID | Langkah | Hasil diharapkan | Hasil |
 |---|---|---|---|
-| SJ-01 | Login **kitchen** → buat Surat Jalan baru ke `Outlet Empang`: daging 5 kg, roti 100 pcs | SJ tersimpan dengan nomor; stok kitchen berkurang sesuai (atau saat dikirim, ikut aturan flow) | |
+| SJ-01 | Login **kitchen** → buat Surat Jalan baru ke `Outlet Empang`: daging 5 kg, roti 20 pcs (dalam batas stok kitchen P-03: 10kg/55pcs) | SJ tersimpan dengan nomor; stok kitchen berkurang sesuai (atau saat dikirim, ikut aturan flow) | |
 | SJ-02 | Login **crew A** → menu Terima | SJ dari SJ-01 muncul di daftar | |
-| SJ-03 | Terima **penuh** SJ tsb | Sukses; di app stok: ledger `terima_kiriman` +5 kg daging & +100 pcs roti; saldo outlet A naik persis segitu | |
-| SJ-04 | (Kitchen) buat SJ kedua: daging 5 kg → (crew A) terima **hanya 3 kg** (selisih 2) | Selisih tercatat sebagai `rejected_kiriman` 2 kg; saldo outlet A hanya naik 3 kg | |
+| SJ-03 | Terima **penuh** SJ tsb | Sukses; di app stok: ledger `terima_kiriman` +5 kg daging & +20 pcs roti; saldo outlet A naik persis segitu | |
+| SJ-04 | (Kitchen) buat SJ kedua: daging 4 kg (sisa stok kitchen 5kg) → (crew A) terima **hanya 3 kg** (selisih 1) | Selisih tercatat sebagai `rejected_kiriman` 1 kg; saldo outlet A hanya naik 3 kg | |
 | SJ-05 | Login **crew B** → menu Terima | SJ milik outlet A **tidak terlihat** (RLS per outlet) | |
 | SJ-06 | Buka Riwayat (`/distribusi/riwayat`) sebagai kitchen | Kedua SJ muncul dengan status akhir benar | |
 | SJ-07 | (Crew A) coba terima ulang SJ yang sudah selesai | Tidak bisa — tidak ada dobel-terima / dobel ledger | |
@@ -314,7 +317,7 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 | ID | "Jam" | Pemeran | Adegan | Hasil diharapkan | Hasil |
 |---|---|---|---|---|---|
 | RC-01 | 07:00 | Admin | ⏭️ SKIP — tahap supplier belum diuji sesi ini. Asumsikan stok kitchen (item E2E) sudah tersedia dari sesi P-persiapan | Stok kitchen siap utk hari ini | |
-| RC-02 | 08:00 | Kitchen | Buat 1 surat jalan kiriman pagi ke outlet A (daging + roti + saus, qty realistis 1 hari jualan) | SJ terkirim | |
+| RC-02 | 08:00 | Kitchen | (Top up dulu stok kitchen via ledger Penyesuaian ke ORP+5 — stok awal P-03 sudah banyak terpakai di S2) Buat 1 surat jalan kiriman pagi ke outlet A (daging + roti + saus, qty rasional secukupnya) | SJ terkirim | |
 | RC-03 | 08:30 | Crew A | **Clock-in wajah** di kiosk absensi (dalam window) → lalu terima kiriman SJ pagi | Absen ON_TIME; saldo outlet A terisi utk jualan | |
 | RC-04 | 09:00 | SPV | Lihat papan kehadiran (crew sudah masuk) + monitoring-live (stok outlet A hijau) | Kondisi pagi sehat terbaca dari 2 papan | |
 | RC-05 | 10:00–12:00 | Crew A + Kiosk | **Jam sibuk:** 10 order POS beruntun secepat mungkin, CAMPUR: kasir 6 order (ada yang 2–3 item) + device kiosk 4 order self-service **berjalan bersamaan** | Semua order sukses tanpa nyangkut; tidak ada order hilang/dobel di histori | |

@@ -44,7 +44,7 @@ export default {
         'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
         'spin-slow':  'spin 2s linear infinite',
         'blink-fast': 'blinkFast 0.4s infinite',
-        'marquee':    'marquee 15s linear infinite',
+        'marquee':    'marquee 30s linear infinite',
       },
       keyframes: {
         fadeUp:     { from: { opacity: 0, transform: 'translateY(12px)' }, to: { opacity: 1, transform: 'translateY(0)' } },

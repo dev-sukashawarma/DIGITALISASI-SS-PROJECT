@@ -82,7 +82,7 @@
     <ul>
       <li>Penguji <strong>manusia</strong>, semua app web. Mobile native (native-superapp/native-pos/pos-mobile) <strong>di-exclude</strong>.</li>
       <li>Port lokal: portal <code>3010</code>, stok <code>3001</code>, distribusi <code>3002</code>, owner <code>3003</code>, pos-kasir <code>3004</code>, admin <code>3005</code>, absensi <code>3006</code>.</li>
-      <li>Semua data uji berprefix <code>E2E </code> — jangan sentuh data outlet nyata. DB remote dipakai bersama.</li>
+      <li>Outlet uji = <strong>outlet nyata</strong>: SUKA SHAWARMA EMPANG & SUKA SHAWARMA DEPOK SUKMAJAYA. Item/menu/supplier uji tetap berprefix <code>E2E </code> (aman, tak sentuh resep asli), tapi transaksi uji WAJIB dibersihkan setelah selesai (§18) supaya laporan asli tidak terdistorsi.</li>
       <li><strong>Wajib uji build produksi</strong> (<code>yarn build &amp;&amp; yarn start</code>) untuk S0 + semua halaman detail — regresi RSC 500 tak muncul di <code>yarn dev</code>.</li>
       <li>Kerjakan berurutan: alur menyambung (barang PO di S1 mengalir sampai laporan S10). Detail lengkap: <code>docs/E2E-MANUAL-TEST-PLAN.md</code>.</li>
     </ul>
@@ -116,14 +116,14 @@
 (function(){
   var GROUPS = [
     {code:"PREP", title:"Persiapan data uji", cases:[
-      ["P-01","Buat 2 outlet uji E2E Outlet A & B (tabel outlets)","Dua outlet E2E tersedia"],
-      ["P-02","Buat akun uji per role (auth user + baris outlet_staff); leader di-map ke A & B via staff_outlets","11 akun siap login sesuai role & outlet"],
-      ["P-03","Buat 3 bahan: E2E Daging Shawarma (kg), E2E Roti Pita (pcs), E2E Saus Garlic (kompan, isi faktor_tampilan)","3 bahan uji tersedia; saus bersatuan majemuk"],
+      ["P-01","Konfirmasi 2 outlet SUDAH ADA: SUKA SHAWARMA EMPANG & SUKA SHAWARMA DEPOK SUKMAJAYA (tak perlu dibuat baru, catat id-nya)","Dua outlet nyata terkonfirmasi utk dipakai uji"],
+      ["P-02","Buat akun uji per role sbg staff TAMBAHAN (tak ganti staff/leader asli); leader uji di-map ke Empang & Sukmajaya Depok via staff_outlets","11 akun siap login; leader asli (Abdurrahman/Chairul Rizky) tak terganggu"],
+      ["P-03","Buat 3 bahan BARU: E2E Daging Shawarma (kg), E2E Roti Pita (pcs), E2E Saus Garlic (kompan, isi faktor_tampilan)","3 bahan uji tersedia, terpisah dari resep asli; saus bersatuan majemuk"],
       ["P-04","Buat 1 supplier E2E (admin-dashboard → Pembelian → Supplier)","Supplier E2E tersedia"],
-      ["P-05","Buat menu POS E2E Shawarma Original + resep/BOM (daging 0.1kg, roti 1pcs)","Menu + resep siap"],
-      ["P-06","Daftarkan E2E Outlet A ke allowlist BOM (cek migration 20260703000000_bom_automation.sql)","Auto-deduct aktif utk outlet A — tanpa ini S6 pasti gagal"],
-      ["P-07","Set reorder point item di A & B (mis. daging ORP 5kg, roti ORP 50pcs)","ORP terisi utk uji status monitoring & transfer"],
-      ["P-08","Set outlet_attendance_config outlet A: jam masuk/keluar + mode auto","Konfigurasi absensi siap utk S9"],
+      ["P-05","Buat menu POS BARU E2E Shawarma Original + resep/BOM (daging 0.1kg, roti 1pcs), tak menimpa menu asli","Menu + resep siap"],
+      ["P-06","Cek/daftarkan Empang ke allowlist BOM (kemungkinan sudah aktif dari kerja COGS sebelumnya — cek dulu sebelum insert)","Auto-deduct aktif utk Empang — tanpa ini S6 pasti gagal"],
+      ["P-07","Set reorder point KHUSUS ITEM E2E di Empang & Sukmajaya Depok (mis. daging ORP 5kg, roti ORP 50pcs); jangan ubah ORP item asli","ORP item E2E terisi utk uji status monitoring & transfer"],
+      ["P-08","Catat nilai lama lalu set outlet_attendance_config Empang: jam masuk/keluar + mode auto (utk S9)","Konfigurasi absensi siap utk S9; nilai lama tercatat utk dikembalikan"],
     ]},
     {code:"S0", title:"S0 — Login, logout & matriks akses", cases:[
       ["A-01","Login tiap akun (11) via portal/halaman login","Semua berhasil masuk; mendarat sesuai role (admin→admin-dash, crew→dashboard crew, dst)"],
@@ -151,7 +151,7 @@
       ["PO-06","Login mitra, buka URL /dashboard/pembelian langsung","Ditolak/redirect — mitra tidak boleh lihat pembelian"],
     ]},
     {code:"S2", title:"S2 — Surat jalan kitchen→outlet", cases:[
-      ["SJ-01","Login kitchen → buat Surat Jalan ke E2E Outlet A: daging 5 kg, roti 100 pcs","SJ tersimpan dengan nomor; stok kitchen berkurang sesuai flow"],
+      ["SJ-01","Login kitchen → buat Surat Jalan ke Outlet Empang: daging 5 kg, roti 100 pcs","SJ tersimpan dengan nomor; stok kitchen berkurang sesuai flow"],
       ["SJ-02","Login crew A → menu Terima","SJ dari SJ-01 muncul di daftar"],
       ["SJ-03","Terima penuh SJ tsb","Sukses; ledger terima_kiriman +5kg daging & +100pcs roti; saldo A naik persis"],
       ["SJ-04","(Kitchen) buat SJ kedua daging 5kg → (crew A) terima hanya 3kg (selisih 2)","Selisih tercatat rejected_kiriman 2kg; saldo A hanya naik 3kg"],
@@ -195,10 +195,10 @@
       ["MO-01","Login crew A → /dashboard","Item E2E outlet A tampil dengan saldo terkini"],
       ["MO-02","Klik salah satu item → modal detail","Modal terbuka tanpa error boundary Oops! (regresi alias type/notes); riwayat tampil dengan tipe & catatan terbaca"],
       ["MO-03","Login SPV → /stok/monitoring-live","Papan menampilkan outlet termasuk E2E A & B; panel Kitchen tampil"],
-      ["MO-04","Klik card E2E Outlet A","Masuk detail per outlet (/stok/monitoring-live/[outlet-id]) dengan breakdown item"],
+      ["MO-04","Klik card Outlet Empang","Masuk detail per outlet (/stok/monitoring-live/[outlet-id]) dengan breakdown item"],
       ["MO-05","Buat kondisi kritis: pakai ledger/opname sampai saldo daging A di bawah ORP","Status berubah below/kritis di monitoring crew & SPV; jika Top-3 tampil di section atas"],
       ["MO-06","Naikkan saldo lagi di atas ORP (adjustment +)","Status kembali ok/warning sesuai threshold"],
-      ["MO-07","Login leader → dashboard stok","Hanya outlet binaan (A & B); outlet nyata lain (mis. Empang) tidak tampil"],
+      ["MO-07","Login leader (akun uji) → dashboard stok","Hanya outlet binaan (Empang & Sukmajaya Depok); outlet di luar scope (mis. SUKA SHAWARMA DRAMAGA) tidak tampil"],
     ]},
     {code:"S8", title:"S8 — Transfer suggestion (WIP)", cases:[
       ["TF-01","Kondisikan: outlet A surplus daging (jauh di atas ORP), outlet B defisit (di bawah ORP)","Panel suggestion menampilkan usulan transfer A → B untuk daging, qty masuk akal"],
@@ -212,7 +212,7 @@
       ["AB-04","spv: Enroll Ulang staff yang sudah terdaftar (isi alasan)","Konfirmasi timpa muncul; audit re_enrolled_at/by/reason terisi (cek DB)"],
       ["AB-05","crew: Buka URL /dashboard/enroll langsung","Diblokir/redirect — halaman khusus SPV/leader"],
       ["AB-06","leader: Buka /dashboard/enroll","Bisa masuk"],
-      ["AB-07","Crew ter-enroll absen di kiosk E2E Outlet A dengan wajahnya sendiri, dalam window","Liveness 2-fase (gerakan → kembali frontal) → dikenali, clock-in sukses, status ON_TIME/LATE sesuai jam"],
+      ["AB-07","Crew ter-enroll absen di kiosk Outlet Empang dengan wajahnya sendiri, dalam window","Liveness 2-fase (gerakan → kembali frontal) → dikenali, clock-in sukses, status ON_TIME/LATE sesuai jam"],
       ["AB-08","Orang lain (belum/beda enroll) coba absen di panel pribadi akun crew tsb (mode 1:1)","DITOLAK dengan pesan jelas — wajah B tidak bisa absen untuk akun A"],
       ["AB-09","Foto wajah dari layar HP diarahkan ke kamera (spoof)","Liveness menolak (tidak lolos tanpa gerakan hidup)"],
       ["AB-10","Absen di luar window (mode auto: >1 jam sebelum jam masuk)","Overlay Belum Waktunya Absen + jam buka; scan tidak jalan"],
@@ -225,12 +225,12 @@
       ["AB-17","crew: Smoke checklist, cuti, kasbon","Halaman terbuka tanpa error; submit satu item sukses"],
     ]},
     {code:"S10", title:"S10 — Reporting & isolasi dashboard", cases:[
-      ["RP-01","owner: /dashboard/owner filter E2E Outlet A hari ini","Omzet = total order S6 (angka cocok dengan histori POS)"],
+      ["RP-01","owner: /dashboard/owner filter Outlet Empang hari ini","Omzet = total order S6 (angka cocok dengan histori POS)"],
       ["RP-02","owner: Input Pengeluaran expense Outlet utk A + expense Pusat","Keduanya tersimpan; kartu Biaya Pusat hanya muncul saat filter Semua Outlet"],
       ["RP-03","admin: Buka form input pengeluaran","Opsi scope Pusat tidak tersedia (owner-only)"],
       ["RP-04","owner: Halaman Profit","Laba Outlet (exclude biaya pusat) vs Laba Perusahaan (include) tampil & konsisten dgn RP-02"],
       ["RP-05","mitra: Login → dashboard","Hanya grup Dashboard Mitra (4 menu: owner, targets, profit, expenses)"],
-      ["RP-06","mitra: Perhatikan filter outlet","Label statis E2E Outlet A — bukan dropdown; tidak ada nama outlet lain (leaderboard, chart)"],
+      ["RP-06","mitra: Perhatikan filter outlet","Label statis Outlet Empang — bukan dropdown; tidak ada nama outlet lain (leaderboard, chart)"],
       ["RP-07","mitra: Halaman targets","Read-only: tidak ada tombol Set Target / input / Save"],
       ["RP-08","mitra: Buka URL /dashboard/hr, /pembelian, /system-health langsung","Semua redirect balik ke /dashboard/owner"],
       ["RP-09","admin_hr: Login → admin-dashboard","Hanya menu HR relevan; halaman HR (staff, attendance, leave, payroll) terbuka"],
@@ -300,9 +300,11 @@
       ["BD-08","Dua tab: App sama di 2 tab, aksi di tab 1, refresh tab 2","Data konsisten; tak ada state korup antar-tab"],
     ]},
     {code:"CLEAN", title:"Pembersihan setelah uji", cases:[
-      ["C-01","Hapus/void data transaksi E2E: orders, ledger, opname, permintaan, surat jalan, PO, attendance (filter E2E)","Transaksi uji bersih"],
-      ["C-02","Master data (outlet E2E, akun, bahan, menu) boleh dipertahankan; kalau mengotori laporan nyata, nonaktifkan outlet E2E","Tidak mengotori laporan manajemen nyata"],
-      ["C-03","Hapus akun E2E Crew Baru (AB-01) atau nonaktifkan","Akun uji dibersihkan"],
+      ["C-01","WAJIB (bukan opsional): hapus/void semua transaksi uji di Empang & Sukmajaya Depok — orders, ledger, opname, permintaan, surat jalan, PO, attendance","Transaksi uji bersih, laporan asli tak terdistorsi"],
+      ["C-02","Hapus/nonaktifkan item & menu berprefix E2E (bahan, menu, supplier) — jangan tercampur di daftar asli outlet","Daftar bahan/menu outlet kembali bersih"],
+      ["C-03","Hapus/nonaktifkan SEMUA akun uji (*.e2e@test.com termasuk E2E Crew Baru) dari outlet_staff & staff_outlets — outlet sendiri TIDAK dihapus","Akun uji dibersihkan, outlet nyata tak tersentuh"],
+      ["C-04","Kembalikan outlet_attendance_config Empang ke nilai asli (jam shift/mode) sesuai catatan sebelum P-08","Konfigurasi absensi crew asli kembali normal"],
+      ["C-05","Verifikasi laporan omzet/shrinkage Empang & Sukmajaya Depok periode uji sudah bersih dari angka E2E","Laporan manajemen nyata akurat kembali"],
     ]},
   ];
 

@@ -20,7 +20,11 @@
 
 **Rekomendasi:** uji di **lokal dev** dengan database Supabase remote (kondisi paling lengkap & terbaru), KECUALI skenario absensi kamera (S9) yang lebih realistis diuji di HP/tablet via URL produksi. Kalau uji di produksi, pastikan versi ter-deploy sudah memuat fix terbaru (beberapa sesi mencatat "perlu redeploy").
 
-⚠️ **Data:** database remote dipakai bersama dengan operasional nyata. SEMUA data uji wajib pakai prefix `E2E ` (outlet, bahan, menu, nama staff) supaya gampang dikenali & dibersihkan. Jangan pernah menyentuh data outlet nyata.
+⚠️ **Outlet uji = OUTLET NYATA (bukan dummy).** Plan ini memakai 2 outlet operasional sungguhan: **SUKA SHAWARMA EMPANG** (leader nyata: Abdurrahman) dan **SUKA SHAWARMA DEPOK SUKMAJAYA** (leader nyata: Chairul Rizky). Konsekuensi:
+- **Item uji (bahan `E2E Daging Shawarma`/`E2E Roti Pita`/`E2E Saus Garlic` & menu `E2E Shawarma Original`) tetap wajib berprefix `E2E `** — ini item BARU yang tidak dipakai resep/menu asli outlet, jadi tidak mengganggu operasional nyata.
+- **Akun staff uji** (`crew.e2e@test.com`, dst) adalah staff **tambahan** di outlet tsb — tidak menggantikan staff/leader asli.
+- **TAPI transaksi uji (ledger, opname, order POS, absensi) akan tercampur dengan laporan operasional nyata outlet tsb** selama belum dibersihkan (lihat §18). Karena itu: **jadwalkan uji di luar jam operasional** (mis. sebelum buka/setelah tutup) dan **wajib bersihkan transaksi uji sesegera mungkin** setelah selesai — jangan biarkan mengendap dan mendistorsi laporan omzet/shrinkage asli.
+- Jangan sentuh/nonaktifkan konfigurasi asli outlet (allowlist BOM, ORP, jam shift) — semua langkah P-06/P-07/P-08 di bawah bersifat **tambah** (upsert item baru), bukan mengubah konfigurasi item/menu yang sudah ada.
 
 ⚠️ **WAJIB uji build produksi, bukan hanya `yarn dev`.** Pengalaman terdokumentasi (sesi 2026-06-25): bug RSC 500 di route detail **hanya muncul di build produksi** karena dev server selalu dynamic. Kalau uji lokal, jalankan `yarn build && yarn start` per app (atau uji langsung di subdomain produksi). Minimal: seluruh S0 + halaman detail (ledger/opname/monitoring-live drill-down) harus dicoba di build prod.
 
@@ -30,14 +34,14 @@
 
 Dilakukan oleh admin/dev via Supabase Dashboard + UI app:
 
-- [ ] **P-01** Buat 2 outlet uji: `E2E Outlet A`, `E2E Outlet B` (tabel `outlets`).
-- [ ] **P-02** Buat akun uji per role (auth user + baris `outlet_staff`). Password seragam, catat di tabel bawah. `leader` di-map ke outlet A **dan** B via `staff_outlets` (many-to-many).
-- [ ] **P-03** Buat 3 bahan baku uji: `E2E Daging Shawarma` (kg), `E2E Roti Pita` (pcs), `E2E Saus Garlic` (satuan majemuk **kompan**, isi faktor_tampilan — untuk uji tampilan kompan+liter).
+- [ ] **P-01** Konfirmasi 2 outlet **sudah ada** di tabel `outlets`: `SUKA SHAWARMA EMPANG` & `SUKA SHAWARMA DEPOK SUKMAJAYA` (tidak perlu dibuat baru — catat `id` masing-masing utk P-02 dst).
+- [ ] **P-02** Buat akun uji per role (auth user + baris `outlet_staff`) sebagai staff **tambahan** di 2 outlet tsb — tidak mengganti staff/leader asli. Password seragam, catat di tabel bawah. `leader` (akun uji) di-map ke **Empang dan Sukmajaya Depok** via `staff_outlets` (many-to-many; tidak menghapus mapping leader asli Abdurrahman/Chairul Rizky).
+- [ ] **P-03** Buat 3 bahan baku uji: `E2E Daging Shawarma` (kg), `E2E Roti Pita` (pcs), `E2E Saus Garlic` (satuan majemuk **kompan**, isi faktor_tampilan — untuk uji tampilan kompan+liter). Item BARU, terpisah dari bahan resep asli outlet.
 - [ ] **P-04** Buat 1 supplier uji `E2E Supplier` (admin-dashboard → Pembelian → Supplier).
-- [ ] **P-05** Buat 1 menu POS `E2E Shawarma Original` + resep/BOM (daging 0.1 kg, roti 1 pcs) via admin-dashboard → Resep.
-- [ ] **P-06** Daftarkan `E2E Outlet A` ke **allowlist BOM** (trigger auto-deduct per-outlet — tanpa ini S6 pasti gagal; cek tabel allowlist di migration `20260703000000_bom_automation.sql`).
-- [ ] **P-07** Set reorder point (ORP) item uji di outlet A & B (untuk uji status monitoring & transfer suggestion): mis. daging ORP 5 kg, roti ORP 50 pcs.
-- [ ] **P-08** Set `outlet_attendance_config` untuk `E2E Outlet A`: jam masuk/keluar shift + mode `auto` (untuk S9).
+- [ ] **P-05** Buat 1 menu POS `E2E Shawarma Original` + resep/BOM (daging 0.1 kg, roti 1 pcs) via admin-dashboard → Resep. Menu BARU, tidak menimpa menu asli outlet.
+- [ ] **P-06** Daftarkan `SUKA SHAWARMA EMPANG` ke **allowlist BOM** kalau belum (Empang kemungkinan sudah masuk allowlist dari kerja COGS/BOM sebelumnya — cek dulu sebelum insert baru; lihat migration `20260703000000_bom_automation.sql` & `20260704180000_cogs_enable_bom_automation_empang.sql`). Tanpa allowlist aktif, S6 pasti gagal.
+- [ ] **P-07** Set reorder point (ORP) **khusus untuk item E2E** di kedua outlet (untuk uji status monitoring & transfer suggestion): mis. `E2E Daging Shawarma` ORP 5 kg, `E2E Roti Pita` ORP 50 pcs. **Jangan ubah ORP item resep asli.**
+- [ ] **P-08** Set `outlet_attendance_config` untuk `SUKA SHAWARMA EMPANG`: jam masuk/keluar shift + mode `auto` (untuk S9). **Catat nilai lama sebelum diubah** supaya bisa dikembalikan setelah uji (konfigurasi ini dipakai crew asli sehari-hari).
 
 **Tabel akun uji** (isi saat P-02; login username tanpa `@` otomatis jadi `<username>@outlet.local`):
 
@@ -47,12 +51,12 @@ Dilakukan oleh admin/dev via Supabase Dashboard + UI app:
 | admin_hr | adminhr.e2e@test.com | | — | ☐ |
 | owner | owner.e2e@test.com | | — | ☐ |
 | spv | spv.e2e@test.com | | — (semua) | ☐ |
-| leader | leader.e2e@test.com | | A + B (staff_outlets) | ☐ |
-| crew (A) | crew.e2e@test.com | | E2E Outlet A | ☐ |
-| crew (B) | crewb.e2e@test.com | | E2E Outlet B | ☐ |
-| kiosk | kiosk.e2e@test.com | | E2E Outlet A | ☐ |
+| leader | leader.e2e@test.com | | Empang + Sukmajaya Depok (staff_outlets, tambahan di luar leader asli) | ☐ |
+| crew (A) | crew.e2e@test.com | | Outlet Empang | ☐ |
+| crew (B) | crewb.e2e@test.com | | Outlet Sukmajaya Depok | ☐ |
+| kiosk | kiosk.e2e@test.com | | Outlet Empang | ☐ |
 | kitchen | kitchen.e2e@test.com | | outlet Kitchen (yang sudah ada) | ☐ |
-| mitra | mitra.e2e@test.com | | E2E Outlet A | ☐ |
+| mitra | mitra.e2e@test.com | | Outlet Empang | ☐ |
 | staff_pusat | pusat.e2e@test.com | | Kantor Pusat (auto) | ☐ |
 
 > Role `kasir` di dokumen lama sudah tidak ada di sistem — tugas kasir dipegang role `crew` di POS.
@@ -113,7 +117,7 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 
 | ID | Langkah | Hasil diharapkan | Hasil |
 |---|---|---|---|
-| SJ-01 | Login **kitchen** → buat Surat Jalan baru ke `E2E Outlet A`: daging 5 kg, roti 100 pcs | SJ tersimpan dengan nomor; stok kitchen berkurang sesuai (atau saat dikirim, ikut aturan flow) | |
+| SJ-01 | Login **kitchen** → buat Surat Jalan baru ke `Outlet Empang`: daging 5 kg, roti 100 pcs | SJ tersimpan dengan nomor; stok kitchen berkurang sesuai (atau saat dikirim, ikut aturan flow) | |
 | SJ-02 | Login **crew A** → menu Terima | SJ dari SJ-01 muncul di daftar | |
 | SJ-03 | Terima **penuh** SJ tsb | Sukses; di app stok: ledger `terima_kiriman` +5 kg daging & +100 pcs roti; saldo outlet A naik persis segitu | |
 | SJ-04 | (Kitchen) buat SJ kedua: daging 5 kg → (crew A) terima **hanya 3 kg** (selisih 2) | Selisih tercatat sebagai `rejected_kiriman` 2 kg; saldo outlet A hanya naik 3 kg | |
@@ -191,11 +195,11 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 |---|---|---|---|
 | MO-01 | Login **crew A** → `/dashboard` | Item E2E outlet A tampil dengan saldo terkini (hasil semua skenario di atas) | |
 | MO-02 | Klik salah satu item → modal detail | Modal terbuka **tanpa error boundary "Oops!"** (regresi alias `type/notes`, fix 2026-06-25); riwayat pergerakan tampil dengan tipe & catatan terbaca | |
-| MO-03 | Login **SPV** → `/stok/monitoring-live` | Papan menampilkan outlet-outlet termasuk `E2E Outlet A` & `B`; panel Kitchen tampil | |
-| MO-04 | Klik card `E2E Outlet A` | Masuk halaman detail per outlet (`/stok/monitoring-live/[outlet-id]`) dengan breakdown item | |
+| MO-03 | Login **SPV** → `/stok/monitoring-live` | Papan menampilkan outlet-outlet termasuk `Outlet Empang` & `B`; panel Kitchen tampil | |
+| MO-04 | Klik card `Outlet Empang` | Masuk halaman detail per outlet (`/stok/monitoring-live/[outlet-id]`) dengan breakdown item | |
 | MO-05 | Buat kondisi kritis: pakai ledger/opname sampai saldo daging outlet A **di bawah ORP** (P-07) | Status item berubah **below/kritis** di monitoring crew & SPV; jika masuk Top-3 kritis, tampil di section atas | |
 | MO-06 | Naikkan saldo lagi di atas ORP (adjustment +) | Status kembali ok/warning sesuai threshold | |
-| MO-07 | Login **leader** → dashboard stok | Hanya outlet binaan (A & B) yang terlihat; outlet nyata lain (mis. Empang) **tidak** tampil | |
+| MO-07 | Login **leader** (akun uji) → dashboard stok | Hanya outlet binaan (Empang & Sukmajaya Depok) yang terlihat; outlet lain di luar scope (mis. `SUKA SHAWARMA DRAMAGA`) **tidak** tampil | |
 
 ---
 
@@ -230,7 +234,7 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 
 | ID | Langkah | Hasil diharapkan | Hasil |
 |---|---|---|---|
-| AB-07 | Crew ter-enroll absen di kiosk `E2E Outlet A` **dengan wajahnya sendiri**, dalam window | Liveness 2-fase (gerakan → kembali frontal) → dikenali, clock-in sukses, status ON_TIME/LATE sesuai jam | |
+| AB-07 | Crew ter-enroll absen di kiosk `Outlet Empang` **dengan wajahnya sendiri**, dalam window | Liveness 2-fase (gerakan → kembali frontal) → dikenali, clock-in sukses, status ON_TIME/LATE sesuai jam | |
 | AB-08 | **Orang lain** (belum/beda enroll) mencoba absen di panel pribadi akun crew tsb (mode 1:1) | **DITOLAK** dengan pesan jelas — wajah B tidak bisa absen untuk akun A | |
 | AB-09 | Foto wajah dari layar HP diarahkan ke kamera (spoof) | Liveness menolak (tidak lolos tanpa gerakan hidup) | |
 | AB-10 | Absen **di luar window** (mode auto: >1 jam sebelum jam masuk) | Overlay "Belum Waktunya Absen" + jam buka; scan tidak jalan | |
@@ -255,12 +259,12 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 
 | ID | Role | Langkah | Hasil diharapkan | Hasil |
 |---|---|---|---|---|
-| RP-01 | owner | `/dashboard/owner` filter `E2E Outlet A` hari ini | Omzet = total order S6 (angka cocok dengan histori POS) | |
+| RP-01 | owner | `/dashboard/owner` filter `Outlet Empang` hari ini | Omzet = total order S6 (angka cocok dengan histori POS) | |
 | RP-02 | owner | Input Pengeluaran: expense **Outlet** utk A + expense **Pusat** | Keduanya tersimpan; kartu "Biaya Pusat" hanya muncul saat filter "Semua Outlet" | |
 | RP-03 | admin | Buka form input pengeluaran | Opsi scope **Pusat tidak tersedia** (owner-only) | |
 | RP-04 | owner | Halaman Profit | Laba Outlet (exclude biaya pusat) vs Laba Perusahaan (include) keduanya tampil & konsisten dgn RP-02 | |
 | RP-05 | mitra | Login → dashboard | Hanya grup "Dashboard Mitra" (4 menu: owner, targets, profit, expenses) | |
-| RP-06 | mitra | Perhatikan filter outlet | Label statis `E2E Outlet A` — bukan dropdown; **tidak ada** nama outlet lain di mana pun (leaderboard, chart) | |
+| RP-06 | mitra | Perhatikan filter outlet | Label statis `Outlet Empang` — bukan dropdown; **tidak ada** nama outlet lain di mana pun (leaderboard, chart) | |
 | RP-07 | mitra | Halaman targets | Read-only: tidak ada tombol Set Target / input / Save | |
 | RP-08 | mitra | Buka URL `/dashboard/hr`, `/dashboard/pembelian`, `/dashboard/system-health` langsung | Semua redirect balik ke `/dashboard/owner` | |
 | RP-09 | admin_hr | Login → admin-dashboard | Hanya menu HR yang relevan; halaman HR (staff, attendance, leave, payroll) terbuka | |
@@ -377,9 +381,13 @@ S1–S11 fokus alur inti stok/POS/absensi. Fitur berikut ada di route tapi belum
 
 ## 18. Pembersihan Setelah Uji
 
-- [ ] C-01 Hapus/void data transaksi E2E: orders POS, ledger, opname, permintaan, surat jalan, PO, attendance (filter `outlet E2E-*` / prefix `E2E `).
-- [ ] C-02 Master data (outlet E2E, akun, bahan, menu) **boleh dipertahankan** untuk siklus uji berikutnya — tapi pastikan tidak mengotori laporan manajemen nyata; kalau mengotori, nonaktifkan outlet E2E setelah selesai.
-- [ ] C-03 Hapus akun `E2E Crew Baru` (AB-01) atau nonaktifkan.
+⚠️ **Karena outlet uji adalah outlet nyata (Empang & Sukmajaya Depok), pembersihan ini WAJIB dilakukan — bukan opsional** — supaya laporan omzet/shrinkage/absensi asli tidak terdistorsi transaksi uji.
+
+- [ ] C-01 Hapus/void SEMUA transaksi yang tercipta selama uji di kedua outlet ini: orders POS (menu `E2E Shawarma Original`), ledger (item berprefix `E2E `), opname, permintaan, surat jalan, PO uji, attendance record akun uji.
+- [ ] C-02 Item/menu uji berprefix `E2E ` (bahan, menu, supplier) **dihapus atau dinonaktifkan** — jangan ditinggalkan tercampur di daftar bahan/menu asli outlet.
+- [ ] C-03 Hapus atau nonaktifkan SEMUA akun uji (`*.e2e@test.com`, termasuk `E2E Crew Baru` dari AB-01) dari `outlet_staff` & `staff_outlets` — outlet Empang/Sukmajaya sendiri **tidak dihapus** (itu outlet nyata, hanya staff tambahannya yang dibersihkan).
+- [ ] C-04 Kembalikan `outlet_attendance_config` outlet Empang ke nilai asli (jam shift/mode) sesuai catatan sebelum P-08, bila sempat diubah.
+- [ ] C-05 Verifikasi laporan omzet/shrinkage Empang & Sukmajaya Depok periode uji **sudah bersih** dari angka transaksi E2E (bandingkan sebelum/sesudah cleanup).
 
 ---
 

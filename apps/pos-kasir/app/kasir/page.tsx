@@ -52,9 +52,11 @@ const renderOrderNotes = (notes: string | null) => {
 
   if (!notes.includes('-- INFO PEMESAN ONLINE --')) {
     return (
-      <div className="mt-4 p-3 bg-red-50 border border-red-200/60 rounded-xl text-sm">
-        <span className="font-bold text-red-900 mb-0.5 flex items-center gap-1"><Info size={14}/> Catatan Penting:</span>
-        <span className="text-red-800/90 leading-snug font-medium break-words whitespace-pre-wrap">{notes}</span>
+      <div className="mt-3 p-3.5 bg-red-50/50 border border-red-100 rounded-xl">
+        <div className="flex items-center gap-1.5 text-red-600 font-bold text-xs mb-1.5">
+          <Info size={15}/> Catatan Penting
+        </div>
+        <p className="text-red-900/90 text-[13px] leading-relaxed font-semibold break-words whitespace-pre-wrap">{notes}</p>
       </div>
     );
   }
@@ -73,27 +75,29 @@ const renderOrderNotes = (notes: string | null) => {
   }, {} as Record<string, string>);
 
   return (
-    <div className="mt-4 flex flex-col gap-2">
-      <div className="bg-blue-50/80 border border-blue-100 rounded-xl p-3 flex flex-col gap-2">
-        <div className="flex items-center gap-1.5 text-blue-700 font-bold text-xs border-b border-blue-200/50 pb-1.5">
-          <Globe size={14} /> Informasi Pemesan Online
+    <div className="mt-4 flex flex-col gap-2.5">
+      <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+        <div className="bg-slate-50 border-b border-slate-100 px-3.5 py-2.5 flex items-center gap-2 text-slate-700 font-bold text-xs uppercase tracking-wide">
+          <Globe size={14} className="text-blue-500" /> Detail Pemesan Online
         </div>
-        <div className="grid grid-cols-2 gap-x-2 gap-y-2 text-xs">
-          {Object.entries(infoData).map(([key, value]) => (
-            <div key={key} className="flex flex-col">
-              <span className="text-blue-500/80 text-[10px] font-bold uppercase tracking-wider">{key}</span>
-              <span className="text-blue-900 font-semibold">{key.toLowerCase() === 'pembayaran' ? value.replace('_', ' ').toUpperCase() : value}</span>
-            </div>
-          ))}
+        <div className="p-3.5">
+          <div className="grid grid-cols-2 gap-y-3 gap-x-4">
+            {Object.entries(infoData).map(([key, value]) => (
+              <div key={key} className="flex flex-col gap-0.5">
+                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{key}</span>
+                <span className="text-slate-800 text-[13px] font-semibold">{key.toLowerCase() === 'pembayaran' ? value.replace('_', ' ').toUpperCase() : value}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       
       {customerNote && (
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-          <div className="flex items-center gap-1.5 text-amber-700 font-bold text-xs mb-1">
-            <MessageSquare size={14} /> Catatan Pelanggan
+        <div className="bg-[#fff8f1] border border-amber-200/60 rounded-xl p-3.5">
+          <div className="flex items-center gap-1.5 text-amber-600 font-bold text-xs mb-1.5">
+            <MessageSquare size={14} /> Pesan Khusus Pelanggan
           </div>
-          <p className="text-amber-900 text-xs font-medium italic break-words whitespace-pre-wrap">{customerNote}</p>
+          <p className="text-amber-900 text-[13px] leading-relaxed font-medium italic break-words whitespace-pre-wrap">{customerNote}</p>
         </div>
       )}
     </div>

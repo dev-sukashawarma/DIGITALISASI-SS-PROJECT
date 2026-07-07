@@ -120,8 +120,7 @@
       ["P-00","WAJIB PALING PERTAMA: snapshot/backup saldo bahan di 3 lokasi — Kitchen/Pusat, Empang, Sukmajaya Depok (export/query saldo semua item, simpan CSV/screenshot bertanggal)","Snapshot tersimpan sbg jaring pengaman & pembanding di C-07"],
       ["P-01","Konfirmasi 2 outlet SUDAH ADA: SUKA SHAWARMA EMPANG & SUKA SHAWARMA DEPOK SUKMAJAYA (tak perlu dibuat baru, catat id-nya)","Dua outlet nyata terkonfirmasi utk dipakai uji"],
       ["P-02","Buat akun uji per role sbg staff TAMBAHAN (tak ganti staff/leader asli); leader uji di-map ke Empang & Sukmajaya Depok via staff_outlets","11 akun siap login; leader asli (Abdurrahman/Chairul Rizky) tak terganggu"],
-      ["P-03","Buat 3 bahan BARU: E2E Daging Shawarma (kg), E2E Roti Pita (pcs), E2E Saus Garlic (kompan, isi faktor_tampilan)","3 bahan uji tersedia, terpisah dari resep asli; saus bersatuan majemuk"],
-      ["P-04","Buat 1 supplier E2E (admin-dashboard → Pembelian → Supplier)","Supplier E2E tersedia"],
+      ["P-03","Buat 3 bahan BARU: E2E Daging Shawarma (kg), E2E Roti Pita (pcs), E2E Saus Garlic (kompan, isi faktor_tampilan). Krn tahap supplier di-skip, isi stok awal Kitchen langsung via ledger Penyesuaian (mis. daging +20kg, roti +200pcs, saus +5 kompan)","3 bahan uji tersedia + stok awal Kitchen terisi (pengganti alur PO), siap dikirim di S2"],
       ["P-05","Buat menu POS BARU E2E Shawarma Original + resep/BOM (daging 0.1kg, roti 1pcs), tak menimpa menu asli","Menu + resep siap"],
       ["P-06","Cek/daftarkan Empang ke allowlist BOM (kemungkinan sudah aktif dari kerja COGS sebelumnya — cek dulu sebelum insert)","Auto-deduct aktif utk Empang — tanpa ini S6 pasti gagal"],
       ["P-07","Set reorder point KHUSUS ITEM E2E di Empang & Sukmajaya Depok (mis. daging ORP 5kg, roti ORP 50pcs); jangan ubah ORP item asli","ORP item E2E terisi utk uji status monitoring & transfer"],
@@ -144,12 +143,12 @@
       ["MTX-mitra","Login mitra → buka URL 6 app langsung","Boleh: admin-dash saja. Ditolak: 5 lainnya"],
       ["MTX-staff_pusat","Login staff_pusat → buka URL 6 app langsung","Boleh: absensi saja. Ditolak: 5 lainnya"],
     ]},
-    {code:"S1", title:"S1 — Purchase order supplier→kitchen", cases:[
-      ["PO-01","Buat PO baru: supplier E2E Supplier, item E2E Daging Shawarma 10 kg","PO tersimpan, muncul di daftar dengan status awal benar"],
-      ["PO-02","Coba submit PO tanpa item","Form menolak (tombol disabled / pesan validasi)"],
-      ["PO-03","Proses PO sampai status diterima di kitchen (ikuti docs/FLOWS.md)","Status berubah sesuai state machine; tidak bisa loncat status"],
-      ["PO-04","Cek stok kitchen E2E Daging Shawarma (app stok / akun kitchen / monitoring SPV)","Saldo kitchen naik 10 kg — angka pasti, bukan kira-kira"],
-      ["PO-05","Buka laporan pembelian (/dashboard/pembelian/laporan)","PO tadi terhitung di laporan periode berjalan"],
+    {code:"S1", title:"S1 — Purchase order supplier→kitchen (SKIP dulu)", cases:[
+      ["PO-01","[SKIP dulu] Buat PO baru: supplier E2E Supplier, item E2E Daging Shawarma 10 kg","PO tersimpan, muncul di daftar dengan status awal benar"],
+      ["PO-02","[SKIP dulu] Coba submit PO tanpa item","Form menolak (tombol disabled / pesan validasi)"],
+      ["PO-03","[SKIP dulu] Proses PO sampai status diterima di kitchen (ikuti docs/FLOWS.md)","Status berubah sesuai state machine; tidak bisa loncat status"],
+      ["PO-04","[SKIP dulu] Cek stok kitchen E2E Daging Shawarma (app stok / akun kitchen / monitoring SPV)","Saldo kitchen naik 10 kg — angka pasti, bukan kira-kira"],
+      ["PO-05","[SKIP dulu] Buka laporan pembelian (/dashboard/pembelian/laporan)","PO tadi terhitung di laporan periode berjalan"],
       ["PO-06","Login mitra, buka URL /dashboard/pembelian langsung","Ditolak/redirect — mitra tidak boleh lihat pembelian"],
     ]},
     {code:"S2", title:"S2 — Surat jalan kitchen→outlet", cases:[
@@ -249,7 +248,7 @@
       ["RP-12","owner: owner-dashboard (:3003) smoke","Dashboard, expenses, profit terbuka tanpa error"],
     ]},
     {code:"S11", title:"S11 — Simulasi hari operasional", cases:[
-      ["RC-01","07:00 · Admin: Buat PO pagi ke E2E Supplier utk restock kitchen, proses sampai diterima","Stok kitchen siap utk hari ini"],
+      ["RC-01","07:00 · [SKIP dulu, tahap supplier belum diuji] Admin: asumsikan stok kitchen (item E2E) sudah tersedia dari P-03","Stok kitchen siap utk hari ini"],
       ["RC-02","08:00 · Kitchen: Buat 1 surat jalan kiriman pagi ke outlet A (daging+roti+saus, qty realistis 1 hari)","SJ terkirim"],
       ["RC-03","08:30 · Crew A: Clock-in wajah di kiosk (dalam window) → lalu terima kiriman SJ pagi","Absen ON_TIME; saldo outlet A terisi utk jualan"],
       ["RC-04","09:00 · SPV: Lihat papan kehadiran (crew masuk) + monitoring-live (stok A hijau)","Kondisi pagi sehat terbaca dari 2 papan"],

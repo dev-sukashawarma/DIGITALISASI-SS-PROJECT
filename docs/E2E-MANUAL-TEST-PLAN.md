@@ -43,8 +43,7 @@ Dilakukan oleh admin/dev via Supabase Dashboard + UI app:
 - [ ] **P-00 (WAJIB, paling pertama)** Ambil **snapshot/backup saldo bahan** untuk **3 lokasi**: Kitchen/Pusat, SUKA SHAWARMA EMPANG, SUKA SHAWARMA DEPOK SUKMAJAYA. Export/query saldo semua item di `bahan_baku`/`stok_balance` per outlet ini (mis. lewat Supabase Dashboard atau halaman monitoring, simpan sebagai CSV/screenshot bertanggal) **sebelum langkah lain apa pun dimulai**. Ini jaring pengaman terakhir — kalau ada bug tak terduga yang bocor ke saldo asli, kita punya angka pasti untuk membandingkan & mengembalikan.
 - [ ] **P-01** Konfirmasi 2 outlet **sudah ada** di tabel `outlets`: `SUKA SHAWARMA EMPANG` & `SUKA SHAWARMA DEPOK SUKMAJAYA` (tidak perlu dibuat baru — catat `id` masing-masing utk P-02 dst).
 - [ ] **P-02** Buat akun uji per role (auth user + baris `outlet_staff`) sebagai staff **tambahan** di 2 outlet tsb — tidak mengganti staff/leader asli. Password seragam, catat di tabel bawah. `leader` (akun uji) di-map ke **Empang dan Sukmajaya Depok** via `staff_outlets` (many-to-many; tidak menghapus mapping leader asli Abdurrahman/Chairul Rizky).
-- [ ] **P-03** Buat 3 bahan baku uji: `E2E Daging Shawarma` (kg), `E2E Roti Pita` (pcs), `E2E Saus Garlic` (satuan majemuk **kompan**, isi faktor_tampilan — untuk uji tampilan kompan+liter). Item BARU, terpisah dari bahan resep asli outlet.
-- [ ] **P-04** Buat 1 supplier uji `E2E Supplier` (admin-dashboard → Pembelian → Supplier).
+- [ ] **P-03** Buat 3 bahan baku uji: `E2E Daging Shawarma` (kg), `E2E Roti Pita` (pcs), `E2E Saus Garlic` (satuan majemuk **kompan**, isi faktor_tampilan — untuk uji tampilan kompan+liter). Item BARU, terpisah dari bahan resep asli outlet. **Karena tahap supplier (S1) di-skip**, isi stok awal item ini di Kitchen langsung via ledger **Penyesuaian (adjustment)** positif secukupnya (mis. daging +20kg, roti +200pcs, saus +5 kompan) — pengganti sementara alur PO, supaya S2 (kirim SJ) tetap punya stok utk dikirim.
 - [ ] **P-05** Buat 1 menu POS `E2E Shawarma Original` + resep/BOM (daging 0.1 kg, roti 1 pcs) via admin-dashboard → Resep. Menu BARU, tidak menimpa menu asli outlet.
 - [ ] **P-06** Daftarkan `SUKA SHAWARMA EMPANG` ke **allowlist BOM** kalau belum (Empang kemungkinan sudah masuk allowlist dari kerja COGS/BOM sebelumnya — cek dulu sebelum insert baru; lihat migration `20260703000000_bom_automation.sql` & `20260704180000_cogs_enable_bom_automation_empang.sql`). Tanpa allowlist aktif, S6 pasti gagal.
 - [ ] **P-07** Set reorder point (ORP) **khusus untuk item E2E** di kedua outlet (untuk uji status monitoring & transfer suggestion): mis. `E2E Daging Shawarma` ORP 5 kg, `E2E Roti Pita` ORP 50 pcs. **Jangan ubah ORP item resep asli.**
@@ -105,15 +104,17 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 
 ## 4. S1 — HULU: Purchase Order Supplier → Kitchen
 
+⚠️ **Tahap supplier di-SKIP dulu untuk sesi ini** (belum diuji sekarang — menyusul). PO-01..PO-05 di bawah **ditandai ⏭️ SKIP**; hanya **PO-06** yang tetap dikerjakan karena murni cek akses halaman, tidak butuh data supplier/PO nyata.
+
 **Role pelaku:** admin (admin-dashboard → `/dashboard/pembelian`).
 
 | ID | Langkah | Hasil diharapkan | Hasil |
 |---|---|---|---|
-| PO-01 | Buat PO baru: supplier `E2E Supplier`, item `E2E Daging Shawarma` 10 kg | PO tersimpan, muncul di daftar dengan status awal yang benar | |
-| PO-02 | Coba submit PO **tanpa item** | Form menolak (tombol disabled / pesan validasi) | |
-| PO-03 | Proses PO sampai status **diterima di kitchen** (ikuti alur di `docs/FLOWS.md`) | Status berubah sesuai state machine; tidak bisa loncat status | |
-| PO-04 | Cek stok kitchen untuk `E2E Daging Shawarma` (app stok, akun kitchen, atau monitoring SPV) | Saldo kitchen **naik 10 kg** — angka pasti, bukan kira-kira | |
-| PO-05 | Buka laporan pembelian (`/dashboard/pembelian/laporan`) | PO tadi terhitung di laporan periode berjalan | |
+| PO-01 | ⏭️ SKIP — Buat PO baru: supplier `E2E Supplier`, item `E2E Daging Shawarma` 10 kg | PO tersimpan, muncul di daftar dengan status awal yang benar | |
+| PO-02 | ⏭️ SKIP — Coba submit PO **tanpa item** | Form menolak (tombol disabled / pesan validasi) | |
+| PO-03 | ⏭️ SKIP — Proses PO sampai status **diterima di kitchen** (ikuti alur di `docs/FLOWS.md`) | Status berubah sesuai state machine; tidak bisa loncat status | |
+| PO-04 | ⏭️ SKIP — Cek stok kitchen untuk `E2E Daging Shawarma` (app stok, akun kitchen, atau monitoring SPV) | Saldo kitchen **naik 10 kg** — angka pasti, bukan kira-kira | |
+| PO-05 | ⏭️ SKIP — Buka laporan pembelian (`/dashboard/pembelian/laporan`) | PO tadi terhitung di laporan periode berjalan | |
 | PO-06 | Login **mitra**, buka URL `/dashboard/pembelian` langsung | Ditolak/redirect — mitra tidak boleh lihat pembelian | |
 
 ---
@@ -312,7 +313,7 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 
 | ID | "Jam" | Pemeran | Adegan | Hasil diharapkan | Hasil |
 |---|---|---|---|---|---|
-| RC-01 | 07:00 | Admin | Buat PO pagi ke `E2E Supplier` utk restock kitchen, proses sampai diterima | Stok kitchen siap utk hari ini | |
+| RC-01 | 07:00 | Admin | ⏭️ SKIP — tahap supplier belum diuji sesi ini. Asumsikan stok kitchen (item E2E) sudah tersedia dari sesi P-persiapan | Stok kitchen siap utk hari ini | |
 | RC-02 | 08:00 | Kitchen | Buat 1 surat jalan kiriman pagi ke outlet A (daging + roti + saus, qty realistis 1 hari jualan) | SJ terkirim | |
 | RC-03 | 08:30 | Crew A | **Clock-in wajah** di kiosk absensi (dalam window) → lalu terima kiriman SJ pagi | Absen ON_TIME; saldo outlet A terisi utk jualan | |
 | RC-04 | 09:00 | SPV | Lihat papan kehadiran (crew sudah masuk) + monitoring-live (stok outlet A hijau) | Kondisi pagi sehat terbaca dari 2 papan | |
@@ -439,7 +440,7 @@ Konsol/network: (error merah di DevTools bila ada)
 
 | Role | Skenario yang melibatkan |
 |---|---|
-| admin | S0, S1 (PO), S10 (shrinkage, system-health, expenses non-pusat) |
+| admin | S0, S1 (PO — di-skip sesi ini), S10 (shrinkage, system-health, expenses non-pusat) |
 | admin_hr | S0, S10 (RP-09) |
 | owner | S0, S10 (P&L, expenses pusat) |
 | spv | S0, S3 (approve/tolak), S7 (monitoring-live), S8, S9 (pengaturan, kru, enroll) |

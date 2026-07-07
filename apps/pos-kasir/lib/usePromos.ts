@@ -24,8 +24,9 @@ export function usePromos(outletId: string | undefined) {
       return
     }
 
-    async function load() {
+    async function load(isSilent = false) {
       try {
+        if (!isSilent) setLoading(true)
         const supabase = createClient()
         const { data, error } = await supabase
           .from('outlet_promos')
@@ -43,6 +44,26 @@ export function usePromos(outletId: string | undefined) {
     }
 
     load()
+
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`promos-realtime-${outletId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlet_promos', filter: `outlet_id=eq.${outletId}` },
+        () => load(true)
+      )
+      .subscribe()
+
+    // Fallback polling to ensure real-time behavior even if replication is off
+    const interval = setInterval(() => {
+      load(true)
+    }, 10000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(interval)
+    }
   }, [outletId])
 
   const globalPromo = promos.find(p => p.scope === 'global')

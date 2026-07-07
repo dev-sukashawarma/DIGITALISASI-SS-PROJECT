@@ -224,7 +224,7 @@ function generateHtmlMsg(title: string, message: string, isSuccess: boolean) {
       ${icon}
       <h1>${title}</h1>
       <p>${message}</p>
-      <a href="javascript:window.close();" class="btn">Tutup Halaman</a>
+      <button onclick="window.open('','_self').close(); setTimeout(function(){ window.location.href = 'https://app.sukashawarma.com'; }, 500);" class="btn" style="border:none; cursor:pointer; font-family:inherit; font-size:15px;">Tutup Halaman</button>
     </div>
   </body>
   </html>

@@ -161,20 +161,26 @@ export default function ShiftPage() {
 
       const channel = supabase
         .channel(`shift-realtime-${outletId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_topups', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_topups', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState(true))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState(true))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState(true))
         .subscribe()
+
+      // Polling fallback every 10 seconds to ensure updates (especially if Supabase Replication is off)
+      const interval = setInterval(() => {
+        fetchCurrentState(true)
+      }, 10000)
 
       return () => {
         supabase.removeChannel(channel)
+        clearInterval(interval)
       }
     }
   }, [outletId, supabase])
 
-  async function fetchCurrentState() {
+  async function fetchCurrentState(isSilent = false) {
     try {
-      setLoading(true)
+      if (!isSilent) setLoading(true)
       setErrorMsg('')
 
       const { data: shiftData, error: shiftError } = await supabase

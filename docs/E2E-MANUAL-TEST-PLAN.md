@@ -2,7 +2,11 @@
 
 **Tanggal:** 2026-07-06 · **Penguji:** manusia (bukan otomasi) · **Scope:** semua app web. **EXCLUDE:** semua yang berkaitan mobile (`mobile/native-superapp`, `mobile/native-pos`, `mobile/pos-mobile`, desain Stitch SUPERAPP SS).
 
-**Cara pakai:** kerjakan skenario berurutan S0 → S10 (alurnya menyambung: barang yang dibeli di S1 adalah barang yang dikirim di S2, dst). Isi kolom **Hasil** dengan ✅ PASS / ❌ FAIL / ⏭️ SKIP + catatan. Setiap FAIL dicatat dengan format bug report di bagian paling bawah.
+**Cara pakai — urutan langkah wajib:**
+1. **P-00** (§2) — snapshot/backup saldo bahan di 3 lokasi (Kitchen/Pusat, Empang, Sukmajaya Depok). **Jangan lewati, kerjakan paling pertama sebelum apa pun.**
+2. **P-01 → P-08** (§2) — persiapan data uji (konfirmasi outlet, buat akun, bahan, supplier, menu, allowlist BOM, ORP, config absensi).
+3. **S0 → S14** (§3–§17) — kerjakan skenario **berurutan**, alurnya menyambung (barang yang dibeli di S1 adalah barang yang dikirim di S2, dst). Isi kolom **Hasil** dengan ✅ PASS / ❌ FAIL / ⏭️ SKIP + catatan. Setiap FAIL dicatat dengan format bug report (§19).
+4. **C-01 → C-07** (§18) — pembersihan **wajib**, ditutup dengan C-07 (verifikasi akhir vs snapshot P-00).
 
 ---
 
@@ -20,12 +24,13 @@
 
 **Rekomendasi:** uji di **lokal dev** dengan database Supabase remote (kondisi paling lengkap & terbaru), KECUALI skenario absensi kamera (S9) yang lebih realistis diuji di HP/tablet via URL produksi. Kalau uji di produksi, pastikan versi ter-deploy sudah memuat fix terbaru (beberapa sesi mencatat "perlu redeploy").
 
-⚠️ **Outlet uji = OUTLET NYATA (bukan dummy).** Plan ini memakai 2 outlet operasional sungguhan: **SUKA SHAWARMA EMPANG** (leader nyata: Abdurrahman) dan **SUKA SHAWARMA DEPOK SUKMAJAYA** (leader nyata: Chairul Rizky). Konsekuensi:
-- **Item uji (bahan `E2E Daging Shawarma`/`E2E Roti Pita`/`E2E Saus Garlic` & menu `E2E Shawarma Original`) tetap wajib berprefix `E2E `** — ini item BARU yang tidak dipakai resep/menu asli outlet, jadi tidak mengganggu operasional nyata.
-- **Akun staff uji** (`crew.e2e@test.com`, dst) adalah staff **tambahan** di outlet tsb — tidak menggantikan staff/leader asli.
-- **TAPI transaksi uji (ledger, opname, order POS, absensi) akan tercampur dengan laporan operasional nyata outlet tsb** selama belum dibersihkan (lihat §18). Karena itu: **jadwalkan uji di luar jam operasional** (mis. sebelum buka/setelah tutup) dan **wajib bersihkan transaksi uji sesegera mungkin** setelah selesai — jangan biarkan mengendap dan mendistorsi laporan omzet/shrinkage asli.
-- Jangan sentuh/nonaktifkan konfigurasi asli outlet (allowlist BOM, ORP, jam shift) — semua langkah P-06/P-07/P-08 di bawah bersifat **tambah** (upsert item baru), bukan mengubah konfigurasi item/menu yang sudah ada.
-- **Pengecualian sengaja: S3-B** memang menyentuh **core item asli** (bukan dummy) untuk menguji kondisi kritis → pemesanan outlet senyata mungkin. Wajib ikuti prosedur **catat baseline (RS-00) → uji → kembalikan persis (RS-04/RS-07/C-06)** — lihat §6.
+⚠️ **3 LOKASI NYATA TERLIBAT — stoknya harus aman dulu sebelum mulai:** **Kitchen/Pusat** (terima PO di S1, kirim surat jalan di S2), **SUKA SHAWARMA EMPANG** (leader nyata: Abdurrahman), dan **SUKA SHAWARMA DEPOK SUKMAJAYA** (leader nyata: Chairul Rizky). Ketiganya dipakai operasional sungguhan setiap hari — bukan cuma 2 outlet, kitchen ikut kena karena PO/SJ singgah di sana. Konsekuensi & aturan main:
+- **Item uji (bahan `E2E Daging Shawarma`/`E2E Roti Pita`/`E2E Saus Garlic` & menu `E2E Shawarma Original`) tetap wajib berprefix `E2E `** — ini item BARU yang tidak dipakai resep/menu asli, jadi PO (S1) & surat jalan (S2) yang lewat Kitchen **tidak menyentuh saldo bahan asli kitchen sama sekali**.
+- **Akun staff uji** (`crew.e2e@test.com`, dst) adalah staff **tambahan** di outlet tsb — tidak menggantikan staff/leader/staff kitchen asli.
+- **TAPI transaksi uji (ledger, opname, order POS, absensi) akan tercampur dengan laporan operasional nyata** selama belum dibersihkan (lihat §18). Karena itu: **jadwalkan uji di luar jam operasional** (mis. sebelum buka/setelah tutup) dan **wajib bersihkan transaksi uji sesegera mungkin** setelah selesai — jangan biarkan mengendap dan mendistorsi laporan omzet/shrinkage asli.
+- Jangan sentuh/nonaktifkan konfigurasi asli (allowlist BOM, ORP, jam shift, saldo bahan kitchen) — semua langkah P-06/P-07/P-08 di bawah bersifat **tambah** (upsert item baru), bukan mengubah konfigurasi/item yang sudah ada.
+- **Wajib snapshot/backup dulu (P-00)** sebelum menyentuh apa pun — jaring pengaman terakhir kalau ada bug tak terduga yang bocor ke item/saldo asli.
+- **Pengecualian sengaja: S3-B** memang menyentuh **core item asli** (bukan dummy) di Empang & Sukmajaya untuk menguji kondisi kritis → pemesanan outlet senyata mungkin. Wajib ikuti prosedur **catat baseline (RS-00) → uji → kembalikan persis (RS-04/RS-07/C-06)** — lihat §6.
 
 ⚠️ **WAJIB uji build produksi, bukan hanya `yarn dev`.** Pengalaman terdokumentasi (sesi 2026-06-25): bug RSC 500 di route detail **hanya muncul di build produksi** karena dev server selalu dynamic. Kalau uji lokal, jalankan `yarn build && yarn start` per app (atau uji langsung di subdomain produksi). Minimal: seluruh S0 + halaman detail (ledger/opname/monitoring-live drill-down) harus dicoba di build prod.
 
@@ -35,13 +40,16 @@
 
 Dilakukan oleh admin/dev via Supabase Dashboard + UI app:
 
+- [ ] **P-00 (WAJIB, paling pertama)** Ambil **snapshot/backup saldo bahan** untuk **3 lokasi**: Kitchen/Pusat, SUKA SHAWARMA EMPANG, SUKA SHAWARMA DEPOK SUKMAJAYA. Export/query saldo semua item di `bahan_baku`/`stok_balance` per outlet ini (mis. lewat Supabase Dashboard atau halaman monitoring, simpan sebagai CSV/screenshot bertanggal) **sebelum langkah lain apa pun dimulai**. Ini jaring pengaman terakhir — kalau ada bug tak terduga yang bocor ke saldo asli, kita punya angka pasti untuk membandingkan & mengembalikan.
 - [ ] **P-01** Konfirmasi 2 outlet **sudah ada** di tabel `outlets`: `SUKA SHAWARMA EMPANG` & `SUKA SHAWARMA DEPOK SUKMAJAYA` (tidak perlu dibuat baru — catat `id` masing-masing utk P-02 dst).
 - [ ] **P-02** Buat akun uji per role (auth user + baris `outlet_staff`) sebagai staff **tambahan** di 2 outlet tsb — tidak mengganti staff/leader asli. Password seragam, catat di tabel bawah. `leader` (akun uji) di-map ke **Empang dan Sukmajaya Depok** via `staff_outlets` (many-to-many; tidak menghapus mapping leader asli Abdurrahman/Chairul Rizky).
-- [ ] **P-03** Buat 3 bahan baku uji: `E2E Daging Shawarma` (kg), `E2E Roti Pita` (pcs), `E2E Saus Garlic` (satuan majemuk **kompan**, isi faktor_tampilan — untuk uji tampilan kompan+liter). Item BARU, terpisah dari bahan resep asli outlet.
-- [ ] **P-04** Buat 1 supplier uji `E2E Supplier` (admin-dashboard → Pembelian → Supplier).
+- [ ] **P-03** Buat 3 bahan baku uji: `E2E Daging Shawarma` (kg), `E2E Roti Pita` (pcs), `E2E Saus Garlic` (satuan majemuk **kompan**, isi faktor_tampilan — untuk uji tampilan kompan+liter). Item BARU, terpisah dari bahan resep asli outlet. **Karena tahap supplier (S1) di-skip**, isi stok awal via ledger **Penyesuaian (adjustment)** — pakai formula rasional **ORP (dari P-07) + 5**, bukan angka besar sembarang:
+  - **Kitchen**: daging **10 kg** (ORP 5+5), roti **55 pcs** (ORP 50+5) — pengganti sementara alur PO, supaya S2 (kirim SJ) tetap punya stok utk dikirim (S2 hanya kirim daging+roti, lihat SJ-01/SJ-04).
+  - **Empang & Sukmajaya Depok (langsung di outlet)**: saus **8 kompan** (ORP 3+5) di masing-masing outlet — S2 tidak mengirim saus, jadi diisi langsung di outlet supaya LG-06 (S4) & OP-03 (S5) bisa diuji tanpa bergantung pengiriman.
+  - Semua angka ini sengaja pas di atas ambang kritis (ORP+5) — mudah diturunkan lagi ke bawah ORP saat butuh uji status kritis (S7/S3-B), dan tidak menyisakan stok gelembung besar yang harus dibersihkan.
 - [ ] **P-05** Buat 1 menu POS `E2E Shawarma Original` + resep/BOM (daging 0.1 kg, roti 1 pcs) via admin-dashboard → Resep. Menu BARU, tidak menimpa menu asli outlet.
 - [ ] **P-06** Daftarkan `SUKA SHAWARMA EMPANG` ke **allowlist BOM** kalau belum (Empang kemungkinan sudah masuk allowlist dari kerja COGS/BOM sebelumnya — cek dulu sebelum insert baru; lihat migration `20260703000000_bom_automation.sql` & `20260704180000_cogs_enable_bom_automation_empang.sql`). Tanpa allowlist aktif, S6 pasti gagal.
-- [ ] **P-07** Set reorder point (ORP) **khusus untuk item E2E** di kedua outlet (untuk uji status monitoring & transfer suggestion): mis. `E2E Daging Shawarma` ORP 5 kg, `E2E Roti Pita` ORP 50 pcs. **Jangan ubah ORP item resep asli.**
+- [ ] **P-07** Set reorder point (ORP) **khusus untuk item E2E** di kedua outlet (untuk uji status monitoring & transfer suggestion): `E2E Daging Shawarma` ORP **5 kg**, `E2E Roti Pita` ORP **50 pcs**, `E2E Saus Garlic` ORP **3 kompan**. **Jangan ubah ORP item resep asli.**
 - [ ] **P-08** Set `outlet_attendance_config` untuk `SUKA SHAWARMA EMPANG`: jam masuk/keluar shift + mode `auto` (untuk S9). **Catat nilai lama sebelum diubah** supaya bisa dikembalikan setelah uji (konfigurasi ini dipakai crew asli sehari-hari).
 
 **Tabel akun uji** (isi saat P-02; login username tanpa `@` otomatis jadi `<username>@outlet.local`):
@@ -99,15 +107,17 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 
 ## 4. S1 — HULU: Purchase Order Supplier → Kitchen
 
+⚠️ **Tahap supplier di-SKIP dulu untuk sesi ini** (belum diuji sekarang — menyusul). PO-01..PO-05 di bawah **ditandai ⏭️ SKIP**; hanya **PO-06** yang tetap dikerjakan karena murni cek akses halaman, tidak butuh data supplier/PO nyata.
+
 **Role pelaku:** admin (admin-dashboard → `/dashboard/pembelian`).
 
 | ID | Langkah | Hasil diharapkan | Hasil |
 |---|---|---|---|
-| PO-01 | Buat PO baru: supplier `E2E Supplier`, item `E2E Daging Shawarma` 10 kg | PO tersimpan, muncul di daftar dengan status awal yang benar | |
-| PO-02 | Coba submit PO **tanpa item** | Form menolak (tombol disabled / pesan validasi) | |
-| PO-03 | Proses PO sampai status **diterima di kitchen** (ikuti alur di `docs/FLOWS.md`) | Status berubah sesuai state machine; tidak bisa loncat status | |
-| PO-04 | Cek stok kitchen untuk `E2E Daging Shawarma` (app stok, akun kitchen, atau monitoring SPV) | Saldo kitchen **naik 10 kg** — angka pasti, bukan kira-kira | |
-| PO-05 | Buka laporan pembelian (`/dashboard/pembelian/laporan`) | PO tadi terhitung di laporan periode berjalan | |
+| PO-01 | ⏭️ SKIP — Buat PO baru: supplier `E2E Supplier`, item `E2E Daging Shawarma` 10 kg | PO tersimpan, muncul di daftar dengan status awal yang benar | |
+| PO-02 | ⏭️ SKIP — Coba submit PO **tanpa item** | Form menolak (tombol disabled / pesan validasi) | |
+| PO-03 | ⏭️ SKIP — Proses PO sampai status **diterima di kitchen** (ikuti alur di `docs/FLOWS.md`) | Status berubah sesuai state machine; tidak bisa loncat status | |
+| PO-04 | ⏭️ SKIP — Cek stok kitchen untuk `E2E Daging Shawarma` (app stok, akun kitchen, atau monitoring SPV) | Saldo kitchen **naik 10 kg** — angka pasti, bukan kira-kira | |
+| PO-05 | ⏭️ SKIP — Buka laporan pembelian (`/dashboard/pembelian/laporan`) | PO tadi terhitung di laporan periode berjalan | |
 | PO-06 | Login **mitra**, buka URL `/dashboard/pembelian` langsung | Ditolak/redirect — mitra tidak boleh lihat pembelian | |
 
 ---
@@ -118,10 +128,10 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 
 | ID | Langkah | Hasil diharapkan | Hasil |
 |---|---|---|---|
-| SJ-01 | Login **kitchen** → buat Surat Jalan baru ke `Outlet Empang`: daging 5 kg, roti 100 pcs | SJ tersimpan dengan nomor; stok kitchen berkurang sesuai (atau saat dikirim, ikut aturan flow) | |
+| SJ-01 | Login **kitchen** → buat Surat Jalan baru ke `Outlet Empang`: daging 5 kg, roti 20 pcs (dalam batas stok kitchen P-03: 10kg/55pcs) | SJ tersimpan dengan nomor; stok kitchen berkurang sesuai (atau saat dikirim, ikut aturan flow) | |
 | SJ-02 | Login **crew A** → menu Terima | SJ dari SJ-01 muncul di daftar | |
-| SJ-03 | Terima **penuh** SJ tsb | Sukses; di app stok: ledger `terima_kiriman` +5 kg daging & +100 pcs roti; saldo outlet A naik persis segitu | |
-| SJ-04 | (Kitchen) buat SJ kedua: daging 5 kg → (crew A) terima **hanya 3 kg** (selisih 2) | Selisih tercatat sebagai `rejected_kiriman` 2 kg; saldo outlet A hanya naik 3 kg | |
+| SJ-03 | Terima **penuh** SJ tsb | Sukses; di app stok: ledger `terima_kiriman` +5 kg daging & +20 pcs roti; saldo outlet A naik persis segitu | |
+| SJ-04 | (Kitchen) buat SJ kedua: daging 4 kg (sisa stok kitchen 5kg) → (crew A) terima **hanya 3 kg** (selisih 1) | Selisih tercatat sebagai `rejected_kiriman` 1 kg; saldo outlet A hanya naik 3 kg | |
 | SJ-05 | Login **crew B** → menu Terima | SJ milik outlet A **tidak terlihat** (RLS per outlet) | |
 | SJ-06 | Buka Riwayat (`/distribusi/riwayat`) sebagai kitchen | Kedua SJ muncul dengan status akhir benar | |
 | SJ-07 | (Crew A) coba terima ulang SJ yang sudah selesai | Tidak bisa — tidak ada dobel-terima / dobel ledger | |
@@ -306,8 +316,8 @@ Uji dengan **membuka URL app langsung** (bukan lewat launcher) saat login sebaga
 
 | ID | "Jam" | Pemeran | Adegan | Hasil diharapkan | Hasil |
 |---|---|---|---|---|---|
-| RC-01 | 07:00 | Admin | Buat PO pagi ke `E2E Supplier` utk restock kitchen, proses sampai diterima | Stok kitchen siap utk hari ini | |
-| RC-02 | 08:00 | Kitchen | Buat 1 surat jalan kiriman pagi ke outlet A (daging + roti + saus, qty realistis 1 hari jualan) | SJ terkirim | |
+| RC-01 | 07:00 | Admin | ⏭️ SKIP — tahap supplier belum diuji sesi ini. Asumsikan stok kitchen (item E2E) sudah tersedia dari sesi P-persiapan | Stok kitchen siap utk hari ini | |
+| RC-02 | 08:00 | Kitchen | (Top up dulu stok kitchen via ledger Penyesuaian ke ORP+5 — stok awal P-03 sudah banyak terpakai di S2) Buat 1 surat jalan kiriman pagi ke outlet A (daging + roti + saus, qty rasional secukupnya) | SJ terkirim | |
 | RC-03 | 08:30 | Crew A | **Clock-in wajah** di kiosk absensi (dalam window) → lalu terima kiriman SJ pagi | Absen ON_TIME; saldo outlet A terisi utk jualan | |
 | RC-04 | 09:00 | SPV | Lihat papan kehadiran (crew sudah masuk) + monitoring-live (stok outlet A hijau) | Kondisi pagi sehat terbaca dari 2 papan | |
 | RC-05 | 10:00–12:00 | Crew A + Kiosk | **Jam sibuk:** 10 order POS beruntun secepat mungkin, CAMPUR: kasir 6 order (ada yang 2–3 item) + device kiosk 4 order self-service **berjalan bersamaan** | Semua order sukses tanpa nyangkut; tidak ada order hilang/dobel di histori | |
@@ -403,14 +413,15 @@ S1–S11 fokus alur inti stok/POS/absensi. Fitur berikut ada di route tapi belum
 
 ## 18. Pembersihan Setelah Uji
 
-⚠️ **Karena outlet uji adalah outlet nyata (Empang & Sukmajaya Depok), pembersihan ini WAJIB dilakukan — bukan opsional** — supaya laporan omzet/shrinkage/absensi asli tidak terdistorsi transaksi uji.
+⚠️ **Karena outlet uji adalah outlet nyata (Empang & Sukmajaya Depok) dan Kitchen ikut tersinggung PO/SJ, pembersihan ini WAJIB dilakukan — bukan opsional** — supaya laporan omzet/shrinkage/absensi/stok kitchen asli tidak terdistorsi transaksi uji.
 
-- [ ] C-01 Hapus/void SEMUA transaksi yang tercipta selama uji di kedua outlet ini: orders POS (menu `E2E Shawarma Original`), ledger (item berprefix `E2E `), opname, permintaan, surat jalan, PO uji, attendance record akun uji.
-- [ ] C-02 Item/menu uji berprefix `E2E ` (bahan, menu, supplier) **dihapus atau dinonaktifkan** — jangan ditinggalkan tercampur di daftar bahan/menu asli outlet.
-- [ ] C-03 Hapus atau nonaktifkan SEMUA akun uji (`*.e2e@test.com`, termasuk `E2E Crew Baru` dari AB-01) dari `outlet_staff` & `staff_outlets` — outlet Empang/Sukmajaya sendiri **tidak dihapus** (itu outlet nyata, hanya staff tambahannya yang dibersihkan).
+- [ ] C-01 Hapus/void SEMUA transaksi yang tercipta selama uji: orders POS (menu `E2E Shawarma Original`), ledger (item berprefix `E2E `) di Empang & Sukmajaya, opname, permintaan, surat jalan & PO uji (Kitchen↔outlet), attendance record akun uji.
+- [ ] C-02 Item/menu uji berprefix `E2E ` (bahan, menu, supplier) **dihapus atau dinonaktifkan** di ketiga lokasi (Kitchen, Empang, Sukmajaya) — jangan ditinggalkan tercampur di daftar bahan/menu asli.
+- [ ] C-03 Hapus atau nonaktifkan SEMUA akun uji (`*.e2e@test.com`, termasuk `E2E Crew Baru` dari AB-01) dari `outlet_staff` & `staff_outlets` — Kitchen/Empang/Sukmajaya sendiri **tidak dihapus** (itu lokasi nyata, hanya staff tambahannya yang dibersihkan).
 - [ ] C-04 Kembalikan `outlet_attendance_config` outlet Empang ke nilai asli (jam shift/mode) sesuai catatan sebelum P-08, bila sempat diubah.
 - [ ] C-05 Verifikasi laporan omzet/shrinkage Empang & Sukmajaya Depok periode uji **sudah bersih** dari angka transaksi E2E (bandingkan sebelum/sesudah cleanup).
 - [ ] C-06 **Cek ulang core item S3-B**: bandingkan saldo sistem saat ini dengan baseline RS-00 utk kedua core item (Empang & Sukmajaya Depok) — kalau RS-04/RS-07 belum sempat dieksekusi saat itu, lakukan sekarang via ledger Penyesuaian sampai persis cocok.
+- [ ] C-07 **Verifikasi akhir vs snapshot P-00**: bandingkan saldo bahan asli di ketiga lokasi (Kitchen/Pusat, Empang, Sukmajaya) dengan snapshot P-00 sebelum uji dimulai. Semua item **non-E2E** harus persis sama — kalau ada selisih tak terjelaskan, itu bug yang harus diinvestigasi sebelum uji dianggap selesai.
 
 ---
 
@@ -432,7 +443,7 @@ Konsol/network: (error merah di DevTools bila ada)
 
 | Role | Skenario yang melibatkan |
 |---|---|
-| admin | S0, S1 (PO), S10 (shrinkage, system-health, expenses non-pusat) |
+| admin | S0, S1 (PO — di-skip sesi ini), S10 (shrinkage, system-health, expenses non-pusat) |
 | admin_hr | S0, S10 (RP-09) |
 | owner | S0, S10 (P&L, expenses pusat) |
 | spv | S0, S3 (approve/tolak), S7 (monitoring-live), S8, S9 (pengaturan, kru, enroll) |

@@ -13,7 +13,7 @@ interface OutletsViewProps {
 
 export default function OutletsView({ initialOutlets }: OutletsViewProps) {
   const router = useRouter()
-  const { showConfirm, showAlert } = useDialogStore()
+  const { showConfirm } = useDialogStore()
   
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingOutlet, setEditingOutlet] = useState<Outlet | null>(null)

@@ -37,6 +37,12 @@ describe('Two-way Order Status Sync API Routes', () => {
     if (!process.env.ORDER_SYSTEM_NOTIFY_URL) {
       process.env.ORDER_SYSTEM_NOTIFY_URL = orderSystemNotifyUrl
     }
+    if (!process.env.NEXT_PUBLIC_SS_ORDER_URL) {
+      process.env.NEXT_PUBLIC_SS_ORDER_URL = 'http://test-supabase.co'
+    }
+    if (!process.env.SS_ORDER_SERVICE_KEY) {
+      process.env.SS_ORDER_SERVICE_KEY = 'test-ss-order-service-key'
+    }
 
     db = createServiceClient()
 
@@ -195,17 +201,19 @@ describe('Two-way Order Status Sync API Routes', () => {
     })
 
     it('forwards notification to online system and returns 200', async () => {
-      // Mock global fetch but allow Supabase pass-through
+      // Mock global fetch but allow Supabase pass-through for other tests
       const originalFetch = globalThis.fetch
       const fetchSpy = vi.fn().mockImplementation(async (url, init) => {
-        if (typeof url === 'string' && !url.includes('/functions/v1/')) {
-          return originalFetch(url, init)
+        if (typeof url === 'string' && url.includes(process.env.NEXT_PUBLIC_SS_ORDER_URL!)) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ([]),
+            text: async () => '[]',
+            headers: { get: () => null },
+          }
         }
-        return {
-          ok: true,
-          status: 200,
-          text: async () => 'OK',
-        }
+        return originalFetch(url, init)
       })
       vi.stubGlobal('fetch', fetchSpy)
 
@@ -219,21 +227,12 @@ describe('Two-way Order Status Sync API Routes', () => {
       const json = await res.json()
       expect(json.success).toBe(true)
 
-      // Expected notification URL (replacing /kasir-order-done with /kasir-order-cancel)
-      const expectedUrl = process.env.ORDER_SYSTEM_NOTIFY_URL!.replace(
-        '/kasir-order-done',
-        '/kasir-order-cancel'
-      )
-
+      // Expect that it called the Supabase REST API on the target URL
       expect(fetchSpy).toHaveBeenCalledWith(
-        expectedUrl,
+        expect.stringContaining(process.env.NEXT_PUBLIC_SS_ORDER_URL!),
         expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            'x-internal-token': process.env.KASIR_TO_ORDER_SECRET!,
-          }),
-          body: JSON.stringify({ external_order_id: testExternalOrderId }),
+          method: 'PATCH', // Supabase update uses PATCH
+          body: expect.stringContaining('"status":"cancelled"'),
         })
       )
     })
@@ -241,14 +240,15 @@ describe('Two-way Order Status Sync API Routes', () => {
     it('returns 502 if online system returns an error', async () => {
       const originalFetch = globalThis.fetch
       const fetchSpy = vi.fn().mockImplementation(async (url, init) => {
-        if (typeof url === 'string' && !url.includes('/functions/v1/')) {
-          return originalFetch(url, init)
+        if (typeof url === 'string' && url.includes(process.env.NEXT_PUBLIC_SS_ORDER_URL!)) {
+          return {
+            ok: false,
+            status: 500,
+            json: async () => ({ error: 'Internal Server Error' }),
+            text: async () => 'Internal Server Error',
+          }
         }
-        return {
-          ok: false,
-          status: 500,
-          text: async () => 'Internal Server Error',
-        }
+        return originalFetch(url, init)
       })
       vi.stubGlobal('fetch', fetchSpy)
 

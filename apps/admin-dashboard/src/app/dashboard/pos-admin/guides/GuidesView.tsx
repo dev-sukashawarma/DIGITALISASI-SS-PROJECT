@@ -22,7 +22,7 @@ interface GuidesViewProps {
 
 export default function GuidesView({ initialGuides }: GuidesViewProps) {
   const router = useRouter()
-  const { showConfirm, showAlert } = useDialogStore()
+  const { showConfirm } = useDialogStore()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingGuide, setEditingGuide] = useState<Guide | null>(null)
   

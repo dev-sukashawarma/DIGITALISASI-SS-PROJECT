@@ -1040,6 +1040,13 @@
   resolved "https://registry.npmjs.org/@floating-ui/utils/-/utils-0.2.11.tgz"
   integrity sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==
 
+"@hookform/resolvers@^5.4.0":
+  version "5.4.0"
+  resolved "https://registry.npmjs.org/@hookform/resolvers/-/resolvers-5.4.0.tgz"
+  integrity sha512-EIsqr/t/qbinPIhGjMdtvutIN1Kk4uwbROE9/UQ93CAVGR7GkA7Y92+fX80OzXi/OB67jVFYwKGO1WzkxmkFZw==
+  dependencies:
+    "@standard-schema/utils" "^0.3.0"
+
 "@humanwhocodes/config-array@^0.13.0":
   version "0.13.0"
   resolved "https://registry.npmjs.org/@humanwhocodes/config-array/-/config-array-0.13.0.tgz"
@@ -1639,6 +1646,7 @@
   version "0.0.1"
   resolved "file:apps/admin-dashboard"
   dependencies:
+    "@hookform/resolvers" "^5.4.0"
     "@suka/auth" "*"
     "@suka/design-system" "*"
     "@supabase/ssr" "^0.2.0"
@@ -1658,10 +1666,12 @@
     react "^19.0.0-rc.0"
     react-countup "^6.5.0"
     react-dom "^19.0.0-rc.0"
+    react-hook-form "^7.81.0"
     react-icons "^5.6.0"
     react-swipeable "^7.0.2"
     recharts "^3.8.1"
     sonner "^1.4.0"
+    zod "^4.4.3"
 
 "@suka/auth@*", "@suka/auth@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\packages\\auth":
   version "0.0.1"
@@ -6829,6 +6839,11 @@ react-dom@^19.0.0, react-dom@^19.0.0-rc.0:
   dependencies:
     scheduler "^0.27.0"
 
+react-hook-form@^7.81.0:
+  version "7.81.0"
+  resolved "https://registry.npmjs.org/react-hook-form/-/react-hook-form-7.81.0.tgz"
+  integrity sha512-ocbmr2p5KBMoAfj4WCUvped33lVi1Kd5DuDUvQDnB6VEAacOjPI/jMbtDdbhco4y9ct4xUuCmMY0b/C9L0QHjw==
+
 react-icons@^5.6.0:
   version "5.6.0"
   resolved "https://registry.npmjs.org/react-icons/-/react-icons-5.6.0.tgz"
@@ -8194,6 +8209,11 @@ uri-js@^4.2.2:
   dependencies:
     punycode "^2.1.0"
 
+use-debounce@^10.1.1:
+  version "10.1.1"
+  resolved "https://registry.npmjs.org/use-debounce/-/use-debounce-10.1.1.tgz"
+  integrity sha512-kvds8BHR2k28cFsxW8k3nc/tRga2rs1RHYCqmmGqb90MEeE++oALwzh2COiuBLO1/QXiOuShXoSN2ZpWnMmvuQ==
+
 use-sync-external-store@^1.2.2, use-sync-external-store@^1.4.0:
   version "1.6.0"
   resolved "https://registry.npmjs.org/use-sync-external-store/-/use-sync-external-store-1.6.0.tgz"
@@ -8653,7 +8673,7 @@ yocto-queue@^0.1.0:
   resolved "https://registry.npmjs.org/zod-validation-error/-/zod-validation-error-4.0.2.tgz"
   integrity sha512-Q6/nZLe6jxuU80qb/4uJ4t5v2VEZ44lzQjPDhYJNztRQ4wyWc6VF3D3Kb/fAuPetZQnhS3hnajCf9CsWesghLQ==
 
-zod@^3.23.8, "zod@^3.25.0 || ^4.0.0", zod@^3.25.76:
+zod@^3.23.8, "zod@^3.25.0 || ^4.0.0", zod@^3.25.76, zod@^4.4.3:
   version "4.4.3"
   resolved "https://registry.npmjs.org/zod/-/zod-4.4.3.tgz"
   integrity sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==

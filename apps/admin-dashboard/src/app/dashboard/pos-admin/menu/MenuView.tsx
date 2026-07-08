@@ -13,6 +13,8 @@ import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
+import MenuSearch from './MenuSearch'
+import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems } from './actions'
 
 const BUCKET = 'menu-images'
 
@@ -58,7 +60,6 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [preview, setPreview]     = useState<string | null>(null)
   const [showZipModal, setShowZipModal] = useState(false)
-  const [searchQuery, setSearchQuery]   = useState('')
   const [deletingAll, setDeletingAll]   = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -122,35 +123,30 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
       if (!imgUrl) { setSaving(false); return }
     }
 
-    const supabase = createClient()
     const payload = {
+      id: form.id ?? undefined,
       name: form.name.trim(), description: form.description.trim() || null,
-      price, category_id: form.category_id || null,
+      price: price, category_id: form.category_id || null,
       is_available: form.is_available, image_url: imgUrl,
     }
 
-    const { error: err } = form.id
-      ? await supabase.from('menu_items').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', form.id)
-      : await supabase.from('menu_items').insert(payload)
-
-    if (err) setError(err.message)
-    else { closeForm(); router.refresh() }
+    try {
+      await saveMenuItem(payload as any)
+      closeForm()
+    } catch (err: any) {
+      setError(err.message)
+    }
     setSaving(false)
   }
 
   async function toggleAvail(item: MenuItem) {
-    const supabase = createClient()
-    await supabase.from('menu_items').update({ is_available: !item.is_available }).eq('id', item.id)
-    router.refresh()
+    await toggleMenuAvailability(item.id, item.is_available)
   }
 
   async function deleteItem(item: MenuItem) {
     const confirmed = await showConfirm(`Hapus "${item.name}"?`);
     if (!confirmed) return
-    const supabase = createClient()
-    if (item.image_url) await deleteStorageImage(item.image_url)
-    await supabase.from('menu_items').delete().eq('id', item.id)
-    router.refresh()
+    await deleteMenuItem(item.id, item.image_url)
   }
 
   async function deleteAllItems() {
@@ -161,25 +157,13 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
     if (!confirmed2) return
 
     setDeletingAll(true)
-    const supabase = createClient()
-
-    for (const item of initialItems) {
-      if (item.image_url) await deleteStorageImage(item.image_url)
-    }
-    await supabase.from('menu_items').delete().not('id', 'is', null)
-
+    await deleteAllMenuItems(initialItems)
     setDeletingAll(false)
-    router.refresh()
   }
 
   const displayImage = preview ?? form.image_url
 
-  const filteredItems = initialItems.filter(item => {
-    if (!searchQuery) return true;
-    const lowerQ = searchQuery.toLowerCase();
-    return item.name.toLowerCase().includes(lowerQ) || 
-           (item.categories?.name && item.categories.name.toLowerCase().includes(lowerQ));
-  });
+  
 
   return (
     <div className="space-y-6">
@@ -188,22 +172,11 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Manajemen Menu</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{filteredItems.length} dari {initialItems.length} item</p>
+          <p className="text-gray-400 text-sm mt-0.5">{initialItems.length} item ditemukan</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Search Input */}
-          <div className="relative w-full sm:w-auto sm:min-w-[200px]">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-2xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-sm"
-              placeholder="Cari menu..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+          <MenuSearch />
           <button
             onClick={() => setShowZipModal(true)}
             className="py-2.5 px-5 text-sm font-semibold rounded-2xl flex items-center gap-2
@@ -430,7 +403,7 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
           <p className="font-semibold text-gray-500">Belum ada menu</p>
           <p className="text-sm text-gray-400 mt-1">Tambahkan menu pertamamu</p>
         </div>
-      ) : filteredItems.length === 0 ? (
+      ) : initialItems.length === 0 ? (
         <div className="card p-16 flex flex-col items-center text-center">
           <Search className="w-10 h-10 text-gray-200 mb-3" />
           <p className="font-semibold text-gray-500">Menu tidak ditemukan</p>
@@ -451,11 +424,11 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
                 </tr>
               </thead>
               <tbody>
-                {filteredItems.map((item, idx) => (
+                {initialItems.map((item, idx) => (
                   <tr
                     key={item.id}
                     className={`border-b border-gray-50 hover:bg-gray-50/60 transition-colors
-                      ${idx === filteredItems.length - 1 ? 'border-0' : ''}`}
+                      ${idx === initialItems.length - 1 ? 'border-0' : ''}`}
                   >
                     {/* Thumbnail */}
                     <td className="py-3.5 px-5">

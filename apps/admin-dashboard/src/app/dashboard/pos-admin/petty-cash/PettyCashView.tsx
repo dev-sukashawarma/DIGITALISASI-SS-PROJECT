@@ -35,7 +35,7 @@ interface PettyCashViewProps {
 
 export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
   const router = useRouter()
-  const { showConfirm, showAlert } = useDialogStore()
+  const { showConfirm } = useDialogStore()
   const supabase = createClient()
   const [requests, setRequests] = useState<TopupRequest[]>(initialRequests)
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null) // stores ID of request being processed

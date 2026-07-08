@@ -93,6 +93,8 @@ export async function POST(request: Request) {
     }
   }
 
+  const appliedPromoIds = new Set<string>()
+
   let subtotalAmount = 0
 
   for (const reqItem of payload.items) {
@@ -122,6 +124,28 @@ export async function POST(request: Request) {
 
     // Gunakan harga dari DATABASE dan hitung promo per item jika ada
     let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)
+    
+    // Track applied promos
+    if (unitPrice < menuItem.price) {
+      let globalApplied = false
+      if (globalPromo) {
+        if (!(globalPromo.end_date && new Date(globalPromo.end_date).getTime() < Date.now()) && 
+            !(globalPromo.usage_limit && (globalPromo.current_usage || 0) >= globalPromo.usage_limit)) {
+          if (!globalPromo.min_purchase || (baseSubtotal >= globalPromo.min_purchase)) {
+             globalApplied = true
+             appliedPromoIds.add(globalPromo.id)
+          }
+        }
+      }
+
+      if (!globalApplied) {
+        const itemPromo = itemPromos.find(p => p.menu_item_id === menuItem.id && p.is_active)
+        if (itemPromo) {
+          appliedPromoIds.add(itemPromo.id)
+        }
+      }
+    }
+
     const subtotal = unitPrice * quantity
 
     subtotalAmount += subtotal
@@ -182,6 +206,16 @@ export async function POST(request: Request) {
     // Rollback: hapus order jika items gagal
     await supabaseService.from('orders').delete().eq('id', order.id)
     return NextResponse.json({ error: 'Gagal menyimpan item pesanan' }, { status: 500 })
+  }
+
+  // Increment usage for applied promos
+  if (appliedPromoIds.size > 0) {
+    for (const promoId of Array.from(appliedPromoIds)) {
+      const { error: incError } = await supabaseService.rpc('increment_promo_usage', { p_promo_id: promoId })
+      if (incError) {
+        console.error(`Gagal increment promo usage untuk ${promoId}:`, incError)
+      }
+    }
   }
 
   return NextResponse.json({

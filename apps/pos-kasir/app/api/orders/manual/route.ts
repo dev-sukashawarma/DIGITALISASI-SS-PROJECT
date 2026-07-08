@@ -153,16 +153,27 @@ export async function POST(request: Request) {
 
   // Track applied promos to increment usage limits
   const appliedPromoIds = new Set<string>()
-  if (globalDiscount > 0 && globalPromo) {
-    appliedPromoIds.add(globalPromo.id)
-  }
   
   for (const item of validatedItems) {
     const menuItem = menuItems?.find(m => m.id === item.menu_item_id)
     if (menuItem && item.unit_price < menuItem.price) {
-      const itemPromo = itemPromos.find(p => p.menu_item_id === item.menu_item_id && p.is_active)
-      if (itemPromo) {
-        appliedPromoIds.add(itemPromo.id)
+      // Find if it was global or item promo. In calculateItemPrice, global promo has priority.
+      let globalApplied = false
+      if (globalPromo) {
+        if (!(globalPromo.end_date && new Date(globalPromo.end_date).getTime() < Date.now()) && 
+            !(globalPromo.usage_limit && (globalPromo.current_usage || 0) >= globalPromo.usage_limit)) {
+          if (!globalPromo.min_purchase || (baseSubtotal >= globalPromo.min_purchase)) {
+             globalApplied = true
+             appliedPromoIds.add(globalPromo.id)
+          }
+        }
+      }
+
+      if (!globalApplied) {
+        const itemPromo = itemPromos.find(p => p.menu_item_id === item.menu_item_id && p.is_active)
+        if (itemPromo) {
+          appliedPromoIds.add(itemPromo.id)
+        }
       }
     }
   }

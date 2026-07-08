@@ -65,6 +65,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "selfie_path_mismatch" }, { status: 403 });
     }
 
+    // Blokir absen pulang selama shift kasir (laci) outlet ini masih terbuka.
+    // Shift adalah state milik OUTLET, bukan staf tertentu — berlaku untuk siapa
+    // pun yang absen pulang di outlet ini. Tidak ada bypass.
+    if (body.type === "out") {
+      const { data: openShift } = await admin
+        .from("shifts")
+        .select("id")
+        .eq("outlet_id", body.outlet_id)
+        .eq("status", "open")
+        .maybeSingle();
+      if (openShift) {
+        return NextResponse.json({ ok: false, reason: "shift_not_closed" }, { status: 200 });
+      }
+    }
+
     const { data: cfg } = await admin
       .from("outlet_attendance_config")
       .select("jam_masuk,jam_keluar,toleransi_menit,absen_window_mode")

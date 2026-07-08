@@ -29,14 +29,14 @@ export async function savePromosAction(
     }
   }
 
-  const toUpsert: any[] = []
+  const toUpsertMap = new Map<string, any>()
 
   for (const outlet of outlets) {
     for (const p of promos) {
       const key = `${outlet.id}_${p.scope}_${p.menu_item_id || 'null'}`
       const existingId = existingMap.get(key)
       
-      toUpsert.push({
+      toUpsertMap.set(key, {
         ...(existingId ? { id: existingId } : {}),
         outlet_id: outlet.id,
         scope: p.scope,
@@ -50,6 +50,8 @@ export async function savePromosAction(
       })
     }
   }
+
+  const toUpsert = Array.from(toUpsertMap.values())
 
   if (toUpsert.length > 0) {
     const { error: upsertError } = await supabase

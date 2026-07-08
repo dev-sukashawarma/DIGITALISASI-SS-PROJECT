@@ -7,7 +7,13 @@ import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 
 /** Konsisten dengan kategori di admin-dashboard: item core, bumbu, minuman, kemasan, lainnya */
 const getKategoriLabel = (kategori: string): string => {
-  const catLower = (kategori || '').toLowerCase();
+  let catLower = (kategori || '').toLowerCase();
+  
+  // Normalisasi kategori lama ke kategori baru (5 group)
+  if (catLower === 'protein' || catLower === 'sayur') catLower = 'item core';
+  else if (catLower === 'saus') catLower = 'bumbu';
+  else if (catLower === 'gas') catLower = 'lainnya';
+  
   switch (catLower) {
     case 'item core': return '⭐ Item Core';
     case 'bumbu':     return '🌶️ Bumbu';

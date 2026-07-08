@@ -13,6 +13,23 @@ interface FormItem {
   qty: number
 }
 
+const normalizeKategori = (kategori: string | undefined): string => {
+  const c = (kategori || '').toLowerCase();
+  if (c === 'protein' || c === 'sayur') return 'item core';
+  if (c === 'saus') return 'bumbu';
+  if (c === 'gas') return 'lainnya';
+  if (['item core', 'bumbu', 'minuman', 'kemasan', 'lainnya'].includes(c)) return c;
+  return 'lainnya';
+};
+
+const KATEGORI_ORDER = [
+  { key: 'item core', label: 'Item Core' },
+  { key: 'bumbu', label: 'Bumbu' },
+  { key: 'minuman', label: 'Minuman' },
+  { key: 'kemasan', label: 'Kemasan' },
+  { key: 'lainnya', label: 'Lainnya' },
+];
+
 export function SuratJalanForm() {
   const router = useRouter()
   const { outletStaff } = useAuth()
@@ -141,11 +158,24 @@ export function SuratJalanForm() {
                       className="w-full sm:flex-1 px-4 py-2.5 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] font-semibold transition-all shadow-sm"
                     >
                       <option value="">Pilih barang...</option>
-                      {bahanBaku.map((bahan) => (
-                        <option key={bahan.id} value={bahan.id}>
-                          {bahan.nama.toUpperCase()} ({bahan.satuan})
-                        </option>
-                      ))}
+                      {KATEGORI_ORDER.map(({ key, label }) => {
+                        const items = bahanBaku.filter(b => normalizeKategori(b.kategori) === key);
+                        if (items.length === 0) return null;
+                        return (
+                          <optgroup key={key} label={label.toUpperCase()}>
+                            {items.map((bahan) => {
+                              const conv = bahan.faktor_konversi && bahan.satuan_kecil 
+                                ? ` (1 ${bahan.satuan} = ${bahan.faktor_konversi} ${bahan.satuan_kecil})`
+                                : '';
+                              return (
+                                <option key={bahan.id} value={bahan.id}>
+                                  {bahan.nama.toUpperCase()} - {bahan.satuan}{conv}
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                        );
+                      })}
                     </select>
                     <div className="flex gap-2 w-full sm:w-auto shrink-0">
                       <input

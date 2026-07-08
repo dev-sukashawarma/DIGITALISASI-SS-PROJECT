@@ -20,6 +20,8 @@ type OutletPromo = {
   discount_value: number
   is_active: boolean
   min_purchase?: number | null
+  usage_limit?: number | null
+  current_usage?: number
   end_date?: string | null
 }
 
@@ -61,6 +63,8 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     discount_value: 0,
     is_active: false,
     min_purchase: null,
+    usage_limit: null,
+    current_usage: 0,
     end_date: null
   } as OutletPromo
 
@@ -98,6 +102,8 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
         discount_value: 0,
         is_active: field === 'is_active' ? value : false,
         min_purchase: null,
+        usage_limit: null,
+        current_usage: 0,
         end_date: null,
         [field]: value
       })
@@ -187,21 +193,37 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-gray-700">
-                  Minimal Pembelian <span className="text-gray-400 font-medium ml-1">(Opsional)</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Rp</span>
-                  <input 
-                    type="number" 
-                    onWheel={(e) => e.currentTarget.blur()}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Minimum Belanja (Rp) <span className="text-gray-400 text-xs font-normal">(Opsional)</span>
+                  </label>
+                  <input
+                    type="number"
                     min="0"
-                    placeholder="0"
-                    className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl pl-11 pr-4 py-2.5 outline-none transition-colors font-semibold text-gray-900"
+                    placeholder="Contoh: 50000"
                     value={globalPromo.min_purchase || ''}
-                    onChange={e => handleGlobalPromoChange('min_purchase', e.target.value ? Number(e.target.value) : null)}
+                    onChange={(e) => handleGlobalPromoChange('min_purchase', e.target.value ? Number(e.target.value) : null)}
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500 disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Kosongkan jika tanpa minimum belanja</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Batas Kuota Pemakaian <span className="text-gray-400 text-xs font-normal">(Opsional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Contoh: 5"
+                    value={globalPromo.usage_limit || ''}
+                    onChange={(e) => handleGlobalPromoChange('usage_limit', e.target.value ? Number(e.target.value) : null)}
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500 disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Kosongkan jika kuota tak terbatas</p>
+                  {globalPromo.usage_limit && (
+                    <p className="text-xs text-amber-600 mt-1 font-medium">Terpakai: {globalPromo.current_usage || 0} / {globalPromo.usage_limit}</p>
+                  )}
                 </div>
               </div>
               

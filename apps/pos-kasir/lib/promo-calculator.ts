@@ -8,6 +8,8 @@ export interface BasePromo {
   discount_value: number;
   is_active: boolean;
   min_purchase?: number | null;
+  usage_limit?: number | null;
+  current_usage?: number;
   end_date?: string | null;
 }
 
@@ -24,6 +26,8 @@ export function calculateItemPrice(
   if (globalPromo) {
     if (globalPromo.end_date && new Date(globalPromo.end_date).getTime() < Date.now()) {
       // global promo is expired, so it's ignored, fall through to item promo
+    } else if (globalPromo.usage_limit && (globalPromo.current_usage || 0) >= globalPromo.usage_limit) {
+      // global promo usage limit reached
     } else {
       let apply = true;
       if (globalPromo.min_purchase && globalPromo.min_purchase > 0) {
@@ -47,6 +51,10 @@ export function calculateItemPrice(
 
   if (promo.end_date && new Date(promo.end_date).getTime() < Date.now()) {
     return originalPrice; // Expired
+  }
+
+  if (promo.usage_limit && (promo.current_usage || 0) >= promo.usage_limit) {
+    return originalPrice; // Usage limit reached
   }
 
   if (promo.min_purchase && promo.min_purchase > 0) {

@@ -11,6 +11,8 @@ export type OutletPromo = {
   discount_value: number
   is_active: boolean
   min_purchase?: number | null
+  usage_limit?: number | null
+  current_usage?: number
   end_date?: string | null
 }
 

@@ -50,6 +50,9 @@ export default function ProductDetailClient({
   const applicablePromo = getPromoForMenu(item.id)
   const hasPotentialPromo = applicablePromo != null
   const needsMinPurchase = hasPotentialPromo && (applicablePromo!.min_purchase || 0) > 0
+  
+  const hasUsageLimit = hasPotentialPromo && (applicablePromo!.usage_limit || 0) > 0
+  const remainingUsage = hasUsageLimit ? (applicablePromo!.usage_limit || 0) - (applicablePromo!.current_usage || 0) : null
 
   const showPlaceholder = !item.image_url
 
@@ -97,9 +100,16 @@ export default function ProductDetailClient({
             {isDiscountActiveNow ? (
               <>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
-                    PROMO
-                  </span>
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
+                      PROMO
+                    </span>
+                    {hasUsageLimit && remainingUsage && remainingUsage > 0 && (
+                      <span className="bg-red-50 text-red-600 border border-red-200 text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
+                        Sisa Kuota: {remainingUsage}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-sm text-gray-400 line-through">
                     {formatRupiah(item.price)}
                   </span>

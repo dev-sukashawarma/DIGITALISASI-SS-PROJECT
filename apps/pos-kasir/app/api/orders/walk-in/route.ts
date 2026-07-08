@@ -143,6 +143,22 @@ export async function POST(request: Request) {
   let globalDiscount = calculateGlobalDiscount(total, activePromos as BasePromo[])
 
   const finalTotal = total - globalDiscount
+  
+  // Track applied promos to increment usage limits
+  const appliedPromoIds = new Set<string>()
+  if (globalDiscount > 0 && globalPromo) {
+    appliedPromoIds.add(globalPromo.id)
+  }
+  
+  for (const item of validatedItems) {
+    const menuItem = menuItems?.find(m => m.id === item.menu_item_id)
+    if (menuItem && item.unit_price < menuItem.price) {
+      const itemPromo = itemPromos.find(p => p.menu_item_id === item.menu_item_id && p.is_active)
+      if (itemPromo) {
+        appliedPromoIds.add(itemPromo.id)
+      }
+    }
+  }
 
   // ── Validasi pembayaran tunai & hitung kembalian ────────────────────────
   let amountReceived: number | null = null
@@ -215,6 +231,16 @@ export async function POST(request: Request) {
     console.error('Gagal menyimpan item order walk-in:', itemsError)
     await supabaseService.from('orders').delete().eq('id', order.id)
     return NextResponse.json({ error: 'Gagal menyimpan item pesanan' }, { status: 500 })
+  }
+
+  // Increment usage for applied promos
+  if (appliedPromoIds.size > 0) {
+    for (const promoId of Array.from(appliedPromoIds)) {
+      const { error: incError } = await supabaseService.rpc('increment_promo_usage', { p_promo_id: promoId })
+      if (incError) {
+        console.error(`Gagal increment promo usage untuk ${promoId}:`, incError)
+      }
+    }
   }
 
   return NextResponse.json({

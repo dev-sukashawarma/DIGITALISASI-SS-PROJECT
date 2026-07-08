@@ -30,6 +30,8 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo }: 
   
   const hasPotentialPromo = applicablePromo != null
   const needsMinPurchase = hasPotentialPromo && (applicablePromo!.min_purchase || 0) > 0
+  const hasUsageLimit = hasPotentialPromo && (applicablePromo!.usage_limit || 0) > 0
+  const remainingUsage = hasUsageLimit ? (applicablePromo!.usage_limit || 0) - (applicablePromo!.current_usage || 0) : null
 
   return (
     <div
@@ -67,8 +69,11 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo }: 
         
         {/* Promo Badge overlay */}
         {item.is_available && isDiscountActiveNow && (
-          <div className="absolute top-2.5 left-2.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1 z-10">
-            PROMO
+          <div className="absolute top-2.5 left-2.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1 z-10 flex-col !items-start">
+            <span>PROMO</span>
+            {hasUsageLimit && remainingUsage && remainingUsage > 0 && (
+              <span className="text-[8px] font-medium bg-white/20 px-1 rounded-sm w-full text-center">Sisa: {remainingUsage}</span>
+            )}
           </div>
         )}
 

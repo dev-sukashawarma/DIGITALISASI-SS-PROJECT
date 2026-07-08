@@ -47,6 +47,7 @@ export async function savePromosAction(
         discount_value: Math.max(0.01, Number(p.discount_value) || 0),
         is_active: p.is_active,
         min_purchase: p.min_purchase,
+        usage_limit: p.usage_limit,
         end_date: p.end_date
       })
     }

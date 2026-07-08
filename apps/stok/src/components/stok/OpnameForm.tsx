@@ -208,27 +208,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
         </div>
       )}
 
-      {/* Segmented Control for Tipe Opname */}
-      <div className="bg-white p-1 rounded-xl border border-[#d9c2b2]/40 shadow-[0_2px_8px_rgba(144,77,0,0.02)] flex gap-1 w-full max-w-md mx-auto">
-        {['harian', 'mingguan', 'ad_hoc'].map((t) => {
-          const isActive = tipe === t;
-          const label = t === 'ad_hoc' ? 'Ad Hoc' : t.charAt(0).toUpperCase() + t.slice(1);
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTipe(t)}
-              className={`flex-1 py-2 text-center rounded-lg text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-[#701604] text-white shadow-sm scale-[1.01]'
-                  : 'text-[#544437]/75 hover:bg-[#fff8f1] hover:text-[#701604]'
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+
 
       {/* Search and Filters */}
       <div className="space-y-3">

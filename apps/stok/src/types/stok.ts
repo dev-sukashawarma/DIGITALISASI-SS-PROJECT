@@ -63,6 +63,7 @@ export interface LedgerTransaksiSummary {
   single_catatan: string | null
   single_saldo_sesudah: number | null
   order_number?: number | null
+  order_items_names?: string | null
   opname_tanggal?: string | null
   opname_tipe?: OpnameTipe | null
 }

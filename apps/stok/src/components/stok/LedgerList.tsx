@@ -27,7 +27,10 @@ const FILTER_LABELS: Record<string, string> = {
 
 export function transaksiLabel(t: LedgerTransaksiSummary): { title: string; subtitle: string | null } {
   if (t.ref_order_id) {
-    return { title: 'Order Selesai', subtitle: t.order_number ? `Order #${t.order_number}` : null };
+    return { 
+      title: t.order_number ? `Order #${t.order_number}` : 'Order Selesai', 
+      subtitle: t.order_items_names ? t.order_items_names : (t.order_number ? `Order #${t.order_number}` : null) 
+    };
   }
   if (t.ref_opname_id) {
     const tanggal = t.opname_tanggal

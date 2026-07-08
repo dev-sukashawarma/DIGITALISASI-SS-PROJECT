@@ -19,26 +19,30 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
       if (err) throw err
 
-      const summaries = (rows as Omit<LedgerTransaksiSummary, 'order_number' | 'opname_tanggal' | 'opname_tipe'>[]) ?? []
+      const summaries = (rows as Omit<LedgerTransaksiSummary, 'order_number' | 'order_items_names' | 'opname_tanggal' | 'opname_tipe'>[]) ?? []
 
       const orderIds = [...new Set(summaries.map((s) => s.ref_order_id).filter((v): v is string => !!v))]
       const opnameIds = [...new Set(summaries.map((s) => s.ref_opname_id).filter((v): v is string => !!v))]
 
       const [ordersRes, opnameRes] = await Promise.all([
         orderIds.length
-          ? supabase.from('orders').select('id, order_number').in('id', orderIds)
-          : Promise.resolve({ data: [] as { id: string; order_number: number }[] }),
+          ? supabase.from('orders').select('id, order_number, order_items(menu_item_name)').in('id', orderIds)
+          : Promise.resolve({ data: [] as { id: string; order_number: number; order_items: { menu_item_name: string }[] }[] }),
         opnameIds.length
           ? supabase.from('opname').select('id, tanggal, tipe').in('id', opnameIds)
           : Promise.resolve({ data: [] as { id: string; tanggal: string; tipe: string }[] }),
       ])
 
-      const orderMap = new Map((ordersRes.data ?? []).map((o) => [o.id, o.order_number]))
+      const orderMap = new Map((ordersRes.data ?? []).map((o) => [o.id, {
+        order_number: o.order_number,
+        items_names: (o as any).order_items?.map((i: any) => i.menu_item_name).join(', ') ?? null
+      }]))
       const opnameMap = new Map((opnameRes.data ?? []).map((o) => [o.id, o]))
 
       return summaries.map((s) => ({
         ...s,
-        order_number: s.ref_order_id ? orderMap.get(s.ref_order_id) ?? null : null,
+        order_number: s.ref_order_id ? orderMap.get(s.ref_order_id)?.order_number ?? null : null,
+        order_items_names: s.ref_order_id ? orderMap.get(s.ref_order_id)?.items_names ?? null : null,
         opname_tanggal: s.ref_opname_id ? opnameMap.get(s.ref_opname_id)?.tanggal ?? null : null,
         opname_tipe: s.ref_opname_id ? (opnameMap.get(s.ref_opname_id)?.tipe as LedgerTransaksiSummary['opname_tipe']) ?? null : null,
       }))

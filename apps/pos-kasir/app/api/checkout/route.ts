@@ -31,54 +31,27 @@ export async function POST(request: Request) {
 
   const { data: { user } } = await supabaseAuth.auth.getUser()
   
-  // Jika tidak ada user, maka ini Kiosk Mode. Gunakan ID Pusat.
-  if (!user) {
-    let outlet_id = '550e8400-e29b-41d4-a716-446655440001'
-    // Let it pass down to fetch menu items
+  let outlet_id = '550e8400-e29b-41d4-a716-446655440001' // Default to Pusat for Kiosk Mode
+
+  if (user) {
+    const { data: profile } = await supabaseService
+      .from('outlet_staff')
+      .select('outlet_id, role')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile) {
+      return NextResponse.json({ error: 'Sesi tidak valid, profil tidak ditemukan' }, { status: 403 })
+    }
     
-    // Ambil data menu dari database (harga otoritatif dari server)
-    const menuItemIds = payload.items.map((i) => i.menu_item_id)
-    const { data: menuItems, error: menuError } = await supabaseService
-      .from('menu_items')
-      .select('id, name, price, is_available')
-      .in('id', menuItemIds)
-
-    if (menuError) {
-      return NextResponse.json({ error: 'Gagal memuat data menu' }, { status: 500 })
+    // If Admin is testing Kiosk, use the Pusat ID. Else use their outlet_id.
+    if (profile.role === 'admin' && !profile.outlet_id) {
+       outlet_id = '550e8400-e29b-41d4-a716-446655440001'
+    } else if (profile.outlet_id) {
+       outlet_id = profile.outlet_id
+    } else {
+       return NextResponse.json({ error: 'Akun Anda tidak memiliki Cabang (Outlet) yang terhubung.' }, { status: 403 })
     }
-
-    // Fetch active promos for this outlet
-    const { data: activePromos, error: promosError } = await supabaseService
-      .from('outlet_promos')
-      .select('*')
-      .eq('outlet_id', outlet_id)
-      .eq('is_active', true)
-      
-    // (Rest of the logic below continues after the `else` or we can just refactor this whole block)
-    // Actually, instead of replacing everything here, let's just set outlet_id for !user and bypass the profile check.
-
-  const { data: profile } = await supabaseService
-    .from('outlet_staff')
-    .select('outlet_id, role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) {
-    return NextResponse.json({ error: 'Sesi tidak valid, profil tidak ditemukan' }, { status: 403 })
-  }
-
-  let outlet_id = profile.outlet_id
-
-  // Berikan kelonggaran untuk Admin yang ingin mengetes Kiosk
-  if (profile.role === 'admin' && !outlet_id) {
-    const { data: defaultOutlet } = await supabaseService.from('outlets').select('id').limit(1).single()
-    if (defaultOutlet) {
-      outlet_id = defaultOutlet.id
-    }
-  }
-
-  if (!outlet_id) {
-    return NextResponse.json({ error: 'Akun Anda tidak memiliki Cabang (Outlet) yang terhubung.' }, { status: 403 })
   }
 
   // Ambil data menu dari database (harga otoritatif dari server)

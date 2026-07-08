@@ -7566,6 +7566,7 @@ sharp@^0.34.3, sharp@^0.34.5:
   version "1.0.0"
   resolved "file:apps/pos-kasir"
   dependencies:
+    "@serwist/next" "^9.5.11"
     "@suka/auth" "*"
     "@supabase/ssr" "^0.5.1"
     "@supabase/supabase-js" "^2.45.0"
@@ -7585,6 +7586,7 @@ sharp@^0.34.3, sharp@^0.34.5:
     react-dom "^19.0.0"
     react-is "^19.0.0"
     recharts "^2.12.7"
+    serwist "^9.5.11"
     zustand "^4.5.4"
 
 shebang-command@^2.0.0:

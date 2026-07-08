@@ -12,12 +12,12 @@ export default async function KioskHomePage() {
   // 1. Sesi & outlet (redirect ke portal ditangani middleware; di sini fallback aman saja)
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return <KioskMenuClient initialData={{ menuItems: [], categories: [], bestsellerIds: [], coverUrl: null, outletName: '', outletId: undefined }} />
-  }
+  let outletId = PUSAT_OUTLET_ID
 
-  const { data: profile } = await supabase.from('outlet_staff').select('outlet_id, role').eq('id', user.id).single()
-  const outletId = profile?.outlet_id || PUSAT_OUTLET_ID
+  if (user) {
+    const { data: profile } = await supabase.from('outlet_staff').select('outlet_id, role').eq('id', user.id).single()
+    outletId = profile?.outlet_id || PUSAT_OUTLET_ID
+  }
 
   // 2. Fetch data menu SSR — paralel, satu round-trip dari server ke Supabase
   const [items_result, cats_result, cover_result, bs_result, outlet_result, unav_result] = await Promise.all([

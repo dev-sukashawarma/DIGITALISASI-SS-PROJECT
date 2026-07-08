@@ -16,19 +16,32 @@ type SortBy = 'status' | 'name';
 const getStorageLocation = (category: string, name: string) => {
   const nameLower = name.toLowerCase();
   const catLower = (category || '').toLowerCase();
-  
-  if (catLower === 'protein' || nameLower.includes('daging') || nameLower.includes('ayam')) {
+
+  // Kategori baru: item core, bumbu, minuman, kemasan, lainnya
+  if (catLower === 'item core' || nameLower.includes('daging') || nameLower.includes('ayam')) {
     return 'Frozen Storage';
   }
-  if (catLower === 'sayur' || catLower === 'saus' || catLower === 'minuman' || nameLower.includes('garlic')) {
+  if (catLower === 'minuman' || nameLower.includes('garlic')) {
     return 'Chilled Storage';
   }
-  if (catLower === 'gas' || nameLower.includes('lpg')) {
+  if (nameLower.includes('lpg') || nameLower.includes('gas')) {
     return 'Utility Area';
   }
-  
-  // Default untuk kategori 'bumbu', 'kemasan', 'lainnya', atau yang tidak diketahui
+
+  // Bumbu, kemasan, lainnya → Dry Storage
   return 'Dry Storage';
+};
+
+const getKategoriLabel = (kategori: string): string => {
+  const catLower = (kategori || '').toLowerCase();
+  switch (catLower) {
+    case 'item core': return '⭐ Item Core';
+    case 'bumbu':     return '🌶️ Bumbu';
+    case 'minuman':   return '🥤 Minuman';
+    case 'kemasan':   return '📦 Kemasan';
+    case 'lainnya':   return '📋 Lainnya';
+    default:          return kategori || 'Bahan Baku';
+  }
 };
 
 export function CrewList({ items, onItemClick, loading = false }: CrewListProps) {
@@ -155,7 +168,11 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
           <div className={`w-2.5 h-2.5 rounded-full ${statusDotColor} ring-4`}></div>
           <div className="flex flex-col">
             <span className="font-semibold text-gray-900 text-sm">{item.item_name}</span>
-            <span className="text-[11px] text-gray-500 capitalize">{getStorageLocation(item.kategori, item.item_name)}</span>
+            <span className="text-[11px] text-gray-400">
+              {getKategoriLabel(item.kategori)}
+              <span className="mx-1 opacity-40">·</span>
+              {getStorageLocation(item.kategori, item.item_name)}
+            </span>
           </div>
         </div>
 

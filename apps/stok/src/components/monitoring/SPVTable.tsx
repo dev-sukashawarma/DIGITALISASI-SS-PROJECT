@@ -5,6 +5,19 @@ import type { MonitoringItem } from '@/lib/types/monitoring';
 import { Skeleton } from '@suka/design-system';
 import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 
+/** Konsisten dengan kategori di admin-dashboard: item core, bumbu, minuman, kemasan, lainnya */
+const getKategoriLabel = (kategori: string): string => {
+  const catLower = (kategori || '').toLowerCase();
+  switch (catLower) {
+    case 'item core': return '⭐ Item Core';
+    case 'bumbu':     return '🌶️ Bumbu';
+    case 'minuman':   return '🥤 Minuman';
+    case 'kemasan':   return '📦 Kemasan';
+    case 'lainnya':   return '📋 Lainnya';
+    default:          return kategori || 'Bahan Baku';
+  }
+};
+
 interface SPVTableProps {
   items: MonitoringItem[];
   tab: 'overview' | 'alerts' | 'compliance';
@@ -322,7 +335,7 @@ export function SPVTable({
                     <td className="p-4">
                       <div className="font-bold text-sm text-suka-ink uppercase tracking-wide">{item.item_name}</div>
                       <div className="text-xs text-suka-brown/60 mt-0.5">
-                        {item.kategori_core ? `${item.kategori_core} · ${item.kategori}` : item.kategori || 'Bahan Baku'}
+                        {getKategoriLabel(item.kategori)}
                       </div>
                     </td>
                     <td className={`p-4 font-bold text-sm text-right ${

@@ -322,10 +322,7 @@ export function SPVTable({
                     <td className="p-4">
                       <div className="font-bold text-sm text-suka-ink uppercase tracking-wide">{item.item_name}</div>
                       <div className="text-xs text-suka-brown/60 mt-0.5">
-                        {item.item_name.includes('Ayam') ? 'Frozen Breast' :
-                         item.item_name.includes('Bawang') ? 'Red Onion' :
-                         item.item_name.includes('Cengkeh') ? 'Spice Powder' :
-                         item.item_name.includes('Foil') ? 'Packaging Roll' : 'Bahan Baku'}
+                        {item.kategori_core ? `${item.kategori_core} · ${item.kategori}` : item.kategori || 'Bahan Baku'}
                       </div>
                     </td>
                     <td className={`p-4 font-bold text-sm text-right ${

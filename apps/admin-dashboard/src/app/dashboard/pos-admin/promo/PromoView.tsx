@@ -149,7 +149,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
         </div>
 
         {/* PROMO GLOBAL */}
-        <div className={`rounded-2xl p-6 sm:p-8 space-y-6 border-2 transition-all duration-300 ${globalPromo.is_active ? 'border-amber-400 bg-amber-50/30 shadow-card hover:shadow-card-hover' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
+        <div className={`rounded-2xl p-6 sm:p-8 space-y-6 border-2 transition-all duration-300 ${globalPromo.is_active ? 'border-amber-400 bg-white shadow-card hover:shadow-card-hover' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
           <div className="flex justify-between items-start gap-4">
             <div>
               <h2 className={`font-bold text-lg sm:text-xl flex items-center gap-2 ${globalPromo.is_active ? 'text-amber-700' : 'text-gray-900'}`}>
@@ -289,7 +289,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 }
 
                 return (
-                  <div key={menu.id} className={`p-5 rounded-2xl border-2 transition-all duration-300 ${promo.is_active ? 'bg-blue-50/40 border-blue-300 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
+                  <div key={menu.id} className={`p-5 rounded-2xl border-2 transition-all duration-300 ${promo.is_active ? 'bg-white border-blue-300 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
                     
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
                       <div className="flex-1">

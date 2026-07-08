@@ -23,6 +23,7 @@ const nextConfig = {
     // Tree-shake barrel imports → smaller client bundles
     optimizePackageImports: ['recharts', 'lucide-react'],
   },
+  turbopack: {},
 }
 
 const withSerwist = require('@serwist/next').default({

@@ -113,7 +113,11 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
         throw new Error('Tidak ada outlet aktif untuk diterapkan promo.')
       }
 
-      await savePromosAction(outlets, promos)
+      const result = await savePromosAction(outlets, promos)
+      
+      if (result && !result.success) {
+        throw new Error(result.error || 'Gagal menyimpan promo')
+      }
       
       toast.success('Pengaturan promo berhasil diterapkan ke semua outlet!')
     } catch (err: any) {

@@ -9,7 +9,7 @@ export async function savePromosAction(
   const supabase = await createClient()
 
   if (!outlets || outlets.length === 0) {
-    throw new Error('Tidak ada outlet aktif untuk diterapkan promo.')
+    return { success: false, error: 'Tidak ada outlet aktif untuk diterapkan promo.' }
   }
 
   const outletIds = outlets.map(o => o.id)
@@ -19,7 +19,7 @@ export async function savePromosAction(
     .select('id, outlet_id, scope, menu_item_id')
     .in('outlet_id', outletIds)
 
-  if (fetchError) throw fetchError
+  if (fetchError) return { success: false, error: fetchError.message || JSON.stringify(fetchError) }
 
   const existingMap = new Map<string, string>()
   if (existingPromos) {
@@ -58,7 +58,7 @@ export async function savePromosAction(
 
     if (upsertError) {
       console.error('Upsert Error:', upsertError)
-      throw upsertError
+      return { success: false, error: upsertError.message || JSON.stringify(upsertError) }
     }
   }
 

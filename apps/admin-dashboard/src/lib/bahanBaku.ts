@@ -8,6 +8,8 @@ export interface BahanBakuRaw {
   id: string
   nama: string
   satuan: string
+  satuan_kecil: string | null
+  faktor_konversi: number | null
   kategori: string
   bahan_baku_harga: BahanBakuHargaRow | BahanBakuHargaRow[] | null
 }
@@ -16,6 +18,8 @@ export interface BahanBakuWithHarga {
   id: string
   nama: string
   satuan: string
+  satuan_kecil: string | null
+  faktor_konversi: number | null
   kategori: string
   harga: BahanBakuHargaRow | null
 }
@@ -23,7 +27,7 @@ export interface BahanBakuWithHarga {
 export function normalizeBahanBaku(raw: BahanBakuRaw): BahanBakuWithHarga {
   const embed = raw.bahan_baku_harga
   const harga = Array.isArray(embed) ? (embed[0] ?? null) : (embed ?? null)
-  return { id: raw.id, nama: raw.nama, satuan: raw.satuan, kategori: raw.kategori, harga }
+  return { id: raw.id, nama: raw.nama, satuan: raw.satuan, satuan_kecil: raw.satuan_kecil, faktor_konversi: raw.faktor_konversi, kategori: raw.kategori, harga }
 }
 
 export function filterBahanBaku(rows: BahanBakuWithHarga[], search: string): BahanBakuWithHarga[] {

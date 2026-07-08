@@ -151,56 +151,56 @@ Flowchart integrasi sistem kasir toko (offline) dan pelanggan daring (online) ya
 
 ```mermaid
 flowchart TD
-    Start([Mulai Transaksi]) --> Source{Sumber Pesanan?}
+    Start(["Mulai Transaksi"]) --> Source{"Sumber Pesanan?"}
     
     %% Alur POS Fisik
-    Source -->|Toko Fisik / POS Kasir| ScanItem[Kasir Scan Barcode / Input Produk]
-    ScanItem --> CheckStockOffline{Stok di DB Tersedia?}
-    CheckStockOffline -->|Tidak| RejectOffline[Notifikasi ke Kasir: Stok Habis]
-    CheckStockOffline -->|Ya| CartOffline[Masukkan ke Keranjang POS]
-    CartOffline --> MoreItemsOffline{Tambah Item Lain?}
-    MoreItemsOffline -->|Ya| ScanItem
-    MoreItemsOffline -->|Tidak| PayOffline[Pilih Metode Pembayaran di Kasir]
+    Source -->|"Toko Fisik / POS Kasir"| ScanItem["Kasir Scan Barcode / Input Produk"]
+    ScanItem --> CheckStockOffline{"Stok di DB Tersedia?"}
+    CheckStockOffline -->|"Tidak"| RejectOffline["Notifikasi ke Kasir: Stok Habis"]
+    CheckStockOffline -->|"Ya"| CartOffline["Masukkan ke Keranjang POS"]
+    CartOffline --> MoreItemsOffline{"Tambah Item Lain?"}
+    MoreItemsOffline -->|"Ya"| ScanItem
+    MoreItemsOffline -->|"Tidak"| PayOffline["Pilih Metode Pembayaran di Kasir"]
     
     %% Alur Online
-    Source -->|Online Ordering App| BrowseItem[Pelanggan Pilih Produk di App]
-    BrowseItem --> CheckStockOnline{Stok di DB Tersedia?}
-    CheckStockOnline -->|Tidak| RejectOnline[Tombol Beli Disable]
-    CheckStockOnline -->|Ya| CartOnline[Masukkan ke Keranjang Online]
-    CartOnline --> MoreItemsOnline{Tambah Item Lain?}
-    MoreItemsOnline -->|Ya| BrowseItem
-    MoreItemsOnline -->|Tidak| Checkout[Pelanggan Masuk Halaman Checkout]
-    Checkout --> PayOnline[Pilih Metode Pembayaran]
+    Source -->|"Online Ordering App"| BrowseItem["Pelanggan Pilih Produk di App"]
+    BrowseItem --> CheckStockOnline{"Stok di DB Tersedia?"}
+    CheckStockOnline -->|"Tidak"| RejectOnline["Tombol Beli Disable"]
+    CheckStockOnline -->|"Ya"| CartOnline["Masukkan ke Keranjang Online"]
+    CartOnline --> MoreItemsOnline{"Tambah Item Lain?"}
+    MoreItemsOnline -->|"Ya"| BrowseItem
+    MoreItemsOnline -->|"Tidak"| Checkout["Pelanggan Masuk Halaman Checkout"]
+    Checkout --> PayOnline["Pilih Metode Pembayaran"]
 
     %% Proses Pembayaran
-    PayOffline --> ProcessPayment[Proses Transaksi Pembayaran]
+    PayOffline --> ProcessPayment["Proses Transaksi Pembayaran"]
     PayOnline --> ProcessPayment
     
-    ProcessPayment --> PaymentSuccess{Pembayaran Berhasil?}
-    PaymentSuccess -->|Tidak| FailPayment[Transaksi Gagal / Menunggu Dibayar]
+    ProcessPayment --> PaymentSuccess{"Pembayaran Berhasil?"}
+    PaymentSuccess -->|"Tidak"| FailPayment["Transaksi Gagal / Menunggu Dibayar"]
     FailPayment -.-> ProcessPayment
     
-    PaymentSuccess -->|Ya| GenerateInvoice[Sistem Menerbitkan Invoice & E-Struk]
+    PaymentSuccess -->|"Ya"| GenerateInvoice["Sistem Menerbitkan Invoice & E-Struk"]
     
     %% Pasca Pembayaran
-    GenerateInvoice --> ReduceStock[Sistem Otomatis Mengurangi Stok (Inventory)]
-    ReduceStock --> UpdateStatus[Update Status Pesanan 'Preparing']
+    GenerateInvoice --> ReduceStock["Sistem Otomatis Mengurangi Stok (Inventory)"]
+    ReduceStock --> UpdateStatus["Update Status Pesanan 'Preparing'"]
     
-    UpdateStatus --> KitchenDisplay[Muncul di Layar Dapur / KDS]
-    KitchenDisplay --> FoodReady{Pesanan Selesai Disiapkan?}
+    UpdateStatus --> KitchenDisplay["Muncul di Layar Dapur / KDS"]
+    KitchenDisplay --> FoodReady{"Pesanan Selesai Disiapkan?"}
     
-    FoodReady -->|Belum| KitchenDisplay
-    FoodReady -->|Ya| ReadyStatus[Koki Tekan Selesai, Status 'Ready']
+    FoodReady -->|"Belum"| KitchenDisplay
+    FoodReady -->|"Ya"| ReadyStatus["Koki Tekan Selesai, Status 'Ready'"]
     
-    ReadyStatus --> DeliveryCheck{Tipe Pengiriman?}
-    DeliveryCheck -->|Dine-In / Takeaway| Handover[Antarkan ke Meja / Panggil Pelanggan]
-    DeliveryCheck -->|Online Delivery| CallCourier[Sistem Panggil Kurir (Gojek/Grab)]
+    ReadyStatus --> DeliveryCheck{"Tipe Pengiriman?"}
+    DeliveryCheck -->|"Dine-In / Takeaway"| Handover["Antarkan ke Meja / Panggil Pelanggan"]
+    DeliveryCheck -->|"Online Delivery"| CallCourier["Sistem Panggil Kurir (Gojek/Grab)"]
     
-    CallCourier --> WaitCourier{Kurir Datang?}
-    WaitCourier -->|Belum| WaitCourier
-    WaitCourier -->|Ya| HandoverCourier[Serahkan Pesanan ke Kurir]
+    CallCourier --> WaitCourier{"Kurir Datang?"}
+    WaitCourier -->|"Belum"| WaitCourier
+    WaitCourier -->|"Ya"| HandoverCourier["Serahkan Pesanan ke Kurir"]
     
-    Handover --> Finish([Transaksi Selesai & Laporan Terupdate])
+    Handover --> Finish(["Transaksi Selesai & Laporan Terupdate"])
     HandoverCourier --> Finish
 ```
 

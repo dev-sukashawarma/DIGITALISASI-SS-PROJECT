@@ -74,3 +74,10 @@ package-lock.json
 # Temp/inspection scripts (never commit)
 _tmp_*
 **/_tmp_*
+
+# SS COGS SET — media/data referensi (binari besar, jangan commit)
+SS COGS SET/**/*.jpeg
+SS COGS SET/**/*.jpg
+SS COGS SET/**/*.png
+SS COGS SET/**/*.pdf
+SS COGS SET/*.pdf

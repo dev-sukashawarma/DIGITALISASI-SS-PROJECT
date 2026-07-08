@@ -1,4 +1,4 @@
-# Rencana Selanjutnya — COGS/BOM Suka Shawarma
+﻿# Rencana Selanjutnya — COGS/BOM Suka Shawarma
 
 Status per 2026-07-04 (akhir sesi): **Tahap B, C — SELESAI & TERUJI.** BOM automation aktif & terverifikasi benar di outlet Empang (allowlist). 1 bug kritis ditemukan & diperbaiki selama testing. Tinggal keputusan rollout ke outlet lain + beberapa loose ends non-blocking.
 
@@ -38,7 +38,7 @@ Migration yang sudah applied ke `dev-sukashawarma's Project`:
 **Fix:** `SECURITY DEFINER SET search_path = public` — trigger sekarang konsisten jalan terlepas dari role yang menyelesaikan order (kasir, admin, sinkronisasi online, dll).
 
 ### Bug tambahan ditemukan & diperbaiki (di luar trigger, terkait Tahap C)
-`SuratJalanForm.tsx` & `VerifikasiForm.tsx` (app `distribusi`) pakai `parseInt()` untuk input qty — membuang desimal. Jadi masalah nyata begitu 4 bahan (SAUS CABE/TOMAT, MAYONES, KENTANG, SAOS SAMYANG) pindah ke satuan `kg` (butuh input desimal, mis. "5.5"). **Fix:** `parseInt`→`parseFloat` + `step="0.01"` di kedua file. Sudah type-check bersih, belum di-commit.
+`SuratJalanForm.tsx` & `VerifikasiForm.tsx` (app `distribusi`) pakai `parseInt()` untuk input qty — membuang desimal. Jadi masalah nyata begitu 4 bahan (SAOS CABE, MAYONES, KENTANG, SAOS SAMYANG) pindah ke satuan `kg` (butuh input desimal, mis. "5.5"). **Fix:** `parseInt`→`parseFloat` + `step="0.01"` di kedua file. Sudah type-check bersih, belum di-commit.
 
 ### Hasil testing (outlet Empang, lewat UI kasir asli + verifikasi SQL)
 | Skenario | Hasil |

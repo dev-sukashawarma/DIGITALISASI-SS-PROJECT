@@ -1,0 +1,239 @@
+line,produk,cogs_per_unit,harga_jual,profit_per_piece,margin_pct,bahan,harga_beli,isi_kemasan_qty,isi_kemasan_unit,dipakai_qty,dipakai_unit,subtotal
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Ayam marinasi,47800,1000,gram,100,gram,4780
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Kulit 25cm,27000,20,lembar,1,lembar,1350
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Saos cabe/tomat,15000,1000,gram,50,gram,750
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Mayo,22000,1000,gram,50,gram,1100
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Tum,100000,1000,gram,5,gram,500
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Minyak,23000,1000,gram,25,gram,575
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Kentang goreng,24000,1000,gram,65,gram,1560
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Kertas wrap,160,1,lembar,1,lembar,160
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Plastik,200,1,lembar,1,lembar,200
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Isi gas melon,23000,3000,gram,45,gram,345
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Foil,11800,750,cm,35,cm,551
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Lettuce,28000,1000,gram,60,gram,1680
+ORI AYAM,Shawarma Ayam Sedang,14051,23418,9367,40,Loss,500,1,butir,1,butir,500
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Ayam marinasi,47800,1000,gram,125,gram,5975
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Kulit 28,32000,20,lembar,1,lembar,1600
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Saos cabe tomat,15000,1000,gram,40,gram,600
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Mayo,22000,1000,gram,40,gram,880
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Tum,100000,1000,gram,10,gram,1000
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Minyak,23000,1000,gram,25,gram,575
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Kentang,24000,1000,gram,88,gram,2112
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Kertas wrap,160,1,lembar,1,lembar,160
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Plastik,200,1,lembar,1,lembar,200
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Gas Melon,23000,3000,gram,45,gram,345
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Foil,11800,750,cm,40,cm,629
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Lettuce,28000,1000,gram,65,gram,1820
+ORI AYAM,Shawarma Ayam Besar,16896,28638,11742,41,Loss,1000,1,lembar,1,lembar,1000
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Ayam marinasi,47800,1000,gram,155,gram,7409
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Kulit 32cm,38000,20,lembar,1,lembar,1900
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Saos Cabe tomat,15000,1000,gram,50,gram,750
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Mayo,22000,1000,gram,50,gram,1100
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Tum,100000,1000,gram,10,gram,1000
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Minyak,23000,1000,gram,40,gram,920
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Kentang,24000,1000,gram,140,gram,3360
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Kertas wrap,160,1,lembar,1,lembar,160
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Plastik,200,1,lembar,1,lembar,200
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Gas melon,23000,3000,gram,50,gram,383
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Foil,11800,750,cm,45,cm,708
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Lettuce,28000,1000,gram,80,gram,2240
+ORI AYAM,Shawarma Ayam Jumbo,21130,30186,9056,30,Loss,1000,1,lembar,1,lembar,1000
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Sapi,100000,2000,gram,60,gram,3000
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Kulit 28cm,32000,20,lembar,1,lembar,1600
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Saos cabe /tomat,15000,1000,gram,60,gram,900
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Mayo,22000,1000,gram,60,gram,1320
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Tum,100000,1000,gram,10,gram,1000
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Minyak,23000,1000,gram,35,gram,805
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Kentang goreng,24000,1000,gram,150,gram,3600
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Kertas wrap,160,1,lembar,1,lembar,160
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Plastik,200,1,lembar,1,lembar,200
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Isi gas melon,23000,3000,gram,60,gram,460
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Foil,11800,750,cm,40,cm,629
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Lettuce,28000,1000,gram,70,gram,1960
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Loss,1500,1,lembar,1,lembar,1500
+ORI MIX,Shawarma Mix Besar,20480,29258,8777,30,Ayam,47800,1000,gram,70,gram,3346
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Sapi,100000,2000,gram,120,gram,6000
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Kulit 32cm,38000,20,lembar,1,lembar,1900
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Saos cabe /tomat,15000,1000,gram,60,gram,900
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Mayo,22000,1000,gram,60,gram,1320
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Tum,100000,1000,gram,10,gram,1000
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Minyak,23000,1000,gram,35,gram,805
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Kentang goreng,24000,1000,gram,160,gram,3840
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Kertas wrap,160,1,lembar,1,lembar,160
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Plastik,200,1,lembar,1,lembar,200
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Isi gas melon,23000,3000,gram,60,gram,460
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Foil,11800,750,cm,50,cm,787
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Lettuce,28000,1000,gram,80,gram,2240
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Loss,2000,1,lembar,1,lembar,2000
+ORI MIX,Shawarma Mix Jumbo,26870,38385,11516,30,Ayam,47800,1000,gram,110,gram,5258
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Sapi,100000,2000,gram,110,gram,5500
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Kulit 25cm,27000,20,lembar,1,lembar,1350
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Saos cabe /tomat,15000,1000,gram,50,gram,750
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Mayo,22000,1000,gram,50,gram,1100
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Tum,100000,1000,gram,5,gram,500
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Minyak,23000,1000,gram,25,gram,575
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Kentang goreng,24000,1000,gram,70,gram,1680
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Kertas wrap,160,1,lembar,1,lembar,160
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Plastik,200,1,lembar,1,lembar,200
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Isi gas melon,23000,3000,gram,45,gram,345
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Foil,11800,750,cm,35,cm,551
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Lettuce,28000,1000,gram,60,gram,1680
+ORI SAPI,Shawarma Sapi Sedang,16391,23415,7025,30,Loss,2000,1,lembar,1,lembar,2000
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Sapi,100000,2000,gram,125,gram,6250
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Kulit 28cm,32000,20,lembar,1,lembar,1600
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Saos cabe /tomat,15000,1000,gram,50,gram,750
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Mayo,22000,1000,gram,50,gram,1100
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Tum,100000,1000,gram,10,gram,1000
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Minyak,23000,1000,gram,25,gram,575
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Kentang goreng,24000,1000,gram,90,gram,2160
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Kertas wrap,160,1,lembar,1,lembar,160
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Plastik,200,1,lembar,1,lembar,200
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Isi gas melon,23000,3000,gram,45,gram,345
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Foil,11800,750,cm,40,cm,629
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Lettuce,28000,1000,gram,70,gram,1960
+ORI SAPI,Shawarma Sapi Besar,18729,26756,8027,30,Loss,2000,1,lembar,1,lembar,2000
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Sapi,100000,2000,gram,170,gram,8500
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Kulit 32cm,38000,20,lembar,1,lembar,1900
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Saos cabe /tomat,15000,1000,gram,60,gram,900
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Mayo,22000,1000,gram,60,gram,1320
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Tum,100000,1000,gram,10,gram,1000
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Minyak,23000,1000,gram,35,gram,805
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Kentang goreng,24000,1000,gram,150,gram,3600
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Kertas wrap,160,1,lembar,1,lembar,160
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Plastik,200,1,lembar,1,lembar,200
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Isi gas melon,23000,3000,gram,60,gram,460
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Foil,11800,750,cm,45,cm,708
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Lettuce,28000,1000,gram,80,gram,2240
+ORI SAPI,Shawarma Sapi Jumbo,23793,33990,10197,30,Loss,2000,1,lembar,1,lembar,2000
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Ayam,47800,1000,gram,110,gram,5258
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Kulit 25cm,27000,20,lembar,1,lembar,1350
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Saos cabe /tomat,15000,1000,gram,30,gram,450
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Mie,3000,1,pcs,1,pcs,3000
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Minyak,23000,1000,gram,30,gram,690
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Kertas wrap,160,1,lembar,1,lembar,160
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Lettuce,28000,1000,gram,60,gram,1680
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Isi gas melon,23000,3000,gram,50,gram,383
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Foil,11800,750,cm,35,cm,551
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Plastik,200,1,lembar,1,lembar,200
+SHAWARMIE,Shawarmie Ayam,14722,21031,6309,30,Loss,1000,1,lembar,1,lembar,1000
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Sapi,100000,2000,gram,120,gram,6000
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Kulit 25cm,27000,20,lembar,1,lembar,1350
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Saos cabe /tomat,15000,1000,gram,30,gram,450
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Mie,3000,1,pcs,1,pcs,3000
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Minyak,23000,1000,gram,30,gram,690
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Kertas wrap,160,1,lembar,1,lembar,160
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Lettuce,28000,1000,gram,60,gram,1680
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Isi gas melon,23000,3000,gram,50,gram,383
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Foil,11800,750,cm,35,cm,551
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Plastik,200,1,lembar,1,lembar,200
+SHAWARMIE,Shawarmie Sapi,16464,23520,7056,30,Loss,2000,1,lembar,1,lembar,2000
+SUKA DRINK,Suka Drink,4793,9586,4793,50,Powder mix,56000,1000,gram,40,gram,2240
+SUKA DRINK,Suka Drink,4793,9586,4793,50,Cup+tutup,1650,1,pcs,1,pcs,1650
+SUKA DRINK,Suka Drink,4793,9586,4793,50,Plastik,100,1,lembar,1,lembar,100
+SUKA DRINK,Suka Drink,4793,9586,4793,50,Stiker,400,1,lembar,1,lembar,400
+SUKA DRINK,Suka Drink,4793,9586,4793,50,Es Batu,25000,62,pcs,1,pcs,403
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Sapi slice,100000,2000,gram,65,gram,3250
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Kulit 25cm,27000,20,lembar,1,lembar,1350
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Saos cabe/tomat,15000,1000,gram,30,gram,450
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Mayo,22000,1000,gram,30,gram,660
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Tum,100000,1000,gram,3,gram,300
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Minyak,23000,1000,gram,20,gram,460
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Kentang goreng,24000,1000,gram,30,gram,720
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Kertas wrap,160,1,lembar,1,lembar,160
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Plastik,200,1,lembar,1,lembar,200
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Gas,23000,3000,gram,30,gram,230
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Foil,11800,750,cm,35,cm,551
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Lettuce,28000,1000,gram,30,gram,840
+SUKA REGULER,Shawarma Subsidi,10171,16951,6780,40,Loss,1000,1,butir,1,butir,1000
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Ayam,47800,1000,gram,60,gram,2868
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Kulit 25cm,27000,20,lembar,1,lembar,1350
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Saos cabe/tomat,15000,1000,gram,30,gram,450
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Mayo,22000,1000,gram,30,gram,660
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Tum,100000,1000,gram,3,gram,300
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Minyak,23000,1000,gram,20,gram,460
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Kentang goreng,24000,1000,gram,30,gram,720
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Kertas wrap,160,1,lembar,1,lembar,160
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Plastik,200,1,lembar,1,lembar,200
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Gas,23000,3000,gram,30,gram,230
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Foil,11800,750,cm,35,cm,551
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Lettuce,28000,1000,gram,30,gram,840
+SUKA REGULER,Ayam Sedang Subsidi,9789,16314,6526,40,Lose,1000,1,butir,1,butir,1000
+SUKA REGULER ONLINE,Shawarma Online Reguler,8308,11869,3561,30,Ayam,47800,1000,gram,60,gram,2868
+SUKA REGULER ONLINE,Shawarma Online Reguler,8308,11869,3561,30,Kulit 25,27000,20,lembar,1,lembar,1350
+SUKA REGULER ONLINE,Shawarma Online Reguler,8308,11869,3561,30,Saos cabe/tomat,15000,1000,gram,40,gram,600
+SUKA REGULER ONLINE,Shawarma Online Reguler,8308,11869,3561,30,Tum,100000,1000,gram,3,gram,300
+SUKA REGULER ONLINE,Shawarma Online Reguler,8308,11869,3561,30,Minyak,23000,1000,gram,20,gram,460
+SUKA REGULER ONLINE,Shawarma Online Reguler,8308,11869,3561,30,Gas,23000,3000,gram,30,gram,230
+SUKA REGULER ONLINE,Shawarma Online Reguler,8308,11869,3561,30,Plastik vacum,700,1,lembar,1,lembar,700
+SUKA REGULER ONLINE,Shawarma Online Reguler,8308,11869,3561,30,Dus packing,1300,1,lembar,1,lembar,1300
+SUKA REGULER ONLINE,Shawarma Online Reguler,8308,11869,3561,30,Loss,500,1,butir,1,butir,500
+SUKA REGULER ONLINE,Shawarma Online Reguler Sapi,9115,13021,3906,30,Sapi,105000,2000,gram,70,gram,3675
+SUKA REGULER ONLINE,Shawarma Online Reguler Sapi,9115,13021,3906,30,Kulit 25cm,27000,20,lembar,1,lembar,1350
+SUKA REGULER ONLINE,Shawarma Online Reguler Sapi,9115,13021,3906,30,Saos cabe tomat,15000,1000,gram,40,gram,600
+SUKA REGULER ONLINE,Shawarma Online Reguler Sapi,9115,13021,3906,30,Tum,100000,1000,gram,3,gram,300
+SUKA REGULER ONLINE,Shawarma Online Reguler Sapi,9115,13021,3906,30,Minyak,23000,1000,gram,20,gram,460
+SUKA REGULER ONLINE,Shawarma Online Reguler Sapi,9115,13021,3906,30,Gas melon,23000,3000,gram,30,gram,230
+SUKA REGULER ONLINE,Shawarma Online Reguler Sapi,9115,13021,3906,30,Plastik Vacum,700,1,lembar,1,lembar,700
+SUKA REGULER ONLINE,Shawarma Online Reguler Sapi,9115,13021,3906,30,Dus packing,1300,1,lembar,1,lembar,1300
+SUKA REGULER ONLINE,Shawarma Online Reguler Sapi,9115,13021,3906,30,Loss,500,1,lembar,1,lembar,500
+SUKA REGULER ONLINE,Shawarma Online Reguler Mix,9405,13436,4031,30,Sapi,105000,2000,gram,30,gram,1575
+SUKA REGULER ONLINE,Shawarma Online Reguler Mix,9405,13436,4031,30,Kulit 25cm,27000,20,lembar,1,lembar,1350
+SUKA REGULER ONLINE,Shawarma Online Reguler Mix,9405,13436,4031,30,Saos cabe tomat,15000,1000,gram,40,gram,600
+SUKA REGULER ONLINE,Shawarma Online Reguler Mix,9405,13436,4031,30,Tum,100000,1000,gram,3,gram,300
+SUKA REGULER ONLINE,Shawarma Online Reguler Mix,9405,13436,4031,30,Minyak,23000,1000,gram,20,gram,460
+SUKA REGULER ONLINE,Shawarma Online Reguler Mix,9405,13436,4031,30,Gas melon,23000,3000,gram,30,gram,230
+SUKA REGULER ONLINE,Shawarma Online Reguler Mix,9405,13436,4031,30,Plastik Vacum,700,1,lembar,1,lembar,700
+SUKA REGULER ONLINE,Shawarma Online Reguler Mix,9405,13436,4031,30,Dus packing,1300,1,lembar,1,lembar,1300
+SUKA REGULER ONLINE,Shawarma Online Reguler Mix,9405,13436,4031,30,Loss,500,1,lembar,1,lembar,500
+SUKA REGULER ONLINE,Shawarma Online Reguler Mix,9405,13436,4031,30,Ayam,47800,1000,gram,50,gram,2390
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Sapi,100000,2000,gram,120,gram,6000
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Kulit 25cm,27000,20,lembar,1,lembar,1350
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Saos cabe /tomat,15000,1000,gram,60,gram,900
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Mayo,22000,1000,gram,60,gram,1320
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Tum Putih,100000,1000,gram,10,gram,1000
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Minyak,23000,1000,gram,25,gram,575
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Keju Slice,12000,10,lembar,2,lembar,2400
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Kertas wrap,160,1,lembar,1,lembar,160
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Lettuce,28000,1000,gram,60,gram,1680
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Isi gas melon,23000,3000,gram,60,gram,460
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Foil,11800,750,cm,40,cm,629
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Plastik,200,1,lembar,1,lembar,200
+SUKA SUKA,Suka Beef,18174,25963,7789,30,Loss,1500,1,lembar,1,lembar,1500
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Ayam,47800,1000,gram,110,gram,5258
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Kulit 25cm,27000,20,lembar,1,lembar,1350
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Saos cabe /tomat,15000,1000,gram,60,gram,900
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Mayo,22000,1000,gram,60,gram,1320
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Tum Putih,100000,1000,gram,10,gram,1000
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Minyak,23000,1000,gram,25,gram,575
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Keju Slice,12000,10,lembar,2,lembar,2400
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Kertas wrap,160,1,lembar,1,lembar,160
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Lettuce,28000,1000,gram,60,gram,1680
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Isi gas melon,23000,3000,gram,60,gram,460
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Foil,11800,750,cm,40,cm,629
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Plastik,200,1,lembar,1,lembar,200
+SUKA SUKA,Suka Chicken,16932,24189,7257,30,Loss,1000,1,lembar,1,lembar,1000
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Ayam,47800,1000,gram,120,gram,5736
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Kulit 25cm,27000,20,lembar,1,lembar,1350
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Saos cabe /tomat,15000,1000,gram,60,gram,900
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Kentang,24000,1000,gram,70,gram,1680
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Tepung,18000,1000,gram,50,gram,900
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Minyak,23000,1000,gram,50,gram,1150
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Kertas wrap,160,1,lembar,1,lembar,160
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Lettuce,28000,1000,gram,60,gram,1680
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Isi gas melon,23000,3000,gram,60,gram,460
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Foil,11800,750,cm,40,cm,629
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Plastik,200,1,lembar,1,lembar,200
+SUKA SUKA,Suka Fried Chicken,17845,25493,7648,30,Loss,3000,1,lembar,1,lembar,3000
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Ayam,47800,1000,gram,120,gram,5736
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Kulit 25cm,27000,20,lembar,1,lembar,1350
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Saos cabe /tomat,15000,1000,gram,60,gram,900
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Kentang,24000,1000,gram,70,gram,1680
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Tepung,18000,1000,gram,50,gram,900
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Minyak,23000,1000,gram,50,gram,1150
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Kertas wrap,160,1,lembar,1,lembar,160
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Lettuce,28000,1000,gram,60,gram,1680
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Isi gas melon,23000,3000,gram,60,gram,460
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Foil,11800,750,cm,40,cm,629
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Plastik,200,1,lembar,1,lembar,200
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Saos Samyang,14500,1000,gram,70,gram,1015
+SUKA SUKA,Suka Samyang,17860,25515,7654,30,Loss,2000,1,lembar,1,lembar,2000

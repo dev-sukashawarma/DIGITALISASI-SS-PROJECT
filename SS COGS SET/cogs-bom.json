@@ -1,0 +1,376 @@
+{
+  "meta": {
+    "source": "WhatsApp COGS calculator screenshots (2026-07-02)",
+    "transcribed": "2026-07-04",
+    "currency": "IDR",
+    "product_count": 20,
+    "field_notes": {
+      "harga_beli": "purchase price of the full package (isi_kemasan)",
+      "isi_kemasan": "package size the harga_beli buys",
+      "dipakai": "quantity consumed per portion/unit",
+      "subtotal": "cost of the dipakai portion (as shown on card; unit cost = harga_beli / isi_kemasan_qty * dipakai_qty)",
+      "cogs_per_unit": "sum of subtotals per finished unit",
+      "margin_pct": "as displayed on the card"
+    }
+  },
+  "products": [
+    {
+      "line": "ORI AYAM", "produk": "Shawarma Ayam Sedang",
+      "cogs_per_unit": 14051, "harga_jual": 23418, "profit_per_piece": 9367, "margin_pct": 40.0,
+      "items": [
+        { "bahan": "Ayam marinasi", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 100, "dipakai_unit": "gram", "subtotal": 4780 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe/tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 750 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 1100 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 5, "dipakai_unit": "gram", "subtotal": 500 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 25, "dipakai_unit": "gram", "subtotal": 575 },
+        { "bahan": "Kentang goreng", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 65, "dipakai_unit": "gram", "subtotal": 1560 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 45, "dipakai_unit": "gram", "subtotal": 345 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 35, "dipakai_unit": "cm", "subtotal": 551 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Loss", "harga_beli": 500, "isi_kemasan_qty": 1, "isi_kemasan_unit": "butir", "dipakai_qty": 1, "dipakai_unit": "butir", "subtotal": 500 }
+      ]
+    },
+    {
+      "line": "ORI AYAM", "produk": "Shawarma Ayam Besar",
+      "cogs_per_unit": 16896, "harga_jual": 28638, "profit_per_piece": 11742, "margin_pct": 41.0,
+      "items": [
+        { "bahan": "Ayam marinasi", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 125, "dipakai_unit": "gram", "subtotal": 5975 },
+        { "bahan": "Kulit 28", "harga_beli": 32000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1600 },
+        { "bahan": "Saos cabe tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 40, "dipakai_unit": "gram", "subtotal": 600 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 40, "dipakai_unit": "gram", "subtotal": 880 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 10, "dipakai_unit": "gram", "subtotal": 1000 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 25, "dipakai_unit": "gram", "subtotal": 575 },
+        { "bahan": "Kentang", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 88, "dipakai_unit": "gram", "subtotal": 2112 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Gas Melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 45, "dipakai_unit": "gram", "subtotal": 345 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 40, "dipakai_unit": "cm", "subtotal": 629 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 65, "dipakai_unit": "gram", "subtotal": 1820 },
+        { "bahan": "Loss", "harga_beli": 1000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1000 }
+      ]
+    },
+    {
+      "line": "ORI AYAM", "produk": "Shawarma Ayam Jumbo",
+      "cogs_per_unit": 21130, "harga_jual": 30186, "profit_per_piece": 9056, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Ayam marinasi", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 155, "dipakai_unit": "gram", "subtotal": 7409 },
+        { "bahan": "Kulit 32cm", "harga_beli": 38000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1900 },
+        { "bahan": "Saos Cabe tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 750 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 1100 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 10, "dipakai_unit": "gram", "subtotal": 1000 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 40, "dipakai_unit": "gram", "subtotal": 920 },
+        { "bahan": "Kentang", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 140, "dipakai_unit": "gram", "subtotal": 3360 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 383 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 45, "dipakai_unit": "cm", "subtotal": 708 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 80, "dipakai_unit": "gram", "subtotal": 2240 },
+        { "bahan": "Loss", "harga_beli": 1000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1000 }
+      ]
+    },
+    {
+      "line": "ORI MIX", "produk": "Shawarma Mix Besar",
+      "cogs_per_unit": 20480, "harga_jual": 29258, "profit_per_piece": 8777, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Sapi", "harga_beli": 100000, "isi_kemasan_qty": 2000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 3000 },
+        { "bahan": "Kulit 28cm", "harga_beli": 32000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1600 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 900 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1320 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 10, "dipakai_unit": "gram", "subtotal": 1000 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 35, "dipakai_unit": "gram", "subtotal": 805 },
+        { "bahan": "Kentang goreng", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 150, "dipakai_unit": "gram", "subtotal": 3600 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 40, "dipakai_unit": "cm", "subtotal": 629 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 70, "dipakai_unit": "gram", "subtotal": 1960 },
+        { "bahan": "Loss", "harga_beli": 1500, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1500 },
+        { "bahan": "Ayam", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 70, "dipakai_unit": "gram", "subtotal": 3346 }
+      ]
+    },
+    {
+      "line": "ORI MIX", "produk": "Shawarma Mix Jumbo",
+      "cogs_per_unit": 26870, "harga_jual": 38385, "profit_per_piece": 11516, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Sapi", "harga_beli": 100000, "isi_kemasan_qty": 2000, "isi_kemasan_unit": "gram", "dipakai_qty": 120, "dipakai_unit": "gram", "subtotal": 6000 },
+        { "bahan": "Kulit 32cm", "harga_beli": 38000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1900 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 900 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1320 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 10, "dipakai_unit": "gram", "subtotal": 1000 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 35, "dipakai_unit": "gram", "subtotal": 805 },
+        { "bahan": "Kentang goreng", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 160, "dipakai_unit": "gram", "subtotal": 3840 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 50, "dipakai_unit": "cm", "subtotal": 787 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 80, "dipakai_unit": "gram", "subtotal": 2240 },
+        { "bahan": "Loss", "harga_beli": 2000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 2000 },
+        { "bahan": "Ayam", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 110, "dipakai_unit": "gram", "subtotal": 5258 }
+      ]
+    },
+    {
+      "line": "ORI SAPI", "produk": "Shawarma Sapi Sedang",
+      "cogs_per_unit": 16391, "harga_jual": 23415, "profit_per_piece": 7025, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Sapi", "harga_beli": 100000, "isi_kemasan_qty": 2000, "isi_kemasan_unit": "gram", "dipakai_qty": 110, "dipakai_unit": "gram", "subtotal": 5500 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 750 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 1100 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 5, "dipakai_unit": "gram", "subtotal": 500 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 25, "dipakai_unit": "gram", "subtotal": 575 },
+        { "bahan": "Kentang goreng", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 70, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 45, "dipakai_unit": "gram", "subtotal": 345 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 35, "dipakai_unit": "cm", "subtotal": 551 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Loss", "harga_beli": 2000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 2000 }
+      ]
+    },
+    {
+      "line": "ORI SAPI", "produk": "Shawarma Sapi Besar",
+      "cogs_per_unit": 18729, "harga_jual": 26756, "profit_per_piece": 8027, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Sapi", "harga_beli": 100000, "isi_kemasan_qty": 2000, "isi_kemasan_unit": "gram", "dipakai_qty": 125, "dipakai_unit": "gram", "subtotal": 6250 },
+        { "bahan": "Kulit 28cm", "harga_beli": 32000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1600 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 750 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 1100 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 10, "dipakai_unit": "gram", "subtotal": 1000 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 25, "dipakai_unit": "gram", "subtotal": 575 },
+        { "bahan": "Kentang goreng", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 90, "dipakai_unit": "gram", "subtotal": 2160 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 45, "dipakai_unit": "gram", "subtotal": 345 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 40, "dipakai_unit": "cm", "subtotal": 629 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 70, "dipakai_unit": "gram", "subtotal": 1960 },
+        { "bahan": "Loss", "harga_beli": 2000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 2000 }
+      ]
+    },
+    {
+      "line": "ORI SAPI", "produk": "Shawarma Sapi Jumbo",
+      "cogs_per_unit": 23793, "harga_jual": 33990, "profit_per_piece": 10197, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Sapi", "harga_beli": 100000, "isi_kemasan_qty": 2000, "isi_kemasan_unit": "gram", "dipakai_qty": 170, "dipakai_unit": "gram", "subtotal": 8500 },
+        { "bahan": "Kulit 32cm", "harga_beli": 38000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1900 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 900 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1320 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 10, "dipakai_unit": "gram", "subtotal": 1000 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 35, "dipakai_unit": "gram", "subtotal": 805 },
+        { "bahan": "Kentang goreng", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 150, "dipakai_unit": "gram", "subtotal": 3600 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 45, "dipakai_unit": "cm", "subtotal": 708 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 80, "dipakai_unit": "gram", "subtotal": 2240 },
+        { "bahan": "Loss", "harga_beli": 2000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 2000 }
+      ]
+    },
+    {
+      "line": "SHAWARMIE", "produk": "Shawarmie Ayam",
+      "cogs_per_unit": 14722, "harga_jual": 21031, "profit_per_piece": 6309, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Ayam", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 110, "dipakai_unit": "gram", "subtotal": 5258 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 450 },
+        { "bahan": "Mie", "harga_beli": 3000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "pcs", "dipakai_qty": 1, "dipakai_unit": "pcs", "subtotal": 3000 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 690 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 383 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 35, "dipakai_unit": "cm", "subtotal": 551 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Loss", "harga_beli": 1000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1000 }
+      ]
+    },
+    {
+      "line": "SHAWARMIE", "produk": "Shawarmie Sapi",
+      "cogs_per_unit": 16464, "harga_jual": 23520, "profit_per_piece": 7056, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Sapi", "harga_beli": 100000, "isi_kemasan_qty": 2000, "isi_kemasan_unit": "gram", "dipakai_qty": 120, "dipakai_unit": "gram", "subtotal": 6000 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 450 },
+        { "bahan": "Mie", "harga_beli": 3000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "pcs", "dipakai_qty": 1, "dipakai_unit": "pcs", "subtotal": 3000 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 690 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 383 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 35, "dipakai_unit": "cm", "subtotal": 551 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Loss", "harga_beli": 2000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 2000 }
+      ]
+    },
+    {
+      "line": "SUKA DRINK", "produk": "Suka Drink",
+      "cogs_per_unit": 4793, "harga_jual": 9586, "profit_per_piece": 4793, "margin_pct": 50.0,
+      "items": [
+        { "bahan": "Powder mix", "harga_beli": 56000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 40, "dipakai_unit": "gram", "subtotal": 2240 },
+        { "bahan": "Cup+tutup", "harga_beli": 1650, "isi_kemasan_qty": 1, "isi_kemasan_unit": "pcs", "dipakai_qty": 1, "dipakai_unit": "pcs", "subtotal": 1650 },
+        { "bahan": "Plastik", "harga_beli": 100, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 100 },
+        { "bahan": "Stiker", "harga_beli": 400, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 400 },
+        { "bahan": "Es Batu", "harga_beli": 25000, "isi_kemasan_qty": 62, "isi_kemasan_unit": "pcs", "dipakai_qty": 1, "dipakai_unit": "pcs", "subtotal": 403 }
+      ]
+    },
+    {
+      "line": "SUKA REGULER", "produk": "Shawarma Subsidi",
+      "cogs_per_unit": 10171, "harga_jual": 16951, "profit_per_piece": 6780, "margin_pct": 40.0,
+      "items": [
+        { "bahan": "Sapi slice", "harga_beli": 100000, "isi_kemasan_qty": 2000, "isi_kemasan_unit": "gram", "dipakai_qty": 65, "dipakai_unit": "gram", "subtotal": 3250 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe/tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 450 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 660 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 3, "dipakai_unit": "gram", "subtotal": 300 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 20, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Kentang goreng", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 720 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Gas", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 230 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 35, "dipakai_unit": "cm", "subtotal": 551 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 840 },
+        { "bahan": "Loss", "harga_beli": 1000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "butir", "dipakai_qty": 1, "dipakai_unit": "butir", "subtotal": 1000 }
+      ]
+    },
+    {
+      "line": "SUKA REGULER", "produk": "Ayam Sedang Subsidi",
+      "cogs_per_unit": 9789, "harga_jual": 16314, "profit_per_piece": 6526, "margin_pct": 40.0,
+      "items": [
+        { "bahan": "Ayam", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 2868 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe/tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 450 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 660 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 3, "dipakai_unit": "gram", "subtotal": 300 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 20, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Kentang goreng", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 720 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Gas", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 230 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 35, "dipakai_unit": "cm", "subtotal": 551 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 840 },
+        { "bahan": "Lose", "harga_beli": 1000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "butir", "dipakai_qty": 1, "dipakai_unit": "butir", "subtotal": 1000 }
+      ]
+    },
+    {
+      "line": "SUKA REGULER ONLINE", "produk": "Shawarma Online Reguler",
+      "cogs_per_unit": 8308, "harga_jual": 11869, "profit_per_piece": 3561, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Ayam", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 2868 },
+        { "bahan": "Kulit 25", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe/tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 40, "dipakai_unit": "gram", "subtotal": 600 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 3, "dipakai_unit": "gram", "subtotal": 300 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 20, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Gas", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 230 },
+        { "bahan": "Plastik vacum", "harga_beli": 700, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 700 },
+        { "bahan": "Dus packing", "harga_beli": 1300, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1300 },
+        { "bahan": "Loss", "harga_beli": 500, "isi_kemasan_qty": 1, "isi_kemasan_unit": "butir", "dipakai_qty": 1, "dipakai_unit": "butir", "subtotal": 500 }
+      ]
+    },
+    {
+      "line": "SUKA REGULER ONLINE", "produk": "Shawarma Online Reguler Sapi",
+      "cogs_per_unit": 9115, "harga_jual": 13021, "profit_per_piece": 3906, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Sapi", "harga_beli": 105000, "isi_kemasan_qty": 2000, "isi_kemasan_unit": "gram", "dipakai_qty": 70, "dipakai_unit": "gram", "subtotal": 3675 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 40, "dipakai_unit": "gram", "subtotal": 600 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 3, "dipakai_unit": "gram", "subtotal": 300 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 20, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 230 },
+        { "bahan": "Plastik Vacum", "harga_beli": 700, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 700 },
+        { "bahan": "Dus packing", "harga_beli": 1300, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1300 },
+        { "bahan": "Loss", "harga_beli": 500, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 500 }
+      ]
+    },
+    {
+      "line": "SUKA REGULER ONLINE", "produk": "Shawarma Online Reguler Mix",
+      "cogs_per_unit": 9405, "harga_jual": 13436, "profit_per_piece": 4031, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Sapi", "harga_beli": 105000, "isi_kemasan_qty": 2000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 1575 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 40, "dipakai_unit": "gram", "subtotal": 600 },
+        { "bahan": "Tum", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 3, "dipakai_unit": "gram", "subtotal": 300 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 20, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 30, "dipakai_unit": "gram", "subtotal": 230 },
+        { "bahan": "Plastik Vacum", "harga_beli": 700, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 700 },
+        { "bahan": "Dus packing", "harga_beli": 1300, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1300 },
+        { "bahan": "Loss", "harga_beli": 500, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 500 },
+        { "bahan": "Ayam", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 2390 }
+      ]
+    },
+    {
+      "line": "SUKA SUKA", "produk": "Suka Beef",
+      "cogs_per_unit": 18174, "harga_jual": 25963, "profit_per_piece": 7789, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Sapi", "harga_beli": 100000, "isi_kemasan_qty": 2000, "isi_kemasan_unit": "gram", "dipakai_qty": 120, "dipakai_unit": "gram", "subtotal": 6000 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 900 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1320 },
+        { "bahan": "Tum Putih", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 10, "dipakai_unit": "gram", "subtotal": 1000 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 25, "dipakai_unit": "gram", "subtotal": 575 },
+        { "bahan": "Keju Slice", "harga_beli": 12000, "isi_kemasan_qty": 10, "isi_kemasan_unit": "lembar", "dipakai_qty": 2, "dipakai_unit": "lembar", "subtotal": 2400 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 40, "dipakai_unit": "cm", "subtotal": 629 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Loss", "harga_beli": 1500, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1500 }
+      ]
+    },
+    {
+      "line": "SUKA SUKA", "produk": "Suka Chicken",
+      "cogs_per_unit": 16932, "harga_jual": 24189, "profit_per_piece": 7257, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Ayam", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 110, "dipakai_unit": "gram", "subtotal": 5258 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 900 },
+        { "bahan": "Mayo", "harga_beli": 22000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1320 },
+        { "bahan": "Tum Putih", "harga_beli": 100000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 10, "dipakai_unit": "gram", "subtotal": 1000 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 25, "dipakai_unit": "gram", "subtotal": 575 },
+        { "bahan": "Keju Slice", "harga_beli": 12000, "isi_kemasan_qty": 10, "isi_kemasan_unit": "lembar", "dipakai_qty": 2, "dipakai_unit": "lembar", "subtotal": 2400 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 40, "dipakai_unit": "cm", "subtotal": 629 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Loss", "harga_beli": 1000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1000 }
+      ]
+    },
+    {
+      "line": "SUKA SUKA", "produk": "Suka Fried Chicken",
+      "cogs_per_unit": 17845, "harga_jual": 25493, "profit_per_piece": 7648, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Ayam", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 120, "dipakai_unit": "gram", "subtotal": 5736 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 900 },
+        { "bahan": "Kentang", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 70, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Tepung", "harga_beli": 18000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 900 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 1150 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 40, "dipakai_unit": "cm", "subtotal": 629 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Loss", "harga_beli": 3000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 3000 }
+      ]
+    },
+    {
+      "line": "SUKA SUKA", "produk": "Suka Samyang",
+      "cogs_per_unit": 17860, "harga_jual": 25515, "profit_per_piece": 7654, "margin_pct": 30.0,
+      "items": [
+        { "bahan": "Ayam", "harga_beli": 47800, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 120, "dipakai_unit": "gram", "subtotal": 5736 },
+        { "bahan": "Kulit 25cm", "harga_beli": 27000, "isi_kemasan_qty": 20, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 1350 },
+        { "bahan": "Saos cabe /tomat", "harga_beli": 15000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 900 },
+        { "bahan": "Kentang", "harga_beli": 24000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 70, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Tepung", "harga_beli": 18000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 900 },
+        { "bahan": "Minyak", "harga_beli": 23000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 50, "dipakai_unit": "gram", "subtotal": 1150 },
+        { "bahan": "Kertas wrap", "harga_beli": 160, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 160 },
+        { "bahan": "Lettuce", "harga_beli": 28000, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 1680 },
+        { "bahan": "Isi gas melon", "harga_beli": 23000, "isi_kemasan_qty": 3000, "isi_kemasan_unit": "gram", "dipakai_qty": 60, "dipakai_unit": "gram", "subtotal": 460 },
+        { "bahan": "Foil", "harga_beli": 11800, "isi_kemasan_qty": 750, "isi_kemasan_unit": "cm", "dipakai_qty": 40, "dipakai_unit": "cm", "subtotal": 629 },
+        { "bahan": "Plastik", "harga_beli": 200, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 200 },
+        { "bahan": "Saos Samyang", "harga_beli": 14500, "isi_kemasan_qty": 1000, "isi_kemasan_unit": "gram", "dipakai_qty": 70, "dipakai_unit": "gram", "subtotal": 1015 },
+        { "bahan": "Loss", "harga_beli": 2000, "isi_kemasan_qty": 1, "isi_kemasan_unit": "lembar", "dipakai_qty": 1, "dipakai_unit": "lembar", "subtotal": 2000 }
+      ]
+    }
+  ]
+}

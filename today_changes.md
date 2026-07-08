@@ -12,9 +12,15 @@ Kategori yang sebelumnya terlalu banyak (seperti protein, sayur, dll.) telah dis
 4. 📦 **Kemasan**
 5. 📋 **Lainnya**
 
-**Perubahan Sistem:**
+**Perubahan Sistem & UI:**
 - Opsi kategori di form Master Bahan Baku / Supplier (`admin-dashboard`) telah dikunci ke 5 opsi ini.
-- Tampilan Monitoring Stok (`stok` / dapur) diperbarui agar otomatis meletakkan semua bahan dengan kategori "Item Core" di urutan paling atas.
+- Tampilan Monitoring Stok (`stok` / dapur) komponen `CrewList` telah dirombak menjadi **tabel dengan 5 kolom eksplisit** agar informasinya lebih jelas:
+  1. Nama Item & Storage Location
+  2. Threshold
+  3. Sat. Besar (Kemasan utuh)
+  4. Sat. Kecil (Pecahan, ditandai `-` jika kosong)
+  5. Status (Ready / Warning / Kritis)
+- Otomatis meletakkan semua bahan dengan kategori "Item Core" di urutan paling atas.
 
 ## 2. Pembersihan Data Database (Live)
 Untuk menghindari kebingungan nama yang serupa, dilakukan penyesuaian (deduplikasi) data riil langsung ke database Supabase:
@@ -23,6 +29,12 @@ Untuk menghindari kebingungan nama yang serupa, dilakukan penyesuaian (deduplika
 - `SAUS X HOT` telah dinonaktifkan (archived / is_active = false)
 - `SAOS SAMYANG` tetap dipertahankan
 Sistem kini secara seragam hanya mengenali 3 varian saos.
+
+**Perbaikan Database (Force Migration & Patching Kategori)**
+- Menemukan dan menghapus *Check Constraint* lama (`bahan_baku_kategori_check`) di database yang sebelumnya memblokir transisi kategori.
+- Melakukan *data patching* secara permanen di database, memindahkan item secara definitif:
+  - **Item Core** kini mencakup 13 item (termasuk *Kulit, Ayam, Sapi, Kentang, Lettuce, Keju, Mayones, Minyak Sayur, Saos Cabe, Saos Tomat, Tum, Gas 3Kg*).
+  - **Bumbu** kini mencakup *Bawang* beserta rempah dan tepung.
 
 ## 3. Sinkronisasi Antar Aplikasi
 Karena data ditarik secara dinamis dari tabel `bahan_baku`, perubahan nama di atas otomatis tersinkronisasi tanpa memerlukan penyesuaian hardcode pada aplikasi POS, Owner Dashboard, maupun Admin.

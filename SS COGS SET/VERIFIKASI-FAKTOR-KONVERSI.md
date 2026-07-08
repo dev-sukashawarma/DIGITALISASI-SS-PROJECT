@@ -44,12 +44,14 @@ Rumus potong stok nanti: `qty_potong (satuan stok) = qty_resep (satuan pakai) ×
 
 ---
 
-## Bahan lain (belum dipakai resep saat ini) — faktor default 1
-Berdasarkan sistem kategori yang baru, bahan-bahan ini dikelompokkan sebagai berikut:
+## Pengelompokan 5 Kategori Utama (Update 2026-07-08)
+Berdasarkan sistem kategori yang baru, seluruh bahan baku dikelompokkan secara definitif sebagai berikut:
 
-- 🌶️ **Bumbu**: BAWANG, SASA, GARAM, KUNYIT, KETUMBAR, KAYU MANIS, JINTEN, CENGKEH, SAOS TOMAT
-- 📦 **Kemasan**: POLYBAG, PLASTIK BESAR, PLASTIK KECIL
-- 📋 **Lainnya**: SARUNG TANGAN BENI, KERTAS STRUK, SABUN
+- ⭐ **Item Core**: AYAM, KEJU, KENTANG, KULIT 25, KULIT 28, KULIT 32, LETTUCE, MAYONES, MINYAK SAYUR, SAOS CABE, SAOS TOMAT, SAPI, TUM
+- 🌶️ **Bumbu**: BAWANG, CENGKEH, GARAM, JINTEN, KAYU MANIS, KETUMBAR, KUNYIT, SAOS SAMYANG, SASA, SAUS CABE/TOMAT, SAUS TOMAT, SAUS X HOT, TEPUNG
+- 📦 **Kemasan**: CUP + TUTUP, DUS PACKING, FOIL, KERTAS STRUK, PAPER WRAP, PLASTIK BESAR, PLASTIK KECIL, PLASTIK MERAH, PLASTIK VACUM, POLYBAG, SARUNG TANGAN BENI, STIKER
+- 🥤 **Minuman**: ES BATU, POWDER MIX
+- 📋 **Lainnya**: GAS 3Kg, MIE, SABUN
 
 > Faktor 1 di sini **bukan berarti benar** — hanya karena belum ada resep yang memakainya, jadi belum ada urgensi dihitung. **WAJIB diisi dengan angka benar** sebelum bahan-bahan ini dipakai di resep baru nanti.
 

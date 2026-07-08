@@ -1,4 +1,6 @@
-﻿# Verifikasi Bahan Baku — Perlu Konfirmasi Atasan
+# Verifikasi Bahan Baku — Perlu Konfirmasi Atasan
+
+> **[UPDATE 2026-07-08]**: Seluruh kategori bahan baku di database kini telah dirampingkan dan dikunci ke 5 opsi utama: **Item Core**, **Bumbu**, **Minuman**, **Kemasan**, dan **Lainnya**. Dokumen ini awalnya ditulis menggunakan pengelompokan lama (seperti 'saus', 'protein', 'sayur'). Referensi akhir kategori silakan merujuk ke perbaikan terbaru (contoh: Ayam, Sapi, Saos Cabe, Minyak Sayur, Gas 3Kg sekarang berada di **Item Core**).
 
 Dokumen ini merangkum semua **asumsi & keputusan yang perlu dikonfirmasi** sebelum data COGS (dari 20 kartu WhatsApp) dimasukkan resmi ke database (`bahan_baku`, `resep`, `resep_item`). Isi ✅/❌ atau jawaban di kolom kanan.
 
@@ -21,7 +23,7 @@ Semua file draft sudah **diverifikasi ulang otomatis** — qty, satuan, dan refe
 
 | Nama diusulkan | Satuan diusulkan | Kategori diusulkan | Dipakai di produk | Konfirmasi atasan |
 |---|---|---|---|---|
-| SAOS CABE | crt | saus | 11 produk (semua Shawarma/Suka) | [ ] Setuju &nbsp; [ ] Ubah: _______ |
+| SAOS CABE | crt | item core | 11 produk (semua Shawarma/Suka) | [ ] Setuju &nbsp; [ ] Ubah: _______ |
 | PLASTIK VACUM | pcs | kemasan | 2 produk Online | [ ] Setuju &nbsp; [ ] Ubah: _______ |
 | CUP + TUTUP | pcs | kemasan | Suka Drink | [ ] Setuju &nbsp; [ ] Ubah: _______ |
 | DUS PACKING | pcs | kemasan | 3 produk Online | [ ] Setuju &nbsp; [ ] Ubah: _______ |

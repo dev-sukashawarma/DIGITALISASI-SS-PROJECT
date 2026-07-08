@@ -1,4 +1,6 @@
-﻿# Normalisasi Nama Bahan — COGS Cards → `bahan_baku` (DB master)
+# Normalisasi Nama Bahan — COGS Cards → `bahan_baku` (DB master)
+
+> **[UPDATE 2026-07-08]**: Sistem kategori di DB telah diubah dari pengelompokan lama (protein, sayur, saus, dll) ke **5 kategori utama**: Item Core, Bumbu, Minuman, Kemasan, dan Lainnya. Tabel di bawah ini awalnya menggunakan draft kategori lama, harap disesuaikan dengan posisi terbarunya.
 
 Sumber master: `supabase/migrations/20260609001800_seed_sample_stok.sql` (tabel `bahan_baku`, `nama` UNIQUE).
 Data COGS: `cogs-bom.json` (20 produk). Hasil normalisasi: `cogs-bom-normalized.json` / `.csv` (field `bahan_db`, `match`, `is_material`).
@@ -34,7 +36,7 @@ Data COGS: `cogs-bom.json` (20 produk). Hasil normalisasi: `cogs-bom-normalized.
 ### 🆕 Bahan baru (perlu di-insert ke master)
 | Label di card | → `bahan_baku.nama` (baru) | satuan | kategori |
 |---|---|---|---|
-| Saos cabe/tomat (+varian ejaan) | SAOS CABE | crt | saus |
+| Saos cabe/tomat (+varian ejaan) | SAOS CABE | crt | item core |
 | Plastik vacum / Plastik Vacum | PLASTIK VACUM | pcs | kemasan |
 | Cup+tutup | CUP + TUTUP | pcs | kemasan |
 | Dus packing | DUS PACKING | pcs | kemasan |

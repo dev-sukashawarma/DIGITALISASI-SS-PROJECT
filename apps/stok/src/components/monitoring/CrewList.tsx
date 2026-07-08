@@ -185,8 +185,6 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
           <div className="flex flex-col">
             <span className="font-semibold text-gray-900 text-sm">{item.item_name}</span>
             <span className="text-[11px] text-gray-400">
-              {getKategoriLabel(item.kategori)}
-              <span className="mx-1 opacity-40">·</span>
               {getStorageLocation(item.kategori, item.item_name)}
             </span>
           </div>

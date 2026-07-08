@@ -5,7 +5,6 @@ import { Loader2, ArrowLeft, Save, Bold, Italic, Heading1, Heading2, List, ListO
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { Button } from '@suka/design-system'
 import { toast } from 'sonner'
-import Link from 'next/link'
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'

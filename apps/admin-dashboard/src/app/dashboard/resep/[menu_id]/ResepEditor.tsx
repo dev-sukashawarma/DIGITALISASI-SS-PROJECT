@@ -31,11 +31,6 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
     return m
   }, [bahanBakuList])
 
-  const bahanNameById = useMemo(() => {
-    const m: Record<string, string> = {}
-    for (const bb of bahanBakuList as any[]) m[bb.id] = bb.nama
-    return m
-  }, [bahanBakuList])
 
   const hpp = useMemo(
     () =>

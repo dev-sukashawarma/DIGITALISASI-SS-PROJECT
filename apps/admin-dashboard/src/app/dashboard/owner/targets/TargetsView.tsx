@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
 import { rupiah } from '@/lib/format'
@@ -164,7 +164,6 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
   const hasTarget = targetInput.trim() !== '' && Number.isFinite(targetAmount) && targetAmount >= 0
   const hasMessage = body.trim().length > 0
   const audienceValid = audienceAll || selectedOutlets.size > 0
-  const canSend = (hasTarget || hasMessage) && audienceValid && !sending
 
   const submit = async () => {
     if (sending) return
@@ -223,7 +222,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     setSavingKey(outletId)
     const { error } = await supabase.rpc('set_daily_target', { p_outlet: outletId, p_amount: amount })
     setSavingKey(null)
-    if (error) return toast.error(error.message)
+    if (error) { toast.error(error.message); return; }
     setOverrideInputs((m) => ({ ...m, [outletId]: '' }))
     flashSaved(outletId)
     await loadTargets()
@@ -233,14 +232,14 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     setSavingKey(outletId)
     const { error } = await supabase.rpc('clear_daily_target_override', { p_outlet: outletId })
     setSavingKey(null)
-    if (error) return toast.error(error.message)
+    if (error) { toast.error(error.message); return; }
     flashSaved(outletId)
     await loadTargets()
   }
 
   const deactivateMessage = async (id: string) => {
     const { error } = await supabase.from('owner_messages').update({ is_active: false }).eq('id', id)
-    if (error) return toast.error(error.message)
+    if (error) { toast.error(error.message); return; }
     await loadHistory()
   }
 

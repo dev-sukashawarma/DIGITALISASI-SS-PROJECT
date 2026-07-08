@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
-  FileText, Calendar, ChevronDown, Award, Clock, Banknote,
-  QrCode, CreditCard, Package, Download, Search, CheckCircle2, XCircle, Printer, Wallet
+  FileText, Calendar, ChevronDown, Award, Banknote,
+  QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { cleanItemName } from '@/lib/order-item-name'

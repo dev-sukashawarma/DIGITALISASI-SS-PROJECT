@@ -99,7 +99,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   return NextResponse.json({ success: true })
 }
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const isAdmin = await verifyAdmin()
   if (!isAdmin) {
     return NextResponse.json({ error: 'Akses ditolak. Harus Admin.' }, { status: 403 })

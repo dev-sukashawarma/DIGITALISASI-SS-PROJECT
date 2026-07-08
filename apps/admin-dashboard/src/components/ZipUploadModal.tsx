@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import {
   X, Upload, FileArchive, Sparkles,
-  Check, AlertCircle, Package, ImageIcon,
+  Check, AlertCircle, ImageIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import type { Category } from '@/pos-types'

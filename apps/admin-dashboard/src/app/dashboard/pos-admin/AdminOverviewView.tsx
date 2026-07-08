@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
-  TrendingUp, TrendingDown, ShoppingBag, Banknote, Clock, ArrowUpRight,
-  Store, ChevronDown, Calendar, Globe, Monitor, Layers
+  TrendingUp, TrendingDown, ShoppingBag, Banknote, Clock, Store, ChevronDown, Calendar, Globe, Monitor, Layers
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
@@ -27,16 +26,14 @@ import {
 export default function AdminOverviewView({
   initialOutlets,
   initialOrders,
-  initialChartDaily,
-  initialDateRange
+  initialChartDaily
 }: {
   initialOutlets: Outlet[],
   initialOrders: OrderRow[],
-  initialChartDaily: { sales_date: string; omzet: number }[],
-  initialDateRange: any
+  initialChartDaily: { sales_date: string; omzet: number }[]
 }) {
   const [orders, setOrders] = useState<OrderRow[]>(initialOrders)
-  const [outlets, setOutlets] = useState<Outlet[]>(initialOutlets)
+  const [outlets] = useState<Outlet[]>(initialOutlets)
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
   const [loading, setLoading] = useState(false)
 

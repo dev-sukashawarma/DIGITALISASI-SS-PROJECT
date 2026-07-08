@@ -44,14 +44,11 @@ export default async function AdminOverviewPage() {
     })()
   ])
 
-  const initialDateRange = resolveRange('30days', '', '')
-
   return (
     <AdminOverviewView 
       initialOutlets={(outletsRes.data as Outlet[]) ?? []}
       initialOrders={(ordersRes.data as any[]) ?? []}
       initialChartDaily={(chartRes.data as any[]) ?? []}
-      initialDateRange={initialDateRange}
     />
   )
 }

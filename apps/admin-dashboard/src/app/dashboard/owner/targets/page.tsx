@@ -13,7 +13,7 @@ export default async function OwnerTargetsPage() {
 
   // Pre-fetch data for the view
   const [
-    { data: targets, error: targetsError },
+    { data: targets },
     { data: globalRow },
     { data: historyData }
   ] = await Promise.all([

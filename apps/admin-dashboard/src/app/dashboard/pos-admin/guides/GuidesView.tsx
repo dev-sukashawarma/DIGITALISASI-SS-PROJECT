@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Loader2, Plus, Edit2, Trash2, Image as ImageIcon, Save, X, BookOpen, GripVertical } from 'lucide-react'
+import { Loader2, Plus, Edit2, Trash2, Image as ImageIcon, Save, X, BookOpen } from 'lucide-react'
 import { useDialogStore } from '@/lib/dialogStore'
 
 interface Guide {
@@ -41,7 +41,7 @@ export default function GuidesView({ initialGuides }: GuidesViewProps) {
       setContent(guide.content)
       setSortOrder(guide.sort_order)
       
-      let parsedImages = []
+      let parsedImages: { file: File | null; url: string | null; title: string; }[] = []
       if (guide.image_url) {
         try {
           const parsed = JSON.parse(guide.image_url)

@@ -25,7 +25,7 @@ export default async function PODetailPage({ params }: { params: Promise<{ id: s
     return notFound()
   }
 
-  const { data: items, error: iErr } = await supabase
+  const { data: items } = await supabase
     .from('purchase_order_item')
     .select('*, bahan_baku(nama, satuan)')
     .eq('purchase_order_id', id)

@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
-  PieChart, DollarSign, MessageSquareHeart, Target, BellRing, Tags, Wallet, BookOpen,
+  PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
   Package, FileText, Settings, Ban, Boxes, TrendingDown, ShoppingCart, Truck, type LucideIcon,
 } from 'lucide-react'
 

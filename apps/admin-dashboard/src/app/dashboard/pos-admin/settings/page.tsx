@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase'
 import { Loader2, Image as ImageIcon, Save, CheckCircle2, AlertCircle, X } from 'lucide-react'
 import { useBrand } from '@/components/BrandContext'
 
@@ -9,7 +8,7 @@ export default function AdminSettingsPage() {
   const { brandName: currentBrandName, brandLogo: currentBrandLogo, refreshBrand } = useBrand()
   
   const [name, setName] = useState('')
-  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [_, setLogoFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   
   const [isSubmitting, setIsSubmitting] = useState(false)

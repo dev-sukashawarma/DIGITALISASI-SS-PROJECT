@@ -49,7 +49,7 @@ interface MenuViewProps {
 
 export default function MenuView({ initialItems, initialCategories }: MenuViewProps) {
   const router = useRouter()
-  const { showConfirm, showAlert } = useDialogStore()
+  const { showConfirm } = useDialogStore()
   const [form, setForm]           = useState<FormState>(EMPTY)
   const [showForm, setShowForm]   = useState(false)
   const [saving, setSaving]       = useState(false)

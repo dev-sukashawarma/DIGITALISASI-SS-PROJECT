@@ -48,7 +48,8 @@ export async function savePromosAction(
         is_active: p.is_active,
         min_purchase: p.min_purchase,
         usage_limit: p.usage_limit,
-        end_date: p.end_date
+        end_date: p.end_date,
+        apply_to_food_apps: p.apply_to_food_apps || false
       })
     }
   }

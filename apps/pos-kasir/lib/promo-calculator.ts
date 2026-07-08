@@ -11,19 +11,25 @@ export interface BasePromo {
   usage_limit?: number | null;
   current_usage?: number;
   end_date?: string | null;
+  apply_to_food_apps?: boolean;
 }
+
+const FOOD_APP_CHANNELS = ['gofood', 'grabfood', 'shopeefood', 'tiktok'];
 
 export function calculateItemPrice(
   originalPrice: number,
   menuId: string,
   promos: BasePromo[],
-  cartBaseSubtotal?: number
+  cartBaseSubtotal?: number,
+  salesSource?: string
 ): number {
+  const isFoodApp = salesSource ? FOOD_APP_CHANNELS.includes(salesSource.toLowerCase()) : false;
+
   const globalPromo = promos.find(p => p.scope === 'global' && p.is_active);
   const itemPromos = promos.filter(p => p.scope === 'item' && p.is_active);
 
   // If global promo is active and not expired, it applies to ALL items
-  if (globalPromo) {
+  if (globalPromo && (!isFoodApp || globalPromo.apply_to_food_apps)) {
     if (globalPromo.end_date && new Date(globalPromo.end_date).getTime() < Date.now()) {
       // global promo is expired, so it's ignored, fall through to item promo
     } else if (globalPromo.usage_limit && (globalPromo.current_usage || 0) >= globalPromo.usage_limit) {
@@ -48,6 +54,7 @@ export function calculateItemPrice(
 
   const promo = itemPromos.find(p => p.menu_item_id === menuId);
   if (!promo) return originalPrice;
+  if (isFoodApp && !promo.apply_to_food_apps) return originalPrice;
 
   if (promo.end_date && new Date(promo.end_date).getTime() < Date.now()) {
     return originalPrice; // Expired

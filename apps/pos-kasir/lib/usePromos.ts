@@ -14,6 +14,7 @@ export type OutletPromo = {
   usage_limit?: number | null
   current_usage?: number
   end_date?: string | null
+  apply_to_food_apps?: boolean
 }
 
 export function usePromos(outletId: string | undefined) {
@@ -73,8 +74,8 @@ export function usePromos(outletId: string | undefined) {
   const globalPromo = promos.find(p => p.scope === 'global')
   const itemPromos = promos.filter(p => p.scope === 'item')
 
-  const calcItemPrice = (originalPrice: number, menuId: string, cartBaseSubtotal?: number): number => {
-    return calculateItemPrice(originalPrice, menuId, promos, cartBaseSubtotal)
+  const calcItemPrice = (originalPrice: number, menuId: string, cartBaseSubtotal?: number, salesSource?: string): number => {
+    return calculateItemPrice(originalPrice, menuId, promos, cartBaseSubtotal, salesSource)
   }
 
   const calcGlobalDiscount = (subtotal: number): number => {

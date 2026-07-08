@@ -202,7 +202,7 @@ export default function OrderManualPage() {
   const totalItems = lineList.reduce((s, l) => s + l.quantity, 0)
   
   const baseSubtotal = lineList.reduce((s, l) => s + l.item.price * l.quantity, 0)
-  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, baseSubtotal)
+  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, baseSubtotal, channel || undefined)
 
   const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity, 0)
   const globalDiscount = calculateGlobalDiscount(subtotalAmount)

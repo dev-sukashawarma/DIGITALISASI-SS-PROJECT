@@ -23,6 +23,7 @@ type OutletPromo = {
   usage_limit?: number | null
   current_usage?: number
   end_date?: string | null
+  apply_to_food_apps?: boolean
 }
 
 type Outlet = {
@@ -65,7 +66,8 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     min_purchase: null,
     usage_limit: null,
     current_usage: 0,
-    end_date: null
+    end_date: null,
+    apply_to_food_apps: false
   } as OutletPromo
 
   const isGlobalActive = globalPromo.is_active
@@ -105,6 +107,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
         usage_limit: null,
         current_usage: 0,
         end_date: null,
+        apply_to_food_apps: false,
         [field]: value
       })
     }
@@ -238,6 +241,28 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                   onChange={e => handleGlobalPromoChange('end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
                 />
               </div>
+              
+              <div className="space-y-2 col-span-1 md:col-span-2">
+                <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl border border-amber-100">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700">
+                      Berlaku untuk Food Apps
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Jika diaktifkan, promo juga berlaku untuk GoFood, GrabFood, ShopeeFood, dll.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={globalPromo.apply_to_food_apps || false} 
+                      onChange={(e) => handleGlobalPromoChange('apply_to_food_apps', e.target.checked)} 
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -366,6 +391,27 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                             value={mounted ? formatLocalDatetime(promo.end_date) : ''}
                             onChange={e => handleItemPromoChange(menu.id, 'end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
                           />
+                        </div>
+                        <div className="space-y-2 col-span-1 sm:col-span-2">
+                          <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+                            <div>
+                              <label className="block text-sm font-bold text-blue-900">
+                                Berlaku untuk Food Apps
+                              </label>
+                              <p className="text-xs text-blue-500 mt-0.5">
+                                Aktifkan agar promo berlaku di GoFood, GrabFood, dll.
+                              </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                              <input 
+                                type="checkbox" 
+                                className="sr-only peer" 
+                                checked={promo.apply_to_food_apps || false} 
+                                onChange={(e) => handleItemPromoChange(menu.id, 'apply_to_food_apps', e.target.checked)} 
+                              />
+                              <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+                            </label>
+                          </div>
                         </div>
                       </div>
                     )}

@@ -128,7 +128,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Jumlah untuk "${menuItem.name}" harus 1-10` }, { status: 400 })
     }
 
-    let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)
+    let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal, body.channel)
 
     const subtotal = unitPrice * quantity
     total += subtotal

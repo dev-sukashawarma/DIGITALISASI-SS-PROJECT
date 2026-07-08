@@ -9,6 +9,7 @@ import { formatRupiah } from '@/lib/validations'
 import dynamic from 'next/dynamic'
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
+import { toast } from 'sonner'
 
 const OverviewAreaChart = dynamic(() => import('./OverviewAreaChart'), {
   ssr: false,
@@ -140,7 +141,10 @@ export default function AdminOverviewView({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
-        () => {
+        (payload: any) => {
+          if (payload.eventType === 'UPDATE' && payload.new.status === 'cancelled' && payload.new.void_reason) {
+            toast.error(`Pesanan dibatalkan: ${payload.new.void_reason}`)
+          }
           fetchOrders()
           fetchChartOrders()
         }

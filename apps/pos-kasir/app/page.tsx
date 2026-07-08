@@ -4,7 +4,7 @@ import type { MenuItem, Category } from '@/types'
 
 export const dynamic = 'force-dynamic' // Ensure fresh menu/session per request
 
-const PUSAT_OUTLET_ID = '11111111-1111-1111-1111-111111111111'
+const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 
 export default async function KioskHomePage() {
   const supabase = await createClient()

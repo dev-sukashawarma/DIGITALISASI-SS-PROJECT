@@ -42,6 +42,10 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null) // stores ID of request being processed
 
   useEffect(() => {
+    setRequests(initialRequests)
+  }, [initialRequests])
+
+  useEffect(() => {
     const channel = supabase.channel('petty_cash_topups_changes')
       .on(
         'postgres_changes',

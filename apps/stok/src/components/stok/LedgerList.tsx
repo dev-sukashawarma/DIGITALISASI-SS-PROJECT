@@ -21,7 +21,9 @@ const LABEL: Record<string, string> = {
 const FILTER_LABELS: Record<string, string> = {
   all: 'Semua',
   inbound: 'Masuk 📥',
-  outbound: 'Keluar / Waste 🗑️',
+  order: 'Order 🧾',
+  waste: 'Waste 🗑️',
+  outbound: 'Keluar 📤',
   adjustment: 'Penyesuaian ⚖️',
 };
 
@@ -155,8 +157,12 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
         matchesFilter = true;
       } else if (activeFilter === 'inbound') {
         matchesFilter = !!t.ref_order_id === false && (tipe ? ['terima_kiriman', 'transfer_masuk'].includes(tipe) : !!t.ref_shipment_id);
+      } else if (activeFilter === 'order') {
+        matchesFilter = !!t.ref_order_id;
+      } else if (activeFilter === 'waste') {
+        matchesFilter = tipe === 'waste';
       } else if (activeFilter === 'outbound') {
-        matchesFilter = !!t.ref_order_id || (tipe ? ['pemakaian', 'waste', 'transfer_keluar'].includes(tipe) : false);
+        matchesFilter = !t.ref_order_id && (tipe ? ['pemakaian', 'transfer_keluar'].includes(tipe) : false);
       } else if (activeFilter === 'adjustment') {
         matchesFilter = !!t.ref_opname_id || (tipe ? ['adjustment', 'opname_selisih'].includes(tipe) : false);
       }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { savePromosAction } from './actions'
@@ -48,6 +48,11 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [saving, setSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const globalPromo = promos.find(p => p.scope === 'global') || {
     scope: 'global',
@@ -203,7 +208,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 <input 
                   type="datetime-local" 
                   className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900"
-                  value={formatLocalDatetime(globalPromo.end_date)}
+                  value={mounted ? formatLocalDatetime(globalPromo.end_date) : ''}
                   onChange={e => handleGlobalPromoChange('end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
                 />
               </div>
@@ -248,12 +253,12 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                   end_date: null
                 } as OutletPromo
 
-                let discountedPrice = menu.price;
+                let discountedPrice = menu.price || 0;
                 if (promo.is_active && promo.discount_value > 0) {
                   if (promo.discount_type === 'nominal') {
-                    discountedPrice = Math.max(0, menu.price - promo.discount_value)
+                    discountedPrice = Math.max(0, (menu.price || 0) - promo.discount_value)
                   } else {
-                    discountedPrice = Math.max(0, menu.price - (menu.price * promo.discount_value / 100))
+                    discountedPrice = Math.max(0, (menu.price || 0) - ((menu.price || 0) * promo.discount_value / 100))
                   }
                 }
 
@@ -266,11 +271,11 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                         <div className="flex items-center gap-3 mt-1.5">
                           {promo.is_active && promo.discount_value > 0 ? (
                             <>
-                              <span className="text-sm text-gray-400 line-through decoration-gray-300 font-medium">Rp {menu.price.toLocaleString('id-ID')}</span>
-                              <span className="text-base font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Rp {discountedPrice.toLocaleString('id-ID')}</span>
+                              <span className="text-sm text-gray-400 line-through decoration-gray-300 font-medium">Rp {(menu.price || 0).toLocaleString('id-ID')}</span>
+                              <span className="text-base font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Rp {(discountedPrice || 0).toLocaleString('id-ID')}</span>
                             </>
                           ) : (
-                            <span className="text-base font-bold text-gray-600">Rp {menu.price.toLocaleString('id-ID')}</span>
+                            <span className="text-base font-bold text-gray-600">Rp {(menu.price || 0).toLocaleString('id-ID')}</span>
                           )}
                         </div>
                       </div>
@@ -332,7 +337,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                           <input 
                             type="datetime-local" 
                             className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm font-semibold text-blue-900 outline-none transition-colors"
-                            value={formatLocalDatetime(promo.end_date)}
+                            value={mounted ? formatLocalDatetime(promo.end_date) : ''}
                             onChange={e => handleItemPromoChange(menu.id, 'end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
                           />
                         </div>

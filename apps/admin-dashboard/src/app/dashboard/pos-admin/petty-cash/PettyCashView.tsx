@@ -6,6 +6,7 @@ import { CheckCircle2, XCircle, AlertTriangle, Loader2, ArrowDownToLine, Clock, 
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import { useDialogStore } from '@/lib/dialogStore'
+import { toast } from 'sonner'
 
 interface TopupRequest {
   id: string
@@ -64,10 +65,11 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
       }))
       
       // Trigger a server refresh in the background
+      toast.success(`Pengajuan berhasil ${action === 'approve' ? 'disetujui' : 'ditolak'}`)
       router.refresh()
     } catch (err: any) {
       console.error(err)
-      showAlert(err.message || `Gagal memproses pengajuan`)
+      toast.error(err.message || `Gagal memproses pengajuan`)
     } finally {
       setIsSubmitting(null)
     }

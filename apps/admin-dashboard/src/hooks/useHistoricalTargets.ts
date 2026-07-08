@@ -19,7 +19,7 @@ export function useHistoricalTargets(filter: { from: string; to: string; outletI
   const startDate = filter.from
   const endDate = filter.to
 
-  const { data: rows = [], isLoading } = useQuery<HistoricalTargetRow[]>({
+  const { data: rows = [], isLoading, isError, error: queryError } = useQuery<HistoricalTargetRow[]>({
     queryKey: ['historical_targets', startDate, endDate, filter.outletId],
     queryFn: async () => {
       let query = supabase
@@ -46,7 +46,7 @@ export function useHistoricalTargets(filter: { from: string; to: string; outletI
 
       if (error) {
         console.error('Error fetching historical targets:', error)
-        return []
+        throw error
       }
 
       return data.map((r: any) => ({
@@ -72,5 +72,5 @@ export function useHistoricalTargets(filter: { from: string; to: string; outletI
     return groups
   }, [rows])
 
-  return { rows, groupedByDate, isLoading }
+  return { rows, groupedByDate, isLoading, isError, error: queryError }
 }

@@ -6,7 +6,7 @@ import { Store, Plus, X, Loader2, Search } from 'lucide-react'
 import type { Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { createClient } from '@/lib/supabase'
-
+import { toast } from 'sonner'
 interface OutletsViewProps {
   initialOutlets: Outlet[]
 }
@@ -80,11 +80,14 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
 
       if (!error && data) {
         setIsModalOpen(false)
-        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: data }) }).catch(console.error)
+        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: data }) })
+          .then(res => { if (!res.ok) throw new Error('Sync failed') })
+          .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
+        toast.success('Cabang berhasil diupdate')
         router.refresh()
       } else {
         console.error('Update outlet error:', error)
-        showAlert('Gagal mengupdate cabang: ' + (error?.message || 'Unknown error'))
+        toast.error('Gagal mengupdate cabang: ' + (error?.message || 'Unknown error'))
       }
     } else {
       const { data, error } = await supabase.from('outlets').insert({
@@ -100,11 +103,14 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
 
       if (!error && data) {
         setIsModalOpen(false)
-        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: data }) }).catch(console.error)
+        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: data }) })
+          .then(res => { if (!res.ok) throw new Error('Sync failed') })
+          .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
+        toast.success('Cabang berhasil ditambahkan')
         router.refresh()
       } else {
         console.error('Insert outlet error:', error)
-        showAlert('Gagal menambahkan cabang: ' + (error?.message || 'Unknown error'))
+        toast.error('Gagal menambahkan cabang: ' + (error?.message || 'Unknown error'))
       }
     }
     
@@ -117,11 +123,14 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
     
     const { error } = await supabase.from('outlets').delete().eq('id', id)
     if (!error) {
-      fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'delete', outlet: { id } }) }).catch(console.error)
+      fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'delete', outlet: { id } }) })
+        .then(res => { if (!res.ok) throw new Error('Sync failed') })
+        .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
+      toast.success('Cabang berhasil dihapus')
       router.refresh()
     } else {
       console.error('Delete outlet error:', error)
-      showAlert('Gagal menghapus cabang: ' + (error?.message || 'Unknown error'))
+      toast.error('Gagal menghapus cabang: ' + (error?.message || 'Unknown error'))
     }
   }
 

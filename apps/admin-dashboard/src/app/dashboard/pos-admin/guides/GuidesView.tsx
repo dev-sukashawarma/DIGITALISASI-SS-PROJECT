@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Loader2, Plus, Edit2, Trash2, Image as ImageIcon, Save, X, BookOpen } from 'lucide-react'
 import { useDialogStore } from '@/lib/dialogStore'
+import { toast } from 'sonner'
 
 interface Guide {
   id: string
@@ -139,10 +140,11 @@ export default function GuidesView({ initialGuides }: GuidesViewProps) {
 
       if (!res.ok) throw new Error('Gagal menyimpan panduan')
       
+      toast.success(editingGuide ? 'Panduan berhasil diupdate' : 'Panduan berhasil ditambahkan')
       setIsModalOpen(false)
       router.refresh()
-    } catch (err) {
-      showAlert('Terjadi kesalahan saat menyimpan.')
+    } catch (err: any) {
+      toast.error('Terjadi kesalahan saat menyimpan: ' + (err.message || 'Unknown error'))
       console.error(err)
     } finally {
       setIsSubmitting(false)
@@ -155,9 +157,11 @@ export default function GuidesView({ initialGuides }: GuidesViewProps) {
     try {
       const res = await fetch(`/api/admin/guides?id=${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Gagal menghapus')
+      toast.success('Panduan berhasil dihapus')
       router.refresh()
-    } catch (e) {
-      showAlert('Gagal menghapus panduan')
+    } catch (e: any) {
+      toast.error('Gagal menghapus panduan: ' + (e.message || 'Unknown error'))
+      console.error(e)
     }
   }
 

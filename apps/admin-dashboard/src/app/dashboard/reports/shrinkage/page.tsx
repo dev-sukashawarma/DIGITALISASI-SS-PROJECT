@@ -41,6 +41,16 @@ export default async function ShrinkageReportPage() {
 
   if (error) {
     console.error('Error fetching shrinkage data:', error)
+    return (
+      <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-suka-brown">Selisih Stok (Shrinkage & Opname)</h1>
+        </div>
+        <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200">
+          Gagal mengambil data laporan shrinkage. {error.message}
+        </div>
+      </div>
+    )
   }
 
   // Filter only items with discrepancies

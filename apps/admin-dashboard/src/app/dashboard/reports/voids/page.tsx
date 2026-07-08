@@ -36,6 +36,16 @@ export default async function VoidsReportPage() {
 
   if (error) {
     console.error('Error fetching voids:', error)
+    return (
+      <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-suka-brown">Pembatalan & Kecurangan</h1>
+        </div>
+        <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200">
+          Gagal mengambil data laporan pembatalan (voids). {error.message}
+        </div>
+      </div>
+    )
   }
 
   return (

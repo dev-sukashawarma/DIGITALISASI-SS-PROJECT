@@ -8,7 +8,7 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { PageHeader } from '@/components/ui'
-import { Target, FileText, ChevronUp, ChevronDown } from 'lucide-react'
+import { Target, FileText, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react'
 
 const formatRupiah = (num: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -27,7 +27,7 @@ export default function TargetHarianPage() {
     [outlets, lockedOutletId]
   )
   
-  const { rows, isLoading } = useHistoricalTargets(filter)
+  const { rows, isLoading, isError, error } = useHistoricalTargets(filter)
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   const toggleGroup = (date: string) => {
@@ -85,6 +85,16 @@ export default function TargetHarianPage() {
         <div className="flex flex-col items-center justify-center py-20 text-suka-brown font-bold text-sm bg-white rounded-3xl border border-suka-brown/10 shadow-sm">
           <div className="w-8 h-8 border-4 border-suka-orange border-t-transparent rounded-full animate-spin mb-4"></div>
           Memuat data laporan...
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-red-50 rounded-3xl border border-red-200 shadow-sm border-dashed text-red-600">
+          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-4 text-red-500">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-bold mb-1">Gagal Memuat Data</h3>
+          <p className="text-sm text-center max-w-sm">
+            Terjadi kesalahan saat mengambil laporan target harian: {error?.message}
+          </p>
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-suka-brown/10 shadow-sm border-dashed">

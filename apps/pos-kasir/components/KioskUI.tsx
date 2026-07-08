@@ -32,7 +32,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
   const { brandName, brandLogo } = useBrand()
   const { items } = useCart()
   
-  const { calculateItemPrice } = usePromos(outletId)
+  const { calculateItemPrice, calculateGlobalDiscount } = usePromos(outletId)
   
   const cartBaseSubtotal = items.reduce((acc, curr) => acc + curr.item.price * curr.quantity, 0)
   const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, cartBaseSubtotal)
@@ -80,7 +80,15 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
       : menuItems.filter((m) => m.category_id === selectedCategory)
 
   const count = totalItems()
-  const total = totalPrice()
+  
+  // Hitung ulang total yang benar dengan Promo (karena Zustand store belum handle promo database)
+  let calculatedSubtotal = 0
+  items.forEach(i => {
+    const price = wrappedCalculateItemPrice(i.item.price, i.item.id)
+    calculatedSubtotal += price * i.quantity
+  })
+  const globalDiscount = calculateGlobalDiscount(calculatedSubtotal)
+  const total = calculatedSubtotal - globalDiscount
 
   return (
     <div className="min-h-screen bg-[#FFFBF5]">
@@ -238,7 +246,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
         {/* Cart — desktop sidebar */}
         <aside className="hidden lg:flex w-[340px] xl:w-[380px] flex-shrink-0 bg-gray-50 border-l border-gray-200 min-h-[calc(100vh-73px)]">
           <div className="w-full sticky top-[73px] h-[calc(100vh-73px)] flex flex-col">
-            <Cart />
+            <Cart outletId={outletId} />
           </div>
         </aside>
       </div>
@@ -251,7 +259,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
             className="relative w-full max-w-[380px] bg-white rounded-[2rem] shadow-2xl flex flex-col overflow-hidden max-h-[85vh] animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <Cart />
+            <Cart outletId={outletId} />
           </div>
         </div>
       )}

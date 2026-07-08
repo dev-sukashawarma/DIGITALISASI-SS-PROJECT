@@ -9,12 +9,13 @@ import type { CartItem as CartItemType } from '@/types'
 import { usePromos } from '@/lib/usePromos'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 
-export default function Cart() {
+export default function Cart({ outletId: propOutletId }: { outletId?: string } = {}) {
   const router = useRouter()
   const { items, updateQuantity, removeItem, totalItems, closeCart } = useCart()
   const count = totalItems()
-  const { outletId } = useMyOutlet()
-  const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
+  const { outletId: hookOutletId } = useMyOutlet()
+  const finalOutletId = propOutletId || hookOutletId
+  const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(finalOutletId || undefined)
   
   // Hitung ulang total mempertimbangkan promo
   let baseSubtotal = 0

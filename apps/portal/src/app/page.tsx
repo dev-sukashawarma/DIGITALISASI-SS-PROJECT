@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createSupabaseBrowserClient, getOutletStaff, normalizeLoginIdentifier } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
-import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin, QrCode } from 'lucide-react'
+import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin, QrCode, Eye, EyeOff } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const ChangelogModal = dynamic(() => import('@/components/ChangelogModal'), { ssr: false })
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -162,14 +163,22 @@ export default function LoginPage() {
               <div className="relative">
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   label="Kata Sandi"
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Masukkan kata sandi"
-                  className="bg-white/50 border border-suka-gray-200 focus:border-suka-orange/50 focus:ring-2 focus:ring-suka-orange/20 rounded-xl transition-all duration-200 placeholder:text-suka-gray-400 text-sm py-2.5"
+                  className="bg-white/50 border border-suka-gray-200 focus:border-suka-orange/50 focus:ring-2 focus:ring-suka-orange/20 rounded-xl transition-all duration-200 placeholder:text-suka-gray-400 text-sm py-2.5 pr-10"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 bottom-[11px] text-suka-gray-400 hover:text-suka-orange transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
 
               {error && (

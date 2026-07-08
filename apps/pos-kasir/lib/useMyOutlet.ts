@@ -19,7 +19,7 @@ async function fetchMyOutlet(): Promise<MyOutletData> {
   }
 
   const { data: profile } = await supabase.from('outlet_staff')
-    .select('outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, is_active, inactive_reason)')
+    .select('role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, is_active, inactive_reason)')
     .eq('id', user.id).single()
 
   if (!profile) {
@@ -37,9 +37,21 @@ async function fetchMyOutlet(): Promise<MyOutletData> {
     blockedReason = (profile.outlets as any).inactive_reason || 'Cabang tempat Anda bertugas sedang dinonaktifkan oleh Admin.'
   }
 
+  let outletId = profile.outlet_id ?? null;
+  let outletName = (profile.outlets as any)?.name ?? null;
+
+  // Fallback untuk Admin yang ingin mengetes Kasir/Kiosk
+  if ((profile as any).role === 'admin' && !outletId) {
+    const { data: defaultOutlet } = await supabase.from('outlets').select('id, name').limit(1).single()
+    if (defaultOutlet) {
+      outletId = defaultOutlet.id
+      outletName = defaultOutlet.name
+    }
+  }
+
   return {
-    outletId: profile.outlet_id ?? null,
-    outletName: (profile.outlets as any)?.name || null,
+    outletId,
+    outletName,
     isBlocked,
     blockedReason,
   }

@@ -35,3 +35,6 @@ CREATE POLICY "outlet_promos_all_kasir" ON outlet_promos FOR ALL USING (
 
 -- Tambah kolom discount_amount ke tabel orders
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10,2) DEFAULT 0;
+
+-- Aktifkan Supabase Realtime untuk outlet_promos agar update instan di Kiosk
+ALTER PUBLICATION supabase_realtime ADD TABLE outlet_promos;

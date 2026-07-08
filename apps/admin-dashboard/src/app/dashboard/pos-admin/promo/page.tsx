@@ -23,7 +23,10 @@ export default async function AdminPromoPage() {
   let initialPromos: any[] = []
   if (initialOutlets.length > 0) {
     const promoRes = await supabase.from('outlet_promos').select('*').eq('outlet_id', initialOutlets[0].id)
-    initialPromos = promoRes.data || []
+    initialPromos = promoRes.data?.map(p => ({
+      ...p,
+      discount_value: p.discount_value === 0.01 ? 0 : p.discount_value
+    })) || []
   }
 
   return (

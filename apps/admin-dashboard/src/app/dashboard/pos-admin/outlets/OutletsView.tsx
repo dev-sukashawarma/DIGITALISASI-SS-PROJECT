@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Store, Plus, X, Loader2, Search } from 'lucide-react'
 import type { Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { createClient } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { upsertOutlet, deleteOutlet } from './actions'
+
 interface OutletsViewProps {
   initialOutlets: Outlet[]
 }
@@ -36,6 +38,23 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
     o.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     (o.address && o.address.toLowerCase().includes(searchQuery.toLowerCase()))
   )
+
+  useEffect(() => {
+    const channel = supabase.channel('realtime_outlets')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlets' },
+        () => {
+          toast.info('Data Outlet diperbarui')
+          router.refresh()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, router])
 
   function openModal(outlet?: Outlet) {
     if (outlet) {
@@ -67,7 +86,8 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
     setIsSubmitting(true)
     
     if (editingOutlet) {
-      const { data, error } = await supabase.from('outlets').update({
+      const result = await upsertOutlet({
+        id: editingOutlet.id,
         name,
         address,
         phone,
@@ -76,21 +96,20 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
         close_hour: closeHour + ':00',
         is_active: isActive,
         inactive_reason: !isActive ? inactiveReason : null
-      }).eq('id', editingOutlet.id).select().single()
+      })
 
-      if (!error && data) {
+      if (result.success && result.data) {
         setIsModalOpen(false)
-        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: data }) })
+        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: result.data }) })
           .then(res => { if (!res.ok) throw new Error('Sync failed') })
           .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
         toast.success('Cabang berhasil diupdate')
-        router.refresh()
       } else {
-        console.error('Update outlet error:', error)
-        toast.error('Gagal mengupdate cabang: ' + (error?.message || 'Unknown error'))
+        console.error('Update outlet error:', result.error)
+        toast.error('Gagal mengupdate cabang: ' + result.error)
       }
     } else {
-      const { data, error } = await supabase.from('outlets').insert({
+      const result = await upsertOutlet({
         name,
         address,
         phone,
@@ -99,18 +118,17 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
         close_hour: closeHour + ':00',
         is_active: isActive,
         inactive_reason: !isActive ? inactiveReason : null
-      }).select().single()
+      })
 
-      if (!error && data) {
+      if (result.success && result.data) {
         setIsModalOpen(false)
-        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: data }) })
+        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: result.data }) })
           .then(res => { if (!res.ok) throw new Error('Sync failed') })
           .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
         toast.success('Cabang berhasil ditambahkan')
-        router.refresh()
       } else {
-        console.error('Insert outlet error:', error)
-        toast.error('Gagal menambahkan cabang: ' + (error?.message || 'Unknown error'))
+        console.error('Insert outlet error:', result.error)
+        toast.error('Gagal menambahkan cabang: ' + result.error)
       }
     }
     
@@ -121,16 +139,15 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
     const confirmed = await showConfirm('Apakah Anda yakin ingin menghapus cabang ini? Semua data pesanan yang terkait juga akan ikut terhapus!');
     if (!confirmed) return
     
-    const { error } = await supabase.from('outlets').delete().eq('id', id)
-    if (!error) {
+    const result = await deleteOutlet(id)
+    if (result.success) {
       fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'delete', outlet: { id } }) })
         .then(res => { if (!res.ok) throw new Error('Sync failed') })
         .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
       toast.success('Cabang berhasil dihapus')
-      router.refresh()
     } else {
-      console.error('Delete outlet error:', error)
-      toast.error('Gagal menghapus cabang: ' + (error?.message || 'Unknown error'))
+      console.error('Delete outlet error:', result.error)
+      toast.error('Gagal menghapus cabang: ' + result.error)
     }
   }
 

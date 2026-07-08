@@ -134,6 +134,24 @@ export default function AdminOverviewView({
     fetchChartOrders()
   }, [fetchChartOrders])
 
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase.channel('realtime_orders_overview')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => {
+          fetchOrders()
+          fetchChartOrders()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [fetchOrders, fetchChartOrders])
+
   const analytics = useMemo(
     () => computeAnalytics(orders, outlets, dateRange),
     [orders, outlets, dateRange]

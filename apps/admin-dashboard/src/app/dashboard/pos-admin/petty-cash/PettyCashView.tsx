@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, ArrowDownToLine, Clock, User, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import { useDialogStore } from '@/lib/dialogStore'
 import { toast } from 'sonner'
+import { reviewPettyCash } from './actions'
 
 interface TopupRequest {
   id: string
@@ -40,17 +41,38 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
   const [requests, setRequests] = useState<TopupRequest[]>(initialRequests)
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null) // stores ID of request being processed
 
+  useEffect(() => {
+    const channel = supabase.channel('petty_cash_topups_changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'petty_cash_topups' },
+        () => {
+          toast.info('Ada pengajuan Top Up Petty Cash baru')
+          router.refresh()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'petty_cash_topups' },
+        () => {
+          router.refresh()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, router])
+
   async function handleReview(id: string, action: 'approve' | 'reject') {
     const confirmed = await showConfirm(`Anda yakin ingin ${action === 'approve' ? 'MENYETUJUI' : 'MENOLAK'} pengajuan ini?`);
     if (!confirmed) return
     
     setIsSubmitting(id)
     try {
-      const { error } = await supabase.rpc('review_petty_cash_topup', {
-        p_topup_id: id,
-        p_action: action
-      })
-      if (error) throw error
+      const result = await reviewPettyCash(id, action)
+      if (!result.success) throw new Error(result.error)
       
       // Update local state instead of full refetch for better UX
       setRequests(reqs => reqs.map(r => {
@@ -58,15 +80,12 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
           return {
             ...r,
             status: action === 'approve' ? 'approved' : 'rejected',
-            // Ideally we'd fetch the user's name, but for now we just reflect status change
           }
         }
         return r
       }))
       
-      // Trigger a server refresh in the background
       toast.success(`Pengajuan berhasil ${action === 'approve' ? 'disetujui' : 'ditolak'}`)
-      router.refresh()
     } catch (err: any) {
       console.error(err)
       toast.error(err.message || `Gagal memproses pengajuan`)

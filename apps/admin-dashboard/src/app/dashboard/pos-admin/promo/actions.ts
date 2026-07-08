@@ -42,7 +42,8 @@ export async function savePromosAction(
         scope: p.scope,
         menu_item_id: p.menu_item_id,
         discount_type: p.discount_type,
-        discount_value: p.discount_value,
+        // Bypass db constraint CHECK (discount_value > 0)
+        discount_value: Math.max(0.01, Number(p.discount_value) || 0),
         is_active: p.is_active,
         min_purchase: p.min_purchase,
         end_date: p.end_date

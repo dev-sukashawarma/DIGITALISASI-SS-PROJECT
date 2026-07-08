@@ -66,6 +66,7 @@ export type Supplier = {
   catatan: string | null
   is_active: boolean
   created_at: string
+  bahan_baku_ids?: string[] | null
 }
 
 export type BahanBakuOption = {

@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Plus, Edit2, Check, Phone, MapPin, Tag } from 'lucide-react'
-import { useSuppliers, useCreateSupplier, useUpdateSupplier, type Supplier } from '@/hooks/usePurchaseOrder'
+import { useSuppliers, useCreateSupplier, useUpdateSupplier, useBahanBakuOptions, type Supplier } from '@/hooks/usePurchaseOrder'
 import { Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
 
@@ -14,10 +14,10 @@ const KATEGORI_OPTIONS = [
 ]
 
 type FormState = {
-  nama: string; kontak: string; alamat: string; kategori: string; catatan: string
+  nama: string; kontak: string; alamat: string; kategori: string; catatan: string; bahan_baku_ids: string[]
 }
 
-const emptyForm: FormState = { nama: '', kontak: '', alamat: '', kategori: '', catatan: '' }
+const emptyForm: FormState = { nama: '', kontak: '', alamat: '', kategori: '', catatan: '', bahan_baku_ids: [] }
 
 export default function SupplierPage() {
   const { data: suppliers = [], isLoading } = useSuppliers()
@@ -28,9 +28,18 @@ export default function SupplierPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
 
+  const { data: bahanList = [] } = useBahanBakuOptions()
+
   function openCreate() { setForm(emptyForm); setEditId(null); setShowForm(true) }
   function openEdit(s: Supplier) {
-    setForm({ nama: s.nama, kontak: s.kontak ?? '', alamat: s.alamat ?? '', kategori: s.kategori ?? '', catatan: s.catatan ?? '' })
+    setForm({ 
+      nama: s.nama, 
+      kontak: s.kontak ?? '', 
+      alamat: s.alamat ?? '', 
+      kategori: s.kategori ?? '', 
+      catatan: s.catatan ?? '',
+      bahan_baku_ids: s.bahan_baku_ids ?? [] 
+    })
     setEditId(s.id)
     setShowForm(true)
   }
@@ -44,6 +53,7 @@ export default function SupplierPage() {
       alamat: form.alamat.trim() || null,
       kategori: form.kategori || null,
       catatan: form.catatan.trim() || null,
+      bahan_baku_ids: form.bahan_baku_ids,
     }
     if (editId) {
       await updateSupplier.mutateAsync({ id: editId, ...payload })
@@ -92,6 +102,34 @@ export default function SupplierPage() {
                 <option value="">— Pilih kategori —</option>
                 {KATEGORI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Item yang Disuplai</label>
+              <div className="w-full border border-suka-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto bg-suka-gray-50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {bahanList.map(b => (
+                    <label key={b.id} className="flex items-start gap-2 cursor-pointer p-1.5 hover:bg-white rounded-md transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={form.bahan_baku_ids.includes(b.id)}
+                        onChange={(e) => {
+                          const checked = e.target.checked
+                          setForm(f => ({
+                            ...f,
+                            bahan_baku_ids: checked 
+                              ? [...f.bahan_baku_ids, b.id]
+                              : f.bahan_baku_ids.filter(id => id !== b.id)
+                          }))
+                        }}
+                        className="mt-0.5 rounded text-suka-orange focus:ring-suka-orange"
+                      />
+                      <span className="text-sm font-medium text-suka-ink">
+                        {b.nama} <span className="text-gray-400 text-xs font-normal">({b.satuan})</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Alamat</label>
@@ -145,6 +183,13 @@ export default function SupplierPage() {
                   {s.kontak && <span className="flex items-center gap-1"><Phone size={10} />{s.kontak}</span>}
                   {s.alamat && <span className="flex items-center gap-1 truncate max-w-xs"><MapPin size={10} />{s.alamat}</span>}
                 </div>
+                {s.bahan_baku_ids && s.bahan_baku_ids.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    <span className="font-semibold text-gray-600">{s.bahan_baku_ids.length} item:</span>{' '}
+                    {s.bahan_baku_ids.map(id => bahanList.find(b => b.id === id)?.nama).filter(Boolean).slice(0, 5).join(', ')}
+                    {s.bahan_baku_ids.length > 5 && ' ...'}
+                  </p>
+                )}
                 {s.catatan && <p className="text-xs text-gray-400 mt-1 italic">{s.catatan}</p>}
               </div>
               <button onClick={() => openEdit(s)}

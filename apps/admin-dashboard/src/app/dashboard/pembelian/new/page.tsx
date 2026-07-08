@@ -30,6 +30,20 @@ export default function NewPOPage() {
     setSupplierId(id)
     const s = suppliers.find(s => s.id === id)
     setSupplierNama(s?.nama ?? '')
+    
+    if (s && s.bahan_baku_ids && s.bahan_baku_ids.length > 0) {
+      const newItems = s.bahan_baku_ids.map(bId => {
+        const bahan = bahanList.find(b => b.id === bId)
+        return {
+          bahan_baku_id: bId,
+          qty_pesan: '',
+          harga_pesan: bahan?.harga_beli ? String(bahan.harga_beli) : ''
+        }
+      })
+      setItems(newItems)
+    } else {
+      setItems([{ bahan_baku_id: '', qty_pesan: '', harga_pesan: '' }])
+    }
   }
 
   function handleBahanChange(idx: number, bahanId: string) {

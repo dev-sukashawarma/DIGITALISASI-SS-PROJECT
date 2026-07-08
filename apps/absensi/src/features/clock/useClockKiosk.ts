@@ -247,6 +247,14 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         return;
       }
 
+      // Gate absen pulang: shift kasir (laci) outlet ini wajib sudah ditutup.
+      if (next === "out" && !(await isShiftClosed())) {
+        setResult({ ok: false, message: "Shift kasir outlet ini belum ditutup (Petty Cash). Tidak bisa absen pulang." });
+        setPhase("result");
+        scheduleReset(3500);
+        return;
+      }
+
       setWho({ id: found.id, name: found.name });
       setAction(next);
       setChallenge(pickChallenge());
@@ -332,6 +340,23 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       .eq("record_id", rec.id);
     const ticked = new Set(((ticks as any[]) ?? []).map((t) => t.item_id as string));
     return requiredIds.every((id) => ticked.has(id));
+  }
+
+  /**
+   * True bila TIDAK ada shift kasir yang masih terbuka (status='open') di outlet ini.
+   * Shift adalah state milik OUTLET (laci bersama), bukan milik staf tertentu — jadi
+   * ini berlaku untuk siapa pun yang absen pulang di outlet tsb, terlepas dari siapa
+   * yang membuka shift. Tidak ada bypass (sesuai desain checklist-gate di atas).
+   */
+  async function isShiftClosed(): Promise<boolean> {
+    if (!outletId) return true;
+    const { data } = await supabase
+      .from("shifts")
+      .select("id")
+      .eq("outlet_id", outletId)
+      .eq("status", "open")
+      .maybeSingle();
+    return !data;
   }
 
   async function doSubmit(video: HTMLVideoElement) {
@@ -420,6 +445,7 @@ function gagalText(reason: string): string {
     too_early_in: "Belum waktunya absen masuk",
     too_early_out: "Belum waktunya absen pulang",
     gps_accuracy_low: "Akurasi GPS terlalu rendah — aktifkan Lokasi Akurat",
+    shift_not_closed: "Shift kasir belum ditutup",
   };
   return map[reason] ?? `Gagal: ${reason}`;
 }

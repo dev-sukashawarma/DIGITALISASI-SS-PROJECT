@@ -26,6 +26,9 @@ Sistem kini secara seragam hanya mengenali 3 varian saos.
 
 ## 3. Sinkronisasi Antar Aplikasi
 Karena data ditarik secara dinamis dari tabel `bahan_baku`, perubahan nama di atas otomatis tersinkronisasi tanpa memerlukan penyesuaian hardcode pada aplikasi POS, Owner Dashboard, maupun Admin.
+Tambahan penyesuaian UI secara spesifik:
+- **App Distribusi:** Form pembuatan Surat Jalan telah di-update agar dropdown pilihan barang dikelompokkan (Grouped) berdasarkan 5 Kategori Utama (Item Core, Bumbu, dll.) mengikuti standar yang sama dengan dapur.
+- **App Stok:** Komponen `SPVTable.tsx` (tabel untuk Leader/SPV) kini ikut mengaplikasikan normalisasi 5 Kategori Utama agar tampilannya konsisten 100% dengan tampilan layar operasional (Crew).
 
 ## 4. Pemisahan Saos Cabe/Tomat
 - Memisahkan bahan baku `SAUS CABE/TOMAT` menjadi dua bahan baku baru: `SAOS CABE` dan `SAOS TOMAT` (kategori_core: 'saos').
@@ -37,7 +40,8 @@ Karena data ditarik secara dinamis dari tabel `bahan_baku`, perubahan nama di at
 
 ## 5. Fitur Tampilan Konversi Satuan
 - Menambahkan field `satuan_kecil` dan `faktor_konversi` ke tipe TypeScript untuk bahan baku.
-- Menambahkan kolom baru **Konversi** pada tabel Master Bahan Baku di UI agar admin dapat dengan mudah melihat konversi satuan (misal: `1 blok = 2000 gram`).
+- Menambahkan kolom baru **Konversi** pada tabel Master Bahan Baku di UI admin (`admin-dashboard`) agar dapat dengan mudah melihat konversi satuan (misal: `1 blok = 2000 gram`).
+- Menambahkan informasi konversi di dropdown form Surat Jalan (`distribusi`), sehingga admin logistik bisa melihat `(1 kg = 1000 gram)` saat memilih bahan baku.
 
 ## 6. Perbaikan Typo Satuan
 - Memperbaiki salah ketik `satuan_kecil` untuk bahan baku **SAPI** (menjadi gram), **MINYAK SAYUR** (menjadi ml), dan **GAS 3Kg** (menjadi gram) di database.

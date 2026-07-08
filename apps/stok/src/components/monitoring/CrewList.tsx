@@ -32,16 +32,32 @@ const getStorageLocation = (category: string, name: string) => {
   return 'Dry Storage';
 };
 
+/** Normalisasi kategori lama → kategori baru.
+ * Data di DB sebagian masih pakai nilai lama (protein, sayur, saus, gas).
+ * Mapping ini memastikan tampilan selalu pakai 5 kategori baru.
+ */
+const normalizeKategori = (kategori: string): string => {
+  const c = (kategori || '').toLowerCase();
+  // Kategori lama → baru
+  if (c === 'protein' || c === 'sayur') return 'item core';
+  if (c === 'saus')                     return 'bumbu';
+  if (c === 'gas')                      return 'lainnya';
+  // Kategori baru sudah benar
+  if (['item core', 'bumbu', 'minuman', 'kemasan', 'lainnya'].includes(c)) return c;
+  return 'lainnya';
+};
+
+const KATEGORI_ORDER: { key: string; label: string; headerColor: string }[] = [
+  { key: 'item core', label: '⭐ Item Core', headerColor: 'text-[#904d00]' },
+  { key: 'bumbu',     label: '🌶️ Bumbu',    headerColor: 'text-[#7a2d00]' },
+  { key: 'minuman',   label: '🥤 Minuman',   headerColor: 'text-[#006496]' },
+  { key: 'kemasan',   label: '📦 Kemasan',   headerColor: 'text-[#544437]' },
+  { key: 'lainnya',   label: '📋 Lainnya',   headerColor: 'text-[#544437]' },
+];
+
 const getKategoriLabel = (kategori: string): string => {
-  const catLower = (kategori || '').toLowerCase();
-  switch (catLower) {
-    case 'item core': return '⭐ Item Core';
-    case 'bumbu':     return '🌶️ Bumbu';
-    case 'minuman':   return '🥤 Minuman';
-    case 'kemasan':   return '📦 Kemasan';
-    case 'lainnya':   return '📋 Lainnya';
-    default:          return kategori || 'Bahan Baku';
-  }
+  const found = KATEGORI_ORDER.find(k => k.key === normalizeKategori(kategori));
+  return found ? found.label : (kategori || 'Bahan Baku');
 };
 
 export function CrewList({ items, onItemClick, loading = false }: CrewListProps) {
@@ -50,12 +66,7 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
   const [searchTerm, setSearchTerm] = useState('');
 
   // useMemo WAJIB dieksekusi sebelum early-return `loading` (Rules of Hooks).
-  // Sebelumnya ada di bawah `if (loading) return` → jumlah hook berubah saat
-  // loading flip true→false → React error #310 (crash di useMemo).
-  // Item Core (kategori_core terisi) selalu tampil di atas, dipisah separator,
-  // baru diikuti bahan lain — berlaku di kedua mode sort (status/nama);
-  // dalam masing-masing grup, urutan mengikuti sortBy.
-  const { coreItems, otherItems } = useMemo(() => {
+  const groupedItems = useMemo(() => {
     let result = [...items];
 
     // Filter by status
@@ -65,7 +76,7 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
       result = result.filter((item) => item.is_flagged);
     }
 
-    // Filter by name (case-insensitive search specifically for ingredient/material names)
+    // Filter by search
     if (searchTerm.trim() !== '') {
       const term = searchTerm.toLowerCase();
       result = result.filter((item) => item.item_name.toLowerCase().includes(term));
@@ -81,18 +92,23 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
       return a.item_name.localeCompare(b.item_name);
     };
 
-    const isCore = (item: MonitoringItem) => {
-      const catLower = (item.kategori || '').toLowerCase();
-      return catLower === 'item core' || !!item.kategori_core;
-    };
+    // Grup berdasarkan 5 kategori baru
+    const map: Record<string, MonitoringItem[]> = {};
+    for (const cat of KATEGORI_ORDER) map[cat.key] = [];
 
-    const core = result.filter((item) => isCore(item)).sort(compare);
-    const other = result.filter((item) => !isCore(item)).sort(compare);
+    for (const item of result) {
+      const key = normalizeKategori(item.kategori);
+      if (map[key]) map[key].push(item);
+      else map['lainnya'].push(item);
+    }
 
-    return { coreItems: core, otherItems: other };
+    // Sort tiap grup
+    for (const key of Object.keys(map)) map[key].sort(compare);
+
+    return map;
   }, [items, sortBy, filterStatus, searchTerm]);
 
-  const filteredAndSorted = [...coreItems, ...otherItems];
+  const filteredAndSorted = KATEGORI_ORDER.flatMap(cat => groupedItems[cat.key] ?? []);
 
   if (loading) {
     return (
@@ -269,26 +285,26 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
         </label>
       </div>
 
-      {/* Items list */}
-      <div className="bg-white rounded-xl border border-[#d9c2b2]/40 divide-y divide-[#d9c2b2]/20 shadow-sm overflow-hidden">
+      {/* Items list — dikelompokkan per kategori */}
+      <div className="bg-white rounded-xl border border-[#d9c2b2]/40 shadow-sm overflow-hidden">
         {filteredAndSorted.length === 0 ? (
           <div className="text-center py-8 text-xs text-[#544437] font-medium bg-white">
             {searchTerm ? 'Bahan tidak ditemukan' : (filterStatus === 'all' ? 'No items found' : `No ${filterStatus} items`)}
           </div>
         ) : (
           <>
-            {coreItems.length > 0 && (
-              <>
-                <div className="px-4 py-2 bg-[#faf2e9] text-[10px] font-extrabold uppercase tracking-wider text-[#904d00]">
-                  Item Core
+            {KATEGORI_ORDER.map((cat) => {
+              const catItems = groupedItems[cat.key] ?? [];
+              if (catItems.length === 0) return null;
+              return (
+                <div key={cat.key} className="divide-y divide-[#d9c2b2]/20">
+                  <div className={`px-4 py-2 bg-[#faf2e9] text-[10px] font-extrabold uppercase tracking-wider ${cat.headerColor}`}>
+                    {cat.label}
+                  </div>
+                  {catItems.map((item) => renderItemRow(item))}
                 </div>
-                {coreItems.map((item) => renderItemRow(item))}
-                <div className="px-4 py-2 bg-[#faf2e9] text-[10px] font-extrabold uppercase tracking-wider text-[#544437]">
-                  Bahan Lain
-                </div>
-              </>
-            )}
-            {otherItems.map((item) => renderItemRow(item))}
+              );
+            })}
           </>
         )}
       </div>

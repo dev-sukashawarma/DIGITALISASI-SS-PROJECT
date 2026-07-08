@@ -181,7 +181,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
                     className="animate-fade-up"
                     style={{ animationDelay: `${i * 40}ms`, animationFillMode: 'both' }}
                   >
-                    <MenuItem item={item} calculateItemPrice={wrappedCalculateItemPrice} />
+                    <MenuItem item={item} calculateItemPrice={(price, id) => calculateItemPrice(price, id)} />
                   </div>
                 ))}
               </div>
@@ -205,7 +205,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
                         className="animate-fade-up"
                         style={{ animationDelay: `${i * 40}ms`, animationFillMode: 'both' }}
                       >
-                        <MenuItem item={item} calculateItemPrice={wrappedCalculateItemPrice} />
+                        <MenuItem item={item} calculateItemPrice={(price, id) => calculateItemPrice(price, id)} />
                       </div>
                     ))}
                   </div>
@@ -230,7 +230,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
                           className="animate-fade-up"
                           style={{ animationDelay: `${i * 40}ms`, animationFillMode: 'both' }}
                         >
-                          <MenuItem item={item} calculateItemPrice={wrappedCalculateItemPrice} />
+                          <MenuItem item={item} calculateItemPrice={(price, id) => calculateItemPrice(price, id)} />
                         </div>
                       ))}
                     </div>

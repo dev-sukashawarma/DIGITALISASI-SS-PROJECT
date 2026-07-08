@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { validateCheckoutPayload } from '@/lib/validations'
 import type { CheckoutPayload } from '@/types'
+import { calculateItemPrice, calculateGlobalDiscount, BasePromo } from '@/lib/promo-calculator'
 
 export async function POST(request: Request) {
   let body: unknown
@@ -87,6 +88,15 @@ export async function POST(request: Request) {
     subtotal: number
   }[] = []
 
+  // Hitung base subtotal (harga asli) untuk pengecekan min_purchase promo item
+  let baseSubtotal = 0
+  for (const reqItem of payload.items) {
+    const menuItem = menuItems?.find((m) => m.id === reqItem.menu_item_id)
+    if (menuItem) {
+      baseSubtotal += menuItem.price * Number(reqItem.quantity)
+    }
+  }
+
   let subtotalAmount = 0
 
   for (const reqItem of payload.items) {
@@ -115,17 +125,7 @@ export async function POST(request: Request) {
     }
 
     // Gunakan harga dari DATABASE dan hitung promo per item jika ada
-    let unitPrice = menuItem.price
-    if (!globalPromo) {
-      const promo = itemPromos.find(p => p.menu_item_id === menuItem.id)
-      if (promo) {
-        if (promo.discount_type === 'nominal') {
-          unitPrice = Math.max(0, unitPrice - promo.discount_value)
-        } else {
-          unitPrice = Math.max(0, unitPrice * (1 - promo.discount_value / 100))
-        }
-      }
-    }
+    let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)
     const subtotal = unitPrice * quantity
 
     subtotalAmount += subtotal
@@ -152,14 +152,7 @@ export async function POST(request: Request) {
   }
 
   // Hitung Global Promo
-  let globalDiscount = 0
-  if (globalPromo) {
-    if (globalPromo.discount_type === 'nominal') {
-      globalDiscount = Math.min(subtotalAmount, globalPromo.discount_value)
-    } else {
-      globalDiscount = subtotalAmount * (globalPromo.discount_value / 100)
-    }
-  }
+  let globalDiscount = calculateGlobalDiscount(subtotalAmount, activePromos as BasePromo[])
 
   const finalTotal = subtotalAmount - globalDiscount
 

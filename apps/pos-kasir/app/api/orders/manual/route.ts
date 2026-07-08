@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { calculateItemPrice, calculateGlobalDiscount, BasePromo } from '@/lib/promo-calculator'
 import { CHANNELS } from '@/lib/channels'
 
 // Endpoint dipanggil dari halaman /kasir/order-manual saat kasir membuat
@@ -102,6 +103,15 @@ export async function POST(request: Request) {
     subtotal: number
   }[] = []
 
+  // Hitung base subtotal (harga asli) untuk pengecekan min_purchase promo item
+  let baseSubtotal = 0
+  for (const reqItem of body.items) {
+    const menuItem = menuItems?.find((m) => m.id === reqItem.menu_item_id)
+    if (menuItem) {
+      baseSubtotal += menuItem.price * Number(reqItem.quantity)
+    }
+  }
+
   let total = 0
 
   for (const reqItem of body.items) {
@@ -118,17 +128,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Jumlah untuk "${menuItem.name}" harus 1-10` }, { status: 400 })
     }
 
-    let unitPrice = menuItem.price
-    if (!globalPromo) {
-      const promo = itemPromos.find((p) => p.menu_item_id === menuItem.id)
-      if (promo) {
-        if (promo.discount_type === 'nominal') {
-          unitPrice = Math.max(0, unitPrice - promo.discount_value)
-        } else {
-          unitPrice = Math.max(0, unitPrice * (1 - promo.discount_value / 100))
-        }
-      }
-    }
+    let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)
 
     const subtotal = unitPrice * quantity
     total += subtotal
@@ -147,14 +147,7 @@ export async function POST(request: Request) {
   }
 
   // Hitung Global Promo
-  let globalDiscount = 0
-  if (globalPromo) {
-    if (globalPromo.discount_type === 'nominal') {
-      globalDiscount = Math.min(total, globalPromo.discount_value)
-    } else {
-      globalDiscount = total * (globalPromo.discount_value / 100)
-    }
-  }
+  let globalDiscount = calculateGlobalDiscount(total, activePromos as BasePromo[])
 
   const finalTotal = total - globalDiscount
 

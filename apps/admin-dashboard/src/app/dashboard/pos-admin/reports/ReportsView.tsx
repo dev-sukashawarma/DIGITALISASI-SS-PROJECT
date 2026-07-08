@@ -9,9 +9,12 @@ import { createClient } from '@/lib/supabase'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
-import {
-  PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer
-} from 'recharts'
+import dynamic from 'next/dynamic'
+
+const CategoryPieChart = dynamic(() => import('./CategoryPieChart'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full animate-pulse bg-gray-100 rounded-full"></div>
+})
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
 
@@ -471,24 +474,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               ) : (
                 <div className="flex flex-col h-full justify-center">
                   <div className="h-32 w-full mb-6">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={analytics.categoryData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={35}
-                          outerRadius={60}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {analytics.categoryData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <RechartsTooltip formatter={(value: any) => [`${value} item`, 'Terjual']} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <CategoryPieChart data={analytics.categoryData} />
                   </div>
                   <div className="space-y-3 px-2">
                     {analytics.categoryData.map((entry, index) => (

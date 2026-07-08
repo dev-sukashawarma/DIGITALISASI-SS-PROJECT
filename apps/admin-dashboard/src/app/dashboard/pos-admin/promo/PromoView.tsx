@@ -33,6 +33,14 @@ interface PromoViewProps {
   initialPromos: OutletPromo[]
 }
 
+const formatLocalDatetime = (dateString: string | null | undefined) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
+  const tzOffset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+}
+
 export default function PromoView({ initialMenuItems, initialOutlets, initialPromos }: PromoViewProps) {
   const [menuItems] = useState<MenuItem[]>(initialMenuItems)
   const [promos, setPromos] = useState<OutletPromo[]>(initialPromos)
@@ -233,7 +241,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 <input 
                   type="datetime-local" 
                   className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900"
-                  value={globalPromo.end_date ? new Date(globalPromo.end_date).toISOString().slice(0, 16) : ''}
+                  value={formatLocalDatetime(globalPromo.end_date)}
                   onChange={e => handleGlobalPromoChange('end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
                 />
               </div>
@@ -362,7 +370,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                           <input 
                             type="datetime-local" 
                             className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm font-semibold text-blue-900 outline-none transition-colors"
-                            value={promo.end_date ? new Date(promo.end_date).toISOString().slice(0, 16) : ''}
+                            value={formatLocalDatetime(promo.end_date)}
                             onChange={e => handleItemPromoChange(menu.id, 'end_date', e.target.value ? new Date(e.target.value).toISOString() : null)}
                           />
                         </div>

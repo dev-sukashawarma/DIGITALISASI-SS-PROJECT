@@ -15,7 +15,7 @@ async function fetchMyOutlet(): Promise<MyOutletData> {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    return { outletId: null, outletName: null, isBlocked: false, blockedReason: '' }
+    return { outletId: '550e8400-e29b-41d4-a716-446655440001', outletName: 'Pusat (Kiosk)', isBlocked: false, blockedReason: '' }
   }
 
   const { data: profile } = await supabase.from('outlet_staff')
@@ -42,11 +42,8 @@ async function fetchMyOutlet(): Promise<MyOutletData> {
 
   // Fallback untuk Admin yang ingin mengetes Kasir/Kiosk
   if ((profile as any).role === 'admin' && !outletId) {
-    const { data: defaultOutlet } = await supabase.from('outlets').select('id, name').limit(1).single()
-    if (defaultOutlet) {
-      outletId = defaultOutlet.id
-      outletName = defaultOutlet.name
-    }
+    outletId = '550e8400-e29b-41d4-a716-446655440001'
+    outletName = 'Pusat (Kiosk)'
   }
 
   return {

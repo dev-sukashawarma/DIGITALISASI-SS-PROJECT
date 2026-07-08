@@ -11,9 +11,9 @@ export default function NetworkIndicator() {
   }
 
   return (
-    <div className="bg-red-500 text-white text-sm font-medium py-1 px-4 flex items-center justify-center space-x-2 animate-pulse print:hidden">
-      <WifiOff className="w-4 h-4" />
-      <span>Offline Mode - Data disinkronkan saat online</span>
+    <div className="fixed bottom-4 left-4 z-[9999] bg-orange-100 text-orange-600 text-xs font-semibold py-1.5 px-3 rounded-full shadow-md flex items-center justify-center space-x-2 print:hidden border border-orange-200 opacity-80 hover:opacity-100 transition-opacity">
+      <WifiOff className="w-3.5 h-3.5" />
+      <span>Offline</span>
     </div>
   );
 }

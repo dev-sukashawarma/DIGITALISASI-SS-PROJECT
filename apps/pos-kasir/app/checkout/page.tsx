@@ -255,9 +255,9 @@ export default function CheckoutPage() {
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 text-sm">Subtotal</span>
-                <span className={`text-gray-700 font-semibold ${globalPromo ? 'line-through text-gray-400' : ''}`}>{formatRupiah(subtotal)}</span>
+                <span className={`text-gray-700 font-semibold ${globalDiscount > 0 ? 'line-through text-gray-400' : ''}`}>{formatRupiah(subtotal)}</span>
               </div>
-              {globalPromo && (
+              {globalDiscount > 0 && (
                 <div className="flex justify-between items-center mt-1 text-emerald-600 font-medium text-sm">
                   <span>Promo Global</span>
                   <span>-{formatRupiah(globalDiscount)}</span>

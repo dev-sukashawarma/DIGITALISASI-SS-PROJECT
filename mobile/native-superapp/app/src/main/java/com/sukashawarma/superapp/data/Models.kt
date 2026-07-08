@@ -13,7 +13,7 @@ data class OutletNameDto(
 data class OutletStaffDto(
     val id: String,
     @SerialName("outlet_id")
-    val outletId: String,
+    val outletId: String? = null,
     val name: String,
     val role: String,
     @SerialName("face_descriptor")

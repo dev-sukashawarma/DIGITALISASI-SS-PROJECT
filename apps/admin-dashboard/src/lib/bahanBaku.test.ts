@@ -3,7 +3,8 @@ import { normalizeBahanBaku, filterBahanBaku, parsePriceInput } from './bahanBak
 import type { BahanBakuRaw } from './bahanBaku'
 
 const raw = (over: Partial<BahanBakuRaw> = {}): BahanBakuRaw => ({
-  id: '1', nama: 'Daging Sapi', satuan: 'kg', kategori: 'item core',
+  id: '1', nama: 'Daging Sapi', satuan: 'kg', satuan_kecil: null,
+  faktor_tampilan: null, kategori: 'item core',
   bahan_baku_harga: null, ...over,
 })
 

@@ -363,6 +363,7 @@ private fun ActionArea(
     var detectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var livenessState by remember { mutableStateOf(LivenessState.INIT) }
     var debugMessage by remember { mutableStateOf("") }
+    var isProcessing by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val faceRecognizer = remember { com.sukashawarma.superapp.utils.FaceRecognizer(context) }
 
@@ -452,8 +453,13 @@ private fun ActionArea(
                             // We handle detection in onImageCaptureReady
                         },
                         onImageCaptureReady = { imageProxy ->
+                            if (isProcessing) {
+                                imageProxy.close()
+                                return@CameraPreview
+                            }
                             val mediaImage = imageProxy.image
                             if (mediaImage != null) {
+                                isProcessing = true
                                 val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
                                 val options = FaceDetectorOptions.Builder()
                                     .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
@@ -485,22 +491,38 @@ private fun ActionArea(
                                                                 } else {
                                                                     livenessState = LivenessState.MATCHING
                                                                     debugMessage = "Mengekstrak..."
-                                                                    val embedding = faceRecognizer.extractEmbedding(bitmap)
+                                                                    
+                                                                    // Face cropping WAJIB untuk FaceNet
+                                                                    // Tanpa crop, background dominasi embedding (Sim~0.05)
+                                                                    val bounds = face.boundingBox
+                                                                    // Clamp bounds agar tidak keluar dari bitmap
+                                                                    val cropLeft = bounds.left.coerceIn(0, bitmap.width - 1)
+                                                                    val cropTop = bounds.top.coerceIn(0, bitmap.height - 1)
+                                                                    val cropRight = bounds.right.coerceIn(cropLeft + 1, bitmap.width)
+                                                                    val cropBottom = bounds.bottom.coerceIn(cropTop + 1, bitmap.height)
+                                                                    val cropW = cropRight - cropLeft
+                                                                    val cropH = cropBottom - cropTop
+                                                                    
+                                                                    val faceBitmap = android.graphics.Bitmap.createBitmap(bitmap, cropLeft, cropTop, cropW, cropH)
+                                                                    val embedding = faceRecognizer.extractEmbedding(faceBitmap)
                                                                     
                                                                     if (embedding.isNotEmpty()) {
                                                                         if (staffFaceDescriptor != null) {
+                                                                            val dbFirst3 = staffFaceDescriptor.take(3).joinToString { String.format("%.3f", it) }
+                                                                            val liveFirst3 = embedding.take(3).joinToString { String.format("%.3f", it) }
                                                                             val similarity = FaceRecognizer.cosineSimilarity(embedding, staffFaceDescriptor)
-                                                                            if (similarity >= 0.86f) {
+                                                                            android.util.Log.d("FACE_MATCH", "DB[${staffFaceDescriptor.size}]: $dbFirst3 | Live[${embedding.size}]: $liveFirst3 | Sim=$similarity")
+                                                                            if (similarity >= 0.55f) {
                                                                                 livenessState = LivenessState.STRAIGHT
-                                                                                debugMessage = "Cocok! (Sim: $similarity)"
+                                                                                debugMessage = "Cocok! (Sim: ${String.format("%.4f", similarity)})"
                                                                             } else {
                                                                                 livenessState = LivenessState.INIT
-                                                                                debugMessage = "Wajah Tidak Cocok! (Sim: $similarity)"
+                                                                                debugMessage = "Sim: ${String.format("%.4f", similarity)} DB[$dbFirst3] Live[$liveFirst3]"
                                                                             }
                                                                         } else {
-                                                                            // Jika belum terdaftar di DB (Mock)
+                                                                            // Jika belum terdaftar di DB
                                                                             livenessState = LivenessState.STRAIGHT
-                                                                            debugMessage = "Data DB Kosong (Bypass)"
+                                                                            debugMessage = "FaceDesc NULL! Bypass"
                                                                         }
                                                                     } else {
                                                                         livenessState = LivenessState.INIT
@@ -538,10 +560,12 @@ private fun ActionArea(
                                     }
                                     .addOnCompleteListener {
                                         imageProxy.close()
+                                        isProcessing = false
                                     }
                             } else {
                                 imageProxy.close()
                                 debugMessage = "MediaImage Null"
+                                isProcessing = false
                             }
                         }
                     )

@@ -12,6 +12,7 @@ import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.realtime.broadcastFlow
 import io.github.jan.supabase.realtime.broadcast
 import io.github.jan.supabase.storage.Storage
+import io.github.jan.supabase.storage.storage
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -346,13 +347,17 @@ private class ProductionDelegate : SupabaseClientDelegate {
         
         // Coba ambil nama outlet secara terpisah
         val outletName = try {
-            val outletCols = io.github.jan.supabase.postgrest.query.Columns.raw("name")
-            val outletResult = clientObj.postgrest["outlets"].select(columns = outletCols) {
-                filter { eq("id", result.outletId) }
-            }.decodeList<OutletNameDto>().firstOrNull()
-            outletResult?.name ?: result.outletId
+            if (result.outletId != null) {
+                val outletCols = io.github.jan.supabase.postgrest.query.Columns.raw("name")
+                val outletResult = clientObj.postgrest["outlets"].select(columns = outletCols) {
+                    filter { eq("id", result.outletId) }
+                }.decodeList<OutletNameDto>().firstOrNull()
+                outletResult?.name ?: result.outletId
+            } else {
+                "Pusat (Semua Outlet)"
+            }
         } catch (e: Exception) {
-            result.outletId
+            result.outletId ?: "Pusat (Semua Outlet)"
         }
         
         return Staff(
@@ -376,8 +381,9 @@ private class ProductionDelegate : SupabaseClientDelegate {
         val cols = io.github.jan.supabase.postgrest.query.Columns.raw("id, outlet_id, name, role, face_descriptor, enrolled_at, re_enrolled_at, re_enrolled_by, re_enroll_reason, ref_photo_url, consent_at, consent_by")
         val results = clientObj.postgrest["outlet_staff"].select(columns = cols) {
             filter {
-                eq("outlet_id", outletId)
-                eq("status", "active")
+                if (outletId != "Pusat (Semua Outlet)") {
+                    eq("outlet_id", outletId)
+                }
             }
         }.decodeList<OutletStaffDto>()
         
@@ -386,7 +392,7 @@ private class ProductionDelegate : SupabaseClientDelegate {
                 id = result.id,
                 name = result.name,
                 role = result.role,
-                assignedOutletId = result.outletId,
+                assignedOutletId = result.outletId ?: "Pusat (Semua Outlet)",
                 faceDescriptor = result.faceDescriptor?.toFloatArray(),
                 enrolledAt = result.enrolledAt,
                 reEnrolledAt = result.reEnrolledAt,
@@ -404,13 +410,24 @@ private class ProductionDelegate : SupabaseClientDelegate {
         val refPath = "$outletId/$staffId.jpg"
         clientObj.storage.from("face-refs").upload(
             path = refPath,
-            data = photoData,
-            upsert = true
+            data = photoData
         ) {
             upsert = true
         }
         return refPath
     }
+
+    @kotlinx.serialization.Serializable
+    private data class EnrollmentUpdateDto(
+        @kotlinx.serialization.SerialName("face_descriptor") val faceDescriptor: List<Float>,
+        @kotlinx.serialization.SerialName("ref_photo_url") val refPhotoUrl: String,
+        @kotlinx.serialization.SerialName("consent_at") val consentAt: String,
+        @kotlinx.serialization.SerialName("consent_by") val consentBy: String,
+        @kotlinx.serialization.SerialName("enrolled_at") val enrolledAt: String,
+        @kotlinx.serialization.SerialName("re_enrolled_at") val reEnrolledAt: String? = null,
+        @kotlinx.serialization.SerialName("re_enrolled_by") val reEnrolledBy: String? = null,
+        @kotlinx.serialization.SerialName("re_enroll_reason") val reEnrollReason: String? = null
+    )
 
     override suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String) {
         val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
@@ -418,25 +435,23 @@ private class ProductionDelegate : SupabaseClientDelegate {
             timeZone = java.util.TimeZone.getTimeZone("UTC") 
         }.format(java.util.Date())
         
-        val updateData = mutableMapOf<String, Any>(
-            "face_descriptor" to descriptor.toList(),
-            "ref_photo_url" to photoUrl,
-            "consent_at" to now,
-            "consent_by" to adminId,
-            "enrolled_at" to now
+        android.util.Log.d("ENROLL", "Saving descriptor with ${descriptor.size} floats for $staffId")
+        
+        val updateDto = EnrollmentUpdateDto(
+            faceDescriptor = descriptor.toList(),
+            refPhotoUrl = photoUrl,
+            consentAt = now,
+            consentBy = adminId,
+            enrolledAt = now,
+            reEnrolledAt = if (isReEnroll) now else null,
+            reEnrolledBy = if (isReEnroll) adminId else null,
+            reEnrollReason = if (isReEnroll) reason else null
         )
         
-        if (isReEnroll) {
-            updateData["re_enrolled_at"] = now
-            updateData["re_enrolled_by"] = adminId
-            if (!reason.isNullOrBlank()) {
-                updateData["re_enroll_reason"] = reason
-            }
-        }
-        
-        clientObj.postgrest["outlet_staff"].update(updateData) {
+        clientObj.postgrest["outlet_staff"].update(updateDto) {
             filter { eq("id", staffId) }
         }
+        android.util.Log.d("ENROLL", "Successfully saved to database")
     }
 }
 

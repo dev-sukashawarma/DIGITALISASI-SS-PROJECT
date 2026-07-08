@@ -106,7 +106,24 @@ fun MainShell(
                 }
             }
             composable(Screen.Inventory.route) { InventoryScreen() }
-            composable(Screen.Attendance.route) { AttendanceScreen(staffName = currentStaff?.name, staffFaceDescriptor = currentStaff?.faceDescriptor, onBackClick = { navController.popBackStack() }) }
+            composable(Screen.Attendance.route) {
+                // Selalu refresh face descriptor dari DB saat buka halaman Absensi
+                // agar data terbaru dari re-enrollment langsung dipakai
+                var liveFaceDescriptor by remember { mutableStateOf(currentStaff?.faceDescriptor) }
+                LaunchedEffect(Unit) {
+                    try {
+                        val freshProfile = SupabaseClient.getInstance().getStaffProfile(currentStaff?.id ?: "")
+                        if (freshProfile != null) {
+                            liveFaceDescriptor = freshProfile.faceDescriptor
+                            // Update currentStaff juga agar konsisten
+                            currentStaff = freshProfile
+                        }
+                    } catch (_: Exception) {
+                        // Jika gagal fetch, pakai data yang sudah ada
+                    }
+                }
+                AttendanceScreen(staffName = currentStaff?.name, staffFaceDescriptor = liveFaceDescriptor, onBackClick = { navController.popBackStack() })
+            }
             composable(Screen.Fulfillment.route) { FulfillmentScreen() }
             composable(Screen.Enroll.route) {
                 if (currentStaff != null) {

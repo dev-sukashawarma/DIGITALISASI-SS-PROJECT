@@ -61,8 +61,8 @@ export function BahanBakuTable({
                 <td className="px-4 py-3 text-gray-500">{r.kategori}</td>
                 <td className="px-4 py-3 text-gray-500">{r.satuan}</td>
                 <td className="px-4 py-3 text-gray-500">
-                  {r.faktor_konversi && r.satuan_kecil && r.faktor_konversi !== 1
-                    ? `1 ${r.satuan} = ${r.faktor_konversi} ${r.satuan_kecil}`
+                  {r.faktor_tampilan && r.satuan_kecil
+                    ? `1 ${r.satuan} = ${r.faktor_tampilan} ${r.satuan_kecil}`
                     : '—'}
                 </td>
                 <td className="px-4 py-3">

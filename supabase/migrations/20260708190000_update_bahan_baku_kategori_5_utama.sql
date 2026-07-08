@@ -2,6 +2,9 @@
 -- Update kolom `kategori` untuk semua bahan baku menjadi 5 kategori utama:
 -- 'item core', 'bumbu', 'minuman', 'kemasan', 'lainnya'
 
+-- 0. Hapus constraint lama yang membatasi nilai kategori ke kategori lama (jika ada)
+ALTER TABLE public.bahan_baku DROP CONSTRAINT IF EXISTS bahan_baku_kategori_check;
+
 -- 1. Kulit adalah Item Core, bukan kemasan
 UPDATE public.bahan_baku
 SET kategori = 'item core'

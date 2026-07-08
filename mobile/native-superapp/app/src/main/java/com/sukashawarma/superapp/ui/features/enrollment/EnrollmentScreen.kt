@@ -16,7 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -25,7 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -108,7 +108,7 @@ fun EnrollmentScreen(
                             photoBytes = null
                         }
                     }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -131,6 +131,17 @@ fun EnrollmentScreen(
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
+                            if (unenrolled.isEmpty() && enrolled.isEmpty()) {
+                                item {
+                                    Text(
+                                        "Tidak ada data kru.",
+                                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                        textAlign = TextAlign.Center,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+
                             if (unenrolled.isNotEmpty()) {
                                 item {
                                     Text("Belum Terdaftar (${unenrolled.size})", color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
@@ -236,7 +247,7 @@ fun EnrollmentScreen(
                                     // Jalankan proses save
                                     coroutineScope.launch {
                                         try {
-                                            val finalDesc = FaceRecognizer.averageDescriptors(capturedDescriptors)
+                                            val finalDesc = capturedDescriptors[0] // Hanya gunakan wajah depan untuk akurasi tertinggi
                                             val url = SupabaseClient.getInstance().uploadFaceReference(
                                                 adminStaff.assignedOutletId,
                                                 selectedStaff!!.id,
@@ -392,6 +403,10 @@ fun EnrollCameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var isProcessing by remember { mutableStateOf(false) }
+    
+    val currentPhaseState by rememberUpdatedState(currentPhase)
+    val onCaptureState by rememberUpdatedState(onCapture)
+    val onErrorState by rememberUpdatedState(onError)
 
     AndroidView(
         factory = { ctx ->
@@ -431,60 +446,64 @@ fun EnrollCameraPreview(
                                 detector.process(inputImage)
                                     .addOnSuccessListener { faces ->
                                         if (faces.isEmpty()) {
-                                            onError("Wajah tidak terdeteksi")
+                                            onErrorState("Wajah tidak terdeteksi")
                                             isProcessing = false
                                         } else if (faces.size > 1) {
-                                            onError("Hanya boleh 1 wajah dalam layar")
+                                            onErrorState("Hanya boleh 1 wajah dalam layar")
                                             isProcessing = false
                                         } else {
                                             val face = faces[0]
                                             val rotY = face.headEulerAngleY // Menoleh Kiri/Kanan
                                             
-                                            // Cek arah wajah sesuai phase
-                                            val isDirectionCorrect = when (currentPhase) {
-                                                EnrollPhase.CENTER -> rotY > -10 && rotY < 10
-                                                EnrollPhase.LEFT -> rotY > 15 // Toleh kiri (dari sisi user)
-                                                EnrollPhase.RIGHT -> rotY < -15 // Toleh kanan
+                                            // Cek arah wajah sesuai phase terbaru
+                                            val activePhase = currentPhaseState
+                                            val isDirectionCorrect = when (activePhase) {
+                                                EnrollPhase.CENTER -> rotY > -8 && rotY < 8
+                                                EnrollPhase.LEFT -> rotY > 10
+                                                EnrollPhase.RIGHT -> rotY < -10
                                                 else -> false
                                             }
                                             
                                             if (isDirectionCorrect) {
-                                                onError("Mengekstrak Vektor...")
+                                                onErrorState("Mengekstrak Vektor...")
                                                 try {
-                                                    val bitmap = imageProxyToBitmap(imageProxy)
+                                                    val bitmap = imageProxy.toBitmap()
                                                     if (bitmap != null) {
                                                         if (faceRecognizer.isImageTooDark(bitmap)) {
-                                                            onError("Ruangan terlalu gelap")
+                                                            onErrorState("Ruangan terlalu gelap")
                                                         } else {
-                                                            // Potong area wajah + margin
+                                                            // Face cropping WAJIB untuk FaceNet
+                                                            // Harus SAMA PERSIS dengan AttendanceScreen
                                                             val bounds = face.boundingBox
-                                                            val bLeft = (bounds.left - 20).coerceAtLeast(0)
-                                                            val bTop = (bounds.top - 20).coerceAtLeast(0)
-                                                            val bWidth = (bounds.width() + 40).coerceAtMost(bitmap.width - bLeft)
-                                                            val bHeight = (bounds.height() + 40).coerceAtMost(bitmap.height - bTop)
+                                                            val cropLeft = bounds.left.coerceIn(0, bitmap.width - 1)
+                                                            val cropTop = bounds.top.coerceIn(0, bitmap.height - 1)
+                                                            val cropRight = bounds.right.coerceIn(cropLeft + 1, bitmap.width)
+                                                            val cropBottom = bounds.bottom.coerceIn(cropTop + 1, bitmap.height)
+                                                            val cropW = cropRight - cropLeft
+                                                            val cropH = cropBottom - cropTop
                                                             
-                                                            val faceBitmap = Bitmap.createBitmap(bitmap, bLeft, bTop, bWidth, bHeight)
+                                                            val faceBitmap = Bitmap.createBitmap(bitmap, cropLeft, cropTop, cropW, cropH)
                                                             val descriptor = faceRecognizer.extractEmbedding(faceBitmap)
                                                             
-                                                            val nextPhase = when (currentPhase) {
+                                                            val nextPhase = when (activePhase) {
                                                                 EnrollPhase.CENTER -> EnrollPhase.LEFT
                                                                 EnrollPhase.LEFT -> EnrollPhase.RIGHT
                                                                 EnrollPhase.RIGHT -> EnrollPhase.SAVING
                                                                 else -> EnrollPhase.SAVING
                                                             }
-                                                            onCapture(descriptor, faceBitmap, nextPhase)
+                                                            onCaptureState(descriptor, faceBitmap, nextPhase)
                                                         }
                                                     }
                                                 } catch (e: Exception) {
-                                                    onError("Gagal potong wajah: ${e.message}")
+                                                    onErrorState("Gagal potong wajah: ${e.message}")
                                                 }
                                                 // Beri delay sedikit agar UI update terasa sebelum lanjut
                                                 previewView.postDelayed({ isProcessing = false }, 1000)
                                             } else {
-                                                onError(when(currentPhase) {
-                                                    EnrollPhase.CENTER -> "Harap tatap lurus (RotY: $rotY)"
-                                                    EnrollPhase.LEFT -> "Toleh lebih ke kiri (RotY: $rotY)"
-                                                    EnrollPhase.RIGHT -> "Toleh lebih ke kanan (RotY: $rotY)"
+                                                onErrorState(when(activePhase) {
+                                                    EnrollPhase.CENTER -> "Harap tatap lurus (Rot: ${rotY.toInt()})"
+                                                    EnrollPhase.LEFT -> "Toleh Kiri (Rot: ${rotY.toInt()})"
+                                                    EnrollPhase.RIGHT -> "Toleh Kanan (Rot: ${rotY.toInt()})"
                                                     else -> ""
                                                 })
                                                 isProcessing = false
@@ -492,7 +511,7 @@ fun EnrollCameraPreview(
                                         }
                                     }
                                     .addOnFailureListener {
-                                        onError("Gagal mendeteksi wajah")
+                                        onErrorState("Gagal mendeteksi wajah")
                                         isProcessing = false
                                     }
                                     .addOnCompleteListener {
@@ -507,11 +526,10 @@ fun EnrollCameraPreview(
 
                 try {
                     cameraProvider.unbindAll()
-                    // Enrollment disarankan menggunakan kamera depan (front camera)
                     val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
                     cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalyzer)
                 } catch (e: Exception) {
-                    onError("Kamera gagal dimuat: ${e.message}")
+                    onErrorState("Kamera gagal dimuat: ${e.message}")
                 }
             }, ContextCompat.getMainExecutor(ctx))
 

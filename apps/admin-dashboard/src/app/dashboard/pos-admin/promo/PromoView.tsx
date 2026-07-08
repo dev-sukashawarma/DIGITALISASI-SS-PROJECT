@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search } from 'lucide-react'
+import { toast } from 'sonner'
 import { savePromosAction } from './actions'
 
 type MenuItem = {
@@ -46,7 +47,6 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
   const [promos, setPromos] = useState<OutletPromo[]>(initialPromos)
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
   const globalPromo = promos.find(p => p.scope === 'global') || {
@@ -102,7 +102,6 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
 
   const handleSave = async () => {
     setSaving(true)
-    setMessage(null)
     
     try {
       if (!outlets || outlets.length === 0) {
@@ -111,11 +110,10 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
 
       await savePromosAction(outlets, promos)
       
-      setMessage({ type: 'success', text: 'Pengaturan promo berhasil diterapkan ke semua outlet!' })
-      setTimeout(() => setMessage(null), 3000)
+      toast.success('Pengaturan promo berhasil diterapkan ke semua outlet!')
     } catch (err: any) {
       console.error(err)
-      setMessage({ type: 'error', text: err.message || 'Gagal menyimpan promo' })
+      toast.error(err.message || 'Gagal menyimpan promo')
     } finally {
       setSaving(false)
     }
@@ -134,13 +132,6 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
             Berlaku untuk semua cabang outlet
           </div>
         </div>
-
-        {message && (
-          <div className={`p-4 rounded-xl flex items-start gap-3 animate-fade-up ${message.type === 'success' ? 'bg-emerald-50 border border-emerald-200/60 text-emerald-700' : 'bg-red-50 border border-red-200/60 text-red-700'}`}>
-            {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" /> : <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />}
-            <p className="font-semibold text-sm leading-relaxed">{message.text}</p>
-          </div>
-        )}
 
         {/* PROMO GLOBAL */}
         <div className={`rounded-2xl p-6 sm:p-8 space-y-6 border-2 transition-all duration-300 ${globalPromo.is_active ? 'border-amber-400 bg-amber-50/30 shadow-card hover:shadow-card-hover' : 'border-gray-100 bg-white hover:border-gray-200'}`}>

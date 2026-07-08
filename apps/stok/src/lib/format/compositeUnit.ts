@@ -1,6 +1,10 @@
 /**
  * Format saldo (running balance) sebagai "N {satuan} + M {satuan_kecil}".
  * Kalau satuanKecil/faktorTampilan tidak ada, fallback ke "{qty} {satuan}".
+ *
+ * Untuk nilai negatif (defisit stok), gunakan Math.trunc agar whole dan
+ * remainder konsisten bertanda negatif — mis. -33.1 pcs → "-33 pcs - 0.3 kg"
+ * (bukan "-34 pcs + 2.7 kg" dari Math.floor yang membingungkan secara visual).
  */
 export function formatCompositeSaldo(
   qty: number,
@@ -12,16 +16,24 @@ export function formatCompositeSaldo(
     // Fallback tanpa tanda '+': saldo = total absolut, beda dari delta (pergerakan bertanda).
     return `${qty} ${satuan}`
   }
-  let whole = Math.floor(qty)
+
+  // Gunakan Math.trunc (bukan Math.floor) agar whole selalu bertanda sama dengan qty.
+  // Math.floor(-33.1) = -34 (berbeda arah), Math.trunc(-33.1) = -33 (sama arah).
+  let whole = Math.trunc(qty)
   const remainderRaw = (qty - whole) * faktorTampilan
   let remainder = Math.round(remainderRaw * 100) / 100
-  // Floating-point drift (mis. qty = 2.9999999999) bisa bikin whole floor turun
-  // tapi remainder dibulatkan naik jadi persis faktorTampilan. Carry-kan.
-  if (remainder >= faktorTampilan) {
-    whole += 1
+
+  // Floating-point drift: mis. qty = 2.9999999999 → remainder bisa jadi persis faktorTampilan.
+  // Carry ke whole, bukan negatif ke bawah.
+  if (Math.abs(remainder) >= faktorTampilan) {
+    whole += Math.sign(remainder)
     remainder = 0
   }
-  return `${whole} ${satuan} + ${remainder} ${satuanKecil}`
+
+  // Separator: '+' jika remainder >= 0 (termasuk 0), '-' jika remainder negatif.
+  const separator = remainder < 0 ? '-' : '+'
+  const absRemainder = Math.abs(remainder)
+  return `${whole} ${satuan} ${separator} ${absRemainder} ${satuanKecil}`
 }
 
 /**

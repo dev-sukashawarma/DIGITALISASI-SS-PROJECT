@@ -14,8 +14,18 @@ describe('formatCompositeSaldo', () => {
     expect(formatCompositeSaldo(2.999, 'kompan', 'liter', 16)).toBe('2 kompan + 15.98 liter')
   })
 
-  it('saldo negatif tetap konsisten secara matematis', () => {
-    expect(formatCompositeSaldo(-0.5, 'kompan', 'liter', 16)).toBe('-1 kompan + 8 liter')
+  it('saldo negatif: whole dan remainder konsisten bertanda (pakai Math.trunc, bukan Math.floor)', () => {
+    // -0.5 kompan: Math.trunc(-0.5) = 0, remainder = (-0.5 - 0) * 16 = -8
+    expect(formatCompositeSaldo(-0.5, 'kompan', 'liter', 16)).toBe('0 kompan - 8 liter')
+  })
+
+  it('saldo negatif integer: tampil dengan sisa 0', () => {
+    // -2 kompan: whole = -2, remainder = 0
+    expect(formatCompositeSaldo(-2, 'kompan', 'liter', 16)).toBe('-2 kompan + 0 liter')
+  })
+
+  it('saldo negatif pecahan: -33.1 pcs -> "-33 pcs - 0.3 kg" (intuitif, bukan "-34 pcs + 2.7 kg")', () => {
+    expect(formatCompositeSaldo(-33.1, 'pcs', 'kg', 3)).toBe('-33 pcs - 0.3 kg')
   })
 
   it('fallback ke tampilan lama kalau satuan_kecil null', () => {

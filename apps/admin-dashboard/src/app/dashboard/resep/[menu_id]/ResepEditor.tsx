@@ -63,7 +63,19 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
   }
 
   const updateItem = (id: string, field: string, value: any) => {
-    setItems(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
+    setItems(items.map((item) => {
+      if (item.id !== id) return item
+      const updated = { ...item, [field]: value }
+      // Saat bahan dipilih, otomatis isi satuan dari kemasan_satuan bahan tersebut
+      // (jika satuan item belum diset secara manual).
+      if (field === 'bahan_baku_id' && value) {
+        const bb = bahanBakuList.find((b: any) => b.id === value)
+        if (bb?.kemasan_satuan) {
+          updated.satuan = bb.kemasan_satuan
+        }
+      }
+      return updated
+    }))
   }
 
   const handleSave = async () => {
@@ -100,11 +112,14 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
       if (items.length > 0) {
         const itemsPayload = items.map((i) => {
           const bb = bahanBakuList.find((b: any) => b.id === i.bahan_baku_id)
+          // Gunakan satuan dari state item (diload dari DB atau saat bahan baru dipilih).
+          // Fallback ke kemasan_satuan hanya jika item.satuan belum ter-set (item baru).
+          const satuan = i.satuan || bb?.kemasan_satuan || ''
           return {
             resep_id: resepId,
             bahan_baku_id: i.bahan_baku_id,
             qty_per_porsi: i.qty_per_porsi,
-            satuan: bb?.kemasan_satuan || '',
+            satuan,
           }
         })
         const { error: insError } = await supabase.from('resep_item').insert(itemsPayload)

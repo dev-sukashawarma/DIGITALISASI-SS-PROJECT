@@ -448,11 +448,9 @@ fun EnrollCameraPreview(
                                         if (faces.isEmpty()) {
                                             onErrorState("Wajah tidak terdeteksi")
                                             isProcessing = false
-                                        } else if (faces.size > 1) {
-                                            onErrorState("Hanya boleh 1 wajah dalam layar")
-                                            isProcessing = false
                                         } else {
-                                            val face = faces[0]
+                                            // Ambil wajah terbesar jika ada banyak wajah (poster, dll)
+                                            val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() } ?: faces[0]
                                             val rotY = face.headEulerAngleY // Menoleh Kiri/Kanan
                                             
                                             // Cek arah wajah sesuai phase terbaru

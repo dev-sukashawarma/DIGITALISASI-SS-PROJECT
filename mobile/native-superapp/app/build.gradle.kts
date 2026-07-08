@@ -93,6 +93,9 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
+    // Google Play Services for Location
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+
     // Test dependencies
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

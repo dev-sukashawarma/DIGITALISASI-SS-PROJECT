@@ -118,6 +118,47 @@ data class Attendance(
     val isOffline: Boolean = false
 )
 
+@Serializable
+data class OutletAttendanceConfigDto(
+    @SerialName("outlet_id") val outletId: String,
+    @SerialName("jam_masuk") val jamMasuk: String,
+    @SerialName("jam_keluar") val jamKeluar: String,
+    @SerialName("toleransi_menit") val toleransiMenit: Int,
+    @SerialName("absen_window_mode") val absenWindowMode: String
+)
+
+@Serializable
+data class AttendanceRecordDto(
+    val id: String? = null,
+    @SerialName("staff_id") val staffId: String,
+    @SerialName("outlet_id") val outletId: String,
+    val type: String, // 'in' atau 'out'
+    @SerialName("ts_client") val tsClient: String,
+    @SerialName("ts_server") val tsServer: String? = null,
+    val status: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val accuracy: Double? = null,
+    @SerialName("photo_url") val photoUrl: String? = null,
+    @SerialName("from_queue") val fromQueue: Boolean = false
+)
+
+@Serializable
+data class DailyChecklistDto(
+    val id: String,
+    @SerialName("outlet_id") val outletId: String,
+    val phase: String, // "tutup"
+    @SerialName("is_required") val isRequired: Boolean,
+    @SerialName("is_done") val isDone: Boolean
+)
+
+@Serializable
+data class PettyCashDto(
+    val id: String,
+    @SerialName("outlet_id") val outletId: String,
+    val status: String // "open", "closed"
+)
+
 data class Shipment(
     val id: String, // Surat Jalan ID
     val sourceOutletId: String, // e.g. "central_kitchen"

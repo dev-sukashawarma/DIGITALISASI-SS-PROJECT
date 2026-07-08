@@ -58,6 +58,10 @@ Tambahan penyesuaian UI secara spesifik:
 ## 6. Perbaikan Typo Satuan
 - Memperbaiki salah ketik `satuan_kecil` untuk bahan baku **SAPI** (menjadi gram), **MINYAK SAYUR** (menjadi ml), dan **GAS 3Kg** (menjadi gram) di database.
 
+## 7. Fitur Auto-Populate Item Purchase Order (PO)
+- **Database:** Menambahkan kolom `bahan_baku_ids` (tipe `UUID[]`) pada tabel `supplier` melalui migrasi SQL `20260709000000_supplier_bahan_baku_ids.sql`.
+- **Master Supplier UI:** Memodifikasi form Master Supplier di `admin-dashboard` agar admin dapat mencentang (checkbox) daftar item spesifik yang biasa disuplai oleh supplier tersebut.
+- **New PO UI:** Mengubah logika pemilihan supplier pada halaman pembuatan Purchase Order. Kini saat supplier dipilih, form daftar item PO akan secara otomatis terisi (auto-populate) sesuai dengan item yang sudah di-*setting* di Master Supplier. Jika belum di-*setting*, form akan menampilkan satu baris kosong seperti biasa.
 ---
 
 # Ringkasan Perubahan Sebelumnya (1 Juli 2026)

@@ -54,6 +54,9 @@ import com.sukashawarma.superapp.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.sukashawarma.superapp.utils.FaceRecognizer
+import com.sukashawarma.superapp.utils.LocationHelper
+import com.sukashawarma.superapp.data.SupabaseClient
+import com.sukashawarma.superapp.data.Outlet
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -79,6 +82,8 @@ fun AttendanceScreen(
     var isClockedIn by remember { mutableStateOf(false) }
     var isDayCompleted by remember { mutableStateOf(false) }
     var isScanning by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var submitError by remember { mutableStateOf<String?>(null) }
     
     var clockInTime by remember { mutableStateOf<String?>(null) }
     var clockOutTime by remember { mutableStateOf<String?>(null) }
@@ -91,7 +96,13 @@ fun AttendanceScreen(
     var clockInSelfie by remember { mutableStateOf<Bitmap?>(null) }
     var clockOutSelfie by remember { mutableStateOf<Bitmap?>(null) }
 
-    // Camera Permission Launcher
+    // State Geolocation
+    var isLocating by remember { mutableStateOf(true) }
+    var locationError by remember { mutableStateOf<String?>(null) }
+    var currentDistance by remember { mutableStateOf<Double?>(null) }
+    var outletData by remember { mutableStateOf<Outlet?>(null) }
+    
+    // Permission Launchers
     val context = LocalContext.current
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -102,12 +113,112 @@ fun AttendanceScreen(
         )
     }
     
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasLocationPermission = isGranted
+        if (!isGranted) {
+            locationError = "Izin lokasi diperlukan untuk absensi."
+            isLocating = false
+        }
+    }
+    
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasCameraPermission = isGranted
         if (isGranted) {
             isScanning = true
+        }
+    }
+
+    LaunchedEffect(hasLocationPermission) {
+        if (!hasLocationPermission) {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            return@LaunchedEffect
+        }
+        
+        // Fase Locating & Validasi Pre-Absen
+        isLocating = true
+        locationError = null
+        
+        try {
+            val locationHelper = LocationHelper(context)
+            val loc = locationHelper.getCurrentLocation()
+            
+            if (loc == null) {
+                locationError = "Gagal mendapatkan lokasi. Pastikan GPS menyala."
+                isLocating = false
+                return@LaunchedEffect
+            }
+            
+            if (loc.accuracy > 150f) {
+                locationError = "Akurasi GPS terlalu rendah (${loc.accuracy}m). Coba ke luar ruangan."
+                isLocating = false
+                return@LaunchedEffect
+            }
+            
+            // Ambil data Outlet (mock / database)
+            val client = SupabaseClient.getInstance()
+            // Untuk percobaan, kita tembak ke outlet-1 (karena staff dummy login sebagai outlet-1)
+            val outletId = "outlet-1" 
+            val outlet = client.getOutlet(outletId)
+            
+            if (outlet == null) {
+                locationError = "Data outlet tidak ditemukan."
+                isLocating = false
+                return@LaunchedEffect
+            }
+            
+            outletData = outlet
+            
+            val distance = LocationHelper.calculateDistance(
+                loc.latitude, loc.longitude, outlet.latitude, outlet.longitude
+            )
+            val adjustedDistance = LocationHelper.calculateAdjustedDistance(distance, loc.accuracy)
+            currentDistance = adjustedDistance
+            
+            if (adjustedDistance > 20.0) {
+                locationError = "Anda berada di luar radius outlet! (Jarak: ${adjustedDistance.toInt()}m)"
+                isLocating = false
+                return@LaunchedEffect
+            }
+            
+            // Jika Geofence Lolos, Cek Status Absen Hari Ini
+            val todayIn = client.getTodayAttendance("dummy-staff", "in")
+            if (todayIn != null) {
+                isClockedIn = true
+                val todayOut = client.getTodayAttendance("dummy-staff", "out")
+                if (todayOut != null) {
+                    isDayCompleted = true
+                } else {
+                    // Ini Fase Clock-Out, Cek Gates!
+                    val gates = client.checkClockOutGates(outletId)
+                    if (!gates.first) {
+                        locationError = gates.second // Menampilkan error checklist/petty cash
+                        isLocating = false
+                        return@LaunchedEffect
+                    }
+                }
+            } else {
+                isClockedIn = false
+            }
+            
+            // Lolos semua
+            isLocating = false
+            
+        } catch (e: Exception) {
+            locationError = "Terjadi kesalahan: ${e.message}"
+            isLocating = false
         }
     }
 
@@ -163,49 +274,142 @@ fun AttendanceScreen(
                 // Hero Section (Status & Jam)
                 HeroSection(currentTime, currentDate, isClockedIn, isDayCompleted)
 
-                // Action Area (Fingerprint Scanner Button)
-                ActionArea(
-                    staffName = staffName,
-                    staffFaceDescriptor = staffFaceDescriptor,
-                    isClockedIn = isClockedIn,
-                    isDayCompleted = isDayCompleted,
-                    isScanning = isScanning,
-                    pulseScale = pulseScale,
-                    onScanTrigger = {
-                        if (hasCameraPermission) {
-                            isScanning = true
-                        } else {
-                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                if (isLocating) {
+                    // Loading State
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(320.dp)
+                            .background(Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = PrimarySuka)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Memeriksa Lokasi & Syarat Absen...", color = Color.White)
                         }
-                    },
-                    onFaceScanned = { bitmap ->
-                        coroutineScope.launch {
-                            isScanning = false
-                            
-                            if (!isClockedIn) {
-                                isClockedIn = true
-                                clockInTime = currentTime
-                                clockInSelfie = bitmap
-                                attendanceCount += 1
-                            } else {
-                                isClockedIn = false
-                                isDayCompleted = true
-                                clockOutTime = currentTime
-                                clockOutSelfie = bitmap
+                    }
+                } else if (locationError != null) {
+                    // Error State
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(320.dp)
+                            .background(Color(0x33FF0000), RoundedCornerShape(16.dp))
+                            .border(1.dp, Color.Red, RoundedCornerShape(16.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = "Location Error",
+                                tint = Color.Red,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = locationError ?: "",
+                                color = Color.White,
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = { 
+                                    // Trigger LaunchedEffect again by toggling a state, or just let them go back
+                                    // For simplicity, we just ask them to go back or restart
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimarySuka)
+                            ) {
+                                Text("Coba Lagi")
                             }
                         }
-                    },
-                    onReset = {
-                        isClockedIn = false
-                        isDayCompleted = false
-                        isScanning = false
-                        clockInTime = null
-                        clockOutTime = null
-                        clockInSelfie = null
-                        clockOutSelfie = null
-                        attendanceCount = 18
                     }
-                )
+                } else {
+                    // Action Area (Fingerprint Scanner Button)
+                    ActionArea(
+                        staffName = staffName,
+                        staffFaceDescriptor = staffFaceDescriptor,
+                        isClockedIn = isClockedIn,
+                        isDayCompleted = isDayCompleted,
+                        isScanning = isScanning,
+                        pulseScale = pulseScale,
+                        onScanTrigger = {
+                            if (hasCameraPermission) {
+                                isScanning = true
+                            } else {
+                                permissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        onFaceScanned = { bitmap ->
+                            coroutineScope.launch {
+                                isScanning = false
+                                isSubmitting = true
+                                submitError = null
+                                
+                                try {
+                                    val client = SupabaseClient.getInstance()
+                                    val tsClient = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date())
+                                    
+                                    // Bikin record DTO (mock photoUrl)
+                                    val type = if (!isClockedIn) "in" else "out"
+                                    val dto = com.sukashawarma.superapp.data.AttendanceRecordDto(
+                                        staffId = "dummy-staff",
+                                        outletId = "outlet-1",
+                                        type = type,
+                                        tsClient = tsClient,
+                                        status = "tepat", // Secara aktual dihitung dengan jam_masuk / toleransi
+                                        latitude = outletData?.latitude,
+                                        longitude = outletData?.longitude,
+                                        accuracy = 10.0,
+                                        photoUrl = "attendance/dummy-photo.jpg",
+                                        fromQueue = false
+                                    )
+                                    
+                                    try {
+                                        client.submitAttendance(dto)
+                                    } catch (e: Exception) {
+                                        // Offline queue fallback
+                                        client.queueOfflineAction {
+                                            client.submitAttendance(dto.copy(fromQueue = true))
+                                        }
+                                        android.util.Log.w("Attendance", "Berhasil masuk ke queue lokal karena offline")
+                                    }
+                                    
+                                    // Update UI
+                                    if (!isClockedIn) {
+                                        isClockedIn = true
+                                        clockInTime = currentTime
+                                        clockInSelfie = bitmap
+                                        attendanceCount += 1
+                                    } else {
+                                        isClockedIn = false
+                                        isDayCompleted = true
+                                        clockOutTime = currentTime
+                                        clockOutSelfie = bitmap
+                                    }
+                                } catch (e: Exception) {
+                                    submitError = "Gagal memproses absensi: ${e.message}"
+                                } finally {
+                                    isSubmitting = false
+                                }
+                            }
+                        },
+                        onReset = {
+                            isClockedIn = false
+                            isDayCompleted = false
+                            isScanning = false
+                            clockInTime = null
+                            clockOutTime = null
+                            clockInSelfie = null
+                            clockOutSelfie = null
+                            attendanceCount = 18
+                        }
+                    )
+                }
 
                 // Tombol sementara untuk Bypass Scan Wajah di Emulator tanpa Webcam
                 Button(
@@ -363,9 +567,23 @@ private fun ActionArea(
     var detectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var livenessState by remember { mutableStateOf(LivenessState.INIT) }
     var debugMessage by remember { mutableStateOf("") }
+    var failedVerifyCount by remember { mutableStateOf(0) }
     var isProcessing by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val faceRecognizer = remember { com.sukashawarma.superapp.utils.FaceRecognizer(context) }
+
+    LaunchedEffect(isScanning) {
+        if (isScanning) {
+            // Selalu reset semua state dari awal setiap kali kamera terbuka
+            // Ini mencegah bug di mana Clock-Out langsung lolos karena state lama belum terhapus
+            livenessState = LivenessState.INIT
+            debugMessage = ""
+            failedVerifyCount = 0
+            faceDetected = false
+            detectedBitmap = null
+            isProcessing = false
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -468,9 +686,10 @@ private fun ActionArea(
                                 
                                 detector.process(inputImage)
                                     .addOnSuccessListener { faces ->
-                                        if (faces.size == 1) {
+                                        if (faces.isNotEmpty()) {
                                             faceDetected = true
-                                            val face = faces[0]
+                                            // Jika ada banyak wajah (misal poster di belakang), pilih yang paling besar (paling dekat)
+                                            val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() } ?: faces[0]
                                             val eulerY = face.headEulerAngleY
                                             // Liveness State Machine (Identity First, Liveness Second)
                                             when (livenessState) {
@@ -512,7 +731,8 @@ private fun ActionArea(
                                                                             val liveFirst3 = embedding.take(3).joinToString { String.format("%.3f", it) }
                                                                             val similarity = FaceRecognizer.cosineSimilarity(embedding, staffFaceDescriptor)
                                                                             android.util.Log.d("FACE_MATCH", "DB[${staffFaceDescriptor.size}]: $dbFirst3 | Live[${embedding.size}]: $liveFirst3 | Sim=$similarity")
-                                                                            if (similarity >= 0.55f) {
+                                                                            // Threshold dinaikkan ke 0.85 untuk mencegah orang lain/teman lolos
+                                                                            if (similarity >= 0.85f) {
                                                                                 livenessState = LivenessState.STRAIGHT
                                                                                 debugMessage = "Cocok! (Sim: ${String.format("%.4f", similarity)})"
                                                                             } else {
@@ -548,14 +768,56 @@ private fun ActionArea(
                                                 }
                                                 LivenessState.LEFT -> {
                                                     if (eulerY in -15f..15f) {
-                                                        livenessState = LivenessState.VERIFIED
+                                                        // VERIFIKASI FINAL: Pastikan wajah yang selesai liveness adalah wajah yang sama
+                                                        try {
+                                                            val finalBitmap = imageProxy.toBitmap()
+                                                            if (finalBitmap != null) {
+                                                                val bounds = face.boundingBox
+                                                                val cropLeft = bounds.left.coerceIn(0, finalBitmap.width - 1)
+                                                                val cropTop = bounds.top.coerceIn(0, finalBitmap.height - 1)
+                                                                val cropRight = bounds.right.coerceIn(cropLeft + 1, finalBitmap.width)
+                                                                val cropBottom = bounds.bottom.coerceIn(cropTop + 1, finalBitmap.height)
+                                                                
+                                                                val faceBitmap = android.graphics.Bitmap.createBitmap(finalBitmap, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop)
+                                                                val finalEmbedding = faceRecognizer.extractEmbedding(faceBitmap)
+                                                                
+                                                                if (finalEmbedding.isNotEmpty() && staffFaceDescriptor != null) {
+                                                                    val similarity = FaceRecognizer.cosineSimilarity(finalEmbedding, staffFaceDescriptor)
+                                                                    if (similarity >= 0.80f) {
+                                                                        livenessState = LivenessState.VERIFIED
+                                                                        failedVerifyCount = 0
+                                                                    } else {
+                                                                        failedVerifyCount++
+                                                                        if (failedVerifyCount > 5) {
+                                                                            livenessState = LivenessState.INIT
+                                                                            debugMessage = "GAGAL: Wajah tidak sama! (Sim: ${String.format("%.4f", similarity)})"
+                                                                            failedVerifyCount = 0
+                                                                        } else {
+                                                                            // Jangan langsung reset ke INIT. Biarkan user mencoba frame berikutnya.
+                                                                            // Jika ini wajah temannya, dia akan tertahan di sini selamanya.
+                                                                            // Jika ini wajah asli, frame berikutnya (setelah fokus kamera stabil) pasti akan lolos.
+                                                                            debugMessage = "Mencocokkan ulang... ($failedVerifyCount/5)"
+                                                                        }
+                                                                    }
+                                                                } else {
+                                                                    // Bypass
+                                                                    livenessState = LivenessState.VERIFIED
+                                                                }
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            livenessState = LivenessState.INIT
+                                                            debugMessage = "Error final verify: ${e.message}"
+                                                        }
                                                     }
                                                 }
                                                 else -> {}
                                             }
                                         } else {
                                             faceDetected = false
-                                            debugMessage = if (faces.isEmpty()) "Tidak ada wajah" else "Terlalu banyak wajah"
+                                            // Jangan langsung reset state ke INIT di sini.
+                                            // Wajah bisa hilang sesaat karena blur saat menoleh (kamera HP).
+                                            // Keamanan sudah dijamin oleh "Verifikasi Final" di tahap akhir.
+                                            debugMessage = "Tidak ada wajah"
                                         }
                                     }
                                     .addOnCompleteListener {

@@ -17,8 +17,8 @@ BEGIN
     AND NEW.tipe NOT IN ('opname_selisih', 'rejected_kiriman', 'pemakaian')
   THEN
     RAISE EXCEPTION 'Stok tidak cukup: saldo saat ini % %, pengurangan % %',
-      cur, (SELECT satuan FROM bahan_baku WHERE id = NEW.bahan_baku_id),
-      ABS(NEW.qty), (SELECT satuan FROM bahan_baku WHERE id = NEW.bahan_baku_id)
+      trim_scale(cur), (SELECT satuan FROM bahan_baku WHERE id = NEW.bahan_baku_id),
+      trim_scale(ABS(NEW.qty)), (SELECT satuan FROM bahan_baku WHERE id = NEW.bahan_baku_id)
       USING ERRCODE = 'check_violation';
   END IF;
 

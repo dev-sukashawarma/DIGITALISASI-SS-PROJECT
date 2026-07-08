@@ -37,8 +37,15 @@ private interface SupabaseClientDelegate : AuthRepository, SyncRepository, Realt
     fun getToken(): String?
     override suspend fun getStaffProfile(identifier: String): Staff?
     suspend fun getStaffList(outletId: String): List<Staff>
+    suspend fun getOutlet(outletId: String): Outlet?
     suspend fun uploadFaceReference(outletId: String, staffId: String, photoData: ByteArray): String
     suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String)
+    
+    // Attendance Methods
+    suspend fun getConfig(outletId: String): OutletAttendanceConfigDto?
+    suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRecordDto?
+    suspend fun checkClockOutGates(outletId: String): Pair<Boolean, String?>
+    suspend fun submitAttendance(dto: AttendanceRecordDto)
 }
 
 class SupabaseClient(val isTesting: Boolean = true) : AuthRepository, SyncRepository, RealtimeRepository {
@@ -95,8 +102,14 @@ class SupabaseClient(val isTesting: Boolean = true) : AuthRepository, SyncReposi
     }
 
     suspend fun getStaffList(outletId: String): List<Staff> = delegate.getStaffList(outletId)
+    suspend fun getOutlet(outletId: String): Outlet? = delegate.getOutlet(outletId)
     suspend fun uploadFaceReference(outletId: String, staffId: String, photoData: ByteArray): String = delegate.uploadFaceReference(outletId, staffId, photoData)
     suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String) = delegate.saveEnrollment(staffId, descriptor, photoUrl, isReEnroll, reason, adminId)
+
+    suspend fun getConfig(outletId: String): OutletAttendanceConfigDto? = delegate.getConfig(outletId)
+    suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRecordDto? = delegate.getTodayAttendance(staffId, type)
+    suspend fun checkClockOutGates(outletId: String): Pair<Boolean, String?> = delegate.checkClockOutGates(outletId)
+    suspend fun submitAttendance(dto: AttendanceRecordDto) = delegate.submitAttendance(dto)
 
     companion object {
         private val isUnderTest = try {
@@ -405,6 +418,37 @@ private class ProductionDelegate : SupabaseClientDelegate {
         }.sortedBy { it.name }
     }
 
+    override suspend fun getOutlet(outletId: String): Outlet? {
+        val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
+        return try {
+            @kotlinx.serialization.Serializable
+            data class OutletDto(
+                val id: String,
+                val name: String,
+                val latitude: Double? = null,
+                val longitude: Double? = null,
+                val radius_meter: Double? = 100.0
+            )
+            
+            val dto = clientObj.postgrest["outlets"]
+                .select { filter { eq("id", outletId) } }
+                .decodeSingleOrNull<OutletDto>()
+                
+            if (dto != null && dto.latitude != null && dto.longitude != null) {
+                Outlet(
+                    id = dto.id,
+                    name = dto.name,
+                    latitude = dto.latitude,
+                    longitude = dto.longitude,
+                    radiusMeter = dto.radius_meter ?: 100.0
+                )
+            } else null
+        } catch (e: Exception) {
+            android.util.Log.e("SupabaseClient", "Failed to fetch outlet location", e)
+            null
+        }
+    }
+
     override suspend fun uploadFaceReference(outletId: String, staffId: String, photoData: ByteArray): String {
         val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
         val refPath = "$outletId/$staffId.jpg"
@@ -452,6 +496,91 @@ private class ProductionDelegate : SupabaseClientDelegate {
             filter { eq("id", staffId) }
         }
         android.util.Log.d("ENROLL", "Successfully saved to database")
+    }
+
+    override suspend fun getConfig(outletId: String): OutletAttendanceConfigDto? {
+        val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
+        return try {
+            clientObj.postgrest["outlet_attendance_config"]
+                .select { filter { eq("outlet_id", outletId) } }
+                .decodeSingleOrNull<OutletAttendanceConfigDto>()
+        } catch (e: Exception) {
+            android.util.Log.e("SupabaseClient", "Failed to fetch config", e)
+            null
+        }
+    }
+
+    override suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRecordDto? {
+        val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
+        return try {
+            // Kita cari dari awal hari berdasarkan timezone (ideal di query, tapi sementara ambil limit 1 descending)
+            val todayDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("Asia/Jakarta")
+            }.format(java.util.Date())
+            
+            clientObj.postgrest["attendance"]
+                .select {
+                    filter { 
+                        eq("staff_id", staffId)
+                        eq("type", type)
+                        gte("ts_client", "${todayDateStr}T00:00:00+07:00")
+                    }
+                    order("ts_client", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                    limit(1)
+                }
+                .decodeSingleOrNull<AttendanceRecordDto>()
+        } catch (e: Exception) {
+            android.util.Log.e("SupabaseClient", "Failed to fetch today attendance", e)
+            null
+        }
+    }
+
+    override suspend fun checkClockOutGates(outletId: String): Pair<Boolean, String?> {
+        val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
+        try {
+            // Cek Checklist
+            val checklists = clientObj.postgrest["daily_checklists"]
+                .select {
+                    filter {
+                        eq("outlet_id", outletId)
+                        eq("phase", "tutup")
+                        eq("is_required", true)
+                        eq("is_done", false)
+                    }
+                }.decodeList<DailyChecklistDto>()
+            
+            if (checklists.isNotEmpty()) {
+                return Pair(false, "Checklist penutupan harian belum diselesaikan.")
+            }
+
+            // Cek Petty Cash
+            val pettyCash = clientObj.postgrest["petty_cash"]
+                .select {
+                    filter {
+                        eq("outlet_id", outletId)
+                        eq("status", "open")
+                    }
+                }.decodeList<PettyCashDto>()
+
+            if (pettyCash.isNotEmpty()) {
+                return Pair(false, "Shift kasir / petty cash masih berstatus open (belum ditutup).")
+            }
+
+            return Pair(true, null)
+        } catch (e: Exception) {
+            android.util.Log.e("SupabaseClient", "Failed to check clock out gates", e)
+            return Pair(false, "Gagal memverifikasi syarat clock-out: ${e.message}")
+        }
+    }
+
+    override suspend fun submitAttendance(dto: AttendanceRecordDto) {
+        val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
+        try {
+            clientObj.postgrest["attendance"].insert(dto)
+        } catch (e: Exception) {
+            android.util.Log.e("SupabaseClient", "Failed to submit attendance", e)
+            throw e
+        }
     }
 }
 
@@ -592,11 +721,43 @@ private class MockDelegate : SupabaseClientDelegate {
         )
     }
 
+    override suspend fun getOutlet(outletId: String): Outlet? {
+        return Outlet(
+            id = outletId,
+            name = "Warung Suka Shawarma Pusat",
+            latitude = -6.200000,
+            longitude = 106.816666,
+            radiusMeter = 100.0
+        )
+    }
+
     override suspend fun uploadFaceReference(outletId: String, staffId: String, photoData: ByteArray): String {
         return "$outletId/$staffId.jpg"
     }
 
     override suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String) {
         // no-op in mock
+    }
+
+    override suspend fun getConfig(outletId: String): OutletAttendanceConfigDto? {
+        return OutletAttendanceConfigDto(
+            outletId = outletId,
+            jamMasuk = "08:00:00",
+            jamKeluar = "17:00:00",
+            toleransiMenit = 15,
+            absenWindowMode = "auto"
+        )
+    }
+
+    override suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRecordDto? {
+        return null // Return null to simulate they haven't clocked in yet
+    }
+
+    override suspend fun checkClockOutGates(outletId: String): Pair<Boolean, String?> {
+        return Pair(true, null) // Allow by default
+    }
+
+    override suspend fun submitAttendance(dto: AttendanceRecordDto) {
+        // no-op
     }
 }

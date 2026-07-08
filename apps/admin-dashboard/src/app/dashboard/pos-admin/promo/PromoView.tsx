@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search } from 'lucide-react'
-import { createClient } from '@/lib/supabase'
+import { savePromosAction } from './actions'
 
 type MenuItem = {
   id: string
@@ -105,40 +105,11 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     setMessage(null)
     
     try {
-      const supabase = createClient()
-      
       if (!outlets || outlets.length === 0) {
         throw new Error('Tidak ada outlet aktif untuk diterapkan promo.')
       }
 
-      for (const outlet of outlets) {
-        const { data: existingPromos } = await supabase.from('outlet_promos').select('id, scope, menu_item_id').eq('outlet_id', outlet.id)
-        
-        const toUpsert = promos.map(p => {
-          const existing = existingPromos?.find(ep => ep.scope === p.scope && ep.menu_item_id === p.menu_item_id)
-          return {
-            ...(existing ? { id: existing.id } : {}),
-            outlet_id: outlet.id,
-            scope: p.scope,
-            menu_item_id: p.menu_item_id,
-            discount_type: p.discount_type,
-            discount_value: p.discount_value,
-            is_active: p.is_active,
-            min_purchase: p.min_purchase,
-            end_date: p.end_date
-          }
-        })
-
-        for (const p of toUpsert) {
-          if (p.id) {
-            const { error } = await supabase.from('outlet_promos').update(p).eq('id', p.id)
-            if (error) throw error
-          } else {
-            const { error } = await supabase.from('outlet_promos').insert(p)
-            if (error) throw error
-          }
-        }
-      }
+      await savePromosAction(outlets, promos)
       
       setMessage({ type: 'success', text: 'Pengaturan promo berhasil diterapkan ke semua outlet!' })
       setTimeout(() => setMessage(null), 3000)

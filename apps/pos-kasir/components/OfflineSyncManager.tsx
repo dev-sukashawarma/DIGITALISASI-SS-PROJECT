@@ -40,7 +40,7 @@ export default function OfflineSyncManager() {
             });
 
             if (res.ok) {
-              await db.sync_queue_orders.update(order.id, { status: 'synced' });
+              await db.sync_queue_orders.delete(order.id);
               hasSuccess = true;
               console.log(`[SyncManager] Pesanan offline ${order.id} berhasil dikirim.`);
             } else {

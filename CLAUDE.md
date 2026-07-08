@@ -705,5 +705,34 @@ Pengeluaran punya **dua scope**: **Outlet** (dibebankan ke P&L outlet) vs **Pusa
 
 ---
 
-**Last updated:** 2026-07-01  
+## Session 2026-07-08: Stok Bug Hunt — Saldo Race, BOM Reversal, & Reset Baseline
+
+**Status:** ✅ COMPLETED — fix live di DB (via SQL Editor), reset baseline diterapkan. Branch `fix/stok-saldo-race-bom-reversal` merged ke `main`.
+
+### Dua bug produksi (jalur pemotongan bahan setelah order & data stok)
+1. **Lost-update race `ledger_stamp_saldo`** — saldo dihitung 2 langkah non-atomik (BEFORE `SELECT` tanpa lock + AFTER upsert). Order konkuren untuk `(outlet, bahan)` sama saling menimpa → potongan hilang, stok tercatat > fisik (rutin sejak BOM automation nulis ledger tiap order). **Fix:** satu upsert atomik `saldo = stok_balance.saldo + NEW.qty` + `RETURNING`, drop trigger/fungsi `ledger_apply_balance`. **WAJIB** `SECURITY DEFINER SET search_path=public` (authenticated tak punya policy tulis `stok_balance`) + pertahankan guard no-negative dari `20260625130000`.
+2. **Reversal void BOM over-restore `trg_process_bom_stok`** — cancel me-reverse SETIAP `pemakaian` historis order → order yang `completed` >1x di-restore berlebih. **Fix:** reverse hanya net negatif per bahan (`SUM(qty) … HAVING SUM(qty) < 0`).
+
+### Gotcha kritikal (pra-apply check menyelamatkan produksi)
+- Migration `20260708100001` sempat ter-`db push` dev lain saat isinya **masih versi buggy** (INVOKER, tanpa guard). Karena sudah tercatat "applied", `db push` tak akan re-apply → fix di-`CREATE OR REPLACE` **manual di SQL Editor**. **Selalu verifikasi `pg_get_functiondef` + `prosecdef` di DB live**, jangan andalkan status `migration list`.
+
+### Isu data lebih dalam + reset baseline
+- **`stok_balance` ↔ `ledger_stok` divergen** besar (KITCHEN di-seed ~9999 tanpa baris ledger; `SUM(ledger)` negatif). Akar: seeding manual **out-of-band bypass ledger** (BUKAN dari kode — audit repo bersih, tak ada penulis `stok_balance` langsung selain trigger; app hanya `.select`). Jangan re-sync ke `SUM(ledger)` (bikin KITCHEN minus).
+- **Reset baseline 2026-07-08:** semua outlet operasional diset `threshold + 5` (Kitchen id `550e8400-e29b-41d4-a716-446655440001` = `+30`) via **643 `adjustment` ledger** (bukan tulis langsung). Exclude `Kantor Pusat` & `SUKA SHAWARMA HQ` (dummy 9999). Threshold efektif = `COALESCE(outlet_reorder_point.reorder_point, bahan_baku.default_reorder_point, 10)`.
+- **PLASTIK MERAH** `default_reorder_point` 1750→dikoreksi (dulu seed 50 pack, jadi 1750 pcs saat ganti satuan); di-re-baseline khusus.
+
+### SOP (ditegakkan)
+Semua perubahan stok (seed/refill/koreksi/reset) **WAJIB lewat `ledger_stok`** (`adjustment`/`terima_kiriman`/`opname_selisih`) — JANGAN `UPDATE`/`INSERT` `stok_balance` manual. Trigger yang urus saldo. Koreksi negatif: pakai adjustment ledger, jangan tiru `20260625140000` (`UPDATE saldo=0`).
+
+### Artefak
+- Migrations: `20260708100001_fix_ledger_saldo_atomic.sql`, `20260708110000_fix_bom_reversal_idempotent.sql`
+- Diagnostik: `SS COGS SET/reconcile-stok-balance.sql`
+
+### 📝 Next
+- Merge sisa: PLASTIK MERAH threshold final tunggu konfirmasi owner (kalau 100 cuma placeholder).
+- Composite unit formatter fix (`apps/stok/src/lib/format/compositeUnit.ts`, Math.trunc negatif) masih uncommitted di working tree — kerja sesi lain.
+
+---
+
+**Last updated:** 2026-07-08  
 **Owner:** Dev Suka Shawarma

@@ -15,8 +15,22 @@
 -- yang dipegang ON CONFLICT, lalu turunkan saldo_sebelum/sesudah dari nilai OTORITATIF
 -- hasil upsert (RETURNING). Trigger AFTER INSERT lama dibuang supaya tak double-write.
 -- Aditif terhadap perilaku (nilai saldo yang benar); tanda tangan trigger tetap.
+--
+-- PENTING: guard no-negative-balance dari 20260625130000 DIPERTAHANKAN (tolak insert
+-- yang bikin saldo < 0 kecuali opname_selisih/rejected_kiriman). RAISE membatalkan
+-- transaksi sehingga upsert stok_balance di atas ikut ter-rollback -- guard kini malah
+-- lebih benar di bawah konkurensi (sebelumnya dua order konkuren bisa sama-sama lolos
+-- baca stale lalu bikin saldo minus).
 
-CREATE OR REPLACE FUNCTION ledger_stamp_saldo() RETURNS trigger AS $$
+-- WAJIB SECURITY DEFINER: fungsi ini kini MENULIS stok_balance (upsert), dan
+-- 'authenticated' TIDAK punya policy INSERT/UPDATE di stok_balance (lihat
+-- 20260609002100 -- itulah kenapa ledger_apply_balance dulu dibuat DEFINER).
+-- Tanpa DEFINER, semua insert ledger dari user biasa akan ditolak RLS.
+CREATE OR REPLACE FUNCTION ledger_stamp_saldo() RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE new_saldo NUMERIC;
 BEGIN
   -- Increment atomik: ON CONFLICT memegang row-lock stok_balance sehingga order
@@ -29,9 +43,21 @@ BEGIN
 
   NEW.saldo_sesudah := new_saldo;
   NEW.saldo_sebelum := new_saldo - NEW.qty;
+
+  -- Guard no-negative-balance (dipertahankan dari 20260625130000). RAISE -> rollback
+  -- transaksi -> upsert di atas juga batal, jadi stok_balance tak jadi minus.
+  IF NEW.saldo_sesudah < 0
+    AND NEW.tipe NOT IN ('opname_selisih', 'rejected_kiriman')
+  THEN
+    RAISE EXCEPTION 'Stok tidak cukup: saldo saat ini % %, pengurangan % %',
+      NEW.saldo_sebelum, (SELECT satuan FROM bahan_baku WHERE id = NEW.bahan_baku_id),
+      ABS(NEW.qty), (SELECT satuan FROM bahan_baku WHERE id = NEW.bahan_baku_id)
+      USING ERRCODE = 'check_violation';
+  END IF;
+
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Balance kini di-maintain di BEFORE trigger (atomik). Buang AFTER trigger lama
 -- agar stok_balance tidak ditulis dua kali (write kedua-lah yang bisa menimpa

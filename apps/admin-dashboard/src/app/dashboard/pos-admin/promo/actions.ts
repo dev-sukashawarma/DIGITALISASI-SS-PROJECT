@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import crypto from 'crypto'
 
 export async function savePromosAction(
   outlets: { id: string }[],
@@ -37,7 +38,7 @@ export async function savePromosAction(
       const existingId = existingMap.get(key)
       
       toUpsertMap.set(key, {
-        ...(existingId ? { id: existingId } : {}),
+        id: existingId || crypto.randomUUID(),
         outlet_id: outlet.id,
         scope: p.scope,
         menu_item_id: p.menu_item_id,

@@ -174,29 +174,55 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
         ? 'text-[#a43c26]'
         : 'text-[#006e24]';
 
+    const { large, small } = (() => {
+      if (!item.faktor_tampilan || !item.satuan_kecil) return { large: item.current_qty, small: 0 };
+      let whole = Math.trunc(item.current_qty);
+      const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
+      let remainder = Math.round(remainderRaw * 100) / 100;
+      if (Math.abs(remainder) >= item.faktor_tampilan) {
+        whole += Math.sign(remainder);
+        remainder = 0;
+      }
+      return { large: whole, small: Math.abs(remainder) };
+    })();
+
     return (
       <div
         key={item.bahan_baku_id}
         onClick={() => onItemClick(item)}
-        className="flex justify-between items-center p-4 hover:bg-gray-50/50 cursor-pointer transition-colors min-h-[56px]"
+        className="grid grid-cols-[2.5fr_1.5fr_1.5fr_1.5fr_1.5fr] gap-2 items-center p-3 hover:bg-gray-50/50 cursor-pointer transition-colors min-h-[56px] text-xs sm:text-sm"
       >
-        <div className="flex items-center gap-3">
-          <div className={`w-2.5 h-2.5 rounded-full ${statusDotColor} ring-4`}></div>
-          <div className="flex flex-col">
-            <span className="font-semibold text-gray-900 text-sm">{item.item_name}</span>
-            <span className="text-[11px] text-gray-400">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <div className={`hidden sm:block shrink-0 w-2 h-2 rounded-full ${statusDotColor} ring-2`}></div>
+          <div className="flex flex-col overflow-hidden">
+            <span className="font-semibold text-gray-900 truncate" title={item.item_name}>{item.item_name}</span>
+            <span className="text-[10px] text-gray-400 truncate">
               {getStorageLocation(item.kategori, item.item_name)}
             </span>
           </div>
         </div>
 
-        <div className="flex flex-col items-end">
-          <span className="font-bold text-gray-900 text-sm">
-            {formatCompositeSaldo(item.current_qty, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / {item.threshold} {item.satuan} {item.threshold === 0 ? ' (no threshold)' : ''}
-          </span>
+        <div className="text-gray-600 text-center font-medium">
+          {item.threshold} <span className="text-[9px] opacity-70 font-normal">{item.satuan}</span>
+        </div>
+
+        <div className="font-bold text-gray-800 text-center">
+          {large} <span className="text-[9px] font-normal opacity-70">{item.satuan}</span>
+        </div>
+
+        <div className="font-bold text-gray-800 text-center">
+          {item.satuan_kecil ? (
+            <>{small} <span className="text-[9px] font-normal opacity-70">{item.satuan_kecil}</span></>
+          ) : (
+            <span className="text-gray-300">-</span>
+          )}
+        </div>
+
+        <div className="flex flex-col items-end justify-center pr-1">
           <span className={`text-[10px] font-extrabold uppercase tracking-wider ${statusLabelColor}`}>
             {statusLabelText} {item.is_flagged && <span className="text-[#ba1a1a] font-bold">*</span>}
           </span>
+          <div className={`sm:hidden w-1.5 h-1.5 rounded-full mt-1 ${statusDotColor} ring-2`}></div>
         </div>
       </div>
     );
@@ -281,6 +307,15 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
           />
           Sort by Name
         </label>
+      </div>
+
+      {/* Header table (visible on slightly larger screens or standard mobile if it fits) */}
+      <div className="grid grid-cols-[2.5fr_1.5fr_1.5fr_1.5fr_1.5fr] gap-2 px-4 py-2.5 bg-[#f4e9de] text-[#544437] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-xl border border-[#d9c2b2]/40 shadow-sm">
+        <div className="col-span-1">Nama Item</div>
+        <div className="text-center">Threshold</div>
+        <div className="text-center">Sat. Besar</div>
+        <div className="text-center">Sat. Kecil</div>
+        <div className="text-right">Status</div>
       </div>
 
       {/* Items list — dikelompokkan per kategori */}

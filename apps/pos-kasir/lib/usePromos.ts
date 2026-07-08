@@ -79,5 +79,13 @@ export function usePromos(outletId: string | undefined) {
     return calculateGlobalDiscount(subtotal, promos)
   }
 
-  return { promos, loading, globalPromo, itemPromos, calculateItemPrice: calcItemPrice, calculateGlobalDiscount: calcGlobalDiscount }
+  const getPromoForMenu = (menuId: string): OutletPromo | null => {
+    const globalP = promos.find(p => p.scope === 'global' && p.is_active && (!p.end_date || new Date(p.end_date).getTime() > Date.now()))
+    if (globalP) return globalP
+    
+    const itemP = promos.find(p => p.scope === 'item' && p.menu_item_id === menuId && p.is_active && (!p.end_date || new Date(p.end_date).getTime() > Date.now()))
+    return itemP || null
+  }
+
+  return { promos, loading, globalPromo, itemPromos, calculateItemPrice: calcItemPrice, calculateGlobalDiscount: calcGlobalDiscount, getPromoForMenu }
 }

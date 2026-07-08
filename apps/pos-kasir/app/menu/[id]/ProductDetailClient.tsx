@@ -41,11 +41,15 @@ export default function ProductDetailClient({
     router.push('/')
   }
 
-  const { calculateItemPrice } = usePromos(outletId)
+  const { calculateItemPrice, getPromoForMenu } = usePromos(outletId)
 
   const cartBaseSubtotal = items.reduce((acc, curr) => acc + curr.item.price * curr.quantity, 0)
   const finalPrice = calculateItemPrice(item.price, item.id, cartBaseSubtotal)
-  const hasPromo = finalPrice < item.price
+  const isDiscountActiveNow = finalPrice < item.price
+
+  const applicablePromo = getPromoForMenu(item.id)
+  const hasPotentialPromo = applicablePromo != null
+  const needsMinPurchase = hasPotentialPromo && (applicablePromo!.min_purchase || 0) > 0
 
   const showPlaceholder = !item.image_url
 
@@ -90,7 +94,7 @@ export default function ProductDetailClient({
             {item.description && <p className="text-gray-500 text-[15px] leading-relaxed mt-2">{item.description}</p>}
           </div>
           <div className="pt-3 border-t border-gray-100 flex flex-col justify-end">
-            {hasPromo ? (
+            {isDiscountActiveNow ? (
               <>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
@@ -103,7 +107,15 @@ export default function ProductDetailClient({
                 <p className="text-3xl font-bold text-red-600 tracking-tight">{formatRupiah(finalPrice)}</p>
               </>
             ) : (
-              <p className="text-3xl font-bold text-amber-600 tracking-tight">{formatRupiah(item.price)}</p>
+              <>
+                <p className="text-3xl font-bold text-amber-600 tracking-tight mb-1.5">{formatRupiah(item.price)}</p>
+                {needsMinPurchase && (
+                  <span className="text-[12px] text-amber-700 font-bold bg-amber-50 inline-block px-2.5 py-1 rounded-md leading-none w-fit border border-amber-100">
+                    Ada Diskon {applicablePromo!.discount_type === 'percentage' ? `${applicablePromo!.discount_value}%` : formatRupiah(applicablePromo!.discount_value).replace('Rp ', '')} 
+                    {applicablePromo!.min_purchase! > 0 ? ` (Min. Belanja ${formatRupiah(applicablePromo!.min_purchase!)})` : ''}
+                  </span>
+                )}
+              </>
             )}
           </div>
         </div>

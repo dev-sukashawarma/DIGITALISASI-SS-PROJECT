@@ -32,7 +32,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
   const { brandName, brandLogo } = useBrand()
   const { items } = useCart()
   
-  const { calculateItemPrice, calculateGlobalDiscount } = usePromos(outletId)
+  const { calculateItemPrice, calculateGlobalDiscount, getPromoForMenu } = usePromos(outletId)
   
   const cartBaseSubtotal = items.reduce((acc, curr) => acc + curr.item.price * curr.quantity, 0)
   const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, cartBaseSubtotal)
@@ -181,7 +181,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
                     className="animate-fade-up"
                     style={{ animationDelay: `${i * 40}ms`, animationFillMode: 'both' }}
                   >
-                    <MenuItem item={item} calculateItemPrice={(price, id) => calculateItemPrice(price, id)} />
+                    <MenuItem item={item} calculateItemPrice={wrappedCalculateItemPrice} applicablePromo={getPromoForMenu(item.id)} />
                   </div>
                 ))}
               </div>
@@ -205,7 +205,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
                         className="animate-fade-up"
                         style={{ animationDelay: `${i * 40}ms`, animationFillMode: 'both' }}
                       >
-                        <MenuItem item={item} calculateItemPrice={(price, id) => calculateItemPrice(price, id)} />
+                        <MenuItem item={item} calculateItemPrice={wrappedCalculateItemPrice} applicablePromo={getPromoForMenu(item.id)} />
                       </div>
                     ))}
                   </div>
@@ -230,7 +230,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
                           className="animate-fade-up"
                           style={{ animationDelay: `${i * 40}ms`, animationFillMode: 'both' }}
                         >
-                          <MenuItem item={item} calculateItemPrice={(price, id) => calculateItemPrice(price, id)} />
+                          <MenuItem item={item} calculateItemPrice={wrappedCalculateItemPrice} applicablePromo={getPromoForMenu(item.id)} />
                         </div>
                       ))}
                     </div>

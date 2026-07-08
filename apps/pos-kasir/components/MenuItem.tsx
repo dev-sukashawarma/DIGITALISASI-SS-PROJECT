@@ -8,12 +8,15 @@ import type { MenuItem as MenuItemType } from '@/types'
 import { useCart } from '@/store/cart'
 import { formatRupiah } from '@/lib/validations'
 
+import type { OutletPromo } from '@/lib/usePromos'
+
 interface Props {
   item: MenuItemType
   calculateItemPrice?: (price: number, id: string) => number
+  applicablePromo?: OutletPromo | null
 }
 
-export default function MenuItem({ item, calculateItemPrice }: Props) {
+export default function MenuItem({ item, calculateItemPrice, applicablePromo }: Props) {
   const { items, addItem, updateQuantity } = useCart()
   const router = useRouter()
   const [imgError, setImgError] = useState(false)
@@ -23,7 +26,10 @@ export default function MenuItem({ item, calculateItemPrice }: Props) {
 
   const showPlaceholder = !item.image_url || imgError
   const finalPrice = calculateItemPrice ? calculateItemPrice(item.price, item.id) : item.price
-  const hasPromo = finalPrice < item.price
+  const isDiscountActiveNow = finalPrice < item.price
+  
+  const hasPotentialPromo = applicablePromo != null
+  const needsMinPurchase = hasPotentialPromo && (applicablePromo!.min_purchase || 0) > 0
 
   return (
     <div
@@ -60,7 +66,7 @@ export default function MenuItem({ item, calculateItemPrice }: Props) {
         )}
         
         {/* Promo Badge overlay */}
-        {item.is_available && hasPromo && (
+        {item.is_available && isDiscountActiveNow && (
           <div className="absolute top-2.5 left-2.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1 z-10">
             PROMO
           </div>
@@ -86,8 +92,8 @@ export default function MenuItem({ item, calculateItemPrice }: Props) {
         )}
 
         {/* Price */}
-        <div className="mt-3 flex flex-col justify-end">
-          {hasPromo ? (
+        <div className="mt-3 flex flex-col justify-end items-start">
+          {isDiscountActiveNow ? (
             <>
               <span className="text-[10px] text-gray-400 line-through leading-none mb-0.5">
                 {formatRupiah(item.price)}
@@ -97,9 +103,17 @@ export default function MenuItem({ item, calculateItemPrice }: Props) {
               </span>
             </>
           ) : (
-            <span className="font-bold text-amber-600 text-base tracking-tight leading-none">
-              {formatRupiah(item.price)}
-            </span>
+            <>
+              <span className="font-bold text-amber-600 text-base tracking-tight leading-none">
+                {formatRupiah(item.price)}
+              </span>
+              {needsMinPurchase && (
+                <span className="text-[9.5px] text-amber-700 font-bold bg-amber-50 inline-block px-1.5 py-0.5 rounded mt-1 leading-none w-fit border border-amber-100">
+                  Diskon {applicablePromo!.discount_type === 'percentage' ? `${applicablePromo!.discount_value}%` : formatRupiah(applicablePromo!.discount_value).replace('Rp ', '')} 
+                  {applicablePromo!.min_purchase! > 0 ? ` Min. ${formatRupiah(applicablePromo!.min_purchase!).replace('Rp ', '')}` : ''}
+                </span>
+              )}
+            </>
           )}
         </div>
       </div>

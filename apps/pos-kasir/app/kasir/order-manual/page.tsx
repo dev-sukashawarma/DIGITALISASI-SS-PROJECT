@@ -16,6 +16,7 @@ import { postToNative } from '@suka/design-system'
 import { WalkInCartPanel, type Payment as WalkInPayment } from '@/components/kasir/WalkInCartPanel'
 import { printReceipt, type ReceiptData } from '@/lib/printReceipt'
 import { useQueryClient } from '@tanstack/react-query'
+import { db } from '@/lib/db'
 
 type Mode = 'walkin' | 'online'
 
@@ -90,21 +91,63 @@ export default function OrderManualPage() {
 
     async function fetchMenu() {
       setLoading(true)
-      const [{ data: m }, { data: c }, { data: unav }] = await Promise.all([
-        supabase.from('menu_items')
-          .select('*, categories(id,name,sort_order)')
-          .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
-          .order('sort_order'),
-        supabase.from('categories').select('*').order('sort_order'),
-        supabase.from('kiosk_settings').select('value')
-          .eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
-      ])
-      setItems(m ?? [])
-      setCategories(c ?? [])
       try {
-        setUnavailableIds(new Set(unav?.value ? JSON.parse(unav.value) : []))
-      } catch { setUnavailableIds(new Set()) }
-      setLoading(false)
+        const [menuRes, catRes, unavRes] = await Promise.all([
+          supabase.from('menu_items')
+            .select('*, categories(id,name,sort_order)')
+            .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
+            .order('sort_order'),
+          supabase.from('categories').select('*').order('sort_order'),
+          supabase.from('kiosk_settings').select('value')
+            .eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
+        ])
+
+        if (menuRes.error) throw menuRes.error
+        if (catRes.error) throw catRes.error
+        if (unavRes.error && unavRes.error.code !== 'PGRST116') throw unavRes.error
+
+        const fetchedItems = menuRes.data ?? []
+        const fetchedCategories = catRes.data ?? []
+        let fetchedUnav: string[] = []
+        try {
+          fetchedUnav = unavRes.data?.value ? JSON.parse(unavRes.data.value) : []
+        } catch {}
+
+        setItems(fetchedItems)
+        setCategories(fetchedCategories)
+        setUnavailableIds(new Set(fetchedUnav))
+
+        // Save to Dexie
+        const now = Date.now()
+        await db.menu_items.bulkPut(fetchedItems.map((it: any) => ({
+          ...it,
+          synced_at: now
+        })))
+        await db.categories.bulkPut(fetchedCategories.map((cat: any) => ({
+          ...cat,
+          synced_at: now
+        })))
+        await db.kiosk_settings.put({
+          id: 'unavailable_menu_ids',
+          settings_data: fetchedUnav,
+          synced_at: now
+        })
+      } catch (err) {
+        console.warn('Network error or fetch failed, falling back to Dexie', err)
+        const cachedItems = await db.menu_items.toArray()
+        const cachedCategories = await db.categories.toArray()
+        const cachedUnav = await db.kiosk_settings.get('unavailable_menu_ids')
+
+        setItems(cachedItems as any)
+        setCategories(cachedCategories as any)
+        if (cachedUnav?.settings_data) {
+          setUnavailableIds(new Set(cachedUnav.settings_data))
+        } else {
+          setUnavailableIds(new Set())
+        }
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchMenu()
@@ -176,24 +219,30 @@ export default function OrderManualPage() {
     if (!canSubmit) return
     setSubmitting(true)
     setError(null)
+
+    const payload = {
+      channel,
+      payment_method: payment,
+      customer_name: customerName,
+      amount_received: payment === 'cash' ? amountReceived : undefined,
+      items: lineList.map((l) => ({
+        menu_item_id: l.item.id,
+        quantity: l.quantity,
+        note: l.note,
+      })),
+    }
+
     try {
       const res = await fetch('/api/orders/manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channel,
-          payment_method: payment,
-          customer_name: customerName,
-          amount_received: payment === 'cash' ? amountReceived : undefined,
-          items: lineList.map((l) => ({
-            menu_item_id: l.item.id,
-            quantity: l.quantity,
-            note: l.note,
-          })),
-        }),
+        body: JSON.stringify(payload),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        if (res.status >= 500) {
+          throw new Error('Server error, fallback to offline')
+        }
         postToNative({ type: 'haptic', style: 'error' })
         setError(data.error ?? 'Gagal membuat pesanan')
         setSubmitting(false)
@@ -213,9 +262,31 @@ export default function OrderManualPage() {
       setPayment(null)
       setCustomerName('')
       setCartOpen(false)
-    } catch {
-      postToNative({ type: 'haptic', style: 'error' })
-      setError('Tidak dapat terhubung ke server')
+    } catch (err) {
+      console.warn('Network error during handleSubmit, fallback to Dexie:', err)
+      const offlineId = crypto.randomUUID()
+      await db.sync_queue_orders.add({
+        id: offlineId,
+        payload: {
+          url: '/api/orders/manual',
+          method: 'POST',
+          body: JSON.stringify(payload)
+        },
+        status: 'pending',
+        created_at: Date.now()
+      })
+      
+      postToNative({ type: 'haptic', style: 'success' })
+      setSuccess({
+        orderNumber: Date.now() % 10000,
+        method: payment,
+        change: payment === 'cash' ? (amountReceived !== null ? amountReceived - totalPrice : 0) : null
+      })
+      setLines({})
+      setChannel(null)
+      setPayment(null)
+      setCustomerName('')
+      setCartOpen(false)
     } finally {
       setSubmitting(false)
     }
@@ -242,23 +313,28 @@ export default function OrderManualPage() {
     const snapSubtotal = subtotalAmount
     const snapDiscount = globalDiscount
 
+    const payload = {
+      payment_method: method,
+      customer_name: customerName,
+      amount_received: method === 'cash' ? amountReceived : undefined,
+      items: lineList.map((l) => ({
+        menu_item_id: l.item.id,
+        quantity: l.quantity,
+        note: l.note,
+      })),
+    }
+
     try {
       const res = await fetch('/api/orders/walk-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          payment_method: method,
-          customer_name: customerName,
-          amount_received: method === 'cash' ? amountReceived : undefined,
-          items: lineList.map((l) => ({
-            menu_item_id: l.item.id,
-            quantity: l.quantity,
-            note: l.note,
-          })),
-        }),
+        body: JSON.stringify(payload),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        if (res.status >= 500) {
+          throw new Error('Server error, fallback to offline')
+        }
         postToNative({ type: 'haptic', style: 'error' })
         setWalkInError(data.error ?? 'Gagal membuat pesanan')
         setWalkInSubmitting(false)
@@ -299,9 +375,55 @@ export default function OrderManualPage() {
       setCustomerName('')
       setCartOpen(false)
       setWalkInPanelKey((k) => k + 1)
-    } catch {
-      postToNative({ type: 'haptic', style: 'error' })
-      setWalkInError('Tidak dapat terhubung ke server')
+    } catch (err) {
+      console.warn('Network error during handleWalkInPay, fallback to Dexie:', err)
+      const offlineId = crypto.randomUUID()
+      await db.sync_queue_orders.add({
+        id: offlineId,
+        payload: {
+          url: '/api/orders/walk-in',
+          method: 'POST',
+          body: JSON.stringify(payload)
+        },
+        status: 'pending',
+        created_at: Date.now()
+      })
+
+      const offlineOrderNumber = Date.now() % 10000
+      const totalAmount = snapSubtotal - snapDiscount
+      const changeAmount = method === 'cash' && amountReceived !== null ? amountReceived - totalAmount : null
+
+      postToNative({ type: 'haptic', style: 'success' })
+
+      const receipt: ReceiptData = {
+        outletName: outletName || 'SUKA SHAWARMA',
+        orderNumber: offlineOrderNumber,
+        dateISO: new Date().toISOString(),
+        customerName: snapCustomer,
+        items: receiptItems,
+        subtotal: snapSubtotal,
+        discount: snapDiscount,
+        total: totalAmount,
+        paymentMethod: method,
+        amountReceived: amountReceived ?? null,
+        changeAmount: changeAmount ?? null,
+      }
+
+      // Cetak struk otomatis
+      printReceipt(receipt)
+
+      setWalkInSuccess({
+        orderNumber: offlineOrderNumber,
+        method,
+        change: changeAmount ?? null,
+        receipt,
+      })
+
+      // Reset keranjang untuk transaksi berikutnya
+      setLines({})
+      setCustomerName('')
+      setCartOpen(false)
+      setWalkInPanelKey((k) => k + 1)
     } finally {
       setWalkInSubmitting(false)
     }

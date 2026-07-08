@@ -19,6 +19,8 @@ export type Payment = 'cash' | 'qris'
 // Nominal cepat yang umum di kasir (di luar "uang pas")
 const QUICK_CASH = [20000, 50000, 100000, 150000, 200000]
 
+import { useNetworkStatus } from '@/lib/useNetworkStatus'
+
 export function WalkInCartPanel(props: {
   lineList: Line[]
   totalItems: number
@@ -44,6 +46,7 @@ export function WalkInCartPanel(props: {
     calculateItemPrice, submitting, error, onPay, embedded,
   } = props
 
+  const isOnline = useNetworkStatus()
   const [payment, setPayment] = useState<Payment>('cash')
   const [cashInput, setCashInput] = useState<string>('')
   const [qrisOpen, setQrisOpen] = useState(false)
@@ -59,7 +62,9 @@ export function WalkInCartPanel(props: {
     () => `shawarma-kasir://pay?amount=${totalPrice}`,
     [totalPrice],
   )
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrData)}&bgcolor=ffffff&color=1e293b&margin=10`
+  const qrImageUrl = isOnline 
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrData)}&bgcolor=ffffff&color=1e293b&margin=10`
+    : '/qris-static.png'
 
   return (
     <div className={embedded ? '' : 'bg-white rounded-2xl border border-gray-200 overflow-hidden'}>

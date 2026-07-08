@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
   let status = null
 
   if (userId) {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('outlet_staff')
       .select('role, outlet_id, status')
       .eq('id', userId)
@@ -40,6 +40,24 @@ export async function middleware(request: NextRequest) {
       role = profile.role
       outlet_id = profile.outlet_id
       status = profile.status
+      // Cache profile to cookie for offline resilience
+      response.cookies.set('_suka_staff_cache', JSON.stringify(profile), { maxAge: 60 * 60 * 24 * 7 })
+    } else if (error) {
+      // Network/DB error when offline. Try to use cached profile.
+      const cached = request.cookies.get('_suka_staff_cache')?.value
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached)
+          role = parsed.role
+          outlet_id = parsed.outlet_id
+          status = parsed.status
+        } catch {}
+      }
+      
+      // If we still don't have a role, fallback to redirect
+      if (!role) {
+        return getRedirect(PORTAL_URL)
+      }
     } else {
       // No staff profile found → redirect to portal
       return getRedirect(PORTAL_URL)

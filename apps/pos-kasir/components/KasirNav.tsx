@@ -78,6 +78,17 @@ export default function KasirNav() {
 
   const [loggingOut, setLoggingOut] = useState(false)
   async function handleLogout() {
+    try {
+      const { db } = await import('@/lib/db')
+      const pendingOrders = await db.sync_queue_orders.where('status').equals('pending').count()
+      if (pendingOrders > 0) {
+        alert(`Peringatan: Ada ${pendingOrders} pesanan offline yang belum dikirim ke server.\n\nHarap tunggu hingga koneksi internet kembali dan pesanan tersinkronisasi sebelum keluar.`)
+        return
+      }
+    } catch (e) {
+      console.error('Error checking sync queue', e)
+    }
+
     setLoggingOut(true)
     // Hard redirect di fastLogout otomatis membuang cache React Query.
     await fastLogout(resolvedPortalUrl)

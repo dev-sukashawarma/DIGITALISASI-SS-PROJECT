@@ -32,10 +32,11 @@ export default function OnlineOrderSync() {
         if (data.success) {
           console.log('OnlineOrderSync: Berhasil menarik pesanan', data)
         } else {
-          console.error('OnlineOrderSync: Gagal menarik pesanan', data.error)
+          // Gunakan warn agar tidak memunculkan overlay error Next.js di mode dev
+          console.warn('OnlineOrderSync: Diabaikan (Gagal menarik pesanan)', data.error)
         }
       } catch (err) {
-        console.error('OnlineOrderSync: Error fetching pull-online', err)
+        console.warn('OnlineOrderSync: Error fetching pull-online', err)
       }
     }
 

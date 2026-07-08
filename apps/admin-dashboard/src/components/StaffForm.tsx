@@ -276,13 +276,13 @@ export function StaffForm({
             <div>
               <label htmlFor="sf-name" className={labelCls}>Nama Lengkap <span className="text-red-500">*</span></label>
               <input id="sf-name" className={inputCls} placeholder="Nama Karyawan" {...register('name')} />
-              {errors.name && <span className="text-xs text-red-500 mt-1 block">{errors.name?.message as string}</span>}
+              {errors.name && <span className="text-xs text-red-500 mt-1 block">{errors.name?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-nip" className={labelCls}>NIP (Nomor Induk Pegawai)</label>
               <input id="sf-nip" className={inputCls} placeholder="NIP-XXXXX" {...register('nip')} />
-              {errors.nip && <span className="text-xs text-red-500 mt-1 block">{errors.nip?.message as string}</span>}
+              {errors.nip && <span className="text-xs text-red-500 mt-1 block">{errors.nip?.message ?.toString()}</span>}
             </div>
 
             <div>
@@ -299,7 +299,7 @@ export function StaffForm({
                 })}
               />
               {errors.username ? (
-                <span className="text-xs text-red-500 mt-1 block">{errors.username?.message as string}</span>
+                <span className="text-xs text-red-500 mt-1 block">{errors.username?.message ?.toString()}</span>
               ) : isEditing ? (
                 <span className="text-xs text-suka-gray-500 mt-1 block">Username tidak dapat diubah setelah dibuat.</span>
               ) : null}
@@ -309,7 +309,7 @@ export function StaffForm({
               <div>
                 <label htmlFor="sf-password" className={labelCls}>Password Sementara <span className="text-red-500">*</span></label>
                 <input id="sf-password" type="text" className={inputCls} {...register('password')} />
-                {errors.password && <span className="text-xs text-red-500 mt-1 block">{errors.password?.message as string}</span>}
+                {errors.password && <span className="text-xs text-red-500 mt-1 block">{errors.password?.message ?.toString()}</span>}
               </div>
             )}
 
@@ -333,7 +333,7 @@ export function StaffForm({
               >
                 {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
-              {errors.role && <span className="text-xs text-red-500 mt-1 block">{errors.role?.message as string}</span>}
+              {errors.role && <span className="text-xs text-red-500 mt-1 block">{errors.role?.message ?.toString()}</span>}
             </div>
 
             <div>
@@ -346,7 +346,7 @@ export function StaffForm({
               >
                 {extendedOutlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
-              {errors.outlet_id && <span className="text-xs text-red-500 mt-1 block">{errors.outlet_id?.message as string}</span>}
+              {errors.outlet_id && <span className="text-xs text-red-500 mt-1 block">{errors.outlet_id?.message ?.toString()}</span>}
             </div>
 
             <div>
@@ -357,25 +357,25 @@ export function StaffForm({
                 <option value="intern">Magang (Internship)</option>
                 <option value="daily">Harian / Freelance (Daily)</option>
               </select>
-              {errors.contract_type && <span className="text-xs text-red-500 mt-1 block">{errors.contract_type?.message as string}</span>}
+              {errors.contract_type && <span className="text-xs text-red-500 mt-1 block">{errors.contract_type?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-leave" className={labelCls}>Kuota Cuti Tahunan (Hari)</label>
               <input id="sf-leave" type="number" min={0} className={inputCls} {...register('leave_quota')} />
-              {errors.leave_quota && <span className="text-xs text-red-500 mt-1 block">{errors.leave_quota?.message as string}</span>}
+              {errors.leave_quota && <span className="text-xs text-red-500 mt-1 block">{errors.leave_quota?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-join" className={labelCls}>Tanggal Bergabung</label>
               <input id="sf-join" type="date" className={inputCls} {...register('join_date')} />
-              {errors.join_date && <span className="text-xs text-red-500 mt-1 block">{errors.join_date?.message as string}</span>}
+              {errors.join_date && <span className="text-xs text-red-500 mt-1 block">{errors.join_date?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-resign" className={labelCls}>Tanggal Resign (Jika ada)</label>
               <input id="sf-resign" type="date" className={inputCls} {...register('resign_date')} />
-              {errors.resign_date && <span className="text-xs text-red-500 mt-1 block">{errors.resign_date?.message as string}</span>}
+              {errors.resign_date && <span className="text-xs text-red-500 mt-1 block">{errors.resign_date?.message ?.toString()}</span>}
             </div>
 
             {watchRole === 'leader' && (
@@ -388,7 +388,7 @@ export function StaffForm({
                     <OutletMultiSelect outlets={outlets} selected={field.value} onChange={field.onChange} />
                   )}
                 />
-                {errors.outlet_ids && <span className="text-xs text-red-500 mt-1 block">{errors.outlet_ids?.message as string}</span>}
+                {errors.outlet_ids && <span className="text-xs text-red-500 mt-1 block">{errors.outlet_ids?.message ?.toString()}</span>}
               </div>
             )}
           </div>
@@ -409,19 +409,19 @@ export function StaffForm({
                   }
                 })}
               />
-              {errors.nik && <span className="text-xs text-red-500 mt-1 block">{errors.nik?.message as string}</span>}
+              {errors.nik && <span className="text-xs text-red-500 mt-1 block">{errors.nik?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-email" className={labelCls}>Email Pribadi</label>
               <input id="sf-email" type="email" className={inputCls} placeholder="nama@email.com" {...register('email')} />
-              {errors.email && <span className="text-xs text-red-500 mt-1 block">{errors.email?.message as string}</span>}
+              {errors.email && <span className="text-xs text-red-500 mt-1 block">{errors.email?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-phone" className={labelCls}>No. WhatsApp / Telepon</label>
               <input id="sf-phone" className={inputCls} placeholder="08xxxxxxxxxx" {...register('phone')} />
-              {errors.phone && <span className="text-xs text-red-500 mt-1 block">{errors.phone?.message as string}</span>}
+              {errors.phone && <span className="text-xs text-red-500 mt-1 block">{errors.phone?.message ?.toString()}</span>}
             </div>
 
             <div>
@@ -431,37 +431,37 @@ export function StaffForm({
                 <option value="male">Laki-laki</option>
                 <option value="female">Perempuan</option>
               </select>
-              {errors.gender && <span className="text-xs text-red-500 mt-1 block">{errors.gender?.message as string}</span>}
+              {errors.gender && <span className="text-xs text-red-500 mt-1 block">{errors.gender?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-birthplace" className={labelCls}>Tempat Lahir</label>
               <input id="sf-birthplace" className={inputCls} placeholder="Kota Lahir" {...register('birth_place')} />
-              {errors.birth_place && <span className="text-xs text-red-500 mt-1 block">{errors.birth_place?.message as string}</span>}
+              {errors.birth_place && <span className="text-xs text-red-500 mt-1 block">{errors.birth_place?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-birthdate" className={labelCls}>Tanggal Lahir</label>
               <input id="sf-birthdate" type="date" className={inputCls} {...register('birth_date')} />
-              {errors.birth_date && <span className="text-xs text-red-500 mt-1 block">{errors.birth_date?.message as string}</span>}
+              {errors.birth_date && <span className="text-xs text-red-500 mt-1 block">{errors.birth_date?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-religion" className={labelCls}>Agama</label>
               <input id="sf-religion" className={inputCls} placeholder="Agama" {...register('religion')} />
-              {errors.religion && <span className="text-xs text-red-500 mt-1 block">{errors.religion?.message as string}</span>}
+              {errors.religion && <span className="text-xs text-red-500 mt-1 block">{errors.religion?.message ?.toString()}</span>}
             </div>
 
             <div className="md:col-span-2">
               <label htmlFor="sf-address-ktp" className={labelCls}>Alamat KTP</label>
               <textarea id="sf-address-ktp" rows={2} className={inputCls} placeholder="Alamat lengkap sesuai KTP" {...register('address_ktp')} />
-              {errors.address_ktp && <span className="text-xs text-red-500 mt-1 block">{errors.address_ktp?.message as string}</span>}
+              {errors.address_ktp && <span className="text-xs text-red-500 mt-1 block">{errors.address_ktp?.message ?.toString()}</span>}
             </div>
 
             <div className="md:col-span-2">
               <label htmlFor="sf-address-domicile" className={labelCls}>Alamat Domisili (Saat Ini)</label>
               <textarea id="sf-address-domicile" rows={2} className={inputCls} placeholder="Alamat tempat tinggal saat ini" {...register('address_domicile')} />
-              {errors.address_domicile && <span className="text-xs text-red-500 mt-1 block">{errors.address_domicile?.message as string}</span>}
+              {errors.address_domicile && <span className="text-xs text-red-500 mt-1 block">{errors.address_domicile?.message ?.toString()}</span>}
             </div>
           </div>
         )}
@@ -475,19 +475,19 @@ export function StaffForm({
             <div>
               <label htmlFor="sf-emg-name" className={labelCls}>Nama Lengkap Kontak Darurat</label>
               <input id="sf-emg-name" className={inputCls} placeholder="Nama Orang Terdekat" {...register('emergency_name')} />
-              {errors.emergency_name && <span className="text-xs text-red-500 mt-1 block">{errors.emergency_name?.message as string}</span>}
+              {errors.emergency_name && <span className="text-xs text-red-500 mt-1 block">{errors.emergency_name?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-emg-rel" className={labelCls}>Hubungan</label>
               <input id="sf-emg-rel" className={inputCls} placeholder="Orang Tua / Suami / Istri / Saudara" {...register('emergency_relationship')} />
-              {errors.emergency_relationship && <span className="text-xs text-red-500 mt-1 block">{errors.emergency_relationship?.message as string}</span>}
+              {errors.emergency_relationship && <span className="text-xs text-red-500 mt-1 block">{errors.emergency_relationship?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-emg-phone" className={labelCls}>Nomor Telepon Darurat</label>
               <input id="sf-emg-phone" className={inputCls} placeholder="08xxxxxxxxxx" {...register('emergency_phone')} />
-              {errors.emergency_phone && <span className="text-xs text-red-500 mt-1 block">{errors.emergency_phone?.message as string}</span>}
+              {errors.emergency_phone && <span className="text-xs text-red-500 mt-1 block">{errors.emergency_phone?.message ?.toString()}</span>}
             </div>
           </div>
         )}
@@ -501,37 +501,37 @@ export function StaffForm({
             <div>
               <label htmlFor="sf-basic-salary" className={labelCls}>Gaji Pokok (Rp)</label>
               <input id="sf-basic-salary" type="number" min={0} className={inputCls} {...register('basic_salary')} />
-              {errors.basic_salary && <span className="text-xs text-red-500 mt-1 block">{errors.basic_salary?.message as string}</span>}
+              {errors.basic_salary && <span className="text-xs text-red-500 mt-1 block">{errors.basic_salary?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-allowance-pos" className={labelCls}>Tunjangan Jabatan (Rp)</label>
               <input id="sf-allowance-pos" type="number" min={0} className={inputCls} {...register('allowance_position')} />
-              {errors.allowance_position && <span className="text-xs text-red-500 mt-1 block">{errors.allowance_position?.message as string}</span>}
+              {errors.allowance_position && <span className="text-xs text-red-500 mt-1 block">{errors.allowance_position?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-allowance-pres" className={labelCls}>Tunjangan Kehadiran (Rp)</label>
               <input id="sf-allowance-pres" type="number" min={0} className={inputCls} {...register('allowance_presence')} />
-              {errors.allowance_presence && <span className="text-xs text-red-500 mt-1 block">{errors.allowance_presence?.message as string}</span>}
+              {errors.allowance_presence && <span className="text-xs text-red-500 mt-1 block">{errors.allowance_presence?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-npwp" className={labelCls}>NPWP</label>
               <input id="sf-npwp" className={inputCls} placeholder="Nomor NPWP" {...register('npwp')} />
-              {errors.npwp && <span className="text-xs text-red-500 mt-1 block">{errors.npwp?.message as string}</span>}
+              {errors.npwp && <span className="text-xs text-red-500 mt-1 block">{errors.npwp?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-bpjs-ket" className={labelCls}>BPJS Ketenagakerjaan</label>
               <input id="sf-bpjs-ket" className={inputCls} placeholder="No. BPJS Ketenagakerjaan" {...register('bpjs_ketenagakerjaan')} />
-              {errors.bpjs_ketenagakerjaan && <span className="text-xs text-red-500 mt-1 block">{errors.bpjs_ketenagakerjaan?.message as string}</span>}
+              {errors.bpjs_ketenagakerjaan && <span className="text-xs text-red-500 mt-1 block">{errors.bpjs_ketenagakerjaan?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-bpjs-kes" className={labelCls}>BPJS Kesehatan</label>
               <input id="sf-bpjs-kes" className={inputCls} placeholder="No. BPJS Kesehatan" {...register('bpjs_kesehatan')} />
-              {errors.bpjs_kesehatan && <span className="text-xs text-red-500 mt-1 block">{errors.bpjs_kesehatan?.message as string}</span>}
+              {errors.bpjs_kesehatan && <span className="text-xs text-red-500 mt-1 block">{errors.bpjs_kesehatan?.message ?.toString()}</span>}
             </div>
 
             <div className="md:col-span-2 border-t border-suka-gray-200 my-2 pt-2">
@@ -541,19 +541,19 @@ export function StaffForm({
             <div>
               <label htmlFor="sf-bank-name" className={labelCls}>Nama Bank</label>
               <input id="sf-bank-name" className={inputCls} placeholder="BCA / Mandiri / BNI / BRI" {...register('bank_name')} />
-              {errors.bank_name && <span className="text-xs text-red-500 mt-1 block">{errors.bank_name?.message as string}</span>}
+              {errors.bank_name && <span className="text-xs text-red-500 mt-1 block">{errors.bank_name?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-bank-acc-num" className={labelCls}>Nomor Rekening</label>
               <input id="sf-bank-acc-num" className={inputCls} placeholder="Nomor Rekening" {...register('bank_account_number')} />
-              {errors.bank_account_number && <span className="text-xs text-red-500 mt-1 block">{errors.bank_account_number?.message as string}</span>}
+              {errors.bank_account_number && <span className="text-xs text-red-500 mt-1 block">{errors.bank_account_number?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-bank-acc-name" className={labelCls}>Nama Pemilik Rekening</label>
               <input id="sf-bank-acc-name" className={inputCls} placeholder="Nama Sesuai Buku Tabungan" {...register('bank_account_name')} />
-              {errors.bank_account_name && <span className="text-xs text-red-500 mt-1 block">{errors.bank_account_name?.message as string}</span>}
+              {errors.bank_account_name && <span className="text-xs text-red-500 mt-1 block">{errors.bank_account_name?.message ?.toString()}</span>}
             </div>
           </div>
         )}

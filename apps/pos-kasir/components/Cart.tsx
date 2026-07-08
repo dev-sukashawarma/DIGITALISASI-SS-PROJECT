@@ -15,7 +15,7 @@ export default function Cart({ outletId: propOutletId }: { outletId?: string } =
   const count = totalItems()
   const { outletId: hookOutletId } = useMyOutlet()
   const finalOutletId = propOutletId || hookOutletId
-  const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(finalOutletId || undefined)
+  const { calculateItemPrice } = usePromos(finalOutletId || undefined)
   
   // Hitung ulang total mempertimbangkan promo
   let baseSubtotal = 0
@@ -29,8 +29,7 @@ export default function Cart({ outletId: propOutletId }: { outletId?: string } =
     subtotal += price * i.quantity
   })
   
-  const globalDiscount = calculateGlobalDiscount(subtotal)
-  const total = subtotal - globalDiscount
+  const total = subtotal
   
   const rootItems = items.filter(i => !i.parentId)
 
@@ -103,14 +102,8 @@ export default function Cart({ outletId: propOutletId }: { outletId?: string } =
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-gray-500">
             <span>{count} item (Subtotal)</span>
-            <span className={globalPromo ? 'line-through' : ''}>{formatRupiah(subtotal)}</span>
+            <span>{formatRupiah(subtotal)}</span>
           </div>
-          {globalPromo && (
-            <div className="flex justify-between text-sm text-emerald-600 font-medium">
-              <span>Promo Global</span>
-              <span>-{formatRupiah(globalDiscount)}</span>
-            </div>
-          )}
           <div className="flex justify-between items-center pt-2 border-t border-gray-100">
             <span className="font-bold text-gray-900">Total Pembayaran</span>
             <span className="font-extrabold text-xl text-amber-600">{formatRupiah(total)}</span>

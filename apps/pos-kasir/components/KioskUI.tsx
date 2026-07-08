@@ -87,9 +87,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
     const price = wrappedCalculateItemPrice(i.item.price, i.item.id)
     calculatedSubtotal += price * i.quantity
   })
-  const globalDiscount = calculateGlobalDiscount(calculatedSubtotal)
-  const total = calculatedSubtotal - globalDiscount
-
+  const total = calculatedSubtotal
   return (
     <div className="min-h-screen bg-[#FFFBF5]">
 

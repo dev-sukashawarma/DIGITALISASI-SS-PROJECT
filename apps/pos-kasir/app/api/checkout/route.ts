@@ -147,10 +147,7 @@ export async function POST(request: Request) {
     })
   }
 
-  // Hitung Global Promo
-  let globalDiscount = calculateGlobalDiscount(subtotalAmount, activePromos as BasePromo[])
-
-  const finalTotal = subtotalAmount - globalDiscount
+  const finalTotal = subtotalAmount
 
   // Buat order
   const { data: order, error: orderError } = await supabaseService
@@ -161,7 +158,7 @@ export async function POST(request: Request) {
       notes: null,
       payment_method: payload.payment_method,
       total_amount: finalTotal,
-      discount_amount: globalDiscount > 0 ? globalDiscount : null,
+      discount_amount: null, // Global discount is now embedded in item unit prices
       status: 'pending',
     })
     .select('id, order_number')

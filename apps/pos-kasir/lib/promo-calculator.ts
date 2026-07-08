@@ -20,12 +20,25 @@ export function calculateItemPrice(
   const globalPromo = promos.find(p => p.scope === 'global' && p.is_active);
   const itemPromos = promos.filter(p => p.scope === 'item' && p.is_active);
 
-  // If global promo is active and not expired, it overrides item promos
+  // If global promo is active and not expired, it applies to ALL items
   if (globalPromo) {
     if (globalPromo.end_date && new Date(globalPromo.end_date).getTime() < Date.now()) {
       // global promo is expired, so it's ignored, fall through to item promo
     } else {
-      return originalPrice; // Global promo applies to total, not individual items
+      let apply = true;
+      if (globalPromo.min_purchase && globalPromo.min_purchase > 0) {
+        if (cartBaseSubtotal !== undefined && cartBaseSubtotal < globalPromo.min_purchase) {
+          apply = false; // Not reached min purchase
+        }
+      }
+      
+      if (apply) {
+        if (globalPromo.discount_type === 'nominal') {
+          return Math.max(0, originalPrice - globalPromo.discount_value);
+        } else {
+          return Math.max(0, originalPrice * (1 - globalPromo.discount_value / 100));
+        }
+      }
     }
   }
 
@@ -53,20 +66,5 @@ export function calculateGlobalDiscount(
   subtotal: number,
   promos: BasePromo[]
 ): number {
-  const globalPromo = promos.find(p => p.scope === 'global' && p.is_active);
-  if (!globalPromo) return 0;
-  
-  if (globalPromo.end_date && new Date(globalPromo.end_date).getTime() < Date.now()) {
-    return 0; // Expired
-  }
-
-  if (globalPromo.min_purchase && subtotal < globalPromo.min_purchase) {
-    return 0; // Not reached min purchase
-  }
-
-  if (globalPromo.discount_type === 'nominal') {
-    return Math.min(subtotal, globalPromo.discount_value);
-  } else {
-    return subtotal * (globalPromo.discount_value / 100);
-  }
+  return 0; // Global promos are now applied directly per-item in calculateItemPrice
 }

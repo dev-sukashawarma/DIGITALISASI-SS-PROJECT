@@ -13,6 +13,7 @@ export async function saveGlobalConfig(formData: FormData) {
   const toleransi_menit = parseInt(formData.get("toleransi_menit") as string || "0", 10);
   const absen_window_mode = formData.get("absen_window_mode") as string;
   const is_active = formData.get("is_active") === "true";
+  const overwrite_all = formData.get("overwrite_all") === "on";
 
   const globalValue = { jam_masuk, jam_keluar, toleransi_menit, absen_window_mode };
 
@@ -28,6 +29,14 @@ export async function saveGlobalConfig(formData: FormData) {
     .neq("id", "00000000-0000-0000-0000-000000000000"); // update all
   
   if (errOutlet) throw new Error(errOutlet.message);
+
+  if (overwrite_all) {
+    const { error: errDel } = await supabaseAdmin
+      .from("outlet_attendance_config")
+      .delete()
+      .neq("outlet_id", "00000000-0000-0000-0000-000000000000"); // delete all exceptions
+    if (errDel) throw new Error(errDel.message);
+  }
 
   revalidatePath("/dashboard/pengaturan");
   return { success: true };

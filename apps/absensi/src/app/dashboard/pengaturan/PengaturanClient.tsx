@@ -223,6 +223,19 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
               </button>
             </div>
 
+            <div className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 bg-orange-50/50">
+              <input 
+                type="checkbox" 
+                name="overwrite_all" 
+                id="overwrite_all" 
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-suka-orange focus:ring-suka-orange cursor-pointer" 
+              />
+              <label htmlFor="overwrite_all" className="text-sm text-gray-700 cursor-pointer">
+                <strong className="text-suka-ink block mb-0.5">Timpa Semua Outlet Khusus</strong>
+                Centang ini jika Anda ingin Pengaturan Utama diterapkan ke <b>semua</b> outlet, dan menghapus seluruh daftar "Outlet Khusus".
+              </label>
+            </div>
+
             <Button type="submit" disabled={isPending} className="w-full flex items-center justify-center gap-2 rounded-xl py-4 text-base">
               {isPending ? <Spinner className="h-5 w-5 text-white" /> : <><Save size={18} /> Simpan Pengaturan Utama</>}
             </Button>

@@ -5,6 +5,7 @@ import { Ban, LogOut, ClipboardCheck, Moon, Clock, Unlock, AlertTriangle, Loader
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { postToNative } from '@suka/design-system/utils/webview'
 
 export type BlockType = 'user' | 'outlet' | 'attendance' | 'checklist' | 'closed'
 
@@ -102,18 +103,20 @@ export default function BlockedOverlay({
       const appUrl = window.location.origin
       const approveLink = `${appUrl}/api/bypass/approve?id=${insertedRequest.id}`
       const waText = encodeURIComponent(`Halo SPV, saya mengajukan *Bypass Darurat* untuk sistem POS.\n\nKasir: ${staff.name}\nAlasan: ${bypassReason.trim()}\n\nKlik link berikut untuk menyetujui atau menolak:\n${approveLink}`)
-      const waUrl = `https://wa.me/6285885497377?text=${waText}`
+      const bypassWaLink = `https://wa.me/6285885497377?text=${waText}`
       
-      // Cek apakah web dibuka dari dalam aplikasi native Expo
-      if (typeof window !== 'undefined' && (window as any).__SUKASHAWARMA_NATIVE_APP__ && (window as any).ReactNativeWebView) {
-        // Kirim pesan ke bridge Expo untuk membuka URL
-        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'open-external-url',
-          url: waUrl
-        }))
+      // Cek apakah web dibuka dari dalam aplikasi native Expo dan bridge siap
+      if (typeof window !== 'undefined' && (window as any).__SUKASHAWARMA_NATIVE_APP__) {
+        // Kirim pesan ke bridge Expo, ini akan ditangkap oleh App.tsx jika onMessage terpasang
+        const sent = postToNative({ type: 'open-external-url', url: bypassWaLink });
+        
+        if (!sent) {
+          // Fallback jika bridge tidak terkirim (misalnya native app belum di-rebuild)
+          window.open(bypassWaLink, '_blank', 'noopener,noreferrer');
+        }
       } else {
-        // Di luar Expo (Web normal), gunakan window.open biasa
-        window.open(waUrl, '_blank')
+        // Fallback untuk browser biasa
+        window.open(bypassWaLink, '_blank', 'noopener,noreferrer');
       }
 
     } catch (err: any) {

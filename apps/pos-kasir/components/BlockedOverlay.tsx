@@ -55,8 +55,8 @@ export default function BlockedOverlay({
     try {
       // 1. Get staff profile
       const { data: staff, error: staffError } = await supabase
-        .from('profiles')
-        .select('outlet_id, username')
+        .from('outlet_staff')
+        .select('outlet_id, name')
         .eq('id', userSession.user.id)
         .single()
         
@@ -68,7 +68,7 @@ export default function BlockedOverlay({
         .insert({
           outlet_id: staff.outlet_id,
           requested_by: userSession.user.id,
-          requested_by_name: staff.username,
+          requested_by_name: staff.name,
           reason: bypassReason.trim(),
           status: 'pending'
         })

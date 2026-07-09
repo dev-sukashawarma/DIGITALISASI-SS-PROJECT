@@ -281,7 +281,7 @@ export default function App() {
   // (dan injectedJavaScript) tidak terpasang. Protokol pesan sinkron dengan
   // `postToNative()` di @suka/design-system.
   const onMessage = useCallback((event: WebViewMessageEvent) => {
-    let msg: { type?: string; style?: string; file?: string };
+    let msg: { type?: string; style?: string; file?: string; url?: string };
     try {
       msg = JSON.parse(event.nativeEvent.data);
     } catch {
@@ -320,8 +320,14 @@ export default function App() {
         }
         break;
       }
+      case 'open-external-url': {
+        if (msg.url) {
+          Linking.openURL(msg.url).catch(err => console.error('Failed to open external URL:', err));
+        }
+        break;
+      }
     }
-  }, []);
+  }, [expoPushToken, sendTokenToWebView]);
 
   // ─── Tampilan Error ──────────────────────────────────────────
   if (hasError) {

@@ -102,8 +102,19 @@ export default function BlockedOverlay({
       const appUrl = window.location.origin
       const approveLink = `${appUrl}/api/bypass/approve?id=${insertedRequest.id}`
       const waText = encodeURIComponent(`Halo SPV, saya mengajukan *Bypass Darurat* untuk sistem POS.\n\nKasir: ${staff.name}\nAlasan: ${bypassReason.trim()}\n\nKlik link berikut untuk menyetujui atau menolak:\n${approveLink}`)
-      // Gunakan window.location.href atau '_self' agar bisa ditangkap oleh Expo WebView
-      window.location.href = `https://wa.me/6285885497377?text=${waText}`
+      const waUrl = `https://wa.me/6285885497377?text=${waText}`
+      
+      // Cek apakah web dibuka dari dalam aplikasi native Expo
+      if (typeof window !== 'undefined' && (window as any).__SUKASHAWARMA_NATIVE_APP__ && (window as any).ReactNativeWebView) {
+        // Kirim pesan ke bridge Expo untuk membuka URL
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'open-external-url',
+          url: waUrl
+        }))
+      } else {
+        // Di luar Expo (Web normal), gunakan window.open biasa
+        window.open(waUrl, '_blank')
+      }
 
     } catch (err: any) {
       setBypassError(err.message || 'Terjadi kesalahan sistem.')

@@ -346,6 +346,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
                   options={availableOutlets.map(out => ({ label: out.name, value: out.id }))}
                   placeholder="-- Pilih Outlet --"
                   className="w-full"
+                  searchable
                 />
               </div>
 

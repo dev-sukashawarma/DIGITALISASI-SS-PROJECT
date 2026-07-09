@@ -1,4 +1,19 @@
-# Ringkasan Perubahan (8 Juli 2026)
+# Ringkasan Perubahan (9 Juli 2026)
+
+## 1. Fitur Auto-Populate Item Purchase Order (PO)
+- **Database:** Menambahkan kolom `bahan_baku_ids` (tipe `UUID[]`) pada tabel `supplier` melalui migrasi SQL `20260709000000_supplier_bahan_baku_ids.sql`.
+- **Master Supplier UI:** Memodifikasi form Master Supplier di `admin-dashboard` agar admin dapat mencentang (checkbox) daftar item spesifik yang biasa disuplai oleh supplier tersebut.
+- **New PO UI:** Mengubah logika pemilihan supplier pada halaman pembuatan Purchase Order. Kini saat supplier dipilih, form daftar item PO akan secara otomatis terisi (auto-populate) sesuai dengan item yang sudah di-*setting* di Master Supplier. Jika belum di-*setting*, form akan menampilkan satu baris kosong seperti biasa.
+
+## 2. Fitur Permintaan Berdasarkan Item / Target Menu
+- **Perubahan Konsep:** Crew dapur kini dapat me-request barang tidak hanya dengan menebak/melihat sisa stok, tetapi berpatokan pada target penjualan menu (misalnya target jualan 50 Shawarma Original, 20 Shawarma Mix).
+- **Backend (Supabase RPC):** Dibuat fungsi SQL `calculate_bahan_baku_request` yang akan me-ledakan (BOM explosion) target porsi menu ke komposisi bahan baku penyusunnya, kemudian mengecek sisa `saldo` stok secara real-time, lalu memberikan `saran_qty` (saran request) dalam bentuk satuan besar (dengan pembulatan `CEIL` dari selisih konversi).
+- **Frontend (App Stok):** Menambahkan `TargetMenuCalculator.tsx` dan memasukkannya ke dalam `PermintaanForm.tsx` dengan UI Tabbed (Tab "Target Menu" vs Tab "Draft / Manual").
+- **Migrations & Bypass:** Membuat policy khusus `bypass_requests` untuk memastikan request bisa di-submit dari fitur baru ini.
+
+---
+
+# Ringkasan Perubahan Sebelumnya (8 Juli 2026)
 
 Hari ini kita melakukan penyederhanaan dan standardisasi kategori Master Bahan Baku untuk seluruh ekosistem Suka Shawarma, serta merapikan data ganda di dalam database.
 
@@ -58,17 +73,7 @@ Tambahan penyesuaian UI secara spesifik:
 ## 6. Perbaikan Typo Satuan
 - Memperbaiki salah ketik `satuan_kecil` untuk bahan baku **SAPI** (menjadi gram), **MINYAK SAYUR** (menjadi ml), dan **GAS 3Kg** (menjadi gram) di database.
 
-## 7. Fitur Auto-Populate Item Purchase Order (PO)
-- **Database:** Menambahkan kolom `bahan_baku_ids` (tipe `UUID[]`) pada tabel `supplier` melalui migrasi SQL `20260709000000_supplier_bahan_baku_ids.sql`.
-- **Master Supplier UI:** Memodifikasi form Master Supplier di `admin-dashboard` agar admin dapat mencentang (checkbox) daftar item spesifik yang biasa disuplai oleh supplier tersebut.
-- **New PO UI:** Mengubah logika pemilihan supplier pada halaman pembuatan Purchase Order. Kini saat supplier dipilih, form daftar item PO akan secara otomatis terisi (auto-populate) sesuai dengan item yang sudah di-*setting* di Master Supplier. Jika belum di-*setting*, form akan menampilkan satu baris kosong seperti biasa.
-## 8. Fitur Permintaan Berdasarkan Item / Target Menu
-- **Perubahan Konsep:** Crew dapur kini dapat me-request barang tidak hanya dengan menebak/melihat sisa stok, tetapi berpatokan pada target penjualan menu (misalnya target jualan 50 Shawarma Original, 20 Shawarma Mix).
-- **Backend (Supabase RPC):** Dibuat fungsi SQL `calculate_bahan_baku_request` yang akan me-ledakan (BOM explosion) target porsi menu ke komposisi bahan baku penyusunnya, kemudian mengecek sisa `saldo` stok secara real-time, lalu memberikan `saran_qty` (saran request) dalam bentuk satuan besar (dengan pembulatan `CEIL` dari selisih konversi).
-- **Frontend (App Stok):** Menambahkan `TargetMenuCalculator.tsx` dan memasukkannya ke dalam `PermintaanForm.tsx` dengan UI Tabbed (Tab "Target Menu" vs Tab "Draft / Manual").
-- **Migrations & Bypass:** Membuat policy khusus `bypass_requests` untuk memastikan request bisa di-submit dari fitur baru ini.
 
----
 
 # Ringkasan Perubahan Sebelumnya (1 Juli 2026)
 Fokus pada perkuatan sistem pencegahan kebocoran finansial (Loss Gap Prevention) di level operasional outlet dengan modul Shift Management & Blind Close.

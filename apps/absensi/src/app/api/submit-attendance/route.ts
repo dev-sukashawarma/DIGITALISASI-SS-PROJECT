@@ -92,9 +92,14 @@ export async function POST(req: Request) {
         .select("value")
         .eq("key", "global_attendance_config")
         .maybeSingle();
-      
       if (globalRow && globalRow.value) {
-        cfg = globalRow.value as any;
+        let globalVal = globalRow.value;
+        if (typeof globalVal === "string") {
+          try {
+            globalVal = JSON.parse(globalVal);
+          } catch (e) {}
+        }
+        cfg = globalVal as any;
       }
     }
 

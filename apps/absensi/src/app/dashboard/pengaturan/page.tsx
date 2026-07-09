@@ -16,7 +16,15 @@ export default async function PengaturanAbsensiPage() {
     supabase.from("outlet_attendance_config").select("*")
   ]);
 
-  const cfg = globalRes.data?.value || { jam_masuk: "09:00", jam_keluar: "17:00", toleransi_menit: 15, absen_window_mode: "auto" };
+  let cfgRaw = globalRes.data?.value;
+  if (typeof cfgRaw === "string") {
+    try {
+      cfgRaw = JSON.parse(cfgRaw);
+    } catch (e) {
+      cfgRaw = null;
+    }
+  }
+  const cfg = cfgRaw || { jam_masuk: "09:00", jam_keluar: "17:00", toleransi_menit: 15, absen_window_mode: "auto" };
   
   const initialGlobalConfig = {
     jam_masuk: cfg.jam_masuk?.slice(0, 5) || "09:00",

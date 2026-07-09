@@ -55,9 +55,9 @@ export default function BlockedOverlay({
     try {
       // 1. Get staff profile
       const { data: staff, error: staffError } = await supabase
-        .from('outlet_staff')
-        .select('outlet_id, name')
-        .eq('user_id', userSession.user.id)
+        .from('profiles')
+        .select('outlet_id, username')
+        .eq('id', userSession.user.id)
         .single()
         
       if (staffError || !staff) throw new Error('Data staff tidak ditemukan')
@@ -68,7 +68,7 @@ export default function BlockedOverlay({
         .insert({
           outlet_id: staff.outlet_id,
           requested_by: userSession.user.id,
-          requested_by_name: staff.name,
+          requested_by_name: staff.username,
           reason: bypassReason.trim(),
           status: 'pending'
         })

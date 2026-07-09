@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Button, Spinner } from "@suka/design-system";
 import { Settings2, Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { saveGlobalConfig, saveOutletException, deleteOutletException } from "./actions";
+import { saveGlobalConfig, saveOutletException, deleteOutletException, deleteAllExceptions } from "./actions";
 import { useToast } from "@/lib/feedback/toast";
 
 type Config = {
@@ -97,6 +97,19 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
       }
     });
   };
+  const onDeleteAllExceptions = () => {
+    if (!confirm("Peringatan: Ini akan MENGHAPUS SEMUA jam kerja khusus cabang. Semua cabang akan kembali mengikuti Aturan Pusat. Lanjutkan?")) return;
+    
+    startTransition(async () => {
+      try {
+        await deleteAllExceptions();
+        toast.show("ok", "Semua jam khusus cabang telah direset ke aturan pusat.");
+      } catch (err: any) {
+        toast.show("err", err.message || "Gagal mereset pengecualian");
+      }
+    });
+  };
+
 
   // Helper UI component for config form
   const ConfigFormFields = ({ config, setConfig }: { config: Config, setConfig: (c: Config) => void }) => (
@@ -157,8 +170,8 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
               <Zap size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold text-suka-ink">Otomatis</p>
-              <p className="text-xs text-gray-500">Tergantung jam shift.</p>
+              <p className="text-sm font-bold text-suka-ink">Otomatis (Sesuai Jam Shift)</p>
+              <p className="text-xs text-gray-500">Mesin absen hidup sendiri.</p>
             </div>
           </button>
           <button
@@ -172,8 +185,8 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
               <ToggleLeft size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold text-suka-ink">Manual (Bebas)</p>
-              <p className="text-xs text-gray-500">Toggle dari mesin.</p>
+              <p className="text-sm font-bold text-suka-ink">Manual (Oleh SPV)</p>
+              <p className="text-xs text-gray-500">Dihidupkan dari tombol di bawah.</p>
             </div>
           </button>
         </div>
@@ -195,9 +208,9 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
         <div className="-mx-4 flex flex-col space-y-5 border-y border-suka-gray-200 bg-white p-4 shadow-sm sm:mx-0 sm:rounded-2xl sm:border sm:p-6 lg:h-fit">
           <div>
             <h2 className="flex items-center gap-2 text-lg font-bold text-suka-ink">
-              <Building2 size={20} className="text-suka-orange" /> Pengaturan Utama (Default)
+              <Building2 size={20} className="text-suka-orange" /> Aturan Jam Kerja Pusat (Berlaku Umum)
             </h2>
-            <p className="mt-1 text-sm text-gray-500">Aturan jam kerja yang berlaku untuk <strong>semua outlet</strong> yang tidak ada di daftar pengecualian.</p>
+            <p className="mt-1 text-sm text-gray-500">Aturan jam kerja yang berlaku untuk <strong>seluruh cabang</strong>, kecuali cabang yang ada di daftar Jam Kerja Khusus.</p>
           </div>
           
           <form action={onSaveGlobal} className="flex flex-col gap-6">
@@ -206,11 +219,11 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
             <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${globalConfig.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-red-50 border border-red-100"}`}>
               <div>
                 <p className="text-sm font-bold text-suka-ink">
-                  {globalConfig.absen_window_mode === "manual" ? "Status Kiosk Global" : "Kunci Mesin (Emergency Lock)"}
+                  {globalConfig.absen_window_mode === "manual" ? "Buka Mesin Absen (Manual)" : "Kunci Mesin (Emergency Lock)"}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   {globalConfig.absen_window_mode === "manual" 
-                    ? "Jika menyala, karyawan bisa absen di semua outlet." 
+                    ? "Jika dinyalakan, mesin absen di semua outlet akan aktif dan bisa digunakan." 
                     : "Matikan paksa semua mesin absen di outlet."}
                 </p>
               </div>
@@ -223,18 +236,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
               </button>
             </div>
 
-            <div className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 bg-orange-50/50">
-              <input 
-                type="checkbox" 
-                name="overwrite_all" 
-                id="overwrite_all" 
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-suka-orange focus:ring-suka-orange cursor-pointer" 
-              />
-              <label htmlFor="overwrite_all" className="text-sm text-gray-700 cursor-pointer">
-                <strong className="text-suka-ink block mb-0.5">Timpa Semua Outlet Khusus</strong>
-                Centang ini jika Anda ingin Pengaturan Utama diterapkan ke <b>semua</b> outlet, dan menghapus seluruh daftar "Outlet Khusus".
-              </label>
-            </div>
+
 
             <Button type="submit" disabled={isPending} className="w-full flex items-center justify-center gap-2 rounded-xl py-4 text-base">
               {isPending ? <Spinner className="h-5 w-5 text-white" /> : <><Save size={18} /> Simpan Pengaturan Utama</>}
@@ -247,17 +249,28 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-4">
             <div>
               <h2 className="flex items-center gap-2 text-lg font-bold text-suka-ink">
-                <AlertCircle size={20} className="text-suka-brown" /> Outlet Khusus
+                <AlertCircle size={20} className="text-suka-brown" /> Jam Kerja Khusus Cabang
               </h2>
-              <p className="mt-1 text-sm text-gray-500">Outlet yang memiliki jam kerja berbeda.</p>
+              <p className="mt-1 text-sm text-gray-500">Cabang yang memiliki aturan jam kerja tersendiri.</p>
             </div>
-            <Button 
-              size="sm" 
-              onClick={() => { setNewOutletConfig({ ...globalConfig }); setIsModalOpen(true); }} 
-              className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-full text-sm font-semibold"
-            >
-              <Plus size={16} /> Tambah
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onDeleteAllExceptions}
+                disabled={isPending || filteredConfigs.length === 0}
+                className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-full text-sm font-semibold border-red-200 text-red-600 hover:bg-red-50"
+              >
+                <Trash2 size={16} /> Reset Semua Cabang
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={() => { setNewOutletConfig({ ...globalConfig }); setIsModalOpen(true); }} 
+                className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-full text-sm font-semibold"
+              >
+                <Plus size={16} /> Tambah Khusus
+              </Button>
+            </div>
           </div>
 
           <div className="relative">

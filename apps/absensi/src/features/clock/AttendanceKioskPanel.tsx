@@ -113,7 +113,7 @@ export function AttendanceKioskPanel() {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'global_settings', filter: `key=eq.global_attendance_config` },
+        { event: '*', schema: 'public', table: 'global_settings' },
         () => { fetchConfig(); }
       )
       .on(

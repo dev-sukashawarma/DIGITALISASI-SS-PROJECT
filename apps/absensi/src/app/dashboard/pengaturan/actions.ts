@@ -78,3 +78,15 @@ export async function deleteOutletException(outlet_id: string) {
   revalidatePath("/dashboard/pengaturan");
   return { success: true };
 }
+
+export async function deleteAllExceptions() {
+  const { error } = await supabaseAdmin
+    .from("outlet_attendance_config")
+    .delete()
+    .neq("outlet_id", "00000000-0000-0000-0000-000000000000"); // delete all
+  
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard/pengaturan");
+  return { success: true };
+}

@@ -74,6 +74,20 @@ export default function PapanKehadiranPage() {
           refetch();
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${outletId}` },
+        () => {
+          refetch();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'global_settings' },
+        () => {
+          refetch();
+        }
+      )
       .subscribe();
 
     return () => {

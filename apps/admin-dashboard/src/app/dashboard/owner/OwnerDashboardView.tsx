@@ -1,13 +1,7 @@
 'use client'
-import { useMemo } from 'react'
-import { previousRange } from '@/lib/period'
-import { buildLeaderboard } from '@/lib/leaderboard'
-import { useSalesSummary } from '@/hooks/useSalesSummary'
-import { useSalesHourly } from '@/hooks/useSalesHourly'
-import { useMenuSales } from '@/hooks/useMenuSales'
-import { useScopedFilter } from '@/hooks/useScopedFilter'
-import { useOutlets } from '@/hooks/useOutlets'
-import { useSalesRealtime } from '@/hooks/useSalesRealtime'
+import { useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { KpiCards } from '@/components/KpiCards'
 import { SourceBreakdown } from '@/components/SourceBreakdown'
@@ -15,9 +9,10 @@ import { TopMenus } from '@/components/TopMenus'
 import { BottomMenus } from '@/components/BottomMenus'
 import { OutletLeaderboard } from '@/components/OutletLeaderboard'
 import { DailyTargetBoard } from '@/components/DailyTargetBoard'
-import { useRole } from '@/components/layout/RoleContext'
 import { PageHeader } from '@/components/ui'
-import type { PeriodFilterValue } from '@/lib/types'
+import type { PeriodFilterValue, Outlet, SalesSummaryRow } from '@/lib/types'
+import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
+import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import dynamic from 'next/dynamic'
 
 const RevenueTrendChart = dynamic(
@@ -25,37 +20,78 @@ const RevenueTrendChart = dynamic(
   { ssr: false, loading: () => <div className="h-64 bg-white rounded-2xl border border-suka-gray-200 animate-pulse" /> }
 )
 
-export default function OwnerDashboardView() {
-  const { isReadOnly, role } = useRole()
-  const { data: outlets = [] } = useOutlets()
-  const { filter, setFilter, lockedOutletId } = useScopedFilter()
-  const scopedOutlets = useMemo(
-    () => (lockedOutletId ? outlets.filter((o) => o.id === lockedOutletId) : outlets),
-    [outlets, lockedOutletId]
-  )
-  // Realtime: papan ikut refresh begitu ada order baru (paid+selesai) tanpa ganti filter.
-  useSalesRealtime()
-  const prevFilter = useMemo<PeriodFilterValue>(() => ({ ...filter, ...previousRange({ from: filter.from, to: filter.to }) }), [filter])
+interface OwnerDashboardViewProps {
+  filter: PeriodFilterValue
+  outlets: Outlet[]
+  lockedOutletId: string | null
+  isReadOnly: boolean
+  role?: string
+  curKpiRows: SalesSummaryRow[]
+  prevKpiRows: SalesSummaryRow[]
+  hourlyRows: SalesHourlyRow[]
+  menuRows: AggregatedMenuSales[]
+  leaderboard: any[]
+}
 
-  const cur = useSalesSummary(filter, outlets)
-  const prev = useSalesSummary(prevFilter, outlets)
-  const hourly = useSalesHourly(filter)
-  const menu = useMenuSales(filter)
-  const leaderboard = useMemo(() => buildLeaderboard(cur.rows, prev.rows), [cur.rows, prev.rows])
+function RealtimeRefresher() {
+  const router = useRouter()
+  const supabase = createSupabaseBrowserClient()
+  const debounceRef = useRef<any>(null)
 
+  useEffect(() => {
+    const invalidate = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        router.refresh()
+      }, 800)
+    }
+
+    const channel = supabase
+      .channel('owner-sales-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
+      .subscribe()
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, router])
+
+  return null
+}
+
+export default function OwnerDashboardView({
+  filter,
+  outlets,
+  lockedOutletId,
+  isReadOnly,
+  role,
+  curKpiRows,
+  prevKpiRows,
+  hourlyRows,
+  menuRows,
+  leaderboard
+}: OwnerDashboardViewProps) {
+  const router = useRouter()
   const isOneDay = filter.from === filter.to
-  const isLoading = cur.loading || hourly.loading || menu.loading
-  // Surface error dari salah satu query (jangan hanya `cur`), agar chart kosong
-  // tidak disangka "tak ada data" saat sebenarnya fetch hourly/menu gagal.
-  const errorMsg = cur.error || hourly.error || menu.error
+
+  const handleFilterChange = (newFilter: PeriodFilterValue) => {
+    const params = new URLSearchParams()
+    if (newFilter.from) params.set('from', newFilter.from)
+    if (newFilter.to) params.set('to', newFilter.to)
+    if (newFilter.outletId !== 'all') params.set('outletId', newFilter.outletId)
+    if (newFilter.source !== 'all') params.set('source', newFilter.source)
+    router.push(`?${params.toString()}`, { scroll: false })
+  }
 
   return (
     <>
+      <RealtimeRefresher />
       {/* Normal Dashboard */}
       <div className="space-y-6 print:hidden animate-fade-in">
         <PageHeader title="Ringkasan Bisnis" description="Statistik penjualan riil dari sistem POS Kasir">
           <div className="flex flex-col sm:flex-row items-center gap-2">
-            <PeriodFilter value={filter} onChange={setFilter} outlets={scopedOutlets} lockedOutletId={lockedOutletId} />
+            <PeriodFilter value={filter} onChange={handleFilterChange} outlets={outlets} lockedOutletId={lockedOutletId} />
             <button
               onClick={() => window.print()}
               className="w-full sm:w-auto px-4 py-2 bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-sm transition-colors"
@@ -65,52 +101,40 @@ export default function OwnerDashboardView() {
           </div>
         </PageHeader>
 
-        {errorMsg && <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">Gagal memuat data: {errorMsg}</div>}
-        
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-suka-brown font-bold text-sm">
-            Memuat data analisis penjualan...
-          </div>
-        ) : (
-          <>
-            <KpiCards
-              rows={cur.rows}
-              prevRows={prev.rows}
-              hourlyRows={hourly.rows}
+        <KpiCards
+          rows={curKpiRows}
+          prevRows={prevKpiRows}
+          hourlyRows={hourlyRows}
+        />
+
+        {/* Indikator target harian realtime (semua outlet) */}
+        {role !== 'MITRA' && <DailyTargetBoard />}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <RevenueTrendChart 
+              rows={isOneDay ? hourlyRows : curKpiRows} 
+              isHourly={isOneDay} 
             />
-
-            {/* Indikator target harian realtime (semua outlet) */}
-            {role !== 'MITRA' && <DailyTargetBoard />}
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <RevenueTrendChart 
-                  rows={isOneDay ? hourly.rows : cur.rows} 
-                  isHourly={isOneDay} 
-                />
-                <SourceBreakdown rows={cur.rows} />
-              </div>
-              <div className="space-y-6">
-                <TopMenus rows={menu.rows} />
-                <BottomMenus rows={menu.rows} />
-              </div>
-            </div>
-            {!isReadOnly && <OutletLeaderboard entries={leaderboard} allOutlets={scopedOutlets} />}
-          </>
-        )}
+            <SourceBreakdown rows={curKpiRows} />
+          </div>
+          <div className="space-y-6">
+            <TopMenus rows={menuRows} />
+            <BottomMenus rows={menuRows} />
+          </div>
+        </div>
+        {!isReadOnly && <OutletLeaderboard entries={leaderboard} allOutlets={outlets} />}
       </div>
 
       {/* Tampilan Khusus Cetak PDF */}
-      {!isLoading && !errorMsg && (
-        <PrintReport 
-          filter={filter} 
-          outlets={scopedOutlets} 
-          lockedOutletId={lockedOutletId} 
-          cur={cur} 
-          hourly={hourly} 
-          menu={menu} 
-        />
-      )}
+      <PrintReport 
+        filter={filter} 
+        outlets={outlets} 
+        lockedOutletId={lockedOutletId} 
+        cur={{ rows: curKpiRows }} 
+        hourly={{ rows: hourlyRows }} 
+        menu={{ rows: menuRows }} 
+      />
     </>
   )
 }
@@ -204,11 +228,11 @@ function PrintReport({ filter, outlets, lockedOutletId, cur, hourly, menu }: any
             </thead>
             <tbody>
               {sortedMenu.map((m: any, i: number) => (
-                <tr key={m.menu} className={i % 2 !== 0 ? 'bg-gray-50' : ''}>
+                <tr key={m.menu || m.name} className={i % 2 !== 0 ? 'bg-gray-50' : ''}>
                   <td className="p-3 border-b border-gray-300 text-center font-bold text-gray-500">{i + 1}</td>
-                  <td className="p-3 border-b border-gray-300 font-semibold">{m.menu}</td>
+                  <td className="p-3 border-b border-gray-300 font-semibold">{m.menu || m.name}</td>
                   <td className="p-3 border-b border-gray-300 text-center font-bold text-lg">{m.qty.toLocaleString('id-ID')}</td>
-                  <td className="p-3 border-b border-gray-300 text-right font-bold text-lg">{formatRp(m.omzet)}</td>
+                  <td className="p-3 border-b border-gray-300 text-right font-bold text-lg">{formatRp(m.revenue || m.omzet)}</td>
                 </tr>
               ))}
             </tbody>

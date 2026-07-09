@@ -1,100 +1,74 @@
-import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { presetRange, previousRange } from '@/lib/period'
+import { buildLeaderboard } from '@/lib/leaderboard'
+import { getOwnerDashboardData } from '@/app/actions/ownerDashboard'
+import { getAggregatedMenuSales } from '@/app/actions/menuSales'
 import OwnerDashboardView from './OwnerDashboardView'
-import type { SalesSource } from '@/lib/types'
+import type { SalesSource, PeriodFilterValue } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
-export default async function OwnerDashboardPage() {
+export default async function OwnerDashboardPage({ searchParams }: { searchParams: Promise<any> }) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: () => {}
   })
   
-  const queryClient = new QueryClient()
+  const sp = await searchParams
   
-  // 1. Fetch Outlets
-  const { data: outlets } = await supabase
+  // 1. Fetch User Role & Locked Outlet
+  const { data: user } = await supabase.auth.getUser()
+  const { data: profile } = await supabase.from('users').select('role, outlet_id').eq('id', user.user?.id).single()
+  const isReadOnly = profile?.role === 'MITRA'
+  const lockedOutletId = isReadOnly ? profile?.outlet_id : null
+
+  // 2. Build Filter from searchParams or Default
+  const defaultRange = presetRange('today')
+  const filter: PeriodFilterValue = {
+    from: sp.from || defaultRange.from,
+    to: sp.to || defaultRange.to,
+    outletId: lockedOutletId || sp.outletId || 'all',
+    source: (sp.source as SalesSource) || 'all'
+  }
+  const prevFilter: PeriodFilterValue = { 
+    ...filter, 
+    ...previousRange({ from: filter.from, to: filter.to }) 
+  }
+
+  // 3. Fetch Outlets
+  const { data: outlets = [] } = await supabase
     .from('outlets')
     .select('id, slug, name, address, lat, lng, type, is_active')
     .order('name')
-  
-  if (outlets) {
-    queryClient.setQueryData(['outlets'], outlets)
-  }
+    
+  const scopedOutlets = lockedOutletId 
+    ? (outlets ?? []).filter(o => o.id === lockedOutletId) 
+    : (outlets ?? [])
 
-  const filter = { ...presetRange('today'), outletId: 'all', source: 'all' as SalesSource }
-  const prevFilter = { ...filter, ...previousRange({ from: filter.from, to: filter.to }) }
-  
-  // 2. Fetch Sales Hourly Raw (Current)
-  const { data: curSales } = await supabase
-    .from('sales_hourly_scoped')
-    .select('outlet_id, sales_source, sales_date, sales_hour, omzet, jumlah_order_completed')
-    .gte('sales_date', filter.from)
-    .lte('sales_date', filter.to)
-    
-  if (curSales) {
-    queryClient.setQueryData(
-      ['sales-hourly-raw', filter.from, filter.to, filter.outletId, filter.source], 
-      curSales.map((r: any) => ({
-        outlet_id: r.outlet_id,
-        sales_source: r.sales_source,
-        sales_date: r.sales_date,
-        sales_hour: r.sales_hour,
-        omzet: Number(r.omzet),
-        jumlah_order_completed: Number(r.jumlah_order_completed),
-      }))
-    )
-  }
-  
-  // 3. Fetch Sales Hourly Raw (Previous)
-  const { data: prevSales } = await supabase
-    .from('sales_hourly_scoped')
-    .select('outlet_id, sales_source, sales_date, sales_hour, omzet, jumlah_order_completed')
-    .gte('sales_date', prevFilter.from)
-    .lte('sales_date', prevFilter.to)
-    
-  if (prevSales) {
-    queryClient.setQueryData(
-      ['sales-hourly-raw', prevFilter.from, prevFilter.to, prevFilter.outletId, prevFilter.source], 
-      prevSales.map((r: any) => ({
-        outlet_id: r.outlet_id,
-        sales_source: r.sales_source,
-        sales_date: r.sales_date,
-        sales_hour: r.sales_hour,
-        omzet: Number(r.omzet),
-        jumlah_order_completed: Number(r.jumlah_order_completed),
-      }))
-    )
-  }
-  
-  // 4. Fetch Menu Sales Raw
-  const { data: menuSales } = await supabase
-    .from('menu_sales_scoped')
-    .select('outlet_id, sales_source, sales_date, menu, qty, omzet')
-    .gte('sales_date', filter.from)
-    .lte('sales_date', filter.to)
-    
-  if (menuSales) {
-    queryClient.setQueryData(
-      ['menu-sales-raw', filter.from, filter.to, filter.outletId, filter.source], 
-      menuSales.map((r: any) => ({
-        outlet_id: r.outlet_id,
-        sales_source: r.sales_source,
-        sales_date: r.sales_date,
-        menu: r.menu,
-        qty: Number(r.qty),
-        omzet: Number(r.omzet),
-      }))
-    )
-  }
-  
+  // 4. Run Aggregations in parallel on Node Server
+  const [curData, prevData, menuSales] = await Promise.all([
+    getOwnerDashboardData(filter, scopedOutlets),
+    getOwnerDashboardData(prevFilter, scopedOutlets),
+    getAggregatedMenuSales(filter)
+  ])
+
+  const leaderboard = buildLeaderboard(curData.kpiRows, prevData.kpiRows)
+
+  // 5. Send pre-computed data to Client View
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <OwnerDashboardView />
-    </HydrationBoundary>
+    <OwnerDashboardView 
+      filter={filter}
+      outlets={scopedOutlets}
+      lockedOutletId={lockedOutletId}
+      isReadOnly={isReadOnly}
+      role={profile?.role}
+      curKpiRows={curData.kpiRows}
+      prevKpiRows={prevData.kpiRows}
+      hourlyRows={curData.hourlyRows}
+      menuRows={menuSales}
+      leaderboard={leaderboard}
+    />
   )
 }

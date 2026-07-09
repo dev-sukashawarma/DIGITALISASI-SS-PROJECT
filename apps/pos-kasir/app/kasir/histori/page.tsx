@@ -13,6 +13,8 @@ import { formatRupiah } from '@/lib/validations'
 import { Skeleton } from '@/components/Skeleton'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { useDialogStore } from '@/lib/dialogStore'
+import { db } from '@/lib/db'
+import { fetchWithTimeout } from '@/lib/offline-utils'
 
 const STATUS_CONF: Partial<Record<OrderStatus, {
   label: string; color: string; badge: string; icon: any
@@ -32,20 +34,36 @@ const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
 
 async function fetchHistoriOrders(outletId: string, filter: OrderStatus | 'all'): Promise<OrderWithItems[]> {
   try {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      throw new Error('Offline mode: skipping Supabase fetch')
-    }
     const supabase = createClient()
     const q = supabase.from('orders').select('*, order_items(*)')
       .eq('outlet_id', outletId)
       .order('created_at', { ascending: false }).limit(100)
     if (filter !== 'all') q.eq('status', filter)
-    const { data, error } = await q
+    
+    const { data, error } = await fetchWithTimeout(q.then(res => res))
     if (error) throw error
+    
+    // Save to dexie cache
+    const now = Date.now()
+    if (data) {
+      await db.orders_cache.bulkPut(data.map((order: any) => ({
+        id: order.id,
+        order_data: order,
+        synced_at: now
+      })))
+    }
+    
     return data ?? []
   } catch (err) {
-    console.warn('Network error fetching histori orders', err)
-    throw err
+    console.warn('Network error fetching histori orders, falling back to Dexie cache', err)
+    const cachedOrders = await db.orders_cache.toArray()
+    let results = cachedOrders.map(o => o.order_data) as OrderWithItems[]
+    if (filter !== 'all') {
+      results = results.filter(o => o.status === filter)
+    }
+    // Sort by created_at desc
+    results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    return results
   }
 }
 

@@ -44,11 +44,25 @@ export interface KioskSettingsCache {
   synced_at: number;
 }
 
+export interface OrderCache {
+  id: string;
+  order_data: any;
+  synced_at: number;
+}
+
+export interface ShiftCache {
+  id: string;
+  shift_data: any;
+  synced_at: number;
+}
+
 class SukaPOSDB extends Dexie {
   menu_items!: EntityTable<MenuItemCache, 'id'>;
   categories!: EntityTable<CategoryCache, 'id'>;
   sync_queue_orders!: EntityTable<SyncQueueOrder, 'id'>;
   kiosk_settings!: EntityTable<KioskSettingsCache, 'id'>;
+  orders_cache!: EntityTable<OrderCache, 'id'>;
+  shifts_cache!: EntityTable<ShiftCache, 'id'>;
 
   constructor() {
     super('SukaPOSDatabase');
@@ -57,6 +71,14 @@ class SukaPOSDB extends Dexie {
       categories: 'id, sort_order',
       sync_queue_orders: 'id, status, created_at',
       kiosk_settings: 'id'
+    });
+    this.version(2).stores({
+      menu_items: 'id, category, is_available',
+      categories: 'id, sort_order',
+      sync_queue_orders: 'id, status, created_at',
+      kiosk_settings: 'id',
+      orders_cache: 'id',
+      shifts_cache: 'id'
     });
   }
 }

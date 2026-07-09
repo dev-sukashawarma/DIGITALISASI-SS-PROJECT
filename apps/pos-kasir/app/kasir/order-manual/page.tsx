@@ -17,6 +17,7 @@ import { WalkInCartPanel, type Payment as WalkInPayment } from '@/components/kas
 import { printReceipt, type ReceiptData } from '@/lib/printReceipt'
 import { useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/db'
+import { fetchWithTimeout } from '@/lib/offline-utils'
 
 type Mode = 'walkin' | 'online'
 
@@ -92,18 +93,17 @@ export default function OrderManualPage() {
     async function fetchMenu() {
       setLoading(true)
       try {
-        if (!navigator.onLine) {
-          throw new Error('Offline mode: skipping Supabase fetch')
-        }
-        const [menuRes, catRes, unavRes] = await Promise.all([
-          supabase.from('menu_items')
-            .select('*, categories(id,name,sort_order)')
-            .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
-            .order('sort_order'),
-          supabase.from('categories').select('*').order('sort_order'),
-          supabase.from('kiosk_settings').select('value')
-            .eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
-        ])
+        const [menuRes, catRes, unavRes] = await fetchWithTimeout(
+          Promise.all([
+            supabase.from('menu_items')
+              .select('*, categories(id,name,sort_order)')
+              .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
+              .order('sort_order'),
+            supabase.from('categories').select('*').order('sort_order'),
+            supabase.from('kiosk_settings').select('value')
+              .eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
+          ])
+        )
 
         if (menuRes.error) throw menuRes.error
         if (catRes.error) throw catRes.error

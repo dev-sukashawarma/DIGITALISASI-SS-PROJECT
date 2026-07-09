@@ -17,6 +17,7 @@ import { postToNative } from '@suka/design-system'
 import { useDialogStore } from '@/lib/dialogStore'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
+import { fetchWithTimeout } from '@/lib/offline-utils'
 
 const DING_SOUND = '/sound-pesanan.mp3'
 
@@ -38,23 +39,34 @@ async function fetchTodayOrders(outletId: string): Promise<OrderWithItems[]> {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   try {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      throw new Error('Offline mode: skipping Supabase fetch')
-    }
-
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .eq('outlet_id', outletId)
-      .or(`created_at.gte.${today.toISOString()},status.in.(pending,preparing)`)
-      .order('created_at', { ascending: false })
-      .limit(200)
+    const { data, error } = await fetchWithTimeout(
+      supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('outlet_id', outletId)
+        .or(`created_at.gte.${today.toISOString()},status.in.(pending,preparing)`)
+        .order('created_at', { ascending: false })
+        .limit(200)
+        .then(res => res)
+    )
 
     if (error) throw error
+
+    // Save to dexie cache
+    const now = Date.now()
+    if (data) {
+      await db.orders_cache.bulkPut(data.map((order: any) => ({
+        id: order.id,
+        order_data: order,
+        synced_at: now
+      })))
+    }
+
     return data ?? []
   } catch (err) {
-    console.warn('Network error fetching orders, throwing for react-query offline behavior', err)
-    throw err
+    console.warn('Network error fetching orders, falling back to Dexie cache', err)
+    const cachedOrders = await db.orders_cache.toArray()
+    return cachedOrders.map((o) => o.order_data) as OrderWithItems[]
   }
 }
 

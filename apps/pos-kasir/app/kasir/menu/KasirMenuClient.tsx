@@ -14,6 +14,7 @@ import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category } from '@/types'
 import { Skeleton } from '@suka/design-system'
 import { db } from '@/lib/db'
+import { fetchWithTimeout } from '@/lib/offline-utils'
 
 const BUCKET = 'menu-images'
 
@@ -30,18 +31,16 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
   const supabase = createClient()
 
   try {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      throw new Error('Offline mode: skipping Supabase fetch')
-    }
-
-    const [{ data: m, error: mErr }, { data: c, error: cErr }, { data: b }, { data: u }, { data: unav, error: unavErr }, { data: rec }] = await Promise.all([
-      supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
-      supabase.from('categories').select('*').order('sort_order'),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'upsell_ids').maybeSingle(),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'recommendation_ids').maybeSingle(),
-    ])
+    const [{ data: m, error: mErr }, { data: c, error: cErr }, { data: b }, { data: u }, { data: unav, error: unavErr }, { data: rec }] = await fetchWithTimeout(
+      Promise.all([
+        supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
+        supabase.from('categories').select('*').order('sort_order'),
+        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
+        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'upsell_ids').maybeSingle(),
+        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
+        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'recommendation_ids').maybeSingle(),
+      ])
+    )
 
     if (mErr) throw mErr
     if (cErr) throw cErr

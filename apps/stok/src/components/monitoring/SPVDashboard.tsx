@@ -24,7 +24,11 @@ import { Skeleton } from '@suka/design-system';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
   const name = outletName.toUpperCase();
+  
+  if (name.includes('GUDANG PUSAT') || name.includes('KANTOR PUSAT')) return 'Central Kitchen';
+  if (name.includes('KITCHEN (PUSAT)')) return 'Bogor';
   if (name.includes('KITCHEN')) return 'Central Kitchen';
+  
   if (name.includes('JATIASIH') || name.includes('JATIWANGIN')) return 'Bekasi';
   if (name.includes('CIRENDEU')) return 'Tangerang';
   if (name.includes('CIBINONG') || name.includes('CISEENG') || name.includes('CITAYAM') || name.includes('DRAMAGA') || name.includes('EMPANG') || name.includes('BEJI')) return 'Bogor';
@@ -346,7 +350,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   };
 
   return (
-    <div className="flex flex-col md:h-screen md:overflow-hidden bg-[#fff8f1] text-[#1e1b15] min-h-screen">
+    <div className="flex flex-col md:h-screen md:overflow-hidden bg-suka-cream text-suka-ink min-h-screen">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-4 right-4 bg-suka-orange text-white px-4 py-3 rounded-lg shadow-lg border border-white/20 z-50 animate-bounce font-bold text-sm">
@@ -355,15 +359,15 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
       )}
 
       {/* Header */}
-      <header className="sticky top-0 z-45 bg-white border-b border-suka-brown/10 px-4 md:px-6 py-3 md:py-4 flex flex-col md:flex-row md:justify-between md:items-center shadow-sm flex-shrink-0 gap-3 md:gap-0">
+      <header className="sticky top-0 z-45 bg-white border-b border-suka-brown/20 px-4 md:px-6 py-3 md:py-4 flex flex-col md:flex-row md:justify-between md:items-center shadow-sm flex-shrink-0 gap-3 md:gap-0">
         <div className="flex items-center justify-between w-full md:w-auto">
           <div className="flex items-center gap-2 md:gap-3">
-            <Link href="/dashboard" className="w-8 h-8 flex items-center justify-center rounded-full bg-[#faf2e9] hover:bg-[#f5ede3] border border-[#d9c2b2]/50 text-[#701604] transition-colors" title="Kembali ke Dashboard">
+            <Link href="/dashboard" className="w-8 h-8 flex items-center justify-center rounded-full bg-suka-cream/80 hover:bg-suka-cream border border-suka-brown/20 text-suka-brown transition-colors" title="Kembali ke Dashboard">
               ←
             </Link>
             <img src="/logo.png" alt="Logo Suka Shawarma" className="h-8 md:h-10 w-auto object-contain" />
             <div className="flex flex-col">
-              <h2 className="text-base md:text-xl font-bold text-[#701604] tracking-tight">SPV Monitoring Dashboard</h2>
+              <h2 className="text-base md:text-xl font-black text-suka-brown tracking-tight">SPV Monitoring Dashboard</h2>
               <p className="hidden md:block text-xs text-suka-brown/70 font-semibold mt-0.5">
                 Halo, {outletStaff?.name || 'Supervisor'} | Last updated: {lastFetched ? new Date(lastFetched).toLocaleTimeString('id-ID') : 'Never'}
               </p>
@@ -375,7 +379,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
             {isError && <span className="text-xs" title="Koneksi tidak stabil">⚠️</span>}
             <a
               href={resolvedPortalUrl}
-              className="text-[11px] font-bold text-suka-brown/70 hover:text-suka-brown bg-[#faf2e9]/50 px-2.5 py-1 rounded-lg border border-suka-brown/15 transition-all"
+              className="text-[11px] font-bold text-suka-brown/70 hover:text-suka-brown bg-suka-cream/50 px-2.5 py-1 rounded-lg border border-suka-brown/20 transition-all"
             >
               Portal
             </a>
@@ -428,7 +432,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
       {/* Mobile Outlets Horizontal Strip */}
       {activeTab === 'overview' && (
-        <div className="flex md:hidden overflow-x-auto gap-2 px-4 py-2.5 bg-[#faf2e9] border-b border-[#d9c2b2]/20 scrollbar-none flex-shrink-0 w-full">
+        <div className="flex md:hidden overflow-x-auto gap-2 px-4 py-2.5 bg-suka-cream/50 border-b border-suka-brown/20 scrollbar-none flex-shrink-0 w-full">
           {outlets.byOutlet.map((outlet) => {
             const isActive = selectedOutletId === outlet.outlet_id;
             const cleanName = outlet.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
@@ -465,7 +469,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         {activeTab === 'overview' && (
           <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
             {/* Left Column: Outlets (Collapsible) - Desktop Only */}
-            <aside className={`hidden md:block ${isSidebarCollapsed ? 'md:w-[60px] p-2' : 'md:w-[250px] lg:w-[22%] p-6'} bg-[#faf2e9] border-r border-[#d9c2b2] overflow-y-auto space-y-6 transition-all duration-300 flex-shrink-0`}>
+            <aside className={`hidden md:block ${isSidebarCollapsed ? 'md:w-[60px] p-2' : 'md:w-[250px] lg:w-[22%] p-6'} bg-suka-cream/50 border-r border-suka-brown/20 overflow-y-auto space-y-6 transition-all duration-300 flex-shrink-0`}>
               <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2">
                 {!isSidebarCollapsed && (
                   <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
@@ -551,8 +555,8 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                               onClick={() => setSelectedOutletId(outlet.outlet_id)}
                               className={`text-left p-4 rounded-xl border transition-all ${
                                 isActive
-                                  ? 'border-2 border-suka-orange bg-white shadow-[0px_4px_12px_rgba(112,22,4,0.08)]'
-                                  : 'border-suka-brown/10 bg-white hover:border-suka-orange/30'
+                                  ? 'border-2 border-suka-orange bg-white shadow-sm'
+                                  : 'border-suka-brown/20 bg-white hover:border-suka-orange/30 hover:scale-[1.02]'
                               }`}
                             >
                               <div className="flex justify-between items-start mb-2">
@@ -586,7 +590,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
             </aside>
 
             {/* Middle Column: Details & Tables */}
-            <section className="flex-shrink-0 md:flex-1 bg-white flex flex-col border-b md:border-b-0 md:border-r border-[#d9c2b2] overflow-visible md:overflow-hidden">
+            <section className="flex-shrink-0 md:flex-1 bg-white flex flex-col border-b md:border-b-0 md:border-r border-suka-brown/20 overflow-visible md:overflow-hidden">
               {isLoading && !data ? (
                 <div className="flex-1 flex flex-col p-4 md:p-6 bg-white border border-suka-brown/10 rounded-xl space-y-6 overflow-y-auto">
                   <Skeleton className="h-8 w-48" />
@@ -608,13 +612,13 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                   {/* Sub-header with search & filters */}
                   <div className="p-4 md:p-6 border-b border-suka-brown/10 flex flex-col gap-4 bg-white z-10 flex-shrink-0 shadow-sm">
                     <div className="flex justify-between items-center flex-wrap gap-4">
-                      <h3 className="text-base md:text-lg font-black text-[#701604] uppercase tracking-tight">
+                      <h3 className="text-base md:text-lg font-black text-suka-brown uppercase tracking-tight">
                         DETAIL STOK: {outlets.byOutlet.find(o => o.outlet_id === selectedOutletId)?.outlet_name.replace('SUKA SHAWARMA ', '')}
                       </h3>
                       <div className="relative w-full sm:w-auto">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50 text-sm">🔍</span>
                         <input
-                          className="pl-9 pr-4 py-2 bg-[#faf2e9]/40 border border-[#d9c2b2]/80 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-sm w-full sm:w-64 transition-all font-bold placeholder-suka-brown/40"
+                          className="pl-9 pr-4 py-2 bg-suka-cream/50 border border-suka-brown/20 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-sm w-full sm:w-64 transition-all font-bold placeholder-suka-brown/40"
                           placeholder="Cari nama bahan..."
                           type="text"
                           value={searchTerm}
@@ -675,22 +679,22 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       {/* KPI 1: Stok Kritis */}
                       <button
                         onClick={() => setFilterStatus('below')}
-                        className={`bg-white border-2 rounded-2xl p-4 text-left shadow-[0px_4px_12px_rgba(112,22,4,0.04)] hover:scale-102 transition-all flex flex-col justify-between group h-24 ${
-                          filterStatus === 'below' ? 'border-[#ba1a1a] bg-[#ffdad6]/10' : 'border-[#d9c2b2]/40'
+                        className={`bg-white border-2 rounded-2xl p-4 text-left shadow-sm hover:scale-[1.02] transition-all flex flex-col justify-between group h-24 ${
+                          filterStatus === 'below' ? 'border-red-600 bg-red-50' : 'border-suka-brown/20'
                         }`}
                       >
-                        <span className="text-[10px] font-black uppercase text-[#ba1a1a] tracking-wider flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-[#ba1a1a] animate-pulse"></span>
+                        <span className="text-[10px] font-black uppercase text-red-600 tracking-wider flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
                           Stok Kritis
                         </span>
                         <div className="flex items-baseline gap-1 mt-2">
-                          <span className="text-2xl font-black text-[#ba1a1a]">{criticalCount}</span>
+                          <span className="text-2xl font-black text-red-600">{criticalCount}</span>
                           <span className="text-[10px] text-suka-brown/60 font-semibold">bahan</span>
                         </div>
                       </button>
 
                       {/* KPI 2: Forecasted Stockouts */}
-                      <div className="bg-white border-2 border-[#d9c2b2]/40 rounded-2xl p-4 text-left shadow-[0px_4px_12px_rgba(112,22,4,0.04)] flex flex-col justify-between h-24">
+                      <div className="bg-white border-2 border-suka-brown/20 rounded-2xl p-4 text-left shadow-sm flex flex-col justify-between h-24">
                         <span className="text-[10px] font-black uppercase text-suka-orange tracking-wider flex items-center gap-1">
                           <span>⏳</span>
                           Forecast 24j
@@ -702,13 +706,13 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       </div>
 
                       {/* KPI 3: Waste Events Today */}
-                      <div className="bg-white border-2 border-[#d9c2b2]/40 rounded-2xl p-4 text-left shadow-[0px_4px_12px_rgba(112,22,4,0.04)] flex flex-col justify-between h-24">
-                        <span className="text-[10px] font-black uppercase text-[#701604] tracking-wider flex items-center gap-1">
+                      <div className="bg-white border-2 border-suka-brown/20 rounded-2xl p-4 text-left shadow-sm flex flex-col justify-between h-24">
+                        <span className="text-[10px] font-black uppercase text-suka-brown tracking-wider flex items-center gap-1">
                           <span>🗑️</span>
                           Waste Hari Ini
                         </span>
                         <div className="flex items-baseline gap-1 mt-2">
-                          <span className="text-2xl font-black text-[#701604]">{outletWasteCount}</span>
+                          <span className="text-2xl font-black text-suka-brown">{outletWasteCount}</span>
                           <span className="text-[10px] text-suka-brown/60 font-semibold">kejadian</span>
                         </div>
                       </div>
@@ -716,8 +720,8 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       {/* KPI 4: Health Score */}
                       <button
                         onClick={() => setFilterStatus('ok')}
-                        className={`bg-white border-2 rounded-2xl p-4 text-left shadow-[0px_4px_12px_rgba(112,22,4,0.04)] hover:scale-102 transition-all flex flex-col justify-between group h-24 ${
-                          filterStatus === 'ok' ? 'border-suka-green bg-green-50/10' : 'border-[#d9c2b2]/40'
+                        className={`bg-white border-2 rounded-2xl p-4 text-left shadow-sm hover:scale-[1.02] transition-all flex flex-col justify-between group h-24 ${
+                          filterStatus === 'ok' ? 'border-suka-green bg-green-50/50' : 'border-suka-brown/20'
                         }`}
                       >
                         <span className="text-[10px] font-black uppercase text-suka-green tracking-wider flex items-center gap-1">
@@ -756,9 +760,9 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
             </section>
 
             {/* Right Column: Action & Predictive Hub (Action Drawer) */}
-            <aside className="w-full md:w-[320px] lg:w-[28%] xl:w-[23%] bg-[#faf2e9] overflow-visible md:overflow-y-auto p-4 flex flex-col gap-6 flex-shrink-0 border-t md:border-t-0 border-[#d9c2b2]">
+            <aside className="w-full md:w-[320px] lg:w-[28%] xl:w-[23%] bg-suka-cream/50 overflow-visible md:overflow-y-auto p-4 flex flex-col gap-6 flex-shrink-0 border-t md:border-t-0 border-suka-brown/20">
               {/* Widget 0: Approval Permintaan */}
-              <div className="bg-white p-4 rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)] space-y-3">
+              <div className="bg-white p-4 rounded-2xl border border-suka-brown/20 shadow-sm space-y-3 hover:scale-[1.01] transition-transform">
                 <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">
                   <span>📝</span> Approval Permintaan
                 </h3>
@@ -768,7 +772,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               </div>
 
               {/* Widget 1: Saran Transfer */}
-              <div className="bg-white p-4 rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)] space-y-3">
+              <div className="bg-white p-4 rounded-2xl border border-suka-brown/20 shadow-sm space-y-3 hover:scale-[1.01] transition-transform">
                 <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">
                   <span>🔄</span> Saran Transfer
                 </h3>
@@ -781,8 +785,8 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               </div>
 
               {/* Widget 2: Predictive Stockouts (Forecast) */}
-              <div className="bg-white p-4 rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)] space-y-3">
-                <h3 className="font-black text-xs text-[#701604] tracking-wider uppercase border-b border-[#701604]/10 pb-2 flex items-center gap-1.5">
+              <div className="bg-white p-4 rounded-2xl border border-suka-brown/20 shadow-sm space-y-3 hover:scale-[1.01] transition-transform">
+                <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">
                   <span>🔮</span> Prediksi Habis (&lt;24j)
                 </h3>
                 <div className="space-y-2">

@@ -95,6 +95,9 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
   const [savedKey, setSavedKey] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
+  // ── UI State ────────────────────────────────────────────────────────────
+  const [isFormOpen, setIsFormOpen] = useState(false)
+
   const loadTargets = useCallback(async () => {
     const [{ data: targets, error: e1 }, { data: globalRow }] = await Promise.all([
       supabase.rpc('get_current_targets'),
@@ -269,12 +272,22 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
           {!isReadOnly && (
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
               <div className="lg:col-span-3 bg-white p-5 sm:p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-5">
-                <div className="flex items-center gap-2">
-                  <Send className="w-4 h-4 text-suka-brown" />
-                  <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Kirim ke Kasir</h3>
-                </div>
+                <button
+                  onClick={() => setIsFormOpen(!isFormOpen)}
+                  className="w-full flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2">
+                    <Send className="w-4 h-4 text-suka-brown" />
+                    <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Kirim ke Kasir</h3>
+                  </div>
+                  <span className="text-xs font-bold text-suka-orange group-hover:text-amber-600 transition-colors">
+                    {isFormOpen ? 'Tutup' : 'Buat Baru'}
+                  </span>
+                </button>
 
-                {/* Audience */}
+                {isFormOpen && (
+                  <div className="space-y-5 pt-2 border-t border-suka-gray-100 mt-3">
+                    {/* Audience */}
                 <div>
                   <label className="block text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider mb-2">Kirim Ke</label>
                   <div className="flex gap-2 mb-3">
@@ -458,6 +471,8 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : sent ? <CheckCircle2 className="w-4 h-4" /> : <Send className="w-4 h-4" />}
                   {sent ? 'Terkirim!' : hasTarget && hasMessage ? 'Kirim Target & Pesan' : hasMessage ? 'Kirim Pesan' : 'Simpan Target'}
                 </button>
+                  </div>
+                )}
               </div>
 
               {/* History */}

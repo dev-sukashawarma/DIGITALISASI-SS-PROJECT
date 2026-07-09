@@ -13,7 +13,7 @@ import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
-import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAcceptable } from "@/lib/gps";
+import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAcceptable, formatDistanceMeters } from "@/lib/gps";
 
 export type KioskPhase = "locating" | "location_invalid" | "idle" | "identified" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
@@ -140,7 +140,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
             watchIdRef.current = null;
           }
         } else {
-          let msg = `Di luar jangkauan (Jarak Anda: ${dist.toFixed(1)}m, batas: ${GEOFENCE_RADIUS_M}m, Akurasi GPS: ${accuracy.toFixed(1)}m). Silakan mendekat ke area kasir.`;
+          let msg = `Di luar jangkauan (Jarak Anda: ${formatDistanceMeters(dist, true)}, batas: ${formatDistanceMeters(GEOFENCE_RADIUS_M, true)}, Akurasi GPS: ${formatDistanceMeters(accuracy, true)}). Silakan mendekat ke area kasir.`;
           setResult({
             ok: false,
             message: msg,

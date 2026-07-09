@@ -11,6 +11,7 @@ import { CameraCapture } from "@/components/CameraCapture";
 import { loadFaceModels } from "@/lib/face/recognizer";
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
+import { formatDistanceMeters } from "@/lib/gps";
 
 dayjs.locale("id");
 
@@ -412,7 +413,7 @@ export function AttendanceKioskPanel() {
                 {kiosk.gpsDistance !== null && (
                   <div className="inline-block bg-slate-900 border border-red-500/30 rounded-lg px-2.5 py-1 mt-1">
                     <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Jarak Saat Ini</p>
-                    <p className="text-base font-black text-red-400">{kiosk.gpsDistance.toFixed(1)} meter</p>
+                    <p className="text-base font-black text-red-400">{formatDistanceMeters(kiosk.gpsDistance, false)}</p>
                   </div>
                 )}
               </div>

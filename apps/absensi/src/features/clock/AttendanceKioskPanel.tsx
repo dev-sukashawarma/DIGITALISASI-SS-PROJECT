@@ -76,14 +76,20 @@ export function AttendanceKioskPanel() {
     kiosk.flushQueue();
     loadRecords();
     
-    supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", outletId).single()
-      .then(({ data }) => {
+    const fetchConfig = () => {
+      Promise.all([
+        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", outletId).maybeSingle(),
+        supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
+      ]).then(([local, global]) => {
+        const data = local.data || global.data?.value;
         if (data) {
           setJamMasuk(data.jam_masuk);
           setJamKeluar(data.jam_keluar ?? null);
           setAbsenWindowMode(data.absen_window_mode ?? "auto");
         }
       });
+    };
+    fetchConfig();
       
     supabase.from("outlets").select("is_active, name").eq("id", outletId).single()
       .then(({ data }) => {
@@ -98,14 +104,12 @@ export function AttendanceKioskPanel() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${outletId}` },
-        (payload) => {
-          const newCfg = payload.new as any;
-          if (newCfg && newCfg.jam_masuk) {
-            setJamMasuk(newCfg.jam_masuk);
-            setJamKeluar(newCfg.jam_keluar ?? null);
-            setAbsenWindowMode(newCfg.absen_window_mode ?? "auto");
-          }
-        }
+        () => { fetchConfig(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'global_settings', filter: `key=eq.global_attendance_config` },
+        () => { fetchConfig(); }
       )
       .on(
         'postgres_changes',

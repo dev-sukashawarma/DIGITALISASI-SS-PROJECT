@@ -80,10 +80,23 @@ export async function POST(req: Request) {
       }
     }
 
-    const { data: cfg } = await admin
+    let { data: cfg } = await admin
       .from("outlet_attendance_config")
       .select("jam_masuk,jam_keluar,toleransi_menit,absen_window_mode")
-      .eq("outlet_id", body.outlet_id).single();
+      .eq("outlet_id", body.outlet_id)
+      .maybeSingle();
+
+    if (!cfg) {
+      const { data: globalRow } = await admin
+        .from("global_settings")
+        .select("value")
+        .eq("key", "global_attendance_config")
+        .maybeSingle();
+      
+      if (globalRow && globalRow.value) {
+        cfg = globalRow.value as any;
+      }
+    }
 
     if (!cfg) return NextResponse.json({ ok: false, reason: "config_missing" }, { status: 500 });
 

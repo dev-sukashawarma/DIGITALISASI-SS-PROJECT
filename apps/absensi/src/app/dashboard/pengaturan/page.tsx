@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Spinner } from "@suka/design-system";
-import { Clock, Timer, Settings2, Save, Lock, Unlock, Zap, ToggleLeft } from "lucide-react";
+import { Clock, Timer, Settings2, Save, Lock, Unlock, Zap, ToggleLeft, Building2 } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
@@ -24,59 +24,46 @@ export default function PengaturanAbsensiPage() {
 
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<Config>({ jam_masuk: "09:00", jam_keluar: "17:00", toleransi_menit: 15, is_active: false, absen_window_mode: "auto" });
+  
+  const [applyTo, setApplyTo] = useState<"all" | "specific">("all");
+  const [selectedOutlets, setSelectedOutlets] = useState<string[]>([]);
 
-  const { isLoading, refetch } = useQuery({
-    queryKey: ["pengaturan", outletStaff?.outlet_id],
-    enabled: !!outletStaff?.outlet_id,
-    staleTime: 5 * 60_000, // pengaturan jarang berubah, cache 5 menit
+  const { isLoading, refetch, data } = useQuery({
+    queryKey: ["pengaturan-admin"],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
-      const [cfg, out] = await Promise.all([
-        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit,absen_window_mode").eq("outlet_id", outletStaff!.outlet_id).single(),
-        supabase.from("outlets").select("is_active").eq("id", outletStaff!.outlet_id).single()
+      const [globalRes, outletsRes] = await Promise.all([
+        supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle(),
+        supabase.from("outlets").select("id, name").order("name")
       ]);
-      if (cfg.data && out.data) {
-        setConfig({
-          jam_masuk: cfg.data.jam_masuk.slice(0, 5),
-          jam_keluar: cfg.data.jam_keluar?.slice(0, 5) || "17:00",
-          toleransi_menit: cfg.data.toleransi_menit,
-          is_active: out.data.is_active,
-          absen_window_mode: (cfg.data.absen_window_mode as "auto" | "manual") ?? "auto",
-        });
-      }
-      return cfg.data;
+      
+      const cfg = globalRes.data?.value || { jam_masuk: "09:00", jam_keluar: "17:00", toleransi_menit: 15, absen_window_mode: "auto" };
+      setConfig({
+        jam_masuk: cfg.jam_masuk?.slice(0, 5) || "09:00",
+        jam_keluar: cfg.jam_keluar?.slice(0, 5) || "17:00",
+        toleransi_menit: cfg.toleransi_menit || 15,
+        is_active: false,
+        absen_window_mode: cfg.absen_window_mode || "auto",
+      });
+      return { outlets: outletsRes.data || [] };
     },
   });
 
-  useEffect(() => {
-    if (!outletStaff?.outlet_id) return;
-
-    const outletId = outletStaff.outlet_id;
-    const channel = supabase.channel(`pengaturan-realtime-${outletId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${outletId}` },
-        () => { refetch(); }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'outlets', filter: `id=eq.${outletId}` },
-        () => { refetch(); }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [outletStaff?.outlet_id, refetch, supabase]);
-
   const handleSave = async () => {
-    if (!outletStaff?.outlet_id) return;
+    if (applyTo === "specific" && selectedOutlets.length === 0) {
+      toast.show("err", "Pilih minimal satu outlet!");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/outlet-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outlet_id: outletStaff.outlet_id, ...config })
+        body: JSON.stringify({ 
+          applyTo, 
+          outletIds: selectedOutlets,
+          ...config 
+        })
       });
       if (!res.ok) throw new Error((await res.json()).error);
       toast.show("ok", "Pengaturan berhasil disimpan!");
@@ -86,16 +73,81 @@ export default function PengaturanAbsensiPage() {
     setSaving(false);
   };
 
-
   if (isLoading) return <div className="p-12 flex justify-center"><Spinner /></div>;
+
+  const outlets = data?.outlets || [];
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-10">
       <PageHeader
         icon={<Settings2 size={20} />}
         title="Pengaturan Absensi"
-        subtitle="Kelola status kiosk, jam kerja, dan toleransi keterlambatan"
+        subtitle="Kelola jam kerja, toleransi keterlambatan, dan status kiosk untuk seluruh cabang"
       />
+
+      {/* Target Penerapan */}
+      <div className="rounded-2xl border border-suka-gray-200 bg-white p-4 sm:p-5 space-y-4">
+        <h2 className="flex items-center gap-2 text-base font-bold text-suka-ink">
+          <Building2 size={18} className="text-suka-brown" /> Target Penerapan
+        </h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setApplyTo("all")}
+            className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+              applyTo === "all"
+                ? "border-suka-orange bg-orange-50"
+                : "border-gray-200 bg-white hover:border-gray-300"
+            }`}
+          >
+            <div>
+              <p className="text-sm font-bold text-suka-ink">Semua Outlet (Global)</p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Jadikan setelan ini sebagai standar (default) untuk semua outlet.
+              </p>
+            </div>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setApplyTo("specific")}
+            className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+              applyTo === "specific"
+                ? "border-suka-orange bg-orange-50"
+                : "border-gray-200 bg-white hover:border-gray-300"
+            }`}
+          >
+            <div>
+              <p className="text-sm font-bold text-suka-ink">Outlet Tertentu (Khusus)</p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Terapkan jam khusus ke outlet tertentu (mengganti setelan global).
+              </p>
+            </div>
+          </button>
+        </div>
+
+        {applyTo === "specific" && (
+          <div className="mt-4 border-t pt-4">
+            <p className="text-sm font-semibold text-suka-ink mb-3">Pilih Outlet:</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-2">
+              {outlets.map(out => (
+                <label key={out.id} className="flex items-center gap-3 p-3 rounded-xl border border-suka-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedOutlets.includes(out.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedOutlets([...selectedOutlets, out.id]);
+                      else setSelectedOutlets(selectedOutlets.filter(id => id !== out.id));
+                    }}
+                    className="w-4 h-4 text-suka-orange border-gray-300 rounded focus:ring-suka-orange"
+                  />
+                  <span className="text-sm font-medium text-suka-ink">{out.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Mode Absensi */}
       <div className="rounded-2xl border border-suka-gray-200 bg-white p-4 sm:p-5 space-y-4">
@@ -160,7 +212,7 @@ export default function PengaturanAbsensiPage() {
               </p>
               <p className="text-xs text-gray-500">
                 {config.absen_window_mode === "manual"
-                  ? "Toggle untuk buka/tutup kiosk absensi manual."
+                  ? `Toggle untuk buka/tutup kiosk absensi manual.`
                   : "Paksa kunci kiosk di luar siklus normal. Gunakan untuk kondisi darurat."}
               </p>
             </div>
@@ -223,7 +275,6 @@ export default function PengaturanAbsensiPage() {
           </p>
         </div>
       </div>
-
 
       <div className="flex justify-end">
         <Button

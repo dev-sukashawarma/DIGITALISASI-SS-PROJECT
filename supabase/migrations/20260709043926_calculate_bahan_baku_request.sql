@@ -24,7 +24,7 @@ BEGIN
   kebutuhan_bahan AS (
     SELECT
       ri.bahan_baku_id,
-      SUM(ri.qty_per_porsi * t.qty_target) AS total_kebutuhan
+      SUM(ri.qty_per_porsi * t.qty_target) AS total_kebutuhan_kecil
     FROM targets t
     JOIN resep_item ri ON ri.resep_id = t.resep_id
     GROUP BY ri.bahan_baku_id
@@ -33,9 +33,9 @@ BEGIN
     k.bahan_baku_id,
     b.nama AS nama_bahan,
     b.satuan,
-    k.total_kebutuhan AS kebutuhan,
+    ROUND(k.total_kebutuhan_kecil / COALESCE(b.faktor_konversi, 1), 2) AS kebutuhan,
     COALESCE(sb.saldo, 0) AS sisa_stok,
-    GREATEST(0, k.total_kebutuhan - COALESCE(sb.saldo, 0)) AS saran_qty
+    CEIL(GREATEST(0, (k.total_kebutuhan_kecil / COALESCE(b.faktor_konversi, 1)) - COALESCE(sb.saldo, 0))) AS saran_qty
   FROM kebutuhan_bahan k
   JOIN bahan_baku b ON b.id = k.bahan_baku_id
   LEFT JOIN stok_balance sb ON sb.bahan_baku_id = k.bahan_baku_id AND sb.outlet_id = p_outlet_id;

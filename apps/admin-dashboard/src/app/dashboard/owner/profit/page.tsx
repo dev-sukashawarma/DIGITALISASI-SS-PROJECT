@@ -34,9 +34,13 @@ export default function ProfitPage() {
 
   // Calculations — pisah pengeluaran outlet (dibebankan ke P&L outlet) vs pusat (company-wide).
   const totalOmzet = useMemo(() => sales.rows.reduce((sum, r) => sum + r.omzet, 0), [sales.rows])
-  const pengeluaranOutlet = useMemo(
-    () => expenses.rows.filter(r => r.scope === 'outlet').reduce((sum, r) => sum + r.amount, 0),
+  const pengeluaranOutletBulanan = useMemo(
+    () => expenses.rows.filter(r => r.scope === 'outlet' && r.source === 'monthly').reduce((sum, r) => sum + r.amount, 0),
     [expenses.rows])
+  const pengeluaranOutletPettyCash = useMemo(
+    () => expenses.rows.filter(r => r.scope === 'outlet' && r.source === 'petty_cash').reduce((sum, r) => sum + r.amount, 0),
+    [expenses.rows])
+  const pengeluaranOutlet = pengeluaranOutletBulanan + pengeluaranOutletPettyCash
   const pengeluaranPusat = useMemo(
     () => expenses.rows.filter(r => r.scope === 'pusat').reduce((sum, r) => sum + r.amount, 0),
     [expenses.rows])
@@ -152,11 +156,11 @@ export default function ProfitPage() {
           </div>
 
           {/* Rincian — angka pendukung disembunyikan agar layar tidak sesak */}
-          <Section title="Rincian Perhitungan" collapsible defaultOpen={false}>
+          <Section title="Rincian Perhitungan">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatTile label="HPP Bahan Baku" value={<><span className="text-lg align-top">Rp </span><CountUp end={totalHpp} duration={1} separator="." /></>} sub="Biaya Bahan Terjual" icon={Boxes} accent="brown" />
               <StatTile label="Laba Kotor" value={<><span className="text-lg align-top">Rp </span><CountUp end={labaKotor} duration={1} separator="." /></>} sub={`Omzet − HPP · ${marginKotor.toFixed(1)}%`} icon={Layers} accent="green" />
-              <StatTile label="Pengeluaran Outlet" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranOutlet} duration={1} separator="." /></>} sub="Biaya Operasional Outlet" icon={TrendingDown} accent="red" />
+              <StatTile label="Pengeluaran Outlet" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranOutlet} duration={1} separator="." /></>} sub={`Bulanan: Rp ${(pengeluaranOutletBulanan/1000).toLocaleString('id-ID')}k | Kas Kecil: Rp ${(pengeluaranOutletPettyCash/1000).toLocaleString('id-ID')}k`} icon={TrendingDown} accent="red" />
               {isAllOutlets && (
                 <StatTile label="Biaya Pusat" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranPusat} duration={1} separator="." /></>} sub="Tak dibebankan ke outlet" icon={Building2} accent="red" />
               )}

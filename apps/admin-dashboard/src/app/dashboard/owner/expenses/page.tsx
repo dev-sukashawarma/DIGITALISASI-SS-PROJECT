@@ -56,6 +56,8 @@ export default function ExpensesPage() {
   }, [rows, target])
 
   const totalAmount = useMemo(() => filteredRows.reduce((s, r) => s + r.amount, 0), [filteredRows])
+  const amountBulanan = useMemo(() => filteredRows.filter(r => r.source === 'monthly').reduce((s, r) => s + r.amount, 0), [filteredRows])
+  const amountPettyCash = useMemo(() => filteredRows.filter(r => r.source === 'petty_cash').reduce((s, r) => s + r.amount, 0), [filteredRows])
 
   const byCategory = useMemo(() => {
     const map = new Map<string, number>()
@@ -105,7 +107,7 @@ export default function ExpensesPage() {
             <StatTile
               label="Total Pengeluaran"
               value={<><span className="text-lg align-top">Rp </span><CountUp end={totalAmount} duration={1} separator="." /></>}
-              sub={titleText}
+              sub={titleText + ` (Bulanan: Rp ${(amountBulanan/1000).toLocaleString('id-ID')}k | Kas Kecil: Rp ${(amountPettyCash/1000).toLocaleString('id-ID')}k)`}
               icon={Wallet}
               accent="brown"
             />

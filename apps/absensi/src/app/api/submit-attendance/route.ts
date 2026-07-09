@@ -130,6 +130,7 @@ export async function POST(req: Request) {
     }
     // ───────────────────────────────────────────────────────────────────────
     let status = "tepat";
+    let telat_menit: number | null = null;
     
     if (body.type === "out") {
       const [hOut, mOut] = (cfg.jam_keluar || "17:00").split(":").map(Number);
@@ -153,12 +154,11 @@ export async function POST(req: Request) {
       const toleransiDeadline = new Date(local);
       toleransiDeadline.setHours(h, m + cfg.toleransi_menit, 0, 0);
 
-      if (local.getTime() <= jamMasukDeadline.getTime()) {
+      if (local.getTime() <= toleransiDeadline.getTime()) {
         status = "tepat";
       } else {
-        // Tetap izinkan absen meski lewat toleransi (status 'telat')
-        // Alpha hanya untuk yang tidak absen sama sekali di akhir hari
         status = "telat";
+        telat_menit = Math.floor((local.getTime() - jamMasukDeadline.getTime()) / 60000);
       }
     }
 
@@ -175,6 +175,7 @@ export async function POST(req: Request) {
       match_distance: body.match_distance,
       selfie_url: body.selfie_path,
       status,
+      telat_menit,
     }, { onConflict: "id", ignoreDuplicates: true });
 
     if (error) return NextResponse.json({ ok: false, reason: "insert_failed", detail: error.message }, { status: 500 });

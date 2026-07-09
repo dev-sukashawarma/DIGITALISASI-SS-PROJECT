@@ -44,12 +44,19 @@ export default function PapanKehadiranPage() {
     queryKey: ["papan-kehadiran", outletStaff?.outlet_id, today],
     enabled: !!outletStaff?.outlet_id,
     queryFn: async () => {
-      const [{ data: staff }, { data: recs }, { data: cfg }] = await Promise.all([
+      const [{ data: staff }, { data: recs }, { data: localCfg }, { data: globalCfg }] = await Promise.all([
         supabase.from("outlet_staff").select("id,name,role").eq("outlet_id", outletStaff!.outlet_id).eq("status", "active"),
-        supabase.from("attendance").select("outlet_staff_id,type,status,ts_server,selfie_url")
+        supabase.from("attendance").select("outlet_staff_id,type,status,ts_server,selfie_url,telat_menit")
           .eq("outlet_id", outletStaff!.outlet_id).gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
-        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", outletStaff!.outlet_id).single()
+        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", outletStaff!.outlet_id).maybeSingle(),
+        supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
       ]);
+      let cfg = localCfg;
+      if (!cfg && globalCfg?.value) {
+        try {
+          cfg = typeof globalCfg.value === "string" ? JSON.parse(globalCfg.value) : globalCfg.value;
+        } catch(e) {}
+      }
       if (!cfg) return null;
       return computeBoard((staff as BoardStaff[]) ?? [], (recs as BoardRecord[]) ?? [], cfg);
     },

@@ -81,7 +81,12 @@ export function AttendanceKioskPanel() {
         supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", outletId).maybeSingle(),
         supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
       ]).then(([local, global]) => {
-        const data = local.data || global.data?.value;
+        let data = local.data;
+        if (!data && global.data?.value) {
+          try {
+            data = typeof global.data.value === "string" ? JSON.parse(global.data.value) : global.data.value;
+          } catch(e) {}
+        }
         if (data) {
           setJamMasuk(data.jam_masuk);
           setJamKeluar(data.jam_keluar ?? null);
@@ -157,7 +162,7 @@ export function AttendanceKioskPanel() {
     setLoadingHistory(true);
     supabase
       .from("attendance")
-      .select("id, type, ts_server, status")
+      .select("id, type, ts_server, status, telat_menit")
       .eq("outlet_staff_id", outletStaff.id)
       .order("ts_server", { ascending: false })
       .limit(30)
@@ -572,7 +577,7 @@ export function AttendanceKioskPanel() {
           {loadingHistory ? (
             <div className="p-10 flex justify-center"><Spinner /></div>
           ) : records.map(r => {
-            const delay = (r.status === 'telat' && r.type === 'in' && jamMasuk) ? calculateDelayMinutes(r.ts_server, jamMasuk) : null;
+            const delay = r.telat_menit ?? ((r.status === 'telat' && r.type === 'in' && jamMasuk) ? calculateDelayMinutes(r.ts_server, jamMasuk) : null);
             const isLate = r.status === 'telat';
             
             return (

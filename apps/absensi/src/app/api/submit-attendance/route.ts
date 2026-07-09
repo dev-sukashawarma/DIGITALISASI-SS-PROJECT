@@ -145,8 +145,10 @@ export async function POST(req: Request) {
       const diffMins = Math.floor((local.getTime() - deadlineOut.getTime()) / 60000);
       if (diffMins < 0) {
         status = "lebih_awal";
+        telat_menit = Math.abs(diffMins);
       } else if (diffMins >= 1) {
         status = "pulang_telat";
+        telat_menit = diffMins;
       } else {
         status = "tepat";
       }

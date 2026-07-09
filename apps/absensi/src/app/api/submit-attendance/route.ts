@@ -142,18 +142,11 @@ export async function POST(req: Request) {
 
       if (local.getTime() <= jamMasukDeadline.getTime()) {
         status = "tepat";
-      } else if (local.getTime() <= toleransiDeadline.getTime()) {
-        status = "telat";
       } else {
-        status = "alpha";
+        // Tetap izinkan absen meski lewat toleransi (status 'telat')
+        // Alpha hanya untuk yang tidak absen sama sekali di akhir hari
+        status = "telat";
       }
-    }
-
-    // Tolak absen masuk telat SEBELUM menyimpan — agar tidak membuat record
-    // "alpha" yang mengunci kiosk seharian (decideAction memblokir bila ada
-    // record in berstatus alpha). Status alpha tetap dihitung virtual di rekap.
-    if (status === "alpha" && body.type === "in") {
-      return NextResponse.json({ ok: false, reason: "terlambat_alpha", ts_server: tsServer, attendance_id: body.id }, { status: 200 });
     }
 
     const { error } = await admin.from("attendance").upsert({

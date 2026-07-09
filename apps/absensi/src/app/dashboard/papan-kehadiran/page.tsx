@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState, Spinner } from "@suka/design-system";
 import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays } from "lucide-react";
@@ -40,7 +40,7 @@ export default function PapanKehadiranPage() {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["papan-kehadiran", outletStaff?.outlet_id, today],
     enabled: !!outletStaff?.outlet_id,
     queryFn: async () => {
@@ -54,6 +54,25 @@ export default function PapanKehadiranPage() {
       return computeBoard((staff as BoardStaff[]) ?? [], (recs as BoardRecord[]) ?? [], cfg);
     },
   });
+
+  useEffect(() => {
+    if (!outletStaff?.outlet_id) return;
+
+    const outletId = outletStaff.outlet_id;
+    const channel = supabase.channel(`papan-realtime-${outletId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance', filter: `outlet_id=eq.${outletId}` },
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [outletStaff?.outlet_id, refetch, supabase]);
 
   if (isLoading || !data) return <div className="p-6 flex justify-center"><Spinner /></div>;
 

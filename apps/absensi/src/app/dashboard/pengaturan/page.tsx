@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Spinner } from "@suka/design-system";
 import { Clock, Timer, Settings2, Save, Lock, Unlock, Zap, ToggleLeft } from "lucide-react";
@@ -25,7 +25,7 @@ export default function PengaturanAbsensiPage() {
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<Config>({ jam_masuk: "09:00", jam_keluar: "17:00", toleransi_menit: 15, is_active: false, absen_window_mode: "auto" });
 
-  const { isLoading } = useQuery({
+  const { isLoading, refetch } = useQuery({
     queryKey: ["pengaturan", outletStaff?.outlet_id],
     enabled: !!outletStaff?.outlet_id,
     staleTime: 5 * 60_000, // pengaturan jarang berubah, cache 5 menit
@@ -46,6 +46,28 @@ export default function PengaturanAbsensiPage() {
       return cfg.data;
     },
   });
+
+  useEffect(() => {
+    if (!outletStaff?.outlet_id) return;
+
+    const outletId = outletStaff.outlet_id;
+    const channel = supabase.channel(`pengaturan-realtime-${outletId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${outletId}` },
+        () => { refetch(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlets', filter: `id=eq.${outletId}` },
+        () => { refetch(); }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [outletStaff?.outlet_id, refetch, supabase]);
 
   const handleSave = async () => {
     if (!outletStaff?.outlet_id) return;

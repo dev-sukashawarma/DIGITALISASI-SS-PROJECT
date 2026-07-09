@@ -67,37 +67,69 @@ export function AttendanceKioskPanel() {
   }, [kiosk.result]);
 
   useEffect(() => {
-    if (outletStaff?.outlet_id) {
-      kiosk.loadCandidates();
-      kiosk.flushQueue();
-      loadRecords();
-      
-      supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", outletStaff.outlet_id).single()
-        .then(({ data }) => {
-          if (data) {
-            setJamMasuk(data.jam_masuk);
-            setJamKeluar(data.jam_keluar ?? null);
-            setAbsenWindowMode(data.absen_window_mode ?? "auto");
-          }
-        });
-    }
-  }, [outletStaff?.outlet_id]);
-
-  // Poll status Buka/Tutup Outlet (is_active)
-  useEffect(() => {
     if (!outletStaff?.outlet_id) return;
+    
+    const outletId = outletStaff.outlet_id;
 
-    async function checkStatus() {
-      const { data } = await supabase.from("outlets").select("is_active, name").eq("id", outletStaff!.outlet_id).single();
-      if (data) {
-        setIsOutletOpen(data.is_active);
-        setOutletName(data.name || "");
-      }
-    }
+    // Initial Load
+    kiosk.loadCandidates();
+    kiosk.flushQueue();
+    loadRecords();
+    
+    supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", outletId).single()
+      .then(({ data }) => {
+        if (data) {
+          setJamMasuk(data.jam_masuk);
+          setJamKeluar(data.jam_keluar ?? null);
+          setAbsenWindowMode(data.absen_window_mode ?? "auto");
+        }
+      });
+      
+    supabase.from("outlets").select("is_active, name").eq("id", outletId).single()
+      .then(({ data }) => {
+        if (data) {
+          setIsOutletOpen(data.is_active);
+          setOutletName(data.name || "");
+        }
+      });
 
-    checkStatus();
-    const interval = setInterval(checkStatus, 5000);
-    return () => clearInterval(interval);
+    // Realtime Subscriptions
+    const channel = supabase.channel(`kiosk-realtime-${outletId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${outletId}` },
+        (payload) => {
+          const newCfg = payload.new as any;
+          if (newCfg && newCfg.jam_masuk) {
+            setJamMasuk(newCfg.jam_masuk);
+            setJamKeluar(newCfg.jam_keluar ?? null);
+            setAbsenWindowMode(newCfg.absen_window_mode ?? "auto");
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlets', filter: `id=eq.${outletId}` },
+        (payload) => {
+          const newOutlet = payload.new as any;
+          if (newOutlet && newOutlet.is_active !== undefined) {
+            setIsOutletOpen(newOutlet.is_active);
+            if (newOutlet.name) setOutletName(newOutlet.name);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance', filter: `outlet_id=eq.${outletId}` },
+        () => {
+          loadRecords();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [outletStaff?.outlet_id]);
 
   // Otomatis memicu pemindaian lokasi saat phase diset ke "locating"

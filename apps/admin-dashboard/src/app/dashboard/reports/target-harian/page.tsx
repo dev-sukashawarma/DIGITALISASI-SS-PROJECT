@@ -33,7 +33,7 @@ export default function TargetHarianPage() {
   const toggleGroup = (date: string) => {
     setCollapsedGroups(prev => ({
       ...prev,
-      [date]: !prev[date]
+      [date]: !(prev[date] ?? true)
     }))
   }
 
@@ -110,7 +110,7 @@ export default function TargetHarianPage() {
         <div className="space-y-8">
           {groupedData.map((group) => {
             const formattedDate = format(parseISO(group.date), 'EEEE, dd MMMM yyyy', { locale: id })
-            const isCollapsed = collapsedGroups[group.date] || false
+            const isCollapsed = collapsedGroups[group.date] ?? true
             
             return (
               <div key={group.date} className="bg-white rounded-3xl shadow-sm border border-suka-brown/10 overflow-hidden">

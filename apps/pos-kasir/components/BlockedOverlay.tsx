@@ -67,7 +67,6 @@ export default function BlockedOverlay({
         .from('bypass_requests')
         .insert({
           outlet_id: staff.outlet_id,
-          requested_by: userSession.user.id,
           requested_by_name: staff.name,
           reason: bypassReason.trim(),
           status: 'pending'

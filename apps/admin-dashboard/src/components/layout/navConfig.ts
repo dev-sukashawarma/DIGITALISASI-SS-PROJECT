@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, Ban, Boxes, TrendingDown, ShoppingCart, Truck, type LucideIcon,
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, type LucideIcon,
 } from 'lucide-react'
 
 
@@ -61,11 +61,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: FileText,
     roles: ['OWNER', 'ADMIN'],
     items: [
-      { href: '/dashboard/reports/voids', label: 'Pembatalan & Kecurangan', shortLabel: 'Pembatalan', icon: Ban, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', shortLabel: 'Selisih', icon: Boxes, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/reports/target-harian', label: 'Laporan Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/pembelian/laporan', label: 'Laporan Pembelian', shortLabel: 'Lap. Beli', icon: FileText, roles: ['ADMIN'] },
-      { href: '/dashboard/pos-admin/reports', label: 'Laporan Shift POS', shortLabel: 'Shift POS', icon: FileText, roles: ['ADMIN'] },
+      { href: '/dashboard/reports', label: 'Pusat Laporan', shortLabel: 'Laporan', icon: FileText, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {

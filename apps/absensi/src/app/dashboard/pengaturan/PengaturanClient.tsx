@@ -225,15 +225,23 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
                 <p className="text-xs text-gray-500 mt-1">
                   {globalConfig.absen_window_mode === "manual" 
                     ? "Jika dinyalakan, mesin absen di semua outlet akan aktif dan bisa digunakan." 
-                    : "Matikan paksa semua mesin absen di outlet."}
+                    : "Jika dinyalakan, matikan paksa semua mesin absen di outlet."}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setGlobalConfig({ ...globalConfig, is_active: !globalConfig.is_active })}
-                className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${globalConfig.is_active ? "bg-suka-green" : "bg-gray-300"}`}
+                className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
+                  globalConfig.absen_window_mode === "manual"
+                    ? (globalConfig.is_active ? "bg-suka-green" : "bg-gray-300")
+                    : (!globalConfig.is_active ? "bg-red-500" : "bg-gray-300")
+                }`}
               >
-                <span className={`pointer-events-none m-1 inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ${globalConfig.is_active ? "translate-x-6" : "translate-x-0"}`} />
+                <span className={`pointer-events-none m-1 inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ${
+                  globalConfig.absen_window_mode === "manual"
+                    ? (globalConfig.is_active ? "translate-x-6" : "translate-x-0")
+                    : (!globalConfig.is_active ? "translate-x-6" : "translate-x-0")
+                }`} />
               </button>
             </div>
 

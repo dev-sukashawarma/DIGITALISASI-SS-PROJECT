@@ -8,14 +8,15 @@ import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { computeBoard, type BoardStaff, type BoardRecord, type BoardRow } from "@/features/board/board";
 import { PageHeader, InfoPill } from "@/components/PageHeader";
+import { Select } from "@/components/Select";
 
 const PILL: Record<BoardRow["state"], { icon: React.ReactNode; label: (t: string | null, d: number | null) => string }> = {
   masuk:  { icon: <LogIn size={13} />,  label: (t) => `Masuk ${t}` },
-  telat:  { icon: <Clock4 size={13} />, label: (t, d) => `Telat ${d ? d + ' mnt' : t}` },
-  keluar: { icon: <LogOut size={13} />, label: (t) => `Keluar ${t}` },
-  lebih_awal: { icon: <LogOut size={13} />, label: (t) => `Lebih Awal ${t}` },
-  pulang_telat: { icon: <Clock4 size={13} />, label: (t, d) => `Pulang Telat ${d ? d + ' mnt' : t}` },
-  belum:  { icon: <MoreHorizontal size={13} />, label: () => "Belum hadir" },
+  telat:  { icon: <Clock4 size={13} />, label: (t, d) => `Masuk Telat ${d ? d + ' mnt' : t}` },
+  keluar: { icon: <LogOut size={13} />, label: (t) => `Pulang ${t}` },
+  lebih_awal: { icon: <LogOut size={13} />, label: (t) => `Pulang Cepat ${t}` },
+  pulang_telat: { icon: <Clock4 size={13} />, label: (t, d) => `Pulang Lama ${d ? d + ' mnt' : t}` },
+  belum:  { icon: <MoreHorizontal size={13} />, label: () => "Belum Hadir" },
   alpha:  { icon: <MoreHorizontal size={13} />, label: () => "Alpha" },
 };
 
@@ -144,20 +145,21 @@ export default function PapanKehadiranPage() {
       <div>
         <div className="mb-2 flex items-center justify-between px-1">
           <span className="text-sm font-semibold text-suka-ink">Daftar staf ({filteredRows.length})</span>
-          <select 
+          <Select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="text-xs bg-white border border-suka-gray-300 rounded-lg px-2 py-1 outline-none text-gray-600"
-          >
-            <option value="semua">Semua Status</option>
-            <option value="masuk">Masuk Tepat</option>
-            <option value="telat">Masuk Telat</option>
-            <option value="belum">Belum Hadir</option>
-            <option value="alpha">Alpha</option>
-            <option value="keluar">Keluar Tepat</option>
-            <option value="lebih_awal">Pulang Lebih Awal</option>
-            <option value="pulang_telat">Pulang Telat</option>
-          </select>
+            onChange={val => setFilterStatus(val)}
+            options={[
+              { label: "Semua Status", value: "semua" },
+              { label: "Masuk Tepat", value: "masuk" },
+              { label: "Masuk Telat", value: "telat" },
+              { label: "Belum Hadir", value: "belum" },
+              { label: "Alpha", value: "alpha" },
+              { label: "Pulang Tepat", value: "keluar" },
+              { label: "Pulang Cepat", value: "lebih_awal" },
+              { label: "Pulang Lama", value: "pulang_telat" }
+            ]}
+            className="w-[180px]"
+          />
         </div>
         <div className="rounded-2xl border border-suka-gray-200 bg-white divide-y divide-suka-gray-200/70 overflow-hidden">
           {filteredRows.length === 0 && <EmptyState icon={<Users size={28} />} title="Belum ada staff" />}

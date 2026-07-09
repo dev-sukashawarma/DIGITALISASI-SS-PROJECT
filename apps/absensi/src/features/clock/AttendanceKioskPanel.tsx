@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Card, Spinner } from "@suka/design-system";
-import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, Store, MapPin } from "lucide-react";
+import { Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
@@ -20,6 +20,7 @@ type AttendanceRecord = {
   type: string;
   ts_server: string;
   status: string;
+  telat_menit?: number | null;
 };
 
 function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {

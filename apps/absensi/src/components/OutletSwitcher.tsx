@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { Store, ChevronDown } from "lucide-react";
+import { Store } from "lucide-react";
+import { Select } from "@/components/Select";
 
 type Outlet = { id: string; name: string };
 
@@ -44,17 +45,13 @@ export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId:
         <Store size={18} className="text-suka-orange" />
         Pilih Outlet Enrollment:
       </div>
-      <div className="relative w-full sm:w-auto">
-        <select 
+      <div className="w-full sm:w-64">
+        <Select
           value={currentOutletId}
-          onChange={(e) => onChange(e.target.value)}
-          className="appearance-none w-full sm:w-64 bg-slate-50 border-2 border-gray-200 rounded-lg px-4 py-2 pr-10 font-bold text-suka-ink outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/20 transition-all cursor-pointer"
-        >
-          {outlets.map(o => (
-            <option key={o.id} value={o.id}>{o.name}</option>
-          ))}
-        </select>
-        <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          onChange={val => onChange(val)}
+          options={outlets.map(o => ({ label: o.name, value: o.id }))}
+          className="w-full"
+        />
       </div>
     </div>
   );

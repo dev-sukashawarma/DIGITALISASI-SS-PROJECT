@@ -7,6 +7,7 @@ import { LogIn, LogOut, CalendarDays, ClipboardList, Download } from "lucide-rea
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { PageHeader } from "@/components/PageHeader";
+import { Select } from "@/components/Select";
 import { attendanceToCsv, downloadCsv, type CsvRow } from "@/features/rekap/csv";
 
 type Row = {
@@ -131,12 +132,23 @@ export default function RekapPage() {
     return supabase.storage.from(SELFIE_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
+  function formatStatusText(status: string) {
+    switch (status) {
+      case "telat": return "Masuk Telat";
+      case "lebih_awal": return "Pulang Cepat";
+      case "pulang_telat": return "Pulang Lama";
+      case "tepat": return "Tepat Waktu";
+      case "alpha": return "Alpha";
+      default: return status;
+    }
+  }
+
   function exportCsv() {
     const data: CsvRow[] = rows.map((r) => ({
       name: r.outlet_staff?.name ?? "-",
-      type: r.type,
+      type: r.type === "in" ? "Masuk" : "Keluar",
       jam: r.status === "alpha" ? "-" : jam(r.ts_server),
-      status: r.status,
+      status: formatStatusText(r.status),
     }));
     downloadCsv(`rekap-${date}.csv`, attendanceToCsv(data));
   }
@@ -145,7 +157,7 @@ export default function RekapPage() {
     { label: "Tepat", value: summary.tepat, cls: "text-suka-green" },
     { label: "Telat", value: summary.telat, cls: "text-[#854f0b]" },
     { label: "Alpha", value: summary.alpha, cls: "text-red-600" },
-    { label: "Awal", value: summary.lebih_awal, cls: "text-[#0369a1]" },
+    { label: "Cepat", value: summary.lebih_awal, cls: "text-[#0369a1]" },
   ];
 
   return (
@@ -181,18 +193,19 @@ export default function RekapPage() {
 
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-suka-ink">Riwayat ({filteredRows.length})</span>
-        <select 
+        <Select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="text-xs bg-white border border-suka-gray-300 rounded-lg px-2 py-1.5 outline-none text-gray-600"
-        >
-          <option value="semua">Semua Status</option>
-          <option value="tepat">Tepat</option>
-          <option value="telat">Masuk Telat</option>
-          <option value="alpha">Alpha</option>
-          <option value="lebih_awal">Pulang Lebih Awal</option>
-          <option value="pulang_telat">Pulang Telat</option>
-        </select>
+          onChange={val => setFilterStatus(val)}
+          options={[
+            { label: "Semua Status", value: "semua" },
+            { label: "Tepat Waktu", value: "tepat" },
+            { label: "Masuk Telat", value: "telat" },
+            { label: "Alpha", value: "alpha" },
+            { label: "Pulang Cepat", value: "lebih_awal" },
+            { label: "Pulang Lama", value: "pulang_telat" }
+          ]}
+          className="w-[180px]"
+        />
       </div>
 
       <div className="divide-y divide-suka-gray-200/70 overflow-hidden rounded-2xl border border-suka-gray-200 bg-white">
@@ -211,7 +224,7 @@ export default function RekapPage() {
               </div>
             </div>
             <StatusPill kind={r.status} className="capitalize">
-              {r.status} {r.delay_minutes ? `${r.delay_minutes} mnt` : ""}
+              {formatStatusText(r.status)} {r.delay_minutes ? `${r.delay_minutes} mnt` : ""}
             </StatusPill>
           </div>
         ))}

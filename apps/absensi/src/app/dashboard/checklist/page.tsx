@@ -8,6 +8,7 @@ import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
 import { PageHeader } from "@/components/PageHeader";
+import { Select } from "@/components/Select";
 
 type ChecklistItem = {
   id: string;
@@ -289,13 +290,14 @@ export default function ChecklistManagementPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Fase</label>
-                <select
-                  value={catPhase} onChange={e => setCatPhase(e.target.value as Phase)}
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/20"
-                >
-                  <option value="buka">Sebelum Buka (setelah absen hadir)</option>
-                  <option value="tutup">Sebelum Pulang (sebelum absen pulang)</option>
-                </select>
+                <Select
+                  value={catPhase} onChange={val => setCatPhase(val as Phase)}
+                  options={[
+                    { label: "Sebelum Buka (setelah absen hadir)", value: "buka" },
+                    { label: "Sebelum Pulang (sebelum absen pulang)", value: "tutup" }
+                  ]}
+                  className="w-full"
+                />
                 <p className="mt-1 text-xs text-gray-400">Menentukan checklist ini muncul di seksi mana untuk kru.</p>
               </div>
               <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">

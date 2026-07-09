@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@suka/auth";
-import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus, ArrowLeft, MapPin, CalendarDays, Banknote, Book } from "lucide-react";
+import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus, ArrowLeft, CalendarDays, Banknote, Book } from "lucide-react";
 import { ModelPreloader } from "@/components/ModelPreloader";
 import { SwipeableContainer } from "@/components/layout/SwipeableContainer";
 import { useLeaveNotifications } from "@/features/cuti/useLeaveNotifications";

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button, Spinner } from "@suka/design-system";
 import { Settings2, Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { Select } from "@/components/Select";
 import { saveGlobalConfig, saveOutletException, deleteOutletException, deleteAllExceptions } from "./actions";
 import { useToast } from "@/lib/feedback/toast";
 
@@ -256,7 +257,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button 
                 size="sm" 
-                variant="outline"
+                variant="ghost"
                 onClick={onDeleteAllExceptions}
                 disabled={isPending || filteredConfigs.length === 0}
                 className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-full text-sm font-semibold border-red-200 text-red-600 hover:bg-red-50"
@@ -331,16 +332,13 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
             <form action={onSaveException} className="space-y-5">
               <div>
                 <label className="text-sm font-bold text-suka-ink mb-2 block">Pilih Outlet</label>
-                <select 
+                <Select
                   value={selectedOutletId}
-                  onChange={e => setSelectedOutletId(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 p-3.5 bg-gray-50 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange outline-none text-base"
-                >
-                  <option value="" disabled>-- Pilih Outlet --</option>
-                  {availableOutlets.map(out => (
-                    <option key={out.id} value={out.id}>{out.name}</option>
-                  ))}
-                </select>
+                  onChange={val => setSelectedOutletId(val)}
+                  options={availableOutlets.map(out => ({ label: out.name, value: out.id }))}
+                  placeholder="-- Pilih Outlet --"
+                  className="w-full"
+                />
               </div>
 
               <ConfigFormFields config={newOutletConfig} setConfig={setNewOutletConfig} />

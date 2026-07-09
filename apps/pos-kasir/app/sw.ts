@@ -1,8 +1,6 @@
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig, RuntimeCaching } from 'serwist';
-import { Serwist } from 'serwist';
-import { NetworkFirst } from '@serwist/strategies';
-import { ExpirationPlugin } from '@serwist/expiration';
+import { Serwist, NetworkFirst, ExpirationPlugin } from 'serwist';
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -10,7 +8,7 @@ declare global {
   }
 }
 
-declare const self: ServiceWorkerGlobalScope;
+declare const self: WorkerGlobalScope;
 
 const customCache: RuntimeCaching[] = [
   // Cache RSC payloads (App Router navigations)

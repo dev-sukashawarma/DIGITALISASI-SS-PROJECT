@@ -24,17 +24,18 @@ export default function BlockedOverlay({
   const router = useRouter()
   const queryClient = useQueryClient()
   const supabase = createClient()
-  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userSession, setUserSession] = useState<any>(null)
   
   // Bypass state
   const [showBypassForm, setShowBypassForm] = useState(false)
-  const [password, setPassword] = useState('')
+  const [bypassReason, setBypassReason] = useState('')
   const [isVerifying, setIsVerifying] = useState(false)
   const [bypassError, setBypassError] = useState('')
+  const [isPendingApproval, setIsPendingApproval] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.email) setUserEmail(user.email)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserSession(session)
     })
   }, [supabase])
 
@@ -46,25 +47,67 @@ export default function BlockedOverlay({
 
   async function handleVerifyBypass(e: React.FormEvent) {
     e.preventDefault()
-    if (!password || !userEmail) return
+    if (!bypassReason.trim() || !userSession) return
     
     setIsVerifying(true)
     setBypassError('')
     
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: userEmail,
-        password: password,
-      })
-      
-      if (error || !data.user) {
-        setBypassError('Password salah. Silakan coba lagi.')
-      } else {
-        // Password benar, picu bypass
-        if (onBypass) onBypass()
-      }
-    } catch (err) {
-      setBypassError('Terjadi kesalahan sistem.')
+      // 1. Get staff profile
+      const { data: staff, error: staffError } = await supabase
+        .from('outlet_staff')
+        .select('outlet_id, name')
+        .eq('user_id', userSession.user.id)
+        .single()
+        
+      if (staffError || !staff) throw new Error('Data staff tidak ditemukan')
+
+      // 2. Insert bypass request
+      const { data: insertedRequest, error: insertError } = await supabase
+        .from('bypass_requests')
+        .insert({
+          outlet_id: staff.outlet_id,
+          requested_by: userSession.user.id,
+          requested_by_name: staff.name,
+          reason: bypassReason.trim(),
+          status: 'pending'
+        })
+        .select('id')
+        .single()
+
+      if (insertError) throw new Error('Gagal mengirim pengajuan bypass')
+
+      setIsPendingApproval(true)
+
+      // 3. Listen to realtime changes for this specific bypass request
+      const channel = supabase.channel(`bypass_request_${insertedRequest.id}`)
+      channel.on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'bypass_requests',
+        filter: `id=eq.${insertedRequest.id}`
+      }, (payload) => {
+        const newStatus = payload.new.status
+        if (newStatus === 'approved') {
+          if (onBypass) onBypass()
+          setShowBypassForm(false)
+          supabase.removeChannel(channel)
+        } else if (newStatus === 'rejected') {
+          setBypassError('Pengajuan bypass ditolak oleh SPV.')
+          setIsPendingApproval(false)
+          supabase.removeChannel(channel)
+        }
+      }).subscribe()
+
+      // 4. Generate WA link and open it
+      const appUrl = window.location.origin
+      const approveLink = `${appUrl}/api/bypass/approve?id=${insertedRequest.id}`
+      const waText = encodeURIComponent(`Halo SPV, saya mengajukan *Bypass Darurat* untuk sistem POS.\n\nKasir: ${staff.name}\nAlasan: ${bypassReason.trim()}\n\nKlik link berikut untuk menyetujui atau menolak:\n${approveLink}`)
+      window.open(`https://wa.me/6285885497377?text=${waText}`, '_blank')
+
+    } catch (err: any) {
+      setBypassError(err.message || 'Terjadi kesalahan sistem.')
+      setIsPendingApproval(false)
     } finally {
       setIsVerifying(false)
     }
@@ -119,52 +162,73 @@ export default function BlockedOverlay({
       <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl flex flex-col items-center animate-fade-up">
         {showBypassForm ? (
           <div className="w-full flex flex-col items-center animate-fade-in">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-red-100">
-              <AlertTriangle className="w-10 h-10 text-red-600" />
-            </div>
-            <h2 className="text-2xl font-black text-gray-900 mb-2">Bypass Darurat</h2>
-            <p className="text-gray-500 font-medium mb-6 text-sm">
-              Sistem absensi bermasalah? Masukkan password login Anda untuk memaksa POS terbuka.
-            </p>
-            
-            <form onSubmit={handleVerifyBypass} className="w-full space-y-4 text-left">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-xl p-3 text-lg focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
-                  placeholder="Masukkan password Anda..."
-                  disabled={isVerifying}
-                  autoFocus
-                />
-                {bypassError && <p className="text-red-500 text-sm mt-2 font-medium">{bypassError}</p>}
-              </div>
-              
-              <div className="flex gap-3 pt-2">
+            {isPendingApproval ? (
+              <>
+                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-amber-100">
+                  <Clock className="w-10 h-10 text-amber-600 animate-pulse" />
+                </div>
+                <h2 className="text-2xl font-black text-gray-900 mb-2">Menunggu Persetujuan</h2>
+                <p className="text-gray-500 font-medium mb-6 text-sm">
+                  Pengajuan bypass telah dikirim ke SPV melalui WhatsApp. Sistem akan otomatis terbuka setelah disetujui.
+                </p>
+                {bypassError && <p className="text-red-500 text-sm mb-4 font-medium">{bypassError}</p>}
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowBypassForm(false)
-                    setPassword('')
-                    setBypassError('')
-                  }}
-                  className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-3.5 font-bold hover:bg-gray-200 transition-colors"
-                  disabled={isVerifying}
+                  onClick={() => setIsPendingApproval(false)}
+                  className="w-full bg-gray-100 text-gray-700 rounded-xl py-3.5 font-bold hover:bg-gray-200 transition-colors"
                 >
-                  Batal
+                  Kembali
                 </button>
-                <button
-                  type="submit"
-                  className="flex-[2] bg-red-600 text-white rounded-xl py-3.5 font-bold hover:bg-red-700 transition-colors flex justify-center items-center gap-2"
-                  disabled={isVerifying || !password}
-                >
-                  {isVerifying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Unlock className="w-5 h-5" />}
-                  Verifikasi Bypass
-                </button>
-              </div>
-            </form>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 bg-amber-100">
+                  <AlertTriangle className="w-10 h-10 text-amber-600" />
+                </div>
+                <h2 className="text-2xl font-black text-gray-900 mb-2">Pengajuan Bypass</h2>
+                <p className="text-gray-500 font-medium mb-6 text-sm">
+                  Sistem absensi bermasalah? Ajukan bypass darurat ke SPV Anda.
+                </p>
+                
+                <form onSubmit={handleVerifyBypass} className="w-full space-y-4 text-left">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Alasan Bypass</label>
+                    <textarea
+                      value={bypassReason}
+                      onChange={(e) => setBypassReason(e.target.value)}
+                      className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all resize-none h-24"
+                      placeholder="Contoh: Sistem absensi error, foto tidak bisa terkirim..."
+                      disabled={isVerifying}
+                      autoFocus
+                    />
+                    {bypassError && <p className="text-red-500 text-sm mt-2 font-medium">{bypassError}</p>}
+                  </div>
+                  
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBypassForm(false)
+                        setBypassReason('')
+                        setBypassError('')
+                      }}
+                      className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-3.5 font-bold hover:bg-gray-200 transition-colors"
+                      disabled={isVerifying}
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-[2] bg-amber-600 text-white rounded-xl py-3.5 font-bold hover:bg-amber-700 transition-colors flex justify-center items-center gap-2"
+                      disabled={isVerifying || !bypassReason.trim()}
+                    >
+                      {isVerifying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Unlock className="w-5 h-5" />}
+                      Kirim ke SPV
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         ) : (
           <>

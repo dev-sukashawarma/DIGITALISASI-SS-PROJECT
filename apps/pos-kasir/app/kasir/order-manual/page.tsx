@@ -92,6 +92,9 @@ export default function OrderManualPage() {
     async function fetchMenu() {
       setLoading(true)
       try {
+        if (!navigator.onLine) {
+          throw new Error('Offline mode: skipping Supabase fetch')
+        }
         const [menuRes, catRes, unavRes] = await Promise.all([
           supabase.from('menu_items')
             .select('*, categories(id,name,sort_order)')

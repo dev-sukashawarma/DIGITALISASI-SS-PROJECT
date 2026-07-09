@@ -30,6 +30,10 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
   const supabase = createClient()
 
   try {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      throw new Error('Offline mode: skipping Supabase fetch')
+    }
+
     const [{ data: m, error: mErr }, { data: c, error: cErr }, { data: b }, { data: u }, { data: unav, error: unavErr }, { data: rec }] = await Promise.all([
       supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
       supabase.from('categories').select('*').order('sort_order'),

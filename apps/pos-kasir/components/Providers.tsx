@@ -15,7 +15,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
             gcTime: 5 * 60_000,
             refetchOnWindowFocus: false,
             retry: 1,
+            networkMode: 'always',
           },
+          mutations: {
+            networkMode: 'always',
+          }
         },
       })
   )

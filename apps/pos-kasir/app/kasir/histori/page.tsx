@@ -31,13 +31,22 @@ const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
 }
 
 async function fetchHistoriOrders(outletId: string, filter: OrderStatus | 'all'): Promise<OrderWithItems[]> {
-  const supabase = createClient()
-  const q = supabase.from('orders').select('*, order_items(*)')
-    .eq('outlet_id', outletId)
-    .order('created_at', { ascending: false }).limit(100)
-  if (filter !== 'all') q.eq('status', filter)
-  const { data } = await q
-  return data ?? []
+  try {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      throw new Error('Offline mode: skipping Supabase fetch')
+    }
+    const supabase = createClient()
+    const q = supabase.from('orders').select('*, order_items(*)')
+      .eq('outlet_id', outletId)
+      .order('created_at', { ascending: false }).limit(100)
+    if (filter !== 'all') q.eq('status', filter)
+    const { data, error } = await q
+    if (error) throw error
+    return data ?? []
+  } catch (err) {
+    console.warn('Network error fetching histori orders', err)
+    throw err
+  }
 }
 
 export default function AdminOrdersPage() {

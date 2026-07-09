@@ -59,88 +59,106 @@ const RANGE_LABELS: Record<DateRange, string> = {
 }
 
 async function fetchReportOrders(outletId: string, range: DateRange, customStart: string, customEnd: string): Promise<OrderRow[]> {
-  const supabase = createClient()
+  try {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      throw new Error('Offline mode: skipping Supabase fetch')
+    }
+    const supabase = createClient()
 
-  let q = supabase
-    .from('orders')
-    .select('*, order_items(*)')
-    .eq('outlet_id', outletId)
-    .order('created_at', { ascending: false })
+    let q = supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('outlet_id', outletId)
+      .order('created_at', { ascending: false })
 
-  if (range === 'today') {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    q = q.gte('created_at', today.toISOString())
-  } else if (range === 'yesterday') {
-    const yest = new Date()
-    yest.setDate(yest.getDate() - 1)
-    yest.setHours(0, 0, 0, 0)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    q = q.gte('created_at', yest.toISOString()).lt('created_at', today.toISOString())
-  } else if (range === '7days') {
-    const d = new Date()
-    d.setDate(d.getDate() - 7)
-    d.setHours(0, 0, 0, 0)
-    q = q.gte('created_at', d.toISOString())
-  } else if (range === '30days') {
-    const d = new Date()
-    d.setDate(d.getDate() - 30)
-    d.setHours(0, 0, 0, 0)
-    q = q.gte('created_at', d.toISOString())
-  } else if (range === 'custom' && customStart && customEnd) {
-    const s = new Date(customStart)
-    s.setHours(0, 0, 0, 0)
-    const e = new Date(customEnd)
-    e.setHours(23, 59, 59, 999)
-    q = q.gte('created_at', s.toISOString()).lte('created_at', e.toISOString())
+    if (range === 'today') {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      q = q.gte('created_at', today.toISOString())
+    } else if (range === 'yesterday') {
+      const yest = new Date()
+      yest.setDate(yest.getDate() - 1)
+      yest.setHours(0, 0, 0, 0)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      q = q.gte('created_at', yest.toISOString()).lt('created_at', today.toISOString())
+    } else if (range === '7days') {
+      const d = new Date()
+      d.setDate(d.getDate() - 7)
+      d.setHours(0, 0, 0, 0)
+      q = q.gte('created_at', d.toISOString())
+    } else if (range === '30days') {
+      const d = new Date()
+      d.setDate(d.getDate() - 30)
+      d.setHours(0, 0, 0, 0)
+      q = q.gte('created_at', d.toISOString())
+    } else if (range === 'custom' && customStart && customEnd) {
+      const s = new Date(customStart)
+      s.setHours(0, 0, 0, 0)
+      const e = new Date(customEnd)
+      e.setHours(23, 59, 59, 999)
+      q = q.gte('created_at', s.toISOString()).lte('created_at', e.toISOString())
+    }
+
+    const { data, error } = await q
+    if (error) throw error
+    return data ?? []
+  } catch (err) {
+    console.warn('Network error fetching report orders', err)
+    throw err
   }
-
-  const { data } = await q
-  return data ?? []
 }
 
 async function fetchReportShifts(outletId: string, range: DateRange, customStart: string, customEnd: string): Promise<ShiftRow[]> {
-  const supabase = createClient()
+  try {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      throw new Error('Offline mode: skipping Supabase fetch')
+    }
+    const supabase = createClient()
 
-  let q = supabase
-    .from('shifts')
-    .select('*')
-    .eq('outlet_id', outletId)
-    .eq('status', 'closed')
-    .order('end_time', { ascending: false })
+    let q = supabase
+      .from('shifts')
+      .select('*')
+      .eq('outlet_id', outletId)
+      .eq('status', 'closed')
+      .order('end_time', { ascending: false })
 
-  if (range === 'today') {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    q = q.gte('end_time', today.toISOString())
-  } else if (range === 'yesterday') {
-    const yest = new Date()
-    yest.setDate(yest.getDate() - 1)
-    yest.setHours(0, 0, 0, 0)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    q = q.gte('end_time', yest.toISOString()).lt('end_time', today.toISOString())
-  } else if (range === '7days') {
-    const d = new Date()
-    d.setDate(d.getDate() - 7)
-    d.setHours(0, 0, 0, 0)
-    q = q.gte('end_time', d.toISOString())
-  } else if (range === '30days') {
-    const d = new Date()
-    d.setDate(d.getDate() - 30)
-    d.setHours(0, 0, 0, 0)
-    q = q.gte('end_time', d.toISOString())
-  } else if (range === 'custom' && customStart && customEnd) {
-    const s = new Date(customStart)
-    s.setHours(0, 0, 0, 0)
-    const e = new Date(customEnd)
-    e.setHours(23, 59, 59, 999)
-    q = q.gte('end_time', s.toISOString()).lte('end_time', e.toISOString())
+    if (range === 'today') {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      q = q.gte('end_time', today.toISOString())
+    } else if (range === 'yesterday') {
+      const yest = new Date()
+      yest.setDate(yest.getDate() - 1)
+      yest.setHours(0, 0, 0, 0)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      q = q.gte('end_time', yest.toISOString()).lt('end_time', today.toISOString())
+    } else if (range === '7days') {
+      const d = new Date()
+      d.setDate(d.getDate() - 7)
+      d.setHours(0, 0, 0, 0)
+      q = q.gte('end_time', d.toISOString())
+    } else if (range === '30days') {
+      const d = new Date()
+      d.setDate(d.getDate() - 30)
+      d.setHours(0, 0, 0, 0)
+      q = q.gte('end_time', d.toISOString())
+    } else if (range === 'custom' && customStart && customEnd) {
+      const s = new Date(customStart)
+      s.setHours(0, 0, 0, 0)
+      const e = new Date(customEnd)
+      e.setHours(23, 59, 59, 999)
+      q = q.gte('end_time', s.toISOString()).lte('end_time', e.toISOString())
+    }
+
+    const { data, error } = await q
+    if (error) throw error
+    return data ?? []
+  } catch (err) {
+    console.warn('Network error fetching report shifts', err)
+    throw err
   }
-
-  const { data } = await q
-  return data ?? []
 }
 
 export default function ReportsPage() {

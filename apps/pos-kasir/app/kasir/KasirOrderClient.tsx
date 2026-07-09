@@ -37,16 +37,25 @@ async function fetchTodayOrders(outletId: string): Promise<OrderWithItems[]> {
   const supabase = createClient()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  try {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      throw new Error('Offline mode: skipping Supabase fetch')
+    }
 
-  const { data } = await supabase
-    .from('orders')
-    .select('*, order_items(*)')
-    .eq('outlet_id', outletId)
-    .or(`created_at.gte.${today.toISOString()},status.in.(pending,preparing)`)
-    .order('created_at', { ascending: false })
-    .limit(200)
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('outlet_id', outletId)
+      .or(`created_at.gte.${today.toISOString()},status.in.(pending,preparing)`)
+      .order('created_at', { ascending: false })
+      .limit(200)
 
-  return data ?? []
+    if (error) throw error
+    return data ?? []
+  } catch (err) {
+    console.warn('Network error fetching orders, throwing for react-query offline behavior', err)
+    throw err
+  }
 }
 
 const renderOrderNotes = (notes: string | null) => {

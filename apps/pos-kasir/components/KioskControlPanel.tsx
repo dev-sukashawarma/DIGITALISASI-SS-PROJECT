@@ -16,6 +16,7 @@ interface KioskPresence {
 type Toast = { type: 'success' | 'error'; message: string } | null
 
 import { useDialogStore } from '@/lib/dialogStore'
+import OfflineGuardOverlay from '@/components/OfflineGuardOverlay'
 
 export default function KioskControlPanel() {
   const { showConfirm } = useDialogStore()
@@ -202,7 +203,8 @@ export default function KioskControlPanel() {
 
   return (
     <>
-      <div className="animate-fade-in space-y-6">
+      <div className="animate-fade-in space-y-6 relative min-h-[60vh]">
+        <OfflineGuardOverlay message="Kontrol device pelanggan memakai koneksi real-time. Sambungkan ke internet untuk melihat & mengatur device kiosk." />
         {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

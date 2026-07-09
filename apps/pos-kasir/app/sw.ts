@@ -1,6 +1,6 @@
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig, RuntimeCaching } from 'serwist';
-import { Serwist, NetworkFirst, StaleWhileRevalidate, ExpirationPlugin } from 'serwist';
+import { Serwist, NetworkFirst, StaleWhileRevalidate, ExpirationPlugin, CacheableResponsePlugin } from 'serwist';
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -15,6 +15,32 @@ declare const self: WorkerGlobalScope;
 declare const __SW_BUILD_REV__: string;
 
 const customCache: RuntimeCaching[] = [
+  // ── Navigasi App Router (dokumen + RSC) same-origin ──────────────────────
+  // INI kunci offline: online → tembus ke server (SSR normal) & simpan salinan;
+  // offline → sajikan salinan halaman terakhir supaya kasir tetap bisa pindah
+  // halaman. Ditaruh PALING ATAS agar menang atas defaultCache.
+  // NetworkFirst tanpa filter Cache-Control → halaman `force-dynamic`
+  // (Cache-Control: no-store) TETAP tersimpan (kita hanya batasi status 200).
+  {
+    matcher: ({ url, request, sameOrigin }) =>
+      sameOrigin &&
+      request.method === 'GET' &&
+      !url.pathname.startsWith('/api/') &&
+      (request.mode === 'navigate' ||
+        request.headers.has('RSC') ||
+        url.searchParams.has('_rsc')),
+    handler: new NetworkFirst({
+      cacheName: 'pages-offline',
+      networkTimeoutSeconds: 10,
+      plugins: [
+        new CacheableResponsePlugin({ statuses: [200] }),
+        new ExpirationPlugin({
+          maxEntries: 100,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 hari
+        }),
+      ],
+    }),
+  },
   // Supabase REST (GET) — semua pembacaan data (orders, menu, settings, dll.)
   // tersimpan di cache; saat offline halaman tetap menampilkan data terakhir.
   {

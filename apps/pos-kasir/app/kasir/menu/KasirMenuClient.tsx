@@ -15,6 +15,7 @@ import type { MenuItem, Category } from '@/types'
 import { Skeleton } from '@suka/design-system'
 import { db } from '@/lib/db'
 import { fetchWithTimeout } from '@/lib/offline-utils'
+import { useNetworkStatus } from '@/lib/useNetworkStatus'
 
 const BUCKET = 'menu-images'
 
@@ -104,10 +105,23 @@ export default function KasirMenuClient({
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [toast, setToast] = useState<Toast>(null)
 
+  const isOnline = useNetworkStatus()
+
   const showToast = useCallback((t: Toast) => {
     setToast(t)
     if (t) setTimeout(() => setToast(null), 3500)
   }, [])
+
+  // Perubahan menu (tersedia/bestseller/upsell/rekomendasi/upload) menulis ke
+  // server & mempengaruhi tampilan kiosk pelanggan secara real-time, jadi tak
+  // aman diantre offline. Kunci saat offline — menu tetap bisa DILIHAT.
+  const guardOnline = useCallback(() => {
+    if (!isOnline) {
+      showToast({ type: 'error', message: 'Perubahan menu butuh internet' })
+      return false
+    }
+    return true
+  }, [isOnline, showToast])
 
   const { data, isLoading: loading } = useQuery({
     queryKey: ['menu', outletId],
@@ -161,6 +175,7 @@ export default function KasirMenuClient({
 
   async function toggleAvail(item: MenuItem) {
     if (!outletId) return
+    if (!guardOnline()) return
     const supabase = createClient()
 
     try {
@@ -189,6 +204,7 @@ export default function KasirMenuClient({
 
   async function toggleBestseller(item: MenuItem) {
     if (!outletId) return
+    if (!guardOnline()) return
     const isBs = bestsellers.includes(item.id)
     const newBs = isBs
       ? bestsellers.filter(id => id !== item.id)
@@ -211,6 +227,7 @@ export default function KasirMenuClient({
 
   async function toggleUpsell(item: MenuItem) {
     if (!outletId) return
+    if (!guardOnline()) return
     const isUp = upsells.includes(item.id)
     const newUp = isUp
       ? upsells.filter(id => id !== item.id)
@@ -233,6 +250,7 @@ export default function KasirMenuClient({
 
   async function toggleRecommendation(item: MenuItem) {
     if (!outletId) return
+    if (!guardOnline()) return
     const isRec = recommendations.includes(item.id)
     const newRec = isRec
       ? recommendations.filter(id => id !== item.id)

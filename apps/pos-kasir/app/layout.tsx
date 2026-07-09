@@ -15,6 +15,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'SHAWARMA — Self-Ordering Kiosk',
   description: 'Pesan shawarma favoritmu dengan mudah dan cepat',
+  manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

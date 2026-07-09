@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { UploadCloud, Loader2, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
+import OfflineGuardOverlay from '@/components/OfflineGuardOverlay'
 
 const BUCKET = 'kiosk-assets'
 const COVER_KEY = 'cover_image_url'
@@ -95,7 +96,8 @@ export default function KasirSettingsPage() {
   if (!outletId) return <div className="p-6 text-red-500 font-bold">Outlet tidak ditemukan</div>
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="max-w-xl space-y-6 relative min-h-[60vh]">
+      <OfflineGuardOverlay message="Upload & pengaturan gambar kiosk butuh internet. Sambungkan ke internet untuk mengubah tampilan layar." />
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Tampilan Layar Kiosk</h1>
         <p className="text-gray-500 text-sm mt-1">Kelola gambar yang tampil saat kiosk sedang istirahat (attract screen)</p>

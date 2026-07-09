@@ -44,7 +44,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['ADMIN'] },
       { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN'] },
-      { href: '/dashboard/pembelian/laporan', label: 'Laporan Pembelian', shortLabel: 'Lap. Beli', icon: FileText, roles: ['ADMIN'] },
     ],
   },
   {
@@ -65,6 +64,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/reports/voids', label: 'Pembatalan & Kecurangan', shortLabel: 'Pembatalan', icon: Ban, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', shortLabel: 'Selisih', icon: Boxes, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/target-harian', label: 'Laporan Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/pembelian/laporan', label: 'Laporan Pembelian', shortLabel: 'Lap. Beli', icon: FileText, roles: ['ADMIN'] },
+      { href: '/dashboard/pos-admin/reports', label: 'Laporan Shift POS', shortLabel: 'Shift POS', icon: FileText, roles: ['ADMIN'] },
     ],
   },
   {
@@ -86,7 +87,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/pos-admin/menu', label: 'Daftar Menu POS', shortLabel: 'Menu', icon: Package, roles: ['ADMIN'] },
       { href: '/dashboard/pos-admin/categories', label: 'Kategori Menu POS', shortLabel: 'Kategori', icon: Tags, roles: ['ADMIN'] },
       { href: '/dashboard/pos-admin/promo', label: 'Manajemen Promo POS', shortLabel: 'Promo', icon: Banknote, roles: ['ADMIN'] },
-      { href: '/dashboard/pos-admin/reports', label: 'Laporan Shift POS', shortLabel: 'Shift', icon: FileText, roles: ['ADMIN'] },
       { href: '/dashboard/pos-admin/users', label: 'Pengguna POS', shortLabel: 'Pengguna', icon: Users, roles: ['ADMIN'] },
       { href: '/dashboard/pos-admin/settings', label: 'Pengaturan POS', shortLabel: 'Pengaturan', icon: Settings, roles: ['ADMIN'] },
     ],
@@ -110,7 +110,14 @@ export function accessibleGroups(role: Role): NavGroup[] {
 /** Active-route resolution shared by sidebar & bottom nav. */
 export function isItemActive(href: string, pathname: string): boolean {
   // Dashboard landing routes must match exactly (they have sub-routes).
-  if (href === '/dashboard/hr' || href === '/dashboard/owner' || href === '/dashboard' || href === '/dashboard/owner/expenses') {
+  if (
+    href === '/dashboard/hr' ||
+    href === '/dashboard/owner' ||
+    href === '/dashboard' ||
+    href === '/dashboard/owner/expenses' ||
+    href === '/dashboard/pos-admin' ||
+    href === '/dashboard/pembelian'
+  ) {
     return pathname === href
   }
   return pathname === href || pathname.startsWith(href + '/')

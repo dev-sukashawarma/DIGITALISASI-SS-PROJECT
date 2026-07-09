@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import { Skeleton } from '@suka/design-system';
-import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
+
 
 /** Konsisten dengan kategori di admin-dashboard: item core, bumbu, minuman, kemasan, lainnya */
 const getKategoriLabel = (kategori: string): string => {
@@ -130,7 +130,8 @@ export function SPVTable({
               <tr className="bg-suka-cream/20 text-suka-brown border-b border-suka-brown/10 text-xs font-bold uppercase tracking-wider">
                 {tab === 'alerts' && <th className="p-4">Outlet</th>}
                 <th className="p-4">Nama Bahan</th>
-                <th className="p-4 text-right">Stok Aktual</th>
+                <th className="p-4 text-right">Sat. Besar</th>
+                <th className="p-4 text-right">Sat. Kecil</th>
                 <th className="p-4 text-right">Threshold</th>
                 <th className="p-4 hidden md:table-cell">Opname Terakhir</th>
                 <th className="p-4 hidden sm:table-cell">Status</th>
@@ -148,8 +149,15 @@ export function SPVTable({
                   <td className="p-4">
                     <Skeleton className="h-4 w-40" />
                   </td>
-                  <td className="p-4 text-right flex justify-end">
-                    <Skeleton className="h-4 w-12" />
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end">
+                      <Skeleton className="h-4 w-12" />
+                    </div>
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end">
+                      <Skeleton className="h-4 w-12" />
+                    </div>
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end">
@@ -306,7 +314,8 @@ export function SPVTable({
                   Nama Bahan {sortField === 'item_name' && (sortDir === 'asc' ? '↑' : '↓')}
                 </button>
               </th>
-              <th className="p-4 text-right">Stok Aktual</th>
+              <th className="p-4 text-right">Sat. Besar</th>
+              <th className="p-4 text-right">Sat. Kecil</th>
               <th className="p-4 text-right">Threshold</th>
               <th className="p-4 hidden md:table-cell">Opname Terakhir</th>
               <th className="p-4 hidden sm:table-cell">
@@ -320,7 +329,7 @@ export function SPVTable({
           <tbody className="divide-y divide-suka-brown/10">
             {filteredItems.length === 0 ? (
               <tr>
-                <td colSpan={tab === 'alerts' ? 7 : 6} className="text-center py-8 text-suka-brown/50 text-sm">
+                <td colSpan={tab === 'alerts' ? 8 : 7} className="text-center py-8 text-suka-brown/50 text-sm">
                   Tidak ada data bahan baku ditemukan
                 </td>
               </tr>
@@ -328,6 +337,21 @@ export function SPVTable({
               filteredItems.map((item) => {
                 const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
                 const isEditing = editingId === editKey;
+
+                const { large, small } = (() => {
+                  if (!item.faktor_tampilan || !item.satuan_kecil) return { large: item.current_qty, small: 0 };
+                  let whole = Math.trunc(item.current_qty);
+                  const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
+                  let remainder = Math.round(remainderRaw * 100) / 100;
+                  if (Math.abs(remainder) >= item.faktor_tampilan) {
+                    whole += Math.sign(remainder);
+                    remainder = 0;
+                  }
+                  return { large: whole, small: Math.abs(remainder) };
+                })();
+                
+                const statusColor = item.status === 'below' ? 'text-red-600' :
+                                    item.status === 'warning' ? 'text-orange-600' : 'text-green-700';
 
                 return (
                   <tr
@@ -344,11 +368,15 @@ export function SPVTable({
                         {getKategoriLabel(item.kategori)}
                       </div>
                     </td>
-                    <td className={`p-4 font-bold text-sm text-right ${
-                      item.status === 'below' ? 'text-red-600' :
-                      item.status === 'warning' ? 'text-orange-600' : 'text-green-700'
-                    }`}>
-                      {formatCompositeSaldo(item.current_qty, item.satuan || 'kg', item.satuan_kecil, item.faktor_tampilan)}
+                    <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
+                      {large} <span className="text-[10px] font-normal opacity-70">{item.satuan || 'kg'}</span>
+                    </td>
+                    <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
+                      {item.satuan_kecil ? (
+                        <>{small} <span className="text-[10px] font-normal opacity-70">{item.satuan_kecil}</span></>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
                     </td>
                     <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                       {isEditing ? (

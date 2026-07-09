@@ -5,7 +5,7 @@ import { Ban, LogOut, ClipboardCheck, Moon, Clock, Unlock, AlertTriangle, Loader
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { postToNative } from '@suka/design-system/utils/webview'
+import { postToNative } from '@suka/design-system'
 
 export type BlockType = 'user' | 'outlet' | 'attendance' | 'checklist' | 'closed'
 

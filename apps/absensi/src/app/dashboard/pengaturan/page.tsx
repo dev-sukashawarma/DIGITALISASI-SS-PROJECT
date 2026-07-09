@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Spinner } from "@suka/design-system";
-import { Clock, Timer, Settings2, Save, Lock, Unlock, Zap, ToggleLeft, Building2 } from "lucide-react";
+import { Clock, Timer, Settings2, Save, Lock, Unlock, Zap, ToggleLeft, Building2, Search } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
@@ -27,6 +27,7 @@ export default function PengaturanAbsensiPage() {
   
   const [applyTo, setApplyTo] = useState<"all" | "specific">("all");
   const [selectedOutlets, setSelectedOutlets] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { isLoading, refetch, data } = useQuery({
     queryKey: ["pengaturan-admin"],
@@ -76,6 +77,9 @@ export default function PengaturanAbsensiPage() {
   if (isLoading) return <div className="p-12 flex justify-center"><Spinner /></div>;
 
   const outlets = data?.outlets || [];
+  const filteredOutlets = outlets.filter((out) =>
+    out.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-10">
@@ -128,23 +132,42 @@ export default function PengaturanAbsensiPage() {
 
         {applyTo === "specific" && (
           <div className="mt-4 border-t pt-4">
-            <p className="text-sm font-semibold text-suka-ink mb-3">Pilih Outlet:</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-2">
-              {outlets.map(out => (
-                <label key={out.id} className="flex items-center gap-3 p-3 rounded-xl border border-suka-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
-                  <input 
-                    type="checkbox" 
-                    checked={selectedOutlets.includes(out.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) setSelectedOutlets([...selectedOutlets, out.id]);
-                      else setSelectedOutlets(selectedOutlets.filter(id => id !== out.id));
-                    }}
-                    className="w-4 h-4 text-suka-orange border-gray-300 rounded focus:ring-suka-orange"
-                  />
-                  <span className="text-sm font-medium text-suka-ink">{out.name}</span>
-                </label>
-              ))}
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-suka-ink">Pilih Outlet:</p>
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Cari outlet..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full sm:w-[220px] rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-sm text-suka-ink outline-none transition-colors focus:border-suka-orange focus:bg-white focus:ring-1 focus:ring-suka-orange"
+                />
+              </div>
             </div>
+            
+            {filteredOutlets.length === 0 ? (
+              <div className="py-6 text-center text-sm text-gray-500">
+                Tidak ada outlet yang cocok dengan "{searchQuery}".
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-2">
+                {filteredOutlets.map(out => (
+                  <label key={out.id} className="flex items-center gap-3 p-3 rounded-xl border border-suka-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedOutlets.includes(out.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedOutlets([...selectedOutlets, out.id]);
+                        else setSelectedOutlets(selectedOutlets.filter(id => id !== out.id));
+                      }}
+                      className="w-4 h-4 text-suka-orange border-gray-300 rounded focus:ring-suka-orange"
+                    />
+                    <span className="text-sm font-medium text-suka-ink">{out.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

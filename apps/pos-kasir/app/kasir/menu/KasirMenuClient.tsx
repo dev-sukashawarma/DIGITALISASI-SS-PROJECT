@@ -13,6 +13,7 @@ import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category } from '@/types'
 import { Skeleton } from '@suka/design-system'
+import { db } from '@/lib/db'
 
 const BUCKET = 'menu-images'
 
@@ -28,26 +29,59 @@ export interface MenuQueryData {
 async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
   const supabase = createClient()
 
-  const [{ data: m }, { data: c }, { data: b }, { data: u }, { data: unav }, { data: rec }] = await Promise.all([
-    supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
-    supabase.from('categories').select('*').order('sort_order'),
-    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
-    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'upsell_ids').maybeSingle(),
-    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
-    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'recommendation_ids').maybeSingle(),
-  ])
+  try {
+    const [{ data: m, error: mErr }, { data: c, error: cErr }, { data: b }, { data: u }, { data: unav, error: unavErr }, { data: rec }] = await Promise.all([
+      supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
+      supabase.from('categories').select('*').order('sort_order'),
+      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
+      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'upsell_ids').maybeSingle(),
+      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
+      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'recommendation_ids').maybeSingle(),
+    ])
 
-  const parseIds = (raw: string | null | undefined) => {
-    try { return raw ? JSON.parse(raw) : [] } catch { return [] }
-  }
+    if (mErr) throw mErr
+    if (cErr) throw cErr
+    if (unavErr && unavErr.code !== 'PGRST116') throw unavErr
 
-  return {
-    items: m ?? [],
-    categories: c ?? [],
-    bestsellers: parseIds(b?.value),
-    upsells: parseIds(u?.value),
-    recommendations: parseIds(rec?.value),
-    unavailableIds: parseIds(unav?.value),
+    const parseIds = (raw: string | null | undefined) => {
+      try { return raw ? JSON.parse(raw) : [] } catch { return [] }
+    }
+
+    // Update dexie cache
+    const now = Date.now()
+    if (m) {
+      await db.menu_items.bulkPut(m.map((it: any) => ({ ...it, synced_at: now })))
+    }
+    if (c) {
+      await db.categories.bulkPut(c.map((cat: any) => ({ ...cat, synced_at: now })))
+    }
+    if (unav) {
+      await db.kiosk_settings.put({ id: 'unavailable_menu_ids', settings_data: parseIds(unav.value), synced_at: now })
+    }
+
+    return {
+      items: m ?? [],
+      categories: c ?? [],
+      bestsellers: parseIds(b?.value),
+      upsells: parseIds(u?.value),
+      recommendations: parseIds(rec?.value),
+      unavailableIds: parseIds(unav?.value),
+    }
+  } catch (err) {
+    console.warn('Network error fetching Kasir Menu, falling back to Dexie:', err)
+    
+    const cachedItems = await db.menu_items.toArray()
+    const cachedCategories = await db.categories.toArray()
+    const cachedUnav = await db.kiosk_settings.get('unavailable_menu_ids')
+    
+    return {
+      items: cachedItems as any,
+      categories: cachedCategories as any,
+      bestsellers: [],
+      upsells: [],
+      recommendations: [],
+      unavailableIds: cachedUnav?.settings_data || [],
+    }
   }
 }
 

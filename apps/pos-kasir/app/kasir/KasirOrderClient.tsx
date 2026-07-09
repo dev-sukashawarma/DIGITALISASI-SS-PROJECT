@@ -15,6 +15,8 @@ import StockWidget from '@/components/StockWidget'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { postToNative } from '@suka/design-system'
 import { useDialogStore } from '@/lib/dialogStore'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/lib/db'
 
 const DING_SOUND = '/sound-pesanan.mp3'
 
@@ -137,6 +139,55 @@ export default function KasirOrderClient({
     retry: false,
   })
 
+  const offlineQueue = useLiveQuery(
+    () => db.sync_queue_orders.where('status').equals('pending').toArray(),
+    []
+  )
+
+  const offlineOrdersParsed = (offlineQueue || []).map(q => {
+    const data = q.displayData
+    return {
+      id: q.id,
+      order_number: data?.orderNumber ? parseInt(data.orderNumber) : -1,
+      outlet_id: outletId as string,
+      customer_id: null,
+      customer_name: null,
+      customer_phone: null,
+      table_id: null,
+      status: 'pending' as OrderStatus,
+      total_amount: data?.totalAmount || 0,
+      payment_method: data?.paymentMethod || 'cash',
+      payment_status: 'paid',
+      source: data?.source || 'offline',
+      channel: null,
+      notes: '-- INFO PEMESAN ONLINE --\nPembayaran: Menunggu Sync',
+      is_delivery: false,
+      delivery_address: null,
+      created_at: new Date(q.created_at).toISOString(),
+      updated_at: new Date(q.created_at).toISOString(),
+      void_reason: null,
+      void_at: null,
+      receipt_printed_at: null,
+      kitchen_started_at: null,
+      kitchen_completed_at: null,
+      completed_at: null,
+      external_order_id: null,
+      order_items: (data?.items || []).map((item: any) => ({
+        id: item.id,
+        order_id: q.id,
+        menu_item_id: '',
+        menu_item_name: item.menu_item_name,
+        quantity: item.quantity,
+        unit_price: 0,
+        subtotal: 0,
+        note: item.note || null,
+        created_at: new Date(q.created_at).toISOString(),
+      }))
+    } as OrderWithItems
+  })
+
+  const allOrders = [...offlineOrdersParsed, ...orders]
+
   // Real-time subscription to prevent polling and ensure instant updates
   useEffect(() => {
     if (!outletId) return;
@@ -223,7 +274,7 @@ export default function KasirOrderClient({
     }
 
     let hasNewPendingOrder = false
-    orders.filter(o => o.status === 'pending' || o.status === 'preparing').forEach(o => {
+    allOrders.filter(o => o.status === 'pending' || o.status === 'preparing').forEach(o => {
       if (!knownOrderIds.current.has(o.id)) {
         hasNewPendingOrder = true
         knownOrderIds.current.add(o.id)
@@ -231,7 +282,7 @@ export default function KasirOrderClient({
     })
 
     if (hasNewPendingOrder) playNotification()
-  }, [orders, ordersFetched, playNotification])
+  }, [allOrders, ordersFetched, playNotification])
 
 
 
@@ -349,7 +400,7 @@ export default function KasirOrderClient({
     }
   }
 
-  const filteredOrders = orders.filter(o => {
+  const filteredOrders = allOrders.filter(o => {
     if (sourceFilter === 'all') return true
     if (sourceFilter === 'online') return o.source === 'online'
     if (sourceFilter === 'offline') return o.source !== 'online'
@@ -620,8 +671,8 @@ export default function KasirOrderClient({
       {/* Source Tabs Filter + Widget Stok */}
       <div className="flex justify-between items-start flex-wrap gap-4">
         {(() => {
-          const activeOnlineCount = orders.filter(o => o.source === 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
-          const activeOfflineCount = orders.filter(o => o.source !== 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
+          const activeOnlineCount = allOrders.filter(o => o.source === 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
+          const activeOfflineCount = allOrders.filter(o => o.source !== 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
           return (
             <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200 w-full sm:w-max">
               <button

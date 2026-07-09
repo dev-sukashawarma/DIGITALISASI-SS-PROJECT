@@ -24,6 +24,18 @@ export interface SyncQueueOrder {
   status: 'pending' | 'error';
   created_at: number;
   error_message?: string;
+  displayData?: {
+    orderNumber: string;
+    totalAmount: number;
+    paymentMethod?: string;
+    source: string;
+    items: Array<{
+      id: string;
+      menu_item_name: string;
+      quantity: number;
+      note?: string;
+    }>;
+  };
 }
 
 export interface KioskSettingsCache {

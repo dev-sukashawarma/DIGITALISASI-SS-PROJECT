@@ -265,6 +265,7 @@ export default function OrderManualPage() {
     } catch (err) {
       console.warn('Network error during handleSubmit, fallback to Dexie:', err)
       const offlineId = crypto.randomUUID()
+      const offlineOrderNumber = Date.now() % 10000;
       await db.sync_queue_orders.add({
         id: offlineId,
         payload: {
@@ -273,7 +274,19 @@ export default function OrderManualPage() {
           body: JSON.stringify(payload)
         },
         status: 'pending',
-        created_at: Date.now()
+        created_at: Date.now(),
+        displayData: {
+          orderNumber: offlineOrderNumber.toString(),
+          totalAmount: totalPrice,
+          source: 'offline',
+          paymentMethod: payment || 'cash',
+          items: lineList.map((l) => ({
+            id: crypto.randomUUID(),
+            menu_item_name: l.item.name,
+            quantity: l.quantity,
+            note: l.note,
+          }))
+        }
       })
       
       postToNative({ type: 'haptic', style: 'success' })
@@ -378,6 +391,8 @@ export default function OrderManualPage() {
     } catch (err) {
       console.warn('Network error during handleWalkInPay, fallback to Dexie:', err)
       const offlineId = crypto.randomUUID()
+      const offlineOrderNumber = Date.now() % 10000;
+      const totalAmount = snapSubtotal - snapDiscount;
       await db.sync_queue_orders.add({
         id: offlineId,
         payload: {
@@ -386,11 +401,21 @@ export default function OrderManualPage() {
           body: JSON.stringify(payload)
         },
         status: 'pending',
-        created_at: Date.now()
+        created_at: Date.now(),
+        displayData: {
+          orderNumber: offlineOrderNumber.toString(),
+          totalAmount: totalAmount,
+          source: 'offline',
+          paymentMethod: method,
+          items: lineList.map((l) => ({
+            id: crypto.randomUUID(),
+            menu_item_name: l.item.name,
+            quantity: l.quantity,
+            note: l.note,
+          }))
+        }
       })
 
-      const offlineOrderNumber = Date.now() % 10000
-      const totalAmount = snapSubtotal - snapDiscount
       const changeAmount = method === 'cash' && amountReceived !== null ? amountReceived - totalAmount : null
 
       postToNative({ type: 'haptic', style: 'success' })

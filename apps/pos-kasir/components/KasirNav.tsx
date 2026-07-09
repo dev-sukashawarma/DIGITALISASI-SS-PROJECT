@@ -11,7 +11,7 @@ import { useStockAlerts } from '@/lib/useStockAlerts'
 import { getStokUrl } from '@/lib/stokUrl'
 import { useEffect } from 'react'
 import { useBrand } from '@/components/BrandContext'
-
+import { useNetworkStatus } from '@/lib/useNetworkStatus'
 const links = [
   { href: '/kasir',            label: 'Order',         icon: Bell },
   { href: '/kasir/menu',       label: 'Manajemen Menu',icon: Sandwich },
@@ -36,8 +36,26 @@ export default function KasirNav() {
   const [outletName, setOutletName] = useState('Kasir Outlet')
   const [cashierName, setCashierName] = useState('')
   const { brandName, brandLogo } = useBrand()
+  const isOnline = useNetworkStatus()
+  const [offlineQueueCount, setOfflineQueueCount] = useState(0)
 
   const [isCollapsed, setIsCollapsed] = useState(true)
+
+  useEffect(() => {
+    // Polling for offline queue count
+    const fetchQueueCount = async () => {
+      try {
+        const { db } = await import('@/lib/db')
+        const count = await db.sync_queue_orders.where('status').equals('pending').count()
+        setOfflineQueueCount(count)
+      } catch (e) {
+        console.error('Error fetching offline queue count', e)
+      }
+    }
+    fetchQueueCount()
+    const interval = setInterval(fetchQueueCount, 10000)
+    return () => clearInterval(interval)
+  }, [])
 
 
   useEffect(() => {
@@ -110,12 +128,20 @@ export default function KasirNav() {
             </p>
           </div>
         </Link>
-        <button
-          onClick={() => setOpen(true)}
-          className="w-10 h-10 flex items-center justify-center rounded-xl text-[#544437] hover:bg-[#e9e1d8] hover:text-[#1e1b15] transition-colors"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          {!isOnline && (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-red-100 rounded-lg">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-red-700 text-xs font-bold">OFFLINE {offlineQueueCount > 0 && `(${offlineQueueCount})`}</span>
+            </div>
+          )}
+          <button
+            onClick={() => setOpen(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl text-[#544437] hover:bg-[#e9e1d8] hover:text-[#1e1b15] transition-colors"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        </div>
       </header>
 
       {/* Backdrop */}
@@ -158,9 +184,9 @@ export default function KasirNav() {
                   {cashierName ? `Hai, ${cashierName}` : brandName}
                 </p>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
                   <p className="text-[#904d00] text-[11px] font-bold uppercase tracking-widest leading-none truncate">
-                    {outletName}
+                    {isOnline ? outletName : `OFFLINE ${offlineQueueCount > 0 ? `(${offlineQueueCount})` : ''}`}
                   </p>
                 </div>
               </div>

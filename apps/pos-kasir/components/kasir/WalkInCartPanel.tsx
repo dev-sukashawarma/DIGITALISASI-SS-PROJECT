@@ -274,10 +274,21 @@ export function WalkInCartPanel(props: {
                 <span className="text-lg font-bold text-blue-700">{formatRupiah(totalPrice)}</span>
               </div>
               <div className="bg-white p-3 rounded-2xl border-2 border-gray-100 inline-block">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qrImageUrl} alt="QRIS" width={220} height={220} className="rounded-xl" />
+                {isOnline ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={qrImageUrl} alt="QRIS" width={220} height={220} className="rounded-xl" />
+                ) : (
+                  <div className="w-[220px] h-[220px] rounded-xl bg-gray-50 border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-center p-4">
+                    <QrCode className="w-12 h-12 text-gray-400 mb-2" />
+                    <p className="text-sm font-bold text-gray-600">QRIS STATIS</p>
+                    <p className="text-xs text-gray-500 mt-1">Mode Offline</p>
+                    <p className="text-[10px] text-gray-400 mt-2">Tunjukkan QRIS cetak di meja kasir kepada pelanggan.</p>
+                  </div>
+                )}
               </div>
-              <p className="text-sm text-gray-500 mt-4">Minta pelanggan scan QR di atas, lalu konfirmasi setelah pembayaran masuk.</p>
+              <p className="text-sm text-gray-500 mt-4">
+                {isOnline ? 'Minta pelanggan scan QR di atas, lalu konfirmasi setelah pembayaran masuk.' : 'Pastikan pelanggan transfer sesuai nominal, lalu konfirmasi.'}
+              </p>
               <button
                 onClick={() => { setQrisOpen(false); onPay('qris', null) }}
                 disabled={submitting}

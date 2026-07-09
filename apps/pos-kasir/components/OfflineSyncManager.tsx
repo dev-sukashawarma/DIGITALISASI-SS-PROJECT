@@ -43,12 +43,17 @@ export default function OfflineSyncManager() {
               await db.sync_queue_orders.delete(order.id);
               hasSuccess = true;
               console.log(`[SyncManager] Pesanan offline ${order.id} berhasil dikirim.`);
+            } else if (res.status >= 500 || res.status === 429) {
+              console.warn(`[SyncManager] Server error ${res.status} untuk pesanan ${order.id}, akan di-retry.`);
+              await db.sync_queue_orders.update(order.id, { 
+                error_message: `Menunggu retry (Server Error ${res.status})` 
+              });
             } else {
               const data = await res.json().catch(() => ({}));
               console.error(`[SyncManager] Gagal sinkron pesanan ${order.id}:`, data);
               await db.sync_queue_orders.update(order.id, { 
                 status: 'error', 
-                error_message: data.error || 'Server error' 
+                error_message: data.error || data.message || `Client Error ${res.status}`
               });
             }
           } catch (error: any) {

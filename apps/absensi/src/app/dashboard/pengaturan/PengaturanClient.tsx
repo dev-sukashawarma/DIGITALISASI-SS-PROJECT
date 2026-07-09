@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { Button, Spinner } from "@suka/design-system";
-import { Clock, Timer, Settings2, Save, Lock, Unlock, Zap, ToggleLeft, Building2, Search, Trash2, Plus } from "lucide-react";
-import { createClient } from "@/lib/supabase";
-import { useToast } from "@/lib/feedback/toast";
+import { Settings2, Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { saveGlobalConfig, saveOutletException, deleteOutletException } from "./actions";
+import { useToast } from "@/lib/feedback/toast";
 
 type Config = {
   jam_masuk: string;
@@ -32,137 +32,120 @@ type Props = {
 };
 
 export default function PengaturanClient({ initialGlobalConfig, initialOutlets, initialOutletConfigs }: Props) {
-  const supabase = createClient();
   const toast = useToast();
+  const [isPending, startTransition] = useTransition();
 
-  const [saving, setSaving] = useState(false);
-  const [savingOutlet, setSavingOutlet] = useState<string | null>(null);
-  
-  // States
   const [globalConfig, setGlobalConfig] = useState<Config>(initialGlobalConfig);
-  const [outlets, setOutlets] = useState<Outlet[]>(initialOutlets);
-  const [outletConfigs, setOutletConfigs] = useState<OutletConfig[]>(initialOutletConfigs);
-
+  const [search, setSearch] = useState("");
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOutletId, setSelectedOutletId] = useState("");
   const [newOutletConfig, setNewOutletConfig] = useState<Config>({ ...globalConfig });
 
-  // Supabase Realtime Subscriptions
-  useEffect(() => {
-    const channel = supabase
-      .channel("pengaturan-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "global_settings" },
-        (payload) => {
-          if (payload.new && (payload.new as any).key === "global_attendance_config") {
-            const val = (payload.new as any).value;
-            setGlobalConfig({
-              jam_masuk: val.jam_masuk?.slice(0, 5) || "09:00",
-              jam_keluar: val.jam_keluar?.slice(0, 5) || "17:00",
-              toleransi_menit: val.toleransi_menit || 15,
-              absen_window_mode: val.absen_window_mode || "auto",
-              is_active: globalConfig.is_active // keep local state or sync if we add it globally
-            });
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "outlet_attendance_config" },
-        (payload) => {
-          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
-            const newCfg = payload.new as OutletConfig;
-            setOutletConfigs(prev => {
-              const exists = prev.find(p => p.outlet_id === newCfg.outlet_id);
-              if (exists) return prev.map(p => p.outlet_id === newCfg.outlet_id ? newCfg : p);
-              return [...prev, newCfg];
-            });
-          } else if (payload.eventType === "DELETE") {
-            setOutletConfigs(prev => prev.filter(p => p.outlet_id !== (payload.old as any).outlet_id));
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "outlets" },
-        (payload) => {
-          const newOutlet = payload.new as Outlet;
-          setOutlets(prev => prev.map(o => o.id === newOutlet.id ? { ...o, is_active: newOutlet.is_active } : o));
-        }
-      )
-      .subscribe();
+  const filteredConfigs = initialOutletConfigs.filter(cfg => {
+    const outlet = initialOutlets.find(o => o.id === cfg.outlet_id);
+    if (!outlet) return false;
+    return outlet.name.toLowerCase().includes(search.toLowerCase());
+  });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, globalConfig.is_active]);
+  const availableOutlets = initialOutlets.filter(o => !initialOutletConfigs.find(c => c.outlet_id === o.id));
 
-  const handleSaveGlobal = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/outlet-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          applyTo: "all", 
-          ...globalConfig 
-        })
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      toast.show("ok", "Pengaturan Global berhasil disimpan!");
-    } catch (e: any) {
-      toast.show("err", `Gagal menyimpan: ${e.message}`);
-    }
-    setSaving(false);
+  const onSaveGlobal = (formData: FormData) => {
+    formData.set("absen_window_mode", globalConfig.absen_window_mode);
+    formData.set("is_active", globalConfig.is_active ? "true" : "false");
+    
+    startTransition(async () => {
+      try {
+        await saveGlobalConfig(formData);
+        toast.show("ok", "Pengaturan Utama berhasil disimpan!");
+      } catch (err: any) {
+        toast.show("err", err.message || "Gagal menyimpan pengaturan");
+      }
+    });
   };
 
-  const handleSaveOutletConfig = async () => {
+  const onSaveException = (formData: FormData) => {
     if (!selectedOutletId) {
-      toast.show("err", "Pilih outlet terlebih dahulu!");
+      toast.show("err", "Pilih outlet terlebih dahulu");
       return;
     }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/outlet-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          applyTo: "specific", 
-          outletIds: [selectedOutletId],
-          ...newOutletConfig 
-        })
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      toast.show("ok", "Pengecualian berhasil ditambahkan!");
-      setIsModalOpen(false);
-      setSelectedOutletId("");
-    } catch (e: any) {
-      toast.show("err", `Gagal menambah pengecualian: ${e.message}`);
-    }
-    setSaving(false);
+    formData.set("outlet_id", selectedOutletId);
+    formData.set("absen_window_mode", newOutletConfig.absen_window_mode);
+    
+    startTransition(async () => {
+      try {
+        await saveOutletException(formData);
+        toast.show("ok", "Pengecualian berhasil ditambahkan!");
+        setIsModalOpen(false);
+        setSelectedOutletId("");
+        setNewOutletConfig({ ...globalConfig });
+      } catch (err: any) {
+        toast.show("err", err.message || "Gagal menambah pengecualian");
+      }
+    });
   };
 
-  const handleDeleteOutletConfig = async (outlet_id: string) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus pengecualian ini? Outlet akan kembali mengikuti pengaturan global.")) return;
-    setSavingOutlet(outlet_id);
-    try {
-      const res = await fetch(`/api/outlet-config?outlet_id=${outlet_id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error((await res.json()).error);
-      toast.show("ok", "Pengecualian dihapus. Outlet kembali ke setelan global.");
-    } catch (e: any) {
-      toast.show("err", `Gagal menghapus: ${e.message}`);
-    }
-    setSavingOutlet(null);
+  const onDeleteException = (outlet_id: string) => {
+    if (!confirm("Hapus pengecualian? Outlet akan kembali memakai jam default.")) return;
+    
+    startTransition(async () => {
+      try {
+        await deleteOutletException(outlet_id);
+        toast.show("ok", "Pengecualian dihapus.");
+      } catch (err: any) {
+        toast.show("err", err.message || "Gagal menghapus pengecualian");
+      }
+    });
   };
 
   // Helper UI component for config form
-  const ConfigForm = ({ config, setConfig, isGlobal = false }: { config: Config, setConfig: (c: Config) => void, isGlobal?: boolean }) => (
+  const ConfigFormFields = ({ config, setConfig }: { config: Config, setConfig: (c: Config) => void }) => (
     <div className="space-y-4">
+      {/* Jam kerja */}
+      <div className="space-y-3">
+        <label className="text-sm font-bold text-suka-ink">Jam Shift Kerja</label>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-suka-gray-200 p-3 bg-white">
+            <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+              <span className="h-2 w-2 rounded-full bg-suka-green" /> Masuk
+            </label>
+            <input
+              type="time" name="jam_masuk" required
+              value={config.jam_masuk}
+              onChange={(e) => setConfig({ ...config, jam_masuk: e.target.value })}
+              className="w-full bg-transparent text-lg sm:text-xl font-bold text-suka-ink outline-none"
+            />
+          </div>
+          <div className="rounded-xl border border-suka-gray-200 p-3 bg-white">
+            <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+              <span className="h-2 w-2 rounded-full bg-red-500" /> Pulang
+            </label>
+            <input
+              type="time" name="jam_keluar" required
+              value={config.jam_keluar}
+              onChange={(e) => setConfig({ ...config, jam_keluar: e.target.value })}
+              className="w-full bg-transparent text-lg sm:text-xl font-bold text-suka-ink outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-sm font-bold text-suka-ink flex items-center gap-2">
+          <Timer size={16} className="text-suka-orange" /> Toleransi Telat (menit)
+        </label>
+        <input
+          type="number" name="toleransi_menit" min="0" max="120" required
+          value={config.toleransi_menit}
+          onChange={(e) => setConfig({ ...config, toleransi_menit: parseInt(e.target.value) || 0 })}
+          className="w-full rounded-xl border border-suka-gray-200 bg-white p-3 text-lg font-bold text-suka-ink outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange"
+        />
+      </div>
+
       {/* Mode Absensi */}
       <div className="space-y-3">
-        <label className="text-sm font-bold text-suka-ink">Mode Absensi Kiosk</label>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="text-sm font-bold text-suka-ink">Mode Mesin Absen (Kiosk)</label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => setConfig({ ...config, absen_window_mode: "auto" })}
@@ -175,7 +158,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
             </div>
             <div>
               <p className="text-sm font-bold text-suka-ink">Otomatis</p>
-              <p className="text-xs text-gray-500">Buka/tutup otomatis.</p>
+              <p className="text-xs text-gray-500">Tergantung jam shift.</p>
             </div>
           </button>
           <button
@@ -189,145 +172,121 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
               <ToggleLeft size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold text-suka-ink">Manual</p>
-              <p className="text-xs text-gray-500">Toggle on/off manual.</p>
+              <p className="text-sm font-bold text-suka-ink">Manual (Bebas)</p>
+              <p className="text-xs text-gray-500">Toggle dari mesin.</p>
             </div>
           </button>
-        </div>
-      </div>
-
-      {isGlobal && (
-        <div className={`flex items-center justify-between gap-4 rounded-xl p-3 ${config.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-amber-50 border border-amber-200"}`}>
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-suka-ink">
-                {config.absen_window_mode === "manual" ? "Status Kiosk (Semua Outlet)" : "Emergency Lock"}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            onClick={() => setConfig({ ...config, is_active: !config.is_active })}
-            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${config.is_active ? "bg-suka-green" : "bg-gray-300"}`}
-          >
-            <span className={`pointer-events-none m-0.5 inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ${config.is_active ? "translate-x-5" : "translate-x-0"}`} />
-          </button>
-        </div>
-      )}
-
-      {/* Jam kerja */}
-      <div>
-        <label className="text-sm font-bold text-suka-ink mb-3 block">Jam Shift Kerja</label>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-suka-gray-200 p-3">
-            <label className="mb-1 flex items-center gap-2 text-xs font-semibold text-gray-500">
-              <span className="h-2 w-2 rounded-full bg-suka-green" /> Masuk
-            </label>
-            <input
-              type="time"
-              value={config.jam_masuk}
-              onChange={(e) => setConfig({ ...config, jam_masuk: e.target.value })}
-              className="w-full rounded-lg bg-suka-gray-50 py-2 text-center text-xl font-bold text-suka-ink outline-none focus:ring-2 focus:ring-suka-green/30"
-            />
-          </div>
-          <div className="rounded-xl border border-suka-gray-200 p-3">
-            <label className="mb-1 flex items-center gap-2 text-xs font-semibold text-gray-500">
-              <span className="h-2 w-2 rounded-full bg-red-500" /> Pulang
-            </label>
-            <input
-              type="time"
-              value={config.jam_keluar}
-              onChange={(e) => setConfig({ ...config, jam_keluar: e.target.value })}
-              className="w-full rounded-lg bg-suka-gray-50 py-2 text-center text-xl font-bold text-suka-ink outline-none focus:ring-2 focus:ring-red-500/30"
-            />
-          </div>
-        </div>
-        <div className="mt-3 rounded-xl border border-suka-gray-200 p-3">
-          <label className="mb-1 flex items-center gap-2 text-xs font-semibold text-gray-500">
-            <Timer size={14} /> Toleransi Telat (menit)
-          </label>
-          <input
-            type="number" min="0" max="120"
-            value={config.toleransi_menit}
-            onChange={(e) => setConfig({ ...config, toleransi_menit: parseInt(e.target.value) || 0 })}
-            className="w-full rounded-lg bg-suka-gray-50 py-2 text-center text-lg font-bold text-suka-ink outline-none focus:ring-2 focus:ring-suka-orange/30"
-          />
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12">
+    <div className="mx-auto max-w-4xl space-y-4 pb-20 sm:space-y-6 sm:pb-12">
       <PageHeader
-        icon={<Settings2 size={20} />}
-        title="Pengaturan Absensi"
-        subtitle="Kelola jam kerja, toleransi keterlambatan, dan status kiosk secara realtime"
+        icon={<Settings2 size={24} />}
+        title="Atur Jam Absensi"
+        subtitle="Tetapkan jam kerja untuk seluruh outlet"
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
         
         {/* PANEL GLOBAL */}
-        <div className="rounded-2xl border border-suka-gray-200 bg-white p-5 shadow-sm space-y-5 h-fit">
-          <div className="border-b pb-4">
+        <div className="-mx-4 flex flex-col space-y-5 border-y border-suka-gray-200 bg-white p-4 shadow-sm sm:mx-0 sm:rounded-2xl sm:border sm:p-6 lg:h-fit">
+          <div>
             <h2 className="flex items-center gap-2 text-lg font-bold text-suka-ink">
-              <Building2 size={20} className="text-suka-orange" /> Pengaturan Global
+              <Building2 size={20} className="text-suka-orange" /> Pengaturan Utama (Default)
             </h2>
-            <p className="mt-1 text-sm text-gray-500">Standar default untuk semua outlet.</p>
+            <p className="mt-1 text-sm text-gray-500">Aturan jam kerja yang berlaku untuk <strong>semua outlet</strong> yang tidak ada di daftar pengecualian.</p>
           </div>
           
-          <ConfigForm config={globalConfig} setConfig={setGlobalConfig} isGlobal={true} />
+          <form action={onSaveGlobal} className="flex flex-col gap-6">
+            <ConfigFormFields config={globalConfig} setConfig={setGlobalConfig} />
 
-          <Button
-            onClick={handleSaveGlobal}
-            disabled={saving}
-            className="w-full flex items-center justify-center gap-2 rounded-xl py-3"
-          >
-            {saving ? <Spinner className="w-5 h-5 text-white" /> : <><Save size={18} /> Simpan Global</>}
-          </Button>
+            <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${globalConfig.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-red-50 border border-red-100"}`}>
+              <div>
+                <p className="text-sm font-bold text-suka-ink">
+                  {globalConfig.absen_window_mode === "manual" ? "Status Kiosk Global" : "Kunci Mesin (Emergency Lock)"}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {globalConfig.absen_window_mode === "manual" 
+                    ? "Jika menyala, karyawan bisa absen di semua outlet." 
+                    : "Matikan paksa semua mesin absen di outlet."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGlobalConfig({ ...globalConfig, is_active: !globalConfig.is_active })}
+                className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${globalConfig.is_active ? "bg-suka-green" : "bg-gray-300"}`}
+              >
+                <span className={`pointer-events-none m-1 inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ${globalConfig.is_active ? "translate-x-6" : "translate-x-0"}`} />
+              </button>
+            </div>
+
+            <Button type="submit" disabled={isPending} className="w-full flex items-center justify-center gap-2 rounded-xl py-4 text-base">
+              {isPending ? <Spinner className="h-5 w-5 text-white" /> : <><Save size={18} /> Simpan Pengaturan Utama</>}
+            </Button>
+          </form>
         </div>
 
         {/* PANEL PENGECUALIAN */}
-        <div className="rounded-2xl border border-suka-gray-200 bg-white p-5 shadow-sm space-y-5 h-fit">
-          <div className="border-b pb-4 flex justify-between items-center">
+        <div className="-mx-4 flex flex-col space-y-4 border-y border-suka-gray-200 bg-white p-4 shadow-sm sm:mx-0 sm:rounded-2xl sm:border sm:p-6 lg:h-fit">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-4">
             <div>
               <h2 className="flex items-center gap-2 text-lg font-bold text-suka-ink">
-                <Settings2 size={20} className="text-suka-brown" /> Pengecualian Outlet
+                <AlertCircle size={20} className="text-suka-brown" /> Outlet Khusus
               </h2>
-              <p className="mt-1 text-sm text-gray-500">Outlet dengan jam kerja berbeda.</p>
+              <p className="mt-1 text-sm text-gray-500">Outlet yang memiliki jam kerja berbeda.</p>
             </div>
-            <Button size="sm" onClick={() => { setNewOutletConfig({ ...globalConfig }); setIsModalOpen(true); }} className="rounded-full px-3 py-1 text-xs flex items-center gap-1">
-              <Plus size={14} /> Tambah
+            <Button 
+              size="sm" 
+              onClick={() => { setNewOutletConfig({ ...globalConfig }); setIsModalOpen(true); }} 
+              className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-full text-sm font-semibold"
+            >
+              <Plus size={16} /> Tambah
             </Button>
           </div>
 
-          <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-            {outletConfigs.length === 0 ? (
-              <div className="text-center py-8 text-sm text-gray-400 border-2 border-dashed rounded-xl">
-                Tidak ada outlet pengecualian.<br/>Semua mengikuti Pengaturan Global.
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Cari outlet khusus..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto">
+            {filteredConfigs.length === 0 ? (
+              <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center text-sm text-gray-400">
+                {search ? "Outlet khusus tidak ditemukan." : "Belum ada outlet khusus. Semua outlet mengikuti jam default."}
               </div>
             ) : (
-              outletConfigs.map((cfg) => {
-                const outlet = outlets.find(o => o.id === cfg.outlet_id);
+              filteredConfigs.map((cfg) => {
+                const outlet = initialOutlets.find(o => o.id === cfg.outlet_id);
                 return (
-                  <div key={cfg.outlet_id} className="relative rounded-xl border border-gray-200 bg-gray-50 p-4 transition hover:border-gray-300">
-                    <div className="flex justify-between items-start mb-2">
-                      <p className="font-bold text-suka-ink">{outlet?.name || 'Unknown Outlet'}</p>
+                  <div key={cfg.outlet_id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="mb-3 flex items-start justify-between">
+                      <p className="font-bold text-suka-ink text-base">{outlet?.name || 'Unknown Outlet'}</p>
                       <button 
-                        title="Hapus pengecualian"
-                        onClick={() => handleDeleteOutletConfig(cfg.outlet_id)}
-                        disabled={savingOutlet === cfg.outlet_id}
-                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        onClick={() => onDeleteException(cfg.outlet_id)}
+                        disabled={isPending}
+                        className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
                       >
-                        {savingOutlet === cfg.outlet_id ? <Spinner className="w-4 h-4" /> : <Trash2 size={16} />}
+                        <Trash2 size={18} />
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-white p-2 rounded-lg border">
-                      <div>Masuk: <strong className="text-suka-ink">{cfg.jam_masuk?.slice(0,5)}</strong></div>
-                      <div>Pulang: <strong className="text-suka-ink">{cfg.jam_keluar?.slice(0,5)}</strong></div>
-                      <div>Toleransi: <strong className="text-suka-ink">{cfg.toleransi_menit}m</strong></div>
-                      <div>Mode: <strong className="text-suka-ink capitalize">{cfg.absen_window_mode}</strong></div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-lg bg-gray-50 p-2">
+                        <span className="text-xs text-gray-500 block mb-0.5">Jam Masuk</span>
+                        <strong className="text-suka-ink">{cfg.jam_masuk?.slice(0,5)}</strong>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 p-2">
+                        <span className="text-xs text-gray-500 block mb-0.5">Jam Pulang</span>
+                        <strong className="text-suka-ink">{cfg.jam_keluar?.slice(0,5)}</strong>
+                      </div>
                     </div>
                   </div>
                 );
@@ -339,32 +298,34 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
 
       {/* MODAL TAMBAH PENGECUALIAN */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-5 animate-in slide-in-from-bottom-4">
-            <h3 className="text-lg font-bold text-suka-ink border-b pb-3">Tambah Pengecualian Outlet</h3>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
+          <div className="w-full max-w-md animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-8 rounded-t-3xl sm:rounded-2xl bg-white p-5 sm:p-6 shadow-xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold text-suka-ink border-b pb-3">Tambah Outlet Khusus</h3>
             
-            <div>
-              <label className="text-sm font-bold text-suka-ink mb-2 block">Pilih Outlet</label>
-              <select 
-                value={selectedOutletId}
-                onChange={e => setSelectedOutletId(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 p-3 bg-gray-50 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange outline-none"
-              >
-                <option value="" disabled>-- Pilih Outlet --</option>
-                {outlets.filter(o => !outletConfigs.find(c => c.outlet_id === o.id)).map(out => (
-                  <option key={out.id} value={out.id}>{out.name}</option>
-                ))}
-              </select>
-            </div>
+            <form action={onSaveException} className="space-y-5">
+              <div>
+                <label className="text-sm font-bold text-suka-ink mb-2 block">Pilih Outlet</label>
+                <select 
+                  value={selectedOutletId}
+                  onChange={e => setSelectedOutletId(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 p-3.5 bg-gray-50 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange outline-none text-base"
+                >
+                  <option value="" disabled>-- Pilih Outlet --</option>
+                  {availableOutlets.map(out => (
+                    <option key={out.id} value={out.id}>{out.name}</option>
+                  ))}
+                </select>
+              </div>
 
-            <ConfigForm config={newOutletConfig} setConfig={setNewOutletConfig} />
+              <ConfigFormFields config={newOutletConfig} setConfig={setNewOutletConfig} />
 
-            <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setIsModalOpen(false)}>Batal</Button>
-              <Button type="button" className="flex-1" onClick={handleSaveOutletConfig} disabled={saving || !selectedOutletId}>
-                {saving ? <Spinner className="w-4 h-4 text-white" /> : "Simpan Pengecualian"}
-              </Button>
-            </div>
+              <div className="flex gap-3 pt-4 border-t">
+                <Button type="button" variant="secondary" className="flex-1 py-3" onClick={() => setIsModalOpen(false)}>Batal</Button>
+                <Button type="submit" className="flex-1 py-3" disabled={isPending || !selectedOutletId}>
+                  {isPending ? <Spinner className="w-5 h-5 text-white" /> : "Simpan"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

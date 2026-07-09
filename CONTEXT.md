@@ -26,8 +26,9 @@
 
 ## Distribusi
 
-- **Gudang Pusat (Central Warehouse)** — **satu** titik asal distribusi bahan baku ke 19 outlet.
-- **Permintaan Bahan** — pesanan bahan baku yang **diinisiasi outlet** ke pusat (`permintaan_bahan`); outlet minta → kitchen setujui → terbit Surat Jalan. Ini "pesanan per outlet".
+- **Gudang Pusat (Central Warehouse)** — entitas bernama `GUDANG PUSAT (HQ)` di sistem. Satu titik asal distribusi bahan baku ke 19 outlet (termasuk Outlet Kitchen). Secara sistem ini adalah entitas terpisah dari fungsi penjualan.
+- **Outlet Kitchen (Pusat)** — entitas bernama `SUKA SHAWARMA KITCHEN (PUSAT)` di sistem. Berfungsi sebagai outlet penjualan biasa yang meskipun secara fisik berada di lokasi yang sama dengan Gudang Pusat, tetap harus melakukan "Permintaan Bahan" ke Gudang Pusat.
+- **Permintaan Bahan** — pesanan bahan baku yang **diinisiasi outlet** ke pusat (`permintaan_bahan`); outlet minta → gudang pusat setujui → terbit Surat Jalan. Ini "pesanan per outlet".
 - **Kode Permintaan** — kode unik per Permintaan Bahan, format **`PB/{OUTLET}/{YYYYMMDD}/{urut}`** (outlet dari `slug`, `urut` reset harian per outlet — praktis selalu `001` karena kirim ke outlet umumnya 1× sehari; `urut` = jaring untuk kirim susulan langka). Dijamin unik via UNIQUE constraint (bukan counter table — cadence harian membuat race tak relevan).
 - **Order Session** — satu kejadian pemesanan bahan baku = **satu Surat Jalan**. Saat Surat Jalan dibuat, **harga bahan baku terkini di-snapshot** ke tiap itemnya (harga "hari itu"). Nilai barang masuk untuk HPP = `qty terverifikasi × harga snapshot`. Snapshot ini yang membuat HPP historis stabil: order Senin memakai harga Senin, reorder Rabu memakai harga Rabu, walau harga master berubah.
 - **Surat Jalan / Shipment (DO)** — dokumen + kejadian pengiriman batch bahan baku dari Gudang Pusat ke satu outlet (daftar item + qty dikirim). Dibuat di pusat.

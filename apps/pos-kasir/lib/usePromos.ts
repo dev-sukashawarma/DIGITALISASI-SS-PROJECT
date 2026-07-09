@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { calculateItemPrice, calculateGlobalDiscount } from './promo-calculator'
+import { db } from '@/lib/db'
 
 export type OutletPromo = {
   id: string
@@ -40,8 +41,12 @@ export function usePromos(outletId: string | undefined) {
         
         if (error) throw error
         setPromos(data || [])
+        // Cache promo ke IndexedDB untuk dipakai saat offline
+        await db.app_state.put({ key: `promos:${outletId}`, value: data || [], synced_at: Date.now() }).catch(() => {})
       } catch (err) {
-        console.error('Failed to load promos:', err)
+        console.warn('Failed to load promos, fallback ke cache IndexedDB:', err)
+        const cached = await db.app_state.get(`promos:${outletId}`).catch(() => undefined)
+        if (cached?.value) setPromos(cached.value)
       } finally {
         setLoading(false)
       }

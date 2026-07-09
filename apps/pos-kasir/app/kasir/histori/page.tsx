@@ -7,13 +7,14 @@ import {
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { db } from '@/lib/db'
+import { cacheOrders, readCachedOrders, localOrderRowsToOrders } from '@/lib/offline'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import ChannelBadge from '@/components/ChannelBadge'
 import { formatRupiah } from '@/lib/validations'
 import { Skeleton } from '@/components/Skeleton'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { useDialogStore } from '@/lib/dialogStore'
-import { db } from '@/lib/db'
 import { fetchWithTimeout } from '@/lib/offline-utils'
 
 const STATUS_CONF: Partial<Record<OrderStatus, {
@@ -33,37 +34,29 @@ const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
 }
 
 async function fetchHistoriOrders(outletId: string, filter: OrderStatus | 'all'): Promise<OrderWithItems[]> {
+  const supabase = createClient()
   try {
-    const supabase = createClient()
     const q = supabase.from('orders').select('*, order_items(*)')
       .eq('outlet_id', outletId)
       .order('created_at', { ascending: false }).limit(100)
     if (filter !== 'all') q.eq('status', filter)
-    
     const { data, error } = await fetchWithTimeout(q.then(res => res))
-    if (error) throw error
-    
-    // Save to dexie cache
-    const now = Date.now()
-    if (data) {
-      await db.orders_cache.bulkPut(data.map((order: any) => ({
-        id: order.id,
-        order_data: order,
-        synced_at: now
-      })))
+    if (error) throw new Error(error.message)
+    if (filter === 'all') {
+      // Simpan snapshot ke IndexedDB agar histori tetap terbaca saat offline
+      await cacheOrders(outletId, data ?? []).catch(() => {})
     }
-    
     return data ?? []
   } catch (err) {
-    console.warn('Network error fetching histori orders, falling back to Dexie cache', err)
-    const cachedOrders = await db.orders_cache.toArray()
-    let results = cachedOrders.map(o => o.order_data) as OrderWithItems[]
-    if (filter !== 'all') {
-      results = results.filter(o => o.status === filter)
-    }
-    // Sort by created_at desc
-    results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    return results
+    console.warn('[Histori] Fetch gagal, memakai cache IndexedDB:', err)
+    const [cached, localRows] = await Promise.all([
+      readCachedOrders(outletId),
+      db.local_orders.where('outlet_id').equals(outletId).toArray(),
+    ])
+    const localList = localOrderRowsToOrders(localRows)
+    const localIds = new Set(localList.map(o => o.id))
+    const merged = [...localList, ...cached.filter(o => !localIds.has(o.id))]
+    return (filter === 'all' ? merged : merged.filter(o => o.status === filter)).slice(0, 100)
   }
 }
 

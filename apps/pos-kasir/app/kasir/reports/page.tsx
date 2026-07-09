@@ -102,22 +102,21 @@ async function fetchReportOrders(outletId: string, range: DateRange, customStart
     const { data, error } = await fetchWithTimeout(q.then(res => res))
     if (error) throw error
 
-    const now = Date.now()
+    // Simpan snapshot laporan di app_state (BUKAN orders_cache — bentuk row
+    // orders_cache dipakai papan order dan berisi OrderWithItems lengkap).
     if (data) {
-      await db.orders_cache.bulkPut(data.map((order: any) => ({
-        id: order.id,
-        order_data: order,
-        synced_at: now
-      })))
+      await db.app_state.put({
+        key: `reports_orders:${outletId}`,
+        value: data,
+        synced_at: Date.now()
+      }).catch(() => {})
     }
     return data ?? []
   } catch (err) {
     console.warn('Network error fetching report orders, falling back to Dexie cache', err)
-    const cachedOrders = await db.orders_cache.toArray()
-    // For reports offline, we just return the local cache. We could filter by date, but returning everything and letting UI handle it or just raw is fine for basic offline viewing.
-    // Let's at least sort it.
-    let results = cachedOrders.map(o => o.order_data) as OrderRow[]
-    results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const cached = await db.app_state.get(`reports_orders:${outletId}`).catch(() => undefined)
+    let results = (cached?.value ?? []) as OrderRow[]
+    results = [...results].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return results
   }
 }

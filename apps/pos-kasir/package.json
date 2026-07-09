@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3004",
+    "build:sw": "node scripts/build-sw.mjs",
+    "prebuild": "node scripts/build-sw.mjs",
     "build": "next build",
     "start": "next start -p 3004",
     "lint": "next lint",
@@ -42,6 +44,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "esbuild": "^0.28.1",
     "eslint": "^8.57.0",
     "eslint-config-next": "^16.1.6",
     "postcss": "^8.5.15",

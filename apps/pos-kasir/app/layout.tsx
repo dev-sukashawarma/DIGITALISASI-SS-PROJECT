@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import KioskPresenceMount from '@/components/KioskPresenceMount'
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 import GlobalBlockerMount from '@/components/GlobalBlockerMount'
 import AudioUnlockMount from '@/components/AudioUnlockMount'
 import { Providers } from '@/components/Providers'
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning>
         <Providers>
           <BrandProvider>
+            <ServiceWorkerRegister />
             <KioskPresenceMount />
             <GlobalBlockerMount />
             <AudioUnlockMount />

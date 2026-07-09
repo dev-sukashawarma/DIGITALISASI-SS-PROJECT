@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import { Skeleton } from '@suka/design-system';
-import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
+
 
 interface CrewListProps {
   items: MonitoringItem[];
@@ -55,10 +55,7 @@ const KATEGORI_ORDER: { key: string; label: string; headerColor: string }[] = [
   { key: 'lainnya',   label: '📋 Lainnya',   headerColor: 'text-[#544437]' },
 ];
 
-const getKategoriLabel = (kategori: string): string => {
-  const found = KATEGORI_ORDER.find(k => k.key === normalizeKategori(kategori));
-  return found ? found.label : (kategori || 'Bahan Baku');
-};
+
 
 export function CrewList({ items, onItemClick, loading = false }: CrewListProps) {
   const [sortBy, setSortBy] = useState<SortBy>('status');

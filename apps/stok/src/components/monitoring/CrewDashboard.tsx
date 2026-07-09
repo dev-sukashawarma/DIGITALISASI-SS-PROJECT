@@ -59,14 +59,14 @@ export function CrewDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fff8f1]">
+    <div className="min-h-screen bg-suka-cream">
       {/* Top Header App Bar */}
-      <header className="bg-white sticky top-0 z-40 w-full px-4 py-3 border-b border-[#d9c2b2]/30 shadow-[0px_4px_12px_rgba(144,77,0,0.04)]">
+      <header className="bg-white sticky top-0 z-40 w-full px-4 py-3 border-b border-suka-brown/20 shadow-sm">
         {/* Top Row: Navigation and Profile */}
         <div className="flex items-center justify-between w-full">
           <Link 
             href="/dashboard" 
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-[#fff8f1] hover:bg-[#f5ede3] border border-[#d9c2b2]/45 text-[#701604] transition-all active:scale-95 flex-shrink-0"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-suka-cream hover:bg-suka-cream/80 border border-suka-brown/20 text-suka-brown transition-all active:scale-95 flex-shrink-0"
             title="Kembali ke Dashboard"
           >
             <span className="text-base font-bold">←</span>
@@ -79,11 +79,11 @@ export function CrewDashboard() {
               className="h-6 w-auto object-contain" 
               onError={(e) => { e.currentTarget.style.display = 'none'; }} 
             />
-            <span className="text-xs font-black text-[#701604] tracking-wider uppercase">SS Digital</span>
+            <span className="text-xs font-black text-suka-brown tracking-wider uppercase">SS Digital</span>
           </div>
 
           <div 
-            className="w-9 h-9 rounded-full bg-[#fd7e62]/20 flex items-center justify-center overflow-hidden border border-[#fd7e62]/40 flex-shrink-0 relative"
+            className="w-9 h-9 rounded-full bg-suka-orange/20 flex items-center justify-center overflow-hidden border border-suka-orange/40 flex-shrink-0 relative"
             title={`Logged in as ${outletStaff?.name || 'Staff'}`}
           >
             {outletStaff?.ref_photo_url && (
@@ -101,10 +101,10 @@ export function CrewDashboard() {
         {/* Title and Outlet Name */}
         <div className="mt-3 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
           <div>
-            <h1 className="text-base sm:text-lg font-black text-[#701604] uppercase tracking-tight leading-tight">
+            <h1 className="text-base sm:text-lg font-black text-suka-brown uppercase tracking-tight leading-tight">
               {isLoading && !data ? <Skeleton className="h-5 w-32 inline-block" /> : (data?.outlet_name || 'Outlet')} - Monitoring
             </h1>
-            <p className="text-[10px] font-bold text-[#f29744] uppercase tracking-widest mt-0.5">
+            <p className="text-[10px] font-bold text-suka-orange uppercase tracking-widest mt-0.5">
               Stock Control Panel
             </p>
           </div>
@@ -113,14 +113,14 @@ export function CrewDashboard() {
           <div className="flex items-center gap-1.5 mt-1 md:mt-0 w-full md:w-auto">
             <a
               href={resolvedPortalUrl}
-              className="flex-1 md:flex-initial px-3 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-[#fff8f1] border border-[#d9c2b2]/50 text-[#701604] font-bold text-[11px] transition-all active:scale-95 shadow-sm"
+              className="flex-1 md:flex-initial px-3 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-suka-cream border border-suka-brown/20 text-suka-brown font-bold text-[11px] transition-all active:scale-95 shadow-sm"
               title="Portal"
             >
               Portal
             </a>
             <button
               onClick={() => refetch()}
-              className="px-3 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-[#fff8f1] border border-[#d9c2b2]/50 text-[#701604] font-bold text-[11px] transition-all active:scale-95 shadow-sm flex items-center gap-1"
+              className="px-3 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-suka-cream border border-suka-brown/20 text-suka-brown font-bold text-[11px] transition-all active:scale-95 shadow-sm flex items-center gap-1"
               title="Refresh"
             >
               🔄 Refresh
@@ -136,10 +136,10 @@ export function CrewDashboard() {
         </div>
 
         {/* Meta Information Bar */}
-        <div className="mt-3 pt-3 border-t border-[#d9c2b2]/20 flex flex-col gap-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[11px] text-[#544437]">
+        <div className="mt-3 pt-3 border-t border-suka-brown/10 flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[11px] text-suka-brown">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="bg-[#a43c26] text-white px-2 py-0.5 rounded-full font-bold text-[9px] tracking-wide uppercase">
+              <span className="bg-red-600 text-white px-2 py-0.5 rounded-full font-bold text-[9px] tracking-wide uppercase">
                 Outlet {isLoading && !data ? '...' : (data?.outlet_name ? 'Active' : '...')}
               </span>
               <span className="font-semibold">
@@ -147,11 +147,11 @@ export function CrewDashboard() {
               </span>
             </div>
             <span className="font-medium text-right">
-              Total Items: <span className="font-bold text-[#701604]">{isLoading && !data ? <Skeleton className="h-3 w-8 inline-block" /> : (data?.items?.length || '0')}</span>
+              Total Items: <span className="font-bold text-suka-brown">{isLoading && !data ? <Skeleton className="h-3 w-8 inline-block" /> : (data?.items?.length || '0')}</span>
             </span>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] text-[#544437]/60 font-semibold border-t border-[#d9c2b2]/10 pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] text-suka-brown/60 font-semibold border-t border-suka-brown/10 pt-2">
             <span className="flex items-center gap-1">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
               Check stok status before shifts & opname
@@ -184,7 +184,7 @@ export function CrewDashboard() {
             <h2 className="text-base font-bold text-gray-900 uppercase tracking-wider">
               Saldo Stok Real-time
             </h2>
-            <button className="text-[#904d00] font-semibold text-xs flex items-center gap-1">
+            <button className="text-suka-orange font-semibold text-xs flex items-center gap-1">
               Filter <span>⚙️</span>
             </button>
           </div>
@@ -200,32 +200,32 @@ export function CrewDashboard() {
             <Skeleton className="h-44 w-full" />
           ) : (
             (criticalItems.length > 0 || isOpnameOverdue) && (
-              <section className="bg-white rounded-xl border border-[#d9c2b2]/45 shadow-[0px_4px_12px_rgba(144,77,0,0.06)] p-4 flex flex-col gap-4">
-                <div className="flex items-center gap-2 text-[#ba1a1a]">
+              <section className="bg-white rounded-2xl border border-suka-brown/20 shadow-sm p-4 flex flex-col gap-4">
+                <div className="flex items-center gap-2 text-red-600">
                   <span className="text-xl">⚠️</span>
                   <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Peringatan Kritis</h2>
                 </div>
                 
                 <div className="space-y-2">
                   {criticalItems.map((item) => (
-                    <div key={item.bahan_baku_id} className="flex justify-between items-center p-3 bg-[#ffdad6]/20 rounded-lg border border-[#ba1a1a]/10">
+                    <div key={item.bahan_baku_id} className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-200">
                       <div className="flex flex-col">
-                        <span className="font-bold text-[#a43c26] text-sm">{item.item_name}</span>
+                        <span className="font-bold text-red-700 text-sm">{item.item_name}</span>
                         <span className="text-xs text-gray-600">
-                          {formatCompositeSaldo(item.current_qty, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / <span className="font-bold text-[#a43c26]">Reorder {item.threshold} {item.satuan}</span>
+                          {formatCompositeSaldo(item.current_qty, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / <span className="font-bold text-red-700">Reorder {item.threshold} {item.satuan}</span>
                         </span>
                       </div>
-                      <span className="text-[#ba1a1a] font-bold text-lg">↓</span>
+                      <span className="text-red-600 font-bold text-lg">↓</span>
                     </div>
                   ))}
 
                   {isOpnameOverdue && (
-                    <div className="flex items-start gap-3 p-3 bg-[#faf2e9] rounded-lg border border-[#877365]/20">
+                    <div className="flex items-start gap-3 p-3 bg-suka-cream rounded-xl border border-suka-brown/20">
                       <span className="text-xl">📅</span>
                       <div className="flex flex-col">
                         <span className="font-bold text-gray-900 text-sm">Opname Jatuh Tempo</span>
                         <p className="text-xs text-gray-600">
-                          {opnameAgeText} (<span className="text-[#ba1a1a] font-bold uppercase text-[9px]">Overdue</span>)
+                          {opnameAgeText} (<span className="text-red-600 font-bold uppercase text-[9px]">Overdue</span>)
                         </p>
                       </div>
                     </div>
@@ -234,7 +234,7 @@ export function CrewDashboard() {
                 
                 <Link
                   href="/stok/opname/new"
-                  className="w-full bg-[#f29744] hover:bg-[#d97c2b] text-[#643400] font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-center active:scale-95"
+                  className="w-full bg-suka-orange hover:bg-suka-orange/90 text-suka-ink font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-center active:scale-95"
                 >
                   📋 Mulai Opname Baru
                 </Link>
@@ -242,24 +242,24 @@ export function CrewDashboard() {
             )
           )}
 
-          <section className="bg-white border border-[#d9c2b2]/45 rounded-xl p-5 shadow-[0px_4px_12px_rgba(144,77,0,0.06)] space-y-4">
-            <h3 className="font-bold text-xs text-[#544437] uppercase tracking-wider pl-0.5">Aksi Cepat</h3>
+          <section className="bg-white border border-suka-brown/20 rounded-2xl p-5 shadow-sm space-y-4">
+            <h3 className="font-bold text-xs text-suka-brown uppercase tracking-wider pl-0.5">Aksi Cepat</h3>
             <div className="grid grid-cols-2 gap-3">
-              <Link href="/stok/permintaan" className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
+              <Link href="/stok/permintaan" className="bg-suka-cream/50 border border-suka-brown/20 hover:bg-suka-cream rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center hover:scale-[1.02] transition-all active:scale-95">
                 <span className="text-xl">📝</span>
-                <span className="text-xs font-semibold text-[#544437]">Permintaan Bahan</span>
+                <span className="text-xs font-semibold text-suka-brown">Permintaan Bahan</span>
               </Link>
-              <Link href="/stok/ledger/new" className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
+              <Link href="/stok/ledger/new" className="bg-suka-cream/50 border border-suka-brown/20 hover:bg-suka-cream rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center hover:scale-[1.02] transition-all active:scale-95">
                 <span className="text-xl">📒</span>
-                <span className="text-xs font-semibold text-[#544437]">Entri Ledger</span>
+                <span className="text-xs font-semibold text-suka-brown">Entri Ledger</span>
               </Link>
-              <Link href="/stok/opname/new" className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
+              <Link href="/stok/opname/new" className="bg-suka-cream/50 border border-suka-brown/20 hover:bg-suka-cream rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center hover:scale-[1.02] transition-all active:scale-95">
                 <span className="text-xl">📋</span>
-                <span className="text-xs font-semibold text-[#544437]">Mulai Opname</span>
+                <span className="text-xs font-semibold text-suka-brown">Mulai Opname</span>
               </Link>
-              <Link href="/stok/permintaan" className="bg-[#faf2e9]/40 border border-[#d9c2b2]/45 hover:bg-[#faf2e9] rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center shadow-sm hover:shadow transition-all active:scale-95">
+              <Link href="/stok/permintaan" className="bg-suka-cream/50 border border-suka-brown/20 hover:bg-suka-cream rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center hover:scale-[1.02] transition-all active:scale-95">
                 <span className="text-xl">📝</span>
-                <span className="text-xs font-semibold text-[#544437]">Permintaan Bahan</span>
+                <span className="text-xs font-semibold text-suka-brown">Permintaan Bahan</span>
               </Link>
             </div>
           </section>

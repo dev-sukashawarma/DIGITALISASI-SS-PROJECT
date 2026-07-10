@@ -168,7 +168,7 @@ export default function KasirOrderClient({
       const { data: menuData, error: menuErr } = await orderSystemSupabase
         .from('menu_items')
         .select('*')
-        .ilike('name', '%test%')
+        .ilike('name', '%tes%')
         .limit(1)
         .single();
 

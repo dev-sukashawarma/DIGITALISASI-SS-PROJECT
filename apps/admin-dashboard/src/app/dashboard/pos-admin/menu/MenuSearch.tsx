@@ -14,15 +14,20 @@ export default function MenuSearch() {
   const [debouncedQuery] = useDebounce(query, 300)
 
   useEffect(() => {
-    const params = new URLSearchParams(searchParams)
-    if (debouncedQuery) {
-      params.set('q', debouncedQuery)
-    } else {
-      params.delete('q')
-    }
+    const currentQ = searchParams.get('q') || ''
     
-    // Use replace to avoid filling up browser history with keystrokes
-    router.replace(`${pathname}?${params.toString()}`)
+    // Only replace if the actual value has changed
+    if (currentQ !== debouncedQuery) {
+      const params = new URLSearchParams(searchParams)
+      if (debouncedQuery) {
+        params.set('q', debouncedQuery)
+      } else {
+        params.delete('q')
+      }
+      
+      // Use replace to avoid filling up browser history with keystrokes
+      router.replace(`${pathname}?${params.toString()}`)
+    }
   }, [debouncedQuery, pathname, router, searchParams])
 
   return (

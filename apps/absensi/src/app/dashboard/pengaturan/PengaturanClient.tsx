@@ -366,7 +366,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
                               jam_keluar: cfg.jam_keluar || "00:00",
                               toleransi_menit: cfg.toleransi_menit || 0,
                               absen_window_mode: cfg.absen_window_mode || "auto",
-                              is_active: cfg.is_active,
+                              is_active: outlet?.is_active ?? true,
                             });
                             setIsModalOpen(true);
                           }}

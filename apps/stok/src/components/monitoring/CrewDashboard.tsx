@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CrewList } from './CrewList';
+import { ProductionEstimateWidget } from './ProductionEstimateWidget';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
@@ -240,6 +241,11 @@ export function CrewDashboard() {
                 </Link>
               </section>
             )
+          )}
+
+          {/* Section: Production Estimate Widget */}
+          {!isLoading && data?.items && data.items.length > 0 && (
+            <ProductionEstimateWidget items={data.items} />
           )}
 
           <section className="bg-white border border-suka-brown/20 rounded-2xl p-5 shadow-sm space-y-4">

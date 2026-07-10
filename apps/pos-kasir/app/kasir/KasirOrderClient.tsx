@@ -538,6 +538,9 @@ export default function KasirOrderClient({
   const antreanMasak = preparingOrders.filter(o => getEffectiveReleaseTime(o) <= now)
   const terjadwalMasak = preparingOrders.filter(o => getEffectiveReleaseTime(o) > now).sort((a, b) => getEffectiveReleaseTime(a) - getEffectiveReleaseTime(b))
 
+  // Hitung antrean global (tidak terpengaruh tab filter online/offline) untuk indikator Dapur Sibuk
+  const globalAntreanMasak = orders.filter(o => o.status === 'preparing' && getEffectiveReleaseTime(o) <= now)
+
 
   const completedOrders = filteredOrders.filter((o) => o.status === 'completed')
   const filteredCompletedOrders = completedOrders.filter(o => {
@@ -925,9 +928,9 @@ export default function KasirOrderClient({
           {(() => {
             if (preparingTab !== 'antrean') return null;
             
-            // Hitung akumulasi per menu
+            // Hitung akumulasi per menu berdasarkan antrean global (tidak terpengaruh tab online/offline)
             const itemCounts: Record<string, number> = {};
-            antreanMasak.forEach(order => {
+            globalAntreanMasak.forEach(order => {
               order.order_items?.forEach(item => {
                 const name = item.menu_item_name;
                 itemCounts[name] = (itemCounts[name] || 0) + (item.quantity || 1);

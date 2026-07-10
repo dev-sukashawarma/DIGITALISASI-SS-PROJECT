@@ -156,7 +156,7 @@
             'absensi-1': {
                 title: 'Clock In Pagi',
                 app: 'Absensi Apps',
-                description: 'Karyawan melakukan absensi masuk (clock in) menggunakan foto selfie dan geotagging GPS saat tiba di outlet.',
+                description: 'Karyawan clock in di kiosk outlet: validasi wajah 1:N (@vladmandic/human, cosine ≥ 0.65) → cek radius GPS outlet → tantangan liveness (anti-spoofing), lalu tersimpan (offline queue bila koneksi putus).',
                 actors: ['Karyawan Outlet'],
                 status: 'Harian'
             },

@@ -108,15 +108,13 @@ export default function BlockedOverlay({
       
       setBypassWaLink(generatedWaLink)
 
-      // Coba trigger klik secara programmatis (beberapa WebView mengizinkan)
+      // Coba trigger secara programmatis
       if (typeof window !== 'undefined') {
-        const link = document.createElement('a')
-        link.href = generatedWaLink
-        link.target = '_blank'
-        link.rel = 'noopener noreferrer'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
+        if ((window as any).ReactNativeWebView) {
+          (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'open-external-url', url: generatedWaLink }))
+        } else {
+          window.open(generatedWaLink, '_blank')
+        }
       }
 
     } catch (err: any) {
@@ -186,14 +184,21 @@ export default function BlockedOverlay({
                   Pengajuan bypass telah dikirim ke SPV. Sistem akan otomatis terbuka setelah disetujui.
                 </p>
                 {bypassWaLink && (
-                  <a
-                    href={bypassWaLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
                     className="w-full bg-[#25D366] text-white rounded-xl py-3.5 font-bold hover:bg-[#1DA851] transition-colors flex justify-center items-center gap-2 shadow-lg shadow-[#25D366]/20 mb-4"
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        if ((window as any).ReactNativeWebView) {
+                          (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'open-external-url', url: bypassWaLink }))
+                        } else {
+                          window.open(bypassWaLink, '_blank')
+                        }
+                      }
+                    }}
                   >
                     Buka WhatsApp SPV
-                  </a>
+                  </button>
                 )}
                 {bypassError && <p className="text-red-500 text-sm mb-4 font-medium">{bypassError}</p>}
                 <button

@@ -396,15 +396,13 @@ export default function ShiftPage() {
       
       setTopupWaLink(generatedWaLink);
 
-      // Coba trigger klik secara programmatis
+      // Coba trigger secara programmatis
       if (typeof window !== 'undefined') {
-        const link = document.createElement('a');
-        link.href = generatedWaLink;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        if ((window as any).ReactNativeWebView) {
+          (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'open-external-url', url: generatedWaLink }))
+        } else {
+          window.open(generatedWaLink, '_blank')
+        }
       }
 
       setTopupAmount('')
@@ -566,18 +564,23 @@ export default function ShiftPage() {
           <div className="flex-1 w-full">
             <p className="text-sm text-emerald-700 font-medium">{successMsg}</p>
             {topupWaLink && (
-              <a
-                href={topupWaLink}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
                 className="mt-3 block w-full bg-[#25D366] text-white rounded-lg py-2.5 font-bold text-center text-sm hover:bg-[#1DA851] transition-colors shadow-sm"
                 onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    if ((window as any).ReactNativeWebView) {
+                      (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'open-external-url', url: topupWaLink }))
+                    } else {
+                      window.open(topupWaLink, '_blank')
+                    }
+                  }
                   setSuccessMsg('');
                   setTopupWaLink('');
                 }}
               >
                 Buka WhatsApp SPV
-              </a>
+              </button>
             )}
           </div>
         </div>

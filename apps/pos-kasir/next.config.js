@@ -26,10 +26,8 @@ const nextConfig = {
   turbopack: {},
 }
 
-const withSerwist = require('@serwist/next').default({
-  swSrc: 'app/sw.ts',
-  swDest: 'public/sw.js',
-  disable: process.env.NODE_ENV === 'development',
-});
-
-module.exports = withSerwist(nextConfig);
+// CATATAN: dulu dibungkus withSerwist (@serwist/next), tapi plugin itu berbasis
+// webpack dan TIDAK jalan di build Turbopack (Next 16) — sw.js tidak pernah
+// dihasilkan. Sekarang service worker dibundel manual via scripts/build-sw.mjs
+// (lifecycle "prebuild") dan diregistrasi oleh components/ServiceWorkerRegister.tsx.
+module.exports = nextConfig;

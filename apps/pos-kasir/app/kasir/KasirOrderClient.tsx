@@ -7,7 +7,13 @@ import {
   Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer, MessageSquare
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { createClient } from '@/lib/supabase/client'
+import { db, type LocalOrderRow } from '@/lib/db'
+import {
+  cacheOrders, readCachedTodayOrders, patchCachedOrder,
+  patchLocalOrder, queueStatusMutation, isNetworkError, localOrderRowsToOrders,
+} from '@/lib/offline'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import ChannelBadge from '@/components/ChannelBadge'
@@ -15,8 +21,7 @@ import StockWidget from '@/components/StockWidget'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { postToNative } from '@suka/design-system'
 import { useDialogStore } from '@/lib/dialogStore'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/lib/db'
+import { fetchWithTimeout } from '@/lib/offline-utils'
 
 const DING_SOUND = '/sound-pesanan.mp3'
 
@@ -38,23 +43,25 @@ async function fetchTodayOrders(outletId: string): Promise<OrderWithItems[]> {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   try {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      throw new Error('Offline mode: skipping Supabase fetch')
-    }
+    const { data, error } = await fetchWithTimeout(
+      supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('outlet_id', outletId)
+        .or(`created_at.gte.${today.toISOString()},status.in.(pending,preparing)`)
+        .order('created_at', { ascending: false })
+        .limit(200)
+        .then(res => res)
+    )
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .eq('outlet_id', outletId)
-      .or(`created_at.gte.${today.toISOString()},status.in.(pending,preparing)`)
-      .order('created_at', { ascending: false })
-      .limit(200)
+    if (error) throw new Error(error.message)
 
-    if (error) throw error
+    // Simpan ke IndexedDB — sumber data papan order saat offline
+    await cacheOrders(outletId, data ?? []).catch(() => {})
     return data ?? []
   } catch (err) {
-    console.warn('Network error fetching orders, throwing for react-query offline behavior', err)
-    throw err
+    console.warn('[KasirOrder] Fetch orders gagal, memakai cache IndexedDB:', err)
+    return readCachedTodayOrders(outletId)
   }
 }
 
@@ -139,7 +146,7 @@ export default function KasirOrderClient({
   const { outletId: clientOutletId, outletName } = useMyOutlet()
   const outletId = clientOutletId || serverOutletId // Fallback to SSR outletId to prevent flash
 
-  const { data: orders = initialOrders, isLoading: loading, isFetched: ordersFetched } = useQuery({
+  const { data: serverOrders = initialOrders, isLoading: loading, isFetched: ordersFetched } = useQuery({
     queryKey: ['orders', outletId],
     queryFn: () => fetchTodayOrders(outletId as string),
     enabled: !!outletId,
@@ -148,54 +155,17 @@ export default function KasirOrderClient({
     retry: false,
   })
 
-  const offlineQueue = useLiveQuery(
-    () => db.sync_queue_orders.where('status').equals('pending').toArray(),
-    []
+  // Pesanan yang dibuat saat offline (belum tersinkron ke server) — live dari
+  // IndexedDB sehingga langsung muncul/terupdate di papan tanpa refetch.
+  const localOrderRows = useLiveQuery(
+    () => (outletId ? db.local_orders.where('outlet_id').equals(outletId).toArray() : Promise.resolve([] as LocalOrderRow[])),
+    [outletId]
   )
+  const localOrders = localOrderRowsToOrders(localOrderRows ?? [])
+  const localOrderIds = new Set(localOrders.map(o => o.id))
 
-  const offlineOrdersParsed = (offlineQueue || []).map(q => {
-    const data = q.displayData
-    return {
-      id: q.id,
-      order_number: data?.orderNumber ? parseInt(data.orderNumber) : -1,
-      outlet_id: outletId as string,
-      customer_id: null,
-      customer_name: null,
-      customer_phone: null,
-      table_id: null,
-      status: 'pending' as OrderStatus,
-      total_amount: data?.totalAmount || 0,
-      payment_method: data?.paymentMethod || 'cash',
-      payment_status: 'paid',
-      source: data?.source || 'offline',
-      channel: null,
-      notes: '-- INFO PEMESAN ONLINE --\nPembayaran: Menunggu Sync',
-      is_delivery: false,
-      delivery_address: null,
-      created_at: new Date(q.created_at).toISOString(),
-      updated_at: new Date(q.created_at).toISOString(),
-      void_reason: null,
-      void_at: null,
-      receipt_printed_at: null,
-      kitchen_started_at: null,
-      kitchen_completed_at: null,
-      completed_at: null,
-      external_order_id: null,
-      order_items: (data?.items || []).map((item: any) => ({
-        id: item.id,
-        order_id: q.id,
-        menu_item_id: '',
-        menu_item_name: item.menu_item_name,
-        quantity: item.quantity,
-        unit_price: 0,
-        subtotal: 0,
-        note: item.note || null,
-        created_at: new Date(q.created_at).toISOString(),
-      }))
-    } as OrderWithItems
-  })
-
-  const allOrders = [...offlineOrdersParsed, ...orders]
+  // Gabungkan: order lokal offline tampil paling atas, hindari duplikat id
+  const orders = [...localOrders, ...serverOrders.filter(o => !localOrderIds.has(o.id))]
 
   // Real-time subscription to prevent polling and ensure instant updates
   useEffect(() => {
@@ -283,7 +253,7 @@ export default function KasirOrderClient({
     }
 
     let hasNewPendingOrder = false
-    allOrders.filter(o => o.status === 'pending' || o.status === 'preparing').forEach(o => {
+    orders.filter(o => o.status === 'pending' || o.status === 'preparing').forEach(o => {
       if (!knownOrderIds.current.has(o.id)) {
         hasNewPendingOrder = true
         knownOrderIds.current.add(o.id)
@@ -291,55 +261,63 @@ export default function KasirOrderClient({
     })
 
     if (hasNewPendingOrder) playNotification()
-  }, [allOrders, ordersFetched, playNotification])
+  }, [orders, ordersFetched, playNotification])
 
 
+
+  /**
+   * Terapkan perubahan status pesanan dengan dukungan offline penuh:
+   * - Pesanan lokal (dibuat offline): cukup update IndexedDB, sinkron ikut antrean order.
+   * - Pesanan server + online: update Supabase langsung, lalu mirror ke cache.
+   * - Pesanan server + offline/jaringan gagal: antrekan mutasi + update cache,
+   *   nanti dikirim OfflineSyncManager saat online.
+   */
+  async function applyStatusChange(id: string, patch: Record<string, any>): Promise<boolean> {
+    queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
+      prev?.map(o => o.id === id ? { ...o, ...patch } : o)
+    )
+
+    if (localOrderIds.has(id)) {
+      await patchLocalOrder(id, patch)
+      // Kalau statusnya berubah SEBELUM order sempat tersinkron, catat juga
+      // sebagai mutasi lokal supaya di-replay setelah order dibuat di server.
+      await queueStatusMutation(id, patch, true)
+      return true
+    }
+
+    try {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) throw new Error('offline')
+      const { error } = await supabase
+        .from('orders')
+        .update(patch)
+        .eq('id', id)
+      if (error) throw new Error(error.message)
+      await patchCachedOrder(id, patch).catch(() => {})
+      return true
+    } catch (error: any) {
+      if (isNetworkError(error)) {
+        // Mode offline: simpan perubahan di IndexedDB + antrean sinkron
+        await queueStatusMutation(id, patch, false)
+        await patchCachedOrder(id, patch).catch(() => {})
+        return true
+      }
+      console.error('Update order failed:', error)
+      showAlert(`Gagal mengupdate pesanan: ${error.message}`)
+      return false
+    }
+  }
 
   // Mark as Preparing
   async function markAsPreparing(id: string) {
     postToNative({ type: 'haptic', style: 'success' })
-    queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
-      prev?.map(o => o.id === id ? { ...o, status: 'preparing' } : o)
-    )
-    
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'preparing' })
-        .eq('id', id)
-      
-      if (error) {
-        throw new Error(error.message)
-      }
-    } catch (error: any) {
-      console.error('Update preparing failed:', error)
-      showAlert(`Gagal memproses pesanan: ${error.message}`)
-    }
-    
+    await applyStatusChange(id, { status: 'preparing' })
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
   }
 
   // Mark as Completed
   async function markAsCompleted(id: string) {
     postToNative({ type: 'haptic', style: 'success' })
-    queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
-      prev?.map(o => o.id === id ? { ...o, status: 'completed' } : o)
-    )
-    
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'completed' })
-        .eq('id', id)
-
-      if (error) {
-        throw new Error(error.message)
-      }
-    } catch (error: any) {
-      console.error('Update failed:', error)
-      showAlert(`Gagal mengupdate pesanan: ${error.message}`)
-    }
-    
+    await applyStatusChange(id, { status: 'completed' })
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
     queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
 
@@ -375,27 +353,12 @@ export default function KasirOrderClient({
       }
 
       postToNative({ type: 'haptic', style: 'warning' })
-      queryClient.setQueryData<OrderWithItems[]>(['orders', outletId], (prev) =>
-        prev?.map(o => o.id === id ? { ...o, status: 'cancelled' } : o)
-      )
-      
-      // Update DB directly
-      try {
-        const { error } = await supabase
-          .from('orders')
-          .update({
-            status: 'cancelled',
-            void_reason: voidReason,
-            void_at: new Date().toISOString()
-          })
-          .eq('id', id)
+      await applyStatusChange(id, {
+        status: 'cancelled',
+        void_reason: voidReason,
+        void_at: new Date().toISOString()
+      })
 
-        if (error) throw new Error(error.message)
-      } catch (err: any) {
-        console.error('Cancel order failed:', err)
-        showAlert(`Gagal membatalkan pesanan: ${err.message}`)
-      }
-      
       queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
 
       const targetOrder = orders.find(o => o.id === id)
@@ -409,7 +372,7 @@ export default function KasirOrderClient({
     }
   }
 
-  const filteredOrders = allOrders.filter(o => {
+  const filteredOrders = orders.filter(o => {
     if (sourceFilter === 'all') return true
     if (sourceFilter === 'online') return o.source === 'online'
     if (sourceFilter === 'offline') return o.source !== 'online'
@@ -492,6 +455,11 @@ export default function KasirOrderClient({
               <span className={`text-4xl font-black tracking-tighter ${accentColor} drop-shadow-sm leading-none`}>
                 #{order.order_number || order.id.slice(0,4).toUpperCase()}
               </span>
+              {localOrderIds.has(order.id) && (
+                <span className="mt-1.5 inline-flex items-center gap-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-max">
+                  OFFLINE — belum sinkron
+                </span>
+              )}
             </div>
             <div className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 ring-1 shadow-sm ${badgeBg}`}>
               {isPending ? <Clock size={14} className="animate-pulse" /> : <ChefHat size={14} />}
@@ -680,8 +648,8 @@ export default function KasirOrderClient({
       {/* Source Tabs Filter + Widget Stok */}
       <div className="flex justify-between items-start flex-wrap gap-4">
         {(() => {
-          const activeOnlineCount = allOrders.filter(o => o.source === 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
-          const activeOfflineCount = allOrders.filter(o => o.source !== 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
+          const activeOnlineCount = orders.filter(o => o.source === 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
+          const activeOfflineCount = orders.filter(o => o.source !== 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
           return (
             <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200 w-full sm:w-max">
               <button

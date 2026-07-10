@@ -7,13 +7,14 @@ import { useLeaveHistory, useLeaveBalance, useSubmitLeave, LeaveType } from "./a
 import { useLeaveNotifications } from "./useLeaveNotifications";
 import dayjs from "dayjs";
 import { useToast } from "@/lib/feedback/toast";
+import { Select } from "@/components/Select";
 
 export function CutiView() {
   const { outletStaff } = useAuth();
   const userId = outletStaff?.id;
   const currentYear = new Date().getFullYear();
 
-  const { data: balance, isLoading: loadingBalance } = useLeaveBalance(userId, currentYear);
+  const { data: balance } = useLeaveBalance(userId, currentYear);
   const { data: history, isLoading: loadingHistory } = useLeaveHistory(userId);
   const submitLeave = useSubmitLeave();
   const toast = useToast();
@@ -48,14 +49,14 @@ export function CutiView() {
 
     try {
       await submitLeave.mutateAsync({
-        user_id: userId,
-        type,
+        staff_id: userId,
+        leave_type: type,
         start_date: startDate,
         end_date: endDate,
         days: numDays,
         reason,
         status_spv: outletStaff?.role === 'staff_pusat' ? 'not_required' : 'pending',
-        status_hr: 'pending',
+        status: 'pending',
       });
       toast.show("ok", "Pengajuan cuti berhasil dikirim");
       setShowForm(false);
@@ -66,7 +67,7 @@ export function CutiView() {
       setType('annual');
     } catch (err) {
       console.error("Submit Leave Error:", JSON.stringify(err));
-      const errorMessage = err?.message || err?.details || "Unknown error";
+      const errorMessage = (err as any)?.message || (err as any)?.details || "Unknown error";
       toast.show("err", `Terjadi kesalahan saat mengajukan cuti: ${errorMessage}`);
     }
   };
@@ -132,17 +133,18 @@ export function CutiView() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Jenis Cuti / Izin</label>
-                <select
+                <Select
                   value={type}
-                  onChange={(e) => setType(e.target.value as LeaveType)}
-                  className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
-                >
-                  <option value="annual">Cuti Tahunan</option>
-                  <option value="sick">Sakit (dengan Surat Dokter)</option>
-                  <option value="unpaid">Izin Tidak Dibayar (Unpaid Leave)</option>
-                  <option value="maternity">Cuti Melahirkan</option>
-                  <option value="other">Izin Lainnya</option>
-                </select>
+                  onChange={val => setType(val as LeaveType)}
+                  options={[
+                    { label: "Cuti Tahunan", value: "annual" },
+                    { label: "Sakit (dengan Surat Dokter)", value: "sick" },
+                    { label: "Izin Tidak Dibayar (Unpaid Leave)", value: "unpaid" },
+                    { label: "Cuti Melahirkan", value: "maternity" },
+                    { label: "Izin Lainnya", value: "other" }
+                  ]}
+                  className="w-full"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -212,12 +214,12 @@ export function CutiView() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-semibold text-slate-800 capitalize">
-                        {item.type === 'annual' ? 'Cuti Tahunan' : item.type === 'sick' ? 'Sakit' : item.type === 'unpaid' ? 'Unpaid Leave' : item.type === 'maternity' ? 'Cuti Melahirkan' : 'Izin Lainnya'}
+                        {item.leave_type === 'annual' ? 'Cuti Tahunan' : item.leave_type === 'sick' ? 'Sakit' : item.leave_type === 'unpaid' ? 'Unpaid Leave' : item.leave_type === 'maternity' ? 'Cuti Melahirkan' : 'Izin Lainnya'}
                       </span>
-                      {getStatusBadge(item.status_spv, item.status_hr)}
+                      {getStatusBadge(item.status_spv, item.status)}
                     </div>
                     <p className="text-sm text-slate-600 mb-2">{item.reason}</p>
-                    {(item.status_hr === 'rejected' || item.status_spv === 'rejected') && item.rejection_note && (
+                    {(item.status === 'rejected' || item.status_spv === 'rejected') && item.rejection_note && (
                       <div className="mb-3 p-3 bg-red-50 border border-red-100 rounded-lg">
                         <p className="text-xs font-semibold text-red-800 mb-1">Alasan Penolakan:</p>
                         <p className="text-sm text-red-700">{item.rejection_note}</p>

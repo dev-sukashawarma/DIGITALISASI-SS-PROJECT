@@ -42,7 +42,7 @@ export function SwipeableContainer({ children, navItems }: SwipeableContainerPro
     setPeekDirection(null)
   }, [pathname])
 
-  const isValidSwipeStart = (e: Event) => {
+  const isValidSwipeStart = (e: any) => {
     const target = e.target as HTMLElement
     if (target.closest('.overflow-x-auto') || target.closest('[data-no-swipe]')) return false
     return true

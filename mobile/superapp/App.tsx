@@ -11,6 +11,7 @@ import {
   Vibration,
   Animated,
   Image,
+  Linking,
 } from 'react-native';
 import WebView, {
   type WebViewNavigation,
@@ -216,6 +217,12 @@ export default function App() {
   // ─── Cegah navigasi ke luar domain Sukashawarma ──────────────
   const onShouldStartLoadWithRequest = useCallback((request: { url: string }) => {
     try {
+      // Jika protocol bukan http/https (seperti whatsapp://), langsung lempar ke OS (deep link)
+      if (!request.url.startsWith('http')) {
+        Linking.openURL(request.url).catch((err) => console.error('Failed to open URL:', err));
+        return false;
+      }
+
       const url = new URL(request.url);
       // Izinkan navigasi ke domain Sukashawarma
       if (ALLOWED_DOMAINS.some(domain => url.hostname === domain)) {
@@ -225,10 +232,13 @@ export default function App() {
       if (request.url.startsWith('blob:') || request.url.startsWith('data:')) {
         return true;
       }
-      // Blokir navigasi ke domain luar (akan dibuka di browser eksternal)
+      // Buka navigasi ke domain luar (termasuk wa.me) menggunakan browser eksternal atau aplikasi terkait
+      Linking.openURL(request.url).catch((err) => console.error('Failed to open URL:', err));
       return false;
     } catch {
-      return true;
+      // Jika gagal parse URL (invalid URL polyfill dll), coba berikan ke OS
+      Linking.openURL(request.url).catch(() => {});
+      return false;
     }
   }, []);
 
@@ -271,7 +281,7 @@ export default function App() {
   // (dan injectedJavaScript) tidak terpasang. Protokol pesan sinkron dengan
   // `postToNative()` di @suka/design-system.
   const onMessage = useCallback((event: WebViewMessageEvent) => {
-    let msg: { type?: string; style?: string; file?: string };
+    let msg: { type?: string; style?: string; file?: string; url?: string };
     try {
       msg = JSON.parse(event.nativeEvent.data);
     } catch {
@@ -310,8 +320,14 @@ export default function App() {
         }
         break;
       }
+      case 'open-external-url': {
+        if (msg.url) {
+          Linking.openURL(msg.url).catch(err => console.error('Failed to open external URL:', err));
+        }
+        break;
+      }
     }
-  }, []);
+  }, [expoPushToken, sendTokenToWebView]);
 
   // ─── Tampilan Error ──────────────────────────────────────────
   if (hasError) {

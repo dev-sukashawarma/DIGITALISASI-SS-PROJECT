@@ -108,8 +108,23 @@ export function KioskClient({ outlet_id }: { outlet_id: string }) {
           </div>
         )}
 
+        {/* Fase 4: Kamera Terkunci */}
+        {kiosk.phase === "locked" && (
+          <div className="relative overflow-hidden rounded-xl border-2 border-red-100 bg-red-50/50 min-h-[350px] flex flex-col justify-center items-center p-6 text-center space-y-6 animate-fade-in">
+            <div className="flex items-center justify-center w-20 h-20 rounded-full bg-red-100 text-red-600 shadow-sm border border-red-200">
+              <CircleX size={44} className="stroke-[2.5]" />
+            </div>
+            <div className="space-y-2 max-w-xs">
+              <h3 className="text-red-800 font-extrabold text-xl">Kamera Absensi Terkunci</h3>
+              <p className="text-red-700 text-xs font-medium leading-relaxed">
+                {kiosk.result?.message || "Kamera absensi sedang dinonaktifkan oleh Pusat (Emergency Lock)."}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Fase 3: Lokasi Valid, Jalankan Deteksi Wajah */}
-        {kiosk.phase !== "locating" && kiosk.phase !== "location_invalid" && (
+        {kiosk.phase !== "locating" && kiosk.phase !== "location_invalid" && kiosk.phase !== "locked" && (
           <div className="relative overflow-hidden rounded-xl border-2 border-gray-100 bg-black min-h-[350px] flex justify-center items-center">
             <style dangerouslySetInnerHTML={{__html: `
               @keyframes scan-faceid {

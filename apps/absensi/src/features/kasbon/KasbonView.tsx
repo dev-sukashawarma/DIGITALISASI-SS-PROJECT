@@ -6,6 +6,7 @@ import { Banknote, Clock, CheckCircle2, XCircle, Plus, Info } from "lucide-react
 import { useKasbonHistory, useSubmitKasbon } from "./api";
 import dayjs from "dayjs";
 import { useToast } from "@/lib/feedback/toast";
+import { Select } from "@/components/Select";
 
 export function KasbonView() {
   const { outletStaff } = useAuth();
@@ -39,12 +40,12 @@ export function KasbonView() {
 
     try {
       await submitKasbon.mutateAsync({
-        user_id: userId,
+        staff_id: userId,
         amount: numAmount,
         installment_months: numMonths,
         reason,
         status_spv: outletStaff?.role === 'staff_pusat' ? 'not_required' : 'pending',
-        status_hr: 'pending',
+        status: 'pending',
       });
       toast.show("ok", "Pengajuan kasbon berhasil dikirim");
       setShowForm(false);
@@ -54,7 +55,7 @@ export function KasbonView() {
       setReason('');
     } catch (err) {
       console.error("Submit Kasbon Error:", JSON.stringify(err));
-      const errorMessage = err?.message || err?.details || "Unknown error";
+      const errorMessage = (err as any)?.message || (err as any)?.details || "Unknown error";
       toast.show("err", `Terjadi kesalahan saat mengajukan kasbon: ${errorMessage}`);
     }
   };
@@ -128,18 +129,19 @@ export function KasbonView() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Skema Cicilan (Bulan)</label>
-                <select
+                <Select
                   value={installmentMonths}
-                  onChange={(e) => setInstallmentMonths(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-shadow"
-                >
-                  <option value="1">1 Bulan (Potong full gaji bulan depan)</option>
-                  <option value="2">2 Bulan</option>
-                  <option value="3">3 Bulan</option>
-                  <option value="4">4 Bulan</option>
-                  <option value="5">5 Bulan</option>
-                  <option value="6">6 Bulan</option>
-                </select>
+                  onChange={val => setInstallmentMonths(val)}
+                  options={[
+                    { label: "1 Bulan (Potong full gaji bulan depan)", value: "1" },
+                    { label: "2 Bulan", value: "2" },
+                    { label: "3 Bulan", value: "3" },
+                    { label: "4 Bulan", value: "4" },
+                    { label: "5 Bulan", value: "5" },
+                    { label: "6 Bulan", value: "6" }
+                  ]}
+                  className="w-full"
+                />
                 {amount && (
                   <p className="mt-2 text-xs text-slate-500">
                     Estimasi cicilan: <span className="font-semibold">{formatRupiah(parseInt(amount.replace(/\D/g, '')) / parseInt(installmentMonths))} / bulan</span>
@@ -193,7 +195,7 @@ export function KasbonView() {
                       <span className="font-semibold text-slate-800">
                         {formatRupiah(item.amount)}
                       </span>
-                      {getStatusBadge(item.status_spv, item.status_hr)}
+                      {getStatusBadge(item.status_spv, item.status)}
                     </div>
                     <p className="text-sm text-slate-600 mb-2">{item.reason}</p>
                     <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">

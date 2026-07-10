@@ -7,12 +7,15 @@ import {
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { db } from '@/lib/db'
+import { cacheOrders, readCachedOrders, localOrderRowsToOrders } from '@/lib/offline'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import ChannelBadge from '@/components/ChannelBadge'
 import { formatRupiah } from '@/lib/validations'
 import { Skeleton } from '@/components/Skeleton'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { useDialogStore } from '@/lib/dialogStore'
+import { fetchWithTimeout } from '@/lib/offline-utils'
 
 const STATUS_CONF: Partial<Record<OrderStatus, {
   label: string; color: string; badge: string; icon: any
@@ -31,21 +34,29 @@ const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
 }
 
 async function fetchHistoriOrders(outletId: string, filter: OrderStatus | 'all'): Promise<OrderWithItems[]> {
+  const supabase = createClient()
   try {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      throw new Error('Offline mode: skipping Supabase fetch')
-    }
-    const supabase = createClient()
     const q = supabase.from('orders').select('*, order_items(*)')
       .eq('outlet_id', outletId)
       .order('created_at', { ascending: false }).limit(100)
     if (filter !== 'all') q.eq('status', filter)
-    const { data, error } = await q
-    if (error) throw error
+    const { data, error } = await fetchWithTimeout(q.then(res => res))
+    if (error) throw new Error(error.message)
+    if (filter === 'all') {
+      // Simpan snapshot ke IndexedDB agar histori tetap terbaca saat offline
+      await cacheOrders(outletId, data ?? []).catch(() => {})
+    }
     return data ?? []
   } catch (err) {
-    console.warn('Network error fetching histori orders', err)
-    throw err
+    console.warn('[Histori] Fetch gagal, memakai cache IndexedDB:', err)
+    const [cached, localRows] = await Promise.all([
+      readCachedOrders(outletId),
+      db.local_orders.where('outlet_id').equals(outletId).toArray(),
+    ])
+    const localList = localOrderRowsToOrders(localRows)
+    const localIds = new Set(localList.map(o => o.id))
+    const merged = [...localList, ...cached.filter(o => !localIds.has(o.id))]
+    return (filter === 'all' ? merged : merged.filter(o => o.status === filter)).slice(0, 100)
   }
 }
 

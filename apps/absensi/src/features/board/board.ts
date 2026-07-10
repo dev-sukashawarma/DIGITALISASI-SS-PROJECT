@@ -5,6 +5,7 @@ export type BoardRecord = {
   status: "tepat" | "telat" | "alpha" | "lebih_awal" | "pulang_telat";
   ts_server: string;
   selfie_url?: string | null;
+  telat_menit?: number | null;
 };
 
 export type BoardConfig = {
@@ -71,13 +72,13 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
       
       let delay_minutes = null;
       if (config.jam_keluar && (state === "lebih_awal" || state === "pulang_telat")) {
-        delay_minutes = Math.abs(calculateDelayMinutes(outRec.ts_server, config.jam_keluar));
+        delay_minutes = outRec.telat_menit ?? Math.abs(calculateDelayMinutes(outRec.ts_server, config.jam_keluar));
       }
       return { id: s.id, name: s.name, role: s.role, state, time: jam(outRec.ts_server), selfie_url: outRec.selfie_url || null, delay_minutes };
     }    
     if (inRec) {
       const state: BoardState = inRec.status === "telat" ? "telat" : "masuk";
-      const delay_minutes = state === "telat" ? calculateDelayMinutes(inRec.ts_server, config.jam_masuk) : null;
+      const delay_minutes = state === "telat" ? (inRec.telat_menit ?? calculateDelayMinutes(inRec.ts_server, config.jam_masuk)) : null;
       return { id: s.id, name: s.name, role: s.role, state, time: jam(inRec.ts_server), selfie_url: inRec.selfie_url || null, delay_minutes };
     }
     

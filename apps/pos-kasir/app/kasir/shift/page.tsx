@@ -8,6 +8,8 @@ import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import { Skeleton } from '@/components/Skeleton'
 import { useDialogStore } from '@/lib/dialogStore'
+import { db } from '@/lib/db'
+import { useNetworkStatus } from '@/lib/useNetworkStatus'
 
 interface Shift {
   id: string
@@ -85,6 +87,7 @@ export default function ShiftPage() {
   const { outletId } = useMyOutlet()
   const supabase = createClient()
   const router = useRouter()
+  const isOnline = useNetworkStatus()
   
   const [loading, setLoading] = useState(true)
   const [activeShift, setActiveShift] = useState<Shift | null>(null)
@@ -195,7 +198,12 @@ export default function ShiftPage() {
 
       // Get Petty Cash Balance
       const { data: pcData } = await supabase.rpc('get_petty_cash_balance', { p_outlet_id: outletId })
-      setPettyCashBalance(Number(pcData) || 0)
+      const balance = Number(pcData) || 0
+      setPettyCashBalance(balance)
+
+      let snapExpenses: Expense[] = []
+      let snapTopups: PettyCashTopup[] = []
+      let snapCashOrders: CashOrder[] = []
 
       if (shiftData) {
         // We fetch expenses, topups, and orders since shift start
@@ -216,9 +224,12 @@ export default function ShiftPage() {
           supabase.from('orders').select('id, order_number, total_amount, created_at').eq('outlet_id', outletId).eq('payment_method', 'cash').eq('status', 'completed').gte('created_at', shiftData.start_time)
         ])
 
-        setExpenses(await fetchCreators(expRes.data || []))
-        setTopups(await fetchCreators(topRes.data || []))
-        setCashOrders(ordRes.data || [])
+        snapExpenses = await fetchCreators(expRes.data || [])
+        snapTopups = await fetchCreators(topRes.data || [])
+        snapCashOrders = ordRes.data || []
+        setExpenses(snapExpenses)
+        setTopups(snapTopups)
+        setCashOrders(snapCashOrders)
       } else {
         setExpenses([])
         setTopups([])
@@ -245,16 +256,46 @@ export default function ShiftPage() {
           setPettyCashLocked(false)
         }
       }
+
+      // Simpan snapshot untuk ditampilkan saat offline (baca-saja)
+      await db.app_state.put({
+        key: `pettycash:${outletId}`,
+        value: {
+          shift: shiftData || null,
+          balance,
+          expenses: snapExpenses,
+          topups: snapTopups,
+          cashOrders: snapCashOrders,
+        },
+        synced_at: Date.now(),
+      }).catch(() => {})
     } catch (err: any) {
-      console.error(err)
-      setErrorMsg('Gagal memuat data shift')
+      // Offline / jaringan gagal → tampilkan data terakhir dari cache
+      console.warn('Gagal memuat data shift, memakai cache offline:', err)
+      const cached = await db.app_state.get(`pettycash:${outletId}`).catch(() => undefined)
+      if (cached?.value) {
+        const v = cached.value
+        setActiveShift(v.shift || null)
+        setPettyCashBalance(v.balance || 0)
+        setExpenses(v.expenses || [])
+        setTopups(v.topups || [])
+        setCashOrders(v.cashOrders || [])
+        setErrorMsg('')
+      } else {
+        setErrorMsg('Gagal memuat data shift')
+      }
     } finally {
       setLoading(false)
     }
   }
 
+  // Petty cash menyentuh saldo kas + upload struk + persetujuan SPV yang semuanya
+  // otoritatif di server → tak aman diantre offline. Kunci tulis saat offline.
+  const OFFLINE_MSG = 'Fitur ini butuh internet. Sambungkan ke internet untuk buka/tutup shift, top-up, atau catat pengeluaran.'
+
   async function handleOpenShift(e: React.FormEvent) {
     e.preventDefault()
+    if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
     setErrorMsg('')
     setSuccessMsg('')
     setIsSubmitting(true)
@@ -275,6 +316,7 @@ export default function ShiftPage() {
 
   async function handleAddExpense(e: React.FormEvent) {
     e.preventDefault()
+    if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
     setErrorMsg('')
     setSuccessMsg('')
     setIsSubmitting(true)
@@ -327,6 +369,7 @@ export default function ShiftPage() {
 
   async function handleAddTopup(e: React.FormEvent) {
     e.preventDefault()
+    if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
     setErrorMsg('')
     setSuccessMsg('')
     setIsSubmitting(true)
@@ -367,6 +410,7 @@ export default function ShiftPage() {
   async function handleCloseShift(e: React.FormEvent) {
     e.preventDefault()
     if (!activeShift) return
+    if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
     const confirmed = await showConfirm('Tutup shift sekarang? Setelah ditutup Anda tidak bisa melakukan transaksi tunai.')
     if (!confirmed) return
     setErrorMsg('')
@@ -470,6 +514,15 @@ export default function ShiftPage() {
 
   return (
     <div className="max-w-5xl mx-auto pb-12 animate-fade-in relative">
+      {!isOnline && (
+        <div className="mb-4 flex items-start gap-2.5 bg-orange-50 border border-orange-200 text-orange-800 rounded-xl px-4 py-3 text-sm">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-orange-500" />
+          <span>
+            <b>Mode offline.</b> Data petty cash di bawah adalah salinan terakhir. Buka/tutup shift, top-up,
+            & catat pengeluaran dikunci sampai internet tersambung (menyangkut saldo kas & persetujuan SPV).
+          </span>
+        </div>
+      )}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState, Spinner } from "@suka/design-system";
 import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays } from "lucide-react";
@@ -8,14 +8,15 @@ import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { computeBoard, type BoardStaff, type BoardRecord, type BoardRow } from "@/features/board/board";
 import { PageHeader, InfoPill } from "@/components/PageHeader";
+import { Select } from "@/components/Select";
 
 const PILL: Record<BoardRow["state"], { icon: React.ReactNode; label: (t: string | null, d: number | null) => string }> = {
   masuk:  { icon: <LogIn size={13} />,  label: (t) => `Masuk ${t}` },
-  telat:  { icon: <Clock4 size={13} />, label: (t, d) => `Telat ${d ? d + ' mnt' : t}` },
-  keluar: { icon: <LogOut size={13} />, label: (t) => `Keluar ${t}` },
-  lebih_awal: { icon: <LogOut size={13} />, label: (t) => `Lebih Awal ${t}` },
-  pulang_telat: { icon: <Clock4 size={13} />, label: (t, d) => `Pulang Telat ${d ? d + ' mnt' : t}` },
-  belum:  { icon: <MoreHorizontal size={13} />, label: () => "Belum hadir" },
+  telat:  { icon: <Clock4 size={13} />, label: (t, d) => `Masuk Telat ${d ? d + ' mnt' : t}` },
+  keluar: { icon: <LogOut size={13} />, label: (t) => `Pulang ${t}` },
+  lebih_awal: { icon: <LogOut size={13} />, label: (t) => `Pulang Cepat ${t}` },
+  pulang_telat: { icon: <Clock4 size={13} />, label: (t, d) => `Pulang Lama ${d ? d + ' mnt' : t}` },
+  belum:  { icon: <MoreHorizontal size={13} />, label: () => "Belum Hadir" },
   alpha:  { icon: <MoreHorizontal size={13} />, label: () => "Alpha" },
 };
 
@@ -40,20 +41,60 @@ export default function PapanKehadiranPage() {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["papan-kehadiran", outletStaff?.outlet_id, today],
     enabled: !!outletStaff?.outlet_id,
     queryFn: async () => {
-      const [{ data: staff }, { data: recs }, { data: cfg }] = await Promise.all([
+      const [{ data: staff }, { data: recs }, { data: localCfg }, { data: globalCfg }] = await Promise.all([
         supabase.from("outlet_staff").select("id,name,role").eq("outlet_id", outletStaff!.outlet_id).eq("status", "active"),
-        supabase.from("attendance").select("outlet_staff_id,type,status,ts_server,selfie_url")
+        supabase.from("attendance").select("outlet_staff_id,type,status,ts_server,selfie_url,telat_menit")
           .eq("outlet_id", outletStaff!.outlet_id).gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
-        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", outletStaff!.outlet_id).single()
+        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", outletStaff!.outlet_id).maybeSingle(),
+        supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
       ]);
+      let cfg = localCfg;
+      if (!cfg && globalCfg?.value) {
+        try {
+          cfg = typeof globalCfg.value === "string" ? JSON.parse(globalCfg.value) : globalCfg.value;
+        } catch(e) {}
+      }
       if (!cfg) return null;
       return computeBoard((staff as BoardStaff[]) ?? [], (recs as BoardRecord[]) ?? [], cfg);
     },
   });
+
+  useEffect(() => {
+    if (!outletStaff?.outlet_id) return;
+
+    const outletId = outletStaff.outlet_id;
+    const channel = supabase.channel(`papan-realtime-${outletId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance', filter: `outlet_id=eq.${outletId}` },
+        () => {
+          refetch();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${outletId}` },
+        () => {
+          refetch();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'global_settings' },
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [outletStaff?.outlet_id, refetch, supabase]);
 
   if (isLoading || !data) return <div className="p-6 flex justify-center"><Spinner /></div>;
 
@@ -104,20 +145,21 @@ export default function PapanKehadiranPage() {
       <div>
         <div className="mb-2 flex items-center justify-between px-1">
           <span className="text-sm font-semibold text-suka-ink">Daftar staf ({filteredRows.length})</span>
-          <select 
+          <Select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="text-xs bg-white border border-suka-gray-300 rounded-lg px-2 py-1 outline-none text-gray-600"
-          >
-            <option value="semua">Semua Status</option>
-            <option value="masuk">Masuk Tepat</option>
-            <option value="telat">Masuk Telat</option>
-            <option value="belum">Belum Hadir</option>
-            <option value="alpha">Alpha</option>
-            <option value="keluar">Keluar Tepat</option>
-            <option value="lebih_awal">Pulang Lebih Awal</option>
-            <option value="pulang_telat">Pulang Telat</option>
-          </select>
+            onChange={val => setFilterStatus(val)}
+            options={[
+              { label: "Semua Status", value: "semua" },
+              { label: "Masuk Tepat", value: "masuk" },
+              { label: "Masuk Telat", value: "telat" },
+              { label: "Belum Hadir", value: "belum" },
+              { label: "Alpha", value: "alpha" },
+              { label: "Pulang Tepat", value: "keluar" },
+              { label: "Pulang Cepat", value: "lebih_awal" },
+              { label: "Pulang Lama", value: "pulang_telat" }
+            ]}
+            className="w-[180px]"
+          />
         </div>
         <div className="rounded-2xl border border-suka-gray-200 bg-white divide-y divide-suka-gray-200/70 overflow-hidden">
           {filteredRows.length === 0 && <EmptyState icon={<Users size={28} />} title="Belum ada staff" />}

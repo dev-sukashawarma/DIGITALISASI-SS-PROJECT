@@ -108,14 +108,14 @@ export function useSubmitLeave() {
       const { data, error } = await supabase
         .from('leave_requests')
         .insert([{
-          staff_id: payload.user_id, // map user_id back to staff_id
-          leave_type: payload.type,
+          staff_id: payload.staff_id,
+          leave_type: payload.leave_type,
           start_date: payload.start_date,
           end_date: payload.end_date,
           days: payload.days,
           reason: payload.reason,
           status_spv: payload.status_spv,
-          status: payload.status_hr,
+          status: payload.status,
         }])
         .select()
         .single();
@@ -123,9 +123,9 @@ export function useSubmitLeave() {
       if (error) throw error;
       return data as Leave;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['leaves', variables.user_id] });
-      queryClient.invalidateQueries({ queryKey: ['leaveBalance', variables.user_id] });
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['leaves', variables.staff_id] });
+      queryClient.invalidateQueries({ queryKey: ['leaveBalance', variables.staff_id] });
     },
   });
 }

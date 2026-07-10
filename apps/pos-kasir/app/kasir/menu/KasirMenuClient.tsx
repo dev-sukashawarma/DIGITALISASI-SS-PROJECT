@@ -14,6 +14,8 @@ import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category } from '@/types'
 import { Skeleton } from '@suka/design-system'
 import { db } from '@/lib/db'
+import { fetchWithTimeout } from '@/lib/offline-utils'
+import { useNetworkStatus } from '@/lib/useNetworkStatus'
 
 const BUCKET = 'menu-images'
 
@@ -30,18 +32,16 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
   const supabase = createClient()
 
   try {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      throw new Error('Offline mode: skipping Supabase fetch')
-    }
-
-    const [{ data: m, error: mErr }, { data: c, error: cErr }, { data: b }, { data: u }, { data: unav, error: unavErr }, { data: rec }] = await Promise.all([
-      supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
-      supabase.from('categories').select('*').order('sort_order'),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'upsell_ids').maybeSingle(),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
-      supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'recommendation_ids').maybeSingle(),
-    ])
+    const [{ data: m, error: mErr }, { data: c, error: cErr }, { data: b }, { data: u }, { data: unav, error: unavErr }, { data: rec }] = await fetchWithTimeout(
+      Promise.all([
+        supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
+        supabase.from('categories').select('*').order('sort_order'),
+        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
+        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'upsell_ids').maybeSingle(),
+        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
+        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'recommendation_ids').maybeSingle(),
+      ])
+    )
 
     if (mErr) throw mErr
     if (cErr) throw cErr
@@ -105,10 +105,23 @@ export default function KasirMenuClient({
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [toast, setToast] = useState<Toast>(null)
 
+  const isOnline = useNetworkStatus()
+
   const showToast = useCallback((t: Toast) => {
     setToast(t)
     if (t) setTimeout(() => setToast(null), 3500)
   }, [])
+
+  // Perubahan menu (tersedia/bestseller/upsell/rekomendasi/upload) menulis ke
+  // server & mempengaruhi tampilan kiosk pelanggan secara real-time, jadi tak
+  // aman diantre offline. Kunci saat offline — menu tetap bisa DILIHAT.
+  const guardOnline = useCallback(() => {
+    if (!isOnline) {
+      showToast({ type: 'error', message: 'Perubahan menu butuh internet' })
+      return false
+    }
+    return true
+  }, [isOnline, showToast])
 
   const { data, isLoading: loading } = useQuery({
     queryKey: ['menu', outletId],
@@ -162,6 +175,7 @@ export default function KasirMenuClient({
 
   async function toggleAvail(item: MenuItem) {
     if (!outletId) return
+    if (!guardOnline()) return
     const supabase = createClient()
 
     try {
@@ -190,6 +204,7 @@ export default function KasirMenuClient({
 
   async function toggleBestseller(item: MenuItem) {
     if (!outletId) return
+    if (!guardOnline()) return
     const isBs = bestsellers.includes(item.id)
     const newBs = isBs
       ? bestsellers.filter(id => id !== item.id)
@@ -212,6 +227,7 @@ export default function KasirMenuClient({
 
   async function toggleUpsell(item: MenuItem) {
     if (!outletId) return
+    if (!guardOnline()) return
     const isUp = upsells.includes(item.id)
     const newUp = isUp
       ? upsells.filter(id => id !== item.id)
@@ -234,6 +250,7 @@ export default function KasirMenuClient({
 
   async function toggleRecommendation(item: MenuItem) {
     if (!outletId) return
+    if (!guardOnline()) return
     const isRec = recommendations.includes(item.id)
     const newRec = isRec
       ? recommendations.filter(id => id !== item.id)

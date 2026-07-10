@@ -17,6 +17,8 @@ import { WalkInCartPanel, type Payment as WalkInPayment } from '@/components/kas
 import { printReceipt, type ReceiptData } from '@/lib/printReceipt'
 import { useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/db'
+import { fetchWithTimeout } from '@/lib/offline-utils'
+import { createLocalOrder } from '@/lib/offline'
 
 type Mode = 'walkin' | 'online'
 
@@ -92,18 +94,17 @@ export default function OrderManualPage() {
     async function fetchMenu() {
       setLoading(true)
       try {
-        if (!navigator.onLine) {
-          throw new Error('Offline mode: skipping Supabase fetch')
-        }
-        const [menuRes, catRes, unavRes] = await Promise.all([
-          supabase.from('menu_items')
-            .select('*, categories(id,name,sort_order)')
-            .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
-            .order('sort_order'),
-          supabase.from('categories').select('*').order('sort_order'),
-          supabase.from('kiosk_settings').select('value')
-            .eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
-        ])
+        const [menuRes, catRes, unavRes] = await fetchWithTimeout(
+          Promise.all([
+            supabase.from('menu_items')
+              .select('*, categories(id,name,sort_order)')
+              .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
+              .order('sort_order'),
+            supabase.from('categories').select('*').order('sort_order'),
+            supabase.from('kiosk_settings').select('value')
+              .eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
+          ])
+        )
 
         if (menuRes.error) throw menuRes.error
         if (catRes.error) throw catRes.error
@@ -266,35 +267,30 @@ export default function OrderManualPage() {
       setCustomerName('')
       setCartOpen(false)
     } catch (err) {
-      console.warn('Network error during handleSubmit, fallback to Dexie:', err)
-      const offlineId = crypto.randomUUID()
-      const offlineOrderNumber = Date.now() % 10000;
-      await db.sync_queue_orders.add({
-        id: offlineId,
-        payload: {
-          url: '/api/orders/manual',
-          method: 'POST',
-          body: JSON.stringify(payload)
-        },
-        status: 'pending',
-        created_at: Date.now(),
-        displayData: {
-          orderNumber: offlineOrderNumber.toString(),
-          totalAmount: totalPrice,
-          source: 'offline',
-          paymentMethod: payment || 'cash',
-          items: lineList.map((l) => ({
-            id: crypto.randomUUID(),
-            menu_item_name: l.item.name,
-            quantity: l.quantity,
-            note: l.note,
-          }))
-        }
+      console.warn('Network error during handleSubmit, simpan sebagai order offline (IndexedDB):', err)
+      const { orderNumber } = await createLocalOrder({
+        outletId: outletId as string,
+        items: lineList.map((l) => ({
+          menu_item_id: l.item.id,
+          name: l.item.name,
+          note: l.note,
+          quantity: l.quantity,
+          unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id),
+          subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity,
+        })),
+        payment_method: payment as string,
+        customer_name: customerName.trim() || null,
+        total_amount: totalPrice,
+        discount_amount: globalDiscount > 0 ? globalDiscount : null,
+        source: 'manual',
+        channel,
+        apiUrl: '/api/orders/manual',
+        apiPayload: payload,
       })
-      
+
       postToNative({ type: 'haptic', style: 'success' })
       setSuccess({
-        orderNumber: Date.now() % 10000,
+        orderNumber,
         method: payment,
         change: payment === 'cash' ? (amountReceived !== null ? amountReceived - totalPrice : 0) : null
       })
@@ -392,33 +388,27 @@ export default function OrderManualPage() {
       setCartOpen(false)
       setWalkInPanelKey((k) => k + 1)
     } catch (err) {
-      console.warn('Network error during handleWalkInPay, fallback to Dexie:', err)
-      const offlineId = crypto.randomUUID()
-      const offlineOrderNumber = Date.now() % 10000;
-      const totalAmount = snapSubtotal - snapDiscount;
-      await db.sync_queue_orders.add({
-        id: offlineId,
-        payload: {
-          url: '/api/orders/walk-in',
-          method: 'POST',
-          body: JSON.stringify(payload)
-        },
-        status: 'pending',
-        created_at: Date.now(),
-        displayData: {
-          orderNumber: offlineOrderNumber.toString(),
-          totalAmount: totalAmount,
-          source: 'offline',
-          paymentMethod: method,
-          items: lineList.map((l) => ({
-            id: crypto.randomUUID(),
-            menu_item_name: l.item.name,
-            quantity: l.quantity,
-            note: l.note,
-          }))
-        }
+      console.warn('Network error during handleWalkInPay, simpan sebagai order offline (IndexedDB):', err)
+      const totalAmount = snapSubtotal - snapDiscount
+      const { orderNumber: offlineOrderNumber } = await createLocalOrder({
+        outletId: outletId as string,
+        items: lineList.map((l) => ({
+          menu_item_id: l.item.id,
+          name: l.item.name,
+          note: l.note,
+          quantity: l.quantity,
+          unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id),
+          subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity,
+        })),
+        payment_method: method,
+        customer_name: snapCustomer,
+        total_amount: totalAmount,
+        discount_amount: snapDiscount > 0 ? snapDiscount : null,
+        source: 'pos',
+        channel: null,
+        apiUrl: '/api/orders/walk-in',
+        apiPayload: payload,
       })
-
       const changeAmount = method === 'cash' && amountReceived !== null ? amountReceived - totalAmount : null
 
       postToNative({ type: 'haptic', style: 'success' })

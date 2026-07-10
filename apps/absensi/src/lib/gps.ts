@@ -55,3 +55,15 @@ export const MAX_GPS_ACCURACY_M = 150;
 export function isGpsAccuracyAcceptable(accuracyM: number): boolean {
   return accuracyM <= MAX_GPS_ACCURACY_M;
 }
+
+/** 
+ * Format jarak agar lebih mudah dibaca (ubah meter jadi kilometer jika >= 1000).
+ */
+export function formatDistanceMeters(meters: number, shortForm: boolean = false): string {
+  if (meters >= 1000) {
+    const km = meters / 1000;
+    // Hapus desimal .0 jika bulat, tapi tetap toFixed(1)
+    return `${km.toFixed(1).replace(/\.0$/, '')}${shortForm ? 'km' : ' kilometer'}`;
+  }
+  return `${meters.toFixed(1).replace(/\.0$/, '')}${shortForm ? 'm' : ' meter'}`;
+}

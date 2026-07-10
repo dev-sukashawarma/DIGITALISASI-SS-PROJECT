@@ -6,6 +6,7 @@ import OnlineOrderSync from '@/components/OnlineOrderSync'
 import BriefingBanner from '@/components/BriefingBanner'
 import NetworkIndicator from '@/components/NetworkIndicator'
 import OfflineSyncManager from '@/components/OfflineSyncManager'
+import OfflineWarmup from '@/components/OfflineWarmup'
 
 
 export default function KasirLayout({ children }: { children: React.ReactNode }) {
@@ -16,6 +17,7 @@ export default function KasirLayout({ children }: { children: React.ReactNode })
     <div className="h-[100dvh] overflow-hidden bg-[#fff8f1] flex flex-col lg:flex-row print:block print:h-auto print:overflow-visible">
       <NetworkIndicator />
       <OfflineSyncManager />
+      <OfflineWarmup />
       <OnlineOrderSync />
       <KasirNav />
       <main className="flex-1 min-w-0 overflow-y-auto print:overflow-visible print:w-full print:max-w-none">

@@ -15,6 +15,8 @@ import { useMyOutlet } from '@/lib/useMyOutlet'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
 import ChannelBadge from '@/components/ChannelBadge'
+import { db } from '@/lib/db'
+import { fetchWithTimeout } from '@/lib/offline-utils'
 
 interface ShiftRow {
   id: string
@@ -60,9 +62,6 @@ const RANGE_LABELS: Record<DateRange, string> = {
 
 async function fetchReportOrders(outletId: string, range: DateRange, customStart: string, customEnd: string): Promise<OrderRow[]> {
   try {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      throw new Error('Offline mode: skipping Supabase fetch')
-    }
     const supabase = createClient()
 
     let q = supabase
@@ -100,20 +99,30 @@ async function fetchReportOrders(outletId: string, range: DateRange, customStart
       q = q.gte('created_at', s.toISOString()).lte('created_at', e.toISOString())
     }
 
-    const { data, error } = await q
+    const { data, error } = await fetchWithTimeout(q.then(res => res))
     if (error) throw error
+
+    // Simpan snapshot laporan di app_state (BUKAN orders_cache — bentuk row
+    // orders_cache dipakai papan order dan berisi OrderWithItems lengkap).
+    if (data) {
+      await db.app_state.put({
+        key: `reports_orders:${outletId}`,
+        value: data,
+        synced_at: Date.now()
+      }).catch(() => {})
+    }
     return data ?? []
   } catch (err) {
-    console.warn('Network error fetching report orders', err)
-    throw err
+    console.warn('Network error fetching report orders, falling back to Dexie cache', err)
+    const cached = await db.app_state.get(`reports_orders:${outletId}`).catch(() => undefined)
+    let results = (cached?.value ?? []) as OrderRow[]
+    results = [...results].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    return results
   }
 }
 
 async function fetchReportShifts(outletId: string, range: DateRange, customStart: string, customEnd: string): Promise<ShiftRow[]> {
   try {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      throw new Error('Offline mode: skipping Supabase fetch')
-    }
     const supabase = createClient()
 
     let q = supabase
@@ -152,12 +161,28 @@ async function fetchReportShifts(outletId: string, range: DateRange, customStart
       q = q.gte('end_time', s.toISOString()).lte('end_time', e.toISOString())
     }
 
-    const { data, error } = await q
+    const { data, error } = await fetchWithTimeout(q.then(res => res))
     if (error) throw error
+
+    const now = Date.now()
+    if (data) {
+      await db.shifts_cache.bulkPut(data.map((shift: any) => ({
+        id: shift.id,
+        shift_data: shift,
+        synced_at: now
+      })))
+    }
     return data ?? []
   } catch (err) {
-    console.warn('Network error fetching report shifts', err)
-    throw err
+    console.warn('Network error fetching report shifts, falling back to Dexie cache', err)
+    const cachedShifts = await db.shifts_cache.toArray()
+    let results = cachedShifts.map(s => s.shift_data) as ShiftRow[]
+    results.sort((a, b) => {
+      const ta = a.end_time ? new Date(a.end_time).getTime() : 0
+      const tb = b.end_time ? new Date(b.end_time).getTime() : 0
+      return tb - ta
+    })
+    return results
   }
 }
 

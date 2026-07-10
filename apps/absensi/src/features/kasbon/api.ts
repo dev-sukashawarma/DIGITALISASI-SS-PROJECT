@@ -60,13 +60,13 @@ export function useSubmitKasbon() {
       const { data, error } = await supabase
         .from('cash_advances')
         .insert([{
-          staff_id: payload.user_id,
+          staff_id: payload.staff_id,
           amount: payload.amount,
           remaining: payload.amount, // Set remaining = amount initially
           reason: payload.reason,
           installment_months: payload.installment_months,
           status_spv: payload.status_spv,
-          status: payload.status_hr,
+          status: payload.status,
         }])
         .select()
         .single();
@@ -74,8 +74,8 @@ export function useSubmitKasbon() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['kasbon', variables.user_id] });
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['kasbon', variables.staff_id] });
     },
   });
 }

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import KioskPresenceMount from '@/components/KioskPresenceMount'
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 import GlobalBlockerMount from '@/components/GlobalBlockerMount'
 import AudioUnlockMount from '@/components/AudioUnlockMount'
 import { Providers } from '@/components/Providers'
@@ -14,6 +15,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'SHAWARMA — Self-Ordering Kiosk',
   description: 'Pesan shawarma favoritmu dengan mudah dan cepat',
+  manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -34,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning>
         <Providers>
           <BrandProvider>
+            <ServiceWorkerRegister />
             <KioskPresenceMount />
             <GlobalBlockerMount />
             <AudioUnlockMount />

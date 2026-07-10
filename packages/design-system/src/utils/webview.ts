@@ -17,6 +17,7 @@
 export type NativeBridgeMessage =
   | { type: 'haptic'; style?: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' }
   | { type: 'sound'; file: string }
+  | { type: 'open-external-url'; url: string }
 
 declare global {
   interface Window {

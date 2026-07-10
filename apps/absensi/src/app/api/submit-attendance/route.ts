@@ -80,10 +80,28 @@ export async function POST(req: Request) {
       }
     }
 
-    const { data: cfg } = await admin
+    let { data: cfg } = await admin
       .from("outlet_attendance_config")
       .select("jam_masuk,jam_keluar,toleransi_menit,absen_window_mode")
-      .eq("outlet_id", body.outlet_id).single();
+      .eq("outlet_id", body.outlet_id)
+      .maybeSingle();
+
+    if (!cfg) {
+      const { data: globalRow } = await admin
+        .from("global_settings")
+        .select("value")
+        .eq("key", "global_attendance_config")
+        .maybeSingle();
+      if (globalRow && globalRow.value) {
+        let globalVal = globalRow.value;
+        if (typeof globalVal === "string") {
+          try {
+            globalVal = JSON.parse(globalVal);
+          } catch (e) {}
+        }
+        cfg = globalVal as any;
+      }
+    }
 
     if (!cfg) return NextResponse.json({ ok: false, reason: "config_missing" }, { status: 500 });
 
@@ -117,6 +135,7 @@ export async function POST(req: Request) {
     }
     // ───────────────────────────────────────────────────────────────────────
     let status = "tepat";
+    let telat_menit: number | null = null;
     
     if (body.type === "out") {
       const [hOut, mOut] = (cfg.jam_keluar || "17:00").split(":").map(Number);
@@ -126,8 +145,10 @@ export async function POST(req: Request) {
       const diffMins = Math.floor((local.getTime() - deadlineOut.getTime()) / 60000);
       if (diffMins < 0) {
         status = "lebih_awal";
+        telat_menit = Math.abs(diffMins);
       } else if (diffMins >= 1) {
         status = "pulang_telat";
+        telat_menit = diffMins;
       } else {
         status = "tepat";
       }
@@ -140,20 +161,12 @@ export async function POST(req: Request) {
       const toleransiDeadline = new Date(local);
       toleransiDeadline.setHours(h, m + cfg.toleransi_menit, 0, 0);
 
-      if (local.getTime() <= jamMasukDeadline.getTime()) {
+      if (local.getTime() <= toleransiDeadline.getTime()) {
         status = "tepat";
-      } else if (local.getTime() <= toleransiDeadline.getTime()) {
-        status = "telat";
       } else {
-        status = "alpha";
+        status = "telat";
+        telat_menit = Math.floor((local.getTime() - jamMasukDeadline.getTime()) / 60000);
       }
-    }
-
-    // Tolak absen masuk telat SEBELUM menyimpan — agar tidak membuat record
-    // "alpha" yang mengunci kiosk seharian (decideAction memblokir bila ada
-    // record in berstatus alpha). Status alpha tetap dihitung virtual di rekap.
-    if (status === "alpha" && body.type === "in") {
-      return NextResponse.json({ ok: false, reason: "terlambat_alpha", ts_server: tsServer, attendance_id: body.id }, { status: 200 });
     }
 
     const { error } = await admin.from("attendance").upsert({
@@ -169,6 +182,7 @@ export async function POST(req: Request) {
       match_distance: body.match_distance,
       selfie_url: body.selfie_path,
       status,
+      telat_menit,
     }, { onConflict: "id", ignoreDuplicates: true });
 
     if (error) return NextResponse.json({ ok: false, reason: "insert_failed", detail: error.message }, { status: 500 });

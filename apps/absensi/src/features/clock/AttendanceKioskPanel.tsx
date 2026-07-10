@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Card, Spinner } from "@suka/design-system";
-import { UserRound, Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, Store, MapPin } from "lucide-react";
+import { Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
@@ -11,6 +11,7 @@ import { CameraCapture } from "@/components/CameraCapture";
 import { loadFaceModels } from "@/lib/face/recognizer";
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
+import { formatDistanceMeters } from "@/lib/gps";
 
 dayjs.locale("id");
 
@@ -19,6 +20,7 @@ type AttendanceRecord = {
   type: string;
   ts_server: string;
   status: string;
+  telat_menit?: number | null;
 };
 
 function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
@@ -67,37 +69,78 @@ export function AttendanceKioskPanel() {
   }, [kiosk.result]);
 
   useEffect(() => {
-    if (outletStaff?.outlet_id) {
-      kiosk.loadCandidates();
-      kiosk.flushQueue();
-      loadRecords();
-      
-      supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", outletStaff.outlet_id).single()
-        .then(({ data }) => {
-          if (data) {
-            setJamMasuk(data.jam_masuk);
-            setJamKeluar(data.jam_keluar ?? null);
-            setAbsenWindowMode(data.absen_window_mode ?? "auto");
-          }
-        });
-    }
-  }, [outletStaff?.outlet_id]);
-
-  // Poll status Buka/Tutup Outlet (is_active)
-  useEffect(() => {
     if (!outletStaff?.outlet_id) return;
+    
+    const outletId = outletStaff.outlet_id;
 
-    async function checkStatus() {
-      const { data } = await supabase.from("outlets").select("is_active, name").eq("id", outletStaff!.outlet_id).single();
-      if (data) {
-        setIsOutletOpen(data.is_active);
-        setOutletName(data.name || "");
-      }
-    }
+    // Initial Load
+    kiosk.loadCandidates();
+    kiosk.flushQueue();
+    loadRecords();
+    
+    const fetchConfig = () => {
+      Promise.all([
+        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", outletId).maybeSingle(),
+        supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
+      ]).then(([local, global]) => {
+        let data = local.data;
+        if (!data && global.data?.value) {
+          try {
+            data = typeof global.data.value === "string" ? JSON.parse(global.data.value) : global.data.value;
+          } catch(e) {}
+        }
+        if (data) {
+          setJamMasuk(data.jam_masuk);
+          setJamKeluar(data.jam_keluar ?? null);
+          setAbsenWindowMode(data.absen_window_mode ?? "auto");
+        }
+      });
+    };
+    fetchConfig();
+      
+    supabase.from("outlets").select("is_active, name").eq("id", outletId).single()
+      .then(({ data }) => {
+        if (data) {
+          setIsOutletOpen(data.is_active);
+          setOutletName(data.name || "");
+        }
+      });
 
-    checkStatus();
-    const interval = setInterval(checkStatus, 5000);
-    return () => clearInterval(interval);
+    // Realtime Subscriptions
+    const channel = supabase.channel(`kiosk-realtime-${outletId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${outletId}` },
+        () => { fetchConfig(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'global_settings' },
+        () => { fetchConfig(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlets', filter: `id=eq.${outletId}` },
+        (payload) => {
+          const newOutlet = payload.new as any;
+          if (newOutlet && newOutlet.is_active !== undefined) {
+            setIsOutletOpen(newOutlet.is_active);
+            if (newOutlet.name) setOutletName(newOutlet.name);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance', filter: `outlet_id=eq.${outletId}` },
+        () => {
+          loadRecords();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [outletStaff?.outlet_id]);
 
   // Otomatis memicu pemindaian lokasi saat phase diset ke "locating"
@@ -121,7 +164,7 @@ export function AttendanceKioskPanel() {
     setLoadingHistory(true);
     supabase
       .from("attendance")
-      .select("id, type, ts_server, status")
+      .select("id, type, ts_server, status, telat_menit")
       .eq("outlet_staff_id", outletStaff.id)
       .order("ts_server", { ascending: false })
       .limit(30)
@@ -371,7 +414,7 @@ export function AttendanceKioskPanel() {
                 {kiosk.gpsDistance !== null && (
                   <div className="inline-block bg-slate-900 border border-red-500/30 rounded-lg px-2.5 py-1 mt-1">
                     <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Jarak Saat Ini</p>
-                    <p className="text-base font-black text-red-400">{kiosk.gpsDistance.toFixed(1)} meter</p>
+                    <p className="text-base font-black text-red-400">{formatDistanceMeters(kiosk.gpsDistance, false)}</p>
                   </div>
                 )}
               </div>
@@ -536,7 +579,7 @@ export function AttendanceKioskPanel() {
           {loadingHistory ? (
             <div className="p-10 flex justify-center"><Spinner /></div>
           ) : records.map(r => {
-            const delay = (r.status === 'telat' && r.type === 'in' && jamMasuk) ? calculateDelayMinutes(r.ts_server, jamMasuk) : null;
+            const delay = r.telat_menit ?? ((r.status === 'telat' && r.type === 'in' && jamMasuk) ? calculateDelayMinutes(r.ts_server, jamMasuk) : null);
             const isLate = r.status === 'telat';
             
             return (

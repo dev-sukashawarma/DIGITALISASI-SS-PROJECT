@@ -576,8 +576,15 @@
         function classifyFlows() {
             const svg = document.querySelector('.mermaid svg');
             if (!svg) return;
-            const labels = Array.from(svg.querySelectorAll('.edgeLabels .edgeLabel, .edgeLabel'));
-            const paths = Array.from(svg.querySelectorAll('.edgePaths path.path, .edgePaths path'));
+            // Mermaid 10 merender 2 elemen .edgeLabel per edge (grup <g> luar + <span> dalam).
+            // Ambil HANYA anak langsung .edgeLabels agar jumlahnya = jumlah edge & selaras indeks path.
+            let labels = Array.from(svg.querySelectorAll('.edgeLabels > .edgeLabel'));
+            let paths = Array.from(svg.querySelectorAll('.edgePaths > path'));
+            // Fallback aman bila struktur SVG berbeda (versi Mermaid lain): jangan sampai no-op salah-pasang.
+            if (labels.length !== paths.length) {
+                labels = Array.from(svg.querySelectorAll('.edgeLabel'));
+                paths = Array.from(svg.querySelectorAll('.edgePaths path'));
+            }
             const classify = (txt) => txt.includes('$') ? 'money'
                 : txt.includes('📦') ? 'goods'
                 : txt.includes('📄') ? 'doc' : 'data';

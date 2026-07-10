@@ -264,17 +264,36 @@ export default function KasirOrderClient({
     if (hasNewPendingOrder) playNotification()
   }, [orders, ordersFetched, playNotification])
 
-  // Play alarm/sound if antrean increases
-  const prevAntreanCount = useRef(0)
-  const [antreanCount, setAntreanCount] = useState(0)
+  // State and ref for tracking scheduled orders moving to cooking queue
+  const prevTerjadwalIds = useRef<Set<string>>(new Set())
+  const [scheduledAlerts, setScheduledAlerts] = useState<OrderWithItems[]>([])
 
+  // Tracking pergerakan spesifik dari "Terjadwal" ke "Antrean Masak"
   useEffect(() => {
-    if (antreanCount > prevAntreanCount.current && prevAntreanCount.current !== 0) {
-      playNotification()
-      showAlert('Segera siapkan! Ada pesanan dari tab Terjadwal yang waktunya sisa 20 menit.')
+    // Determine current terjadwal and antreanMasak
+    const currentTerjadwal = orders.filter(o => (o.status === 'pending' || o.status === 'preparing') && getEffectiveReleaseTime(o) > now)
+    const currentAntreanMasak = orders.filter(o => (o.status === 'pending' || o.status === 'preparing') && getEffectiveReleaseTime(o) <= now)
+    
+    const currentTerjadwalIds = new Set(currentTerjadwal.map(o => o.id))
+    const currentAntreanMasakIds = new Set(currentAntreanMasak.map(o => o.id))
+
+    const justMovedOrders: OrderWithItems[] = []
+    
+    // Periksa apakah ada pesanan yang sebelumnya di terjadwal, tapi sekarang di antreanMasak
+    for (const id of prevTerjadwalIds.current) {
+      if (currentAntreanMasakIds.has(id)) {
+        const order = currentAntreanMasak.find(o => o.id === id)
+        if (order) justMovedOrders.push(order)
+      }
     }
-    prevAntreanCount.current = antreanCount
-  }, [antreanCount, playNotification, showAlert])
+
+    if (justMovedOrders.length > 0) {
+      playNotification() // Bunyikan bel
+      setScheduledAlerts(prev => [...prev, ...justMovedOrders]) // Tambahkan ke antrean modal peringatan
+    }
+
+    prevTerjadwalIds.current = currentTerjadwalIds
+  }, [orders, now, playNotification])
 
   /**
    * Terapkan perubahan status pesanan dengan dukungan offline penuh:
@@ -432,10 +451,6 @@ export default function KasirOrderClient({
   const antreanMasak = preparingOrders.filter(o => getEffectiveReleaseTime(o) <= now)
   const terjadwalMasak = preparingOrders.filter(o => getEffectiveReleaseTime(o) > now).sort((a, b) => getEffectiveReleaseTime(a) - getEffectiveReleaseTime(b))
 
-  // Update antrean count to trigger sound effect
-  useEffect(() => {
-    setAntreanCount(antreanMasak.length)
-  }, [antreanMasak.length])
 
   const completedOrders = filteredOrders.filter((o) => o.status === 'completed')
   const filteredCompletedOrders = completedOrders.filter(o => {
@@ -1021,6 +1036,118 @@ export default function KasirOrderClient({
         </div>
 
       </div>
+
+      {/* MODAL PESANAN TERJADWAL */}
+      {scheduledAlerts.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl shadow-indigo-900/20 border border-white/20 animate-in zoom-in-95 duration-200">
+            
+            {/* Header */}
+            <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 text-center text-white relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-full bg-[url('/noise.png')] opacity-10 mix-blend-overlay"></div>
+              
+              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-md ring-1 ring-white/30 relative">
+                <Clock size={32} className="text-white animate-pulse" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-indigo-500"></div>
+              </div>
+              
+              <h2 className="text-2xl font-black tracking-tight mb-1">Siapkan Sekarang!</h2>
+              <p className="text-indigo-100 text-sm font-medium">Sisa waktu 20 menit lagi untuk pesanan Terjadwal ini.</p>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4 pb-4 border-b border-dashed border-slate-200">
+                <div className="text-sm font-bold text-slate-500 uppercase">Order</div>
+                <div className="text-3xl font-black text-slate-800 tracking-tighter">
+                  #{scheduledAlerts[0].order_number || scheduledAlerts[0].id.slice(0,4).toUpperCase()}
+                </div>
+              </div>
+
+              {scheduledAlerts[0].notes && (
+                <div className="mb-4 bg-orange-50 border border-orange-100 rounded-xl p-3">
+                  <div className="text-xs font-bold text-orange-800 mb-1 flex items-center gap-1">
+                    <User size={12} /> Catatan / Info Pengambilan
+                  </div>
+                  <div className="text-sm font-semibold text-orange-950 whitespace-pre-wrap leading-tight">
+                    {scheduledAlerts[0].notes}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs font-bold text-slate-400 uppercase mb-2">Daftar Menu</div>
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 max-h-[160px] overflow-y-auto">
+                <div className="flex flex-col gap-3">
+                  {(() => {
+                    const orderItems = scheduledAlerts[0].order_items || []
+                    const parsed = orderItems.map((oi: any) => {
+                      let name = oi.menu_item_name || ''
+                      let note = ''
+                      let id = oi.id
+                      let parentId = null
+                      
+                      const noteSplit = name.split('|NOTE|')
+                      if (noteSplit.length > 1) { note = noteSplit[1]; name = noteSplit[0] }
+                      
+                      const parentSplit = name.split('|PARENT|')
+                      if (parentSplit.length > 1) { parentId = parentSplit[1]; name = parentSplit[0] }
+                      
+                      return { ...oi, parsedName: name, parsedNote: note, parsedId: id, parentId }
+                    })
+
+                    const parents = parsed.filter((i: any) => !i.parentId)
+                    const childrenMap = parsed.filter((i: any) => i.parentId).reduce((acc: any, cur: any) => {
+                      if (!acc[cur.parentId]) acc[cur.parentId] = []
+                      acc[cur.parentId].push(cur)
+                      return acc
+                    }, {})
+
+                    return parents.map((oi: any) => (
+                      <div key={oi.parsedId} className="flex flex-col">
+                        <div className="flex items-start gap-2">
+                          <span className="font-black text-slate-800 w-5 shrink-0 text-right">{oi.quantity}x</span>
+                          <span className="font-bold text-slate-700 min-w-0 break-words leading-tight flex-1">{oi.parsedName}</span>
+                        </div>
+                        {oi.parsedNote && (
+                          <div className="ml-7 mt-0.5 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded w-max">
+                            {oi.parsedNote}
+                          </div>
+                        )}
+                        {childrenMap[oi.parsedId] && childrenMap[oi.parsedId].map((child: any) => (
+                          <div key={child.parsedId} className="flex items-start gap-2 mt-1 ml-6">
+                            <span className="font-bold text-slate-500 text-xs w-4 shrink-0 text-right">{child.quantity}x</span>
+                            <span className="font-semibold text-slate-500 text-xs min-w-0 break-words leading-tight flex-1">Extra: {child.parsedName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() => {
+                  // Hapus pesanan pertama dari queue
+                  setScheduledAlerts(prev => prev.slice(1))
+                }}
+                className="flex-1 bg-indigo-600 text-white font-bold text-base py-3.5 rounded-xl hover:bg-indigo-700 active:scale-95 transition-all shadow-md shadow-indigo-200"
+              >
+                OK, Mengerti
+              </button>
+            </div>
+            
+            {scheduledAlerts.length > 1 && (
+              <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md border border-white/30 text-white text-[10px] font-bold px-2 py-1 rounded-lg">
+                1 of {scheduledAlerts.length}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

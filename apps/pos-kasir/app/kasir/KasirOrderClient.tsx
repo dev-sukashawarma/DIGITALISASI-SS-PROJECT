@@ -510,6 +510,9 @@ export default function KasirOrderClient({
               <span className={`text-4xl font-black tracking-tighter ${accentColor} drop-shadow-sm leading-none`}>
                 #{order.order_number || order.id.slice(0,4).toUpperCase()}
               </span>
+              <div className="text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1">
+                <Clock size={10} /> dipesan {timeAgo(order.created_at, now)}
+              </div>
               {localOrderIds.has(order.id) && (
                 <span className="mt-1.5 inline-flex items-center gap-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-max">
                   OFFLINE — belum sinkron

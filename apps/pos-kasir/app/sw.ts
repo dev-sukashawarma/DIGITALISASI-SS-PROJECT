@@ -104,6 +104,19 @@ const customCache: RuntimeCaching[] = [
       ],
     }),
   },
+  // Static assets (Next.js chunks, CSS, etc.) that are missed by the empty precache manifest
+  {
+    matcher: ({ url }) => url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/_next/image/'),
+    handler: new StaleWhileRevalidate({
+      cacheName: 'next-static-assets',
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 200,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+        }),
+      ],
+    }),
+  },
   ...defaultCache,
 ];
 

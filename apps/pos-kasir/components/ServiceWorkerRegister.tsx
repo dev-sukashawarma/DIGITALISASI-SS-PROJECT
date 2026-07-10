@@ -10,7 +10,7 @@ import { useEffect } from 'react'
  */
 export default function ServiceWorkerRegister() {
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') return
+    // Jalankan SW di dev dan prod untuk testing offline secara komprehensif
     if (!('serviceWorker' in navigator)) return
 
     navigator.serviceWorker

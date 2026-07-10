@@ -133,3 +133,74 @@ export async function tolakPermintaan(
   })
   if (error) throw new Error(error.message)
 }
+
+// ---------------------------------------------------------------------------
+// fetchCrosscheckStok — ambil sisa stok peminta dan stok gudang
+// ---------------------------------------------------------------------------
+export async function fetchCrosscheckStok(
+  outletId: string,
+  bahanBakuIds: string[]
+): Promise<Record<string, { outletStok: number; gudangStok: number }>> {
+  if (!bahanBakuIds.length) return {}
+  const supabase = makeServiceClient()
+
+  try {
+    // 1. Cari ID Gudang Pusat
+    const { data: gudang, error: gudangError } = await supabase
+      .from('outlets')
+      .select('id')
+      .ilike('name', '%GUDANG PUSAT%')
+      .single()
+
+    if (gudangError && gudangError.code !== 'PGRST116') {
+      console.error('Error fetching gudang pusat:', gudangError)
+    }
+
+    const gudangId = gudang?.id
+
+    // 2. Fetch stok outlet peminta
+    const { data: outletStok, error: outletStokError } = await supabase
+      .from('stok_balance')
+      .select('bahan_baku_id, qty')
+      .eq('outlet_id', outletId)
+      .in('bahan_baku_id', bahanBakuIds)
+
+    if (outletStokError) {
+      console.error('Error fetching outlet stok:', outletStokError)
+    }
+
+    // 3. Fetch stok gudang pusat
+    let gudangStok: { bahan_baku_id: string; qty: number }[] = []
+    if (gudangId) {
+      const { data, error: gudangStokError } = await supabase
+        .from('stok_balance')
+        .select('bahan_baku_id, qty')
+        .eq('outlet_id', gudangId)
+        .in('bahan_baku_id', bahanBakuIds)
+
+      if (gudangStokError) {
+        console.error('Error fetching gudang stok:', gudangStokError)
+      }
+      gudangStok = data || []
+    }
+
+    // 4. Map hasil
+    const result: Record<string, { outletStok: number; gudangStok: number }> = {}
+    for (const id of bahanBakuIds) {
+      result[id] = { outletStok: 0, gudangStok: 0 }
+    }
+
+    outletStok?.forEach(s => {
+      if (result[s.bahan_baku_id]) result[s.bahan_baku_id].outletStok = s.qty
+    })
+
+    gudangStok.forEach(s => {
+      if (result[s.bahan_baku_id]) result[s.bahan_baku_id].gudangStok = s.qty
+    })
+
+    return result
+  } catch (error) {
+    console.error('Error in fetchCrosscheckStok:', error)
+    return {}
+  }
+}

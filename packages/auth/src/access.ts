@@ -2,9 +2,9 @@ import type { AppName, Role } from './types'
 
 /** Sumber tunggal matriks akses role -> daftar app. Ref: docs/ROLE-JOBDESK.md */
 export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
-  admin: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'owner-dashboard', 'admin-dashboard'],
+  admin: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'owner-dashboard', 'admin-dashboard', 'finance'],
   admin_hr: ['absensi', 'admin-dashboard'],
-  owner: ['owner-dashboard', 'admin-dashboard'],
+  owner: ['owner-dashboard', 'admin-dashboard', 'finance'],
   spv: ['absensi', 'stok', 'distribusi', 'pos-kasir'],
   kitchen: ['stok', 'distribusi'],
   leader: ['pos-kasir', 'absensi', 'stok', 'distribusi'],
@@ -12,6 +12,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   kiosk: ['pos-kasir'],
   mitra: ['admin-dashboard'],
   staff_pusat: ['absensi'],
+  admin_finance: ['finance'],
 }
 
 export function hasAppAccess(role: Role, app: AppName): boolean {

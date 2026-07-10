@@ -9,6 +9,7 @@ export type Role =
   | 'kitchen'
   | 'mitra'
   | 'staff_pusat'
+  | 'admin_finance'
 
 export type AppName =
   | 'pos-kasir'
@@ -17,6 +18,7 @@ export type AppName =
   | 'distribusi'
   | 'owner-dashboard'
   | 'admin-dashboard'
+  | 'finance'
 
 export type StaffStatus = 'active' | 'inactive' | 'on_leave'
 

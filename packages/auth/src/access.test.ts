@@ -36,8 +36,8 @@ describe('ROLE_APP_ACCESS', () => {
     expect([...ROLE_APP_ACCESS.owner].sort()).toEqual(['admin-dashboard', 'finance', 'owner-dashboard'])
   })
 
-  it('spv tidak punya pos-kasir', () => {
-    expect(ROLE_APP_ACCESS.spv).not.toContain('pos-kasir')
+  it('spv punya pos-kasir', () => {
+    expect(ROLE_APP_ACCESS.spv).toContain('pos-kasir')
   })
 
   it('kitchen memiliki akses stok dan distribusi', () => {

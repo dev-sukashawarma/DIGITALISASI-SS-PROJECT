@@ -105,19 +105,11 @@ export default function BlockedOverlay({
       const waText = encodeURIComponent(`Halo SPV, saya mengajukan *Bypass Darurat* untuk sistem POS.\n\nKasir: ${staff.name}\nAlasan: ${bypassReason.trim()}\n\nKlik link berikut untuk menyetujui atau menolak:\n${approveLink}`)
       const bypassWaLink = `https://wa.me/6285885497377?text=${waText}`
       
-      // Cek apakah web dibuka dari dalam aplikasi native Expo dan bridge siap
-      if (typeof window !== 'undefined' && (window as any).__SUKASHAWARMA_NATIVE_APP__) {
-        // Kirim pesan ke bridge Expo, ini akan ditangkap oleh App.tsx jika onMessage terpasang
-        const sent = postToNative({ type: 'open-external-url', url: bypassWaLink });
-        
-        if (!sent) {
-          // Fallback jika bridge tidak terkirim (misalnya native app belum di-rebuild)
-          window.open(bypassWaLink, '_blank', 'noopener,noreferrer');
-        }
-      } else {
-        // Fallback untuk browser biasa
-        window.open(bypassWaLink, '_blank', 'noopener,noreferrer');
-      }
+      // Menggunakan window.location.href langsung.
+      // Di Expo (React Native WebView), onShouldStartLoadWithRequest akan mencegat navigasi ini
+      // lalu membukanya menggunakan Linking.openURL ke browser eksternal atau aplikasi WhatsApp.
+      // Ini menjamin kompatibilitas dengan versi native app lama.
+      window.location.href = bypassWaLink;
 
     } catch (err: any) {
       setBypassError(err.message || 'Terjadi kesalahan sistem.')

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState, Spinner } from "@suka/design-system";
 import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
+import { useRealtimeInvalidate } from "@/lib/realtime/useRealtimeInvalidate";
 import { computeBoard, type BoardStaff, type BoardRecord, type BoardRow } from "@/features/board/board";
 import { PageHeader, InfoPill } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
@@ -41,7 +42,7 @@ export default function PapanKehadiranPage() {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["papan-kehadiran", outletStaff?.outlet_id, today],
     enabled: !!outletStaff?.outlet_id,
     queryFn: async () => {
@@ -63,38 +64,15 @@ export default function PapanKehadiranPage() {
     },
   });
 
-  useEffect(() => {
-    if (!outletStaff?.outlet_id) return;
-
-    const outletId = outletStaff.outlet_id;
-    const channel = supabase.channel(`papan-realtime-${outletId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'attendance', filter: `outlet_id=eq.${outletId}` },
-        () => {
-          refetch();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${outletId}` },
-        () => {
-          refetch();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'global_settings' },
-        () => {
-          refetch();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [outletStaff?.outlet_id, refetch, supabase]);
+  useRealtimeInvalidate({
+    channelName: `absensi-papan-${outletStaff?.outlet_id ?? "none"}`,
+    enabled: !!outletStaff?.outlet_id,
+    subs: [
+      { table: "attendance", filter: `outlet_id=eq.${outletStaff?.outlet_id}`, queryKeys: [["papan-kehadiran", outletStaff?.outlet_id, today]] },
+      { table: "outlet_attendance_config", filter: `outlet_id=eq.${outletStaff?.outlet_id}`, queryKeys: [["papan-kehadiran", outletStaff?.outlet_id, today]] },
+      { table: "global_settings", queryKeys: [["papan-kehadiran", outletStaff?.outlet_id, today]] },
+    ],
+  });
 
   if (isLoading || !data) return <div className="p-6 flex justify-center"><Spinner /></div>;
 

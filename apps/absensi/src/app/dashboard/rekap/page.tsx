@@ -9,6 +9,7 @@ import { useAuth } from '@suka/auth';
 import { PageHeader } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
 import { attendanceToCsv, downloadCsv, type CsvRow } from "@/features/rekap/csv";
+import { useRealtimeInvalidate } from "@/lib/realtime/useRealtimeInvalidate";
 
 type Row = {
   id: string;
@@ -113,6 +114,14 @@ export default function RekapPage() {
 
       return [...dbRows, ...virtualAlphas];
     },
+  });
+
+  useRealtimeInvalidate({
+    channelName: `absensi-rekap-${outletStaff?.outlet_id ?? "none"}`,
+    enabled: !!outletStaff?.outlet_id,
+    subs: [
+      { table: "attendance", filter: `outlet_id=eq.${outletStaff?.outlet_id}`, queryKeys: [["rekap", outletStaff?.outlet_id, date]] },
+    ],
   });
 
   const summary = useMemo(() => ({

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { Button, Spinner } from "@suka/design-system";
 import { Settings2, Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
 import { saveGlobalConfig, saveOutletException, deleteOutletException, deleteAllExceptions } from "./actions";
 import { useToast } from "@/lib/feedback/toast";
+import { createClient } from "@/lib/supabase";
+import { useRealtimeChannel } from "@/lib/realtime/useRealtimeChannel";
 
 type Config = {
   jam_masuk: string;
@@ -36,20 +38,67 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
   const toast = useToast();
   const [isPending, startTransition] = useTransition();
 
+  const supabase = useMemo(() => createClient(), []);
+
   const [globalConfig, setGlobalConfig] = useState<Config>(initialGlobalConfig);
+  const [outlets, setOutlets] = useState<Outlet[]>(initialOutlets);
+  const [outletConfigs, setOutletConfigs] = useState<OutletConfig[]>(initialOutletConfigs);
   const [search, setSearch] = useState("");
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOutletId, setSelectedOutletId] = useState("");
   const [newOutletConfig, setNewOutletConfig] = useState<Config>({ ...globalConfig });
 
-  const filteredConfigs = initialOutletConfigs.filter(cfg => {
-    const outlet = initialOutlets.find(o => o.id === cfg.outlet_id);
+  // Marks true while the SPV has unsaved edits in the global ("Pusat") config form.
+  // Guards refreshConfig from silently overwriting in-progress edits on realtime events.
+  const globalDirtyRef = useRef(false);
+
+  // Re-fetch pengaturan (global + per-outlet) dari DB, dipanggil saat realtime event masuk.
+  // Idempotent: cukup baca ulang state DB terkini, tidak menulis apa pun.
+  const refreshConfig = useCallback(async () => {
+    const [globalRes, outletsRes, outletConfigsRes] = await Promise.all([
+      supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle(),
+      supabase.from("outlets").select("id, name, is_active").order("name"),
+      supabase.from("outlet_attendance_config").select("*"),
+    ]);
+
+    let cfgRaw: any = globalRes.data?.value;
+    if (typeof cfgRaw === "string") {
+      try {
+        cfgRaw = JSON.parse(cfgRaw);
+      } catch {
+        cfgRaw = null;
+      }
+    }
+    if (cfgRaw && !globalDirtyRef.current) {
+      setGlobalConfig(prev => ({
+        jam_masuk: cfgRaw.jam_masuk?.slice(0, 5) || prev.jam_masuk,
+        jam_keluar: cfgRaw.jam_keluar?.slice(0, 5) || prev.jam_keluar,
+        toleransi_menit: cfgRaw.toleransi_menit ?? prev.toleransi_menit,
+        is_active: prev.is_active,
+        absen_window_mode: cfgRaw.absen_window_mode || prev.absen_window_mode,
+      }));
+    }
+    if (outletsRes.data) setOutlets(outletsRes.data);
+    if (outletConfigsRes.data) setOutletConfigs(outletConfigsRes.data as OutletConfig[]);
+  }, [supabase]);
+
+  useRealtimeChannel({
+    channelName: "absensi-pengaturan",
+    enabled: true,
+    subs: [
+      { table: "outlet_attendance_config", handler: () => refreshConfig() },
+      { table: "global_settings", handler: () => refreshConfig() },
+    ],
+  });
+
+  const filteredConfigs = outletConfigs.filter(cfg => {
+    const outlet = outlets.find(o => o.id === cfg.outlet_id);
     if (!outlet) return false;
     return outlet.name.toLowerCase().includes(search.toLowerCase());
   });
 
-  const availableOutlets = initialOutlets.filter(o => !initialOutletConfigs.find(c => c.outlet_id === o.id));
+  const availableOutlets = outlets.filter(o => !outletConfigs.find(c => c.outlet_id === o.id));
 
   const onSaveGlobal = (formData: FormData) => {
     formData.set("absen_window_mode", globalConfig.absen_window_mode);
@@ -58,6 +107,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
     startTransition(async () => {
       try {
         await saveGlobalConfig(formData);
+        globalDirtyRef.current = false;
         toast.show("ok", "Pengaturan Utama berhasil disimpan!");
       } catch (err: any) {
         toast.show("err", err.message || "Gagal menyimpan pengaturan");
@@ -215,7 +265,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
           </div>
           
           <form action={onSaveGlobal} className="flex flex-col gap-6">
-            <ConfigFormFields config={globalConfig} setConfig={setGlobalConfig} />
+            <ConfigFormFields config={globalConfig} setConfig={(c) => { globalDirtyRef.current = true; setGlobalConfig(c); }} />
 
             <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${globalConfig.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-red-50 border border-red-100"}`}>
               <div>
@@ -230,7 +280,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
               </div>
               <button
                 type="button"
-                onClick={() => setGlobalConfig({ ...globalConfig, is_active: !globalConfig.is_active })}
+                onClick={() => { globalDirtyRef.current = true; setGlobalConfig({ ...globalConfig, is_active: !globalConfig.is_active }); }}
                 className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
                   globalConfig.absen_window_mode === "manual"
                     ? (globalConfig.is_active ? "bg-suka-green" : "bg-gray-300")
@@ -300,7 +350,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
               </div>
             ) : (
               filteredConfigs.map((cfg) => {
-                const outlet = initialOutlets.find(o => o.id === cfg.outlet_id);
+                const outlet = outlets.find(o => o.id === cfg.outlet_id);
                 return (
                   <div key={cfg.outlet_id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-3 flex items-start justify-between">

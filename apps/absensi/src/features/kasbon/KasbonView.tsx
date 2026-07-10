@@ -7,10 +7,20 @@ import { useKasbonHistory, useSubmitKasbon } from "./api";
 import dayjs from "dayjs";
 import { useToast } from "@/lib/feedback/toast";
 import { Select } from "@/components/Select";
+import { useRealtimeInvalidate } from "@/lib/realtime/useRealtimeInvalidate";
 
 export function KasbonView() {
   const { outletStaff } = useAuth();
   const userId = outletStaff?.id;
+
+  useRealtimeInvalidate({
+    channelName: `absensi-kasbon-${userId ?? "none"}`,
+    enabled: !!userId,
+    subs: [
+      { table: "cash_advances", filter: `staff_id=eq.${userId}`, queryKeys: [["kasbon", userId]] },
+      { table: "cash_advance_installments", queryKeys: [["kasbon", userId]] },
+    ],
+  });
 
   const { data: history, isLoading: loadingHistory } = useKasbonHistory(userId);
   const submitKasbon = useSubmitKasbon();

@@ -394,7 +394,13 @@ export default function ShiftPage() {
       const appUrl = window.location.origin
       const approveLink = `${appUrl}/api/topup/approve?id=${insertedData.id}&token=${approvalToken}`
       const waText = encodeURIComponent(`Halo SPV, saya mengajukan Top Up Dana Operasional sebesar ${formatRupiah(amount)}.\n\nAlasan: ${topupDesc.trim()}\n\nKlik link berikut untuk menyetujui:\n${approveLink}`)
-      window.open(`https://wa.me/6285885497377?text=${waText}`, '_blank')
+      const waLink = `https://wa.me/6285885497377?text=${waText}`;
+      if (typeof window !== 'undefined' && (window as any).__SUKASHAWARMA_NATIVE_APP__) {
+        // Fallback or explicit check if we add postToNative later, but mostly for mobile Webviews window.location.href works natively.
+        window.location.href = waLink;
+      } else {
+        window.location.href = waLink;
+      }
 
       setTopupAmount('')
       setTopupDesc('')

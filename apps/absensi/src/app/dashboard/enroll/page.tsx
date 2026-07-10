@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Button, Card, Spinner } from "@suka/design-system";
 import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowRight, AlertTriangle } from "lucide-react";
 import { useToast } from "@/lib/feedback/toast";
@@ -12,13 +12,14 @@ import { loadFaceModels, getHuman } from "@/lib/face/recognizer";
 import { averageDescriptors } from "@/lib/face/match";
 import { OutletSwitcher } from "@/components/OutletSwitcher";
 import { splitByEnrollment } from "@/lib/enroll/splitByEnrollment";
+import { useRealtimeChannel } from "@/lib/realtime/useRealtimeChannel";
 
 type Staff = { id: string; name: string; role: string; enrolled_at: string | null };
 type EnrollPhase = "list" | "consent" | "center" | "left" | "right" | "saving" | "done";
 
 export default function EnrollPage() {
   const { outletStaff } = useAuth();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
   
   const [selectedOutletId, setSelectedOutletId] = useState<string>("");
@@ -48,8 +49,8 @@ export default function EnrollPage() {
     }
   }, [outletStaff]);
 
-  // Load staff when outlet changes
-  useEffect(() => {
+  // Loader stabil untuk daftar staff — dipanggil dari efek awal & dari realtime handler.
+  const loadStaff = useCallback(() => {
     if (!selectedOutletId) return;
     setLoadingStaff(true);
     supabase
@@ -63,6 +64,24 @@ export default function EnrollPage() {
         setLoadingStaff(false);
       });
   }, [selectedOutletId, supabase]);
+
+  // Load staff when outlet changes
+  useEffect(() => {
+    loadStaff();
+  }, [loadStaff]);
+
+  // Realtime: refresh daftar saat outlet_staff outlet ini berubah (insert/update/delete)
+  useRealtimeChannel({
+    channelName: `absensi-staff-${selectedOutletId || "none"}`,
+    enabled: !!selectedOutletId,
+    subs: [
+      {
+        table: "outlet_staff",
+        filter: `outlet_id=eq.${selectedOutletId}`,
+        handler: () => { loadStaff(); },
+      },
+    ],
+  });
 
   // Pre-load models
   useEffect(() => {

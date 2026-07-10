@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   haversineMeters, isWithinRadius,
-  GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M,
+  GEOFENCE_RADIUS_M,
   isGpsAccuracyAcceptable,
 } from "./gps";
 

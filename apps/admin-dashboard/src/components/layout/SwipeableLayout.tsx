@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useSwipeable } from 'react-swipeable'
 import { useRole } from './RoleContext'
@@ -17,8 +17,8 @@ export function SwipeableLayout({ children }: { children: React.ReactNode }) {
   const [peekDirection, setPeekDirection] = useState<'Left' | 'Right' | null>(null)
   const isIgnoringSwipe = useRef(false)
 
-  const items = accessibleItems(role)
-  const inline = items.slice(0, 4)
+  const items = useMemo(() => accessibleItems(role), [role])
+  const inline = useMemo(() => items.slice(0, 4), [items])
   const currentIndex = inline.findIndex((item) => isItemActive(item.href, pathname))
   const prevTab = currentIndex > 0 ? inline[currentIndex - 1] : null
   const nextTab = currentIndex >= 0 && currentIndex < inline.length - 1 ? inline[currentIndex + 1] : null

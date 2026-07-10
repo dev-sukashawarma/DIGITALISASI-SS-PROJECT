@@ -2,19 +2,20 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Wallet, BarChart3, ArrowLeft } from 'lucide-react'
+import { LayoutDashboard, Wallet, BarChart3, ArrowLeft, Target } from 'lucide-react'
 
 const MENU_ITEMS = [
   { label: 'Analisis Penjualan', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Laporan Pengeluaran', href: '/dashboard/expenses', icon: Wallet },
   { label: 'Laba Rugi', href: '/dashboard/profit', icon: BarChart3 },
+  { label: 'Target & Pesan', href: '/dashboard/targets', icon: Target },
 ]
 
 export const Sidebar = () => {
   const pathname = usePathname()
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
   let resolvedPortalUrl = portalUrl
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  if (process.env.NODE_ENV === 'development') {
     resolvedPortalUrl = 'http://localhost:3010'
   }
 

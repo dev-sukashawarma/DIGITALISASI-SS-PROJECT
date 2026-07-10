@@ -43,6 +43,7 @@ function mapRow(row: any): PermintaanWithItems {
     items: (permintaan_bahan_item ?? []).map((it: any) => ({
       ...it,
       nama: it.bahan_baku?.nama ?? it.bahan_baku_id,
+      satuan: it.bahan_baku?.satuan,
     })),
     outlet_name,
   } as PermintaanWithItems
@@ -56,7 +57,7 @@ export async function fetchPermintaanOutlet(outletId: string): Promise<Permintaa
   const supabase = makeServiceClient()
   const { data, error } = await supabase
     .from('permintaan_bahan')
-    .select('*, permintaan_bahan_item(*, bahan_baku(nama)), outlets(name)')
+    .select('*, permintaan_bahan_item(*, bahan_baku(nama, satuan)), outlets(name)')
     .eq('outlet_id', outletId)
     .order('created_at', { ascending: false })
 
@@ -72,7 +73,7 @@ export async function fetchPermintaanPending(): Promise<PermintaanWithItems[]> {
   const supabase = makeServiceClient()
   const { data, error } = await supabase
     .from('permintaan_bahan')
-    .select('*, permintaan_bahan_item(*, bahan_baku(nama)), outlets(name)')
+    .select('*, permintaan_bahan_item(*, bahan_baku(nama, satuan)), outlets(name)')
     .eq('status', 'menunggu')
     .order('created_at', { ascending: false })
 
@@ -87,7 +88,8 @@ export async function fetchPermintaanPending(): Promise<PermintaanWithItems[]> {
 
 export async function buatPermintaan(
   outletId: string,
-  items: BuatPermintaanItemInput[]
+  items: BuatPermintaanItemInput[],
+  targetMetadata?: any
 ): Promise<void> {
   const supabase = makeServiceClient()
   const currentUserId = await getCurrentUserId()
@@ -95,6 +97,7 @@ export async function buatPermintaan(
     p_outlet_id: outletId,
     p_items: items,
     p_dibuat_oleh: currentUserId,
+    p_target_metadata: targetMetadata ?? []
   })
   if (error) throw new Error(error.message)
 }

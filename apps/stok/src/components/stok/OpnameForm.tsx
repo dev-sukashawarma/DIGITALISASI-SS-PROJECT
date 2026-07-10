@@ -26,7 +26,6 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);
   const { createDraft, upsertItems, finalize } = useOpnameActions();
 
-  const [tipe, setTipe] = useState('harian');
   const [fisik, setFisik] = useState<Record<string, string>>({});
   const [containerInput, setContainerInput] = useState<Record<string, string>>({});
   const [remainderInput, setRemainderInput] = useState<Record<string, string>>({});
@@ -139,7 +138,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
     }
     setBusy(true);
     try {
-      const opname = await createDraft(outletId, tipe, createdBy, notes);
+      const opname = await createDraft(outletId, 'harian', createdBy, notes);
       const items = bahanBaku
         .filter((b) => fisik[b.id] !== undefined && fisik[b.id] !== '')
         .map((b) => {
@@ -251,8 +250,6 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
         {filteredBahan.map((b) => {
           const qtySystem = saldoOf[b.id] ?? 0;
           const val = fisik[b.id] ?? '';
-          const selisih = val === '' ? null : computeSelisih(Number(val), qtySystem);
-          const flagged = selisih !== null && isSelisihFlagged(selisih, qtySystem);
 
           // Customize step size based on unit
           let step = 1;

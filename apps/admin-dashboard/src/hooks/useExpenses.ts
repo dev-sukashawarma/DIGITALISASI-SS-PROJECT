@@ -19,6 +19,8 @@ export interface ExpenseRow {
   source: 'monthly' | 'petty_cash'
 }
 
+const EMPTY_ROWS: ExpenseRow[] = []
+
 export function useExpenses(filter: PeriodFilterValue) {
   const supabase = createClient()
   const query = useQuery<ExpenseRow[]>({
@@ -80,5 +82,5 @@ export function useExpenses(filter: PeriodFilterValue) {
       return [...monthlyRows, ...pettyCashRows] as ExpenseRow[]
     },
   })
-  return { rows: query.data ?? [], loading: query.isLoading, error: query.error ? (query.error as Error).message : null }
+  return { rows: query.data ?? EMPTY_ROWS, loading: query.isLoading, error: query.error ? (query.error as Error).message : null }
 }

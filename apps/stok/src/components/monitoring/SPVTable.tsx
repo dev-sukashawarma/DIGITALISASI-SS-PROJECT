@@ -128,7 +128,7 @@ export function SPVTable({
           <table className="w-full text-left border-collapse text-suka-ink">
             <thead>
               <tr className="bg-suka-cream/20 text-suka-brown border-b border-suka-brown/10 text-xs font-bold uppercase tracking-wider">
-                {tab === 'alerts' && <th className="p-4">Outlet</th>}
+                {/* tab === 'alerts' now uses grouped rows, so no Outlet column needed here */}
                 <th className="p-4">Nama Bahan</th>
                 <th className="p-4 text-right">Sat. Besar</th>
                 <th className="p-4 text-right">Sat. Kecil</th>
@@ -141,11 +141,6 @@ export function SPVTable({
             <tbody className="divide-y divide-suka-brown/10">
               {[1, 2, 3, 4, 5].map((i) => (
                 <tr key={i} className="text-sm">
-                  {tab === 'alerts' && (
-                    <td className="p-4">
-                      <Skeleton className="h-4 w-24" />
-                    </td>
-                  )}
                   <td className="p-4">
                     <Skeleton className="h-4 w-40" />
                   </td>
@@ -302,13 +297,7 @@ export function SPVTable({
         <table className="w-full text-left border-collapse text-suka-ink">
           <thead>
             <tr className="bg-suka-cream/20 text-suka-brown border-b border-suka-brown/10 text-xs font-bold uppercase tracking-wider">
-              {tab === 'alerts' && (
-                <th className="p-4">
-                  <button onClick={() => handleSort('outlet_name')} className="hover:text-suka-orange font-bold">
-                    Outlet {sortField === 'outlet_name' && (sortDir === 'asc' ? '↑' : '↓')}
-                  </button>
-                </th>
-              )}
+              {/* Outlet column removed because we group by outlet in alerts tab */}
               <th className="p-4">
                 <button onClick={() => handleSort('item_name')} className="hover:text-suka-orange font-bold">
                   Nama Bahan {sortField === 'item_name' && (sortDir === 'asc' ? '↑' : '↓')}
@@ -329,12 +318,172 @@ export function SPVTable({
           <tbody className="divide-y divide-suka-brown/10">
             {filteredItems.length === 0 ? (
               <tr>
-                <td colSpan={tab === 'alerts' ? 8 : 7} className="text-center py-8 text-suka-brown/50 text-sm">
+                <td colSpan={7} className="text-center py-8 text-suka-brown/50 text-sm">
                   Tidak ada data bahan baku ditemukan
                 </td>
               </tr>
             ) : (
-              filteredItems.map((item) => {
+              (() => {
+                if (tab === 'alerts') {
+                  // Group by outlet
+                  const grouped = filteredItems.reduce((acc, item) => {
+                    if (!acc[item.outlet_name]) acc[item.outlet_name] = [];
+                    acc[item.outlet_name].push(item);
+                    return acc;
+                  }, {} as Record<string, MonitoringItem[]>);
+
+                  // Sort outlets alphabetically
+                  const sortedOutlets = Object.keys(grouped).sort();
+
+                  return sortedOutlets.map(outletName => (
+                    <React.Fragment key={outletName}>
+                      <tr className="bg-suka-brown/5 border-t border-suka-brown/10">
+                        <td colSpan={7} className="p-4 font-black text-suka-brown text-sm uppercase">
+                          🏢 {outletName}
+                        </td>
+                      </tr>
+                      {grouped[outletName].map((item) => {
+                        const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
+                        const isEditing = editingId === editKey;
+                        const { large, small } = (() => {
+                          if (!item.faktor_tampilan || !item.satuan_kecil) return { large: item.current_qty, small: 0 };
+                          let whole = Math.trunc(item.current_qty);
+                          const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
+                          let remainder = Math.round(remainderRaw * 100) / 100;
+                          if (Math.abs(remainder) >= item.faktor_tampilan) {
+                            whole += Math.sign(remainder);
+                            remainder = 0;
+                          }
+                          return { large: whole, small: Math.abs(remainder) };
+                        })();
+                        
+                        const statusColor = item.status === 'below' ? 'text-red-600' :
+                                            item.status === 'warning' ? 'text-orange-600' : 'text-green-700';
+
+                        return (
+                          <tr
+                            key={editKey}
+                            onClick={() => onRowClick(item)}
+                            className="hover:bg-suka-cream/10 cursor-pointer text-sm transition-colors"
+                          >
+                            <td className="p-4 pl-8">
+                              <div className="font-bold text-sm text-suka-ink uppercase tracking-wide">{item.item_name}</div>
+                              <div className="text-xs text-suka-brown/60 mt-0.5">
+                                {getKategoriLabel(item.kategori)}
+                              </div>
+                            </td>
+                            <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
+                              {large} <span className="text-[10px] font-normal opacity-70">{item.satuan || 'kg'}</span>
+                            </td>
+                            <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
+                              {item.satuan_kecil ? (
+                                <>{small} <span className="text-[10px] font-normal opacity-70">{item.satuan_kecil}</span></>
+                              ) : (
+                                <span className="text-gray-300">-</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                              {isEditing ? (
+                                <div className="flex items-center gap-1 justify-end">
+                                  <input
+                                    type="number"
+                                    value={editingValue}
+                                    onChange={(e) => setEditingValue(e.target.value)}
+                                    className="w-16 border border-suka-brown/30 rounded p-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-suka-orange bg-white"
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={(e) => saveEditing(item, e)}
+                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                    title="Simpan"
+                                  >
+                                    ✓
+                                  </button>
+                                  <button
+                                    onClick={cancelEditing}
+                                    className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                    title="Batal"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1 justify-end group">
+                                  <span className="font-semibold">{item.threshold}</span>
+                                  <button
+                                    onClick={(e) => startEditing(item, e)}
+                                    className="p-1 text-suka-brown/40 hover:text-suka-orange rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Ubah Threshold"
+                                  >
+                                    ✎
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-medium text-suka-brown/80 hidden md:table-cell">
+                              {getRelativeTimeString(item.last_opname_date)}
+                            </td>
+                            <td className="p-4 hidden sm:table-cell">
+                              {item.status === 'below' && (
+                                <span className="bg-red-50 text-red-700 border border-red-200/80 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase tracking-wide">
+                                  Below Threshold
+                                </span>
+                              )}
+                              {item.status === 'warning' && (
+                                <span className="bg-orange-50 text-orange-700 border border-orange-200/80 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase tracking-wide">
+                                  Warning Threshold
+                                </span>
+                              )}
+                              {item.status === 'ok' && (
+                                <span className="bg-green-50 text-green-700 border border-green-200/80 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase tracking-wide">
+                                  OK
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2">
+                                {item.status !== 'ok' ? (
+                                  <>
+                                    <button
+                                      onClick={() => onRestockRequest?.(item)}
+                                      className="w-full sm:w-auto px-2 py-1 bg-[#701604] text-white text-[10px] sm:text-xs font-bold rounded-lg hover:opacity-90 transition-all shadow-sm whitespace-nowrap"
+                                    >
+                                      Minta Pusat
+                                    </button>
+                                    <button
+                                      onClick={() => onTransferRequest?.(item)}
+                                      className="w-full sm:w-auto px-2 py-1 border border-[#701604] text-[#701604] text-[10px] sm:text-xs font-bold rounded-lg hover:bg-[#701604]/5 transition-colors whitespace-nowrap"
+                                    >
+                                      Transfer
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => onRestockRequest?.(item)}
+                                      className="w-full sm:w-auto px-2 py-1 text-suka-brown/60 hover:text-suka-orange text-[10px] sm:text-xs font-bold hover:underline transition-all whitespace-nowrap"
+                                    >
+                                      Minta Pusat
+                                    </button>
+                                    <button
+                                      onClick={() => onTransferRequest?.(item)}
+                                      className="w-full sm:w-auto px-2 py-1 text-suka-brown/60 hover:text-suka-orange text-[10px] sm:text-xs font-bold hover:underline transition-all whitespace-nowrap"
+                                    >
+                                      Transfer
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  ));
+                }
+
+                // Default rendering for other tabs (e.g. overview)
+                return filteredItems.map((item) => {
                 const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
                 const isEditing = editingId === editKey;
 
@@ -359,9 +508,6 @@ export function SPVTable({
                     onClick={() => onRowClick(item)}
                     className="hover:bg-suka-cream/10 cursor-pointer text-sm transition-colors"
                   >
-                    {tab === 'alerts' && (
-                      <td className="p-4 font-bold text-suka-brown">{item.outlet_name}</td>
-                    )}
                     <td className="p-4">
                       <div className="font-bold text-sm text-suka-ink uppercase tracking-wide">{item.item_name}</div>
                       <div className="text-xs text-suka-brown/60 mt-0.5">
@@ -473,7 +619,8 @@ export function SPVTable({
                     </td>
                   </tr>
                 );
-              })
+              });
+            })()
             )}
           </tbody>
         </table>

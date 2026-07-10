@@ -5,6 +5,9 @@ import { StatusBadge } from './StatusBadge';
 import { fetchItemDetail } from '@/lib/queries/monitoring';
 import type { MonitoringItem, DetailItem } from '@/lib/types/monitoring';
 import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
+import { WasteModal } from '../stok/WasteModal';
+import { useQuery } from '@tanstack/react-query';
+import { fetchPendingWasteReports } from '@/app/actions/waste';
 
 interface MonitoringDetailModalProps {
   item: MonitoringItem;
@@ -16,6 +19,15 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
   const [detail, setDetail] = useState<DetailItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isWasteModalOpen, setIsWasteModalOpen] = useState(false);
+
+  const { data: pendingWaste, refetch: refetchWaste } = useQuery({
+    queryKey: ['waste_pending', item.outlet_id],
+    queryFn: () => fetchPendingWasteReports(item.outlet_id),
+    enabled: isOpen,
+  });
+
+  const isWastePending = pendingWaste?.some(w => w.bahan_baku_id === item.bahan_baku_id);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -37,7 +49,14 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-[#701604] to-[#a43c26] p-5 text-white flex justify-between items-center border-b border-[#701604]/10 z-10">
           <div>
-            <h2 className="text-lg font-bold uppercase tracking-tight">{item.item_name}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold uppercase tracking-tight">{item.item_name}</h2>
+              {isWastePending && (
+                <span className="bg-yellow-100 text-yellow-800 text-[9px] font-bold px-1.5 py-0.5 rounded border border-yellow-200">
+                  WASTE PENDING
+                </span>
+              )}
+            </div>
             <p className="text-[11px] font-semibold opacity-85 mt-0.5 uppercase tracking-wider">{item.outlet_name}</p>
           </div>
           <button
@@ -163,7 +182,13 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
         </div>
 
         {/* Footer */}
-        <div className="bg-[#faf2e9]/50 p-4 border-t border-[#d9c2b2]/25 flex justify-end rounded-b-2xl">
+        <div className="bg-[#faf2e9]/50 p-4 border-t border-[#d9c2b2]/25 flex justify-between rounded-b-2xl">
+          <button
+            onClick={() => setIsWasteModalOpen(true)}
+            className="px-4 py-2 border border-[#f29744] text-[#a43c26] bg-[#ffdcc2]/30 rounded-xl text-xs font-bold hover:bg-[#ffdcc2]/50 active:scale-95 transition-all shadow-xs"
+          >
+            🗑️ Lapor Waste
+          </button>
           <button
             onClick={onClose}
             className="px-4 py-2 border border-[#d9c2b2]/50 text-[#544437] bg-white rounded-xl text-xs font-bold hover:bg-[#faf2e9] active:scale-95 transition-all shadow-xs"
@@ -172,6 +197,22 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
           </button>
         </div>
       </div>
+
+      {isWasteModalOpen && (
+        <WasteModal
+          outletId={item.outlet_id}
+          bahanBaku={{
+            id: item.bahan_baku_id,
+            nama: item.item_name,
+            satuan: item.satuan || ''
+          } as any}
+          onClose={() => setIsWasteModalOpen(false)}
+          onSuccess={() => {
+            setIsWasteModalOpen(false);
+            refetchWaste();
+          }}
+        />
+      )}
     </div>
   );
 }

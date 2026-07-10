@@ -2,19 +2,8 @@
   "name": "@suka/design-system",
   "version": "0.0.1",
   "description": "SUKA brand design tokens and UI components",
-  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    },
-    "./tokens": {
-      "types": "./src/tokens.ts",
-      "default": "./src/tokens.ts"
-    }
-  },
   "files": ["dist", "src"],
   "scripts": {
     "build": "tsc && node -e \"console.log('✓ Build complete')\"",

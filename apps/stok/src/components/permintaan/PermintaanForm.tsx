@@ -1,208 +1,289 @@
 'use client'
-import { useEffect, useState } from 'react'
-import type { SaranItem } from '@/hooks/usePermintaan'
+import { useEffect, useState, useMemo } from 'react'
 import { useSaranItem, usePermintaanActions, usePermintaanList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
-
-interface Row {
-  bahan_baku_id: string
-  nama: string
-  satuan: string
-  qty: string
-  checked: boolean
-  source: 'saran' | 'manual'
-  current_qty?: number
-  threshold?: number
-}
+import { fetchActiveResep, calculateBahanBakuRequest, type ResepMenu, type CalculatedBahan } from '@/app/actions/permintaan_target'
 
 export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string; onSubmitSuccess?: () => void }) {
   const { saran } = useSaranItem(outletId)
   const { bahanBaku } = useBahanBaku()
   const { buat } = usePermintaanActions()
   const { permintaan: existingList, refresh: refreshExisting } = usePermintaanList(outletId)
-  const [rows, setRows] = useState<Record<string, Row>>({})
-  const [pickId, setPickId] = useState('')
+  
+  const [menus, setMenus] = useState<ResepMenu[]>([])
+  const [loadingMenus, setLoadingMenus] = useState(false)
+  
+  // States
+  const [menuTargets, setMenuTargets] = useState<Record<string, number>>({})
+  const [manualBahan, setManualBahan] = useState<Record<string, number>>({}) // Stores id -> qty for manual/kritis items
+  
   const [busy, setBusy] = useState(false)
+  const [calculating, setCalculating] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [calculatedResult, setCalculatedResult] = useState<CalculatedBahan[]>([])
+  
+  // UI State
+  const [activeTab, setActiveTab] = useState<'katalog' | 'bahan'>('katalog')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isCartView, setIsCartView] = useState(false)
+  const [manualPickId, setManualPickId] = useState('')
 
-  // Item yang sudah punya permintaan berstatus "menunggu" untuk outlet ini —
-  // jangan biarkan crew kirim ulang item yang sama selagi masih menunggu approval.
-  const pendingItemIds = new Set(
+  const pendingItemIds = useMemo(() => new Set(
     existingList
       .filter(p => p.status === 'menunggu')
       .flatMap(p => p.items.map(it => it.bahan_baku_id))
-  )
+  ), [existingList])
 
-  // Seed baris dari saran (qty default = kekurangan ke threshold). Tidak menimpa
-  // baris yang sudah diutak-atik user atau baris manual.
+  // Fetch Menus
+  useEffect(() => {
+    setLoadingMenus(true)
+    fetchActiveResep(outletId)
+      .then(setMenus)
+      .catch(console.error)
+      .finally(() => setLoadingMenus(false))
+  }, [outletId])
+
+  // Auto-add critical items to manualBahan
   useEffect(() => {
     if (saran.length === 0) return
-    setRows(prev => {
+    setManualBahan(prev => {
       let changed = false
       const next = { ...prev }
-      saran.forEach((s: SaranItem) => {
-        if (next[s.bahan_baku_id]) return
-        if (pendingItemIds.has(s.bahan_baku_id)) return
+      saran.forEach(s => {
+        if (next[s.bahan_baku_id] || pendingItemIds.has(s.bahan_baku_id)) return
         const def = Math.max(1, Math.ceil(s.threshold - s.current_qty))
-        next[s.bahan_baku_id] = {
-          bahan_baku_id: s.bahan_baku_id,
-          nama: s.item_name,
-          satuan: s.satuan,
-          qty: String(def),
-          checked: true,
-          source: 'saran',
-          current_qty: s.current_qty,
-          threshold: s.threshold,
-        }
+        next[s.bahan_baku_id] = def
         changed = true
       })
-      // Penting: kembalikan ref lama bila tak ada item baru, agar tidak memicu
-      // re-render → effect jalan lagi (saran kerap punya ref array baru tiap render).
       return changed ? next : prev
     })
-  }, [saran])
+  }, [saran, pendingItemIds])
 
-  function setRow(id: string, patch: Partial<Row>) {
-    setRows(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }))
-  }
+  // Calculate whenever menuTargets change
+  useEffect(() => {
+    const targets = Object.entries(menuTargets)
+      .map(([resep_id, qty_target]) => ({ resep_id, qty_target }))
+      .filter(t => t.qty_target > 0)
+    
+    if (targets.length === 0) {
+      setCalculatedResult([])
+      return
+    }
 
-  function removeRow(id: string) {
-    setRows(prev => {
-      const next = { ...prev }
-      delete next[id]
-      return next
+    const timer = setTimeout(() => {
+      setCalculating(true)
+      calculateBahanBakuRequest(outletId, targets)
+        .then(setCalculatedResult)
+        .catch(console.error)
+        .finally(() => setCalculating(false))
+    }, 500) // Debounce
+
+    return () => clearTimeout(timer)
+  }, [menuTargets, outletId])
+
+  // Combine Final Cart
+  const finalCart = useMemo(() => {
+    const map = new Map<string, { id: string, nama: string, satuan: string, qty: number, source: 'calc' | 'manual' | 'both', current_qty?: number, kebutuhan?: number }>()
+    
+    // Add Calculated
+    calculatedResult.forEach(c => {
+      if (pendingItemIds.has(c.bahan_baku_id)) return
+      map.set(c.bahan_baku_id, {
+        id: c.bahan_baku_id,
+        nama: c.nama_bahan,
+        satuan: c.satuan,
+        qty: Math.ceil(c.kebutuhan),
+        source: 'calc',
+        current_qty: c.sisa_stok,
+        kebutuhan: c.kebutuhan
+      })
+    })
+
+    // Add Manual/Kritis
+    Object.entries(manualBahan).forEach(([id, qty]) => {
+      if (qty <= 0 || pendingItemIds.has(id)) return
+      const b = bahanBaku.find(x => x.id === id)
+      if (!b) return
+      
+      const existing = map.get(id)
+      if (existing) {
+        existing.qty += qty
+        existing.source = 'both'
+      } else {
+        const saranItem = saran.find(s => s.bahan_baku_id === id)
+        map.set(id, {
+          id,
+          nama: b.nama,
+          satuan: b.satuan,
+          qty,
+          source: 'manual',
+          current_qty: saranItem?.current_qty
+        })
+      }
+    })
+
+    return Array.from(map.values())
+  }, [calculatedResult, manualBahan, bahanBaku, saran, pendingItemIds])
+
+  function updateMenuTarget(id: string, delta: number) {
+    setMenuTargets(prev => {
+      const current = prev[id] || 0
+      const next = Math.max(0, current + delta)
+      const copy = { ...prev }
+      if (next === 0) delete copy[id]
+      else copy[id] = next
+      return copy
     })
   }
 
-  function addManual() {
-    if (!pickId) return
-    const bb = bahanBaku.find(b => b.id === pickId)
-    if (!bb || rows[bb.id] || pendingItemIds.has(bb.id)) { setPickId(''); return }
-    setRows(prev => ({
+  function updateManualBahan(id: string, delta: number) {
+    setManualBahan(prev => {
+      const current = prev[id] || 0
+      const next = Math.max(0, current + delta)
+      const copy = { ...prev }
+      if (next === 0) delete copy[id]
+      else copy[id] = next
+      return copy
+    })
+  }
+
+  function addManualFromPicker() {
+    if (!manualPickId) return
+    setManualBahan(prev => ({
       ...prev,
-      [bb.id]: {
-        bahan_baku_id: bb.id,
-        nama: bb.nama,
-        satuan: bb.satuan,
-        qty: '1',
-        checked: true,
-        source: 'manual',
-      },
+      [manualPickId]: (prev[manualPickId] || 0) + 1
     }))
-    setPickId('')
+    setManualPickId('')
   }
 
-  const allRows = Object.values(rows)
-  const saranRows = allRows.filter(r => r.source === 'saran')
-  const manualRows = allRows.filter(r => r.source === 'manual')
-  const selected = allRows.filter(r => r.checked && Number(r.qty) > 0)
-  const valid = selected.length > 0 && !busy
+  const cartItemCount = Object.keys(menuTargets).length + Object.keys(manualBahan).length
 
-  // Item yang belum ada di form, untuk dropdown tambah manual
-  const available = bahanBaku.filter(b => !rows[b.id] && !pendingItemIds.has(b.id))
+  // Filter Menus
+  const filteredMenus = useMemo(() => {
+    return menus.filter(m => m.nama.toLowerCase().includes(searchQuery.toLowerCase()))
+  }, [menus, searchQuery])
 
-  const handleDismissSuccess = () => {
-    setSuccessMsg(null)
-  }
+  // Filter Bahan Baku for Manual Add
+  const filteredBahanManual = useMemo(() => {
+    return bahanBaku.filter(b => b.nama.toLowerCase().includes(searchQuery.toLowerCase()) && !pendingItemIds.has(b.id))
+  }, [bahanBaku, searchQuery, pendingItemIds])
 
   async function submit() {
+    const itemsToRequest = finalCart.filter(r => r.qty > 0)
+    if (itemsToRequest.length === 0) {
+      setErrorMsg("Tidak ada bahan baku yang perlu diminta (Quantity 0).")
+      return
+    }
+
     setBusy(true); setErrorMsg(null); setSuccessMsg(null)
     try {
-      await buat(outletId, selected.map(r => ({
-        bahan_baku_id: r.bahan_baku_id, qty_diminta: Number(r.qty),
-      })))
-      // eslint-disable-next-line no-console
-      console.log('[buat_permintaan] SUKSES, mereset form...')
-      // Reset form & tampilkan notif sukses
-      setRows({})
-      setSuccessMsg(`Permintaan berhasil dikirim (${selected.length} item). Menunggu persetujuan.`)
+      const targetMetadata = Object.entries(menuTargets).map(([id, qty]) => {
+        const menu = menus.find(m => m.id === id)
+        return {
+          id,
+          nama: menu?.nama ?? 'Unknown',
+          qty,
+          harga_jual: menu?.harga_jual ?? 0
+        }
+      }).filter(m => m.qty > 0)
+
+      await buat(outletId, itemsToRequest.map(r => ({
+        bahan_baku_id: r.id, qty_diminta: r.qty,
+      })), targetMetadata)
+      setMenuTargets({})
+      setManualBahan({})
+      setIsCartView(false)
+      setSuccessMsg(`Permintaan berhasil dikirim (${itemsToRequest.length} item bahan baku). Menunggu persetujuan.`)
       refreshExisting()
-
-      // Trigger callback untuk refresh list
-      if (onSubmitSuccess) {
-        onSubmitSuccess()
-      }
-
-      // Scroll ke atas agar user lihat form yang ter-reset dan bisa tambah lagi
+      if (onSubmitSuccess) onSubmitSuccess()
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e))
     } finally { setBusy(false) }
   }
 
-  function renderRow(r: Row) {
-    const handleMinus = () => {
-      const currentVal = Number(r.qty) || 0
-      if (currentVal > 0) {
-        setRow(r.bahan_baku_id, { qty: String(currentVal - 1) })
-      }
-    }
 
-    const handlePlus = () => {
-      const currentVal = Number(r.qty) || 0
-      setRow(r.bahan_baku_id, { qty: String(currentVal + 1) })
-    }
-
+  // CART VIEW
+  if (isCartView) {
     return (
-      <div key={r.bahan_baku_id} className="bg-white border border-[#d9c2b2]/60 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex items-start justify-between">
-          <div className="flex gap-4">
-            <input
-              type="checkbox"
-              checked={r.checked}
-              onChange={e => setRow(r.bahan_baku_id, { checked: e.target.checked })}
-              className="mt-1 w-6 h-6 rounded-md border-[#d9c2b2] text-[#f29744] focus:ring-[#f29744]"
-              aria-label={`Request ${r.nama}`}
-            />
-            <div className="space-y-1">
-              <p className="font-bold text-[#1e1b15] text-base">{r.nama}</p>
-              {r.current_qty !== undefined && r.threshold !== undefined && (
-                <div className="flex gap-3 text-[12px] font-medium tracking-tight">
-                  <span className="text-[#544437]">
-                    Sisa: <span className="text-[#ba1a1a] font-bold">{r.current_qty} {r.satuan}</span>
-                  </span>
-                  <span className="text-[#544437]/60">Threshold: {r.threshold} {r.satuan}</span>
-                </div>
-              )}
-            </div>
-          </div>
-          {r.source === 'manual' && (
-            <button
-              type="button"
-              onClick={() => removeRow(r.bahan_baku_id)}
-              className="text-[#ba1a1a] text-lg font-bold hover:opacity-80 transition"
-              aria-label={`Hapus ${r.nama}`}
-            >
-              ×
-            </button>
-          )}
+      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-20">
+        <div className="flex items-center justify-between mb-2">
+          <button 
+            onClick={() => setIsCartView(false)}
+            className="flex items-center gap-2 text-suka-brown font-semibold bg-white px-4 py-2 rounded-xl shadow-sm border border-suka-gray-200 active:scale-95 transition-all"
+          >
+            ← Kembali
+          </button>
+          <h2 className="font-['Lilita_One'] text-2xl text-suka-ink">Tinjau Permintaan</h2>
         </div>
-        
-        <div className="flex items-center justify-between border-t border-[#d9c2b2]/20 pt-4">
-          <span className="text-xs font-semibold text-[#544437]">Jumlah Permintaan ({r.satuan})</span>
-          <div className="flex items-center bg-[#faf2e9] border border-[#d9c2b2]/30 rounded-xl px-1 py-1">
+
+        {errorMsg && (
+          <div className="text-xs font-bold text-red-700 bg-red-100 border border-red-300 p-3 rounded-xl flex items-center justify-between">
+            <span>{errorMsg}</span>
+            <button onClick={() => setErrorMsg(null)}>✕</button>
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl shadow-sm border border-suka-gray-200 overflow-hidden">
+          <div className="p-4 bg-suka-cream border-b border-suka-orange/20 flex justify-between items-center">
+            <span className="font-bold text-suka-brown">Hasil Kalkulasi Bahan Baku</span>
+            {calculating && <span className="text-xs text-suka-orange font-bold animate-pulse">Menghitung...</span>}
+          </div>
+          
+          <div className="divide-y divide-suka-gray-100 max-h-[60vh] overflow-y-auto">
+            {finalCart.length === 0 ? (
+              <div className="p-8 text-center text-suka-gray-500 font-medium">Belum ada bahan baku yang perlu diminta.</div>
+            ) : (
+              finalCart.map(item => (
+                <div key={item.id} className="p-4 flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-suka-ink truncate text-sm">{item.nama}</h3>
+                    <div className="flex gap-2 items-center mt-1">
+                      {item.source === 'calc' || item.source === 'both' ? (
+                        <span className="bg-orange-100 text-suka-orange text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Target Menu</span>
+                      ) : null}
+                      {item.source === 'manual' || item.source === 'both' ? (
+                        <span className="bg-suka-gray-100 text-suka-gray-600 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Manual/Kritis</span>
+                      ) : null}
+                      {item.current_qty !== undefined && (
+                        <span className="text-[10px] text-red-500 font-bold uppercase">Sisa: {item.current_qty}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {item.source === 'manual' ? (
+                    // User can adjust manual items
+                    <div className="flex items-center bg-suka-gray-50 rounded-lg p-1 border border-suka-gray-200">
+                      <button onClick={() => updateManualBahan(item.id, -1)} className="w-8 h-8 flex items-center justify-center text-suka-brown font-bold rounded hover:bg-white hover:shadow-sm transition-all">-</button>
+                      <input 
+                        type="number" value={item.qty} 
+                        onChange={e => setManualBahan(prev => ({...prev, [item.id]: Number(e.target.value)}))}
+                        className="w-12 text-center bg-transparent border-none p-0 font-bold text-sm text-suka-ink focus:ring-0" 
+                      />
+                      <button onClick={() => updateManualBahan(item.id, 1)} className="w-8 h-8 flex items-center justify-center text-suka-brown font-bold rounded hover:bg-white hover:shadow-sm transition-all">+</button>
+                    </div>
+                  ) : (
+                    // Calculated items are mostly read-only unless we allow overriding. For now, show readonly.
+                    <div className="text-right flex flex-col items-end">
+                      <div>
+                        <span className="font-bold text-suka-ink text-lg">{item.qty}</span>
+                        <span className="text-suka-gray-500 text-xs ml-1">{item.satuan}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          
+          <div className="p-4 bg-suka-gray-50 border-t border-suka-gray-200">
             <button
-              type="button"
-              onClick={handleMinus}
-              className="w-10 h-10 flex items-center justify-center text-[#904d00] hover:bg-[#efe7dd] rounded-lg transition-colors font-bold text-xl"
+              disabled={busy || finalCart.length === 0 || calculating}
+              onClick={submit}
+              className="w-full bg-suka-brown hover:bg-suka-ink text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              -
-            </button>
-            <input
-              type="number"
-              inputMode="decimal"
-              value={r.qty}
-              onChange={e => setRow(r.bahan_baku_id, { qty: e.target.value })}
-              className="w-14 bg-transparent border-none text-center font-bold text-[#1e1b15] focus:ring-0 p-0 text-base"
-              aria-label={`Qty ${r.nama}`}
-            />
-            <button
-              type="button"
-              onClick={handlePlus}
-              className="w-10 h-10 flex items-center justify-center text-[#904d00] hover:bg-[#efe7dd] rounded-lg transition-colors font-bold text-xl"
-            >
-              +
+              {busy ? 'Mengirim...' : `Kirim ${finalCart.length} Permintaan`}
             </button>
           </div>
         </div>
@@ -210,107 +291,211 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
     )
   }
 
+  // CATALOG VIEW
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 pb-24">
       {pendingItemIds.size > 0 && (
-        <div className="text-xs font-bold text-[#6d3900] bg-[#ffdcc2] border border-[#6d3900]/20 p-3 rounded-xl">
-          ⏳ {pendingItemIds.size} item sudah punya permintaan yang menunggu persetujuan SPV — tidak ditampilkan lagi di sini sampai disetujui/ditolak.
+        <div className="text-xs font-bold text-suka-brown bg-orange-100 border border-suka-orange/30 p-3 rounded-xl">
+          ⏳ {pendingItemIds.size} item bahan baku sudah menunggu persetujuan SPV.
         </div>
       )}
-      {/* Item Kritis Section */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold text-[#544437] flex items-center gap-2 tracking-wide uppercase">
-            <svg className="w-4 h-4 text-[#ba1a1a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            ITEM MENIPIS / KRITIS
-          </h2>
-          {saranRows.length > 0 && (
-            <span className="text-[10px] bg-[#ffdad6] text-[#ba1a1a] px-2.5 py-0.5 rounded-full font-bold uppercase">
-              {saranRows.length} PERLU DIISI
-            </span>
-          )}
-        </div>
-
-        {saranRows.length === 0 ? (
-          <div className="bg-white border border-[#d9c2b2]/40 rounded-2xl p-5 text-center shadow-sm">
-            <p className="text-xs text-[#544437]/60">Tidak ada item di bawah threshold. Stok aman.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {saranRows.map(renderRow)}
-          </div>
-        )}
-      </section>
-
-      {/* Tambah item lain secara manual */}
-      <section className="space-y-3 pt-4 border-t border-[#d9c2b2]/20">
-        <h2 className="text-xs font-bold text-[#544437]/75 uppercase tracking-wide">Tambah Item Lain</h2>
-        {manualRows.length > 0 && <div className="space-y-3">{manualRows.map(renderRow)}</div>}
-        <div className="flex items-center gap-2">
-          <select
-            value={pickId}
-            onChange={e => setPickId(e.target.value)}
-            className="flex-1 px-3 py-3 border border-[#d9c2b2]/40 rounded-xl text-xs bg-white text-[#1e1b15] focus:ring-2 focus:ring-[#f29744]/50 focus:border-[#f29744]"
-            aria-label="Pilih bahan baku"
-          >
-            <option value="">— Pilih bahan baku —</option>
-            {available.map(b => (
-              <option key={b.id} value={b.id}>{b.nama} ({b.satuan})</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            disabled={!pickId}
-            onClick={addManual}
-            className="bg-[#544437] hover:bg-[#3a2f26] active:scale-95 transition-all text-white font-bold px-4 py-3 rounded-xl text-xs uppercase tracking-wider disabled:opacity-40 disabled:pointer-events-none"
-          >
-            Tambah
-          </button>
-        </div>
-      </section>
-
       {successMsg && (
-        <div className="text-xs font-bold text-[#1e6b3a] bg-[#d6f5e3] border border-[#1e6b3a]/20 p-3 rounded-xl flex items-center justify-between gap-3">
+        <div className="text-xs font-bold text-suka-green bg-green-50 border border-suka-green/30 p-3 rounded-xl flex justify-between">
           <span>✅ {successMsg}</span>
-          <button
-            type="button"
-            onClick={handleDismissSuccess}
-            className="text-[#1e6b3a] hover:opacity-70 transition flex-shrink-0"
-            aria-label="Tutup pesan sukses"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-      {errorMsg && (
-        <div className="text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-3 rounded-xl flex items-center justify-between gap-3">
-          <span>{errorMsg}</span>
-          <button
-            type="button"
-            onClick={() => setErrorMsg(null)}
-            className="text-[#ba1a1a] hover:opacity-70 transition flex-shrink-0"
-            aria-label="Tutup pesan error"
-          >
-            ✕
-          </button>
+          <button onClick={() => setSuccessMsg(null)}>✕</button>
         </div>
       )}
 
-      {/* Kirim Button */}
-      <div className="pt-2">
+      {/* Main Tabs */}
+      <div className="flex bg-white/60 p-1 rounded-xl shadow-sm border border-suka-gray-200 backdrop-blur-sm">
         <button
-          disabled={!valid}
-          onClick={submit}
-          className="w-full bg-[#f29744] hover:bg-[#e0873a] active:scale-[0.98] transition-all duration-150 text-white py-4 px-6 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-md shadow-orange-200 disabled:opacity-40 disabled:pointer-events-none h-14 text-xs uppercase tracking-wider"
+          className={`flex-1 py-2.5 text-xs font-bold uppercase rounded-lg transition-all ${activeTab === 'katalog' ? 'bg-suka-orange text-white shadow-sm' : 'text-suka-gray-500 hover:bg-suka-gray-50'}`}
+          onClick={() => { setActiveTab('katalog'); setSearchQuery('') }}
         >
-          <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-          </svg>
-          {busy ? 'Mengirim…' : `Kirim Permintaan (${selected.length} item)`}
+          🍔 Target Menu (Jualan)
+        </button>
+        <button
+          className={`flex-1 py-2.5 text-xs font-bold uppercase rounded-lg transition-all ${activeTab === 'bahan' ? 'bg-suka-orange text-white shadow-sm' : 'text-suka-gray-500 hover:bg-suka-gray-50'}`}
+          onClick={() => { setActiveTab('bahan'); setSearchQuery('') }}
+        >
+          📦 Tambah Manual
         </button>
       </div>
+
+      {/* Search Bar */}
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <span className="text-xl">🔍</span>
+        </div>
+        <input
+          type="text"
+          placeholder={activeTab === 'katalog' ? "Cari menu (misal: Shawarma Ayam)..." : "Cari bahan baku (misal: Tisu)..."}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-white border border-suka-gray-200 text-suka-ink rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-suka-orange focus:border-suka-orange shadow-sm font-medium transition-all"
+        />
+      </div>
+
+      {activeTab === 'katalog' ? (
+        <div className="grid grid-cols-2 gap-3 md:gap-4">
+          {loadingMenus ? (
+            <div className="col-span-2 py-10 text-center text-suka-gray-500 font-medium">Memuat menu...</div>
+          ) : filteredMenus.length === 0 ? (
+            <div className="col-span-2 bg-white rounded-2xl p-8 text-center shadow-sm border border-suka-gray-200">
+              <div className="text-4xl mb-3">🌯</div>
+              <p className="text-suka-gray-500 font-medium">Menu tidak ditemukan</p>
+            </div>
+          ) : (
+            filteredMenus.map(m => {
+              const qty = menuTargets[m.id] || 0
+              return (
+                <div key={m.id} className={`bg-white rounded-2xl border p-3 flex flex-col justify-between transition-all ${qty > 0 ? 'border-suka-orange shadow-md bg-orange-50/30' : 'border-suka-gray-200 shadow-sm hover:border-suka-gray-300'}`}>
+                  <div>
+                    {m.image_url ? (
+                      <div className="w-full aspect-[4/3] mb-3 rounded-xl overflow-hidden bg-suka-gray-50 border border-suka-gray-100 flex-shrink-0">
+                        <img src={m.image_url} alt={m.nama} className="w-full h-full object-cover" loading="lazy" />
+                      </div>
+                    ) : (
+                      <div className="text-2xl mb-2">🌯</div>
+                    )}
+                    <h3 className="font-bold text-suka-ink text-sm leading-tight mb-3">{m.nama}</h3>
+                  </div>
+                  
+                  <div className="mt-auto border-t border-suka-gray-100 pt-2">
+                    {qty > 0 ? (
+                      <div className="flex items-center justify-between bg-suka-orange/10 rounded-lg p-1">
+                        <button onClick={() => updateMenuTarget(m.id, -1)} className="w-8 h-8 flex items-center justify-center text-suka-orange font-bold bg-white rounded shadow-sm">-</button>
+                        <div className="flex items-center gap-1">
+                          <input 
+                            type="number" 
+                            min="0"
+                            value={qty || ''} 
+                            onChange={e => {
+                              const val = e.target.value === '' ? 0 : Number(e.target.value);
+                              setMenuTargets(prev => {
+                                const copy = { ...prev };
+                                if (val <= 0) delete copy[m.id];
+                                else copy[m.id] = val;
+                                return copy;
+                              });
+                            }}
+                            className="w-12 text-center bg-white border border-suka-orange/20 rounded-md py-1 px-0 font-bold text-suka-orange text-sm focus:outline-none focus:ring-1 focus:ring-suka-orange" 
+                          />
+                          <span className="font-bold text-suka-orange text-sm">porsi</span>
+                        </div>
+                        <button onClick={() => updateMenuTarget(m.id, 1)} className="w-8 h-8 flex items-center justify-center text-suka-orange font-bold bg-white rounded shadow-sm">+</button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => updateMenuTarget(m.id, 1)}
+                        className="w-full bg-white border-2 border-suka-gray-200 text-suka-ink hover:border-suka-orange hover:text-suka-orange font-bold text-xs py-2.5 rounded-lg transition-colors flex items-center justify-center"
+                      >
+                        + Target
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="bg-suka-cream border border-suka-orange/20 rounded-xl p-4">
+            <h3 className="font-bold text-suka-brown text-sm mb-1">Item Kritis & Manual</h3>
+            <p className="text-xs text-suka-gray-600 mb-3">Item yang stoknya menipis sudah ditambahkan otomatis. Anda bisa menambah bahan baku lain yang tidak terkait resep menu.</p>
+            
+            <div className="flex gap-2 mb-4">
+              <select 
+                value={manualPickId} 
+                onChange={e => setManualPickId(e.target.value)}
+                className="flex-1 bg-white border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-suka-orange"
+              >
+                <option value="">-- Pilih Bahan Baku --</option>
+                {filteredBahanManual.map(b => (
+                  <option key={b.id} value={b.id}>{b.nama} ({b.satuan})</option>
+                ))}
+              </select>
+              <button 
+                onClick={addManualFromPicker}
+                disabled={!manualPickId}
+                className="bg-suka-orange text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+              >
+                Tambah
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {Object.entries(manualBahan).length === 0 ? (
+                <div className="text-center py-4 text-suka-gray-500 text-xs">Belum ada item manual</div>
+              ) : (
+                Object.entries(manualBahan).map(([id, qty]) => {
+                  const b = bahanBaku.find(x => x.id === id)
+                  if (!b) return null
+                  const saranItem = saran.find(s => s.bahan_baku_id === id)
+                  return (
+                    <div key={id} className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-suka-gray-200">
+                      <div>
+                        <p className="font-bold text-suka-ink text-sm">{b.nama}</p>
+                        <p className="text-xs text-suka-gray-500">
+                          {b.satuan} {saranItem && <span className="text-red-500 ml-1">(Kritis: Sisa {saranItem.current_qty})</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center bg-suka-gray-50 rounded p-1 border border-suka-gray-200">
+                        <button onClick={() => updateManualBahan(id, -1)} className="w-6 h-6 flex items-center justify-center text-suka-brown font-bold rounded hover:bg-white">-</button>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={qty || ''} 
+                          onChange={e => {
+                            const val = e.target.value === '' ? 0 : Number(e.target.value);
+                            setManualBahan(prev => {
+                              const copy = { ...prev };
+                              if (val <= 0) delete copy[id];
+                              else copy[id] = val;
+                              return copy;
+                            });
+                          }}
+                          className="w-12 text-center bg-transparent border border-suka-gray-200 rounded p-0.5 font-bold text-sm text-suka-ink focus:outline-none focus:ring-1 focus:ring-suka-orange mx-1" 
+                        />
+                        <button onClick={() => updateManualBahan(id, 1)} className="w-6 h-6 flex items-center justify-center text-suka-brown font-bold rounded hover:bg-white">+</button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Cart Button */}
+      {cartItemCount > 0 && !isCartView && (
+        <div className="fixed bottom-[88px] left-0 right-0 px-4 max-w-2xl mx-auto z-40 animate-in slide-in-from-bottom-10 fade-in">
+          <button 
+            onClick={() => setIsCartView(true)}
+            className="w-full bg-suka-brown text-white shadow-xl rounded-2xl p-4 flex items-center justify-between hover:bg-suka-ink transition-colors group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 w-10 h-10 rounded-full flex items-center justify-center font-bold relative text-xl">
+                🛒
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-suka-brown">
+                  {cartItemCount}
+                </span>
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] text-white/70 uppercase font-bold tracking-widest">Keranjang</p>
+                <p className="font-bold text-sm">Hitung & Tinjau Bahan Baku</p>
+              </div>
+            </div>
+            <div className="bg-white/20 p-2 rounded-xl group-hover:translate-x-1 transition-transform">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

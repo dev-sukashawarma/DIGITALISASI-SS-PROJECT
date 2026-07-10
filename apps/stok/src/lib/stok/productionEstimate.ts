@@ -46,7 +46,12 @@ export function calculateProductionEstimate(items: Partial<MonitoringItem>[]): P
         continue;
       }
 
-      const portions = Math.floor(stockItem.current_qty / req.requiredQty);
+      // Convert current_qty to smaller unit (base unit for recipe) if available
+      const totalBaseQty = stockItem.faktor_tampilan 
+        ? stockItem.current_qty * stockItem.faktor_tampilan 
+        : stockItem.current_qty;
+
+      const portions = Math.floor(totalBaseQty / req.requiredQty);
       
       if (portions < minPortions) {
         minPortions = portions;

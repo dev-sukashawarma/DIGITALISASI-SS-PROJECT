@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { Button, Spinner } from "@suka/design-system";
 import { Settings2, Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -49,6 +49,10 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
   const [selectedOutletId, setSelectedOutletId] = useState("");
   const [newOutletConfig, setNewOutletConfig] = useState<Config>({ ...globalConfig });
 
+  // Marks true while the SPV has unsaved edits in the global ("Pusat") config form.
+  // Guards refreshConfig from silently overwriting in-progress edits on realtime events.
+  const globalDirtyRef = useRef(false);
+
   // Re-fetch pengaturan (global + per-outlet) dari DB, dipanggil saat realtime event masuk.
   // Idempotent: cukup baca ulang state DB terkini, tidak menulis apa pun.
   const refreshConfig = useCallback(async () => {
@@ -66,7 +70,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
         cfgRaw = null;
       }
     }
-    if (cfgRaw) {
+    if (cfgRaw && !globalDirtyRef.current) {
       setGlobalConfig(prev => ({
         jam_masuk: cfgRaw.jam_masuk?.slice(0, 5) || prev.jam_masuk,
         jam_keluar: cfgRaw.jam_keluar?.slice(0, 5) || prev.jam_keluar,
@@ -103,6 +107,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
     startTransition(async () => {
       try {
         await saveGlobalConfig(formData);
+        globalDirtyRef.current = false;
         toast.show("ok", "Pengaturan Utama berhasil disimpan!");
       } catch (err: any) {
         toast.show("err", err.message || "Gagal menyimpan pengaturan");
@@ -260,7 +265,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
           </div>
           
           <form action={onSaveGlobal} className="flex flex-col gap-6">
-            <ConfigFormFields config={globalConfig} setConfig={setGlobalConfig} />
+            <ConfigFormFields config={globalConfig} setConfig={(c) => { globalDirtyRef.current = true; setGlobalConfig(c); }} />
 
             <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${globalConfig.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-red-50 border border-red-100"}`}>
               <div>
@@ -275,7 +280,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
               </div>
               <button
                 type="button"
-                onClick={() => setGlobalConfig({ ...globalConfig, is_active: !globalConfig.is_active })}
+                onClick={() => { globalDirtyRef.current = true; setGlobalConfig({ ...globalConfig, is_active: !globalConfig.is_active }); }}
                 className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
                   globalConfig.absen_window_mode === "manual"
                     ? (globalConfig.is_active ? "bg-suka-green" : "bg-gray-300")

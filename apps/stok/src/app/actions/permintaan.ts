@@ -142,6 +142,12 @@ export async function fetchCrosscheckStok(
   bahanBakuIds: string[]
 ): Promise<Record<string, { outletStok: number; gudangStok: number }>> {
   if (!bahanBakuIds.length) return {}
+
+  const result: Record<string, { outletStok: number; gudangStok: number }> = {}
+  for (const id of bahanBakuIds) {
+    result[id] = { outletStok: 0, gudangStok: 0 }
+  }
+
   const supabase = makeServiceClient()
 
   try {
@@ -185,11 +191,6 @@ export async function fetchCrosscheckStok(
     }
 
     // 4. Map hasil
-    const result: Record<string, { outletStok: number; gudangStok: number }> = {}
-    for (const id of bahanBakuIds) {
-      result[id] = { outletStok: 0, gudangStok: 0 }
-    }
-
     outletStok?.forEach(s => {
       if (result[s.bahan_baku_id]) result[s.bahan_baku_id].outletStok = s.qty
     })
@@ -201,6 +202,6 @@ export async function fetchCrosscheckStok(
     return result
   } catch (error) {
     console.error('Error in fetchCrosscheckStok:', error)
-    return {}
+    return result
   }
 }

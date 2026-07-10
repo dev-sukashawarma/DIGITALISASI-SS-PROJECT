@@ -155,8 +155,8 @@ export default function KruChecklistPage() {
     subscribedRef.current = true;
 
     const supabase = supabaseRef.current;
-    // Gunakan nama channel unik dengan timestamp agar tidak konflik
-    const channelName = `checklist-ticks-${rid}-${Date.now()}`;
+    // Channel name stabil (rid unik per record, tidak perlu timestamp)
+    const channelName = `absensi-checklist-ticks-${rid}`;
     const ch = supabase
       .channel(channelName)
       .on(

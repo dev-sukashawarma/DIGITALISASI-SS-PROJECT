@@ -11,6 +11,8 @@ function makeServiceClient() {
 export interface ResepMenu {
   id: string
   nama: string
+  harga_jual: number
+  image_url?: string | null
 }
 
 export interface CalculatedBahan {
@@ -30,13 +32,45 @@ export async function fetchActiveResep(outletId: string): Promise<ResepMenu[]> {
   
   const { data, error } = await supabase
     .from('resep')
-    .select('id, nama')
+    .select('id, nama, menu_item_ref')
     .eq('is_active', true)
     .or(`scope.eq.global,and(scope.eq.outlet,outlet_id.eq.${outletId})`)
-    .order('nama')
 
   if (error) throw new Error(error.message)
-  return data ?? []
+  if (!data) return []
+
+  const { data: menuData } = await supabase
+    .from('menu_items')
+    .select('id, name, price, image_url')
+    
+  if (menuData) {
+    const menuMap = new Map(menuData.map(m => [m.id, { name: m.name, price: m.price, image_url: m.image_url }]))
+    
+    const validMenus = data
+      .filter(r => r.menu_item_ref && menuMap.has(r.menu_item_ref))
+      .map(r => {
+        const m = menuMap.get(r.menu_item_ref)!
+        return {
+          id: r.id,
+          nama: m.name,
+          harga_jual: m.price,
+          image_url: m.image_url
+        }
+      })
+
+    return validMenus.sort((a, b) => {
+      const bottomItems = ['Extra Keju', 'Extra Kentang', 'Ice Tea', 'Orange Jus']
+      const aIsBottom = bottomItems.includes(a.nama)
+      const bIsBottom = bottomItems.includes(b.nama)
+      
+      if (aIsBottom && !bIsBottom) return 1
+      if (!aIsBottom && bIsBottom) return -1
+      
+      return a.nama.localeCompare(b.nama)
+    })
+  }
+
+  return []
 }
 
 // ---------------------------------------------------------------------------

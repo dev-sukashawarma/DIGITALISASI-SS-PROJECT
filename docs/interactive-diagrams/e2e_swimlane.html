@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E2E Swimlane Workflow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .swimlane-grid {
+            display: grid;
+            grid-template-columns: 200px repeat(5, 1fr);
+            gap: 1rem;
+        }
+        .app-row {
+            display: contents;
+        }
+        .node {
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .node:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex">
+    <div class="flex-1 p-8 overflow-x-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center text-slate-800">E2E Swimlane: Sukashawarma</h1>
+        
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-w-[1000px]">
+            <div class="swimlane-grid">
+                <!-- Header -->
+                <div class="font-bold text-slate-500 uppercase text-xs tracking-wider pb-4 border-b">Aplikasi</div>
+                <div class="font-bold text-slate-500 uppercase text-xs tracking-wider pb-4 border-b text-center">Fase 1: Onboarding</div>
+                <div class="font-bold text-slate-500 uppercase text-xs tracking-wider pb-4 border-b text-center">Fase 2: Persiapan</div>
+                <div class="font-bold text-slate-500 uppercase text-xs tracking-wider pb-4 border-b text-center">Fase 3: Operasional</div>
+                <div class="font-bold text-slate-500 uppercase text-xs tracking-wider pb-4 border-b text-center">Fase 4: Supply</div>
+                <div class="font-bold text-slate-500 uppercase text-xs tracking-wider pb-4 border-b text-center">Fase 5: Monitoring</div>
+
+                <!-- Apps -->
+                <!-- Portal -->
+                <div class="app-row">
+                    <div class="py-4 border-b flex items-center font-semibold text-blue-700">1. Portal Karyawan</div>
+                    <div class="py-4 border-b border-l px-2 flex justify-center items-center">
+                        <div class="node bg-blue-100 text-blue-800 border border-blue-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'portal-1')">Registrasi & KYC</div>
+                    </div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                </div>
+
+                <!-- Absensi -->
+                <div class="app-row">
+                    <div class="py-4 border-b flex items-center font-semibold text-green-700">2. Absensi Apps</div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2 flex justify-center items-center">
+                        <div class="node bg-green-100 text-green-800 border border-green-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'absensi-1')">Clock In Pagi</div>
+                    </div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2 flex justify-center items-center">
+                        <div class="node bg-green-100 text-green-800 border border-green-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'absensi-2')">Clock Out / Lembur</div>
+                    </div>
+                </div>
+
+                <!-- POS -->
+                <div class="app-row">
+                    <div class="py-4 border-b flex items-center font-semibold text-orange-700">3. POS & Kasir</div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2 flex justify-center items-center flex-col gap-2">
+                        <div class="node bg-orange-100 text-orange-800 border border-orange-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'pos-1')">Buka Kasir & Modal</div>
+                        <div class="node bg-orange-100 text-orange-800 border border-orange-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'pos-2')">Transaksi Penjualan</div>
+                    </div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2 flex justify-center items-center">
+                        <div class="node bg-orange-100 text-orange-800 border border-orange-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'pos-3')">Tutup Kasir & Setor</div>
+                    </div>
+                </div>
+
+                <!-- Stok -->
+                <div class="app-row">
+                    <div class="py-4 border-b flex items-center font-semibold text-purple-700">4. Inventory & Stok</div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2 flex justify-center items-center">
+                        <div class="node bg-purple-100 text-purple-800 border border-purple-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'stok-1')">Cek Stok Awal</div>
+                    </div>
+                    <div class="py-4 border-b border-l px-2 flex justify-center items-center">
+                        <div class="node bg-purple-100 text-purple-800 border border-purple-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'stok-2')">Penggunaan Bahan (BOM)</div>
+                    </div>
+                    <div class="py-4 border-b border-l px-2 flex justify-center items-center">
+                        <div class="node bg-purple-100 text-purple-800 border border-purple-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'stok-3')">Request Restock</div>
+                    </div>
+                    <div class="py-4 border-b border-l px-2 flex justify-center items-center">
+                        <div class="node bg-purple-100 text-purple-800 border border-purple-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'stok-4')">Opname Akhir</div>
+                    </div>
+                </div>
+
+                <!-- Distribusi -->
+                <div class="app-row">
+                    <div class="py-4 border-b flex items-center font-semibold text-teal-700">5. Distribusi / Kurir</div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                    <div class="py-4 border-b border-l px-2 flex justify-center items-center flex-col gap-2">
+                        <div class="node bg-teal-100 text-teal-800 border border-teal-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'dist-1')">Ambil Barang di CK</div>
+                        <div class="node bg-teal-100 text-teal-800 border border-teal-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'dist-2')">Kirim ke Outlet</div>
+                    </div>
+                    <div class="py-4 border-b border-l px-2"></div>
+                </div>
+
+                <!-- Owner Dashboard -->
+                <div class="app-row">
+                    <div class="py-4 flex items-center font-semibold text-rose-700">6. Owner Dashboard</div>
+                    <div class="py-4 border-l px-2"></div>
+                    <div class="py-4 border-l px-2"></div>
+                    <div class="py-4 border-l px-2 flex justify-center items-center">
+                        <div class="node bg-rose-100 text-rose-800 border border-rose-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'owner-1')">Live Sales Monitor</div>
+                    </div>
+                    <div class="py-4 border-l px-2"></div>
+                    <div class="py-4 border-l px-2 flex justify-center items-center">
+                        <div class="node bg-rose-100 text-rose-800 border border-rose-300 rounded p-3 text-sm font-medium w-full text-center" onclick="showDetails(event, 'owner-2')">Laporan Harian & Laba</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Panel -->
+    <div class="w-96 bg-white border-l border-slate-200 shadow-xl p-6 flex flex-col h-screen sticky top-0 right-0 overflow-y-auto hidden" id="detail-panel">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold text-slate-800">Detail Proses</h2>
+            <button onclick="closeDetails()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div id="detail-content" class="text-sm text-slate-600 space-y-4">
+            <p>Pilih node pada diagram untuk melihat detail proses.</p>
+        </div>
+    </div>
+    
+    <script>
+        const detailsData = {
+            'portal-1': {
+                title: 'Registrasi & KYC',
+                app: 'Portal Karyawan',
+                description: 'Karyawan baru mengunggah dokumen KTP, KK, dan mengisi data diri lengkap untuk proses verifikasi oleh HR.',
+                actors: ['Calon Karyawan', 'HR Admin'],
+                status: 'Selesai / Aktif'
+            },
+            'absensi-1': {
+                title: 'Clock In Pagi',
+                app: 'Absensi Apps',
+                description: 'Karyawan melakukan absensi masuk (clock in) menggunakan foto selfie dan geotagging GPS saat tiba di outlet.',
+                actors: ['Karyawan Outlet'],
+                status: 'Harian'
+            },
+            'absensi-2': {
+                title: 'Clock Out / Lembur',
+                app: 'Absensi Apps',
+                description: 'Karyawan mencatatkan waktu pulang. Jika melebihi jam operasional normal, akan dicatat sebagai lembur dan membutuhkan approval.',
+                actors: ['Karyawan Outlet', 'Manager'],
+                status: 'Harian'
+            },
+            'pos-1': {
+                title: 'Buka Kasir & Modal',
+                app: 'POS & Kasir',
+                description: 'Kasir membuka shift dengan memasukkan saldo awal (modal kas) dan mencetak slip buka shift.',
+                actors: ['Kasir'],
+                status: 'Harian - Pagi'
+            },
+            'pos-2': {
+                title: 'Transaksi Penjualan',
+                app: 'POS & Kasir',
+                description: 'Proses mencatat pesanan pelanggan, memilih metode pembayaran (Tunai/QRIS), dan mencetak struk.',
+                actors: ['Kasir', 'Pelanggan'],
+                status: 'Real-time'
+            },
+            'pos-3': {
+                title: 'Tutup Kasir & Setor',
+                app: 'POS & Kasir',
+                description: 'Shift ditutup, sistem mencocokkan total uang fisik dengan tercatat di sistem. Selisih (jika ada) dilaporkan, kemudian uang disetorkan.',
+                actors: ['Kasir', 'SPV Outlet'],
+                status: 'Harian - Malam'
+            },
+            'stok-1': {
+                title: 'Cek Stok Awal',
+                app: 'Inventory & Stok',
+                description: 'Bahan baku seperti roti pita, daging, dan saus dicek ketersediaannya sebelum outlet dibuka.',
+                actors: ['Staff Dapur'],
+                status: 'Harian - Pagi'
+            },
+            'stok-2': {
+                title: 'Penggunaan Bahan (BOM)',
+                app: 'Inventory & Stok',
+                description: 'Setiap menu yang terjual dari POS otomatis mengurangi stok bahan baku berdasarkan resep (Bill of Materials).',
+                actors: ['Sistem'],
+                status: 'Otomatis'
+            },
+            'stok-3': {
+                title: 'Request Restock',
+                app: 'Inventory & Stok',
+                description: 'Outlet membuat permintaan pengiriman bahan baku ke Central Kitchen (CK) jika stok di bawah batas minimal.',
+                actors: ['SPV Outlet', 'Admin CK'],
+                status: 'As-needed'
+            },
+            'stok-4': {
+                title: 'Opname Akhir',
+                app: 'Inventory & Stok',
+                description: 'Penghitungan fisik stok di akhir shift/hari untuk dicocokkan dengan data sistem. Mencegah kebocoran bahan baku.',
+                actors: ['Staff Dapur', 'SPV Outlet'],
+                status: 'Harian - Malam'
+            },
+            'dist-1': {
+                title: 'Ambil Barang di CK',
+                app: 'Distribusi / Kurir',
+                description: 'Kurir mengambil bahan baku yang sudah disiapkan oleh Central Kitchen berdasarkan Delivery Order (DO).',
+                actors: ['Kurir', 'Admin CK'],
+                status: 'Harian'
+            },
+            'dist-2': {
+                title: 'Kirim ke Outlet',
+                app: 'Distribusi / Kurir',
+                description: 'Kurir mengirimkan barang ke outlet, SPV Outlet melakukan verifikasi penerimaan barang (Goods Receipt).',
+                actors: ['Kurir', 'SPV Outlet'],
+                status: 'Harian'
+            },
+            'owner-1': {
+                title: 'Live Sales Monitor',
+                app: 'Owner Dashboard',
+                description: 'Owner memantau penjualan real-time, melihat produk terlaris, dan performa setiap outlet.',
+                actors: ['Owner', 'Manajemen'],
+                status: 'Real-time'
+            },
+            'owner-2': {
+                title: 'Laporan Harian & Laba',
+                app: 'Owner Dashboard',
+                description: 'Generate laporan laba rugi, total transaksi, rekonsiliasi kas vs sistem, dan efisiensi stok (Food Cost).',
+                actors: ['Owner', 'Finance'],
+                status: 'Harian / Bulanan'
+            }
+        };
+
+        function showDetails(event, id) {
+            const data = detailsData[id];
+            if (!data) return;
+
+            // Remove selected class from all nodes
+            document.querySelectorAll('.node').forEach(el => {
+                el.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
+            });
+            
+            // Add selected class to clicked node
+            event.currentTarget.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
+
+            const panel = document.getElementById('detail-panel');
+            const content = document.getElementById('detail-content');
+
+            content.innerHTML = `
+                <div class="mb-4">
+                    <span class="inline-block px-2 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded-md border border-slate-200">${data.app}</span>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 mb-2">${data.title}</h3>
+                <p class="mb-4 leading-relaxed">${data.description}</p>
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                    <p class="mb-2"><strong class="text-slate-700">Aktor:</strong> ${data.actors.join(', ')}</p>
+                    <p><strong class="text-slate-700">Status/Frekuensi:</strong> ${data.status}</p>
+                </div>
+            `;
+            
+            panel.classList.remove('hidden');
+        }
+
+        function closeDetails() {
+            document.getElementById('detail-panel').classList.add('hidden');
+            document.querySelectorAll('.node').forEach(el => {
+                el.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
+            });
+        }
+    </script>
+</body>
+</html>

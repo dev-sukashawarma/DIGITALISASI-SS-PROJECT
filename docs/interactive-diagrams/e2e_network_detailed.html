@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holy Grail E2E Map - Sukashawarma</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            htmlLabels: true,
+            theme: 'default',
+            securityLevel: 'loose'
+        });
+        
+        window.mermaid = mermaid;
+    </script>
+    <style>
+        .edgePath .path { stroke: #6b7280; stroke-width: 2px; }
+        .finance-edge .path { stroke: #10b981 !important; stroke-width: 4px !important; stroke-dasharray: 5,5; }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen flex overflow-hidden">
+    <!-- Main Content: Graph -->
+    <main class="flex-1 p-8 overflow-auto">
+        <h1 class="text-3xl font-bold mb-2 text-gray-800">Holy Grail E2E Network Map (4-Dimensi)</h1>
+        <p class="text-gray-500 mb-6">Memetakan 4 Dimensi sekaligus: <span class="font-bold text-blue-600">Sistem Data</span>, <span class="font-bold text-green-600">Arus Uang ($)</span>, <span class="font-bold text-amber-700">Barang Fisik (📦)</span>, dan <span class="font-bold text-gray-700">Dokumen Bisnis (📄)</span>.</p>
+        
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <pre class="mermaid">
+                flowchart TD
+                    classDef auth fill:#f3f4f6, stroke:#4b5563, stroke-width:2px;
+                    classDef portal fill:#dbeafe, stroke:#3b82f6, stroke-width:2px;
+                    classDef pos fill:#dcfce7, stroke:#22c55e, stroke-width:2px;
+                    classDef stok fill:#ffedd5, stroke:#f97316, stroke-width:2px;
+                    classDef dist fill:#f3e8ff, stroke:#a855f7, stroke-width:2px;
+                    classDef ownerdash fill:#ffe4e6, stroke:#e11d48, stroke-width:2px;
+                    classDef admindash fill:#e0f2fe, stroke:#0284c7, stroke-width:2px;
+                    classDef finance fill:#fef3c7, stroke:#d97706, stroke-width:2px;
+                    classDef external fill:#e5e7eb, stroke:#374151, stroke-width:2px, stroke-dasharray: 5 5;
+
+                    subgraph Auth_SSO ["Auth & SSO (Core)"]
+                        PortalLogin("<div style='width:180px; text-align:center;' class='p-1'>Portal Login</div>"):::auth
+                        AuthValidator("<div style='width:180px; text-align:center;' class='p-1'>Validasi JWT & Session</div>"):::auth
+                        
+                        PortalLogin --> AuthValidator
+                    end
+
+                    subgraph Portal_Absensi ["Portal & Absensi (M1)"]
+                        SyncOutlets("<div style='width:180px; text-align:center;' class='p-1'>Sinkronisasi Outlet</div>"):::portal
+                        EnrollFace("<div style='width:180px; text-align:center;' class='p-1'>Rekam Wajah Staf</div>"):::portal
+                        ClockIn("<div style='width:180px; text-align:center;' class='p-1'>Clock-In Staf</div>"):::portal
+                        FaceMatch("<div style='width:180px; text-align:center;' class='p-1'>Validasi Wajah (1:N)</div>"):::absen
+                        LivenessCheck("<div style='width:180px; text-align:center;' class='p-1'>Anti-Spoofing (Liveness)</div>"):::absen
+                        OfflineQueue("<div style='width:180px; text-align:center;' class='p-1'>Antrean Offline</div>"):::absen
+                        AttendanceDB("<div style='width:180px; text-align:center;' class='p-1'>Database Kehadiran</div>"):::portal
+
+                        SyncOutlets --> EnrollFace
+                        EnrollFace --> ClockIn
+                        ClockIn --->|"Capture 📸"| FaceMatch
+                        FaceMatch --->|"Euclidean < 0.5"| LivenessCheck
+                        LivenessCheck --->|"Challenge Senyum/Kedip"| AttendanceDB
+                        LivenessCheck -.->|"Gagal koneksi"| OfflineQueue
+                        OfflineQueue -->|"Koneksi Pulih"| AttendanceDB
+                    end
+
+                    subgraph POS_Kasir ["POS Kasir (M0) & Backend BOM"]
+                        POS_Sales("<div style='width:180px; text-align:center;' class='p-1'>Transaksi Penjualan</div>"):::pos
+                        POS_Offline("<div style='width:180px; text-align:center;' class='p-1'>Transaksi Offline</div>"):::pos
+                        BOM_Trigger("<div style='width:180px; text-align:center;' class='p-1'>Supabase BOM Trigger</div>"):::pos
+
+                        POS_Sales -.->|"Gagal koneksi"| POS_Offline
+                        POS_Offline -->|"Koneksi Pulih"| POS_Sales
+                        POS_Sales -->|"Kirim ID Produk"| BOM_Trigger
+                    end
+
+                    subgraph Finance_Treasury ["Finance & Treasury (M5 - Dalam Pengembangan)"]
+                        PaymentGateway("<div style='width:180px; text-align:center;' class='p-1'>Payment Gateway (QRIS)</div>"):::finance
+                        CashDrawer("<div style='width:180px; text-align:center;' class='p-1'>Laci Kasir Tunai</div>"):::finance
+                        Settlement("<div style='width:180px; text-align:center;' class='p-1'>Settlement Harian</div>"):::finance
+                        CompanyBank("<div style='width:180px; text-align:center;' class='p-1'>Rekening Kas Perusahaan</div>"):::finance
+                        SupplierPayment("<div style='width:180px; text-align:center;' class='p-1'>Pembayaran Supplier</div>"):::finance
+                        PayrollSystem("<div style='width:180px; text-align:center;' class='p-1'>Sistem Gaji / Payroll</div>"):::finance
+                        
+                        PaymentGateway --> Settlement
+                        CashDrawer --> Settlement
+                        Settlement --> CompanyBank
+                        CompanyBank --> SupplierPayment
+                        CompanyBank --> PayrollSystem
+                    end
+
+                    subgraph Stok_Inventory ["Stok & Inventory (M2)"]
+                        PhysicalCount("<div style='width:180px; text-align:center;' class='p-1'>Hitung Fisik Opname</div>"):::stok
+                        DiffCalc("<div style='width:180px; text-align:center;' class='p-1'>Kalkulasi Selisih</div>"):::stok
+                        StockLedger("<div style='width:180px; text-align:center;' class='p-1'>Buku Besar Stok</div>"):::stok
+                        ReorderAlert("<div style='width:180px; text-align:center;' class='p-1'>Peringatan Restock</div>"):::stok
+                        CrewOrder("<div style='width:180px; text-align:center;' class='p-1'>Crew Request Order</div>"):::stok
+
+                        PhysicalCount --> DiffCalc
+                        DiffCalc -->|"Penyesuaian"| StockLedger
+                        StockLedger --> ReorderAlert
+                        ReorderAlert --> CrewOrder
+                    end
+
+                    subgraph Distribusi ["Distribusi Pusat (M3)"]
+                        ApproveOrder("<div style='width:180px; text-align:center;' class='p-1'>Gudang Approve Order</div>"):::dist
+                        CreatePO("<div style='width:180px; text-align:center;' class='p-1'>Buat PO Supplier</div>"):::dist
+                        ReceivePO("<div style='width:180px; text-align:center;' class='p-1'>Terima PO & Update HPP</div>"):::dist
+                        SuratJalan("<div style='width:180px; text-align:center;' class='p-1'>Kirim Surat Jalan</div>"):::dist
+                        ReceiveOutlet("<div style='width:180px; text-align:center;' class='p-1'>Outlet Terima & Timbang</div>"):::dist
+                        DiscrepancySplit("<div style='width:180px; text-align:center;' class='p-1'>Pemisahan Selisih</div>"):::dist
+                        ClaimLoss("<div style='width:180px; text-align:center;' class='p-1'>Klaim Kerugian Ekspedisi</div>"):::dist
+
+                        CreatePO --> ReceivePO
+                        ApproveOrder -->|"Instruksi Kemas"| SuratJalan
+                        SuratJalan -->|"Data Dokumen"| ReceiveOutlet
+                        ReceiveOutlet --> DiscrepancySplit
+                        DiscrepancySplit -->|"Ada Selisih/Hilang"| ClaimLoss
+                        
+                        SupirInternal("<div style='width:180px; text-align:center;' class='p-1'>Supir Distribusi Internal</div>"):::dist
+                    end
+                    
+                    subgraph External_Actors ["Aktor Fisik Lapangan (Eksternal)"]
+                        SupplierEksternal("<div style='width:180px; text-align:center;' class='p-1'>Supplier Bahan Baku (Vendor Eksternal)</div>"):::external
+                    end
+
+                    subgraph Dashboard_Admin ["Modul Superadmin (admin-dashboard)"]
+                        MasterData("<div style='width:180px; text-align:center;' class='p-1'>Master Menu & Harga</div>"):::admindash
+                        HROps("<div style='width:180px; text-align:center;' class='p-1'>Operasional Karyawan (HR)</div>"):::admindash
+                        SysHealth("<div style='width:180px; text-align:center;' class='p-1'>System Health & Audit</div>"):::admindash
+                    end
+
+                    subgraph Dashboard_Owner ["Modul Owner (admin-dashboard/owner)"]
+                        EdgeRollup("<div style='width:180px; text-align:center;' class='p-1'>Agregasi Omzet (pg_cron)</div>"):::ownerdash
+                        COGS_Matcher("<div style='width:180px; text-align:center;' class='p-1'>Kalkulasi Omzet vs HPP</div>"):::ownerdash
+                        MaterializedViews("<div style='width:180px; text-align:center;' class='p-1'>Cache Data Cepat</div>"):::ownerdash
+                        DashUI("<div style='width:180px; text-align:center;' class='p-1'>Tampilan Finansial </div>"):::ownerdash
+
+                        EdgeRollup --> COGS_Matcher
+                        COGS_Matcher --> MaterializedViews
+                        MaterializedViews --> DashUI
+                    end
+
+                    %% 1. NORMAL DATA CROSS-EDGES (Aliran Data & Sistem)
+                    AuthValidator ===>|"Unlock /owner"| Dashboard_Owner
+                    AuthValidator ===>|"Unlock Full Admin"| Dashboard_Admin
+                    AuthValidator ===>|"Unlock"| Portal_Absensi
+                    AuthValidator ===>|"Unlock"| POS_Kasir
+                    
+                    MasterData ===>|"Suplai Resep Valid"| BOM_Trigger
+                    MasterData ===>|"Kunci Snapshot Harga (ADR-011)"| SuratJalan
+                    HROps ===>|"Pantau Kinerja"| AttendanceDB
+                    
+                    AttendanceDB ===>|"Syarat akses kasir (Wajib Absen)"| POS_Sales
+                    BOM_Trigger ===>|"Pecah resep & potong stok mentah"| StockLedger
+                    POS_Sales ===>|"Kirim data mentah transaksi"| EdgeRollup
+                    DiscrepancySplit ===>|"Jumlah AKTUAL tiba"| StockLedger
+                    ReceivePO ===>|"Tambah stok fisik gudang pusat"| StockLedger
+                    StockLedger ===>|"Data HPP"| COGS_Matcher
+                    AttendanceDB ===>|"Data Jam Kerja"| PayrollSystem
+                    
+                    %% 2. FINANCIAL FLOW EDGES (Aliran Uang - Ditandai dengan $)
+                    POS_Sales == "$ +Rp 5 Juta (Omzet/Non-Tunai)" ==> PaymentGateway
+                    POS_Sales == "$ +Rp 5 Juta (Omzet/Tunai)" ==> CashDrawer
+                    Settlement == "$ Total +Rp 5 Juta" ==> CompanyBank
+                    CompanyBank == "$ -Rp 2 Juta (HPP 40%)" ==> SupplierPayment
+                    CompanyBank == "$ -Rp 600rb (Gaji 4 Crew)" ==> PayrollSystem
+                    CompanyBank == "$ Laba Bersih Operasional" ==> DashUI
+
+                    %% 3. PHYSICAL GOODS FLOW (Aliran Barang Fisik - Ditandai dengan 📦)
+                    SupplierEksternal == "📦 Kirim Fisik (+100kg Daging)" ==> ReceivePO
+                    SuratJalan == "📦 Angkut Fisik (+10kg Daging)" ==> SupirInternal
+                    SupirInternal == "📦 Tiba di Outlet Fisik" ==> ReceiveOutlet
+                    
+                    %% 4. DOCUMENT FLOW (Aliran Dokumen Otorisasi - Ditandai dengan 📄)
+                    CrewOrder -. "📄 Dokumen RO (Request Order)" .-> ApproveOrder
+                    CreatePO -. "📄 Dokumen PO (Purchase Order)" .-> SupplierEksternal
+                    SupplierEksternal -. "📄 Faktur / Invoice Tagihan" .-> ReceivePO
+                    ReceivePO -. "📄 Teruskan Invoice" .-> SupplierPayment
+                    ApproveOrder -. "📄 Surat Jalan (Manifest)" .-> SupirInternal
+                    SupirInternal -. "📄 Serah Terima Surat Jalan" .-> ReceiveOutlet
+                    ReceiveOutlet -. "📄 Tanda Terima (Goods Receipt)" .-> DiscrepancySplit
+
+                    %% Click Events
+                    click PortalLogin call showDetails("PortalLogin")
+                    click AuthValidator call showDetails("AuthValidator")
+                    
+                    click SyncOutlets call showDetails("SyncOutlets")
+                    click EnrollFace call showDetails("EnrollFace")
+                    click ClockIn call showDetails("ClockIn")
+                    click FaceMatch call showDetails("FaceMatch")
+                    click GPSCheck call showDetails("GPSCheck")
+                    click OfflineQueue call showDetails("OfflineQueue")
+                    click AttendanceDB call showDetails("AttendanceDB")
+                    
+                    click POS_Sales call showDetails("POS_Sales")
+                    click POS_Offline call showDetails("POS_Offline")
+                    click BOM_Trigger call showDetails("BOM_Trigger")
+                    
+                    click PaymentGateway call showDetails("PaymentGateway")
+                    click CashDrawer call showDetails("CashDrawer")
+                    click Settlement call showDetails("Settlement")
+                    click CompanyBank call showDetails("CompanyBank")
+                    click SupplierPayment call showDetails("SupplierPayment")
+                    click PayrollSystem call showDetails("PayrollSystem")
+                    
+                    click PhysicalCount call showDetails("PhysicalCount")
+                    click DiffCalc call showDetails("DiffCalc")
+                    click StockLedger call showDetails("StockLedger")
+                    click ReorderAlert call showDetails("ReorderAlert")
+                    click CrewOrder call showDetails("CrewOrder")
+                    
+                    click ApproveOrder call showDetails("ApproveOrder")
+                    click CreatePO call showDetails("CreatePO")
+                    click ReceivePO call showDetails("ReceivePO")
+                    click SuratJalan call showDetails("SuratJalan")
+                    click ReceiveOutlet call showDetails("ReceiveOutlet")
+                    click DiscrepancySplit call showDetails("DiscrepancySplit")
+                    click ClaimLoss call showDetails("ClaimLoss")
+                    click SupirInternal call showDetails("SupirInternal")
+                    
+                    click SupplierEksternal call showDetails("SupplierEksternal")
+                    
+                    click MasterData call showDetails("MasterData")
+                    click HROps call showDetails("HROps")
+                    click SysHealth call showDetails("SysHealth")
+                    
+                    click EdgeRollup call showDetails("EdgeRollup")
+                    click COGS_Matcher call showDetails("COGS_Matcher")
+                    click MaterializedViews call showDetails("MaterializedViews")
+                    click DashUI call showDetails("DashUI")
+            </pre>
+        </div>
+    </main>
+    
+    <!-- Right Sidebar: Details Panel -->
+    <aside class="w-96 bg-white border-l border-gray-200 shadow-xl flex flex-col hidden" id="detailsPanel">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h2 class="text-xl font-bold text-gray-800" id="detailTitle">Detail Proses</h2>
+            <button onclick="closeDetails()" class="text-gray-400 hover:text-gray-600 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="p-6 flex-1 overflow-y-auto" id="detailContent">
+            <!-- Content populated via JS -->
+        </div>
+    </aside>
+
+    <script>
+        const nodeData = {
+            // AUTH
+            "PortalLogin": { app: "Auth & SSO", color: "text-gray-700", role: "Semua Pengguna", description: "Pintu masuk tunggal (SSO) berbasis Next.js untuk seluruh aplikasi di bawah ekosistem <b>app.sukashawarma.com</b>.", integrations: "Mengirim kredensial email/password ke API Supabase." },
+            "AuthValidator": { app: "Auth & SSO", color: "text-gray-700", role: "Sistem (@suka/auth)", description: "Package internal <code>@suka/auth</code> yang memvalidasi Session JWT dari Supabase. Membaca <b>Role Matrix</b> (Admin, Owner, Kasir, SPV) secara server-side.", integrations: "Mengarahkan (Redirect) pengguna ke aplikasi yang berhak mereka akses." },
+
+            // PORTAL & ABSENSI
+            "SyncOutlets": { app: "Portal (M1)", color: "text-blue-600", role: "Sistem (pg_cron)", description: "Edge Function / pg_cron di Supabase yang menyinkronkan master data cabang sehingga ID Outlet tersedia valid saat mesin Kios Absensi diinisialisasi.", integrations: "Menyuplai parameter outlet_id." },
+            "EnrollFace": { app: "Portal (M1)", color: "text-blue-600", role: "Supervisor", description: "Proses merekam struktur vektor wajah (Face Descriptor) staf baru via kamera setelah mendapat persetujuan UU PDP. Data tensor disimpan terenkripsi.", integrations: "Tersimpan permanen di tabel profil Supabase." },
+            "ClockIn": { app: "Absensi (M1)", color: "text-blue-600", role: "Seluruh Staf", description: "Halaman Kios UI <code>apps/absensi/src/app/clock/page.tsx</code>. Staf menekan tombol Clock-In/Out di tablet toko.", integrations: "Memicu rantai validasi anti-curang." },
+            "FaceMatch": { app: "Absensi (M1)", color: "text-blue-600", role: "Sistem (face-api.js)", description: "Validasi wajah lokal di browser menggunakan library <code>face-api.js</code>. Menggunakan metode Identify 1:N dengan toleransi Euclidean Distance < 0.5. Bebas GPS.", integrations: "Lanjut ke Liveness Check jika wajah dikenali." },
+            "LivenessCheck": { app: "Absensi (M1)", color: "text-blue-600", role: "Sistem Anti-Spoofing", description: "Sistem secara acak meminta staf untuk senyum, kedip, atau menoleh (Tantangan Liveness) dalam waktu 8 detik untuk mencegah kecurangan foto/video. Menggantikan sistem GPS lama.", integrations: "Melempar hasil validasi akhir ke OfflineQueue." },
+            "OfflineQueue": { app: "Absensi (M1)", color: "text-blue-600", role: "Penyimpanan Lokal", description: "Mekanisme antrean lokal di browser (IndexedDB) untuk menampung presensi jika koneksi internet outlet putus.", integrations: "Sync (Push) otomatis ke Supabase saat online." },
+            "AttendanceDB": { app: "Database Utama", color: "text-blue-600", role: "Supabase (attendance)", description: "Tabel utama pencatat riwayat kehadiran staf secara real-time.", integrations: "Berfungsi sebagai <b>syarat mutlak buka Kasir</b> dan penyuplai data ke Payroll." },
+
+            // POS KASIR
+            "POS_Sales": { app: "Kasir (M0)", color: "text-green-600", role: "Kasir", description: "Aplikasi React/Next.js di <code>kasir.sukashawarma.com</code>. Mencatat order pelanggan. Terkunci otomatis jika Leader/SPV belum melakukan <b>Checklist Buka Toko</b> di portal absen.", integrations: "Mencetak Struk dan memicu BOM_Trigger." },
+            "POS_Offline": { app: "Kasir (M0)", color: "text-green-600", role: "Penyimpanan Lokal", description: "Database lokal (PWA Storage / IndexedDB) yang menyimpan antrean struk pesanan saat internet mati.", integrations: "Background-sync memompa data ke server setelah koneksi pulih." },
+            "BOM_Trigger": { app: "Database (Supabase)", color: "text-green-600", role: "Edge Function", description: "Database Trigger di Supabase. Setiap kali 1 produk jadi terjual (misal: 1 Shawarma), fungsi ini membedah <b>Bill of Materials (Resep)</b> dan memecahnya menjadi gramasi bahan baku.", integrations: "Secara presisi memotong stok fisik mentah di StockLedger." },
+
+            // FINANCE (ALIRAN DANA) - DALAM PENGEMBANGAN
+            "PaymentGateway": { app: "Treasury (M5 - Tahap Dev)", color: "text-yellow-600", role: "Pihak Ketiga (Midtrans)", description: "Sistem eksternal penampung uang dari pembayaran non-tunai (QRIS, Kartu Debit, E-Wallet).", integrations: "Menyalurkan dana tunai (Settlement) ke Kas Perusahaan di H+1." },
+            "CashDrawer": { app: "Treasury (M5 - Tahap Dev)", color: "text-yellow-600", role: "Laci Kasir Fisik", description: "Uang tunai kertas dan koin fisik dari tangan pelanggan.", integrations: "Disetor manual oleh SPV (Settlement) ke rekening Bank Perusahaan setiap malam." },
+            "Settlement": { app: "Treasury (M5 - Tahap Dev)", color: "text-yellow-600", role: "Sistem / SPV", description: "Proses rekonsiliasi pemindahan uang dari kantong sementara ke akun Bank Utama.", integrations: "Menyuntikkan Uang Segar nyata ke Company Bank." },
+            "CompanyBank": { app: "Treasury (M5 - Tahap Dev)", color: "text-yellow-600", role: "Rekening Pusat (Kas)", description: "Rekening koran bank asli milik perusahaan. Tempat berputarnya uang masuk dan uang keluar.", integrations: "Pusat pencairan Payroll dan Supplier Payment." },
+            "SupplierPayment": { app: "Treasury (M5 - Tahap Dev)", color: "text-yellow-600", role: "Sistem Finance", description: "[Akan Diotomatisasi] Pelunasan uang ke vendor berdasarkan pencocokan <b>3-Way Matching</b> (Dokumen PO vs Manifest Surat Jalan vs Invoice).", integrations: "Menguras kas Bank untuk belanja logistik." },
+            "PayrollSystem": { app: "Treasury (M5 - Tahap Dev)", color: "text-yellow-600", role: "Sistem HR", description: "[Akan Diotomatisasi] Pencairan gaji Crew outlet (Pro-rata harian) melalui Disbursement API, dipicu oleh data bersih dari AttendanceDB.", integrations: "Menguras kas Bank untuk biaya tenaga kerja." },
+
+            // STOK
+            "PhysicalCount": { app: "Stok (M2)", color: "text-orange-500", role: "Staf Outlet", description: "Aplikasi <code>stok.sukashawarma.com</code>. Kru melakukan <b>Stock Opname harian</b> (hitung fisik) di chiller/freezer dan menginput angka aktual (kg/pcs).", integrations: "Data fisik dilempar ke DiffCalc." },
+            "DiffCalc": { app: "Stok (M2)", color: "text-orange-500", role: "Modul Komputasi", description: "Sistem yang menghitung selisih (Variance) antara Stok Fisik hasil opname versus Stok Teoretis di sistem akibat pengurangan BOM kasir.", integrations: "Menciptakan Adjustment otomatis di StockLedger." },
+            "StockLedger": { app: "Database Utama", color: "text-orange-500", role: "Tabel Supabase", description: "Buku Besar Logistik. Menghitung HPP final harian menggunakan formula <code>HPP = Stok Awal + Masuk - Akhir</code>.", integrations: "Mengkalikan kuantitas fisik dengan <b>Harga Snapshot Terakhir (ADR-011)</b> untuk disuplai ke Dashboard." },
+            "ReorderAlert": { app: "Stok (M2)", color: "text-orange-500", role: "Threshold Peringatan", description: "Sistem peringatan otomatis (Notification) jika sisa bahan mentah menyentuh titik kritis <b>Minimum Reorder Point</b>.", integrations: "Mengingatkan Crew untuk segera memesan barang." },
+            "CrewOrder": { app: "Stok (M2)", color: "text-orange-500", role: "Crew Outlet", description: "Staf lapangan mengisi form digital untuk mencetak <b>Dokumen Request Order (RO)</b> ke aplikasi Gudang Pusat.", integrations: "Memulai Aliran Dokumen (RO) ke antrean admin." },
+
+            // DISTRIBUSI & EKSTERNAL (ALIRAN BARANG & DOKUMEN)
+            "ApproveOrder": { app: "Distribusi (M3)", color: "text-purple-600", role: "Gudang Pusat", description: "Admin Gudang di <code>distribusi.sukashawarma.com</code> meninjau <b>Dokumen RO</b>. Jika stok mencukupi, disetujui (Approved) masuk ke daftar kemas (Packing List).", integrations: "Memerintahkan penerbitan Dokumen Surat Jalan." },
+            "CreatePO": { app: "Distribusi (M3)", color: "text-purple-600", role: "Admin Pembelian", description: "Menerbitkan <b>Dokumen Purchase Order (PO)</b> resmi (kuantitas, spesifikasi, harga beli) ke pihak Supplier Eksternal.", integrations: "Mengikat Supplier secara hukum dan menciptakan Tagihan (Hutang Dagang)." },
+            "ReceivePO": { app: "Distribusi (M3)", color: "text-purple-600", role: "Kitchen Pusat", description: "Menerima barang fisik 📦 dan memverifikasi <b>Dokumen Faktur / Invoice Tagihan</b>. Cocokkan dengan PO, lalu harga beli riil diinput.", integrations: "Memperbarui Harga Master pusat, melempar Tagihan ke Finance." },
+            "SuratJalan": { app: "Distribusi (M3)", color: "text-purple-600", role: "Admin Gudang", description: "Menerbitkan <b>Dokumen Surat Jalan (Manifest/DO)</b>. Aksi ini secara krusial men-trigger <code>fill_harga_snapshot</code> untuk memfoto Harga Master dari Admin Dashboard dan menguncinya permanen.", integrations: "Dasar hukum ekspedisi dan pengunci kestabilan HPP (ADR-011)." },
+            "ReceiveOutlet": { app: "Distribusi (M3)", color: "text-purple-600", role: "Crew Outlet", description: "Timbang fisik barang 📦 tiba dan tandatangani <b>Dokumen Tanda Terima (Goods Receipt)</b> secara digital di aplikasi Distribusi.", integrations: "Memicu kalkulasi keamanan stok di DiscrepancySplit." },
+            "DiscrepancySplit": { app: "Distribusi (M3)", color: "text-purple-600", role: "Trigger Supabase", description: "Modul cerdas yang mendeteksi jika barang aktual < barang di manifest. Sistem memecah struk penerimaan.", integrations: "Stok valid masuk Ledger outlet, barang yang hilang masuk tabel ClaimLoss." },
+            "ClaimLoss": { app: "Logistik", color: "text-purple-600", role: "Tabel Investigasi", description: "Modul pencatatan klaim barang rusak/hilang selama pengiriman, mencegah Opname Cabang dirugikan akibat kecerobohan supir.", integrations: "Menjaga integritas Margin Outlet." },
+            "SupirInternal": { app: "Distribusi (M3)", color: "text-purple-600", role: "Armada Ekspedisi", description: "Kru supir yang mengakses UI Distribusi terbatas untuk melihat rute harian dan mengkonfirmasi Drop-Off.", integrations: "Pengangkut logistik dari Pusat ke Cabang." },
+            "SupplierEksternal": { app: "Aktor Eksternal", color: "text-gray-500", role: "Vendor Pabrik", description: "Entitas pihak ketiga (pemasok daging, sayur, roti, kemasan) yang berada di luar server perusahaan.", integrations: "Sumber mula Aliran Fisik Barang." },
+
+            // ADMIN DASHBOARD & OWNER MODULE (SATU APLIKASI)
+            "MasterData": { app: "Admin Dash (Modul Superadmin)", color: "text-sky-600", role: "Superadmin", description: "UI di <code>admin.sukashawarma.com</code> untuk CRUD Harga Master Bahan Baku dan meracik Resep BOM. Perubahan harga di sini kelak di-snapshot oleh Surat Jalan.", integrations: "Penentu nilai keekonomian seluruh perusahaan." },
+            "HROps": { app: "Admin Dash (Modul Superadmin)", color: "text-sky-600", role: "Manager / SPV", description: "Halaman pantauan HR live untuk memonitor metrik keterlambatan, absensi, dan jam buka-tutup toko secara real-time.", integrations: "Menarik data absensi dari AttendanceDB." },
+            "SysHealth": { app: "Admin Dash (Modul Superadmin)", color: "text-sky-600", role: "Forensic Audit", description: "Modul <b>Audit Trail</b> internal yang mencatat siapa (Aktor) yang melakukan revisi data sensitif (misal: Void transaksi, edit HPP manual).", integrations: "Sistem keamanan backend Supabase." },
+
+            // MODUL OWNER (RUTE KHUSUS)
+            "EdgeRollup": { app: "Admin Dash (Modul Owner)", color: "text-rose-600", role: "pg_cron", description: "Pekerjaan server (Cron Job) di Supabase yang meringkas jutaan baris struk mentah menjadi tabel agregat omzet harian per outlet.", integrations: "Meringankan beban load UI Dashboard." },
+            "COGS_Matcher": { app: "Admin Dash (Modul Owner)", color: "text-rose-600", role: "Sistem Finansial", description: "Mesin komputasi yang membenturkan Total Omzet (Uang Masuk Kasir) vs Total HPP (Bahan Baku Berkurang di Ledger).", integrations: "Menemukan Rasio Laba Kotor (Gross Margin)." },
+            "MaterializedViews": { app: "Database Khusus", color: "text-rose-600", role: "Cache PostgreSQL", description: "Penggunaan <code>MATERIALIZED VIEW</code> di Postgres untuk menyimpan metrik berat (P&L) secara pra-kalkulasi.", integrations: "Memastikan grafik Dashboard tampil instan (< 1 detik)." },
+            "DashUI": { app: "Admin Dash (Modul Owner)", color: "text-rose-600", role: "Owner & Mitra", description: "Antarmuka grafik analitik canggih di rute <code>/dashboard/owner</code>. Difilter oleh Role-Based Access Control (RBAC). Menampilkan Leaderboard dan ROI.", integrations: "Memvisualisasikan Net Cash dan Profit Margin." }
+        };
+
+        window.showDetails = function(id) {
+            const data = nodeData[id];
+            if (!data) return;
+
+            const panel = document.getElementById('detailsPanel');
+            const title = document.getElementById('detailTitle');
+            const content = document.getElementById('detailContent');
+
+            title.textContent = id.replace(/([A-Z])/g, ' $1').trim();
+            
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <div class="pb-4 border-b border-gray-100">
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Aplikasi / Entitas</h3>
+                        <p class="font-bold ${data.color} text-lg">${data.app}</p>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Pelaku / Aktor</h3>
+                        <div class="inline-block bg-gray-100 px-3 py-1 rounded text-gray-800 text-sm font-medium">
+                            ${data.role}
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Deskripsi Teknis</h3>
+                        <p class="text-gray-700 leading-relaxed text-sm bg-gray-50 p-4 rounded border border-gray-100 shadow-inner">
+                            ${data.description}
+                        </p>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Integrasi / Aliran</h3>
+                        <div class="flex items-start">
+                            <svg class="w-5 h-5 text-indigo-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            <p class="text-gray-700 leading-relaxed text-sm font-semibold">
+                                ${data.integrations}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            panel.classList.remove('hidden');
+        };
+
+        window.closeDetails = function() {
+            document.getElementById('detailsPanel').classList.add('hidden');
+        };
+    </script>
+</body>
+</html>

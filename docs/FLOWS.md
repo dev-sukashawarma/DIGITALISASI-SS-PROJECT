@@ -187,3 +187,23 @@ flowchart LR
     out --> up["upload ke cPanel<br/>public_html/&lt;subdomain&gt;"]
     up --> live["🌐 absensi/stok/distribusi/dashboard .sukashawarma"]
 ```
+
+---
+
+## 8. Interactive End-to-End Visualizations
+
+Kami telah menambahkan representasi E2E Workflow interaktif dalam bentuk file HTML murni (dilengkapi layout interaktif dan Javascript). File-file ini dapat Anda buka langsung di browser Anda.
+
+Dokumen-dokumen ini tersimpan di direktori [`docs/interactive-diagrams/`](interactive-diagrams/):
+
+1. **[Swimlane Grid](interactive-diagrams/e2e_swimlane.html)**  
+   Memvisualisasikan perpindahan data secara horizontal berdasarkan garis waktu antar 6 aplikasi utama.
+
+2. **[Giant Network Map (High Level)](interactive-diagrams/e2e_network.html)**  
+   Memetakan jaringan keterikatan (Node & Edges) secara garis besar antar sistem utama.
+
+3. **[Giant Network Map (Super Detail)](interactive-diagrams/e2e_network_detailed.html)**  
+   Versi upgrade dengan pemetaan 20+ micro-services (Edge Functions, GPS, Face Match, Opname), pewarnaan node per aplikasi, serta relasi *cross-subgraph* mendalam berbahasa Indonesia.
+
+4. **[Macro-to-Micro](interactive-diagrams/e2e_macro.html)**  
+   Menyediakan tampilan dashboard kartu level-atas (Macro) untuk keenam aplikasi, yang saat diklik akan memunculkan detail interaktif (Micro) mengenai langkah-langkah di dalamnya.

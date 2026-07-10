@@ -3,11 +3,28 @@ import { createClient } from '@/lib/supabase'
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '@suka/auth'
+import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
 
 export function useLeaveNotifications() {
   const { outletStaff } = useAuth()
   const supabase = createClient()
   const queryClient = useQueryClient()
+
+  useRealtimeInvalidate({
+    channelName: `absensi-cuti-${outletStaff?.id ?? "none"}`,
+    enabled: !!outletStaff?.id,
+    subs: [
+      {
+        table: "leave_requests",
+        filter: `staff_id=eq.${outletStaff?.id}`,
+        queryKeys: [
+          ["leaves", outletStaff?.id],
+          ["leaveBalance", outletStaff?.id, new Date().getFullYear()],
+          ["unread-leaves-count", outletStaff?.id],
+        ],
+      },
+    ],
+  });
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ['unread-leaves-count', outletStaff?.id],

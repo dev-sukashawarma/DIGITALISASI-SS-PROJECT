@@ -121,6 +121,8 @@ export default function RekapPage() {
     enabled: !!outletStaff?.outlet_id,
     subs: [
       { table: "attendance", filter: `outlet_id=eq.${outletStaff?.outlet_id}`, queryKeys: [["rekap", outletStaff?.outlet_id, date]] },
+      { table: "outlet_attendance_config", filter: `outlet_id=eq.${outletStaff?.outlet_id}`, queryKeys: [["rekap", outletStaff?.outlet_id, date]] },
+      { table: "global_settings", queryKeys: [["rekap", outletStaff?.outlet_id, date]] },
     ],
   });
 

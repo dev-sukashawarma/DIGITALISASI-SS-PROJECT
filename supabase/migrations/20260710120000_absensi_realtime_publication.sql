@@ -3,11 +3,15 @@
 -- Idempotent & aditif. attendance + daily_checklist_ticks sudah ditambahkan di migration lama.
 
 -- 1) Tambah ke publication (skip kalau sudah ada / tabel belum ada)
+-- Catatan: global_settings, checklist_items, checklist_categories ditambah TANPA
+-- REPLICA IDENTITY FULL (lihat blok 2) karena pemakaian realtime saat ini
+-- unfiltered/UPDATE-only. Kalau nanti ada subscription berfilter atau butuh
+-- DELETE-sensitive pada tabel-tabel ini, tambahkan juga ke REPLICA IDENTITY FULL.
 DO $$
 DECLARE
   t text;
   tables text[] := ARRAY[
-    'leave_requests','cash_advances','cash_advance_installments',
+    'leave_requests','cash_advances',
     'outlet_staff','outlet_attendance_config','global_settings',
     'daily_checklist_records','checklist_items','checklist_categories'
   ];
@@ -26,11 +30,15 @@ BEGIN
 END $$;
 
 -- 2) REPLICA IDENTITY FULL agar DELETE & UPDATE ber-filter membawa baris lama (lolos filter + RLS)
+-- Catatan: outlet_staff sengaja FULL meski berisi kolom sensitif (face_descriptor) —
+-- ini streaming seluruh baris lama saat UPDATE/DELETE, tapi diperlukan agar event
+-- DELETE berfilter ("staff hilang") tetap membawa outlet_id untuk lolos filter client.
+-- RLS tetap membatasi pengiriman event hanya ke koneksi yang berhak (defense tetap ada).
 DO $$
 DECLARE
   t text;
   tables text[] := ARRAY[
-    'attendance','leave_requests','cash_advances','cash_advance_installments',
+    'attendance','leave_requests','cash_advances',
     'outlet_staff','daily_checklist_ticks','daily_checklist_records','outlet_attendance_config'
   ];
 BEGIN

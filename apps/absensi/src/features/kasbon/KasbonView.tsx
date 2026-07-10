@@ -18,7 +18,6 @@ export function KasbonView() {
     enabled: !!userId,
     subs: [
       { table: "cash_advances", filter: `staff_id=eq.${userId}`, queryKeys: [["kasbon", userId]] },
-      { table: "cash_advance_installments", queryKeys: [["kasbon", userId]] },
     ],
   });
 

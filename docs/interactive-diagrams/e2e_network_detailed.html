@@ -23,12 +23,43 @@
     </style>
 </head>
 <body class="bg-gray-50 h-screen flex overflow-hidden">
+    <!-- Rail Kiri -->
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col overflow-y-auto shrink-0">
+        <div class="p-4 border-b">
+            <h1 class="text-lg font-bold text-gray-800 leading-tight">Peta E2E 4-Dimensi</h1>
+            <p class="text-xs text-gray-500 mt-1">Sukashawarma Outlet Suite</p>
+        </div>
+        <div class="p-4 border-b space-y-2">
+            <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Filter Aliran</h2>
+            <button data-flow-btn="data" class="w-full text-left text-sm px-3 py-2 rounded border hover:bg-gray-50">🔗 Data &amp; Sistem</button>
+            <button data-flow-btn="money" class="w-full text-left text-sm px-3 py-2 rounded border hover:bg-green-50">💵 Arus Uang ($)</button>
+            <button data-flow-btn="goods" class="w-full text-left text-sm px-3 py-2 rounded border hover:bg-amber-50">📦 Barang Fisik</button>
+            <button data-flow-btn="doc" class="w-full text-left text-sm px-3 py-2 rounded border hover:bg-gray-50">📄 Dokumen Bisnis</button>
+            <button id="showAllFlows" class="w-full text-left text-sm px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Tampilkan Semua</button>
+        </div>
+        <div class="p-4 space-y-1.5">
+            <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Legenda App (Warna Node)</h2>
+            <div class="flex items-center gap-2 text-xs"><span class="w-3 h-3 rounded" style="background:#f3f4f6;border:1px solid #4b5563"></span> Auth &amp; SSO</div>
+            <div class="flex items-center gap-2 text-xs"><span class="w-3 h-3 rounded" style="background:#dbeafe;border:1px solid #2563eb"></span> Portal &amp; Absensi</div>
+            <div class="flex items-center gap-2 text-xs"><span class="w-3 h-3 rounded" style="background:#dcfce7;border:1px solid #22c55e"></span> POS Kasir</div>
+            <div class="flex items-center gap-2 text-xs"><span class="w-3 h-3 rounded" style="background:#ffedd5;border:1px solid #f97316"></span> Stok</div>
+            <div class="flex items-center gap-2 text-xs"><span class="w-3 h-3 rounded" style="background:#f3e8ff;border:1px solid #a855f7"></span> Distribusi</div>
+            <div class="flex items-center gap-2 text-xs"><span class="w-3 h-3 rounded" style="background:#e0f2fe;border:1px solid #0284c7"></span> Admin Dashboard</div>
+            <div class="flex items-center gap-2 text-xs"><span class="w-3 h-3 rounded" style="background:#ffe4e6;border:1px solid #e11d48"></span> Owner Module</div>
+            <div class="flex items-center gap-2 text-xs"><span class="w-3 h-3 rounded" style="background:#fef3c7;border:1px solid #d97706"></span> Finance (M5 Dev)</div>
+        </div>
+    </aside>
     <!-- Main Content: Graph -->
     <main class="flex-1 p-8 overflow-auto">
-        <h1 class="text-3xl font-bold mb-2 text-gray-800">Holy Grail E2E Network Map (4-Dimensi)</h1>
-        <p class="text-gray-500 mb-6">Memetakan 4 Dimensi sekaligus: <span class="font-bold text-blue-600">Sistem Data</span>, <span class="font-bold text-green-600">Arus Uang ($)</span>, <span class="font-bold text-amber-700">Barang Fisik (📦)</span>, dan <span class="font-bold text-gray-700">Dokumen Bisnis (📄)</span>.</p>
-        
+        <div class="flex items-center gap-2 mb-3">
+            <input id="nodeSearch" type="text" placeholder="Cari node… (mis. BOM)" class="border rounded px-3 py-1.5 text-sm w-64">
+            <button id="zoomIn" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-100">＋</button>
+            <button id="zoomOut" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-100">－</button>
+            <button id="zoomReset" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-100">Reset</button>
+        </div>
+
         <div class="bg-white p-6 rounded-lg shadow-lg">
+            <div id="graphWrap">
             <pre class="mermaid">
                 flowchart TD
                     classDef auth fill:#f3f4f6, stroke:#4b5563, stroke-width:2px;
@@ -239,6 +270,7 @@
                     click MaterializedViews call showDetails("MaterializedViews")
                     click DashUI call showDetails("DashUI")
             </pre>
+            </div>
         </div>
     </main>
     

@@ -270,25 +270,11 @@ export default function KasirOrderClient({
 
   useEffect(() => {
     if (antreanCount > prevAntreanCount.current && prevAntreanCount.current !== 0) {
-      // Play a beep sound using Web Audio API
-      try {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        osc.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, ctx.currentTime);
-        gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.5);
-      } catch (err) {
-        console.error('Audio play failed', err)
-      }
+      playNotification()
+      showAlert('Segera siapkan! Ada pesanan dari tab Terjadwal yang waktunya sisa 20 menit.')
     }
     prevAntreanCount.current = antreanCount
-  }, [antreanCount])
+  }, [antreanCount, playNotification, showAlert])
 
   /**
    * Terapkan perubahan status pesanan dengan dukungan offline penuh:
@@ -407,8 +393,37 @@ export default function KasirOrderClient({
   const pendingOrders = filteredOrders.filter((o) => o.status === 'pending').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   const preparingOrders = filteredOrders.filter((o) => o.status === 'preparing').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   
-  const antreanMasak = preparingOrders.filter(o => !o.release_time || new Date(o.release_time) <= new Date(now))
-  const terjadwalMasak = preparingOrders.filter(o => o.release_time && new Date(o.release_time) > new Date(now))
+  // Helper untuk menentukan kapan pesanan pindah ke antrean (20 menit sebelum AMBIL)
+  const getEffectiveReleaseTime = (o: OrderWithItems) => {
+    if (o.release_time) return new Date(o.release_time).getTime()
+    
+    let timeStr = (o as any).pickup_time
+    if (!timeStr && o.notes && o.notes.includes('AMBIL')) {
+      const match = o.notes.match(/AMBIL\s*[:\n]\s*(\d{2}:\d{2})/i)
+      if (match) timeStr = match[1]
+    }
+
+    if (timeStr && typeof timeStr === 'string') {
+      const timeMatch = timeStr.match(/(\d{2}):(\d{2})/)
+      if (timeMatch) {
+        const [_, h, m] = timeMatch
+        const d = new Date(o.created_at)
+        d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0)
+        return d.getTime() - (20 * 60 * 1000)
+      }
+    }
+    return 0 // Langsung masak
+  }
+
+  // Helper untuk menghitung estimasi waktu masak dinamis (7 menit + (Total Qty - 1))
+  const getEstimatedCookingTime = (o: OrderWithItems) => {
+    if (!o.order_items || o.order_items.length === 0) return 7
+    const totalQty = o.order_items.reduce((sum, item) => sum + (item.quantity || 1), 0)
+    return 7 + (totalQty > 1 ? totalQty - 1 : 0)
+  }
+
+  const antreanMasak = preparingOrders.filter(o => getEffectiveReleaseTime(o) <= now)
+  const terjadwalMasak = preparingOrders.filter(o => getEffectiveReleaseTime(o) > now).sort((a, b) => getEffectiveReleaseTime(a) - getEffectiveReleaseTime(b))
 
   // Update antrean count to trigger sound effect
   useEffect(() => {
@@ -494,9 +509,17 @@ export default function KasirOrderClient({
                 </span>
               )}
             </div>
-            <div className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 ring-1 shadow-sm ${badgeBg}`}>
-              {isPending ? <Clock size={14} className="animate-pulse" /> : <ChefHat size={14} />}
-              {isPending ? 'MENUNGGU' : 'DIPROSES'}
+            <div className="flex flex-col items-end gap-1.5">
+              <div className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 ring-1 shadow-sm ${badgeBg}`}>
+                {isPending ? <Clock size={14} className="animate-pulse" /> : <ChefHat size={14} />}
+                {isPending ? 'MENUNGGU' : 'DIPROSES'}
+              </div>
+              {getEffectiveReleaseTime(order) > now && (
+                <div className="px-2 py-1 bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-bold flex items-center gap-1">
+                  <Clock size={12} />
+                  Estimasi Masak: {getEstimatedCookingTime(order)} Menit
+                </div>
+              )}
             </div>
           </div>
           

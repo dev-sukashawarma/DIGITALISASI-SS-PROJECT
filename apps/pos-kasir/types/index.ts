@@ -84,6 +84,9 @@ export interface OrderItem {
   unit_price: number
   subtotal: number
   notes?: string | null
+  menu_items?: {
+    image_url: string | null
+  }
 }
 
 export interface OrderWithItems extends Order {

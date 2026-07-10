@@ -46,7 +46,7 @@ async function fetchTodayOrders(outletId: string): Promise<OrderWithItems[]> {
     const { data, error } = await fetchWithTimeout(
       supabase
         .from('orders')
-        .select('*, order_items(*)')
+        .select('*, order_items(*, menu_items(image_url))')
         .eq('outlet_id', outletId)
         .or(`created_at.gte.${today.toISOString()},status.in.(pending,preparing)`)
         .order('created_at', { ascending: false })
@@ -1088,8 +1088,8 @@ export default function KasirOrderClient({
             {/* Body */}
             <div className="p-6">
               <div className="flex items-center justify-between mb-4 pb-4 border-b border-dashed border-slate-200">
-                <div className="text-sm font-bold text-slate-500 uppercase">Order</div>
-                <div className="text-3xl font-black text-slate-800 tracking-tighter">
+                <div className="text-sm font-bold text-slate-500 uppercase">Nomor Antrian</div>
+                <div className="text-3xl font-black text-slate-800 tracking-tighter text-indigo-600">
                   #{scheduledAlerts[0].order_number || scheduledAlerts[0].id.slice(0,4).toUpperCase()}
                 </div>
               </div>
@@ -1106,8 +1106,8 @@ export default function KasirOrderClient({
               )}
 
               <div className="text-xs font-bold text-slate-400 uppercase mb-2">Daftar Menu</div>
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 max-h-[160px] overflow-y-auto">
-                <div className="flex flex-col gap-3">
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 max-h-[220px] overflow-y-auto">
+                <div className="flex flex-col gap-1.5">
                   {(() => {
                     const orderItems = scheduledAlerts[0].order_items || []
                     const parsed = orderItems.map((oi: any) => {
@@ -1122,31 +1122,71 @@ export default function KasirOrderClient({
                       const parentSplit = name.split('|PARENT|')
                       if (parentSplit.length > 1) { parentId = parentSplit[1]; name = parentSplit[0] }
                       
-                      return { ...oi, parsedName: name, parsedNote: note, parsedId: id, parentId }
+                      const idSplit = name.split('|ID|')
+                      if (idSplit.length > 1) { id = idSplit[1]; name = idSplit[0] }
+                      
+                      return { ...oi, parsedName: name, parsedNote: note, parsedId: id, parsedParentId: parentId }
                     })
 
-                    const parents = parsed.filter((i: any) => !i.parentId)
-                    const childrenMap = parsed.filter((i: any) => i.parentId).reduce((acc: any, cur: any) => {
-                      if (!acc[cur.parentId]) acc[cur.parentId] = []
-                      acc[cur.parentId].push(cur)
-                      return acc
-                    }, {})
+                    const rootItems = parsed.filter((i: any) => !i.parsedParentId)
+                    const validRootIds = new Set(rootItems.map((r: any) => r.parsedId))
+                    
+                    const childrenMap: any = {}
+                    parsed.filter((i: any) => i.parsedParentId).forEach((i: any) => {
+                      if (!validRootIds.has(i.parsedParentId)) {
+                        rootItems.push(i) // treat as root
+                      } else {
+                        if (!childrenMap[i.parsedParentId]) childrenMap[i.parsedParentId] = []
+                        childrenMap[i.parsedParentId].push(i)
+                      }
+                    })
 
-                    return parents.map((oi: any) => (
-                      <div key={oi.parsedId} className="flex flex-col">
-                        <div className="flex items-start gap-2">
-                          <span className="font-black text-slate-800 w-5 shrink-0 text-right">{oi.quantity}x</span>
-                          <span className="font-bold text-slate-700 min-w-0 break-words leading-tight flex-1">{oi.parsedName}</span>
+                    return rootItems.map((oi: any) => (
+                      <div key={oi.id} className="py-2 relative border-b border-slate-200/60 last:border-0 last:pb-0">
+                        {(oi.parsedNote || (childrenMap[oi.parsedId] && childrenMap[oi.parsedId].length > 0)) && (
+                          <div className="absolute left-[11px] top-8 bottom-3 w-[2px] bg-indigo-200" />
+                        )}
+
+                        <div className="flex items-start gap-3 relative z-10">
+                          <span className="font-bold text-indigo-600 text-sm w-6 shrink-0 text-center bg-slate-50">{oi.quantity}x</span>
+                          
+                          <div className="w-12 h-12 shrink-0 bg-white rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center shadow-sm">
+                            {oi.menu_items?.image_url ? (
+                              <img src={oi.menu_items.image_url} alt={oi.parsedName} className="w-full h-full object-cover" />
+                            ) : (
+                              <ChefHat className="text-slate-300 w-6 h-6" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1 mt-0.5">
+                            <span className="text-sm font-bold text-slate-800 leading-snug break-words">{oi.parsedName}</span>
+                          </div>
                         </div>
+
                         {oi.parsedNote && (
-                          <div className="ml-7 mt-0.5 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded w-max">
-                            {oi.parsedNote}
+                          <div className="relative pl-[1.6rem] mt-2 mb-1.5 flex items-start">
+                            <div className="absolute left-[11px] top-2.5 w-3 h-[2px] bg-indigo-200" />
+                            <div className="bg-indigo-50 border border-indigo-100 text-indigo-900 text-[11px] px-2.5 py-1.5 rounded-md font-semibold leading-snug break-words whitespace-pre-wrap min-w-0 flex-1">
+                              {oi.parsedNote}
+                            </div>
                           </div>
                         )}
+
                         {childrenMap[oi.parsedId] && childrenMap[oi.parsedId].map((child: any) => (
-                          <div key={child.parsedId} className="flex items-start gap-2 mt-1 ml-6">
-                            <span className="font-bold text-slate-500 text-xs w-4 shrink-0 text-right">{child.quantity}x</span>
-                            <span className="font-semibold text-slate-500 text-xs min-w-0 break-words leading-tight flex-1">Extra: {child.parsedName}</span>
+                          <div key={child.id} className="relative pl-[1.6rem] py-1.5 flex items-start gap-2">
+                            <div className="absolute left-[11px] top-3.5 w-3 h-[2px] bg-indigo-200" />
+                            <span className="font-bold text-slate-500 text-xs w-5 shrink-0 text-right mt-0.5">{child.quantity}x</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-medium text-slate-600 leading-snug flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[9px] font-bold uppercase bg-indigo-100 text-indigo-700 px-1 rounded-sm">Extra</span>
+                                <span className="break-words min-w-0 text-slate-700 font-semibold">{child.parsedName}</span>
+                              </div>
+                              {child.parsedNote && (
+                                <div className="mt-1.5 bg-indigo-50 border border-indigo-100 text-indigo-900 text-[11px] px-2.5 py-1.5 rounded-md font-semibold leading-snug break-words whitespace-pre-wrap">
+                                  {child.parsedNote}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>

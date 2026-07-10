@@ -10,17 +10,59 @@ export interface ProductionEstimate {
 // Future iteration: Fetch from database.
 const RECIPES = [
   {
-    menuName: 'Shawarma Besar',
+    menuName: 'Shawarma Sapi Besar',
     ingredients: [
-      { matchName: 'SAPI', requiredQty: 0.04 }, // 80 gram / 2000 (1 blok) = 0.04 blok
-      { matchName: 'KULIT 32', requiredQty: 0.05 } // 1 lembar / 20 (1 pack) = 0.05 pack
+      { matchName: 'SAPI', requiredQty: 0.04 }, // 80g / 2000 = 0.04 blok
+      { matchName: 'KULIT 32', requiredQty: 0.05 } // 1 / 20 = 0.05 pack
     ]
   },
   {
-    menuName: 'Shawarma Kecil',
+    menuName: 'Shawarma Sapi Sedang',
     ingredients: [
-      { matchName: 'SAPI', requiredQty: 0.025 }, // 50 gram / 2000 = 0.025 blok
-      { matchName: 'KULIT 25', requiredQty: 0.05 } // 1 lembar / 20 = 0.05 pack
+      { matchName: 'SAPI', requiredQty: 0.0325 }, // asumsi 65g / 2000 = 0.0325 blok
+      { matchName: 'KULIT 28', requiredQty: 0.05 } 
+    ]
+  },
+  {
+    menuName: 'Shawarma Sapi Kecil',
+    ingredients: [
+      { matchName: 'SAPI', requiredQty: 0.025 }, // 50g / 2000 = 0.025 blok
+      { matchName: 'KULIT 25', requiredQty: 0.05 }
+    ]
+  },
+  {
+    menuName: 'Shawarma Ayam Besar',
+    ingredients: [
+      { matchName: 'AYAM', requiredQty: 0.08 }, // 80g / 1000 = 0.08 kg
+      { matchName: 'KULIT 32', requiredQty: 0.05 } 
+    ]
+  },
+  {
+    menuName: 'Shawarma Ayam Sedang',
+    ingredients: [
+      { matchName: 'AYAM', requiredQty: 0.065 }, // asumsi 65g / 1000 = 0.065 kg
+      { matchName: 'KULIT 28', requiredQty: 0.05 } 
+    ]
+  },
+  {
+    menuName: 'Shawarma Ayam Kecil',
+    ingredients: [
+      { matchName: 'AYAM', requiredQty: 0.05 }, // 50g / 1000 = 0.05 kg
+      { matchName: 'KULIT 25', requiredQty: 0.05 }
+    ]
+  },
+  {
+    menuName: 'Shawarma Bowl Sapi',
+    ingredients: [
+      { matchName: 'SAPI', requiredQty: 0.04 },
+      { matchName: 'CUP + TUTUP', requiredQty: 1 } // Asumsi 1 pcs
+    ]
+  },
+  {
+    menuName: 'Shawarma Bowl Ayam',
+    ingredients: [
+      { matchName: 'AYAM', requiredQty: 0.08 },
+      { matchName: 'CUP + TUTUP', requiredQty: 1 } 
     ]
   }
 ];

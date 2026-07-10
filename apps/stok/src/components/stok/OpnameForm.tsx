@@ -26,10 +26,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);
   const { createDraft, upsertItems, finalize } = useOpnameActions();
 
-<<<<<<< HEAD
-=======
-  const [tipe] = useState('harian');
->>>>>>> feat/absensi-realtime
+
   const [fisik, setFisik] = useState<Record<string, string>>({});
   const [containerInput, setContainerInput] = useState<Record<string, string>>({});
   const [remainderInput, setRemainderInput] = useState<Record<string, string>>({});

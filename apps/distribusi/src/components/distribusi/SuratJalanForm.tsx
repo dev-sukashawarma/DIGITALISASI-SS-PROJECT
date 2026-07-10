@@ -43,7 +43,22 @@ export function SuratJalanForm() {
 
   const addItem = () => {
     if (!selectedBahan || !qty) return
-    setItems([...items, { bahanId: selectedBahan, qty: parseFloat(qty) }])
+    
+    const parsedQty = parseFloat(qty)
+    if (isNaN(parsedQty) || parsedQty <= 0) {
+      alert('Kuantitas harus berupa angka lebih dari 0')
+      return
+    }
+
+    const existingIndex = items.findIndex(i => i.bahanId === selectedBahan)
+    if (existingIndex >= 0) {
+      const newItems = [...items]
+      newItems[existingIndex].qty += parsedQty
+      setItems(newItems)
+    } else {
+      setItems([...items, { bahanId: selectedBahan, qty: parsedQty }])
+    }
+
     setSelectedBahan('')
     setQty('')
   }

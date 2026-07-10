@@ -109,6 +109,27 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
           </p>
         </div>
 
+        {/* Target Menu Summary */}
+        {Array.isArray(permintaan.target_metadata) && permintaan.target_metadata.length > 0 && (
+          <div className="bg-[#faf2e9] p-3 rounded-xl border border-[#d9c2b2]/30 text-sm space-y-2">
+            <p className="font-bold text-[#701604] text-xs uppercase tracking-wide">Target Penjualan</p>
+            <div className="space-y-1">
+              {permintaan.target_metadata.map((tm: any, i: number) => (
+                <div key={i} className="flex justify-between items-center text-[11px] text-[#544437]">
+                  <span>{tm.qty}x {tm.nama}</span>
+                  <span className="font-semibold text-[#1e1b15]">Rp {(tm.qty * (tm.harga_jual || 0)).toLocaleString('id-ID')}</span>
+                </div>
+              ))}
+            </div>
+            <div className="pt-2 border-t border-[#d9c2b2]/30 flex justify-between items-center text-xs">
+              <span className="font-bold text-[#544437]">Estimasi Omzet</span>
+              <span className="font-bold text-[#2b5914] bg-[#e3f5d5] px-2 py-0.5 rounded border border-[#c3e3af]">
+                Rp {permintaan.target_metadata.reduce((acc: number, tm: any) => acc + (tm.qty * (tm.harga_jual || 0)), 0).toLocaleString('id-ID')}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Items */}
         <div className="space-y-3">
           <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-2">
@@ -116,7 +137,7 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
               <div key={it.bahan_baku_id} className="flex items-center justify-between gap-4 border-b border-[#d9c2b2]/10 pb-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-[#1e1b15] truncate">{it.nama ?? it.bahan_baku_id}</p>
-                  <p className="text-[11px] text-[#544437]/60 mt-0.5">Diminta: {it.qty_diminta}</p>
+                  <p className="text-[11px] font-semibold text-[#544437] mt-0.5">Diminta: <span className="font-bold text-[#701604]">{it.qty_diminta} {it.satuan ?? ''}</span></p>
                 </div>
                 
                 {/* Qty Stepper */}
@@ -142,6 +163,7 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
                     disabled={loading}
                     aria-label={`Jumlah disetujui ${it.nama ?? it.bahan_baku_id}`}
                   />
+                  <span className="text-[10px] font-bold text-[#904d00] mr-1">{it.satuan ?? ''}</span>
                   <button
                     type="button"
                     onClick={() => handlePlus(it.bahan_baku_id)}

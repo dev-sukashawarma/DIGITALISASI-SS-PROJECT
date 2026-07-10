@@ -23,6 +23,11 @@ export function ApprovalList() {
         {permintaan.map(p => {
           const reqCode = `#REQ-${p.id.slice(0, 4).toUpperCase()}`
           
+          let omzetKotor = 0
+          if (Array.isArray(p.target_metadata)) {
+            omzetKotor = p.target_metadata.reduce((acc, tm) => acc + (tm.qty * (tm.harga_jual || 0)), 0)
+          }
+          
           return (
             <div
               key={p.id}
@@ -30,11 +35,16 @@ export function ApprovalList() {
               className="bg-white border border-[#d9c2b2]/40 rounded-2xl p-5 shadow-sm hover:bg-[#faf2e9] cursor-pointer transition active:scale-[0.99] flex items-center justify-between group"
             >
               <div className="space-y-2 flex-1 min-w-0 pr-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[11px] font-bold bg-[#ffdcc2] text-[#6d3900] px-2.5 py-1 rounded-lg uppercase">
                     Persetujuan
                   </span>
                   <span className="text-xs font-semibold text-[#544437]">{reqCode}</span>
+                  {omzetKotor > 0 && (
+                    <span className="text-[10px] font-bold bg-[#e3f5d5] text-[#2b5914] px-2 py-0.5 rounded-md border border-[#c3e3af]">
+                      Potensi Omzet: Rp {omzetKotor.toLocaleString('id-ID')}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <h3 className="font-bold text-[#701604] text-base truncate">
@@ -43,9 +53,17 @@ export function ApprovalList() {
                   <p className="text-xs font-semibold text-[#1e1b15] mt-0.5">
                     {p.items.length} item bahan baku
                   </p>
-                  <p className="text-[11px] text-[#544437]/75 truncate mt-1">
-                    {p.items.map(it => `${it.nama ?? it.bahan_baku_id} (${it.qty_diminta})`).join(', ')}
-                  </p>
+                  <div className="mt-2 space-y-1">
+                    {p.items.slice(0, 3).map(it => (
+                      <div key={it.bahan_baku_id} className="text-[11px] text-[#544437] flex justify-between items-center bg-[#faf2e9] px-2 py-1 rounded-md border border-[#d9c2b2]/20">
+                        <span className="truncate pr-2 font-medium">{it.nama ?? it.bahan_baku_id}</span>
+                        <span className="font-bold whitespace-nowrap text-[#701604]">{it.qty_diminta} {it.satuan ?? ''}</span>
+                      </div>
+                    ))}
+                    {p.items.length > 3 && (
+                      <p className="text-[10px] text-[#544437]/70 font-bold italic pt-1">+ {p.items.length - 3} item lainnya...</p>
+                    )}
+                  </div>
                 </div>
                 <p className="text-[11px] text-[#544437]/50 mt-1">
                   Dibuat: {new Date(p.created_at).toLocaleString('id-ID', {

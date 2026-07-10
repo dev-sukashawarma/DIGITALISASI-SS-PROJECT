@@ -20,7 +20,10 @@ import Link from 'next/link';
 import { useAuth } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
 import { ApprovalList } from '../permintaan/ApprovalList';
+import WasteApprovalPage from '@/app/stok/waste-approval/page';
 import { Skeleton } from '@suka/design-system';
+import { fetchPendingWasteReports } from '@/app/actions/waste';
+import { useQuery } from '@tanstack/react-query';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
   const name = outletName.toUpperCase();
@@ -40,7 +43,7 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'B
 };
 
 export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[] } = {}) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'approval'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'approval' | 'waste_approval'>('overview');
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
   
   // State for split view outlet selection
@@ -88,6 +91,12 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
   // Pending request approvals hook
   const { permintaan: pendingApprovals } = useApprovalList();
+
+  const { data: pendingWaste } = useQuery({
+    queryKey: ['waste_pending_all'],
+    queryFn: () => fetchPendingWasteReports(),
+    refetchInterval: 30000
+  })
 
   // Filter pro-active hooks data based on leader scoped access (allowedOutletIds)
   const recentLedger = useMemo(() => {
@@ -160,7 +169,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     return items.filter(it => it.status === 'below');
   }, [items]);
 
-  const totalNotificationCount = criticalAlertItems.length + pendingApprovals.length;
+  const totalNotificationCount = criticalAlertItems.length + pendingApprovals.length + (pendingWaste?.length || 0);
 
   // Stats computations for the selected outlet
   const currentOutletItems = useMemo(() => {
@@ -427,7 +436,13 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
       {/* Tabs */}
       <div className="flex-shrink-0">
-        <SPVTabs activeTab={activeTab} onTabChange={setActiveTab} alertCount={alertCount} approvalCount={pendingApprovals.length} />
+        <SPVTabs 
+          activeTab={activeTab as any} 
+          onTabChange={setActiveTab} 
+          alertCount={alertCount} 
+          approvalCount={pendingApprovals.length} 
+          wasteApprovalCount={pendingWaste?.length || 0}
+        />
       </div>
 
       {/* Mobile Outlets Horizontal Strip */}
@@ -465,6 +480,12 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
+        {activeTab === 'waste_approval' && (
+          <div className="flex-1 overflow-y-auto">
+            <WasteApprovalPage />
+          </div>
+        )}
+
         {/* Overview Tab - Split view */}
         {activeTab === 'overview' && (
           <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">

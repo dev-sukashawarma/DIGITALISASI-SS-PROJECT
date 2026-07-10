@@ -5,6 +5,7 @@ export interface PermintaanItem {
   permintaan_id: string
   bahan_baku_id: string
   nama?: string
+  satuan?: string
   qty_diminta: number
   qty_disetujui: number | null
 }
@@ -16,6 +17,7 @@ export interface Permintaan {
   status: PermintaanStatus
   catatan_kitchen: string | null
   surat_jalan_id: string | null
+  target_metadata: any
   created_at: string
   updated_at: string
 }

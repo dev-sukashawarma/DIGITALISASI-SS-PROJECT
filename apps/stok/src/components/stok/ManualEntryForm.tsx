@@ -5,6 +5,8 @@ import { Card, Button, Input } from '@suka/design-system'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useLedgerActions } from '@/hooks/useLedger'
 import { useStokBalance } from '@/hooks/useStokBalance'
+import { createClient } from '@/lib/supabase'
+import { submitWasteReport } from '@/app/actions/waste'
 
 const TIPE_OPTIONS = [
   { value: 'waste', label: 'Waste (buang)' },
@@ -21,10 +23,11 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   const [tipe, setTipe] = useState<'waste'|'adjustment'|'transfer_keluar'>('waste')
   const [qty, setQty] = useState('')
   const [catatan, setCatatan] = useState('')
+  const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  const needsReason = tipe === 'adjustment'
+  const needsReason = tipe === 'adjustment' || tipe === 'waste'
   const qtyNum = Number(qty)
   // Penyesuaian = delta bertanda, boleh negatif (asal bukan nol). Tipe lain
   // (waste/transfer_keluar) selalu kuantitas positif.
@@ -32,11 +35,46 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
     qty !== '' &&
     !isNaN(qtyNum) &&
     (tipe === 'adjustment' ? qtyNum !== 0 : qtyNum > 0)
-  const valid = bahanBakuId && isValidQty && (!needsReason || catatan.trim() !== '')
+  
+  const valid = bahanBakuId && isValidQty && (!needsReason || catatan.trim() !== '') && (tipe !== 'waste' || file !== null)
 
   async function submit() {
     setBusy(true)
     setErrorMsg(null)
+    
+    if (tipe === 'waste') {
+      if (!file) {
+        setErrorMsg('Foto bukti harus diunggah untuk laporan waste')
+        setBusy(false)
+        return
+      }
+      try {
+        const supabase = createClient()
+        const ext = file.name.split('.').pop()
+        const fileName = `${outletId}/${bahanBakuId}/${Date.now()}.${ext}`
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('waste_evidence')
+          .upload(fileName, file)
+          
+        if (uploadError) throw new Error('Gagal mengunggah foto: ' + uploadError.message)
+
+        const photoUrl = supabase.storage.from('waste_evidence').getPublicUrl(uploadData.path).data.publicUrl
+
+        await submitWasteReport({
+          outlet_id: outletId,
+          bahan_baku_id: bahanBakuId,
+          qty: Number(qty),
+          reason: catatan,
+          photo_url: photoUrl
+        })
+        router.push('/stok/ledger') // Redirect back to ledger index after success
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : String(err))
+      } finally { setBusy(false) }
+      return
+    }
+
     try {
       await addManual({
         outletId, bahanBakuId, tipe,
@@ -112,14 +150,46 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-bold text-[#544437]/75 uppercase tracking-wide">Keterangan</label>
-        <Input
-          placeholder={needsReason ? 'Alasan penyesuaian (wajib)' : 'Catatan tambahan'}
-          value={catatan}
-          onChange={e => setCatatan(e.target.value)}
-          className="px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] placeholder-[#544437]/40 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm"
-        />
+        <label className="text-xs font-bold text-[#544437]/75 uppercase tracking-wide">
+          {tipe === 'waste' ? 'Alasan Waste' : 'Keterangan'}
+        </label>
+        {tipe === 'waste' ? (
+          <select
+            value={catatan}
+            onChange={e => setCatatan(e.target.value)}
+            className="px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] placeholder-[#544437]/40 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm"
+          >
+            <option value="" disabled>Pilih alasan...</option>
+            <option value="Basi / Expired">Basi / Expired</option>
+            <option value="Jatuh / Tumpah">Jatuh / Tumpah</option>
+            <option value="Gosong / Rusak Masak">Gosong / Rusak Masak</option>
+            <option value="Kualitas Buruk (dari supplier)">Kualitas Buruk (dari supplier)</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+        ) : (
+          <Input
+            placeholder={needsReason ? 'Alasan penyesuaian (wajib)' : 'Catatan tambahan'}
+            value={catatan}
+            onChange={e => setCatatan(e.target.value)}
+            className="px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] placeholder-[#544437]/40 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm"
+          />
+        )}
       </div>
+
+      {tipe === 'waste' && (
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-bold text-[#544437]/75 uppercase tracking-wide">Foto Bukti</label>
+          <Input 
+            type="file" 
+            accept="image/*"
+            capture="environment"
+            onChange={e => setFile(e.target.files?.[0] || null)}
+            className="px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] placeholder-[#544437]/40 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm cursor-pointer"
+            required
+          />
+          <p className="text-[10px] font-medium text-[#544437]/60">Upload foto fisik barang yang rusak/terbuang.</p>
+        </div>
+      )}
 
       {errorMsg && <p className="text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-3 rounded-xl">{errorMsg}</p>}
 

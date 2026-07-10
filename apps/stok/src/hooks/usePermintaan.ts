@@ -158,10 +158,10 @@ export function useApprovalList() {
 // ---------------------------------------------------------------------------
 
 export function usePermintaanActions() {
-  const buat = async (outletId: string, items: BuatPermintaanItemInput[]) => {
+  const buat = async (outletId: string, items: BuatPermintaanItemInput[], targetMetadata?: any) => {
     // eslint-disable-next-line no-console
     console.log('[buat_permintaan] outletId:', outletId, 'items:', items)
-    await buatPermintaan(outletId, items)
+    await buatPermintaan(outletId, items, targetMetadata)
     // eslint-disable-next-line no-console
     console.log('[buat_permintaan] SUKSES via server action')
   }

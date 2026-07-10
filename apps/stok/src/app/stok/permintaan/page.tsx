@@ -15,6 +15,7 @@ export default function PermintaanPage() {
   const { outletStaff, loading } = useAuth()
   const { selectedOutletId } = useOutletScope()
   const [refreshKey, setRefreshKey] = useState(0)
+  const [mainTab, setMainTab] = useState<'buat' | 'riwayat'>('buat')
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><p className="text-gray-500">Memuat…</p></div>
@@ -54,11 +55,30 @@ export default function PermintaanPage() {
           </section>
         ) : (
           <>
-            {selectedOutletId && <PermintaanForm outletId={selectedOutletId} onSubmitSuccess={handleSubmitSuccess} />}
-            <section className="space-y-3">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[#f29744]">Riwayat Permintaan</h2>
-              {selectedOutletId && <PermintaanList key={`${selectedOutletId}-${refreshKey}`} outletId={selectedOutletId} />}
-            </section>
+            <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-[#d9c2b2]/40">
+              <button
+                onClick={() => setMainTab('buat')}
+                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider rounded-xl transition-all ${mainTab === 'buat' ? 'bg-[#701604] text-white shadow-md' : 'text-[#544437] hover:bg-[#fff7ed]'}`}
+              >
+                Buat Baru
+              </button>
+              <button
+                onClick={() => setMainTab('riwayat')}
+                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider rounded-xl transition-all ${mainTab === 'riwayat' ? 'bg-[#701604] text-white shadow-md' : 'text-[#544437] hover:bg-[#fff7ed]'}`}
+              >
+                Riwayat
+              </button>
+            </div>
+
+            {mainTab === 'buat' && selectedOutletId && (
+              <PermintaanForm outletId={selectedOutletId} onSubmitSuccess={handleSubmitSuccess} />
+            )}
+            
+            {mainTab === 'riwayat' && selectedOutletId && (
+              <section className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                <PermintaanList key={`${selectedOutletId}-${refreshKey}`} outletId={selectedOutletId} />
+              </section>
+            )}
           </>
         )}
       </main>

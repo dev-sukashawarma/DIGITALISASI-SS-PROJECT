@@ -925,12 +925,7 @@ export default function KasirOrderClient({
           {(() => {
             if (preparingTab !== 'antrean') return null;
             
-            const totalItems = antreanMasak.reduce((sum, order) => {
-              return sum + (order.order_items?.reduce((itemSum, item) => itemSum + (item.quantity || 1), 0) || 0);
-            }, 0);
-
-            if (totalItems < 15) return null;
-
+            // Hitung akumulasi per menu
             const itemCounts: Record<string, number> = {};
             antreanMasak.forEach(order => {
               order.order_items?.forEach(item => {
@@ -939,9 +934,13 @@ export default function KasirOrderClient({
               });
             });
 
-            const topItems = Object.entries(itemCounts)
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 4);
+            // Filter menu yang menumpuk lebih dari 7 porsi
+            const overflowingItems = Object.entries(itemCounts)
+              .filter(([, count]) => count > 7)
+              .sort((a, b) => b[1] - a[1]);
+
+            // Jangan tampilkan jika tidak ada menu yang lewat batas
+            if (overflowingItems.length === 0) return null;
 
             return (
               <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-xl p-4 mb-4 shrink-0 shadow-md relative z-10 overflow-hidden">
@@ -953,16 +952,16 @@ export default function KasirOrderClient({
                   <div className="flex items-center gap-2">
                     <Flame className="w-5 h-5 text-white animate-pulse" />
                     <h3 className="text-sm font-black text-white tracking-wide">
-                      DAPUR SEDANG SIBUK: {totalItems} Porsi Menunggu
+                      ⚡ WARNING: MENU MENUMPUK!
                     </h3>
                   </div>
                   
                   <p className="text-[11px] font-medium text-red-50/90 leading-tight">
-                    Kru, mohon percepat masakan! Fokus eksekusi menu yang menumpuk:
+                    Ada menu yang diorder lebih dari 7 porsi sekaligus. Tolong kru segera eksekusi massal menu berikut:
                   </p>
                   
                   <div className="flex flex-wrap gap-1.5 mt-1">
-                    {topItems.map(([name, count]) => (
+                    {overflowingItems.map(([name, count]) => (
                       <span key={name} className="px-2 py-1 bg-white/20 backdrop-blur-sm border border-white/30 rounded-md text-[10px] font-bold text-white shadow-sm">
                         {count}x {name}
                       </span>

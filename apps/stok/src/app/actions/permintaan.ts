@@ -133,3 +133,57 @@ export async function tolakPermintaan(
   })
   if (error) throw new Error(error.message)
 }
+
+// ---------------------------------------------------------------------------
+// fetchCrosscheckStok — ambil sisa stok peminta dan stok gudang
+// ---------------------------------------------------------------------------
+export async function fetchCrosscheckStok(
+  outletId: string,
+  bahanBakuIds: string[]
+): Promise<Record<string, { outletStok: number; gudangStok: number }>> {
+  if (!bahanBakuIds.length) return {}
+  const supabase = makeServiceClient()
+
+  // 1. Cari ID Gudang Pusat
+  const { data: gudang } = await supabase
+    .from('outlets')
+    .select('id')
+    .ilike('name', '%GUDANG PUSAT%')
+    .single()
+
+  const gudangId = gudang?.id
+
+  // 2. Fetch stok outlet peminta
+  const { data: outletStok } = await supabase
+    .from('stok_balance')
+    .select('bahan_baku_id, qty')
+    .eq('outlet_id', outletId)
+    .in('bahan_baku_id', bahanBakuIds)
+
+  // 3. Fetch stok gudang pusat
+  let gudangStok: any[] = []
+  if (gudangId) {
+    const { data } = await supabase
+      .from('stok_balance')
+      .select('bahan_baku_id, qty')
+      .eq('outlet_id', gudangId)
+      .in('bahan_baku_id', bahanBakuIds)
+    gudangStok = data || []
+  }
+
+  // 4. Map hasil
+  const result: Record<string, { outletStok: number; gudangStok: number }> = {}
+  for (const id of bahanBakuIds) {
+    result[id] = { outletStok: 0, gudangStok: 0 }
+  }
+
+  outletStok?.forEach(s => {
+    if (result[s.bahan_baku_id]) result[s.bahan_baku_id].outletStok = s.qty
+  })
+
+  gudangStok.forEach(s => {
+    if (result[s.bahan_baku_id]) result[s.bahan_baku_id].gudangStok = s.qty
+  })
+
+  return result
+}

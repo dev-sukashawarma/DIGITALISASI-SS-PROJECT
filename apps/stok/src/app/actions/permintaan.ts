@@ -167,7 +167,7 @@ export async function fetchCrosscheckStok(
     // 2. Fetch stok outlet peminta
     const { data: outletStok, error: outletStokError } = await supabase
       .from('stok_balance')
-      .select('bahan_baku_id, qty')
+      .select('bahan_baku_id, saldo')
       .eq('outlet_id', outletId)
       .in('bahan_baku_id', bahanBakuIds)
 
@@ -176,11 +176,11 @@ export async function fetchCrosscheckStok(
     }
 
     // 3. Fetch stok gudang pusat
-    let gudangStok: { bahan_baku_id: string; qty: number }[] = []
+    let gudangStok: { bahan_baku_id: string; saldo: number }[] = []
     if (gudangId) {
       const { data, error: gudangStokError } = await supabase
         .from('stok_balance')
-        .select('bahan_baku_id, qty')
+        .select('bahan_baku_id, saldo')
         .eq('outlet_id', gudangId)
         .in('bahan_baku_id', bahanBakuIds)
 
@@ -192,11 +192,11 @@ export async function fetchCrosscheckStok(
 
     // 4. Map hasil
     outletStok?.forEach(s => {
-      if (result[s.bahan_baku_id]) result[s.bahan_baku_id].outletStok = s.qty
+      if (result[s.bahan_baku_id]) result[s.bahan_baku_id].outletStok = s.saldo
     })
 
     gudangStok.forEach(s => {
-      if (result[s.bahan_baku_id]) result[s.bahan_baku_id].gudangStok = s.qty
+      if (result[s.bahan_baku_id]) result[s.bahan_baku_id].gudangStok = s.saldo
     })
 
     return result

@@ -5,21 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Holy Grail E2E Map - Sukashawarma</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        
-        mermaid.initialize({ 
-            startOnLoad: true, 
-            htmlLabels: true,
-            theme: 'default',
-            securityLevel: 'loose'
-        });
-        
+        mermaid.initialize({ startOnLoad: false, htmlLabels: true, theme: 'default', securityLevel: 'loose' });
         window.mermaid = mermaid;
+        await mermaid.run({ querySelector: '.mermaid' });
+        window.__onGraphReady && window.__onGraphReady();
     </script>
     <style>
         .edgePath .path { stroke: #6b7280; stroke-width: 2px; }
         .finance-edge .path { stroke: #10b981 !important; stroke-width: 4px !important; stroke-dasharray: 5,5; }
+        .node-hit rect, .node-hit polygon { stroke: #4f46e5 !important; stroke-width: 4px !important; }
+        .flow-edge { transition: opacity 0.15s ease; }
     </style>
 </head>
 <body class="bg-gray-50 h-screen flex overflow-hidden">
@@ -535,6 +533,81 @@
         window.closeDetails = function() {
             document.getElementById('detailsPanel').classList.add('hidden');
         };
+
+        let panZoom = null;
+        window.__onGraphReady = function() {
+            const svg = document.querySelector('.mermaid svg');
+            if (!svg) return;
+            svg.style.maxWidth = 'none';
+            svg.style.width = '100%';
+            svg.style.height = '78vh';
+            try {
+                panZoom = svgPanZoom(svg, { controlIconsEnabled: false, fit: true, center: true, minZoom: 0.2, maxZoom: 8 });
+            } catch (e) { panZoom = null; }
+            const zi = document.getElementById('zoomIn');
+            const zo = document.getElementById('zoomOut');
+            const zr = document.getElementById('zoomReset');
+            if (zi) zi.onclick = () => panZoom && panZoom.zoomIn();
+            if (zo) zo.onclick = () => panZoom && panZoom.zoomOut();
+            if (zr) zr.onclick = () => { if (panZoom) { panZoom.resetZoom(); panZoom.center(); panZoom.fit(); } };
+            classifyFlows();
+            wireFlowFilters();
+            wireSearch();
+        };
+
+        function wireSearch() {
+            const input = document.getElementById('nodeSearch');
+            if (!input) return;
+            input.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter') return;
+                const q = input.value.trim().toLowerCase();
+                if (!q) return;
+                const match = Object.keys(nodeData).find(id => id.toLowerCase().includes(q));
+                if (match) { showDetails(match); highlightNode(match); }
+            });
+        }
+
+        function highlightNode(id) {
+            document.querySelectorAll('.mermaid .node').forEach(n => n.classList.remove('node-hit'));
+            const el = document.querySelector(`.mermaid [id*="${id}"]`);
+            if (el) { const g = el.closest('.node'); if (g) g.classList.add('node-hit'); }
+        }
+
+        function classifyFlows() {
+            const svg = document.querySelector('.mermaid svg');
+            if (!svg) return;
+            const labels = Array.from(svg.querySelectorAll('.edgeLabels .edgeLabel, .edgeLabel'));
+            const paths = Array.from(svg.querySelectorAll('.edgePaths path.path, .edgePaths path'));
+            const classify = (txt) => txt.includes('$') ? 'money'
+                : txt.includes('📦') ? 'goods'
+                : txt.includes('📄') ? 'doc' : 'data';
+            const n = Math.min(labels.length, paths.length);
+            for (let i = 0; i < n; i++) {
+                const flow = classify(labels[i].textContent || '');
+                paths[i].setAttribute('data-flow', flow);
+                paths[i].classList.add('flow-edge');
+            }
+            paths.forEach(p => { if (!p.getAttribute('data-flow')) { p.setAttribute('data-flow', 'data'); p.classList.add('flow-edge'); } });
+        }
+
+        let activeFlow = null;
+        function applyFlowFilter(flow) {
+            const svg = document.querySelector('.mermaid svg');
+            if (!svg) return;
+            activeFlow = flow;
+            svg.querySelectorAll('.flow-edge').forEach(p => {
+                if (!flow || p.getAttribute('data-flow') === flow) { p.style.opacity = ''; p.style.strokeWidth = flow ? '4px' : ''; }
+                else { p.style.opacity = '0.06'; p.style.strokeWidth = ''; }
+            });
+        }
+
+        function wireFlowFilters() {
+            document.querySelectorAll('[data-flow-btn]').forEach(btn => {
+                btn.onclick = () => applyFlowFilter(btn.getAttribute('data-flow-btn'));
+            });
+            const all = document.getElementById('showAllFlows');
+            if (all) all.onclick = () => applyFlowFilter(null);
+        }
     </script>
 </body>
 </html>

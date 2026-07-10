@@ -70,6 +70,7 @@ export interface Order {
   source: OrderSource
   channel: string | null
   external_order_id: string | null
+  release_time?: string | null
   created_at: string
   updated_at: string
 }

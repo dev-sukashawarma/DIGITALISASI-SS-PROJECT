@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch, Tag, Loader2, Wallet } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch, Tag, Loader2, Wallet, ChefHat } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { fastLogout } from '@/lib/fast-logout'
 import { useMyOutlet } from '@/lib/useMyOutlet'

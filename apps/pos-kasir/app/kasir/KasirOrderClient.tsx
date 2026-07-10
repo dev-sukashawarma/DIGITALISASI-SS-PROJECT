@@ -133,6 +133,7 @@ export default function KasirOrderClient({
   const [expandedId, setExpand] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('all')
+  const [preparingTab, setPreparingTab] = useState<'antrean' | 'terjadwal'>('antrean')
   const [now, setNow] = useState(() => Date.now())
 
   // Audio state
@@ -263,7 +264,31 @@ export default function KasirOrderClient({
     if (hasNewPendingOrder) playNotification()
   }, [orders, ordersFetched, playNotification])
 
+  // Play alarm/sound if antrean increases
+  const prevAntreanCount = useRef(0)
+  const [antreanCount, setAntreanCount] = useState(0)
 
+  useEffect(() => {
+    if (antreanCount > prevAntreanCount.current && prevAntreanCount.current !== 0) {
+      // Play a beep sound using Web Audio API
+      try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+      } catch (err) {
+        console.error('Audio play failed', err)
+      }
+    }
+    prevAntreanCount.current = antreanCount
+  }, [antreanCount])
 
   /**
    * Terapkan perubahan status pesanan dengan dukungan offline penuh:
@@ -382,6 +407,14 @@ export default function KasirOrderClient({
   const pendingOrders = filteredOrders.filter((o) => o.status === 'pending').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   const preparingOrders = filteredOrders.filter((o) => o.status === 'preparing').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   
+  const antreanMasak = preparingOrders.filter(o => !o.release_time || new Date(o.release_time) <= new Date(now))
+  const terjadwalMasak = preparingOrders.filter(o => o.release_time && new Date(o.release_time) > new Date(now))
+
+  // Update antrean count to trigger sound effect
+  useEffect(() => {
+    setAntreanCount(antreanMasak.length)
+  }, [antreanMasak.length])
+
   const completedOrders = filteredOrders.filter((o) => o.status === 'completed')
   const filteredCompletedOrders = completedOrders.filter(o => {
     if (!searchQuery) return true
@@ -716,26 +749,74 @@ export default function KasirOrderClient({
         </div>
 
         {/* ── Column 2: SEDANG DIPROSES (Preparing) ── */}
-        <div className="bg-slate-50/50 border border-slate-200 shadow-sm rounded-2xl p-5 flex flex-col h-[600px] md:h-full">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4 shrink-0">
+        <div className="bg-slate-50/50 border border-slate-200 shadow-sm rounded-2xl p-5 flex flex-col h-[600px] md:h-full relative overflow-hidden">
+          <div className="flex items-center justify-between pb-3 mb-2 shrink-0 relative z-10">
             <div className="flex items-center gap-2">
               <ChefHat className="w-6 h-6 text-blue-600" />
               <h2 className="font-bold text-slate-800 text-xl">Sedang Diproses</h2>
             </div>
-            <span className="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full">
-              {preparingOrders.length} Pesanan
-            </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-            {preparingOrders.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-200 rounded-xl bg-transparent">
-                <ChefHat className="w-12 h-12 text-slate-300 mb-3" strokeWidth={1.5} />
-                <p className="font-bold text-slate-500/60">Tidak ada pesanan diproses</p>
-                <p className="text-xs text-slate-500/40 mt-1">Terima pesanan di kolom pembayaran untuk diproses.</p>
+          <div className="flex items-center gap-1.5 p-1 bg-slate-200/50 rounded-xl mb-4 shrink-0 relative z-10">
+            <button
+              onClick={() => setPreparingTab('antrean')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-bold transition-all ${
+                preparingTab === 'antrean' 
+                  ? 'bg-white text-blue-700 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Antrean 
+              <span className={`px-2 py-0.5 rounded-full text-[10px] ${preparingTab === 'antrean' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'}`}>
+                {antreanMasak.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setPreparingTab('terjadwal')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-bold transition-all ${
+                preparingTab === 'terjadwal' 
+                  ? 'bg-white text-indigo-700 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Terjadwal
+              <span className={`px-2 py-0.5 rounded-full text-[10px] ${preparingTab === 'terjadwal' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500'}`}>
+                {terjadwalMasak.length}
+              </span>
+            </button>
+          </div>
+
+          {preparingTab === 'antrean' && antreanMasak.length > 5 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 shrink-0 flex items-start gap-2.5 animate-pulse relative z-10">
+              <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-red-800">Dapur Sibuk!</p>
+                <p className="text-[10px] font-semibold text-red-600 leading-tight mt-0.5">Ada {antreanMasak.length} pesanan yang butuh perhatian ekstra.</p>
               </div>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1 relative z-10">
+            {preparingTab === 'antrean' ? (
+              antreanMasak.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-200 rounded-xl bg-transparent">
+                  <ChefHat className="w-12 h-12 text-slate-300 mb-3" strokeWidth={1.5} />
+                  <p className="font-bold text-slate-500/60">Tidak ada antrean masak</p>
+                  <p className="text-xs text-slate-500/40 mt-1">Dapur sedang santai, pesanan aktif akan muncul di sini.</p>
+                </div>
+              ) : (
+                antreanMasak.map((order) => renderActiveCard(order))
+              )
             ) : (
-              preparingOrders.map((order) => renderActiveCard(order))
+              terjadwalMasak.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-200 rounded-xl bg-transparent">
+                  <Clock className="w-12 h-12 text-slate-300 mb-3" strokeWidth={1.5} />
+                  <p className="font-bold text-slate-500/60">Tidak ada pesanan terjadwal</p>
+                  <p className="text-xs text-slate-500/40 mt-1">Pesanan pre-order akan ditahan di sini sebelum masuk antrean.</p>
+                </div>
+              ) : (
+                terjadwalMasak.map((order) => renderActiveCard(order))
+              )
             )}
           </div>
         </div>

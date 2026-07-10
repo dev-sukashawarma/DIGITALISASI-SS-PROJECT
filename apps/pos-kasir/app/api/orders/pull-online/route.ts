@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
+import { calculateReleaseTime, calculateTotalPrepTime, parsePickupTime } from '@/lib/prepTime'
 
 export async function POST(request: Request) {
   let body: { external_order_id: string }
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
   const { data: order, error: orderErr } = await ssOrderDb
     .from('orders')
     .select(`
-      id, customer_name, customer_wa, total, notes, outlet_id,
+      id, customer_name, customer_wa, total, notes, outlet_id, pickup_time,
       outlets!inner(pos_outlet_id),
       order_items(item_name, quantity, unit_price, note)
     `)
@@ -64,6 +65,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Outlet belum dipetakan ke POS Kasir (pos_outlet_id kosong)' }, { status: 400 })
   }
 
+  // Parse pickup time and calculate release time
+  const pickupTime = parsePickupTime(order.pickup_time)
+  let releaseTime = null
+
+  if (pickupTime) {
+    // Estimasi total waktu masak (default prep_time 10 jika menu tidak ditemukan/disediakan)
+    const itemsForPrep = order.order_items?.map((i: any) => ({
+      quantity: i.quantity,
+      prep_time: 10 // Karena ini dari online (tanpa menu_item_id langsung), kita asumsikan 10
+    })) || []
+    const totalPrepTime = calculateTotalPrepTime(itemsForPrep)
+    releaseTime = calculateReleaseTime(pickupTime, totalPrepTime)
+  }
+
   // 3. Masukkan ke pos-kasir
   const { data: newOrder, error: insertErr } = await posDb
     .from('orders')
@@ -77,6 +92,8 @@ export async function POST(request: Request) {
       status: 'preparing',
       source: 'online',
       external_order_id: order.id,
+      pickup_time: pickupTime ? pickupTime.toISOString() : null,
+      release_time: releaseTime ? releaseTime.toISOString() : null,
     })
     .select('id, order_number')
     .single()

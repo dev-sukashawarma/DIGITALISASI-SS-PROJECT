@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
-  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer, MessageSquare, Zap, AlertTriangle
+  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer, MessageSquare, Zap, AlertTriangle, Flame
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -921,15 +921,57 @@ export default function KasirOrderClient({
             </button>
           </div>
 
-          {preparingTab === 'antrean' && antreanMasak.length > 5 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 shrink-0 flex items-start gap-2.5 animate-pulse relative z-10">
-              <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-red-800">Dapur Sibuk!</p>
-                <p className="text-[10px] font-semibold text-red-600 leading-tight mt-0.5">Ada {antreanMasak.length} pesanan yang butuh perhatian ekstra.</p>
+          {/* Smart Indicator: Dapur Sibuk */}
+          {(() => {
+            if (preparingTab !== 'antrean') return null;
+            
+            const totalItems = antreanMasak.reduce((sum, order) => {
+              return sum + (order.order_items?.reduce((itemSum, item) => itemSum + (item.quantity || 1), 0) || 0);
+            }, 0);
+
+            if (totalItems < 15) return null;
+
+            const itemCounts: Record<string, number> = {};
+            antreanMasak.forEach(order => {
+              order.order_items?.forEach(item => {
+                const name = item.menu_item_name;
+                itemCounts[name] = (itemCounts[name] || 0) + (item.quantity || 1);
+              });
+            });
+
+            const topItems = Object.entries(itemCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 4);
+
+            return (
+              <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-xl p-4 mb-4 shrink-0 shadow-md relative z-10 overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 opacity-20">
+                  <Flame className="w-16 h-16 text-white" />
+                </div>
+                
+                <div className="relative z-10 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-5 h-5 text-white animate-pulse" />
+                    <h3 className="text-sm font-black text-white tracking-wide">
+                      DAPUR SEDANG SIBUK: {totalItems} Porsi Menunggu
+                    </h3>
+                  </div>
+                  
+                  <p className="text-[11px] font-medium text-red-50/90 leading-tight">
+                    Kru, mohon percepat masakan! Fokus eksekusi menu yang menumpuk:
+                  </p>
+                  
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {topItems.map(([name, count]) => (
+                      <span key={name} className="px-2 py-1 bg-white/20 backdrop-blur-sm border border-white/30 rounded-md text-[10px] font-bold text-white shadow-sm">
+                        {count}x {name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-1 relative z-10">
             {preparingTab === 'antrean' ? (

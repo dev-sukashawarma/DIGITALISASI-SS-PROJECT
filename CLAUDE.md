@@ -734,5 +734,33 @@ Semua perubahan stok (seed/refill/koreksi/reset) **WAJIB lewat `ledger_stok`** (
 
 ---
 
-**Last updated:** 2026-07-08  
+## Session 2026-07-10: Absensi Realtime Menyeluruh (apps/absensi)
+
+**Status:** ✅ Kode COMPLETED — 10 task (subagent-driven), type-check bersih (kecuali 1 pre-existing tak-terkait `gps.test.ts` TS6133), **53/53 vitest hijau**, final whole-branch review (opus) clean setelah fix. Kode sudah di `main` & ter-push ke `origin/main` (di-merge oleh auto-commit automation). ⚠️ **Migration BELUM di-`db push`**, smoke test & redeploy masih manual.
+
+### Tujuan
+Seluruh aktivitas absensi realtime (muncul/hilang di detik itu, tanpa refresh) & ringan. Spec: `docs/superpowers/specs/2026-07-10-absensi-realtime-design.md`; Plan: `docs/superpowers/plans/2026-07-10-absensi-realtime.md`.
+
+### Arsitektur (lapisan realtime terpusat)
+- **`src/lib/realtime/`** — util murni `createDebouncer` + `subsSignature` (unit-test), hook `useRealtimeChannel` (callback) & `useRealtimeInvalidate` (React Query). Satu channel per scope, di-multiplex banyak tabel; event → debounce → `invalidateQueries`/callback. Nama channel stabil per scope (bukan `Date.now()`).
+- **Migration `20260710120000_absensi_realtime_publication.sql`** (aditif, idempotent, BELUM applied) — tambah `leave_requests, cash_advances, outlet_staff, outlet_attendance_config, global_settings, daily_checklist_records, checklist_items, checklist_categories` ke `supabase_realtime` (attendance & daily_checklist_ticks sudah ada); `REPLICA IDENTITY FULL` di tabel ber-filter/DELETE agar event "hilang" lolos RLS.
+
+### Surface yang di-realtime-kan
+papan-kehadiran (refactor ke hook), Cuti (+ **buang polling 15s**; sub dipindah ke `useLeaveNotifications` agar badge/toast live app-wide, bukan cuma di halaman Cuti), Kasbon, Rekap (attendance+config+global_settings), Manajemen Kru/enroll (outlet_staff), Pengaturan (config+global_settings, dengan **dirty-guard** agar refresh live tak menimpa edit form belum tersimpan). Channel checklist existing distabilkan namanya.
+
+### Gotcha penting
+- **`cash_advances`/`leave_requests` = TABEL nyata** (di-`ALTER TABLE ADD COLUMN`), aman untuk `ADD TABLE`. **`cash_advance_installments` TIDAK ADA** (yang ada `hr_cash_advance_installments`) — sub dead, sudah dibuang; migration guard `to_regclass` skip aman.
+- **RLS = gerbang realtime**: `postgres_changes` hanya kirim baris yang boleh di-`SELECT` user. Audit belum tuntas — verifikasi SPV bisa SELECT `leave_requests`/`cash_advances`/`outlet_staff` outletnya sebelum andalkan realtime approval.
+- **`REPLICA IDENTITY FULL` di `outlet_staff`** menstream `face_descriptor` tiap UPDATE/DELETE (RLS tetap gating) — disengaja demi DELETE ber-filter; dikomentari di migration.
+- **`npx` rusak di repo ini** (path `node_modules/node_modules` ganda) → pakai `./node_modules/.bin/<tool>`.
+
+### 📝 Next (manual, konsekuensial)
+1. **`supabase db push`** migration `20260710120000` → verifikasi di DB live (`pg_publication_tables` + `relreplident='f'`), jangan andalkan `migration list`.
+2. **Audit RLS SELECT** untuk semua tabel yang di-subscribe.
+3. **Smoke test 2-device**: absen→papan instan; approve cuti→crew badge/layar instan lintas halaman; hapus staff→hilang instan; toggle checklist→monitor instan; ubah jam kerja→papan/kiosk/rekap ikut.
+4. **Redeploy `absensi.sukashawarma.com`**.
+
+---
+
+**Last updated:** 2026-07-10  
 **Owner:** Dev Suka Shawarma

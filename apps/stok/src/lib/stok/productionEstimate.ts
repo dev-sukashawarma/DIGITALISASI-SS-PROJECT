@@ -9,60 +9,57 @@ export interface ProductionEstimate {
 // Temporary static BOM mapping.
 // Future iteration: Fetch from database.
 const RECIPES = [
+  // --- ORIGINAL SAPI ---
   {
-    menuName: 'Shawarma Sapi Besar',
+    menuName: 'Original Sapi Sedang',
     ingredients: [
-      { matchName: 'SAPI', requiredQty: 0.04 }, // 80g / 2000 = 0.04 blok
-      { matchName: 'KULIT 32', requiredQty: 0.05 } // 1 / 20 = 0.05 pack
+      { matchName: 'SAPI', requiredQty: 0.025 }, // asumsi 50g -> 0.025 blok
+      { matchName: 'KULIT 25', requiredQty: 0.05 } // 1 lembar -> 0.05 pack
     ]
   },
   {
-    menuName: 'Shawarma Sapi Sedang',
+    menuName: 'Original Sapi Besar',
     ingredients: [
-      { matchName: 'SAPI', requiredQty: 0.0325 }, // asumsi 65g / 2000 = 0.0325 blok
-      { matchName: 'KULIT 28', requiredQty: 0.05 } 
+      { matchName: 'SAPI', requiredQty: 0.0325 }, // asumsi 65g -> 0.0325 blok
+      { matchName: 'KULIT 28', requiredQty: 0.05 }
     ]
   },
   {
-    menuName: 'Shawarma Sapi Kecil',
+    menuName: 'Original Sapi Jumbo',
     ingredients: [
-      { matchName: 'SAPI', requiredQty: 0.025 }, // 50g / 2000 = 0.025 blok
+      { matchName: 'SAPI', requiredQty: 0.04 }, // asumsi 80g -> 0.04 blok
+      { matchName: 'KULIT 32', requiredQty: 0.05 }
+    ]
+  },
+  // --- ORIGINAL AYAM ---
+  {
+    menuName: 'Original Ayam Sedang',
+    ingredients: [
+      { matchName: 'AYAM', requiredQty: 0.05 }, // asumsi 50g -> 0.05 kg
       { matchName: 'KULIT 25', requiredQty: 0.05 }
     ]
   },
   {
-    menuName: 'Shawarma Ayam Besar',
+    menuName: 'Original Ayam Besar',
     ingredients: [
-      { matchName: 'AYAM', requiredQty: 0.08 }, // 80g / 1000 = 0.08 kg
-      { matchName: 'KULIT 32', requiredQty: 0.05 } 
+      { matchName: 'AYAM', requiredQty: 0.065 },
+      { matchName: 'KULIT 28', requiredQty: 0.05 }
     ]
   },
   {
-    menuName: 'Shawarma Ayam Sedang',
-    ingredients: [
-      { matchName: 'AYAM', requiredQty: 0.065 }, // asumsi 65g / 1000 = 0.065 kg
-      { matchName: 'KULIT 28', requiredQty: 0.05 } 
-    ]
-  },
-  {
-    menuName: 'Shawarma Ayam Kecil',
-    ingredients: [
-      { matchName: 'AYAM', requiredQty: 0.05 }, // 50g / 1000 = 0.05 kg
-      { matchName: 'KULIT 25', requiredQty: 0.05 }
-    ]
-  },
-  {
-    menuName: 'Shawarma Bowl Sapi',
-    ingredients: [
-      { matchName: 'SAPI', requiredQty: 0.04 },
-      { matchName: 'CUP + TUTUP', requiredQty: 1 } // Asumsi 1 pcs
-    ]
-  },
-  {
-    menuName: 'Shawarma Bowl Ayam',
+    menuName: 'Original Ayam Jumbo',
     ingredients: [
       { matchName: 'AYAM', requiredQty: 0.08 },
-      { matchName: 'CUP + TUTUP', requiredQty: 1 } 
+      { matchName: 'KULIT 32', requiredQty: 0.05 }
+    ]
+  },
+  // --- SHAWARMIE (MIE) ---
+  {
+    menuName: 'Shawarmie Sapi',
+    ingredients: [
+      { matchName: 'SAPI', requiredQty: 0.025 },
+      { matchName: 'MIE', requiredQty: 1 },
+      { matchName: 'FOIL', requiredQty: 0.0013 } // asumsi 1 pcs (1cm? foil ada konversi 760) -> 1/760 = 0.0013
     ]
   }
 ];

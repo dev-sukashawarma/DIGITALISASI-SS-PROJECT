@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
-  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer, MessageSquare
+  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer, MessageSquare, Zap
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -135,6 +135,78 @@ export default function KasirOrderClient({
   const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('all')
   const [preparingTab, setPreparingTab] = useState<'antrean' | 'terjadwal'>('antrean')
   const [now, setNow] = useState(() => Date.now())
+  const [isDevTesting, setIsDevTesting] = useState(false)
+
+  const createTestOrder = async () => {
+    if (!outletId) return;
+    setIsDevTesting(true);
+    try {
+      // 1. Ambil menu test
+      const { data: menuData, error: menuErr } = await supabase
+        .from('menu_items')
+        .select('*')
+        .ilike('name', '%test%')
+        .eq('is_available', true)
+        .limit(1)
+        .single();
+
+      if (menuErr || !menuData) {
+        showAlert('Menu dengan nama "test" tidak ditemukan di database! Buat menu tersebut di dashboard admin terlebih dahulu.');
+        return;
+      }
+
+      // 2. Buat ID order_number (random 4 digit)
+      const orderNumberStr = String(Math.floor(Math.random() * 9000) + 1000);
+      
+      const newOrder = {
+        outlet_id: outletId,
+        order_number: parseInt(orderNumberStr),
+        customer_name: 'DEV TESTER',
+        status: 'pending',
+        payment_method: 'cash',
+        total_amount: menuData.price,
+        notes: '-- INFO PEMESAN ONLINE --\nPembayaran: cash\n-- CATATAN PELANGGAN --\nIni adalah pesanan otomatis untuk testing development.',
+        source: 'online',
+        channel: 'DEV',
+        external_order_id: `DEV-${Date.now()}`
+      };
+
+      const { data: orderData, error: orderErr } = await supabase
+        .from('orders')
+        .insert(newOrder)
+        .select()
+        .single();
+
+      if (orderErr || !orderData) {
+        throw new Error(orderErr?.message || 'Gagal membuat pesanan');
+      }
+
+      // 3. Insert item
+      const newOrderItem = {
+        order_id: orderData.id,
+        menu_item_id: menuData.id,
+        menu_item_name: menuData.name,
+        quantity: 1,
+        unit_price: menuData.price,
+        subtotal: menuData.price,
+        notes: 'Menu test dev'
+      };
+
+      const { error: itemErr } = await supabase
+        .from('order_items')
+        .insert(newOrderItem);
+
+      if (itemErr) {
+        throw new Error(itemErr.message);
+      }
+
+    } catch (err: any) {
+      console.error(err);
+      showAlert(`Gagal membuat test order: ${err.message}`);
+    } finally {
+      setIsDevTesting(false);
+    }
+  }
 
   // Audio state
   const [audioPermission, setAudioPermission] = useState(true)
@@ -1148,6 +1220,16 @@ export default function KasirOrderClient({
           </div>
         </div>
       )}
+
+      {/* DEV TEST BUTTON */}
+      <button
+        onClick={createTestOrder}
+        disabled={isDevTesting}
+        className="fixed bottom-6 right-6 z-[90] bg-slate-800 text-white shadow-xl shadow-slate-900/20 px-4 py-3 rounded-full flex items-center gap-2 font-bold text-sm hover:bg-slate-700 active:scale-95 transition-all"
+      >
+        {isDevTesting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 text-yellow-400" />}
+        DEV: Test Order
+      </button>
     </div>
   )
 }

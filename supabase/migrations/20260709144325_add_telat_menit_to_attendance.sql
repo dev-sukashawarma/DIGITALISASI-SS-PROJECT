@@ -1,1 +1,1 @@
-ALTER TABLE attendance ADD COLUMN telat_menit INTEGER;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS telat_menit INTEGER;

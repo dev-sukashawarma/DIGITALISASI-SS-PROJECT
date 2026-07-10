@@ -11,7 +11,7 @@ DO $$
 DECLARE
   t text;
   tables text[] := ARRAY[
-    'leave_requests','cash_advances',
+    'attendance','leave_requests','cash_advances',
     'outlet_staff','outlet_attendance_config','global_settings',
     'daily_checklist_records','checklist_items','checklist_categories'
   ];

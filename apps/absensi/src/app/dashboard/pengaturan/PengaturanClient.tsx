@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { Button, Spinner } from "@suka/design-system";
-import { Settings2, Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, AlertCircle } from "lucide-react";
+import { Settings2, Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, AlertCircle, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
 import { saveGlobalConfig, saveOutletException, deleteOutletException, deleteAllExceptions } from "./actions";
@@ -46,6 +46,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
   const [search, setSearch] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [selectedOutletId, setSelectedOutletId] = useState("");
   const [newOutletConfig, setNewOutletConfig] = useState<Config>({ ...globalConfig });
 
@@ -126,12 +127,12 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
     startTransition(async () => {
       try {
         await saveOutletException(formData);
-        toast.show("ok", "Pengecualian berhasil ditambahkan!");
+        toast.show("ok", modalMode === "add" ? "Pengecualian berhasil ditambahkan!" : "Pengecualian berhasil diubah!");
         setIsModalOpen(false);
         setSelectedOutletId("");
         setNewOutletConfig({ ...globalConfig });
       } catch (err: any) {
-        toast.show("err", err.message || "Gagal menambah pengecualian");
+        toast.show("err", err.message || "Gagal menyimpan pengecualian");
       }
     });
   };
@@ -324,7 +325,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
               </Button>
               <Button 
                 size="sm" 
-                onClick={() => { setNewOutletConfig({ ...globalConfig }); setIsModalOpen(true); }} 
+                onClick={() => { setModalMode("add"); setNewOutletConfig({ ...globalConfig }); setIsModalOpen(true); }} 
                 className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-full text-sm font-semibold"
               >
                 <Plus size={16} /> Tambah Khusus
@@ -355,13 +356,33 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
                   <div key={cfg.outlet_id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-3 flex items-start justify-between">
                       <p className="font-bold text-suka-ink text-base">{outlet?.name || 'Unknown Outlet'}</p>
-                      <button 
-                        onClick={() => onDeleteException(cfg.outlet_id)}
-                        disabled={isPending}
-                        className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="flex gap-1">
+                        <button 
+                          onClick={() => {
+                            setModalMode("edit");
+                            setSelectedOutletId(cfg.outlet_id);
+                            setNewOutletConfig({
+                              jam_masuk: cfg.jam_masuk || "00:00",
+                              jam_keluar: cfg.jam_keluar || "00:00",
+                              toleransi_menit: cfg.toleransi_menit || 0,
+                              absen_window_mode: cfg.absen_window_mode || "auto",
+                              is_active: cfg.is_active,
+                            });
+                            setIsModalOpen(true);
+                          }}
+                          disabled={isPending}
+                          className="rounded-lg p-2 text-gray-400 hover:bg-suka-orange/10 hover:text-suka-orange transition-colors"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button 
+                          onClick={() => onDeleteException(cfg.outlet_id)}
+                          disabled={isPending}
+                          className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div className="rounded-lg bg-gray-50 p-2">
@@ -385,22 +406,60 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
           <div className="w-full max-w-md animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-8 rounded-t-3xl sm:rounded-2xl bg-white p-5 sm:p-6 shadow-xl space-y-5 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-suka-ink border-b pb-3">Tambah Outlet Khusus</h3>
+            <h3 className="text-xl font-bold text-suka-ink border-b pb-3">
+              {modalMode === "add" ? "Tambah Outlet Khusus" : "Edit Outlet Khusus"}
+            </h3>
             
             <form action={onSaveException} className="space-y-5">
               <div>
                 <label className="text-sm font-bold text-suka-ink mb-2 block">Pilih Outlet</label>
-                <Select
-                  value={selectedOutletId}
-                  onChange={val => setSelectedOutletId(val)}
-                  options={availableOutlets.map(out => ({ label: out.name, value: out.id }))}
-                  placeholder="-- Pilih Outlet --"
-                  className="w-full"
-                  searchable
-                />
+                {modalMode === "add" ? (
+                  <Select
+                    value={selectedOutletId}
+                    onChange={val => setSelectedOutletId(val)}
+                    options={availableOutlets.map(out => ({ label: out.name, value: out.id }))}
+                    placeholder="-- Pilih Outlet --"
+                    className="w-full"
+                    searchable
+                  />
+                ) : (
+                  <div className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 px-4 text-sm text-suka-ink font-semibold">
+                    {outlets.find(o => o.id === selectedOutletId)?.name || "Unknown Outlet"}
+                  </div>
+                )}
               </div>
 
               <ConfigFormFields config={newOutletConfig} setConfig={setNewOutletConfig} />
+
+              {/* Toggle Kunci Mesin untuk spesifik cabang ini */}
+              <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${newOutletConfig.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-red-50 border border-red-100"}`}>
+                <div>
+                  <p className="text-sm font-bold text-suka-ink">
+                    {newOutletConfig.absen_window_mode === "manual" ? "Buka Kamera Absensi (Manual)" : "Kunci Kamera (Emergency Lock)"}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {newOutletConfig.absen_window_mode === "manual" 
+                      ? "Jika dinyalakan, kamera absensi khusus cabang ini akan aktif dan bisa digunakan." 
+                      : "Jika dinyalakan, matikan paksa kamera absensi di cabang ini."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNewOutletConfig({ ...newOutletConfig, is_active: !newOutletConfig.is_active })}
+                  className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
+                    newOutletConfig.absen_window_mode === "manual"
+                      ? (newOutletConfig.is_active ? "bg-suka-green" : "bg-gray-300")
+                      : (!newOutletConfig.is_active ? "bg-red-500" : "bg-gray-300")
+                  }`}
+                >
+                  <span className={`pointer-events-none m-1 inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ${
+                    newOutletConfig.absen_window_mode === "manual"
+                      ? (newOutletConfig.is_active ? "translate-x-6" : "translate-x-0")
+                      : (!newOutletConfig.is_active ? "translate-x-6" : "translate-x-0")
+                  }`} />
+                </button>
+              </div>
+              <input type="hidden" name="is_active" value={newOutletConfig.is_active ? "true" : "false"} />
 
               <div className="flex gap-3 pt-4 border-t">
                 <Button type="button" variant="secondary" className="flex-1 py-3" onClick={() => setIsModalOpen(false)}>Batal</Button>

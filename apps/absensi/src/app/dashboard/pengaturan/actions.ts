@@ -48,6 +48,8 @@ export async function saveOutletException(formData: FormData) {
   const jam_keluar = formData.get("jam_keluar") as string;
   const toleransi_menit = parseInt(formData.get("toleransi_menit") as string || "0", 10);
   const absen_window_mode = formData.get("absen_window_mode") as string;
+  const is_active_str = formData.get("is_active");
+  const is_active = is_active_str === "true";
 
   if (!outlet_id) throw new Error("Pilih outlet terlebih dahulu");
 
@@ -62,6 +64,15 @@ export async function saveOutletException(formData: FormData) {
     });
   
   if (errConfig) throw new Error(errConfig.message);
+
+  if (is_active_str !== null) {
+    const { error: errOutlet } = await supabaseAdmin
+      .from("outlets")
+      .update({ is_active })
+      .eq("id", outlet_id);
+    
+    if (errOutlet) throw new Error(errOutlet.message);
+  }
 
   revalidatePath("/dashboard/pengaturan");
   return { success: true };

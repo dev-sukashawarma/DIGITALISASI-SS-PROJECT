@@ -73,7 +73,7 @@ export async function POST(req: Request) {
       .single();
 
     if (orderErr || !orderData) {
-      throw new Error(orderErr.message || 'Gagal membuat pesanan di Sistem Order');
+      throw new Error(orderErr?.message || 'Gagal membuat pesanan di Sistem Order');
     }
 
     // 3. Insert item

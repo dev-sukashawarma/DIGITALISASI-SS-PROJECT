@@ -71,6 +71,7 @@ export interface Order {
   channel: string | null
   external_order_id: string | null
   release_time?: string | null
+  order_type?: string | null
   created_at: string
   updated_at: string
 }

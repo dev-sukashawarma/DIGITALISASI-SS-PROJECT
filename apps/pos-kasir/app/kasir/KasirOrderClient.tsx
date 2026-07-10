@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
-  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer, MessageSquare, Zap
+  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer, MessageSquare, Zap, AlertTriangle
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -297,6 +297,10 @@ export default function KasirOrderClient({
   const prevTerjadwalIds = useRef<Set<string>>(new Set())
   const [scheduledAlerts, setScheduledAlerts] = useState<OrderWithItems[]>([])
 
+  // State and ref for tracking 10-minute urgent alerts
+  const prevUrgentIds = useRef<Set<string>>(new Set())
+  const [urgentAlerts, setUrgentAlerts] = useState<OrderWithItems[]>([])
+
   // Tracking pergerakan spesifik dari "Terjadwal" ke "Antrean Masak"
   useEffect(() => {
     // Determine current terjadwal and antreanMasak
@@ -322,6 +326,60 @@ export default function KasirOrderClient({
     }
 
     prevTerjadwalIds.current = currentTerjadwalIds
+  }, [orders, now, playNotification])
+
+  // Tracking pergerakan spesifik untuk sisa 10 menit (Urgent Escalation)
+  useEffect(() => {
+    // getEffectiveReleaseTime(o) is pickup - 20m. Urgent threshold is pickup - 10m.
+    // However, if we call getEffectiveReleaseTime inside here without it being defined yet (hoisting), 
+    // it actually works at runtime in React but let's just write the inline time check safely 
+    // to avoid any temporal dead zone issues if it's evaluated immediately.
+    // Actually getEffectiveReleaseTime is defined later, so calling it inside the callback is safe.
+    const urgentThreshold = (o: OrderWithItems) => {
+      let timeStr = (o as any).pickup_time
+      if (!timeStr && o.notes && o.notes.toUpperCase().includes('AMBIL')) {
+        const match = o.notes.match(/AMBIL\s*[:\n]\s*(\d{2}:\d{2})/i)
+        if (match) timeStr = match[1]
+      }
+      if (timeStr && typeof timeStr === 'string') {
+        const timeMatch = timeStr.match(/(\d{2}):(\d{2})/)
+        if (timeMatch) {
+          const [_, h, m] = timeMatch
+          const d = new Date()
+          d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0)
+          if (d.getTime() < new Date(o.created_at).getTime()) {
+            d.setDate(d.getDate() + 1)
+          }
+          return d.getTime() - (10 * 60 * 1000)
+        }
+      }
+      return 0
+    }
+    
+    // Yg masih > 10 menit (termasuk yang baru jadi 20 menit)
+    const preUrgent = orders.filter(o => o.order_type === 'scheduled' && (o.status === 'pending' || o.status === 'preparing') && urgentThreshold(o) > now)
+    
+    // Yg <= 10 menit
+    const urgent = orders.filter(o => o.order_type === 'scheduled' && (o.status === 'pending' || o.status === 'preparing') && urgentThreshold(o) <= now)
+    
+    const preUrgentIds = new Set(preUrgent.map(o => o.id))
+    const urgentIds = new Set(urgent.map(o => o.id))
+
+    const justMovedUrgent: OrderWithItems[] = []
+    
+    for (const id of prevUrgentIds.current) {
+      if (urgentIds.has(id)) {
+        const order = urgent.find(o => o.id === id)
+        if (order) justMovedUrgent.push(order)
+      }
+    }
+
+    if (justMovedUrgent.length > 0) {
+      playNotification() // Bunyikan bel
+      setUrgentAlerts(prev => [...prev, ...justMovedUrgent]) // Tambahkan ke modal peringatan merah
+    }
+
+    prevUrgentIds.current = preUrgentIds
   }, [orders, now, playNotification])
 
   /**
@@ -1066,8 +1124,173 @@ export default function KasirOrderClient({
 
       </div>
 
+      {/* MODAL PESANAN TERJADWAL URGENT (10 MENIT) */}
+      {urgentAlerts.length > 0 && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-red-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl shadow-red-900/40 border border-white/20 animate-in zoom-in-95 duration-200">
+            
+            {/* Header */}
+            <div className="bg-gradient-to-br from-red-600 to-red-800 p-6 text-center text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl -mr-10 -mt-10 animate-pulse"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-400 opacity-20 rounded-full blur-xl -ml-8 -mb-8"></div>
+              
+              <div className="flex justify-center mb-3 relative z-10">
+                <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm shadow-inner shadow-white/10">
+                  <AlertTriangle size={32} className="text-white drop-shadow-md animate-pulse" />
+                </div>
+              </div>
+              <h3 className="text-2xl font-black tracking-tight mb-1 relative z-10 drop-shadow-sm uppercase">Peringatan: 10 Menit!</h3>
+              <p className="text-red-100 font-medium text-sm relative z-10">Segera Selesaikan! Pelanggan segera tiba!</p>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4 pb-4 border-b border-dashed border-red-200">
+                <div className="text-sm font-bold text-slate-500 uppercase">Nomor Antrian</div>
+                <div className="text-3xl font-black text-slate-800 tracking-tighter text-red-600">
+                  #{urgentAlerts[0].order_number || urgentAlerts[0].id.slice(0,4).toUpperCase()}
+                </div>
+              </div>
+
+              {urgentAlerts[0].notes && (
+                <div className="mb-4 bg-orange-50 border border-orange-100 rounded-xl p-3">
+                  <div className="text-xs font-bold text-orange-800 mb-1 flex items-center gap-1">
+                    <User size={12} /> Catatan / Info Pengambilan
+                  </div>
+                  <div className="text-sm font-semibold text-orange-950 whitespace-pre-wrap leading-tight">
+                    {urgentAlerts[0].notes}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs font-bold text-slate-400 uppercase mb-2">Daftar Menu</div>
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 max-h-[220px] overflow-y-auto">
+                <div className="flex flex-col gap-1.5">
+                  {(() => {
+                    const orderItems = urgentAlerts[0].order_items || []
+                    const parsed = orderItems.map((oi: any) => {
+                      let name = oi.menu_item_name || ''
+                      let note = ''
+                      let id = oi.id
+                      let parentId = null
+                      let isExtra = false
+                      let image_url = oi.menu_items?.image_url || null
+                      
+                      const match = name.match(/\[([^\]]+)\]\s*(.+)/)
+                      if (match) {
+                        isExtra = true
+                        parentId = match[1]
+                        name = match[2]
+                      }
+                      if (name.includes('(') && name.includes(')')) {
+                        const noteMatch = name.match(/\(([^)]+)\)/)
+                        if (noteMatch) {
+                          note = noteMatch[1]
+                          name = name.replace(/\([^)]+\)/, '').trim()
+                        }
+                      }
+                      
+                      return {
+                        id,
+                        name: name.trim(),
+                        note,
+                        quantity: oi.quantity,
+                        isExtra,
+                        parentId,
+                        image_url
+                      }
+                    })
+
+                    const items: any[] = []
+                    parsed.forEach((oi: any) => {
+                      if (!oi.isExtra) {
+                        items.push({...oi, extras: []})
+                      } else {
+                        const parent = items.find(p => p.id === oi.parentId)
+                        if (parent) {
+                          parent.extras.push(oi)
+                        } else {
+                          items.push({...oi, extras: []})
+                        }
+                      }
+                    })
+
+                    return items.map((oi: any, idx: number) => (
+                      <div key={idx} className="flex flex-col gap-1.5 p-2.5 rounded-lg border border-slate-100 bg-white">
+                        <div className="flex justify-between items-start">
+                          <div className="flex gap-3">
+                            <div className="font-black text-slate-800 tabular-nums">
+                              {oi.quantity}x
+                            </div>
+                            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
+                              {oi.image_url ? (
+                                <img src={oi.image_url} alt={oi.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <ChefHat size={20} className="text-slate-300" />
+                              )}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-bold text-slate-800 text-sm">{oi.name}</span>
+                              {oi.note && (
+                                <span className="text-xs text-slate-500 font-medium">({oi.note})</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {oi.extras.length > 0 && (
+                          <div className="flex mt-1">
+                            <div className="w-4 flex-shrink-0 ml-1.5 flex flex-col items-center">
+                              <div className="w-0.5 h-full bg-slate-200"></div>
+                            </div>
+                            <div className="flex-1 space-y-1.5 pl-2 pb-1">
+                              {oi.extras.map((ex: any, exIdx: number) => (
+                                <div key={exIdx} className="flex justify-between items-start">
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <div className="font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">Extra</div>
+                                    <span className="font-semibold text-slate-700">{ex.name}</span>
+                                    {ex.note && <span className="text-slate-400 italic">({ex.note})</span>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={async () => {
+                  const currentAlert = urgentAlerts[0]
+                  if (currentAlert) {
+                    // Update status pesanan langsung jadi completed
+                    await applyStatusChange(currentAlert.id, { status: 'completed' })
+                    setUrgentAlerts(prev => prev.slice(1))
+                  }
+                }}
+                className="flex-1 bg-red-600 text-white font-bold text-base py-3.5 rounded-xl hover:bg-red-700 active:scale-95 transition-all shadow-md shadow-red-200"
+              >
+                Selesaikan Pesanan
+              </button>
+            </div>
+            
+            {urgentAlerts.length > 1 && (
+              <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md border border-white/30 text-white text-[10px] font-bold px-2 py-1 rounded-lg">
+                1 of {urgentAlerts.length}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* MODAL PESANAN TERJADWAL */}
-      {scheduledAlerts.length > 0 && (
+      {scheduledAlerts.length > 0 && urgentAlerts.length === 0 && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl shadow-indigo-900/20 border border-white/20 animate-in zoom-in-95 duration-200">
             

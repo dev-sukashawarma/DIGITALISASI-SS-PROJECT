@@ -50,20 +50,18 @@ describe("isWithinRadius", () => {
 });
 
 describe("GEOFENCE_RADIUS_M", () => {
-  test("is tightened to 30 meters", () => {
-    expect(GEOFENCE_RADIUS_M).toBe(30);
+  test("is tightened to 20 meters", () => {
+    expect(GEOFENCE_RADIUS_M).toBe(20);
   });
 });
 
 describe("isGpsAccuracyAcceptable", () => {
-  test("accepts good accuracy", () => {
-    expect(isGpsAccuracyAcceptable(20)).toBe(true);
-  });
-  test("accepts exactly at threshold (75)", () => {
-    expect(isGpsAccuracyAcceptable(MAX_GPS_ACCURACY_M)).toBe(true);
+  test("accepts accuracy within threshold", () => {
+    expect(isGpsAccuracyAcceptable(30)).toBe(true);
+    expect(isGpsAccuracyAcceptable(150)).toBe(true);
   });
   test("rejects accuracy worse than threshold", () => {
-    expect(isGpsAccuracyAcceptable(80)).toBe(false);
+    expect(isGpsAccuracyAcceptable(151)).toBe(false);
   });
 });
 

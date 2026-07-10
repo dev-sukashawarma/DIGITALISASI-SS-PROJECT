@@ -15,7 +15,7 @@ import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
 import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAcceptable, formatDistanceMeters } from "@/lib/gps";
 
-export type KioskPhase = "locating" | "location_invalid" | "idle" | "identified" | "liveness" | "submitting" | "result";
+export type KioskPhase = "locating" | "location_invalid" | "locked" | "idle" | "identified" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
 
 type StaffRow = { id: string; name: string; face_descriptor: number[] | null };
@@ -58,13 +58,19 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       try {
         const { data, error } = await supabase
           .from("outlets")
-          .select("lat, lng")
+          .select("lat, lng, is_active")
           .eq("id", outletId)
           .single();
         if (error || !data) {
           console.error("Failed to load outlet coordinates:", error);
           setResult({ ok: false, message: "Gagal memuat koordinat outlet" });
           setPhase("location_invalid");
+          return;
+        }
+
+        if (data.is_active === false) {
+          setResult({ ok: false, message: "Kamera absensi sedang dinonaktifkan oleh Pusat (Emergency Lock)." });
+          setPhase("locked");
           return;
         }
 

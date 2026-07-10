@@ -158,7 +158,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
 
       {/* Mode Absensi */}
       <div className="space-y-3">
-        <label className="text-sm font-bold text-suka-ink">Mode Mesin Absen (Kiosk)</label>
+        <label className="text-sm font-bold text-suka-ink">Mode Kamera Absensi (Kiosk)</label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             type="button"
@@ -172,7 +172,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
             </div>
             <div>
               <p className="text-sm font-bold text-suka-ink">Otomatis (Sesuai Jam Shift)</p>
-              <p className="text-xs text-gray-500">Mesin absen hidup sendiri.</p>
+              <p className="text-xs text-gray-500">Kamera absensi hidup sendiri.</p>
             </div>
           </button>
           <button
@@ -220,12 +220,12 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
             <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${globalConfig.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-red-50 border border-red-100"}`}>
               <div>
                 <p className="text-sm font-bold text-suka-ink">
-                  {globalConfig.absen_window_mode === "manual" ? "Buka Mesin Absen (Manual)" : "Kunci Mesin (Emergency Lock)"}
+                  {globalConfig.absen_window_mode === "manual" ? "Buka Kamera Absensi (Manual)" : "Kunci Kamera (Emergency Lock)"}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   {globalConfig.absen_window_mode === "manual" 
-                    ? "Jika dinyalakan, mesin absen di semua outlet akan aktif dan bisa digunakan." 
-                    : "Jika dinyalakan, matikan paksa semua mesin absen di outlet."}
+                    ? "Jika dinyalakan, kamera absensi di semua outlet akan aktif dan bisa digunakan." 
+                    : "Jika dinyalakan, matikan paksa semua kamera absensi di outlet."}
                 </p>
               </div>
               <button

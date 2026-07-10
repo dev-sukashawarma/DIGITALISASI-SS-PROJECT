@@ -141,93 +141,18 @@ export default function KasirOrderClient({
     if (!outletId) return;
     setIsDevTesting(true);
     try {
-      // Bikin client ke Sistem Order
-      const SS_ORDER_URL = process.env.NEXT_PUBLIC_SS_ORDER_URL || "https://qntuhtkujpwudcpudwbj.supabase.co";
-      const SS_ORDER_KEY = process.env.NEXT_PUBLIC_SS_ORDER_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudHVodGt1anB3dWRjcHVkd2JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTMyNjcsImV4cCI6MjA5NDgyOTI2N30.X2pjS2ont0ekVVc71HLacM2I49aLeypLRRgoPQV6OTw";
-      if (!SS_ORDER_URL || !SS_ORDER_KEY) {
-        throw new Error("Kredensial SS_ORDER tidak dikonfigurasi di .env.local");
-      }
-      
-      const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
-      const orderSystemSupabase = createSupabaseClient(SS_ORDER_URL, SS_ORDER_KEY);
+      const response = await fetch('/api/dev/test-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ posOutletId: outletId })
+      });
 
-      // 0. Dapatkan ID Outlet di Sistem Order berdasarkan pos_outlet_id kasir
-      const { data: outletData, error: outletErr } = await orderSystemSupabase
-        .from('outlets')
-        .select('id')
-        .eq('pos_outlet_id', outletId)
-        .limit(1)
-        .single();
+      const data = await response.json();
 
-      if (outletErr || !outletData) {
-        showAlert('Outlet Kasir ini belum dipetakan ke Sistem Order.');
-        return;
-      }
-
-      // 1. Ambil menu test di Sistem Order
-      const { data: menuData, error: menuErr } = await orderSystemSupabase
-        .from('menu_items')
-        .select('*')
-        .ilike('name', '%tes%')
-        .limit(1)
-        .single();
-
-      if (menuErr || !menuData) {
-        showAlert('Menu dengan nama "test" tidak ditemukan di database Sistem Order! Buat menu tersebut di dashboard Sistem Order terlebih dahulu.');
-        return;
-      }
-
-      // 2. Buat ID order_number (random 4 digit)
-      const orderNumberStr = 'ORD-TEST-' + String(Math.floor(Math.random() * 9000) + 1000);
-      
-      // Setup pickup_time agar order mendarat di tab Terjadwal.
-      // Di Kasir, release_time = pickupTime - 20 menit (minimal lead time).
-      // Agar rilis 1 menit lagi (memicu modal peringatan 20 menit dengan natural),
-      // kita set pickup_time ke 21 menit dari sekarang.
-      const pickupDate = new Date(Date.now() + (21 * 60 * 1000)).toISOString();
-
-      const newOrder = {
-        outlet_id: outletData.id,
-        order_number: orderNumberStr,
-        customer_name: 'DEV TESTER',
-        customer_wa: '08123456789',
-        status: 'paid', // Supaya memicu OnlineOrderSync!
-        payment_method: 'qris',
-        total: menuData.price,
-        subtotal: menuData.price,
-        service_fee: 0,
-        pickup_time: pickupDate,
-        notes: 'Ini adalah pesanan otomatis dari tombol DEV testing.',
-        channel: 'online'
-      };
-
-      const { data: orderData, error: orderErr } = await orderSystemSupabase
-        .from('orders')
-        .insert(newOrder)
-        .select()
-        .single();
-
-      if (orderErr || !orderData) {
-        throw new Error(orderErr?.message || 'Gagal membuat pesanan di Sistem Order');
-      }
-
-      // 3. Insert item
-      const newOrderItem = {
-        order_id: orderData.id,
-        menu_item_id: menuData.id,
-        item_name: menuData.name,
-        quantity: 1,
-        unit_price: menuData.price,
-        subtotal: menuData.price,
-        note: 'Menu test dev'
-      };
-
-      const { error: itemErr } = await orderSystemSupabase
-        .from('order_items')
-        .insert(newOrderItem);
-
-      if (itemErr) {
-        throw new Error(itemErr.message);
+      if (!response.ok) {
+        throw new Error(data.error || 'Gagal membuat pesanan di Sistem Order');
       }
 
       // Berhasil! Kasir akan segera menarik pesanan ini secara otomatis lewat OnlineOrderSync.

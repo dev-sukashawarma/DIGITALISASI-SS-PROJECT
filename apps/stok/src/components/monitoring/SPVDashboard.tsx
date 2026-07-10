@@ -32,13 +32,12 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'B
   if (name.includes('KITCHEN (PUSAT)')) return 'Bogor';
   if (name.includes('KITCHEN')) return 'Central Kitchen';
   
-  if (name.includes('JATIASIH') || name.includes('JATIWANGIN')) return 'Bekasi';
+  if (name.includes('PEKAYON') || name.includes('JATIASIH') || name.includes('JATIWARINGIN') || name.includes('JATIWANGIN')) return 'Bekasi';
   if (name.includes('CIRENDEU')) return 'Tangerang';
-  if (name.includes('CIBINONG') || name.includes('CISEENG') || name.includes('CITAYAM') || name.includes('DRAMAGA') || name.includes('EMPANG') || name.includes('BEJI')) return 'Bogor';
-  if (name.includes('DEPOK') || name.includes('SUKMAJAYA') || name.includes('PALEDANG') || name.includes('PAJA JARAN')) return 'Depok';
-  if (name.includes('PEKAYON') || name.includes('JATIASIH') || name.includes('JATIWANGIN')) return 'Bekasi';
-  if (name.includes('CIMANGGU')) return 'Bogor';
+  if (name.includes('CIBINONG') || name.includes('CISEENG') || name.includes('CITAYAM') || name.includes('DRAMAGA') || name.includes('EMPANG') || name.includes('CIMANGGU') || name.includes('CIBUBUR') || name.includes('PAJAJARAN') || name.includes('PAJA JARAN') || name.includes('PALEDANG')) return 'Bogor';
+  if (name.includes('DEPOK') || name.includes('SUKMAJAYA') || name.includes('BEJI') || name.includes('SAWANGAN') || name.includes('WANGAN')) return 'Depok';
   if (name.includes('TEBET') || name.includes('KALISARI') || name.includes('JAGAKARSA')) return 'Jakarta';
+  
   return 'Jakarta'; // Default
 };
 
@@ -135,7 +134,10 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   // Compute final items with local threshold overrides
   const items = useMemo(() => {
     const originalItems = (data?.items || []).filter(
-      (item) => !allowedOutletIds || allowedOutletIds.includes(item.outlet_id)
+      (item) => {
+        if (item.outlet_name.toUpperCase().includes('KANTOR PUSAT')) return false;
+        return !allowedOutletIds || allowedOutletIds.includes(item.outlet_id);
+      }
     );
     return originalItems.map(item => {
       const overrideKey = `${item.outlet_id}-${item.bahan_baku_id}`;
@@ -226,10 +228,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     }
 
     const outletList = Object.values(outletMap).sort((a, b) => {
-      const order = { below: 0, warning: 1, ok: 2 };
-      if (a.status !== b.status) {
-        return order[a.status] - order[b.status];
-      }
       return a.outlet_name.localeCompare(b.outlet_name);
     });
 

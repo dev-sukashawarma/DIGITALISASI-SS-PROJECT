@@ -5,14 +5,14 @@ import { createClient } from '@/lib/supabase/client'
 import confetti from 'canvas-confetti'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { useQuery } from '@tanstack/react-query'
-import { Target, PartyPopper, Sparkles, Info, AlertTriangle, X } from 'lucide-react'
+import { Target, PartyPopper, Sparkles, Info, AlertTriangle } from 'lucide-react'
 
 /**
  * Briefing Hari Ini — satu kartu persisten di atas konten kasir yang menyatukan:
  *  1. Progress target harian (live, warna merah/kuning/hijau + selebrasi 100%).
- *  2. Pesan owner aktif (motivasi/info/peringatan), tiap pesan bisa ditutup.
- * Tidak ada popup blocking: semua tampil sebagai banner. Menutup pesan menandai
- * "dibaca" (mark_message_read) sehingga metrik owner tetap jalan & pesan tak muncul lagi.
+ *  2. Pesan owner aktif (motivasi/info/peringatan).
+ * Tidak ada popup blocking: semua tampil sebagai banner. Pesan akan hilang secara otomatis
+ * sesuai durasi yang diatur oleh owner.
  */
 
 type Kind = 'motivasi' | 'info' | 'peringatan'
@@ -111,14 +111,12 @@ export default function BriefingBanner() {
 
   // ── Pesan owner (realtime) ────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([])
-  const dismissedRef = useRef<Set<string>>(new Set())
-
   const fetchMessages = useCallback(async () => {
     const supabase = createClient()
     try {
       const { data } = await supabase.rpc('get_my_active_messages')
       if (Array.isArray(data)) {
-        setMessages((data as Message[]).filter((m) => !dismissedRef.current.has(m.id)))
+        setMessages((data as Message[]))
       } else {
         setMessages([])
       }
@@ -143,12 +141,7 @@ export default function BriefingBanner() {
     }
   }, [fetchMessages])
 
-  const dismissMessage = async (id: string) => {
-    dismissedRef.current.add(id)
-    setMessages((prev) => prev.filter((m) => m.id !== id))
-    const supabase = createClient()
-    await supabase.rpc('mark_message_read', { p_message_id: id })
-  }
+
 
   // ── Derived target visuals ────────────────────────────────────────────────
   const target = useMemo(() => {
@@ -233,13 +226,7 @@ export default function BriefingBanner() {
                 </h4>
                 <p className="text-xs font-semibold text-[#3a322b] whitespace-pre-wrap">{m.body}</p>
               </div>
-              <button
-                onClick={() => dismissMessage(m.id)}
-                aria-label="Tutup pesan"
-                className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[#3a322b]/50 hover:text-[#3a322b] hover:bg-black/5 transition-colors active:scale-95"
-              >
-                <X className="w-4 h-4" />
-              </button>
+
             </div>
           </div>
         )

@@ -181,9 +181,10 @@ export default function KasirOrderClient({
       const orderNumberStr = 'ORD-TEST-' + String(Math.floor(Math.random() * 9000) + 1000);
       
       // Setup pickup_time agar order mendarat di tab Terjadwal.
-      // Di Kasir, release_time = pickupTime - 10 menit (default prep time).
-      // Agar rilis 5 detik lagi (memicu modal secara natural), kita set pickup_time ke 10 menit + 5 detik dari sekarang.
-      const pickupDate = new Date(Date.now() + (10 * 60 * 1000) + 5000).toISOString();
+      // Di Kasir, release_time = pickupTime - 20 menit (minimal lead time).
+      // Agar rilis 1 menit lagi (memicu modal peringatan 20 menit dengan natural),
+      // kita set pickup_time ke 21 menit dari sekarang.
+      const pickupDate = new Date(Date.now() + (21 * 60 * 1000)).toISOString();
 
       const newOrder = {
         outlet_id: outletData.id,

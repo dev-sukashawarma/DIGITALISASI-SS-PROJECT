@@ -34,8 +34,9 @@ export function calculateTotalPrepTime(items: { quantity: number; prep_time?: nu
  * based on the requested pickup time and the total prep time.
  */
 export function calculateReleaseTime(pickupTime: Date, totalPrepTimeMinutes: number): Date {
-  // Subtract prep time from pickup time
-  return new Date(pickupTime.getTime() - totalPrepTimeMinutes * 60000);
+  // Always release at least 20 minutes before pickup time to give enough warning
+  const leadTimeMinutes = Math.max(20, totalPrepTimeMinutes);
+  return new Date(pickupTime.getTime() - leadTimeMinutes * 60000);
 }
 
 /**

@@ -12,24 +12,15 @@ const RECIPES = [
   {
     menuName: 'Shawarma Besar',
     ingredients: [
-      // Format di database: "Daging Sapi (B)" untuk Shawarma Besar
-      // "Tortilla (B) 25cm" untuk Tortilla Besar
-      { matchName: 'DAGING SAPI (B)', requiredQty: 1 }, // Asumsi sudah dalam satuan porsi (misal 1 bks = 1 porsi atau hitungan base sudah sesuai qty display)
-      { matchName: 'TORTILLA (B)', requiredQty: 1 }
+      { matchName: 'SAPI', requiredQty: 80 }, // 80 gram
+      { matchName: 'KULIT 32', requiredQty: 1 } // 1 lembar
     ]
   },
   {
     menuName: 'Shawarma Kecil',
     ingredients: [
-      { matchName: 'DAGING SAPI (K)', requiredQty: 1 },
-      { matchName: 'TORTILLA (K)', requiredQty: 1 }
-    ]
-  },
-  {
-    menuName: 'Shawarma Bowl',
-    ingredients: [
-      { matchName: 'DAGING SAPI (B)', requiredQty: 1 }, // Anggap bowl pakai daging besar
-      { matchName: 'BOWL', requiredQty: 1 } // Asumsi ada item packaging Bowl
+      { matchName: 'SAPI', requiredQty: 50 }, // 50 gram
+      { matchName: 'KULIT 25', requiredQty: 1 } // 1 lembar
     ]
   }
 ];

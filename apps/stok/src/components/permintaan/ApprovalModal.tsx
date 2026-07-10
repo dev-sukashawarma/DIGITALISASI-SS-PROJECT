@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePermintaanActions } from '@/hooks/usePermintaan'
 import type { PermintaanWithItems } from '@/types/permintaan'
+import { fetchCrosscheckStok } from '@/app/actions/permintaan'
 
 interface Props {
   permintaan: PermintaanWithItems
@@ -16,6 +17,27 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
   // qty_disetujui state keyed by bahan_baku_id
   const [qtys, setQtys] = useState<Record<string, number>>(() =>
     Object.fromEntries(permintaan.items.map(it => [it.bahan_baku_id, it.qty_diminta]))
+  )
+  const [crosscheckData, setCrosscheckData] = useState<Record<string, { outletStok: number; gudangStok: number }> | null>(null)
+  const [isFetchingCrosscheck, setIsFetchingCrosscheck] = useState(true)
+
+  useEffect(() => {
+    const fetchCrosscheck = async () => {
+      try {
+        const bahanBakuIds = permintaan.items.map(it => it.bahan_baku_id)
+        const data = await fetchCrosscheckStok(permintaan.outlet_id, bahanBakuIds)
+        setCrosscheckData(data)
+      } catch (err) {
+        console.error('Failed to fetch crosscheck data', err)
+      } finally {
+        setIsFetchingCrosscheck(false)
+      }
+    }
+    fetchCrosscheck()
+  }, [permintaan.outlet_id, permintaan.items])
+
+  const hasOverStock = permintaan.items.some(
+    it => crosscheckData && crosscheckData[it.bahan_baku_id] && qtys[it.bahan_baku_id] > crosscheckData[it.bahan_baku_id].gudangStok
   )
   const [alasan, setAlasan] = useState('')
   const [loading, setLoading] = useState(false)
@@ -138,41 +160,63 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-[#1e1b15] truncate">{it.nama ?? it.bahan_baku_id}</p>
                   <p className="text-[11px] font-semibold text-[#544437] mt-0.5">Diminta: <span className="font-bold text-[#701604]">{it.qty_diminta} {it.satuan ?? ''}</span></p>
+                  {isFetchingCrosscheck ? (
+                    <p className="text-[10px] text-[#544437]/60 mt-0.5 animate-pulse">Memuat stok...</p>
+                  ) : crosscheckData && crosscheckData[it.bahan_baku_id] ? (
+                    <p className="text-[10px] text-[#544437] mt-0.5 font-medium">
+                      Stok Outlet: {crosscheckData[it.bahan_baku_id].outletStok} | Stok Gudang: {crosscheckData[it.bahan_baku_id].gudangStok}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-[#544437]/60 mt-0.5">(Stok tidak dapat dimuat)</p>
+                  )}
                 </div>
                 
                 {/* Qty Stepper */}
-                <div className="flex items-center bg-[#faf2e9] border border-[#d9c2b2]/30 rounded-xl px-1 py-0.5 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleMinus(it.bahan_baku_id)}
-                    disabled={loading}
-                    className="w-8 h-8 flex items-center justify-center text-[#904d00] hover:bg-[#efe7dd] rounded-lg transition-colors font-bold text-lg disabled:opacity-40"
-                    aria-label={`Kurangi ${it.nama ?? it.bahan_baku_id}`}
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    min={0}
-                    value={qtys[it.bahan_baku_id] ?? 0}
-                    onChange={e => {
-                      setQtys(prev => ({ ...prev, [it.bahan_baku_id]: Number(e.target.value) }))
-                      setErrorMsg(null)
-                    }}
-                    className="w-12 bg-transparent border-none text-center font-bold text-[#1e1b15] focus:ring-0 p-0 text-sm"
-                    disabled={loading}
-                    aria-label={`Jumlah disetujui ${it.nama ?? it.bahan_baku_id}`}
-                  />
-                  <span className="text-[10px] font-bold text-[#904d00] mr-1">{it.satuan ?? ''}</span>
-                  <button
-                    type="button"
-                    onClick={() => handlePlus(it.bahan_baku_id)}
-                    disabled={loading}
-                    className="w-8 h-8 flex items-center justify-center text-[#904d00] hover:bg-[#efe7dd] rounded-lg transition-colors font-bold text-lg disabled:opacity-40"
-                    aria-label={`Tambah ${it.nama ?? it.bahan_baku_id}`}
-                  >
-                    +
-                  </button>
+                <div className="flex items-center flex-shrink-0">
+                  {crosscheckData && crosscheckData[it.bahan_baku_id] && (qtys[it.bahan_baku_id] ?? 0) > crosscheckData[it.bahan_baku_id].gudangStok && (
+                    <span className="text-xs mr-2" title="Melebihi stok gudang">⚠️</span>
+                  )}
+                  <div className={`flex items-center border rounded-xl px-1 py-0.5 ${
+                    crosscheckData && crosscheckData[it.bahan_baku_id] && (qtys[it.bahan_baku_id] ?? 0) > crosscheckData[it.bahan_baku_id].gudangStok
+                      ? 'bg-orange-50 border-orange-200'
+                      : 'bg-[#faf2e9] border-[#d9c2b2]/30'
+                  }`}>
+                    <button
+                      type="button"
+                      onClick={() => handleMinus(it.bahan_baku_id)}
+                      disabled={loading}
+                      className="w-8 h-8 flex items-center justify-center text-[#904d00] hover:bg-[#efe7dd] rounded-lg transition-colors font-bold text-lg disabled:opacity-40"
+                      aria-label={`Kurangi ${it.nama ?? it.bahan_baku_id}`}
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min={0}
+                      value={qtys[it.bahan_baku_id] ?? 0}
+                      onChange={e => {
+                        setQtys(prev => ({ ...prev, [it.bahan_baku_id]: Number(e.target.value) }))
+                        setErrorMsg(null)
+                      }}
+                      className={`w-12 bg-transparent border-none text-center font-bold focus:ring-0 p-0 text-sm ${
+                        crosscheckData && crosscheckData[it.bahan_baku_id] && (qtys[it.bahan_baku_id] ?? 0) > crosscheckData[it.bahan_baku_id].gudangStok
+                          ? 'text-orange-600'
+                          : 'text-[#1e1b15]'
+                      }`}
+                      disabled={loading}
+                      aria-label={`Jumlah disetujui ${it.nama ?? it.bahan_baku_id}`}
+                    />
+                    <span className="text-[10px] font-bold text-[#904d00] mr-1">{it.satuan ?? ''}</span>
+                    <button
+                      type="button"
+                      onClick={() => handlePlus(it.bahan_baku_id)}
+                      disabled={loading}
+                      className="w-8 h-8 flex items-center justify-center text-[#904d00] hover:bg-[#efe7dd] rounded-lg transition-colors font-bold text-lg disabled:opacity-40"
+                      aria-label={`Tambah ${it.nama ?? it.bahan_baku_id}`}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -202,6 +246,13 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
         {errorMsg && (
           <p className="text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-2.5 rounded-xl" role="alert">
             {errorMsg}
+          </p>
+        )}
+
+        {/* Warning Melebihi Gudang */}
+        {hasOverStock && (
+          <p className="text-xs font-bold text-orange-600 bg-orange-50 border border-orange-200 p-2.5 rounded-xl mb-4 flex items-center gap-2" role="alert">
+            <span>⚠️</span> Beberapa item melebihi stok gudang. Mohon periksa kembali.
           </p>
         )}
 

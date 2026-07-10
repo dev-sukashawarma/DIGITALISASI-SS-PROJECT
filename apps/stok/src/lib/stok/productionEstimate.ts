@@ -12,15 +12,15 @@ const RECIPES = [
   {
     menuName: 'Shawarma Besar',
     ingredients: [
-      { matchName: 'SAPI', requiredQty: 80 }, // 80 gram
-      { matchName: 'KULIT 32', requiredQty: 1 } // 1 lembar
+      { matchName: 'SAPI', requiredQty: 0.04 }, // 80 gram / 2000 (1 blok) = 0.04 blok
+      { matchName: 'KULIT 32', requiredQty: 0.05 } // 1 lembar / 20 (1 pack) = 0.05 pack
     ]
   },
   {
     menuName: 'Shawarma Kecil',
     ingredients: [
-      { matchName: 'SAPI', requiredQty: 50 }, // 50 gram
-      { matchName: 'KULIT 25', requiredQty: 1 } // 1 lembar
+      { matchName: 'SAPI', requiredQty: 0.025 }, // 50 gram / 2000 = 0.025 blok
+      { matchName: 'KULIT 25', requiredQty: 0.05 } // 1 lembar / 20 = 0.05 pack
     ]
   }
 ];
@@ -40,18 +40,15 @@ export function calculateProductionEstimate(items: Partial<MonitoringItem>[]): P
         i.item_name && i.item_name.toUpperCase().includes(req.matchName.toUpperCase())
       );
 
-      if (!stockItem || typeof stockItem.current_qty !== 'number') {
+      if (!stockItem || typeof stockItem.current_qty !== 'number' || stockItem.current_qty <= 0) {
         minPortions = 0;
         bottleneck = req.matchName;
         continue;
       }
 
-      // Convert current_qty to smaller unit (base unit for recipe) if available
-      const totalBaseQty = stockItem.faktor_tampilan 
-        ? stockItem.current_qty * stockItem.faktor_tampilan 
-        : stockItem.current_qty;
-
-      const portions = Math.floor(totalBaseQty / req.requiredQty);
+      // We calculate directly using current_qty (which is in main unit e.g. blok/pack)
+      // because our requiredQty is already converted to the main unit fraction.
+      const portions = Math.floor(stockItem.current_qty / req.requiredQty);
       
       if (portions < minPortions) {
         minPortions = portions;

@@ -40,6 +40,7 @@
                     classDef admindash fill:#e0f2fe, stroke:#0284c7, stroke-width:2px;
                     classDef finance fill:#fef3c7, stroke:#d97706, stroke-width:2px;
                     classDef external fill:#e5e7eb, stroke:#374151, stroke-width:2px, stroke-dasharray: 5 5;
+                    classDef absen fill:#dbeafe, stroke:#2563eb, stroke-width:2px;
 
                     subgraph Auth_SSO ["Auth & SSO (Core)"]
                         PortalLogin("<div style='width:180px; text-align:center;' class='p-1'>Portal Login</div>"):::auth
@@ -51,19 +52,23 @@
                     subgraph Portal_Absensi ["Portal & Absensi (M1)"]
                         SyncOutlets("<div style='width:180px; text-align:center;' class='p-1'>Sinkronisasi Outlet</div>"):::portal
                         EnrollFace("<div style='width:180px; text-align:center;' class='p-1'>Rekam Wajah Staf</div>"):::portal
-                        ClockIn("<div style='width:180px; text-align:center;' class='p-1'>Clock-In Staf</div>"):::portal
-                        FaceMatch("<div style='width:180px; text-align:center;' class='p-1'>Validasi Wajah (1:N)</div>"):::absen
+                        ClockIn("<div style='width:180px; text-align:center;' class='p-1'>Clock-In Staf (Kiosk)</div>"):::absen
+                        FaceMatch("<div style='width:180px; text-align:center;' class='p-1'>Validasi Wajah 1:N</div>"):::absen
+                        GPSCheck("<div style='width:180px; text-align:center;' class='p-1'>Cek Radius GPS Outlet</div>"):::absen
                         LivenessCheck("<div style='width:180px; text-align:center;' class='p-1'>Anti-Spoofing (Liveness)</div>"):::absen
                         OfflineQueue("<div style='width:180px; text-align:center;' class='p-1'>Antrean Offline</div>"):::absen
+                        ChecklistBuka("<div style='width:180px; text-align:center;' class='p-1'>Checklist Buka Toko</div>"):::portal
                         AttendanceDB("<div style='width:180px; text-align:center;' class='p-1'>Database Kehadiran</div>"):::portal
 
                         SyncOutlets --> EnrollFace
                         EnrollFace --> ClockIn
                         ClockIn --->|"Capture 📸"| FaceMatch
-                        FaceMatch --->|"Euclidean < 0.5"| LivenessCheck
-                        LivenessCheck --->|"Challenge Senyum/Kedip"| AttendanceDB
+                        FaceMatch --->|"Cosine ≥ 0.65"| GPSCheck
+                        GPSCheck --->|"Dalam radius"| LivenessCheck
+                        LivenessCheck --->|"Challenge senyum/kedip"| AttendanceDB
                         LivenessCheck -.->|"Gagal koneksi"| OfflineQueue
-                        OfflineQueue -->|"Koneksi Pulih"| AttendanceDB
+                        OfflineQueue -->|"Koneksi pulih"| AttendanceDB
+                        AttendanceDB --> ChecklistBuka
                     end
 
                     subgraph POS_Kasir ["POS Kasir (M0) & Backend BOM"]
@@ -153,7 +158,7 @@
                     MasterData ===>|"Kunci Snapshot Harga (ADR-011)"| SuratJalan
                     HROps ===>|"Pantau Kinerja"| AttendanceDB
                     
-                    AttendanceDB ===>|"Syarat akses kasir (Wajib Absen)"| POS_Sales
+                    ChecklistBuka ===>|"Syarat buka kasir (Wajib Absen + Checklist)"| POS_Sales
                     BOM_Trigger ===>|"Pecah resep & potong stok mentah"| StockLedger
                     POS_Sales ===>|"Kirim data mentah transaksi"| EdgeRollup
                     DiscrepancySplit ===>|"Jumlah AKTUAL tiba"| StockLedger
@@ -192,7 +197,9 @@
                     click ClockIn call showDetails("ClockIn")
                     click FaceMatch call showDetails("FaceMatch")
                     click GPSCheck call showDetails("GPSCheck")
+                    click LivenessCheck call showDetails("LivenessCheck")
                     click OfflineQueue call showDetails("OfflineQueue")
+                    click ChecklistBuka call showDetails("ChecklistBuka")
                     click AttendanceDB call showDetails("AttendanceDB")
                     
                     click POS_Sales call showDetails("POS_Sales")

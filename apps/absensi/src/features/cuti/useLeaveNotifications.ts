@@ -28,7 +28,6 @@ export function useLeaveNotifications() {
       return count ?? 0
     },
     enabled: !!outletStaff?.id,
-    refetchInterval: 15000,
   })
 
   const prevCount = useRef<number | undefined>(undefined)

@@ -8,11 +8,28 @@ import { useLeaveNotifications } from "./useLeaveNotifications";
 import dayjs from "dayjs";
 import { useToast } from "@/lib/feedback/toast";
 import { Select } from "@/components/Select";
+import { useRealtimeInvalidate } from "@/lib/realtime/useRealtimeInvalidate";
 
 export function CutiView() {
   const { outletStaff } = useAuth();
   const userId = outletStaff?.id;
   const currentYear = new Date().getFullYear();
+
+  useRealtimeInvalidate({
+    channelName: `absensi-cuti-${userId ?? "none"}`,
+    enabled: !!userId,
+    subs: [
+      {
+        table: "leave_requests",
+        filter: `staff_id=eq.${userId}`,
+        queryKeys: [
+          ["leaves", userId],
+          ["leaveBalance", userId, currentYear],
+          ["unread-leaves-count", userId],
+        ],
+      },
+    ],
+  });
 
   const { data: balance } = useLeaveBalance(userId, currentYear);
   const { data: history, isLoading: loadingHistory } = useLeaveHistory(userId);

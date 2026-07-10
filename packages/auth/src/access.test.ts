@@ -8,9 +8,21 @@ describe('ROLE_APP_ACCESS', () => {
     expect([...ROLE_APP_ACCESS.crew].sort()).toEqual(['absensi', 'distribusi', 'pos-kasir', 'stok'])
   })
 
-  it('admin semua 6 app termasuk admin-dashboard', () => {
-    expect(ROLE_APP_ACCESS.admin.length).toBe(6)
+  it('admin semua app termasuk admin-dashboard & finance', () => {
+    expect(ROLE_APP_ACCESS.admin.length).toBe(7)
     expect(ROLE_APP_ACCESS.admin).toContain('admin-dashboard')
+    expect(ROLE_APP_ACCESS.admin).toContain('finance')
+  })
+
+  it('finance hanya utk admin_finance, owner, admin', () => {
+    const withFinance = (Object.keys(ROLE_APP_ACCESS) as Array<keyof typeof ROLE_APP_ACCESS>)
+      .filter(r => ROLE_APP_ACCESS[r].includes('finance'))
+      .sort()
+    expect(withFinance).toEqual(['admin', 'admin_finance', 'owner'])
+  })
+
+  it('admin_finance hanya punya finance', () => {
+    expect(ROLE_APP_ACCESS.admin_finance).toEqual(['finance'])
   })
 
   it('hanya admin, admin_hr, dan owner yang punya admin-dashboard', () => {
@@ -20,8 +32,8 @@ describe('ROLE_APP_ACCESS', () => {
     })
   })
 
-  it('owner punya owner-dashboard & admin-dashboard', () => {
-    expect([...ROLE_APP_ACCESS.owner].sort()).toEqual(['admin-dashboard', 'owner-dashboard'])
+  it('owner punya owner-dashboard, admin-dashboard & finance', () => {
+    expect([...ROLE_APP_ACCESS.owner].sort()).toEqual(['admin-dashboard', 'finance', 'owner-dashboard'])
   })
 
   it('spv tidak punya pos-kasir', () => {
@@ -44,6 +56,6 @@ describe('hasAppAccess', () => {
 
 describe('accessibleApps', () => {
   it('mengembalikan daftar app utk role', () => {
-    expect(accessibleApps('owner').sort()).toEqual(['admin-dashboard', 'owner-dashboard'])
+    expect(accessibleApps('owner').sort()).toEqual(['admin-dashboard', 'finance', 'owner-dashboard'])
   })
 })

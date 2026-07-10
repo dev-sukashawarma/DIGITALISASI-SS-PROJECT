@@ -41,17 +41,19 @@ sequenceDiagram
 
 ---
 
-## 3. Clock-in dengan Face Matching + GPS (M1)
+## 3. Clock-in dengan Face Matching + GPS + Liveness (M1)
 
 ```mermaid
 flowchart TD
     start(["Staff buka app, tekan Clock-in"]) --> cam["Kamera live ambil wajah"]
-    cam --> desc["face-api.js hitung descriptor"]
-    desc --> match{"Match 1:1 vs<br/>descriptor terdaftar?<br/>(jarak di bawah 0.5)"}
+    cam --> desc["@vladmandic/human hitung descriptor"]
+    desc --> match{"Match 1:N vs<br/>descriptor terdaftar?<br/>(cosine similarity ≥ 0.65)"}
     match -- "Tidak" --> rej1["❌ Tolak: wajah tidak cocok"]
     match -- "Ya" --> gps{"Dalam radius<br/>GPS outlet?<br/>(75-100m)"}
     gps -- "Tidak" --> rej2["❌ Tolak: di luar lokasi"]
-    gps -- "Ya" --> online{"Online?"}
+    gps -- "Ya" --> live{"Liveness OK?<br/>(challenge senyum/kedip,<br/>kembali frontal)"}
+    live -- "Tidak" --> rej3["❌ Tolak: gagal liveness"]
+    live -- "Ya" --> online{"Online?"}
     online -- "Ya" --> save["Simpan attendance<br/>+ selfie audit + ts server"]
     online -- "Tidak" --> queue["Simpan ke offline queue<br/>(sinkron saat online)"]
     queue --> save
@@ -60,7 +62,7 @@ flowchart TD
     classDef ok fill:#0a7d2c,color:#fff;
     classDef no fill:#b00,color:#fff;
     class done,save ok;
-    class rej1,rej2 no;
+    class rej1,rej2,rej3 no;
 ```
 
 ---

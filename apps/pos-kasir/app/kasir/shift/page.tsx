@@ -112,6 +112,7 @@ export default function ShiftPage() {
   const [showTopupModal, setShowTopupModal] = useState(false)
   const [topupAmount, setTopupAmount] = useState<string>('')
   const [topupDesc, setTopupDesc] = useState<string>('')
+  const [topupWaLink, setTopupWaLink] = useState<string>('')
 
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -339,9 +340,6 @@ export default function ShiftPage() {
         receiptUrl = publicUrlData.publicUrl
       }
 
-      // MOCK UPLOAD: In real app, upload receiptFile to Supabase Storage here
-      const dummyReceiptUrl = `https://storage.sukashawarma.com/receipts/${Date.now()}.jpg`
-
       // Try calling RPC first (assuming we updated it to accept p_receipt_url)
       const { error } = await supabase.rpc('add_petty_cash', {
         p_category: expCategory,
@@ -394,12 +392,19 @@ export default function ShiftPage() {
       const appUrl = window.location.origin
       const approveLink = `${appUrl}/api/topup/approve?id=${insertedData.id}&token=${approvalToken}`
       const waText = encodeURIComponent(`Halo SPV, saya mengajukan Top Up Dana Operasional sebesar ${formatRupiah(amount)}.\n\nAlasan: ${topupDesc.trim()}\n\nKlik link berikut untuk menyetujui:\n${approveLink}`)
-      const waLink = `https://wa.me/6285885497377?text=${waText}`;
-      if (typeof window !== 'undefined' && (window as any).__SUKASHAWARMA_NATIVE_APP__) {
-        // Fallback or explicit check if we add postToNative later, but mostly for mobile Webviews window.location.href works natively.
-        window.location.href = waLink;
-      } else {
-        window.location.href = waLink;
+      const generatedWaLink = `https://wa.me/6285885497377?text=${waText}`;
+      
+      setTopupWaLink(generatedWaLink);
+
+      // Coba trigger klik secara programmatis
+      if (typeof window !== 'undefined') {
+        const link = document.createElement('a');
+        link.href = generatedWaLink;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
 
       setTopupAmount('')
@@ -558,7 +563,23 @@ export default function ShiftPage() {
       {successMsg && (
         <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-100 flex items-start gap-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-emerald-700 font-medium">{successMsg}</p>
+          <div className="flex-1 w-full">
+            <p className="text-sm text-emerald-700 font-medium">{successMsg}</p>
+            {topupWaLink && (
+              <a
+                href={topupWaLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 block w-full bg-[#25D366] text-white rounded-lg py-2.5 font-bold text-center text-sm hover:bg-[#1DA851] transition-colors shadow-sm"
+                onClick={() => {
+                  setSuccessMsg('');
+                  setTopupWaLink('');
+                }}
+              >
+                Buka WhatsApp SPV
+              </a>
+            )}
+          </div>
         </div>
       )}
 

@@ -30,6 +30,7 @@ export default function BlockedOverlay({
   // Bypass state
   const [showBypassForm, setShowBypassForm] = useState(false)
   const [bypassReason, setBypassReason] = useState('')
+  const [bypassWaLink, setBypassWaLink] = useState('')
   const [isVerifying, setIsVerifying] = useState(false)
   const [bypassError, setBypassError] = useState('')
   const [isPendingApproval, setIsPendingApproval] = useState(false)
@@ -103,13 +104,20 @@ export default function BlockedOverlay({
       const appUrl = window.location.origin
       const approveLink = `${appUrl}/api/bypass/approve?id=${insertedRequest.id}`
       const waText = encodeURIComponent(`Halo SPV, saya mengajukan *Bypass Darurat* untuk sistem POS.\n\nKasir: ${staff.name}\nAlasan: ${bypassReason.trim()}\n\nKlik link berikut untuk menyetujui atau menolak:\n${approveLink}`)
-      const bypassWaLink = `https://wa.me/6285885497377?text=${waText}`
+      const generatedWaLink = `https://wa.me/6285885497377?text=${waText}`
       
-      // Menggunakan window.location.href langsung.
-      // Di Expo (React Native WebView), onShouldStartLoadWithRequest akan mencegat navigasi ini
-      // lalu membukanya menggunakan Linking.openURL ke browser eksternal atau aplikasi WhatsApp.
-      // Ini menjamin kompatibilitas dengan versi native app lama.
-      window.location.href = bypassWaLink;
+      setBypassWaLink(generatedWaLink)
+
+      // Coba trigger klik secara programmatis (beberapa WebView mengizinkan)
+      if (typeof window !== 'undefined') {
+        const link = document.createElement('a')
+        link.href = generatedWaLink
+        link.target = '_blank'
+        link.rel = 'noopener noreferrer'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
 
     } catch (err: any) {
       setBypassError(err.message || 'Terjadi kesalahan sistem.')
@@ -175,8 +183,18 @@ export default function BlockedOverlay({
                 </div>
                 <h2 className="text-2xl font-black text-gray-900 mb-2">Menunggu Persetujuan</h2>
                 <p className="text-gray-500 font-medium mb-6 text-sm">
-                  Pengajuan bypass telah dikirim ke SPV melalui WhatsApp. Sistem akan otomatis terbuka setelah disetujui.
+                  Pengajuan bypass telah dikirim ke SPV. Sistem akan otomatis terbuka setelah disetujui.
                 </p>
+                {bypassWaLink && (
+                  <a
+                    href={bypassWaLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full bg-[#25D366] text-white rounded-xl py-3.5 font-bold hover:bg-[#1DA851] transition-colors flex justify-center items-center gap-2 shadow-lg shadow-[#25D366]/20 mb-4"
+                  >
+                    Buka WhatsApp SPV
+                  </a>
+                )}
                 {bypassError && <p className="text-red-500 text-sm mb-4 font-medium">{bypassError}</p>}
                 <button
                   type="button"

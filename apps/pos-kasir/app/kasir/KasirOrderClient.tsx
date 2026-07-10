@@ -142,8 +142,8 @@ export default function KasirOrderClient({
     setIsDevTesting(true);
     try {
       // Bikin client ke Sistem Order
-      const SS_ORDER_URL = process.env.NEXT_PUBLIC_SS_ORDER_URL;
-      const SS_ORDER_KEY = process.env.NEXT_PUBLIC_SS_ORDER_ANON_KEY;
+      const SS_ORDER_URL = process.env.NEXT_PUBLIC_SS_ORDER_URL || "https://qntuhtkujpwudcpudwbj.supabase.co";
+      const SS_ORDER_KEY = process.env.NEXT_PUBLIC_SS_ORDER_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudHVodGt1anB3dWRjcHVkd2JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTMyNjcsImV4cCI6MjA5NDgyOTI2N30.X2pjS2ont0ekVVc71HLacM2I49aLeypLRRgoPQV6OTw";
       if (!SS_ORDER_URL || !SS_ORDER_KEY) {
         throw new Error("Kredensial SS_ORDER tidak dikonfigurasi di .env.local");
       }

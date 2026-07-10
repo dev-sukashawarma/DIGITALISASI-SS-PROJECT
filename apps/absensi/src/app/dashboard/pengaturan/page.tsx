@@ -30,7 +30,7 @@ export default async function PengaturanAbsensiPage() {
     jam_masuk: cfg.jam_masuk?.slice(0, 5) || "09:00",
     jam_keluar: cfg.jam_keluar?.slice(0, 5) || "17:00",
     toleransi_menit: cfg.toleransi_menit || 15,
-    is_active: false,
+    is_active: true,
     absen_window_mode: cfg.absen_window_mode || "auto",
   };
 

@@ -325,7 +325,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
               </Button>
               <Button 
                 size="sm" 
-                onClick={() => { setModalMode("add"); setNewOutletConfig({ ...globalConfig }); setIsModalOpen(true); }} 
+                onClick={() => { setModalMode("add"); setNewOutletConfig({ ...globalConfig, is_active: true }); setIsModalOpen(true); }} 
                 className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-full text-sm font-semibold"
               >
                 <Plus size={16} /> Tambah Khusus

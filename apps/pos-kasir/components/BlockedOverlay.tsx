@@ -5,7 +5,7 @@ import { Ban, LogOut, ClipboardCheck, Moon, Clock, Unlock, AlertTriangle, Loader
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { postToNative } from '@suka/design-system'
+import { postToNative, isRunningInWebView } from '@suka/design-system'
 
 export type BlockType = 'user' | 'outlet' | 'attendance' | 'checklist' | 'closed'
 
@@ -110,8 +110,10 @@ export default function BlockedOverlay({
 
       // Coba trigger secara programmatis
       if (typeof window !== 'undefined') {
-        if ((window as any).ReactNativeWebView) {
-          (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'open-external-url', url: generatedWaLink }))
+        if (isRunningInWebView() || (window as any).__SUKASHAWARMA_NATIVE_APP__) {
+          if (!postToNative({ type: 'open-external-url', url: generatedWaLink })) {
+             window.location.href = generatedWaLink
+          }
         } else {
           window.open(generatedWaLink, '_blank')
         }
@@ -189,8 +191,10 @@ export default function BlockedOverlay({
                     className="w-full bg-[#25D366] text-white rounded-xl py-3.5 font-bold hover:bg-[#1DA851] transition-colors flex justify-center items-center gap-2 shadow-lg shadow-[#25D366]/20 mb-4"
                     onClick={() => {
                       if (typeof window !== 'undefined') {
-                        if ((window as any).ReactNativeWebView) {
-                          (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'open-external-url', url: bypassWaLink }))
+                        if (isRunningInWebView() || (window as any).__SUKASHAWARMA_NATIVE_APP__) {
+                          if (!postToNative({ type: 'open-external-url', url: bypassWaLink })) {
+                            window.location.href = bypassWaLink
+                          }
                         } else {
                           window.open(bypassWaLink, '_blank')
                         }

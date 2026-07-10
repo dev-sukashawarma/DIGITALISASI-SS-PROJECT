@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/Skeleton'
 import { useDialogStore } from '@/lib/dialogStore'
 import { db } from '@/lib/db'
 import { useNetworkStatus } from '@/lib/useNetworkStatus'
+import { postToNative, isRunningInWebView } from '@suka/design-system'
 
 interface Shift {
   id: string
@@ -398,8 +399,10 @@ export default function ShiftPage() {
 
       // Coba trigger secara programmatis
       if (typeof window !== 'undefined') {
-        if ((window as any).ReactNativeWebView) {
-          (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'open-external-url', url: generatedWaLink }))
+        if (isRunningInWebView() || (window as any).__SUKASHAWARMA_NATIVE_APP__) {
+          if (!postToNative({ type: 'open-external-url', url: generatedWaLink })) {
+             window.location.href = generatedWaLink
+          }
         } else {
           window.open(generatedWaLink, '_blank')
         }
@@ -569,8 +572,10 @@ export default function ShiftPage() {
                 className="mt-3 block w-full bg-[#25D366] text-white rounded-lg py-2.5 font-bold text-center text-sm hover:bg-[#1DA851] transition-colors shadow-sm"
                 onClick={() => {
                   if (typeof window !== 'undefined') {
-                    if ((window as any).ReactNativeWebView) {
-                      (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'open-external-url', url: topupWaLink }))
+                    if (isRunningInWebView() || (window as any).__SUKASHAWARMA_NATIVE_APP__) {
+                      if (!postToNative({ type: 'open-external-url', url: topupWaLink })) {
+                         window.location.href = topupWaLink
+                      }
                     } else {
                       window.open(topupWaLink, '_blank')
                     }

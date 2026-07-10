@@ -11,6 +11,16 @@
 - **Frontend (App Stok):** Menambahkan `TargetMenuCalculator.tsx` dan memasukkannya ke dalam `PermintaanForm.tsx` dengan UI Tabbed (Tab "Target Menu" vs Tab "Draft / Manual").
 - **Migrations & Bypass:** Membuat policy khusus `bypass_requests` untuk memastikan request bisa di-submit dari fitur baru ini.
 
+## 3. Peningkatan UX & Rincian Form Permintaan Bahan Baku
+- **Filter Menu Target:** Item yang masuk ke kategori `pos-kasir` (seperti air mineral, teh pucuk) disembunyikan dari daftar target menu di form permintaan, sehingga crew hanya fokus menargetkan menu racikan (Shawarma, dsb).
+- **Notifikasi Stok Mencukupi:** Jika kalkulasi BOM menghasilkan kuantitas (qty) saran 0 (karena sisa stok masih mencukupi), sistem kini tetap memunculkan item tersebut di keranjang dalam bentuk *readonly* dengan label hijau "**Stok mencukupi (Butuh: X)**". Crew jadi paham mengapa sarannya 0.
+- **Tab Riwayat:** Memisahkan daftar "Buat Permintaan" dan "Riwayat Permintaan" ke dalam 2 tab utama di halaman Permintaan agar UI lebih bersih.
+- **Rincian Satuan di Approval:** Menambahkan unit satuan pada list & pop-up modal "Menunggu Persetujuan" (Approval) untuk SPV/Kitchen agar mereka tahu persis unit dari nominal yang diminta (misal: 10 *pack*, bukan cuma 10).
+- **Estimasi Omzet Kotor & Target Penjualan:** 
+  - Melakukan migrasi DB (`20260709044000_add_target_metadata_to_permintaan.sql`) untuk menambahkan kolom `target_metadata` bertipe JSON pada tabel `permintaan_bahan`.
+  - Mengambil harga jual dari tabel `menu_items` lalu mengirim metadata pesanan (nama menu, qty, harga jual) ke backend saat crew me-submit permintaan.
+  - Memodifikasi UI Dashboard SPV/Kitchen (`ApprovalList.tsx` & `ApprovalModal.tsx`) untuk memunculkan tabel Target Penjualan beserta **Potensi Omzet Kotor** (murni hasil dari Menu x Harga Jual, tanpa dipotong stok sisa) untuk membantu pengambilan keputusan persetujuan stok.
+
 ---
 
 # Ringkasan Perubahan Sebelumnya (8 Juli 2026)

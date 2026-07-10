@@ -264,11 +264,46 @@
             // PORTAL & ABSENSI
             "SyncOutlets": { app: "Portal (M1)", color: "text-blue-600", role: "Sistem (pg_cron)", description: "Edge Function / pg_cron di Supabase yang menyinkronkan master data cabang sehingga ID Outlet tersedia valid saat mesin Kios Absensi diinisialisasi.", integrations: "Menyuplai parameter outlet_id." },
             "EnrollFace": { app: "Portal (M1)", color: "text-blue-600", role: "Supervisor", description: "Proses merekam struktur vektor wajah (Face Descriptor) staf baru via kamera setelah mendapat persetujuan UU PDP. Data tensor disimpan terenkripsi.", integrations: "Tersimpan permanen di tabel profil Supabase." },
-            "ClockIn": { app: "Absensi (M1)", color: "text-blue-600", role: "Seluruh Staf", description: "Halaman Kios UI <code>apps/absensi/src/app/clock/page.tsx</code>. Staf menekan tombol Clock-In/Out di tablet toko.", integrations: "Memicu rantai validasi anti-curang." },
-            "FaceMatch": { app: "Absensi (M1)", color: "text-blue-600", role: "Sistem (face-api.js)", description: "Validasi wajah lokal di browser menggunakan library <code>face-api.js</code>. Menggunakan metode Identify 1:N dengan toleransi Euclidean Distance < 0.5. Bebas GPS.", integrations: "Lanjut ke Liveness Check jika wajah dikenali." },
-            "LivenessCheck": { app: "Absensi (M1)", color: "text-blue-600", role: "Sistem Anti-Spoofing", description: "Sistem secara acak meminta staf untuk senyum, kedip, atau menoleh (Tantangan Liveness) dalam waktu 8 detik untuk mencegah kecurangan foto/video. Menggantikan sistem GPS lama.", integrations: "Melempar hasil validasi akhir ke OfflineQueue." },
-            "OfflineQueue": { app: "Absensi (M1)", color: "text-blue-600", role: "Penyimpanan Lokal", description: "Mekanisme antrean lokal di browser (IndexedDB) untuk menampung presensi jika koneksi internet outlet putus.", integrations: "Sync (Push) otomatis ke Supabase saat online." },
-            "AttendanceDB": { app: "Database Utama", color: "text-blue-600", role: "Supabase (attendance)", description: "Tabel utama pencatat riwayat kehadiran staf secara real-time.", integrations: "Berfungsi sebagai <b>syarat mutlak buka Kasir</b> dan penyuplai data ke Payroll." },
+            "ClockIn": { app: "Absensi (M1)", color: "text-blue-600", role: "Seluruh Staf", status: "live",
+              description: "Halaman Kios <code>apps/absensi/src/app/kiosk/[outlet_id]/page.tsx</code> (komponen <code>AttendanceKioskPanel</code>). Staf menekan Clock-In/Out di tablet toko. Jendela waktu diatur per outlet via <code>outlet_attendance_config.absen_window_mode</code> (auto/manual).",
+              inflow: "Dipicu staf setelah EnrollFace selesai.", outflow: "Memulai rantai validasi anti-curang (Face → GPS → Liveness).",
+              dbObjects: ["outlet_attendance_config", "attendance"], codePath: "apps/absensi/src/features/clock/AttendanceKioskPanel.tsx",
+              refs: ["Session 2026-06-26: Absensi Time Window"], related: ["FaceMatch", "ChecklistBuka"] },
+
+            "FaceMatch": { app: "Absensi (M1)", color: "text-blue-600", role: "Sistem (@vladmandic/human)", status: "live",
+              description: "Validasi wajah lokal di browser memakai <code>@vladmandic/human</code> v3.3.6. Identify <b>1:N</b> dengan metrik <b>cosine similarity</b> (bukan euclidean) dan ambang <code>DEFAULT_MATCH_THRESHOLD = 0.65</code>. Enrollment frontal-only dirata-rata agar diskriminatif (orang sama ~0.86, beda ~0.53).",
+              inflow: "Frame kamera 📸 dari ClockIn.", outflow: "Jika cocok (≥0.65) lanjut ke Cek Radius GPS.",
+              dbObjects: ["outlet_staff.face_descriptor"], codePath: "apps/absensi/src/lib/face/match.ts",
+              refs: ["Session 2026-06-24: Face Match Hardening", "match.ts DEFAULT_MATCH_THRESHOLD=0.65"], related: ["GPSCheck", "EnrollFace", "LivenessCheck"] },
+
+            "GPSCheck": { app: "Absensi (M1)", color: "text-blue-600", role: "Sistem (Geolocation)", status: "live",
+              description: "Verifikasi posisi perangkat berada dalam radius outlet memakai koordinat lat/lng master outlet (disuplai SyncOutlets). Divalidasi ganda di server pada <code>api/submit-attendance/route.ts</code>.",
+              inflow: "Hasil match wajah lolos.", outflow: "Jika dalam radius, lanjut ke Liveness.",
+              dbObjects: ["outlets.lat", "outlets.lng"], codePath: "apps/absensi/src/lib/gps.ts",
+              refs: ["FLOWS.md #3 Clock-in"], related: ["FaceMatch", "LivenessCheck", "SyncOutlets"] },
+
+            "LivenessCheck": { app: "Absensi (M1)", color: "text-blue-600", role: "Sistem Anti-Spoofing", status: "live",
+              description: "Tantangan liveness 2-fase: staf melakukan gerakan (senyum/kedip/menoleh) lalu <b>kembali frontal</b> sebelum verifikasi identitas final dijalankan (mencegah skor rendah saat wajah masih menoleh). Mencegah spoofing foto/video.",
+              inflow: "Posisi GPS valid.", outflow: "Hasil akhir ditulis ke Database Kehadiran (atau OfflineQueue bila koneksi putus).",
+              dbObjects: [], codePath: "apps/absensi/src/lib/face/liveness.ts",
+              refs: ["Session 2026-06-24 (lanjutan): Liveness 2-fase"], related: ["AttendanceDB", "OfflineQueue"] },
+
+            "OfflineQueue": { app: "Absensi (M1)", color: "text-blue-600", role: "Penyimpanan Lokal", status: "live",
+              description: "Antrean lokal di browser (IndexedDB) menampung presensi saat koneksi outlet putus, lalu sinkron otomatis (push) ke Supabase saat online.",
+              inflow: "Presensi gagal terkirim.", outflow: "Sync ke AttendanceDB saat koneksi pulih.",
+              dbObjects: ["attendance"], codePath: null, refs: [], related: ["AttendanceDB"] },
+
+            "ChecklistBuka": { app: "Absensi (M1)", color: "text-blue-600", role: "Leader / SPV", status: "live",
+              description: "Gerbang buka toko: Leader/SPV harus menuntaskan Checklist Buka Toko + absen sebelum aplikasi Kasir bisa transaksi. Menjadi syarat mutlak membuka POS.",
+              inflow: "Kehadiran tercatat.", outflow: "Membuka kunci POS_Sales.",
+              dbObjects: ["daily_checklist_records", "checklist_items"], codePath: null,
+              refs: ["Spec E2E cross-app: Absensi→POS gate"], related: ["POS_Sales", "AttendanceDB"] },
+
+            "AttendanceDB": { app: "Database Utama", color: "text-blue-600", role: "Supabase (attendance)", status: "live",
+              description: "Tabel pencatat riwayat kehadiran real-time. Seluruh aktivitas absensi bersifat realtime (Supabase Realtime publication).",
+              inflow: "Hasil clock-in valid / sync offline.", outflow: "Menyuplai data jam kerja ke Payroll & memantau HR.",
+              dbObjects: ["attendance", "supabase_realtime publication"], codePath: null,
+              refs: ["Session 2026-07-10: Absensi Realtime"], related: ["PayrollSystem", "HROps", "ChecklistBuka"] },
 
             // POS KASIR
             "POS_Sales": { app: "Kasir (M0)", color: "text-green-600", role: "Kasir", description: "Aplikasi React/Next.js di <code>kasir.sukashawarma.com</code>. Mencatat order pelanggan. Terkunci otomatis jika Leader/SPV belum melakukan <b>Checklist Buka Toko</b> di portal absen.", integrations: "Mencetak Struk dan memicu BOM_Trigger." },

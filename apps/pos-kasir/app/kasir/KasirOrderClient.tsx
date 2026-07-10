@@ -398,7 +398,7 @@ export default function KasirOrderClient({
     if (o.release_time) return new Date(o.release_time).getTime()
     
     let timeStr = (o as any).pickup_time
-    if (!timeStr && o.notes && o.notes.includes('AMBIL')) {
+    if (!timeStr && o.notes && o.notes.toUpperCase().includes('AMBIL')) {
       const match = o.notes.match(/AMBIL\s*[:\n]\s*(\d{2}:\d{2})/i)
       if (match) timeStr = match[1]
     }
@@ -407,8 +407,15 @@ export default function KasirOrderClient({
       const timeMatch = timeStr.match(/(\d{2}):(\d{2})/)
       if (timeMatch) {
         const [_, h, m] = timeMatch
-        const d = new Date(o.created_at)
+        const d = new Date()
         d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0)
+        
+        // Jika waktu ambil (d) lebih kecil dari waktu pesan (o.created_at), 
+        // artinya ini pesanan untuk besok harinya.
+        if (d.getTime() < new Date(o.created_at).getTime()) {
+          d.setDate(d.getDate() + 1)
+        }
+        
         return d.getTime() - (20 * 60 * 1000)
       }
     }

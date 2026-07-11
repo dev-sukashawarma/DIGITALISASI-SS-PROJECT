@@ -42,6 +42,10 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const { outletStaff, signOut } = useAuth()
 
+  if (pathname?.startsWith('/leader')) {
+    return <>{children}</>
+  }
+
   const currentNavPath = ALL_LINKS.find(l => l.href !== '/' && pathname.startsWith(l.href))?.href ?? '/'
   const currentLink = ALL_LINKS.find(l => l.href === currentNavPath)
 

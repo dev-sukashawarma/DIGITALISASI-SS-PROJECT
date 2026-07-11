@@ -48,6 +48,18 @@ export default function LoginPage() {
       return
     }
 
+    if (['admin', 'owner', 'mitra'].includes(staff.role)) {
+      const adminUrl = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'
+      window.location.href = adminUrl
+      return
+    }
+    
+    if (staff.role === 'leader') {
+      const financeUrl = process.env.NEXT_PUBLIC_APP_URL_FINANCE || 'https://finance.sukashawarma.com'
+      window.location.href = `${financeUrl}/leader`
+      return
+    }
+
     router.push('/launcher')
   }
 

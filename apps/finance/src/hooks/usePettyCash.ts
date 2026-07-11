@@ -29,7 +29,7 @@ export function usePettyCashRequests(status?: string) {
       // Flatten the joined data
       return (data as any[]).map(row => ({
         ...row,
-        reason: row.description || row.reason,
+        reason: row.description,
         outlet_staff: row.outlet_staff ? { name: row.outlet_staff.name } : null
       })) as PettyCashTopup[]
     },

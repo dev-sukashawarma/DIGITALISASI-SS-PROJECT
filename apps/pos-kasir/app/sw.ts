@@ -145,3 +145,36 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// --- Web Push Event Listeners ---
+self.addEventListener('push', (event) => {
+  const data = event.data?.json() ?? {};
+  
+  const title = data.title || 'Pemberitahuan Baru';
+  const options = {
+    body: data.body || 'Pesanan urgent.',
+    icon: '/icon-192x192.png', // Sesuaikan icon jika ada
+    data: data.data || {},
+    requireInteraction: true // Notifikasi tetap ada sampai diinteraksi
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  // Arahkan atau fokuskan ke tab kasir
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes('/kasir') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow('/kasir');
+      }
+    })
+  );
+});

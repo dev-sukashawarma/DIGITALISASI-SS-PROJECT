@@ -57,3 +57,23 @@ export interface CashTransaction {
 export interface LocationWithBalance extends CashLocation {
   saldo: number
 }
+
+export type PettyCashStatus = 'pending' | 'forwarded' | 'approved' | 'rejected'
+export type DisbursementMethod = 'potong_setoran' | 'transfer' | 'tunai'
+
+export interface PettyCashTopup {
+  id: string
+  shift_id: string
+  amount: number
+  reason: string
+  status: PettyCashStatus
+  disbursement_method: DisbursementMethod | null
+  disbursed_from_cash_location_id: string | null
+  created_at: string
+  approved_by: string | null
+  finance_approved_by: string | null
+  approved_at: string | null
+  // Joins
+  outlet_staff?: { name: string } | null
+  outlet?: { id: string, name: string } | null
+}

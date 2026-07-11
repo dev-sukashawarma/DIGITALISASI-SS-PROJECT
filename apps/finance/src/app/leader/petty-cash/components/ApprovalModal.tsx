@@ -2,19 +2,12 @@
 
 import React, { useState } from 'react'
 import { Button } from '@suka/design-system'
-
-interface RequestData {
-  id: string
-  crewName: string
-  amount: number
-  reason: string
-  date: string
-}
+import type { PettyCashTopup } from '@/lib/types'
 
 interface ApprovalModalProps {
   isOpen: boolean
   onClose: () => void
-  request: RequestData
+  request: PettyCashTopup
   onApprove: () => Promise<void>
   onReject: () => Promise<void>
 }
@@ -46,7 +39,7 @@ export function ApprovalModal({ isOpen, onClose, request, onApprove, onReject }:
           <div className="space-y-4 mb-6">
             <div>
               <p className="text-xs text-suka-gray-500 font-medium">Pemohon</p>
-              <p className="text-sm font-medium text-suka-brown">{request.crewName}</p>
+              <p className="text-sm font-medium text-suka-brown">{request.outlet_staff?.name || 'Unknown'}</p>
             </div>
             <div>
               <p className="text-xs text-suka-gray-500 font-medium">Nominal</p>

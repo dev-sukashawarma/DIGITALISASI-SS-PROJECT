@@ -1,15 +1,15 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, Badge, Button, StatusPill, Spinner, EmptyState } from '@suka/design-system'
-import { ApprovalModal } from './ApprovalModal'
-import { usePettyCashRequests, useProcessPettyCashLeader } from '@/hooks/usePettyCash'
+import { Card, Badge, Button, Spinner, EmptyState } from '@suka/design-system'
+import { FinanceApprovalModal } from './FinanceApprovalModal'
+import { usePettyCashRequests, useProcessPettyCashFinance } from '@/hooks/usePettyCash'
 import { tanggal } from '@/lib/format'
-import type { PettyCashTopup } from '@/lib/types'
+import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 
-export function PettyCashList() {
-  const { data: requests, isLoading } = usePettyCashRequests('pending')
-  const processTopup = useProcessPettyCashLeader()
+export function FinancePettyCashList() {
+  const { data: requests, isLoading } = usePettyCashRequests('forwarded')
+  const processTopup = useProcessPettyCashFinance()
   
   const [selectedRequest, setSelectedRequest] = useState<PettyCashTopup | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -19,9 +19,14 @@ export function PettyCashList() {
     setIsModalOpen(true)
   }
 
-  const handleApprove = async () => {
+  const handleApprove = async (method: DisbursementMethod, cashLocationId?: string) => {
     if (!selectedRequest) return
-    await processTopup.mutateAsync({ id: selectedRequest.id, action: 'approve' })
+    await processTopup.mutateAsync({ 
+      id: selectedRequest.id, 
+      action: 'approve',
+      method,
+      cashLocationId
+    })
     setIsModalOpen(false)
   }
 
@@ -39,7 +44,7 @@ export function PettyCashList() {
     return (
       <EmptyState
         title="Tidak ada pengajuan"
-        description="Belum ada pengajuan petty cash yang butuh review."
+        description="Belum ada pengajuan petty cash yang diteruskan oleh Leader."
       />
     )
   }
@@ -68,17 +73,12 @@ export function PettyCashList() {
                 </td>
                 <td className="py-3 px-4 text-sm text-suka-gray-500">{req.reason}</td>
                 <td className="py-3 px-4">
-                  {req.status === 'pending' && <Badge variant="warning">Menunggu</Badge>}
-                  {req.status === 'forwarded' && <Badge variant="info">Diteruskan</Badge>}
-                  {req.status === 'approved' && <Badge variant="success">Disetujui</Badge>}
-                  {req.status === 'rejected' && <Badge variant="error">Ditolak</Badge>}
+                  <Badge variant="info">Diteruskan</Badge>
                 </td>
                 <td className="py-3 px-4 text-right">
-                  {req.status === 'pending' && (
-                    <Button variant="secondary" size="sm" onClick={() => handleOpenModal(req)}>
-                      Review
-                    </Button>
-                  )}
+                  <Button variant="secondary" size="sm" onClick={() => handleOpenModal(req)}>
+                    Proses
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -87,7 +87,7 @@ export function PettyCashList() {
       </Card>
 
       {selectedRequest && (
-        <ApprovalModal 
+        <FinanceApprovalModal 
           isOpen={isModalOpen} 
           onClose={() => setIsModalOpen(false)} 
           request={selectedRequest}

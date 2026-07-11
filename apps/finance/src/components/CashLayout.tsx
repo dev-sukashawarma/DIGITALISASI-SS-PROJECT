@@ -48,6 +48,14 @@ export function CashLayout({ children }: { children: ReactNode }) {
     return <>{children}</>
   }
 
+  // Prevent leader/korlap from seeing the finance dashboard if they manually navigate to /setoran etc.
+  if (outletStaff && (outletStaff.role === 'leader' || outletStaff.role === 'korlap') && pathname !== '/') {
+    if (typeof window !== 'undefined') {
+      window.location.href = `/${outletStaff.role}`
+    }
+    return null
+  }
+
   const currentNavPath = ALL_LINKS.find(l => l.href !== '/' && pathname.startsWith(l.href))?.href ?? '/'
   const currentLink = ALL_LINKS.find(l => l.href === currentNavPath)
 

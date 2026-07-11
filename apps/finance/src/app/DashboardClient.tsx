@@ -3,6 +3,7 @@
 import { Wallet, Landmark, Banknote, Clock } from 'lucide-react'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
+import { usePettyCashRequests } from '@/hooks/usePettyCash'
 import { summarizeBalances, countPendingApproval } from '@/lib/cashSummary'
 import { rupiah, tanggal } from '@/lib/format'
 import { StatCard, SectionCard, TxStatusBadge } from '@/components/ui'
@@ -10,6 +11,7 @@ import { StatCard, SectionCard, TxStatusBadge } from '@/components/ui'
 export default function DashboardPage() {
   const { locations, isLoading, error } = useCashOverview()
   const { data: txs = [], isLoading: loadingTx } = useCashTransactions(100)
+  const { data: pettyCashRequests } = usePettyCashRequests('forwarded_to_finance')
 
   const summary = summarizeBalances(locations)
   const pending = countPendingApproval(txs)
@@ -39,7 +41,15 @@ export default function DashboardPage() {
           tone="orange"
           hint="Belum disetor ke bank"
         />
-        <StatCard label="Menunggu Approval" value={pending} icon={<Clock size={22} />} tone="red" />
+        <div className="flex flex-col gap-4">
+          <StatCard label="Menunggu Approval Tx" value={pending} icon={<Clock size={22} />} tone="red" />
+          <StatCard 
+            label="Petty Cash Menunggu" 
+            value={pettyCashRequests?.length || 0} 
+            icon={<Clock size={22} />} 
+            tone="orange" 
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

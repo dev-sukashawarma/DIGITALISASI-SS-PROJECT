@@ -3,8 +3,8 @@
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import { Button } from '@suka/design-system'
-import { LayoutDashboard, Wallet, LogOut, User } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { LayoutDashboard, Wallet, LogOut, User, Loader2 } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 
 type NavItem = { href: string; label: string; icon: any }
@@ -26,6 +26,7 @@ const ALL_LINKS = NAV_GROUPS.flatMap(g => g.items)
 export function LeaderLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const { outletStaff, signOut } = useAuth()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Find exact match or fallback to /leader
   const currentNavPath = ALL_LINKS.find(l => l.href !== '/leader' && pathname.startsWith(l.href))?.href ?? '/leader'
@@ -94,11 +95,19 @@ export function LeaderLayout({ children }: { children: ReactNode }) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => signOut()}
+              disabled={isLoggingOut}
+              onClick={async () => {
+                setIsLoggingOut(true)
+                try {
+                  await signOut()
+                } finally {
+                  setIsLoggingOut(false)
+                }
+              }}
               className="flex items-center gap-1.5 !px-3 !py-1.5 !rounded-full border border-suka-brown/20 hover:border-suka-brown text-suka-brown font-bold text-xs cursor-pointer"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              Keluar
+              {isLoggingOut ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
+              {isLoggingOut ? 'Keluar...' : 'Keluar'}
             </Button>
           </div>
         </header>

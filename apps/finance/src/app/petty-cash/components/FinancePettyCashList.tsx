@@ -57,6 +57,7 @@ export function FinancePettyCashList() {
             <tr className="border-b border-suka-gray-200">
               <th className="py-3 px-4 text-sm font-medium text-suka-gray-500">Tanggal</th>
               <th className="py-3 px-4 text-sm font-medium text-suka-gray-500">Karyawan</th>
+              <th className="py-3 px-4 text-sm font-medium text-suka-gray-500">Outlet</th>
               <th className="py-3 px-4 text-sm font-medium text-suka-gray-500">Nominal</th>
               <th className="py-3 px-4 text-sm font-medium text-suka-gray-500">Alasan</th>
               <th className="py-3 px-4 text-sm font-medium text-suka-gray-500">Status</th>
@@ -66,8 +67,9 @@ export function FinancePettyCashList() {
           <tbody>
             {requests.map((req) => (
               <tr key={req.id} className="border-b border-suka-gray-100 last:border-0 hover:bg-suka-gray-50 transition-colors">
-                <td className="py-3 px-4 text-sm text-suka-brown">{tanggal(req.created_at, true)}</td>
+                <td className="py-3 px-4 text-sm text-suka-brown">{tanggal(req.created_at)}</td>
                 <td className="py-3 px-4 text-sm font-medium text-suka-brown">{req.outlet_staff?.name || '-'}</td>
+                <td className="py-3 px-4 text-sm font-medium text-suka-brown">{req.outlet?.name || '-'}</td>
                 <td className="py-3 px-4 text-sm text-suka-brown">
                   Rp {req.amount.toLocaleString('id-ID')}
                 </td>

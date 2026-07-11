@@ -15,7 +15,8 @@ export function usePettyCashRequests(status?: string) {
         .from('petty_cash_topups')
         .select(`
           *,
-          outlet_staff!petty_cash_topups_created_by_fkey(name)
+          outlet_staff!petty_cash_topups_created_by_fkey(name),
+          outlets!petty_cash_topups_outlet_id_fkey(name)
         `)
         .order('created_at', { ascending: false })
       
@@ -30,7 +31,8 @@ export function usePettyCashRequests(status?: string) {
       return (data as any[]).map(row => ({
         ...row,
         reason: row.description,
-        outlet_staff: row.outlet_staff ? { name: row.outlet_staff.name } : null
+        outlet_staff: row.outlet_staff ? { name: row.outlet_staff.name } : null,
+        outlet: row.outlets ? { id: row.outlet_id, name: row.outlets.name } : null
       })) as PettyCashTopup[]
     },
   })

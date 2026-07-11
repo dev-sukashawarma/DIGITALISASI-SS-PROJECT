@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Button, Input } from '@suka/design-system'
-import type { PettyCashTopup, DisbursementMethod, CashLocation } from '@/lib/types'
+import { Button } from '@suka/design-system'
+import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 import { useCashOverview } from '@/hooks/useCashData'
 
 interface FinanceApprovalModalProps {

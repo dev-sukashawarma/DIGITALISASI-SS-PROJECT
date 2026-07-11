@@ -7,6 +7,7 @@ import { Button, Spinner } from '@suka/design-system'
 import { Banknote, ArrowRight } from 'lucide-react'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
 import { useOutlets, useCashDeposit } from '@/hooks/useCashDeposit'
+import { useExpectedCash } from '@/hooks/useExpectedCash'
 import { rupiah, tanggal } from '@/lib/format'
 import { StatCard, SectionCard, TxStatusBadge } from '@/components/ui'
 import { summarizeBalances } from '@/lib/cashSummary'
@@ -23,6 +24,9 @@ export default function SetoranPage() {
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [proofFile, setProofFile] = useState<File | null>(null)
+  const [salesDate, setSalesDate] = useState(() => new Date().toISOString().split('T')[0])
+
+  const { data: expectedCash = 0, isLoading: isLoadingExpected } = useExpectedCash(outletId || null, salesDate)
 
   const summary = summarizeBalances(locations)
   const deposits = txs.filter((t) => t.source_type === 'cash_deposit')
@@ -33,10 +37,16 @@ export default function SetoranPage() {
     const amt = Number(amount)
     if (!location) { toast.error('Pilih Kas Pusat tujuan'); return }
     if (!amt || amt <= 0) { toast.error('Nominal harus lebih dari 0'); return }
+    
+    if (outletId && amt !== expectedCash && !note.trim()) {
+      toast.error('Nominal fisik berbeda dengan estimasi POS. Wajib mengisi kolom Catatan!')
+      return
+    }
+
     deposit.mutate(
       { location, amount: amt, outletId: outletId || null, note: note.trim() || null, proofFile },
       {
-        onSuccess: () => { toast.success('Setoran dicatat (menunggu validasi di Transaksi)'); reset() },
+        onSuccess: () => { toast.success('Setoran berhasil dicatat & masuk Kas Pusat!'); reset() },
         onError: (e: unknown) => toast.error((e as Error).message),
       }
     )
@@ -84,6 +94,30 @@ export default function SetoranPage() {
                   {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
               </label>
+              
+              {outletId && (
+                <div className="sm:col-span-2 rounded-xl bg-amber-50 p-4 border border-amber-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-amber-800 font-medium">Estimasi Penjualan Tunai POS</p>
+                      <div className="text-2xl font-bold text-amber-900 mt-1">
+                        {isLoadingExpected ? <Spinner size={20} /> : rupiah(expectedCash)}
+                      </div>
+                    </div>
+                    <label className="text-sm font-semibold text-amber-800 shrink-0">
+                      Cek Tanggal
+                      <input type="date" value={salesDate} onChange={(e) => setSalesDate(e.target.value)}
+                        className="ml-2 rounded-lg border border-amber-300 px-2 py-1 outline-none focus:border-amber-500 bg-white" />
+                    </label>
+                  </div>
+                  {amount && Number(amount) !== expectedCash && (
+                    <p className="text-xs text-red-600 mt-2 font-medium">
+                      ⚠️ Terdapat selisih antara nominal fisik dengan estimasi POS. Harap jelaskan alasannya di kolom Catatan.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <label className="text-sm font-semibold text-suka-gray-600">
                 Nominal (Rp)
                 <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} min={0}
@@ -117,19 +151,21 @@ export default function SetoranPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-suka-gray-500">
-                  <th className="py-2">Tanggal</th>
-                  <th className="py-2">Kas Tujuan</th>
-                  <th className="py-2 text-right">Nominal</th>
-                  <th className="py-2">Status</th>
+                  <th className="py-2 px-3">Tanggal</th>
+                  <th className="py-2 px-3">Kas Tujuan</th>
+                  <th className="py-2 px-3">Outlet Asal</th>
+                  <th className="py-2 px-3 text-right">Nominal</th>
+                  <th className="py-2 px-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100">
                 {deposits.map((t) => (
                   <tr key={t.id}>
-                    <td className="py-3 text-suka-gray-500">{tanggal(t.occurred_at)}</td>
-                    <td className="py-3 font-semibold text-suka-ink">{t.cash_location?.label ?? '—'}</td>
-                    <td className="py-3 text-right font-bold text-emerald-600">+{rupiah(t.amount)}</td>
-                    <td className="py-3"><TxStatusBadge status={t.status} /></td>
+                    <td className="py-3 px-3 text-suka-gray-500">{tanggal(t.occurred_at)}</td>
+                    <td className="py-3 px-3 font-semibold text-suka-ink">{t.cash_location?.label ?? '—'}</td>
+                    <td className="py-3 px-3 text-suka-gray-500">{t.outlet?.name ?? '—'}</td>
+                    <td className="py-3 px-3 text-right font-bold text-emerald-600">+{rupiah(t.amount)}</td>
+                    <td className="py-3 px-3"><TxStatusBadge status={t.status} /></td>
                   </tr>
                 ))}
               </tbody>

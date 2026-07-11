@@ -13,6 +13,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   mitra: ['admin-dashboard'],
   staff_pusat: ['absensi'],
   admin_finance: ['finance'],
+  korlap: ['finance'],
 }
 
 export function hasAppAccess(role: Role, app: AppName): boolean {

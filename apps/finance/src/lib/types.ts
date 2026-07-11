@@ -50,6 +50,7 @@ export interface CashTransaction {
   created_at: string
   // joined (optional)
   cash_location?: Pick<CashLocation, 'label' | 'kind'> | null
+  outlet?: { name: string } | null
 }
 
 /** Lokasi kas + saldo tergabung untuk tampilan dashboard. */

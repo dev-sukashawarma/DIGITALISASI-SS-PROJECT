@@ -18,7 +18,7 @@ describe('ROLE_APP_ACCESS', () => {
     const withFinance = (Object.keys(ROLE_APP_ACCESS) as Array<keyof typeof ROLE_APP_ACCESS>)
       .filter(r => ROLE_APP_ACCESS[r].includes('finance'))
       .sort()
-    expect(withFinance).toEqual(['admin', 'admin_finance', 'owner'])
+    expect(withFinance).toEqual(['admin', 'admin_finance', 'korlap', 'owner'])
   })
 
   it('admin_finance hanya punya finance', () => {

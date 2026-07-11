@@ -54,7 +54,7 @@ export function useCashTransactions(limit = 50) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cash_transaction')
-        .select('*, cash_location:cash_location_id(label, kind)')
+        .select('*, cash_location:cash_location_id(label, kind), outlet:outlet_id(name)')
         .order('occurred_at', { ascending: false })
         .limit(limit)
       if (error) throw error

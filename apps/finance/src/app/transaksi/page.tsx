@@ -117,25 +117,25 @@ export default function TransaksiPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-suka-gray-500">
-                  <th className="py-2">Tanggal</th>
-                  <th className="py-2">Lokasi</th>
-                  <th className="py-2">Kategori</th>
-                  <th className="py-2 text-right">Nominal</th>
-                  <th className="py-2">Status</th>
-                  <th className="py-2 text-right">Aksi</th>
+                  <th className="py-2 px-3">Tanggal</th>
+                  <th className="py-2 px-3">Lokasi</th>
+                  <th className="py-2 px-3">Kategori</th>
+                  <th className="py-2 px-3 text-right">Nominal</th>
+                  <th className="py-2 px-3">Status</th>
+                  <th className="py-2 px-3 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100">
                 {txs.map((t) => (
                   <tr key={t.id}>
-                    <td className="py-3 text-suka-gray-500">{tanggal(t.occurred_at)}</td>
-                    <td className="py-3 font-semibold text-suka-ink">{t.cash_location?.label ?? '—'}</td>
-                    <td className="py-3 text-suka-gray-500">{t.category ?? t.source_type}</td>
-                    <td className={`py-3 text-right font-bold ${t.direction === 'in' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    <td className="py-3 px-3 text-suka-gray-500">{tanggal(t.occurred_at)}</td>
+                    <td className="py-3 px-3 font-semibold text-suka-ink">{t.cash_location?.label ?? '—'}</td>
+                    <td className="py-3 px-3 text-suka-gray-500">{t.category ?? t.source_type}</td>
+                    <td className={`py-3 px-3 text-right font-bold ${t.direction === 'in' ? 'text-emerald-600' : 'text-red-600'}`}>
                       {t.direction === 'in' ? '+' : '−'}{rupiah(t.amount)}
                     </td>
-                    <td className="py-3"><TxStatusBadge status={t.status} /></td>
-                    <td className="py-3">
+                    <td className="py-3 px-3"><TxStatusBadge status={t.status} /></td>
+                    <td className="py-3 px-3">
                       <div className="flex justify-end gap-1">
                         {isChecker && t.status === 'pending_approval' && (
                           <>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Wallet, Landmark, Banknote, Clock, ArrowRight } from 'lucide-react'
-import { Button, Spinner } from '@suka/design-system'
+import { Button, Spinner, EmptyState } from '@suka/design-system'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
 import { summarizeBalances, countPendingApproval } from '@/lib/cashSummary'
 import { rupiah, tanggal } from '@/lib/format'
@@ -55,9 +55,7 @@ export default function DashboardPage() {
           {isLoading ? (
             <div className="flex justify-center py-8"><Spinner size={28} /></div>
           ) : locations.length === 0 ? (
-            <p className="py-6 text-center text-suka-gray-400">
-              Belum ada rekening/kas. Tambahkan di menu <b>Rekening &amp; Kas</b>.
-            </p>
+            <EmptyState title="Belum ada rekening/kas" description="Tambahkan di menu Rekening & Kas." />
           ) : (
             <ul className="divide-y divide-suka-gray-100">
               {locations.map((l) => (
@@ -82,7 +80,7 @@ export default function DashboardPage() {
           {loadingTx ? (
             <div className="flex justify-center py-8"><Spinner size={28} /></div>
           ) : txs.length === 0 ? (
-            <p className="py-6 text-center text-suka-gray-400">Belum ada transaksi.</p>
+            <EmptyState title="Belum ada transaksi" />
           ) : (
             <ul className="divide-y divide-suka-gray-100">
               {txs.slice(0, 8).map((t) => (

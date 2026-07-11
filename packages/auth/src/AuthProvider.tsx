@@ -112,6 +112,9 @@ export const AuthProvider: React.FC<{
     setUser(null)
     setOutletStaff(null)
     setStaffError(null)
+    
+    // Redirect to portal login
+    window.location.href = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
   }
 
   return (

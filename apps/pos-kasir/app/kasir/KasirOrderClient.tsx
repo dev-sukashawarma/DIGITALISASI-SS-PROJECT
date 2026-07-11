@@ -857,10 +857,10 @@ export default function KasirOrderClient({
       </div>
 
       {/* Bento Grid columns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-auto md:h-[calc(100vh-220px)] items-stretch pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch pb-20">
         
         {/* ── Column 1: MENUNGGU PEMBAYARAN (Pending) ── */}
-        <div className="bg-slate-50/50 border border-slate-200 shadow-sm rounded-2xl p-5 flex flex-col h-[600px] md:h-full">
+        <div className="bg-slate-50/50 border border-slate-200 shadow-sm rounded-2xl p-5 flex flex-col">
           <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <Clock className="w-6 h-6 text-slate-800" />
@@ -871,7 +871,7 @@ export default function KasirOrderClient({
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          <div className="flex-1 space-y-4">
             {loading ? (
               <div className="h-32 animate-pulse bg-gray-50 rounded-xl" />
             ) : pendingOrders.length === 0 ? (
@@ -887,7 +887,7 @@ export default function KasirOrderClient({
         </div>
 
         {/* ── Column 2: SEDANG DIPROSES (Preparing) ── */}
-        <div className="bg-slate-50/50 border border-slate-200 shadow-sm rounded-2xl p-5 flex flex-col h-[600px] md:h-full relative overflow-hidden">
+        <div className="bg-slate-50/50 border border-slate-200 shadow-sm rounded-2xl p-5 flex flex-col relative overflow-hidden">
           <div className="flex items-center justify-between pb-3 mb-2 shrink-0 relative z-10">
             <div className="flex items-center gap-2">
               <ChefHat className="w-6 h-6 text-blue-600" />
@@ -975,7 +975,7 @@ export default function KasirOrderClient({
             );
           })()}
 
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1 relative z-10">
+          <div className="flex-1 space-y-4 relative z-10">
             {preparingTab === 'antrean' ? (
               antreanMasak.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-200 rounded-xl bg-transparent">
@@ -1001,7 +1001,7 @@ export default function KasirOrderClient({
         </div>
 
         {/* ── Column 3: COMPLETED (Selesai Hari Ini) ── */}
-        <div className="bg-slate-50/50 border border-slate-200 shadow-sm rounded-2xl p-5 flex flex-col h-[600px] md:h-full">
+        <div className="bg-slate-50/50 border border-slate-200 shadow-sm rounded-2xl p-5 flex flex-col">
           <div className="flex flex-col gap-3 pb-4 border-b border-slate-200 mb-4 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1028,7 +1028,7 @@ export default function KasirOrderClient({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          <div className="flex-1 space-y-4">
             {completedOrders.length === 0 ? (
               <p className="text-center text-sm text-slate-500/40 py-8">Belum ada pesanan selesai hari ini</p>
             ) : filteredCompletedOrders.length === 0 ? (

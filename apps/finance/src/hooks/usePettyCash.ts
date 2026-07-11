@@ -103,3 +103,54 @@ export function useProcessPettyCashFinance() {
     }
   })
 }
+
+export function useForwardPettyCashKorlap() {
+  const supabase = useMemo(() => createClient(), [])
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { error } = await supabase.rpc('korlap_forward_funds', {
+        p_topup_id: id
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
+    }
+  })
+}
+
+export function useForwardPettyCashLeader() {
+  const supabase = useMemo(() => createClient(), [])
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { error } = await supabase.rpc('leader_forward_funds', {
+        p_topup_id: id
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
+    }
+  })
+}
+
+export function useReceivePettyCashCrew() {
+  const supabase = useMemo(() => createClient(), [])
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { error } = await supabase.rpc('crew_receive_funds', {
+        p_topup_id: id
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
+    }
+  })
+}

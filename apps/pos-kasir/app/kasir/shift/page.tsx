@@ -400,6 +400,28 @@ export default function ShiftPage() {
     }
   }
 
+  async function handleReceiveFunds(id: string) {
+    if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
+    const confirmed = await showConfirm('Anda yakin telah menerima fisik uang tersebut sejumlah pengajuan?')
+    if (!confirmed) return
+
+    setErrorMsg('')
+    setSuccessMsg('')
+    setIsSubmitting(true)
+    try {
+      const { error } = await supabase.rpc('crew_receive_funds', { p_topup_id: id })
+      if (error) throw error
+
+      setSuccessMsg('Uang berhasil diterima dan Petty Cash bertambah.')
+      await fetchCurrentState()
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Gagal konfirmasi penerimaan dana')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+
   async function handleCloseShift(e: React.FormEvent) {
     e.preventDefault()
     if (!activeShift) return
@@ -736,13 +758,19 @@ export default function ShiftPage() {
                         return (
                           <div key={`top-${top.id}-${idx}`} className={`p-4 flex items-start justify-between gap-3 hover:bg-gray-50 ${top.status === 'rejected' ? 'opacity-50' : ''}`}>
                             <div className="flex items-start gap-3 min-w-0">
-                              <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${top.status === 'pending' ? 'bg-amber-50 text-amber-500' : top.status === 'rejected' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-500'}`}>
+                              <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'bg-amber-50 text-amber-500' : top.status === 'rejected' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-500'}`}>
                                 <ArrowDownToLine className="w-5 h-5" />
                               </div>
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-gray-900 truncate">{top.description}</p>
-                                <p className={`text-[11px] font-semibold uppercase mt-0.5 ${top.status === 'pending' ? 'text-amber-500' : top.status === 'rejected' ? 'text-red-500' : 'text-blue-500'}`}>
-                                  Top Up Petty Cash ({top.status === 'pending' ? '⏳ Menunggu Persetujuan' : top.status === 'rejected' ? '❌ Ditolak' : '✅ Disetujui'})
+                                <p className={`text-[11px] font-semibold uppercase mt-0.5 ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-red-500' : 'text-blue-500'}`}>
+                                  Top Up Petty Cash (
+                                  {top.status === 'pending' ? '⏳ Menunggu Persetujuan' : 
+                                   top.status === 'rejected' ? '❌ Ditolak' : 
+                                   top.status === 'approved_by_finance' ? '⏳ Proses Pencairan Finance' :
+                                   top.status === 'forwarded_by_korlap' ? '⏳ Proses Penyerahan Korlap' :
+                                   top.status === 'forwarded_by_leader' ? '✅ Uang Tersedia di Leader' :
+                                   '✅ Selesai'})
                                 </p>
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
                                   <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{top.creator?.name ?? '—'}</span>
@@ -751,7 +779,16 @@ export default function ShiftPage() {
                               </div>
                             </div>
                             <div className="flex flex-col items-end shrink-0 gap-1.5">
-                              <span className={`text-sm font-black ${top.status === 'pending' ? 'text-amber-500' : top.status === 'rejected' ? 'text-gray-400 line-through' : 'text-blue-600'}`}>+{formatRupiah(top.amount)}</span>
+                              <span className={`text-sm font-black ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-gray-400 line-through' : 'text-blue-600'}`}>+{formatRupiah(top.amount)}</span>
+                              {top.status === 'forwarded_by_leader' && (
+                                <button
+                                  onClick={() => handleReceiveFunds(top.id)}
+                                  disabled={isSubmitting}
+                                  className="text-[10px] font-bold text-white bg-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                >
+                                  Terima Dana
+                                </button>
+                              )}
                             </div>
                           </div>
                         )

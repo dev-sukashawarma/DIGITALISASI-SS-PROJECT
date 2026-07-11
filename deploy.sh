@@ -150,6 +150,9 @@ deploy_one() {
   echo "🔨 Build $APP..."
   cd "$APP_DIR" || return 1
 
+  # Buang cache Turbopack — cegah warning/resolusi basi nyangkut dari build gagal sebelumnya
+  rm -rf .next/cache
+
   if [ "$FREE_NPROC" = "1" ]; then
     echo "   ⚠️  --free-nproc: stop sementara semua app Node (auto-respawn nanti)"
     pkill -f "lsnode:/home/sukashaw" 2>/dev/null

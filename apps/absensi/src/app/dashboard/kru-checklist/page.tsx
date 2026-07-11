@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@suka/design-system";
 import { ListChecks, CheckCircle2, Circle, ChevronDown, ChevronUp, User, Lock, Sunrise, Sunset } from "lucide-react";
@@ -33,14 +33,183 @@ type ChecklistCategory = {
   checklist_items: ChecklistItem[];
 };
 
+// --- Subcomponents for Performance ---
+
+const ChecklistItemRow = React.memo(({ 
+  item, 
+  tick, 
+  hasClockedIn, 
+  outletStaff, 
+  recordId, 
+  qc 
+}: { 
+  item: ChecklistItem; 
+  tick?: TickRow; 
+  hasClockedIn: boolean; 
+  outletStaff: any; 
+  recordId: string;
+  qc: any;
+}) => {
+  const toast = useToast();
+  const [isTicking, setIsTicking] = useState(false);
+
+  const isTicked = !!tick;
+  const isMe = tick?.ticked_by === outletStaff?.id;
+  const tickerName = tick ? (tick.outlet_staff?.name ?? "Staf") : null;
+  const locked = !hasClockedIn;
+
+  const toggleTick = async () => {
+    if (!recordId || !outletStaff) return;
+    if (!hasClockedIn) {
+      toast.show("err", "Absen hadir dulu sebelum mengisi checklist");
+      return;
+    }
+
+    if (tick && tick.ticked_by !== outletStaff.id) {
+      toast.show("err", `Hanya ${tick.outlet_staff?.name || "yang bersangkutan"} yang bisa membatalkan ini`);
+      return;
+    }
+
+    setIsTicking(true);
+    try {
+      const res = await fetch('/api/checklist/toggle', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: isTicked ? 'delete' : 'insert',
+          item_id: item.id,
+          record_id: recordId,
+          staff_id: isTicked ? null : outletStaff.id,
+        })
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || `HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      qc.invalidateQueries({ queryKey: ["checklist-ticks", recordId] });
+    } catch (err: any) {
+      const errMsg = err?.message || "Gagal menyimpan progress";
+      toast.show("err", errMsg);
+      console.error("[toggleTick]", err);
+    }
+    setIsTicking(false);
+  };
+
+  return (
+    <button
+      disabled={isTicking || locked}
+      onClick={toggleTick}
+      className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl my-0.5 text-left transition-all duration-200 ${
+        isTicked
+          ? "bg-green-50 hover:bg-green-100"
+          : "hover:bg-slate-50"
+      } ${isTicking ? "opacity-50 cursor-wait" : locked ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+    >
+      <div className={`flex-shrink-0 transition-all duration-200 ${isTicked ? "text-suka-green" : "text-gray-300 hover:text-suka-orange"}`}>
+        {isTicking ? (
+          <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : isTicked ? (
+          <CheckCircle2 size={24} />
+        ) : (
+          <Circle size={24} />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium ${isTicked ? "line-through text-gray-400" : "text-gray-800"}`}>
+          {item.task_name}
+        </p>
+        {isTicked && tick && (
+          <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+            <User size={11} />
+            <span className={isMe ? "text-suka-orange font-medium" : ""}>{isMe ? "Kamu" : tickerName}</span>
+            · {dayjs(tick.ticked_at).format("HH:mm")}
+          </p>
+        )}
+      </div>
+      {item.is_required && !isTicked && (
+        <span className="text-[10px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded border border-red-100 font-medium flex-shrink-0">
+          Wajib
+        </span>
+      )}
+    </button>
+  );
+});
+ChecklistItemRow.displayName = "ChecklistItemRow";
+
+const ChecklistCategoryCard = React.memo(({ 
+  cat, 
+  ticksMap, 
+  hasClockedIn, 
+  outletStaff, 
+  recordId, 
+  qc 
+}: { 
+  cat: ChecklistCategory; 
+  ticksMap: Map<string, TickRow>; 
+  hasClockedIn: boolean; 
+  outletStaff: any; 
+  recordId: string;
+  qc: any;
+}) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const catItems = cat.checklist_items || [];
+  const catTickedCount = useMemo(() => {
+    return catItems.reduce((acc, item) => acc + (ticksMap.has(item.id) ? 1 : 0), 0);
+  }, [catItems, ticksMap]);
+
+  const catDone = catTickedCount === catItems.length && catItems.length > 0;
+  const isOpen = !isCollapsed;
+
+  return (
+    <div className={`overflow-hidden rounded-2xl border bg-white transition-all duration-300 ${catDone ? "border-suka-green/40" : "border-suka-gray-200"}`}>
+      {/* Category Header */}
+      <button
+        className={`w-full flex items-center justify-between px-4 sm:px-5 py-4 text-left transition-colors ${catDone ? "bg-green-50" : "bg-suka-gray-50/60 hover:bg-suka-gray-50"}`}
+        onClick={() => setIsCollapsed(prev => !prev)}
+      >
+        <div className="flex items-center gap-3">
+          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${catDone ? "bg-suka-green" : "bg-suka-orange"}`} />
+          <h2 className={`font-bold text-base ${catDone ? "text-suka-green" : "text-suka-ink"}`}>{cat.name}</h2>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${catDone ? "bg-green-100 text-suka-green" : "bg-orange-100 text-suka-orange"}`}>
+            {catTickedCount}/{catItems.length}
+          </span>
+        </div>
+        {isOpen ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+      </button>
+
+      {/* Items */}
+      {isOpen && (
+        <div className="divide-y divide-gray-50 px-2 py-1">
+          {catItems.map(item => (
+            <ChecklistItemRow
+              key={item.id}
+              item={item}
+              tick={ticksMap.get(item.id)}
+              hasClockedIn={hasClockedIn}
+              outletStaff={outletStaff}
+              recordId={recordId}
+              qc={qc}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+ChecklistCategoryCard.displayName = "ChecklistCategoryCard";
+
+// --- Main Page Component ---
+
 export default function KruChecklistPage() {
   const { outletStaff } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const supabase = createClient();
 
-  const [ticking, setTicking] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<"buka" | "tutup">("buka");
   const hasSetInitialTab = useRef(false);
 
@@ -109,6 +278,7 @@ export default function KruChecklistPage() {
 
   const loading = loadingCategories || loadingClockIn || loadingRecord || loadingTicks;
 
+  // Real-time updates for ticks
   useEffect(() => {
     if (!recordId) return;
     const channelName = `absensi-checklist-ticks-${recordId}`;
@@ -145,58 +315,38 @@ export default function KruChecklistPage() {
     return () => { supabase.removeChannel(ch); };
   }, [recordId, qc, supabase]);
 
-  async function toggleTick(itemId: string) {
-    if (!recordId || !outletStaff) return;
-    if (!hasClockedIn) {
-      toast.show("err", "Absen hadir dulu sebelum mengisi checklist");
-      return;
+  // Memoized data structures for O(1) lookups and derived state
+  const ticksMap = useMemo(() => {
+    const map = new Map<string, TickRow>();
+    for (const t of ticks) {
+      map.set(t.item_id, t);
     }
-    setTicking(itemId);
+    return map;
+  }, [ticks]);
 
-    const existing = ticks.find(t => t.item_id === itemId);
-    const isTicked = existing !== undefined;
+  const { bukaCats, tutupCats, bukaTotalItems, tutupTotalItems } = useMemo(() => {
+    const buka = categories.filter(c => c.phase !== "tutup");
+    const tutup = categories.filter(c => c.phase === "tutup");
+    const bTotal = buka.reduce((acc, c) => acc + (c.checklist_items?.length || 0), 0);
+    const tTotal = tutup.reduce((acc, c) => acc + (c.checklist_items?.length || 0), 0);
+    return { bukaCats: buka, tutupCats: tutup, bukaTotalItems: bTotal, tutupTotalItems: tTotal };
+  }, [categories]);
 
-    if (existing && existing.ticked_by !== outletStaff.id) {
-      toast.show("err", `Hanya ${existing.outlet_staff?.name || "yang bersangkutan"} yang bisa membatalkan ini`);
-      setTicking(null);
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/checklist/toggle', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: isTicked ? 'delete' : 'insert',
-          item_id: itemId,
-          record_id: recordId,
-          staff_id: isTicked ? null : outletStaff.id,
-        })
-      });
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error || `HTTP ${res.status}`);
+  const { bukaTickedItems, tutupTickedItems } = useMemo(() => {
+    let bTicked = 0;
+    for (const c of bukaCats) {
+      for (const item of (c.checklist_items || [])) {
+        if (ticksMap.has(item.id)) bTicked++;
       }
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
-      qc.invalidateQueries({ queryKey: ["checklist-ticks", recordId] });
-    } catch (err: any) {
-      const errMsg = err?.message || "Gagal menyimpan progress";
-      toast.show("err", errMsg);
-      console.error("[toggleTick]", err);
     }
-    setTicking(null);
-  }
-
-  const bukaCats = categories.filter(c => c.phase !== "tutup");
-  const tutupCats = categories.filter(c => c.phase === "tutup");
-
-  const bukaTotalItems = bukaCats.reduce((acc, c) => acc + (c.checklist_items?.length || 0), 0);
-  const bukaTickedItems = bukaCats.reduce((acc, c) => acc + (c.checklist_items?.filter(item => ticks.some(t => t.item_id === item.id)).length || 0), 0);
-
-  const tutupTotalItems = tutupCats.reduce((acc, c) => acc + (c.checklist_items?.length || 0), 0);
-  const tutupTickedItems = tutupCats.reduce((acc, c) => acc + (c.checklist_items?.filter(item => ticks.some(t => t.item_id === item.id)).length || 0), 0);
+    let tTicked = 0;
+    for (const c of tutupCats) {
+      for (const item of (c.checklist_items || [])) {
+        if (ticksMap.has(item.id)) tTicked++;
+      }
+    }
+    return { bukaTickedItems: bTicked, tutupTickedItems: tTicked };
+  }, [bukaCats, tutupCats, ticksMap]);
 
   useEffect(() => {
     if (!loading && categories.length > 0 && !hasSetInitialTab.current) {
@@ -213,87 +363,6 @@ export default function KruChecklistPage() {
   const activeTickedItems = activeTab === "buka" ? bukaTickedItems : tutupTickedItems;
   const activeProgress = activeTotalItems > 0 ? Math.round((activeTickedItems / activeTotalItems) * 100) : 0;
 
-  const renderCategory = (cat: ChecklistCategory) => {
-    const catItems = cat.checklist_items || [];
-    const catTicked = catItems.filter(item => ticks.some(t => t.item_id === item.id)).length;
-    const catDone = catTicked === catItems.length && catItems.length > 0;
-    const isOpen = !collapsed[cat.id];
-
-    return (
-      <div key={cat.id} className={`overflow-hidden rounded-2xl border bg-white transition-all duration-300 ${catDone ? "border-suka-green/40" : "border-suka-gray-200"}`}>
-        {/* Category Header */}
-        <button
-          className={`w-full flex items-center justify-between px-4 sm:px-5 py-4 text-left transition-colors ${catDone ? "bg-green-50" : "bg-suka-gray-50/60 hover:bg-suka-gray-50"}`}
-          onClick={() => setCollapsed(prev => ({ ...prev, [cat.id]: !prev[cat.id] }))}
-        >
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${catDone ? "bg-suka-green" : "bg-suka-orange"}`} />
-            <h2 className={`font-bold text-base ${catDone ? "text-suka-green" : "text-suka-ink"}`}>{cat.name}</h2>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${catDone ? "bg-green-100 text-suka-green" : "bg-orange-100 text-suka-orange"}`}>
-              {catTicked}/{catItems.length}
-            </span>
-          </div>
-          {isOpen ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
-        </button>
-
-        {/* Items */}
-        {isOpen && (
-          <div className="divide-y divide-gray-50 px-2 py-1">
-            {catItems.map(item => {
-              const tick = ticks.find(t => t.item_id === item.id);
-              const isTicked = !!tick;
-              const isMe = tick?.ticked_by === outletStaff?.id;
-              // Ambil nama dari API join (admin bypass RLS)
-              const tickerName = tick ? (tick.outlet_staff?.name ?? "Staf") : null;
-              const isProcessing = ticking === item.id;
-              const locked = !hasClockedIn;
-
-              return (
-                <button
-                  key={item.id}
-                  disabled={isProcessing || locked}
-                  onClick={() => toggleTick(item.id)}
-                  className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl my-0.5 text-left transition-all duration-200 ${
-                    isTicked
-                      ? "bg-green-50 hover:bg-green-100"
-                      : "hover:bg-slate-50"
-                  } ${isProcessing ? "opacity-50 cursor-wait" : locked ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
-                >
-                  <div className={`flex-shrink-0 transition-all duration-200 ${isTicked ? "text-suka-green" : "text-gray-300 hover:text-suka-orange"}`}>
-                    {isProcessing ? (
-                      <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : isTicked ? (
-                      <CheckCircle2 size={24} />
-                    ) : (
-                      <Circle size={24} />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${isTicked ? "line-through text-gray-400" : "text-gray-800"}`}>
-                      {item.task_name}
-                    </p>
-                    {isTicked && tick && (
-                      <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                        <User size={11} />
-                        <span className={isMe ? "text-suka-orange font-medium" : ""}>{isMe ? "Kamu" : tickerName}</span>
-                        · {dayjs(tick.ticked_at).format("HH:mm")}
-                      </p>
-                    )}
-                  </div>
-                  {item.is_required && !isTicked && (
-                    <span className="text-[10px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded border border-red-100 font-medium flex-shrink-0">
-                      Wajib
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   async function handleBulkTick(phase: "buka" | "tutup") {
     if (!recordId || !outletStaff) return;
     if (!hasClockedIn) {
@@ -302,11 +371,10 @@ export default function KruChecklistPage() {
     }
     if (!confirm(`Centang semua tugas ${phase} toko (hanya untuk testing)?`)) return;
 
-    
     try {
       const cats = phase === "buka" ? bukaCats : tutupCats;
       const items = cats.flatMap(c => c.checklist_items || []);
-      const untickedItems = items.filter(item => !ticks.some(t => t.item_id === item.id));
+      const untickedItems = items.filter(item => !ticksMap.has(item.id));
 
       await Promise.all(untickedItems.map(item => fetch('/api/checklist/toggle', {
         method: 'POST',
@@ -314,7 +382,7 @@ export default function KruChecklistPage() {
         body: JSON.stringify({
           action: 'insert',
           item_id: item.id,
-          record_id: recordId,
+          record_id: recordId!,
           staff_id: outletStaff.id,
         })
       })));
@@ -324,18 +392,16 @@ export default function KruChecklistPage() {
     } catch (e: any) {
       toast.show("err", "Gagal bulk tick: " + e.message);
     }
-    
   }
 
   async function handleBulkUntick(phase: "buka" | "tutup") {
     if (!recordId || !outletStaff) return;
     if (!confirm(`Hapus centang semua tugas ${phase} toko (hanya untuk testing)?`)) return;
 
-    
     try {
       const cats = phase === "buka" ? bukaCats : tutupCats;
       const items = cats.flatMap(c => c.checklist_items || []);
-      const tickedItems = items.filter(item => ticks.some(t => t.item_id === item.id));
+      const tickedItems = items.filter(item => ticksMap.has(item.id));
 
       await Promise.all(tickedItems.map(item => fetch('/api/checklist/toggle', {
         method: 'POST',
@@ -343,7 +409,7 @@ export default function KruChecklistPage() {
         body: JSON.stringify({
           action: 'delete',
           item_id: item.id,
-          record_id: recordId,
+          record_id: recordId!,
           staff_id: null,
         })
       })));
@@ -353,7 +419,6 @@ export default function KruChecklistPage() {
     } catch (e: any) {
       toast.show("err", "Gagal bulk untick: " + e.message);
     }
-    
   }
 
   return (
@@ -439,7 +504,17 @@ export default function KruChecklistPage() {
         <div className="space-y-6">
           {activeTab === "buka" && (
             <section className="space-y-3 animate-fade-in">
-              {bukaCats.length > 0 ? bukaCats.map(renderCategory) : (
+              {bukaCats.length > 0 ? bukaCats.map(cat => (
+                <ChecklistCategoryCard 
+                  key={cat.id} 
+                  cat={cat} 
+                  ticksMap={ticksMap} 
+                  hasClockedIn={hasClockedIn} 
+                  outletStaff={outletStaff} 
+                  recordId={recordId!} 
+                  qc={qc} 
+                />
+              )) : (
                 <div className="text-center py-10 bg-gray-50 rounded-2xl border border-gray-100">
                   <p className="text-gray-500 text-sm">Tidak ada tugas buka toko.</p>
                 </div>
@@ -449,7 +524,17 @@ export default function KruChecklistPage() {
 
           {activeTab === "tutup" && (
             <section className="space-y-3 animate-fade-in">
-              {tutupCats.length > 0 ? tutupCats.map(renderCategory) : (
+              {tutupCats.length > 0 ? tutupCats.map(cat => (
+                <ChecklistCategoryCard 
+                  key={cat.id} 
+                  cat={cat} 
+                  ticksMap={ticksMap} 
+                  hasClockedIn={hasClockedIn} 
+                  outletStaff={outletStaff} 
+                  recordId={recordId!} 
+                  qc={qc} 
+                />
+              )) : (
                 <div className="text-center py-10 bg-gray-50 rounded-2xl border border-gray-100">
                   <p className="text-gray-500 text-sm">Tidak ada tugas tutup toko.</p>
                 </div>

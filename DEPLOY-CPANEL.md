@@ -1,7 +1,7 @@
 # cPanel Deployment Checklist — Suka Shawarma SSO Suite
 
 **Environment:** connectindo.net shared hosting (grace, IP: 103.77.106.237)  
-**Apps:** 6 subdomains (portal, stok, absensi, distribusi, owner, kasir)  
+**Apps:** 7 subdomains (portal, stok, absensi, distribusi, owner, kasir, finance)  
 **Stack:** Node.js 24.15.0 + LiteSpeed + CloudLinux  
 **Last Updated:** 2026-06-20
 
@@ -20,7 +20,7 @@
 
 ## STEP 1: Prepare .env.local Files
 
-Create `.env.local` for each of the 6 apps. Store securely (upload via FileZilla, NOT git).
+Create `.env.local` for each of the 7 apps. Store securely (upload via FileZilla, NOT git).
 
 ### Template Variables
 
@@ -81,11 +81,19 @@ NEXT_PUBLIC_PORTAL_URL=https://app.sukashawarma.com
 NEXT_PUBLIC_COOKIE_DOMAIN=.sukashawarma.com
 ```
 
+#### 7. Finance (`apps/finance/.env.local`)
+```
+NEXT_PUBLIC_SUPABASE_URL=https://[project].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+NEXT_PUBLIC_PORTAL_URL=https://app.sukashawarma.com
+NEXT_PUBLIC_COOKIE_DOMAIN=.sukashawarma.com
+```
+
 ---
 
 ## STEP 2: Create Subdomains in cPanel
 
-For each of 6 apps, create a subdomain:
+For each of 7 apps, create a subdomain:
 
 ### Via cPanel → Addon Domains / Subdomains
 
@@ -97,6 +105,7 @@ For each of 6 apps, create a subdomain:
 | `distribusi.sukashawarma.com` | `/home/sukashaw/distribusi.sukashawarma.com` | `apps/distribusi` |
 | `owner.sukashawarma.com` | `/home/sukashaw/owner.sukashawarma.com` | `apps/owner-dashboard` |
 | `kasir.sukashawarma.com` | `/home/sukashaw/kasir.sukashawarma.com` | `apps/pos-kasir` |
+| `finance.sukashawarma.com` | `/home/sukashaw/finance.sukashawarma.com` | `apps/finance` |
 
 **Steps:**
 1. cPanel → Addon Domains (or Subdomains)
@@ -147,7 +156,7 @@ npx yarn install
 
 ## STEP 5: Build Each App
 
-For each of 6 apps, build Next.js output using the provided deploy script (safest method):
+For each of 7 apps, build Next.js output using the provided deploy script (safest method):
 
 ```bash
 cd /home/sukashaw/suka-app
@@ -217,7 +226,7 @@ app.prepare().then(() => {
 });
 ```
 
-**Repeat for:** `absensi`, `distribusi`, `owner-dashboard`, `pos-kasir` (change `appDir` path)
+**Repeat for:** `absensi`, `distribusi`, `owner-dashboard`, `pos-kasir`, `finance` (change `appDir` path)
 
 ---
 
@@ -244,7 +253,7 @@ For each subdomain:
 
 4. **Save → Restart**
 
-**Repeat for all 6 apps.**
+**Repeat for all 7 apps.**
 
 **⚠️ CRITICAL:** Do NOT add `NODE_ENV=production` manually. Panel's "Production" mode sets it automatically. Duplicates break cookie handling.
 
@@ -262,6 +271,7 @@ dig +short absensi.sukashawarma.com @dns1.connectindo.net
 dig +short distribusi.sukashawarma.com @dns1.connectindo.net
 dig +short owner.sukashawarma.com @dns1.connectindo.net
 dig +short kasir.sukashawarma.com @dns1.connectindo.net
+dig +short finance.sukashawarma.com @dns1.connectindo.net
 
 # All should return: 103.77.106.237
 ```
@@ -388,7 +398,7 @@ curl -sI https://app.sukashawarma.com/ | grep -i set-cookie
 
 ## STEP 12: Post-Deployment Verification
 
-- [ ] All 6 apps respond (HTTP 200 or redirects)
+- [ ] All 7 apps respond (HTTP 200 or redirects)
 - [ ] Portal login page loads
 - [ ] SSO login works (portal → launcher → apps)
 - [ ] Role-based access enforced (crew sees only absensi, etc.)
@@ -459,7 +469,7 @@ Dua lapis pencegahan:
 
 ✅ Deployment is successful when:
 
-1. All 6 apps respond over HTTPS
+1. All 7 apps respond over HTTPS
 2. Portal login → Launcher → Apps flow works seamlessly
 3. No re-authentication between portal and apps
 4. Role-based access enforced (crew/kasir/spv/admin see correct apps)

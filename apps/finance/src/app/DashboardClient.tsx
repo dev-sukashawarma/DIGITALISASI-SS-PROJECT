@@ -1,8 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { Wallet, Landmark, Banknote, Clock, ArrowRight } from 'lucide-react'
-import { Button, Spinner, EmptyState } from '@suka/design-system'
+import { Wallet, Landmark, Banknote, Clock } from 'lucide-react'
+import { Spinner, EmptyState } from '@suka/design-system'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
 import { summarizeBalances, countPendingApproval } from '@/lib/cashSummary'
 import { rupiah, tanggal } from '@/lib/format'
@@ -25,16 +24,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-suka-brown">Net Cash Dashboard</h1>
-          <p className="text-suka-gray-500">Saldo riil kas &amp; bank, disandingkan dengan aktivitas terbaru.</p>
-        </div>
-        <Link href="/leader">
-          <Button variant="secondary" className="flex items-center gap-2">
-            Leader Dashboard <ArrowRight size={16} />
-          </Button>
-        </Link>
+      <div>
+        <h1 className="text-2xl font-bold text-suka-brown">Net Cash Dashboard</h1>
+        <p className="text-suka-gray-500">Saldo riil kas &amp; bank, disandingkan dengan aktivitas terbaru.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

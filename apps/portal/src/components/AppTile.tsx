@@ -1,4 +1,4 @@
-import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield, ArrowUpRight } from 'lucide-react'
+import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield, ArrowUpRight, Wallet } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 interface Props {
@@ -63,6 +63,13 @@ export default function AppTile({ label, url, desc }: Props) {
       hover: 'hover:border-suka-brown/30 hover:shadow-suka-brown/10',
       accentText: 'group-hover:text-suka-brown',
       glow: 'bg-suka-brown/15',
+    }
+    if (key.includes('finance') || key.includes('keuangan')) return {
+      icon: <Wallet size={24} strokeWidth={2.25} />,
+      chip: 'bg-gradient-to-br from-emerald-600 to-teal-700',
+      hover: 'hover:border-emerald-600/30 hover:shadow-emerald-600/10',
+      accentText: 'group-hover:text-emerald-700',
+      glow: 'bg-emerald-600/15',
     }
     return {
       icon: <Shield size={24} strokeWidth={2.25} />,

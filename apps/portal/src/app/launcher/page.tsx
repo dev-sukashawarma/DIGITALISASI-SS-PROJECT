@@ -16,6 +16,7 @@ const APP_URL: Record<AppName, string> = {
   distribusi:        process.env.NEXT_PUBLIC_APP_URL_DISTRIBUSI      ?? 'https://distribusi.sukashawarma.com',
   'pos-kasir':       process.env.NEXT_PUBLIC_APP_URL_POS_KASIR       ?? 'https://pos.sukashawarma.com',
   'owner-dashboard': process.env.NEXT_PUBLIC_APP_URL_OWNER_DASHBOARD ?? 'https://owner.sukashawarma.com',
+  finance:           process.env.NEXT_PUBLIC_APP_URL_FINANCE         ?? 'https://finance.sukashawarma.com',
 }
 
 // Metadata per app
@@ -26,6 +27,7 @@ const APP_META: Record<AppName, { label: string; url: string; desc: string }> = 
   distribusi:        { label: 'Distribusi',       url: APP_URL.distribusi,        desc: 'Pengiriman bahan baku & surat jalan' },
   'pos-kasir':       { label: 'POS Kasir',        url: APP_URL['pos-kasir'],      desc: 'Transaksi penjualan & point of sale' },
   'owner-dashboard': { label: 'Owner Dashboard',  url: APP_URL['owner-dashboard'], desc: 'Laporan omzet & analisis keuangan' },
+  finance:           { label: 'Finance',          url: APP_URL.finance,           desc: 'Keuangan, petty cash & pengajuan dana' },
 }
 
 export default async function LauncherPage() {

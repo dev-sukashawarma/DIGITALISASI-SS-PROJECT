@@ -13,7 +13,7 @@
 #   ./deploy.sh --changed             # pull, build hanya yg berubah sejak commit lama
 #   ./deploy.sh all                   # build semua app satu per satu
 #
-# Apps: portal absensi stok distribusi owner-dashboard admin-dashboard pos-kasir
+# Apps: portal absensi stok distribusi owner-dashboard admin-dashboard pos-kasir finance
 
 set -o pipefail
 
@@ -24,7 +24,7 @@ NPM="/opt/alt/alt-nodejs24/root/usr/lib/node_modules/npm/bin/npm-cli.js"
 NODE_BIN_DIR="/opt/alt/alt-nodejs24/root/usr/bin"
 SERVER_IP="103.77.106.237"
 
-ALL_APPS="portal absensi stok distribusi owner-dashboard admin-dashboard pos-kasir"
+ALL_APPS="portal absensi stok distribusi owner-dashboard admin-dashboard pos-kasir finance"
 
 # --- Map app -> subdomain (portal pakai app.sukashawarma.com) ---
 subdomain_for() {
@@ -36,6 +36,7 @@ subdomain_for() {
     owner-dashboard) echo "owner.sukashawarma.com" ;;
     admin-dashboard) echo "admin.sukashawarma.com" ;;
     pos-kasir)       echo "pos.sukashawarma.com" ;;
+    finance)         echo "finance.sukashawarma.com" ;;
     *)               echo "" ;;
   esac
 }

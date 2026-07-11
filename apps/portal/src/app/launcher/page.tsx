@@ -60,6 +60,10 @@ export default async function LauncherPage() {
   if (['admin', 'owner', 'mitra'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
   }
+  
+  if (staff.role === 'leader') {
+    redirect(`${APP_URL['finance']}/leader`)
+  }
 
   const apps = accessibleApps(staff.role)
 

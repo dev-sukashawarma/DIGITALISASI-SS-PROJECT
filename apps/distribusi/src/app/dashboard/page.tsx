@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useAuth } from '@suka/auth'
 import { useSuratJalanList } from '@/hooks/useSuratJalan'
 import { BottomNav } from '@/components/distribusi/BottomNav'
@@ -11,6 +12,7 @@ import { FileText, ArrowLeftRight, CheckCircle2, Plus, Navigation, ListTodo, His
 export default function DashboardPage() {
   const router = useRouter()
   const { outletStaff, loading: authLoading, signOut } = useAuth()
+  const [showDropdown, setShowDropdown] = useState(false)
 
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
   let resolvedPortalUrl = portalUrl
@@ -100,13 +102,28 @@ export default function DashboardPage() {
             </div>
           </div>
           {/* Avatar visible on mobile right side only */}
-          <div className="md:hidden w-8 h-8 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0">
-            <Avatar name={outletStaff.name} size={32} />
+          <div className="md:hidden relative">
+            <button 
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="w-8 h-8 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center cursor-pointer transition-transform active:scale-95"
+            >
+              <Avatar name={outletStaff.name} size={32} />
+            </button>
+            {showDropdown && (
+              <div className="absolute right-0 top-full mt-2 w-36 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1.5 z-50 flex flex-col">
+                <a href={resolvedPortalUrl} className="px-4 py-2.5 text-xs font-bold text-[#544437] hover:bg-[#faf2e9] transition-colors">
+                  ← Portal Utama
+                </a>
+                <button onClick={signOut} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 text-left flex items-center gap-2 transition-colors">
+                  <LogOut size={12} /> Keluar
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden lg:flex items-center gap-4 xl:gap-8">
           <button
             onClick={() => handleNavigate('/dashboard')}
             className="text-xs font-extrabold text-suka-orange border-b-2 border-suka-orange px-1 py-1 transition-all cursor-pointer"
@@ -134,33 +151,31 @@ export default function DashboardPage() {
         </nav>
 
         {/* User Session Bar - Stacks below on mobile, inline on desktop */}
-        <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-3 border-t md:border-t-0 border-suka-brown/5 pt-2.5 md:pt-0">
-          <div className="flex flex-col text-left">
+        <div className="flex items-center justify-between w-full md:w-auto gap-3 border-t md:border-t-0 border-suka-brown/5 pt-2.5 md:pt-0">
+          <div className="flex flex-col text-left md:text-right">
             <span className="text-xs font-extrabold text-[#1e1b15]">{outletStaff.name}</span>
             <span className="text-[10px] text-suka-orange font-bold uppercase tracking-wider mt-0.5">
               {isPusat ? 'SPV PUSAT' : (outletStaff.outlets?.name ?? 'OUTLET')}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Avatar only on desktop */}
-            <div className="hidden md:block w-9 h-9 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0">
+          <div className="hidden md:block relative">
+            <button 
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="w-9 h-9 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center cursor-pointer transition-transform active:scale-95"
+            >
               <Avatar name={outletStaff.name} size={36} />
-            </div>
-            <a
-              href={resolvedPortalUrl}
-              className="px-3 py-1.5 border border-[#d9c2b2] text-[#544437] font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-[#faf2e9] transition-all active:scale-95 flex items-center gap-1 shrink-0 bg-white shadow-sm"
-            >
-              ← Portal
-            </a>
-            <button
-              onClick={signOut}
-              className="px-3 py-1.5 border border-suka-brown text-suka-brown font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-suka-brown hover:text-white transition-all active:scale-95 cursor-pointer flex items-center gap-1 shrink-0 bg-white"
-              title="Keluar Aplikasi"
-            >
-              <LogOut size={12} />
-              <span>Keluar</span>
             </button>
+            {showDropdown && (
+              <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1.5 z-50 flex flex-col">
+                <a href={resolvedPortalUrl} className="px-4 py-2.5 text-xs font-bold text-[#544437] hover:bg-[#faf2e9] transition-colors">
+                  ← Portal Utama
+                </a>
+                <button onClick={signOut} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 text-left flex items-center gap-2 transition-colors">
+                  <LogOut size={12} /> Keluar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -215,77 +230,6 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Quick Actions Grid (Now at the Top) */}
-        <section className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-5 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="font-extrabold text-xs text-suka-gray-500 uppercase tracking-widest pl-1">Aksi Cepat</h2>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {isPusat ? (
-              <>
-                <button
-                  onClick={() => handleNavigate('/distribusi/surat-jalan/new')}
-                  className="bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-md shadow-suka-orange/20 flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group animate-fade-in"
-                >
-                  <Plus size={20} className="group-hover:scale-110 transition-transform duration-200" />
-                  <span className="leading-tight">Buat Surat Jalan</span>
-                </button>
-                <button
-                  onClick={() => handleNavigate('/distribusi/pengiriman')}
-                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
-                >
-                  <Navigation size={20} className="group-hover:scale-110 transition-transform duration-200" />
-                  <span className="leading-tight">Pantau Pengiriman</span>
-                </button>
-                <button
-                  onClick={() => handleNavigate('/distribusi/surat-jalan')}
-                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
-                >
-                  <ListTodo size={20} className="group-hover:scale-110 transition-transform duration-200" />
-                  <span className="leading-tight">Daftar Surat Jalan</span>
-                </button>
-                <button
-                  onClick={() => handleNavigate('/distribusi/riwayat')}
-                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
-                >
-                  <History size={20} className="group-hover:scale-110 transition-transform duration-200" />
-                  <span className="leading-tight">Riwayat Pengiriman</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => handleNavigate('/distribusi/terima/scan')}
-                  className="bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left shadow-md shadow-suka-orange/20 flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
-                >
-                  <QrCode size={20} className="group-hover:scale-110 transition-transform duration-200" />
-                  <span className="leading-tight">Scan QR Penerimaan</span>
-                </button>
-                <button
-                  onClick={() => handleNavigate('/distribusi/terima')}
-                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
-                >
-                  <Navigation size={20} className="group-hover:scale-110 transition-transform duration-200" />
-                  <span className="leading-tight">Verifikasi Kiriman</span>
-                </button>
-                <button
-                  onClick={() => handleNavigate('/distribusi/riwayat')}
-                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
-                >
-                  <ListTodo size={20} className="group-hover:scale-110 transition-transform duration-200" />
-                  <span className="leading-tight">Riwayat Penerimaan</span>
-                </button>
-                <button
-                  onClick={() => handleNavigate('/stok/ledger')}
-                  className="bg-white/70 border border-suka-orange/10 text-suka-brown hover:bg-suka-orange/5 active:bg-suka-orange/10 font-bold p-4 rounded-xl text-[10px] uppercase tracking-wider text-left flex flex-col justify-between h-24 active:scale-95 transition-all cursor-pointer group"
-                >
-                  <Layers size={20} className="group-hover:scale-110 transition-transform duration-200" />
-                  <span className="leading-tight">Cek Kartu Stok</span>
-                </button>
-              </>
-            )}
-          </div>
-        </section>
 
         {/* 12-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

@@ -5,7 +5,7 @@ import { useAuth } from '@suka/auth'
 import { getCrossAppUrl } from '@/lib/navigation'
 
 interface BottomNavProps {
-  activeTab: 'dashboard' | 'terima' | 'riwayat' | 'surat-jalan' | 'pengiriman' | 'terima-supplier' | 'none'
+  activeTab: 'dashboard' | 'terima' | 'riwayat' | 'surat-jalan' | 'pengiriman' | 'terima-supplier' | 'scan' | 'none'
 }
 
 export function BottomNav({ activeTab }: BottomNavProps) {
@@ -99,18 +99,20 @@ export function BottomNav({ activeTab }: BottomNavProps) {
             <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Dashboard</span>
           </button>
 
-          {/* Terima */}
+          {/* Scan */}
           <button
-            onClick={() => handleNavigate('/distribusi/terima')}
+            onClick={() => handleNavigate('/distribusi/terima/scan')}
             className={`flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer ${
-              activeTab === 'terima'
+              activeTab === 'scan'
                 ? 'bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200'
                 : 'text-[#544437]/75 hover:text-[#701604] px-4 py-1'
             }`}
           >
-            <span className="text-xl">🚚</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Terima</span>
+            <span className="text-xl">📷</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Scan</span>
           </button>
+
+
 
           {/* Riwayat */}
           <button

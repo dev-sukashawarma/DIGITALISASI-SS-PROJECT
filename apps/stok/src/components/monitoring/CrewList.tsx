@@ -280,31 +280,6 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
         )}
       </div>
 
-      {/* Sort options */}
-      <div className="flex gap-4 text-xs font-semibold text-[#544437] bg-[#faf2e9] p-3 rounded-xl border border-[#d9c2b2]/30 shadow-sm">
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="radio"
-            name="sort"
-            value="status"
-            checked={sortBy === 'status'}
-            onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="text-[#f29744] focus:ring-[#f29744] border-[#d9c2b2]/60 focus:ring-offset-0"
-          />
-          Sort by Status
-        </label>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="radio"
-            name="sort"
-            value="name"
-            checked={sortBy === 'name'}
-            onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="text-[#f29744] focus:ring-[#f29744] border-[#d9c2b2]/60 focus:ring-offset-0"
-          />
-          Sort by Name
-        </label>
-      </div>
 
       {/* Header table (visible on slightly larger screens or standard mobile if it fits) */}
       <div className="grid grid-cols-[2.5fr_1.5fr_1.5fr_1.5fr_1.5fr] gap-2 px-4 py-2.5 bg-[#f4e9de] text-[#544437] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-xl border border-[#d9c2b2]/40 shadow-sm">

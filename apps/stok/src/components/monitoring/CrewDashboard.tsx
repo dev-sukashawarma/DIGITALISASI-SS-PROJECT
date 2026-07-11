@@ -61,113 +61,93 @@ export function CrewDashboard() {
 
   return (
     <div className="min-h-screen bg-suka-cream">
-      {/* Top Header App Bar */}
-      <header className="bg-white sticky top-0 z-40 w-full px-4 py-3 border-b border-suka-brown/20 shadow-sm">
+      <header className="bg-white sticky top-0 z-40 w-full px-3 py-2.5 border-b border-suka-brown/20 shadow-sm flex flex-col gap-2.5">
         {/* Top Row: Navigation and Profile */}
         <div className="flex items-center justify-between w-full">
           <Link 
             href="/dashboard" 
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-suka-cream hover:bg-suka-cream/80 border border-suka-brown/20 text-suka-brown transition-all active:scale-95 flex-shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-suka-cream hover:bg-suka-cream/80 border border-suka-brown/20 text-suka-brown transition-all active:scale-95 flex-shrink-0"
             title="Kembali ke Dashboard"
           >
-            <span className="text-base font-bold">←</span>
+            <span className="text-sm font-bold">←</span>
           </Link>
 
           <div className="flex items-center gap-1.5">
             <img 
               src="/logo.png" 
               alt="Suka Logo" 
-              className="h-6 w-auto object-contain" 
+              className="h-5 w-auto object-contain" 
               onError={(e) => { e.currentTarget.style.display = 'none'; }} 
             />
-            <span className="text-xs font-black text-suka-brown tracking-wider uppercase">SS Digital</span>
+            <span className="text-[11px] font-black text-suka-brown tracking-wider uppercase">SS Digital</span>
           </div>
 
-          <div 
-            className="w-9 h-9 rounded-full bg-suka-orange/20 flex items-center justify-center overflow-hidden border border-suka-orange/40 flex-shrink-0 relative"
-            title={`Logged in as ${outletStaff?.name || 'Staff'}`}
-          >
-            {outletStaff?.ref_photo_url && (
-              <img 
-                src={outletStaff.ref_photo_url} 
-                alt="Staff Profile" 
-                className="absolute inset-0 w-full h-full object-cover z-10" 
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              />
-            )}
-            <span className="text-base">🧑‍🍳</span>
+          <div className="w-8 h-8 flex-shrink-0"></div>
+        </div>
+
+        {/* Title Row */}
+        <div className="flex flex-col">
+          <h1 className="text-sm sm:text-base font-black text-suka-brown uppercase tracking-tight leading-tight">
+            {isLoading && !data ? <Skeleton className="h-4 w-32 inline-block" /> : (data?.outlet_name || 'Outlet')} - Monitoring
+          </h1>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <p className="text-[9px] font-bold text-suka-orange uppercase tracking-widest">
+              Stock Control Panel
+            </p>
+            <span className="w-1 h-1 rounded-full bg-suka-brown/30"></span>
+            <span className="text-[9px] font-medium text-suka-brown/70 flex items-center gap-1">
+              <span className="inline-block w-1 h-1 rounded-full bg-green-500 animate-pulse"></span>
+              Updated {displayTime || '...'}
+            </span>
           </div>
         </div>
 
-        {/* Title and Outlet Name */}
-        <div className="mt-3 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-          <div>
-            <h1 className="text-base sm:text-lg font-black text-suka-brown uppercase tracking-tight leading-tight">
-              {isLoading && !data ? <Skeleton className="h-5 w-32 inline-block" /> : (data?.outlet_name || 'Outlet')} - Monitoring
-            </h1>
-            <p className="text-[10px] font-bold text-suka-orange uppercase tracking-widest mt-0.5">
-              Stock Control Panel
-            </p>
+        {/* Action & Meta Row */}
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
+          {/* Meta Tags */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+            <span className="bg-red-600 text-white px-2 py-0.5 rounded text-[9px] font-bold uppercase whitespace-nowrap">
+              Outlet {isLoading && !data ? '...' : (data?.outlet_name ? 'Active' : '...')}
+            </span>
+            <span className="bg-suka-cream border border-suka-brown/10 text-suka-brown px-2 py-0.5 rounded text-[9px] font-medium whitespace-nowrap">
+              Crew: <strong className="font-bold">{outletStaff?.name || '...'}</strong>
+            </span>
+            <span className="bg-suka-cream border border-suka-brown/10 text-suka-brown px-2 py-0.5 rounded text-[9px] font-medium whitespace-nowrap">
+              Items: <strong className="font-bold">{isLoading && !data ? <Skeleton className="h-2 w-4 inline-block" /> : (data?.items?.length || '0')}</strong>
+            </span>
           </div>
 
           {/* Actions Button Group */}
-          <div className="flex items-center gap-1.5 mt-1 md:mt-0 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 w-full sm:w-auto">
             <a
               href={resolvedPortalUrl}
-              className="flex-1 md:flex-initial px-3 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-suka-cream border border-suka-brown/20 text-suka-brown font-bold text-[11px] transition-all active:scale-95 shadow-sm"
+              className="flex-1 sm:flex-initial px-2 h-7 flex items-center justify-center rounded-md bg-white hover:bg-suka-cream border border-suka-brown/20 text-suka-brown font-bold text-[10px] transition-all active:scale-95 shadow-sm"
               title="Portal"
             >
               Portal
             </a>
             <button
               onClick={() => refetch()}
-              className="px-3 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-suka-cream border border-suka-brown/20 text-suka-brown font-bold text-[11px] transition-all active:scale-95 shadow-sm flex items-center gap-1"
+              className="flex-[1.2] sm:flex-initial px-2 h-7 flex items-center justify-center rounded-md bg-white hover:bg-suka-cream border border-suka-brown/20 text-suka-brown font-bold text-[10px] transition-all active:scale-95 shadow-sm gap-1"
               title="Refresh"
             >
               🔄 Refresh
             </button>
             <button
               onClick={handleLogout}
-              className="flex-1 md:flex-initial px-3 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-red-50 border border-red-200 text-red-600 font-bold text-[11px] transition-all active:scale-95 shadow-sm"
+              className="flex-1 sm:flex-initial px-2 h-7 flex items-center justify-center rounded-md bg-white hover:bg-red-50 border border-red-200 text-red-600 font-bold text-[10px] transition-all active:scale-95 shadow-sm"
               title="Logout"
             >
               Keluar
             </button>
           </div>
         </div>
-
-        {/* Meta Information Bar */}
-        <div className="mt-3 pt-3 border-t border-suka-brown/10 flex flex-col gap-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[11px] text-suka-brown">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="bg-red-600 text-white px-2 py-0.5 rounded-full font-bold text-[9px] tracking-wide uppercase">
-                Outlet {isLoading && !data ? '...' : (data?.outlet_name ? 'Active' : '...')}
-              </span>
-              <span className="font-semibold">
-                Crew: <span className="font-bold text-gray-800">{outletStaff?.name || '...'}</span>
-              </span>
-            </div>
-            <span className="font-medium text-right">
-              Total Items: <span className="font-bold text-suka-brown">{isLoading && !data ? <Skeleton className="h-3 w-8 inline-block" /> : (data?.items?.length || '0')}</span>
-            </span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] text-suka-brown/60 font-semibold border-t border-suka-brown/10 pt-2">
-            <span className="flex items-center gap-1">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-              Check stok status before shifts & opname
-            </span>
-            <span>
-              Last updated: {displayTime || 'Never'}
-            </span>
-          </div>
-        </div>
       </header>
 
-      <main className="px-4 flex flex-col md:grid md:grid-cols-12 md:gap-6 mt-6 pb-28 max-w-7xl mx-auto">
+      <main className="px-4 flex flex-col gap-6 mt-6 pb-28 max-w-7xl mx-auto">
         {/* Connection unstable alert */}
         {isError && (
-          <div className="col-span-12 p-3.5 bg-[#ffdad6] text-[#ba1a1a] rounded-2xl border border-[#ba1a1a]/20 text-xs font-semibold flex flex-col gap-2">
+          <div className="w-full p-3.5 bg-[#ffdad6] text-[#ba1a1a] rounded-2xl border border-[#ba1a1a]/20 text-xs font-semibold flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <span>⚠️</span> Connection unstable
             </div>
@@ -179,8 +159,8 @@ export function CrewDashboard() {
           </div>
         )}
 
-        {/* Left Column: Real-time Stock Balance Grid */}
-        <div className="col-span-12 md:col-span-7 order-2 md:order-1 space-y-4">
+        {/* Real-time Stock Balance Section (Full Width) */}
+        <div className="w-full space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-gray-900 uppercase tracking-wider">
               Saldo Stok Real-time
@@ -189,86 +169,71 @@ export function CrewDashboard() {
               Filter <span>⚙️</span>
             </button>
           </div>
-          
+
           {/* List */}
           <CrewList items={data?.items || []} onItemClick={setSelectedItem} loading={isLoading && !data} />
-        </div>
 
-        {/* Right Column: Alerts & Quick Actions */}
-        <div className="col-span-12 md:col-span-5 order-1 md:order-2 space-y-6">
-          {/* Section 1: Critical Alerts Widget */}
-          {isLoading && !data ? (
-            <Skeleton className="h-44 w-full" />
-          ) : (
-            (criticalItems.length > 0 || isOpnameOverdue) && (
-              <section className="bg-white rounded-2xl border border-suka-brown/20 shadow-sm p-4 flex flex-col gap-4">
-                <div className="flex items-center gap-2 text-red-600">
-                  <span className="text-xl">⚠️</span>
-                  <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Peringatan Kritis</h2>
-                </div>
-                
-                <div className="space-y-2">
-                  {criticalItems.map((item) => (
-                    <div key={item.bahan_baku_id} className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-200">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-red-700 text-sm">{item.item_name}</span>
-                        <span className="text-xs text-gray-600">
-                          {formatCompositeSaldo(item.current_qty, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / <span className="font-bold text-red-700">Reorder {item.threshold} {item.satuan}</span>
-                        </span>
-                      </div>
-                      <span className="text-red-600 font-bold text-lg">↓</span>
+          {/* Alerts Row (stacked vertically) */}
+          <div className="flex flex-col gap-4 w-full pt-4">
+            {/* Critical Alerts Widget */}
+            {isLoading && !data ? (
+              <Skeleton className="h-14 w-full rounded-2xl" />
+            ) : (
+              (criticalItems.length > 0 || isOpnameOverdue) && (
+                <details className="group bg-white rounded-2xl border border-suka-brown/20 shadow-sm flex flex-col h-fit">
+                  <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
+                    <div className="flex items-center gap-2 text-red-600">
+                      <span className="text-xl">⚠️</span>
+                      <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Peringatan Kritis</h2>
                     </div>
-                  ))}
+                    <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
+                  </summary>
+                  
+                  <div className="px-4 pb-4 flex flex-col gap-4">
+                    <div className="space-y-2">
+                      {criticalItems.map((item) => (
+                        <div key={item.bahan_baku_id} className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-200">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-red-700 text-sm">{item.item_name}</span>
+                            <span className="text-xs text-gray-600">
+                              {formatCompositeSaldo(item.current_qty, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / <span className="font-bold text-red-700">Reorder {item.threshold} {item.satuan}</span>
+                            </span>
+                          </div>
+                          <span className="text-red-600 font-bold text-lg">↓</span>
+                        </div>
+                      ))}
 
-                  {isOpnameOverdue && (
-                    <div className="flex items-start gap-3 p-3 bg-suka-cream rounded-xl border border-suka-brown/20">
-                      <span className="text-xl">📅</span>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-gray-900 text-sm">Opname Jatuh Tempo</span>
-                        <p className="text-xs text-gray-600">
-                          {opnameAgeText} (<span className="text-red-600 font-bold uppercase text-[9px]">Overdue</span>)
-                        </p>
-                      </div>
+                      {isOpnameOverdue && (
+                        <div className="flex items-start gap-3 p-3 bg-suka-cream rounded-xl border border-suka-brown/20">
+                          <span className="text-xl">📅</span>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-gray-900 text-sm">Opname Jatuh Tempo</span>
+                            <p className="text-xs text-gray-600">
+                              {opnameAgeText} (<span className="text-red-600 font-bold uppercase text-[9px]">Overdue</span>)
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                
-                <Link
-                  href="/stok/opname/new"
-                  className="w-full bg-suka-orange hover:bg-suka-orange/90 text-suka-ink font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-center active:scale-95"
-                >
-                  📋 Mulai Opname Baru
-                </Link>
-              </section>
-            )
-          )}
+                    
+                    <Link
+                      href="/stok/opname/new"
+                      className="w-full bg-suka-orange hover:bg-suka-orange/90 text-suka-ink font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-center active:scale-95"
+                    >
+                      📋 Mulai Opname Baru
+                    </Link>
+                  </div>
+                </details>
+              )
+            )}
 
-          {/* Section: Production Estimate Widget */}
-          {!isLoading && data?.items && data.items.length > 0 && (
-            <ProductionEstimateWidget items={data.items} />
-          )}
-
-          <section className="bg-white border border-suka-brown/20 rounded-2xl p-5 shadow-sm space-y-4">
-            <h3 className="font-bold text-xs text-suka-brown uppercase tracking-wider pl-0.5">Aksi Cepat</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <Link href="/stok/permintaan" className="bg-suka-cream/50 border border-suka-brown/20 hover:bg-suka-cream rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center hover:scale-[1.02] transition-all active:scale-95">
-                <span className="text-xl">📝</span>
-                <span className="text-xs font-semibold text-suka-brown">Permintaan Bahan</span>
-              </Link>
-              <Link href="/stok/ledger/new" className="bg-suka-cream/50 border border-suka-brown/20 hover:bg-suka-cream rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center hover:scale-[1.02] transition-all active:scale-95">
-                <span className="text-xl">📒</span>
-                <span className="text-xs font-semibold text-suka-brown">Entri Ledger</span>
-              </Link>
-              <Link href="/stok/opname/new" className="bg-suka-cream/50 border border-suka-brown/20 hover:bg-suka-cream rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center hover:scale-[1.02] transition-all active:scale-95">
-                <span className="text-xl">📋</span>
-                <span className="text-xs font-semibold text-suka-brown">Mulai Opname</span>
-              </Link>
-              <Link href="/stok/permintaan" className="bg-suka-cream/50 border border-suka-brown/20 hover:bg-suka-cream rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center hover:scale-[1.02] transition-all active:scale-95">
-                <span className="text-xl">📝</span>
-                <span className="text-xs font-semibold text-suka-brown">Permintaan Bahan</span>
-              </Link>
-            </div>
-          </section>
+            {/* Production Estimate Widget */}
+            {!isLoading && data?.items && data.items.length > 0 && (
+              <div className="h-fit">
+                <ProductionEstimateWidget items={data.items} />
+              </div>
+            )}
+          </div>
         </div>
       </main>
 

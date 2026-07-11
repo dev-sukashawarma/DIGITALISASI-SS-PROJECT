@@ -14,13 +14,16 @@ export function ProductionEstimateWidget({ items }: Props) {
   if (estimates.length === 0) return null;
 
   return (
-    <section className="bg-white rounded-2xl border border-suka-brown/20 shadow-sm p-4 flex flex-col gap-4">
-      <div className="flex items-center gap-2 text-suka-orange">
-        <span className="text-xl">🥙</span>
-        <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Estimasi Produksi</h2>
-      </div>
+    <details className="group bg-white rounded-2xl border border-suka-brown/20 shadow-sm flex flex-col">
+      <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
+        <div className="flex items-center gap-2 text-suka-orange">
+          <span className="text-xl">🥙</span>
+          <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Estimasi Produksi</h2>
+        </div>
+        <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
+      </summary>
       
-      <div className="space-y-3">
+      <div className="space-y-3 px-4 pb-4">
         {estimates.map((est) => (
           <div key={est.menuName} className="flex flex-col p-3 bg-suka-cream/30 rounded-xl border border-suka-brown/10">
             <div className="flex justify-between items-center mb-1">
@@ -33,6 +36,6 @@ export function ProductionEstimateWidget({ items }: Props) {
           </div>
         ))}
       </div>
-    </section>
+    </details>
   );
 }

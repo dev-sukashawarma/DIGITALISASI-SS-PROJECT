@@ -35,9 +35,10 @@ export default function OpnamePage() {
           </Link>
           <div className="flex flex-col">
             <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Riwayat Opname Stok</h1>
-            <p className="text-[10px] text-[#544437]/75 font-bold mt-0.5">
-              Outlet {outletStaff.name} • {outletStaff.role?.toUpperCase()}
-            </p>
+            <div className="flex flex-col text-[10px] text-[#544437]/75 font-bold mt-0.5">
+              <p>Crew : {outletStaff.name}</p>
+              <p>Outlet : {outletStaff.outlets?.name || 'Unknown'}</p>
+            </div>
           </div>
         </div>
 

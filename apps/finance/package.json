@@ -20,7 +20,9 @@
     "@supabase/ssr": "^0.2.0",
     "@suka/auth": "*",
     "@suka/design-system": "*",
-    "@tanstack/react-query": "^5.101.0"
+    "@tanstack/react-query": "^5.101.0",
+    "lucide-react": "^0.300.0",
+    "sonner": "^1.4.0"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

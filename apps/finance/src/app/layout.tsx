@@ -1,6 +1,8 @@
 import { headers } from 'next/headers'
+import { Toaster } from 'sonner'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { Providers } from './Providers'
+import { CashNav } from '@/components/CashNav'
 import './globals.css'
 
 export const metadata = {
@@ -27,8 +29,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className="antialiased">
-        <Providers initialStaff={initialStaff}>{children}</Providers>
+      <body className="antialiased bg-suka-gray-50">
+        <Providers initialStaff={initialStaff}>
+          <CashNav />
+          <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+          <Toaster position="top-center" richColors />
+        </Providers>
       </body>
     </html>
   )

@@ -24,6 +24,12 @@
       "runtimeExecutable": "yarn",
       "runtimeArgs": ["workspace", "@suka/owner-dashboard", "dev"],
       "port": 3003
+    },
+    {
+      "name": "finance",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["workspace", "@suka/finance", "dev"],
+      "port": 3020
     }
   ]
 }

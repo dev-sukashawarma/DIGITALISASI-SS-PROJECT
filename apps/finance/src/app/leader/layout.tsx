@@ -1,26 +1,10 @@
 import React from 'react'
-import { Sidebar } from '@suka/design-system'
-import { headers } from 'next/headers'
+import { LeaderLayout as LeaderLayoutComponent } from '@/components/LeaderLayout'
 
-export default async function LeaderLayout({ children }: { children: React.ReactNode }) {
-  const currentPathname = (await headers()).get('x-invoke-path') || '/leader'
-  
-  const menuItems = [
-    { label: 'Overview', href: '/leader' },
-    { label: 'Petty Cash', href: '/leader/petty-cash' },
-  ]
-
+export default function LeaderLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-suka-gray-50">
-      {/* Sidebar untuk navigasi desktop/tablet */}
-      <Sidebar menuItems={menuItems} currentPathname={currentPathname} />
-      
-      {/* Konten Utama */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">
-          {children}
-        </div>
-      </main>
-    </div>
+    <LeaderLayoutComponent>
+      {children}
+    </LeaderLayoutComponent>
   )
 }

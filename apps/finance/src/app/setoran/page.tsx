@@ -25,6 +25,7 @@ export default function SetoranPage() {
   const [note, setNote] = useState('')
   const [proofFile, setProofFile] = useState<File | null>(null)
   const [salesDate, setSalesDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
   const { data: expectedCash = 0, isLoading: isLoadingExpected } = useExpectedCash(outletId || null, salesDate)
 
@@ -43,10 +44,19 @@ export default function SetoranPage() {
       return
     }
 
+    setShowConfirmModal(true)
+  }
+
+  const executeDeposit = () => {
+    const amt = Number(amount)
     deposit.mutate(
       { location, amount: amt, outletId: outletId || null, note: note.trim() || null, proofFile },
       {
-        onSuccess: () => { toast.success('Setoran berhasil dicatat & masuk Kas Pusat!'); reset() },
+        onSuccess: () => { 
+          toast.success('Setoran berhasil dicatat & masuk Kas Pusat!')
+          setShowConfirmModal(false)
+          reset() 
+        },
         onError: (e: unknown) => toast.error((e as Error).message),
       }
     )
@@ -173,6 +183,35 @@ export default function SetoranPage() {
           </div>
         )}
       </SectionCard>
+
+      {/* Konfirmasi Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-suka-brown mb-2">Konfirmasi Setoran</h3>
+              <p className="text-suka-gray-600 mb-4">
+                Anda yakin ingin mencatat setoran sebesar <span className="font-bold text-suka-ink">{rupiah(Number(amount))}</span>?
+              </p>
+              <div className="bg-amber-50 text-amber-800 p-3 rounded-xl text-sm border border-amber-100">
+                ⚠️ Pastikan jumlah uang fisik yang Anda terima sudah dihitung dengan benar dan sesuai dengan nominal ini.
+              </div>
+            </div>
+            <div className="bg-suka-gray-50 px-6 py-4 flex justify-end gap-3 border-t border-suka-gray-100">
+              <Button 
+                variant="secondary" 
+                onClick={() => setShowConfirmModal(false)}
+                className="bg-white border-suka-gray-200 text-suka-gray-600 hover:bg-suka-gray-100"
+              >
+                Batal
+              </Button>
+              <Button onClick={executeDeposit} disabled={deposit.isPending}>
+                {deposit.isPending ? <Spinner size={16} /> : 'Ya, Catat Setoran'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

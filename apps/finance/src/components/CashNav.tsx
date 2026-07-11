@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, LogOut } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, LogOut } from 'lucide-react'
 
 const LINKS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/transaksi', label: 'Transaksi', icon: ArrowLeftRight },
+  { href: '/payroll', label: 'Gaji', icon: Wallet },
   { href: '/transfer', label: 'Transfer', icon: Repeat },
   { href: '/lokasi', label: 'Rekening & Kas', icon: Landmark },
 ]

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
-import { Plus } from 'lucide-react'
+import { Plus, Edit2 } from 'lucide-react'
 import { useCashOverview } from '@/hooks/useCashData'
 import { useCashMutations } from '@/hooks/useCashMutations'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
@@ -15,9 +15,10 @@ import type { CashKind } from '@/lib/types'
 
 export default function LokasiPage() {
   const { locations, isLoading } = useCashOverview()
-  const { createLocation } = useCashMutations()
+  const { createLocation, updateLocation } = useCashMutations()
   const { isChecker } = useFinanceRole()
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const [label, setLabel] = useState('')
   const [kind, setKind] = useState<CashKind>('bank')
@@ -28,25 +29,52 @@ export default function LokasiPage() {
   const summary = summarizeBalances(locations)
 
   const reset = () => {
+    setEditingId(null)
     setLabel(''); setKind('bank'); setBankName(''); setAccountNo(''); setHolder('')
+  }
+
+  const handleEdit = (l: any) => {
+    setEditingId(l.id)
+    setLabel(l.label)
+    setKind(l.kind)
+    setBankName(l.bank_name || '')
+    setAccountNo(l.account_no || '')
+    setHolder(l.holder_name || '')
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleSubmit = () => {
     if (!label.trim()) { toast.error('Nama lokasi wajib diisi'); return }
-    createLocation.mutate(
-      {
-        label: label.trim(),
-        kind,
-        bank_name: kind === 'bank' ? bankName.trim() || null : null,
-        account_no: kind === 'bank' ? accountNo.trim() || null : null,
-        holder_name: holder.trim() || null,
-      },
-      {
-        onSuccess: () => { toast.success('Lokasi kas ditambahkan'); reset(); setShowForm(false) },
-        onError: (e: unknown) => toast.error((e as Error).message),
-      }
-    )
+    
+    const payload = {
+      label: label.trim(),
+      kind,
+      bank_name: kind === 'bank' ? bankName.trim() || null : null,
+      account_no: kind === 'bank' ? accountNo.trim() || null : null,
+      holder_name: holder.trim() || null,
+    }
+
+    if (editingId) {
+      updateLocation.mutate(
+        { id: editingId, ...payload },
+        {
+          onSuccess: () => { toast.success('Lokasi kas diperbarui'); reset(); setShowForm(false) },
+          onError: (e: unknown) => toast.error((e as Error).message),
+        }
+      )
+    } else {
+      createLocation.mutate(
+        payload,
+        {
+          onSuccess: () => { toast.success('Lokasi kas ditambahkan'); reset(); setShowForm(false) },
+          onError: (e: unknown) => toast.error((e as Error).message),
+        }
+      )
+    }
   }
+
+  const isPending = createLocation.isPending || updateLocation.isPending
 
   return (
     <div className="space-y-6">
@@ -56,7 +84,13 @@ export default function LokasiPage() {
           <p className="text-suka-gray-500">Kelola rekening bank dan kas tunai (mis. Kas Pusat).</p>
         </div>
         {isChecker && (
-          <Button onClick={() => setShowForm((s) => !s)} className="flex items-center gap-2">
+          <Button onClick={() => {
+            if (showForm) {
+              reset(); setShowForm(false);
+            } else {
+              reset(); setShowForm(true);
+            }
+          }} className="flex items-center gap-2">
             <Plus size={16} /> Tambah
           </Button>
         )}
@@ -69,7 +103,7 @@ export default function LokasiPage() {
       </div>
 
       {showForm && isChecker && (
-        <SectionCard title="Tambah Lokasi Kas">
+        <SectionCard title={editingId ? "Edit Lokasi Kas" : "Tambah Lokasi Kas"}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="text-sm font-semibold text-suka-gray-600">
               Nama Lokasi
@@ -106,8 +140,8 @@ export default function LokasiPage() {
             </label>
           </div>
           <div className="mt-4 flex gap-2">
-            <Button onClick={handleSubmit} disabled={createLocation.isPending}>
-              {createLocation.isPending ? <Spinner size={16} /> : 'Simpan'}
+            <Button onClick={handleSubmit} disabled={isPending}>
+              {isPending ? <Spinner size={16} /> : 'Simpan'}
             </Button>
             <Button onClick={() => { reset(); setShowForm(false) }}
               className="bg-white text-suka-ink border-suka-gray-200 hover:bg-suka-gray-50">Batal</Button>
@@ -129,6 +163,7 @@ export default function LokasiPage() {
                   <th className="py-2">Jenis</th>
                   <th className="py-2">Detail</th>
                   <th className="py-2 text-right">Saldo</th>
+                  {isChecker && <th className="py-2 text-right">Aksi</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100">
@@ -144,6 +179,17 @@ export default function LokasiPage() {
                       {l.kind === 'bank' ? `${l.bank_name ?? '-'} · ${l.account_no ?? '-'}` : (l.holder_name ?? '-')}
                     </td>
                     <td className={`py-3 text-right font-bold ${l.saldo < 0 ? 'text-red-600' : 'text-suka-ink'}`}>{rupiah(l.saldo)}</td>
+                    {isChecker && (
+                      <td className="py-3 text-right">
+                        <button
+                          onClick={() => handleEdit(l)}
+                          className="p-2 text-suka-gray-400 hover:text-suka-orange hover:bg-suka-orange/10 rounded-lg transition-colors inline-flex items-center justify-center"
+                          title="Edit Lokasi"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

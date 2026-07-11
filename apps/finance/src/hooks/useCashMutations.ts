@@ -107,5 +107,27 @@ export function useCashMutations() {
     onSuccess: invalidate,
   })
 
-  return { submit, approve, reject, markPaid, transfer, createLocation }
+  // Checker: edit lokasi kas (rekening / Kas Pusat).
+  const updateLocation = useMutation({
+    mutationFn: async (v: {
+      id: string
+      label: string
+      kind: CashKind
+      bank_name?: string | null
+      account_no?: string | null
+      holder_name?: string | null
+    }) => {
+      const { error } = await supabase.from('cash_location').update({
+        label: v.label,
+        kind: v.kind,
+        bank_name: v.bank_name ?? null,
+        account_no: v.account_no ?? null,
+        holder_name: v.holder_name ?? null,
+      }).eq('id', v.id)
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+  })
+
+  return { submit, approve, reject, markPaid, transfer, createLocation, updateLocation }
 }

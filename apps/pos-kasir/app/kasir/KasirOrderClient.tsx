@@ -1466,24 +1466,24 @@ export default function KasirOrderClient({
                     })
 
                     return rootItems.map((oi: any) => (
-                      <div key={oi.id} className="py-2 relative border-b border-slate-200/60 last:border-0 last:pb-0">
+                      <div key={oi.id} className="py-1.5 relative border-b border-slate-100/70 last:border-0 last:pb-0">
                         {(oi.parsedNote || (childrenMap[oi.parsedId] && childrenMap[oi.parsedId].length > 0)) && (
-                          <div className="absolute left-[11px] top-8 bottom-3 w-[2px] bg-indigo-200" />
+                          <div className="absolute left-[11px] top-6 bottom-3 w-[2px] bg-indigo-200" />
                         )}
 
-                        <div className="flex items-start gap-3 relative z-10">
+                        <div className="flex items-start gap-2 relative z-10">
                           <span className="font-bold text-indigo-600 text-sm w-6 shrink-0 text-center bg-slate-50">{oi.quantity}x</span>
                           
-                          <div className="w-12 h-12 shrink-0 bg-white rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center shadow-sm">
+                          <div className="w-8 h-8 shrink-0 bg-white rounded-md overflow-hidden border border-slate-200 flex items-center justify-center shadow-sm">
                             {oi.menu_items?.image_url ? (
                               <img src={oi.menu_items.image_url} alt={oi.parsedName} className="w-full h-full object-cover" />
                             ) : (
-                              <ChefHat className="text-slate-300 w-6 h-6" />
+                              <ChefHat className="text-slate-300 w-4 h-4" />
                             )}
                           </div>
 
                           <div className="min-w-0 flex-1 mt-0.5">
-                            <span className="text-sm font-bold text-slate-800 leading-snug break-words">{oi.parsedName}</span>
+                            <span className="text-sm font-semibold text-slate-800 leading-snug break-words">{oi.parsedName}</span>
                           </div>
                         </div>
 

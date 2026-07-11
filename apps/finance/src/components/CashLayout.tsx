@@ -44,7 +44,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const { outletStaff, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  if (pathname?.startsWith('/leader')) {
+  if (pathname?.startsWith('/leader') || pathname?.startsWith('/korlap')) {
     return <>{children}</>
   }
 

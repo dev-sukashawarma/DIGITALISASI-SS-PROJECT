@@ -26,7 +26,7 @@ ALTER TABLE public.petty_cash_topups
 -- Add disbursement and tracking columns
 ALTER TABLE public.petty_cash_topups
   ADD COLUMN IF NOT EXISTS disbursement_method TEXT CHECK (disbursement_method IN ('potong_setoran', 'transfer', 'tunai')),
-  ADD COLUMN IF NOT EXISTS disbursed_from_cash_location_id UUID REFERENCES public.cash_locations(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS disbursed_from_cash_location_id UUID REFERENCES public.cash_location(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS finance_approved_by UUID REFERENCES public.outlet_staff(id) ON DELETE SET NULL;
 
 -- Update existing RPC review_petty_cash_topup to handle 'forward' action by leader

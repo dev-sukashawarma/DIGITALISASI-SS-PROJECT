@@ -8,7 +8,23 @@ export default function LogoutButton() {
 
   async function handleLogout() {
     const supabase = createSupabaseBrowserClient()
-    await supabase.auth.signOut()
+    try {
+      await Promise.race([
+        supabase.auth.signOut({ scope: 'local' }),
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ])
+    } catch {}
+    
+    if (typeof document !== 'undefined') {
+      const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined
+      for (const raw of document.cookie.split(';')) {
+        const name = raw.split('=')[0].trim()
+        if (!name.startsWith('sb-')) continue
+        document.cookie = `${name}=; Max-Age=0; path=/`
+        if (domain) document.cookie = `${name}=; Max-Age=0; path=/; domain=${domain}`
+      }
+    }
+    
     router.push('/')
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@suka/auth'
 import { useSuratJalanList } from '@/hooks/useSuratJalan'
 import { BottomNav } from '@/components/distribusi/BottomNav'
@@ -13,6 +13,26 @@ export default function DashboardPage() {
   const router = useRouter()
   const { outletStaff, loading: authLoading, signOut } = useAuth()
   const [showDropdown, setShowDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const mobileDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node
+      const isOutsideDesktop = dropdownRef.current ? !dropdownRef.current.contains(target) : true
+      const isOutsideMobile = mobileDropdownRef.current ? !mobileDropdownRef.current.contains(target) : true
+      
+      if (isOutsideDesktop && isOutsideMobile) {
+        setShowDropdown(false)
+      }
+    }
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showDropdown])
 
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
   let resolvedPortalUrl = portalUrl
@@ -102,7 +122,7 @@ export default function DashboardPage() {
             </div>
           </div>
           {/* Avatar visible on mobile right side only */}
-          <div className="md:hidden relative">
+          <div className="md:hidden relative" ref={mobileDropdownRef}>
             <button 
               onClick={() => setShowDropdown(!showDropdown)}
               className="w-8 h-8 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center cursor-pointer transition-transform active:scale-95"
@@ -159,7 +179,7 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="hidden md:block relative">
+          <div className="hidden md:block relative" ref={dropdownRef}>
             <button 
               onClick={() => setShowDropdown(!showDropdown)}
               className="w-9 h-9 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center cursor-pointer transition-transform active:scale-95"

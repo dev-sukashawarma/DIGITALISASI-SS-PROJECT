@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { Card, Badge, Button, StatusPill, Spinner, EmptyState } from '@suka/design-system'
-import { ApprovalModal } from './ApprovalModal'
+import { ApprovalModal } from '@/components/petty-cash/ApprovalModal'
 import { usePettyCashRequests, useProcessPettyCashLeader } from '@/hooks/usePettyCash'
 import { tanggal } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'

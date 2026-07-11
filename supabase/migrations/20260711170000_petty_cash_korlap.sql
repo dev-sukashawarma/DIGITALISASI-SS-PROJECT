@@ -18,16 +18,29 @@ BEGIN
 END
 $$;
 
+-- Migrate any rows still carrying the old 2-step 'forwarded' status before the
+-- stricter CHECK constraint below is validated against existing data.
+UPDATE public.petty_cash_topups SET status = 'forwarded_to_finance' WHERE status = 'forwarded';
+
 -- Add new constraint allowing 'forwarded_to_korlap' and 'forwarded_to_finance'
-ALTER TABLE public.petty_cash_topups 
-  ADD CONSTRAINT petty_cash_topups_status_check 
+ALTER TABLE public.petty_cash_topups
+  ADD CONSTRAINT petty_cash_topups_status_check
   CHECK (status IN ('pending', 'forwarded_to_korlap', 'forwarded_to_finance', 'approved', 'rejected'));
 
 -- Add column for Korlap approval
 ALTER TABLE public.petty_cash_topups
   ADD COLUMN IF NOT EXISTS korlap_approved_by UUID REFERENCES public.outlet_staff(id) ON DELETE SET NULL;
 
--- Update existing RPC review_petty_cash_topup to handle region check by leader
+-- Explicit per-outlet routing flag, replacing name/address string-matching.
+-- Backfilled once from the previous ILIKE '%bogor%' heuristic so behavior is unchanged;
+-- going forward this should be toggled directly instead of relying on outlet name/address text.
+ALTER TABLE public.outlets
+  ADD COLUMN IF NOT EXISTS requires_korlap_review BOOLEAN NOT NULL DEFAULT true;
+
+UPDATE public.outlets
+SET requires_korlap_review = NOT (address ILIKE '%bogor%' OR name ILIKE '%bogor%');
+
+-- Update existing RPC review_petty_cash_topup to route via outlets.requires_korlap_review
 CREATE OR REPLACE FUNCTION public.review_petty_cash_topup(
   p_topup_id UUID,
   p_action TEXT -- 'approve' (to forward), 'reject'
@@ -39,8 +52,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_topup RECORD;
-  v_outlet RECORD;
-  v_is_bogor BOOLEAN := false;
+  v_needs_korlap BOOLEAN := true;
 BEGIN
   SELECT * INTO v_topup FROM public.petty_cash_topups WHERE id = p_topup_id;
   IF NOT FOUND THEN
@@ -51,24 +63,19 @@ BEGIN
     RAISE EXCEPTION 'Top up is already %', v_topup.status;
   END IF;
 
-  -- Cek data outlet untuk mendeteksi apakah di Bogor
-  SELECT * INTO v_outlet FROM public.outlets WHERE id = v_topup.outlet_id;
-  IF FOUND THEN
-    IF v_outlet.address ILIKE '%bogor%' OR v_outlet.name ILIKE '%bogor%' THEN
-      v_is_bogor := true;
-    END IF;
-  END IF;
+  SELECT requires_korlap_review INTO v_needs_korlap FROM public.outlets WHERE id = v_topup.outlet_id;
+  v_needs_korlap := COALESCE(v_needs_korlap, true);
 
   IF p_action = 'approve' THEN
-    IF v_is_bogor THEN
-      -- Bogor langsung ke Finance
-      UPDATE public.petty_cash_topups 
-      SET status = 'forwarded_to_finance', approved_by = auth.uid(), approved_at = NOW()
+    IF v_needs_korlap THEN
+      -- Luar Bogor ke Korlap dulu
+      UPDATE public.petty_cash_topups
+      SET status = 'forwarded_to_korlap', approved_by = auth.uid(), approved_at = NOW()
       WHERE id = p_topup_id;
     ELSE
-      -- Luar Bogor ke Korlap dulu
-      UPDATE public.petty_cash_topups 
-      SET status = 'forwarded_to_korlap', approved_by = auth.uid(), approved_at = NOW()
+      -- Bogor langsung ke Finance
+      UPDATE public.petty_cash_topups
+      SET status = 'forwarded_to_finance', approved_by = auth.uid(), approved_at = NOW()
       WHERE id = p_topup_id;
     END IF;
   ELSIF p_action = 'reject' THEN
@@ -94,6 +101,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_topup RECORD;
+  v_caller_role TEXT;
 BEGIN
   SELECT * INTO v_topup FROM public.petty_cash_topups WHERE id = p_topup_id;
   IF NOT FOUND THEN
@@ -102,6 +110,15 @@ BEGIN
 
   IF v_topup.status != 'forwarded_to_korlap' THEN
     RAISE EXCEPTION 'Top up is not ready for Korlap processing (status: %)', v_topup.status;
+  END IF;
+
+  SELECT role INTO v_caller_role FROM public.outlet_staff WHERE id = auth.uid();
+  IF v_caller_role IS NULL OR v_caller_role NOT IN ('korlap', 'admin', 'admin_finance', 'owner') THEN
+    RAISE EXCEPTION 'Not authorized to process Korlap petty cash requests';
+  END IF;
+
+  IF v_topup.outlet_id NOT IN (SELECT public.accessible_outlet_ids()) THEN
+    RAISE EXCEPTION 'Not authorized to process this outlet''s petty cash request';
   END IF;
 
   IF p_action = 'approve' THEN

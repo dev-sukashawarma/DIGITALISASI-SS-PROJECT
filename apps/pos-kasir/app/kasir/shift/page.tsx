@@ -130,10 +130,11 @@ export default function ShiftPage() {
     [activeShift, shiftSalesTotal],
   )
 
-  const approvedTopupsTotal = useMemo(
-    () => topups.filter(t => t.status === 'approved').reduce((s, t) => s + Number(t.amount), 0),
-    [topups],
-  )
+  const approvedTopupsTotal = useMemo(() => {
+    return topups
+      .filter((t) => t.status === 'approved' || t.status === 'completed')
+      .reduce((sum, t) => sum + Number(t.amount), 0)
+  }, [topups])
 
   const expensesTotal = useMemo(
     () => expenses.reduce((s, e) => s + Number(e.amount), 0),

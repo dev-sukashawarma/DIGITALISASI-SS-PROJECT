@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Card, Spinner } from "@suka/design-system";
 import { Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin } from "lucide-react";
 import { useAuth } from '@suka/auth';
@@ -55,18 +56,20 @@ export function AttendanceKioskPanel() {
   const kiosk = useClockKiosk(outletStaff?.outlet_id || "", { lockToStaffId: outletStaff?.id });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const loopRef = useRef<number | null>(null);
-
-
+  const router = useRouter();
 
   useEffect(() => {
     if (kiosk.result) {
       if (kiosk.result.ok) {
         triggerSuccessFeedback();
+        setTimeout(() => {
+          router.push("/dashboard/kru-checklist");
+        }, 1500);
       } else {
         triggerErrorFeedback();
       }
     }
-  }, [kiosk.result]);
+  }, [kiosk.result, router]);
 
   useEffect(() => {
     if (!outletStaff?.outlet_id) return;

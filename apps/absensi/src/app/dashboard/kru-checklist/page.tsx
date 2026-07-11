@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@suka/design-system";
 import { ListChecks, CheckCircle2, Circle, ChevronDown, ChevronUp, User, Lock, Sunrise, Sunset } from "lucide-react";
 import { useAuth } from '@suka/auth';
@@ -35,155 +36,114 @@ type ChecklistCategory = {
 export default function KruChecklistPage() {
   const { outletStaff } = useAuth();
   const toast = useToast();
+  const qc = useQueryClient();
+  const supabase = createClient();
 
-  const [categories, setCategories] = useState<ChecklistCategory[]>([]);
-  const [ticks, setTicks] = useState<TickRow[]>([]);
-  const [recordId, setRecordId] = useState<string | null>(null);
-  const [hasClockedIn, setHasClockedIn] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [ticking, setTicking] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<"buka" | "tutup">("buka");
-  const supabaseRef = useRef(createClient());
-  const channelRef = useRef<any>(null);
-  const subscribedRef = useRef(false);
   const hasSetInitialTab = useRef(false);
 
   const today = dayjs().format("YYYY-MM-DD");
 
-  useEffect(() => {
-    if (!outletStaff?.outlet_id) return;
-    subscribedRef.current = false;
-    init();
-    return () => {
-      subscribedRef.current = false;
-      const supabase = supabaseRef.current;
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [outletStaff?.outlet_id]);
-
-  async function init() {
-    setLoading(true);
-    await Promise.all([
-      loadCategories(),
-      loadClockInStatus(),
-    ]);
-    const rid = await ensureRecord();
-    if (rid) {
-      await loadTicks(rid);
-      subscribeRealtime(rid);
+  const { data: hasClockedIn = false, isLoading: loadingClockIn } = useQuery({
+    queryKey: ["checklist-clockin", outletStaff?.id, today],
+    enabled: !!outletStaff?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("attendance")
+        .select("type")
+        .eq("outlet_staff_id", outletStaff!.id)
+        .eq("type", "in")
+        .gte("ts_server", `${today}T00:00:00`)
+        .lte("ts_server", `${today}T23:59:59`)
+        .limit(1);
+      return (data?.length ?? 0) > 0;
     }
-    setLoading(false);
-  }
+  });
 
-  // Cek apakah staf yang login sudah absen hadir (type "in") hari ini.
-  // Gating: belum absen hadir → tidak boleh mencentang checklist.
-  async function loadClockInStatus() {
-    if (!outletStaff?.id) return;
-    const supabase = supabaseRef.current;
-    const { data } = await supabase
-      .from("attendance")
-      .select("type")
-      .eq("outlet_staff_id", outletStaff.id)
-      .eq("type", "in")
-      .gte("ts_server", `${today}T00:00:00`)
-      .lte("ts_server", `${today}T23:59:59`)
-      .limit(1);
-    setHasClockedIn((data?.length ?? 0) > 0);
-  }
-
-  async function loadCategories() {
-    try {
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ["checklist-categories", outletStaff?.outlet_id],
+    enabled: !!outletStaff?.outlet_id,
+    queryFn: async () => {
       const res = await fetch('/api/checklist/categories', {
         method: 'POST',
-        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ outlet_id: outletStaff!.outlet_id })
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error("Failed to load categories");
       const json = await res.json();
-      if (json.data) setCategories(json.data);
-    } catch (err) {
-      console.error('[loadCategories]', err);
+      return (json.data || []) as ChecklistCategory[];
     }
-  }
+  });
 
-  async function ensureRecord(): Promise<string | null> {
-    try {
+  const { data: recordId, isLoading: loadingRecord } = useQuery({
+    queryKey: ["checklist-record", outletStaff?.outlet_id, today],
+    enabled: !!outletStaff?.outlet_id,
+    queryFn: async () => {
       const res = await fetch('/api/checklist/session', {
         method: 'POST',
-        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ outlet_id: outletStaff!.outlet_id, date: today })
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error("Failed to load session");
       const data = await res.json();
-      if (data.id) {
-        setRecordId(data.id);
-        return data.id;
-      }
-    } catch (err: any) {
-      console.error('[ensureRecord]', err);
+      return data.id as string;
     }
-    toast.show("err", "Gagal membuat sesi checklist hari ini");
-    return null;
-  }
+  });
 
-  async function loadTicks(rid: string) {
-    try {
+  const { data: ticks = [], isLoading: loadingTicks } = useQuery({
+    queryKey: ["checklist-ticks", recordId],
+    enabled: !!recordId,
+    queryFn: async () => {
       const res = await fetch('/api/checklist/ticks', {
         method: 'POST',
-        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ record_id: rid })
+        body: JSON.stringify({ record_id: recordId })
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error("Failed to load ticks");
       const json = await res.json();
-      setTicks((json.data as TickRow[]) || []);
-    } catch (err) {
-      console.error('[loadTicks]', err);
-      setTicks([]);
+      return (json.data || []) as TickRow[];
     }
-  }
+  });
 
-  function subscribeRealtime(rid: string) {
-    // Guard: jangan subscribe ganda (React StrictMode memanggil effect 2x)
-    if (subscribedRef.current) return;
-    subscribedRef.current = true;
+  const loading = loadingCategories || loadingClockIn || loadingRecord || loadingTicks;
 
-    const supabase = supabaseRef.current;
-    // Channel name stabil (rid unik per record, tidak perlu timestamp)
-    const channelName = `absensi-checklist-ticks-${rid}`;
+  useEffect(() => {
+    if (!recordId) return;
+    const channelName = `absensi-checklist-ticks-${recordId}`;
     const ch = supabase
       .channel(channelName)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "daily_checklist_ticks", filter: `record_id=eq.${rid}` },
+        { event: "INSERT", schema: "public", table: "daily_checklist_ticks", filter: `record_id=eq.${recordId}` },
         async (payload) => {
           const { data: staffData } = await supabase
             .from("outlet_staff")
             .select("name")
             .eq("id", payload.new.ticked_by)
             .single();
-          setTicks(prev => [
-            ...prev.filter(t => t.item_id !== payload.new.item_id),
-            { ...payload.new as TickRow, outlet_staff: staffData }
-          ]);
+          qc.setQueryData(["checklist-ticks", recordId], (old: TickRow[] = []) => {
+            return [
+              ...old.filter(t => t.item_id !== payload.new.item_id),
+              { ...payload.new as TickRow, outlet_staff: staffData }
+            ];
+          });
         }
       )
       .on(
         "postgres_changes",
-        { event: "DELETE", schema: "public", table: "daily_checklist_ticks", filter: `record_id=eq.${rid}` },
+        { event: "DELETE", schema: "public", table: "daily_checklist_ticks", filter: `record_id=eq.${recordId}` },
         (payload) => {
-          setTicks(prev => prev.filter(t => t.id !== payload.old.id));
+          qc.setQueryData(["checklist-ticks", recordId], (old: TickRow[] = []) => {
+            return old.filter(t => t.id !== payload.old.id);
+          });
         }
       )
       .subscribe();
-    channelRef.current = ch;
-  }
+
+    return () => { supabase.removeChannel(ch); };
+  }, [recordId, qc, supabase]);
 
   async function toggleTick(itemId: string) {
     if (!recordId || !outletStaff) return;
@@ -220,7 +180,7 @@ export default function KruChecklistPage() {
       }
       const json = await res.json();
       if (json.error) throw new Error(json.error);
-      await loadTicks(recordId);
+      qc.invalidateQueries({ queryKey: ["checklist-ticks", recordId] });
     } catch (err: any) {
       const errMsg = err?.message || "Gagal menyimpan progress";
       toast.show("err", errMsg);
@@ -248,8 +208,6 @@ export default function KruChecklistPage() {
       hasSetInitialTab.current = true;
     }
   }, [loading, categories.length, bukaTotalItems, bukaTickedItems]);
-
-  if (loading) return <div className="p-10 flex justify-center"><Spinner /></div>;
 
   const activeTotalItems = activeTab === "buka" ? bukaTotalItems : tutupTotalItems;
   const activeTickedItems = activeTab === "buka" ? bukaTickedItems : tutupTickedItems;
@@ -344,7 +302,7 @@ export default function KruChecklistPage() {
     }
     if (!confirm(`Centang semua tugas ${phase} toko (hanya untuk testing)?`)) return;
 
-    setLoading(true);
+    
     try {
       const cats = phase === "buka" ? bukaCats : tutupCats;
       const items = cats.flatMap(c => c.checklist_items || []);
@@ -361,19 +319,19 @@ export default function KruChecklistPage() {
         })
       })));
 
-      await loadTicks(recordId);
+      qc.invalidateQueries({ queryKey: ["checklist-ticks", recordId] });
       toast.show("ok", `Semua tugas ${phase} berhasil dicentang`);
     } catch (e: any) {
       toast.show("err", "Gagal bulk tick: " + e.message);
     }
-    setLoading(false);
+    
   }
 
   async function handleBulkUntick(phase: "buka" | "tutup") {
     if (!recordId || !outletStaff) return;
     if (!confirm(`Hapus centang semua tugas ${phase} toko (hanya untuk testing)?`)) return;
 
-    setLoading(true);
+    
     try {
       const cats = phase === "buka" ? bukaCats : tutupCats;
       const items = cats.flatMap(c => c.checklist_items || []);
@@ -390,12 +348,12 @@ export default function KruChecklistPage() {
         })
       })));
 
-      await loadTicks(recordId);
+      qc.invalidateQueries({ queryKey: ["checklist-ticks", recordId] });
       toast.show("ok", `Semua centang ${phase} berhasil dihapus`);
     } catch (e: any) {
       toast.show("err", "Gagal bulk untick: " + e.message);
     }
-    setLoading(false);
+    
   }
 
   return (
@@ -466,7 +424,12 @@ export default function KruChecklistPage() {
         </div>
       )}
 
-      {categories.length === 0 ? (
+      {loadingCategories ? (
+        <div className="rounded-2xl border border-suka-gray-200 bg-white p-12 text-center flex flex-col items-center">
+          <Spinner size={32} />
+          <p className="text-gray-500 font-medium mt-4">Memuat checklist...</p>
+        </div>
+      ) : categories.length === 0 ? (
         <div className="rounded-2xl border border-suka-gray-200 bg-white p-12 text-center">
           <ListChecks size={48} className="mx-auto text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">Belum ada checklist untuk outlet ini</p>
@@ -531,7 +494,6 @@ export default function KruChecklistPage() {
             <div className="flex flex-col gap-2 sm:flex-row flex-wrap">
               <button onClick={async () => {
                 if (!outletStaff || !confirm("Yakin mereset semua wajah staff?")) return;
-                const supabase = supabaseRef.current;
                 const { error } = await supabase.from("outlet_staff")
                   .update({ face_descriptor: null, ref_photo_url: null, enrolled_at: null })
                   .eq("outlet_id", outletStaff.outlet_id);
@@ -542,13 +504,12 @@ export default function KruChecklistPage() {
               </button>
               <button onClick={async () => {
                 if (!outletStaff || !confirm("Yakin menghapus SEMUA log absensi hari ini?")) return;
-                const supabase = supabaseRef.current;
-                const today = new Date().toISOString().slice(0, 10);
+                const todayStr = new Date().toISOString().slice(0, 10);
                 const { error } = await supabase.from("attendance")
                   .delete()
                   .eq("outlet_id", outletStaff.outlet_id)
-                  .gte("ts_server", `${today}T00:00:00`)
-                  .lte("ts_server", `${today}T23:59:59`);
+                  .gte("ts_server", `${todayStr}T00:00:00`)
+                  .lte("ts_server", `${todayStr}T23:59:59`);
                 if (error) toast.show("err", "Gagal reset log absensi. " + error.message);
                 else {
                   toast.show("ok", "Log absensi hari ini dihapus. Silakan refresh halaman.");

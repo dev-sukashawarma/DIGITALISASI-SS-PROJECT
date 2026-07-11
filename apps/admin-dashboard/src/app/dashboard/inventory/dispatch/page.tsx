@@ -44,7 +44,7 @@ export default function DispatchRequestPage() {
       // Refresh requests
       supabase.from('internal_requests').select('id, outlet_id, status').eq('status', 'PENDING').then(({ data }) => setRequests(data ?? []))
     } else {
-      setMessage(`Gagal: ${res.error}`)
+      setMessage(`Gagal: ${(res as any).error}`)
     }
     setLoading(false)
   }

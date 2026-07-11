@@ -37,7 +37,8 @@ export default function RequestInventoryPage() {
       items: [{
         itemId,
         requestedUnitId,
-        requestedQty
+        requestedQty,
+        convertedBaseQty: requestedQty
       }]
     })
 

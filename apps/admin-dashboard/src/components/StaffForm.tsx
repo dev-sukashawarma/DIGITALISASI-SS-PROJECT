@@ -77,7 +77,7 @@ export function StaffForm({
   const schema = getStaffFormSchema(isEditing)
 
   const { register, handleSubmit: formHandleSubmit, trigger, control, watch, setValue, formState: { errors } } = useForm<any>({
-    resolver: zodResolver(schema) as any,
+    resolver: zodResolver(schema as any) as any,
     defaultValues: {
       name: initial?.name ?? '',
       username: initial?.username ?? '',

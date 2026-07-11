@@ -766,11 +766,13 @@ export default function ShiftPage() {
                                 <p className="text-sm font-bold text-gray-900 truncate">{top.description}</p>
                                 <p className={`text-[11px] font-semibold uppercase mt-0.5 ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-red-500' : 'text-blue-500'}`}>
                                   Top Up Petty Cash (
-                                  {top.status === 'pending' ? '⏳ Menunggu Persetujuan' : 
+                                  {top.status === 'pending' ? '⏳ Menunggu Review Leader' : 
+                                   top.status === 'forwarded_to_korlap' ? '⏳ Menunggu Review Korlap' :
+                                   top.status === 'forwarded_to_finance' ? '⏳ Menunggu Pencairan Finance' :
                                    top.status === 'rejected' ? '❌ Ditolak' : 
-                                   top.status === 'approved_by_finance' ? '⏳ Proses Pencairan Finance' :
-                                   top.status === 'forwarded_by_korlap' ? '⏳ Proses Penyerahan Korlap' :
-                                   top.status === 'forwarded_by_leader' ? '✅ Uang Tersedia di Leader' :
+                                   top.status === 'approved_by_finance' ? '⏳ Dana dipegang Korlap / Leader' :
+                                   top.status === 'forwarded_by_korlap' ? '⏳ Dana dipegang Leader' :
+                                   top.status === 'forwarded_by_leader' ? '✅ Dana siap diterima Kasir' :
                                    `✅ Selesai${top.disbursement_method ? ` - ${top.disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`})
                                 </p>
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">

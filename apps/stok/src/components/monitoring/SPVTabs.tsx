@@ -19,7 +19,7 @@ export function SPVTabs({ activeTab, onTabChange, alertCount, approvalCount, was
   ] as const;
 
   return (
-    <nav className="bg-white border-b border-suka-brown/10 px-6 flex items-center gap-8">
+    <nav className="bg-white border-b border-suka-brown/10 px-4 md:px-6 flex items-center gap-6 md:gap-8 overflow-x-auto scrollbar-none whitespace-nowrap">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (

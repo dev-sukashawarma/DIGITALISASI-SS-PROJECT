@@ -8,7 +8,8 @@ import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
-import { Skeleton } from '@suka/design-system';
+import { Skeleton, Avatar } from '@suka/design-system';
+import { LogOut, RefreshCw } from 'lucide-react';
 import { BottomNav } from '@/components/common/BottomNav';
 import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 
@@ -19,6 +20,7 @@ export function CrewDashboard() {
   const [opnameAgeText, setOpnameAgeText] = useState('');
   const { data, isLoading, isError, error, lastFetched, refetch } = useCrewMonitoringData();
   const { outletStaff } = useAuth();
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     if (lastFetched) {
@@ -61,85 +63,79 @@ export function CrewDashboard() {
 
   return (
     <div className="min-h-screen bg-suka-cream">
-      <header className="bg-white sticky top-0 z-40 w-full px-3 py-2.5 border-b border-suka-brown/20 shadow-sm flex flex-col gap-2.5">
-        {/* Top Row: Navigation and Profile */}
-        <div className="flex items-center justify-between w-full">
-          <Link 
-            href="/dashboard" 
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-suka-cream hover:bg-suka-cream/80 border border-suka-brown/20 text-suka-brown transition-all active:scale-95 flex-shrink-0"
-            title="Kembali ke Dashboard"
-          >
-            <span className="text-sm font-bold">←</span>
-          </Link>
-
-          <div className="flex items-center gap-1.5">
-            <img 
-              src="/logo.png" 
-              alt="Suka Logo" 
-              className="h-5 w-auto object-contain" 
-              onError={(e) => { e.currentTarget.style.display = 'none'; }} 
-            />
-            <span className="text-[11px] font-black text-suka-brown tracking-wider uppercase">SS Digital</span>
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 py-3 md:py-4 flex flex-col md:flex-row md:justify-between md:items-center shadow-sm relative gap-3 md:gap-0">
+        {/* Row 1: Logo & Title (left) & Avatar (right on mobile) */}
+        <div className="flex justify-between items-center w-full md:w-auto">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-xl sm:rounded-2xl p-1 shadow-sm border border-suka-orange/10 flex items-center justify-center shrink-0">
+              <img
+                alt="Suka Shawarma Logo"
+                className="w-full h-full object-contain"
+                src="/logo.png"
+              />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="font-black text-sm sm:text-base text-suka-brown leading-tight font-display tracking-wide">
+                Monitoring Dashboard
+              </h1>
+              <p className="text-[10px] text-suka-gray-500 font-extrabold tracking-widest uppercase mt-0.5">
+                Stock Control Panel
+              </p>
+            </div>
           </div>
-
-          <div className="w-8 h-8 flex-shrink-0"></div>
+          {/* Avatar visible on mobile right side only */}
+          <div className="md:hidden relative">
+            <button 
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="w-8 h-8 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center cursor-pointer transition-transform active:scale-95"
+            >
+              <Avatar name={outletStaff?.name || ''} size={32} />
+            </button>
+            {showDropdown && (
+              <div className="absolute right-0 top-full mt-2 w-36 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1.5 z-50 flex flex-col">
+                <a href={resolvedPortalUrl} className="px-4 py-2.5 text-xs font-bold text-[#544437] hover:bg-[#faf2e9] transition-colors">
+                  ← Portal Utama
+                </a>
+                <button onClick={() => refetch()} className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors">
+                  <RefreshCw size={12} /> Refresh Data
+                </button>
+                <button onClick={handleLogout} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
+                  <LogOut size={12} /> Keluar
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Title Row */}
-        <div className="flex flex-col">
-          <h1 className="text-sm sm:text-base font-black text-suka-brown uppercase tracking-tight leading-tight">
-            {isLoading && !data ? <Skeleton className="h-4 w-32 inline-block" /> : (data?.outlet_name || 'Outlet')} - Monitoring
-          </h1>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <p className="text-[9px] font-bold text-suka-orange uppercase tracking-widest">
-              Stock Control Panel
-            </p>
-            <span className="w-1 h-1 rounded-full bg-suka-brown/30"></span>
-            <span className="text-[9px] font-medium text-suka-brown/70 flex items-center gap-1">
-              <span className="inline-block w-1 h-1 rounded-full bg-green-500 animate-pulse"></span>
-              Updated {displayTime || '...'}
-            </span>
-          </div>
-        </div>
-
-        {/* Action & Meta Row */}
-        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
-          {/* Meta Tags */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
-            <span className="bg-red-600 text-white px-2 py-0.5 rounded text-[9px] font-bold uppercase whitespace-nowrap">
-              Outlet {isLoading && !data ? '...' : (data?.outlet_name ? 'Active' : '...')}
-            </span>
-            <span className="bg-suka-cream border border-suka-brown/10 text-suka-brown px-2 py-0.5 rounded text-[9px] font-medium whitespace-nowrap">
-              Crew: <strong className="font-bold">{outletStaff?.name || '...'}</strong>
-            </span>
-            <span className="bg-suka-cream border border-suka-brown/10 text-suka-brown px-2 py-0.5 rounded text-[9px] font-medium whitespace-nowrap">
-              Items: <strong className="font-bold">{isLoading && !data ? <Skeleton className="h-2 w-4 inline-block" /> : (data?.items?.length || '0')}</strong>
+        {/* User Session Bar - Stacks below on mobile, inline on desktop */}
+        <div className="flex items-center justify-between w-full md:w-auto gap-3 border-t md:border-t-0 border-suka-brown/5 pt-2.5 md:pt-0">
+          <div className="flex flex-col text-left md:text-right">
+            <span className="text-xs font-extrabold text-[#1e1b15]">{outletStaff?.name || '...'}</span>
+            <span className="text-[10px] text-suka-orange font-bold uppercase tracking-wider mt-0.5">
+              {data?.outlet_name || 'OUTLET'}
             </span>
           </div>
 
-          {/* Actions Button Group */}
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
-            <a
-              href={resolvedPortalUrl}
-              className="flex-1 sm:flex-initial px-2 h-7 flex items-center justify-center rounded-md bg-white hover:bg-suka-cream border border-suka-brown/20 text-suka-brown font-bold text-[10px] transition-all active:scale-95 shadow-sm"
-              title="Portal"
+          <div className="hidden md:block relative">
+            <button 
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="w-9 h-9 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center cursor-pointer transition-transform active:scale-95"
             >
-              Portal
-            </a>
-            <button
-              onClick={() => refetch()}
-              className="flex-[1.2] sm:flex-initial px-2 h-7 flex items-center justify-center rounded-md bg-white hover:bg-suka-cream border border-suka-brown/20 text-suka-brown font-bold text-[10px] transition-all active:scale-95 shadow-sm gap-1"
-              title="Refresh"
-            >
-              🔄 Refresh
+              <Avatar name={outletStaff?.name || ''} size={36} />
             </button>
-            <button
-              onClick={handleLogout}
-              className="flex-1 sm:flex-initial px-2 h-7 flex items-center justify-center rounded-md bg-white hover:bg-red-50 border border-red-200 text-red-600 font-bold text-[10px] transition-all active:scale-95 shadow-sm"
-              title="Logout"
-            >
-              Keluar
-            </button>
+            {showDropdown && (
+              <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1.5 z-50 flex flex-col">
+                <a href={resolvedPortalUrl} className="px-4 py-2.5 text-xs font-bold text-[#544437] hover:bg-[#faf2e9] transition-colors">
+                  ← Portal Utama
+                </a>
+                <button onClick={() => refetch()} className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors">
+                  <RefreshCw size={12} /> Refresh Data
+                </button>
+                <button onClick={handleLogout} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
+                  <LogOut size={12} /> Keluar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -161,14 +157,9 @@ export function CrewDashboard() {
 
         {/* Real-time Stock Balance Section (Full Width) */}
         <div className="w-full space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-gray-900 uppercase tracking-wider">
-              Saldo Stok Real-time
-            </h2>
-            <button className="text-suka-orange font-semibold text-xs flex items-center gap-1">
-              Filter <span>⚙️</span>
-            </button>
-          </div>
+          <h2 className="text-base font-bold text-gray-900 uppercase tracking-wider">
+            Saldo Stok Real-time
+          </h2>
 
           {/* List */}
           <CrewList items={data?.items || []} onItemClick={setSelectedItem} loading={isLoading && !data} />

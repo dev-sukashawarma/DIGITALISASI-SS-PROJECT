@@ -147,7 +147,7 @@ const serwist = new Serwist({
 serwist.addEventListeners();
 
 // --- Web Push Event Listeners ---
-self.addEventListener('push', (event) => {
+(self as any).addEventListener('push', (event: any) => {
   const data = event.data?.json() ?? {};
   
   const title = data.title || 'Pemberitahuan Baru';
@@ -158,22 +158,22 @@ self.addEventListener('push', (event) => {
     requireInteraction: true // Notifikasi tetap ada sampai diinteraksi
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil((self as any).registration.showNotification(title, options));
 });
 
-self.addEventListener('notificationclick', (event) => {
+(self as any).addEventListener('notificationclick', (event: any) => {
   event.notification.close();
   
   // Arahkan atau fokuskan ke tab kasir
   event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clientList) => {
+    (self as any).clients.matchAll({ type: 'window' }).then((clientList: any[]) => {
       for (const client of clientList) {
         if (client.url.includes('/kasir') && 'focus' in client) {
           return client.focus();
         }
       }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow('/kasir');
+      if ((self as any).clients.openWindow) {
+        return (self as any).clients.openWindow('/kasir');
       }
     })
   );

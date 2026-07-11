@@ -113,7 +113,6 @@ export default function ShiftPage() {
   const [showTopupModal, setShowTopupModal] = useState(false)
   const [topupAmount, setTopupAmount] = useState<string>('')
   const [topupDesc, setTopupDesc] = useState<string>('')
-  const [topupWaLink, setTopupWaLink] = useState<string>('')
 
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -388,25 +387,7 @@ export default function ShiftPage() {
 
       if (error) throw error
 
-      setSuccessMsg('Pengajuan top up petty cash berhasil dikirim. Menunggu persetujuan Leader/Manajer.')
-      
-      const appUrl = window.location.origin
-      const approveLink = `${appUrl}/api/topup/approve?id=${insertedData.id}&token=${approvalToken}`
-      const waText = encodeURIComponent(`Halo SPV, saya mengajukan Top Up Dana Operasional sebesar ${formatRupiah(amount)}.\n\nAlasan: ${topupDesc.trim()}\n\nKlik link berikut untuk menyetujui:\n${approveLink}`)
-      const generatedWaLink = `https://wa.me/6285885497377?text=${waText}`;
-      
-      setTopupWaLink(generatedWaLink);
-
-      // Coba trigger secara programmatis
-      if (typeof window !== 'undefined') {
-        if (isRunningInWebView() || (window as any).__SUKASHAWARMA_NATIVE_APP__) {
-          if (!postToNative({ type: 'open-external-url', url: generatedWaLink })) {
-             window.location.href = generatedWaLink
-          }
-        } else {
-          window.open(generatedWaLink, '_blank')
-        }
-      }
+      setSuccessMsg('Pengajuan berhasil dikirim ke Dashboard Leader. Menunggu persetujuan.')
 
       setTopupAmount('')
       setTopupDesc('')
@@ -566,27 +547,6 @@ export default function ShiftPage() {
           <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
           <div className="flex-1 w-full">
             <p className="text-sm text-emerald-700 font-medium">{successMsg}</p>
-            {topupWaLink && (
-              <button
-                type="button"
-                className="mt-3 block w-full bg-[#25D366] text-white rounded-lg py-2.5 font-bold text-center text-sm hover:bg-[#1DA851] transition-colors shadow-sm"
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    if (isRunningInWebView() || (window as any).__SUKASHAWARMA_NATIVE_APP__) {
-                      if (!postToNative({ type: 'open-external-url', url: topupWaLink })) {
-                         window.location.href = topupWaLink
-                      }
-                    } else {
-                      window.open(topupWaLink, '_blank')
-                    }
-                  }
-                  setSuccessMsg('');
-                  setTopupWaLink('');
-                }}
-              >
-                Buka WhatsApp SPV
-              </button>
-            )}
           </div>
         </div>
       )}

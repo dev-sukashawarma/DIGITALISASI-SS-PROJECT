@@ -11,6 +11,7 @@ export interface Outlet {
   lng: number
   type: string
   is_active: boolean
+  region?: string | null
 }
 
 export interface OutletFormValues {

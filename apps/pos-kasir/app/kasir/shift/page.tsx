@@ -85,7 +85,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 export default function ShiftPage() {
   const { showConfirm } = useDialogStore()
-  const { outletId } = useMyOutlet()
+  const { outletId, outletRegion } = useMyOutlet()
   const supabase = createClient()
   const router = useRouter()
   const isOnline = useNetworkStatus()
@@ -770,7 +770,7 @@ export default function ShiftPage() {
                                    top.status === 'forwarded_to_korlap' ? '⏳ Menunggu Review Korlap' :
                                    top.status === 'forwarded_to_finance' ? '⏳ Menunggu Pencairan Finance' :
                                    top.status === 'rejected' ? '❌ Ditolak' : 
-                                   top.status === 'approved_by_finance' ? '⏳ Dana dipegang Korlap / Leader' :
+                                   top.status === 'approved_by_finance' ? `⏳ Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Korlap'}` :
                                    top.status === 'forwarded_by_korlap' ? '⏳ Dana dipegang Leader' :
                                    top.status === 'forwarded_by_leader' ? '✅ Dana siap diterima Kasir' :
                                    `✅ Selesai${top.disbursement_method ? ` - ${top.disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`})

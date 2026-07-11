@@ -7,6 +7,7 @@ import { db } from '@/lib/db'
 interface MyOutletData {
   outletId: string | null
   outletName: string | null
+  outletRegion: string | null
   isBlocked: boolean
   blockedReason: string
 }
@@ -28,21 +29,21 @@ async function fetchMyOutletFromNetwork(): Promise<MyOutletData> {
   }
 
   if (!userId) {
-    return { outletId: '550e8400-e29b-41d4-a716-446655440001', outletName: 'Pusat (Kiosk)', isBlocked: false, blockedReason: '' }
+    return { outletId: '550e8400-e29b-41d4-a716-446655440001', outletName: 'Pusat (Kiosk)', outletRegion: null, isBlocked: false, blockedReason: '' }
   }
 
   const { data: profile, error } = await supabase.from('outlet_staff')
-    .select('role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, is_active, inactive_reason)')
+    .select('role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, region, is_active, inactive_reason)')
     .eq('id', userId).single()
 
-  // Error jaringan/DB (mis. offline) → lempar supaya fallback cache dipakai.
+  // Error jaringan/DB (mis. offline) ' lempar supaya fallback cache dipakai.
   // PGRST116 (row tidak ditemukan) BUKAN error jaringan: user memang tak punya profil.
   if (error && error.code !== 'PGRST116') {
     throw new Error(error.message)
   }
 
   if (!profile) {
-    return { outletId: null, outletName: null, isBlocked: false, blockedReason: '' }
+    return { outletId: null, outletName: null, outletRegion: null, isBlocked: false, blockedReason: '' }
   }
 
   let isBlocked = false
@@ -58,6 +59,7 @@ async function fetchMyOutletFromNetwork(): Promise<MyOutletData> {
 
   let outletId = profile.outlet_id ?? null;
   let outletName = (profile.outlets as any)?.name ?? null;
+  let outletRegion = (profile.outlets as any)?.region ?? null;
 
   // Fallback untuk Admin yang ingin mengetes Kasir/Kiosk
   if ((profile as any).role === 'admin' && !outletId) {
@@ -68,6 +70,7 @@ async function fetchMyOutletFromNetwork(): Promise<MyOutletData> {
   return {
     outletId,
     outletName,
+    outletRegion,
     isBlocked,
     blockedReason,
   }
@@ -82,7 +85,7 @@ async function fetchMyOutlet(): Promise<MyOutletData> {
     }
     return data
   } catch (err) {
-    // Offline / jaringan gagal → pakai profil outlet terakhir yang tersimpan
+    // Offline / jaringan gagal ' pakai profil outlet terakhir yang tersimpan
     const cached = await db.app_state.get(OUTLET_CACHE_KEY).catch(() => undefined)
     if (cached?.value?.outletId) {
       console.warn('[useMyOutlet] Offline, memakai profil outlet dari IndexedDB')
@@ -112,6 +115,7 @@ export function useMyOutlet() {
   return {
     outletId: data?.outletId ?? null,
     outletName: data?.outletName ?? null,
+    outletRegion: data?.outletRegion ?? null,
     loaded: isFetched,
     isBlocked: data?.isBlocked ?? false,
     blockedReason: data?.blockedReason ?? '',

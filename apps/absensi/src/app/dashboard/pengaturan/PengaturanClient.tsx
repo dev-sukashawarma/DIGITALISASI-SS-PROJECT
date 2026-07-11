@@ -405,63 +405,67 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
       {/* MODAL TAMBAH PENGECUALIAN */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
-          <div className="w-full max-w-md animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-8 rounded-t-3xl sm:rounded-2xl bg-white p-5 sm:p-6 shadow-xl space-y-5 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-suka-ink border-b pb-3">
-              {modalMode === "add" ? "Tambah Outlet Khusus" : "Edit Outlet Khusus"}
-            </h3>
+          <div className="w-full max-w-md animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-8 rounded-t-3xl sm:rounded-2xl bg-white shadow-xl flex flex-col max-h-[90dvh] sm:max-h-[85vh]">
+            <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-gray-100 shrink-0">
+              <h3 className="text-xl font-bold text-suka-ink">
+                {modalMode === "add" ? "Tambah Outlet Khusus" : "Edit Outlet Khusus"}
+              </h3>
+            </div>
             
-            <form action={onSaveException} className="space-y-5">
-              <div>
-                <label className="text-sm font-bold text-suka-ink mb-2 block">Pilih Outlet</label>
-                {modalMode === "add" ? (
-                  <Select
-                    value={selectedOutletId}
-                    onChange={val => setSelectedOutletId(val)}
-                    options={availableOutlets.map(out => ({ label: out.name, value: out.id }))}
-                    placeholder="-- Pilih Outlet --"
-                    className="w-full"
-                    searchable
-                  />
-                ) : (
-                  <div className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 px-4 text-sm text-suka-ink font-semibold">
-                    {outlets.find(o => o.id === selectedOutletId)?.name || "Unknown Outlet"}
-                  </div>
-                )}
-              </div>
-
-              <ConfigFormFields config={newOutletConfig} setConfig={setNewOutletConfig} />
-
-              {/* Toggle Kunci Mesin untuk spesifik cabang ini */}
-              <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${newOutletConfig.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-red-50 border border-red-100"}`}>
+            <form action={onSaveException} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-5 pb-8 sm:pb-6">
                 <div>
-                  <p className="text-sm font-bold text-suka-ink">
-                    {newOutletConfig.absen_window_mode === "manual" ? "Buka Kamera Absensi (Manual)" : "Kunci Kamera (Emergency Lock)"}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {newOutletConfig.absen_window_mode === "manual" 
-                      ? "Jika dinyalakan, kamera absensi khusus cabang ini akan aktif dan bisa digunakan." 
-                      : "Jika dinyalakan, matikan paksa kamera absensi di cabang ini."}
-                  </p>
+                  <label className="text-sm font-bold text-suka-ink mb-2 block">Pilih Outlet</label>
+                  {modalMode === "add" ? (
+                    <Select
+                      value={selectedOutletId}
+                      onChange={val => setSelectedOutletId(val)}
+                      options={availableOutlets.map(out => ({ label: out.name, value: out.id }))}
+                      placeholder="-- Pilih Outlet --"
+                      className="w-full"
+                      searchable
+                    />
+                  ) : (
+                    <div className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 px-4 text-sm text-suka-ink font-semibold">
+                      {outlets.find(o => o.id === selectedOutletId)?.name || "Unknown Outlet"}
+                    </div>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setNewOutletConfig({ ...newOutletConfig, is_active: !newOutletConfig.is_active })}
-                  className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
-                    newOutletConfig.absen_window_mode === "manual"
-                      ? (newOutletConfig.is_active ? "bg-suka-green" : "bg-gray-300")
-                      : (!newOutletConfig.is_active ? "bg-red-500" : "bg-gray-300")
-                  }`}
-                >
-                  <span className={`pointer-events-none m-1 inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ${
-                    newOutletConfig.absen_window_mode === "manual"
-                      ? (newOutletConfig.is_active ? "translate-x-6" : "translate-x-0")
-                      : (!newOutletConfig.is_active ? "translate-x-6" : "translate-x-0")
-                  }`} />
-                </button>
-              </div>
-              <input type="hidden" name="is_active" value={newOutletConfig.is_active ? "true" : "false"} />
 
-              <div className="flex gap-3 pt-4 border-t">
+                <ConfigFormFields config={newOutletConfig} setConfig={setNewOutletConfig} />
+
+                {/* Toggle Kunci Mesin untuk spesifik cabang ini */}
+                <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${newOutletConfig.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-red-50 border border-red-100"}`}>
+                  <div>
+                    <p className="text-sm font-bold text-suka-ink">
+                      {newOutletConfig.absen_window_mode === "manual" ? "Buka Kamera Absensi (Manual)" : "Kunci Kamera (Emergency Lock)"}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {newOutletConfig.absen_window_mode === "manual" 
+                        ? "Jika dinyalakan, kamera absensi khusus cabang ini akan aktif dan bisa digunakan." 
+                        : "Jika dinyalakan, matikan paksa kamera absensi di cabang ini."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNewOutletConfig({ ...newOutletConfig, is_active: !newOutletConfig.is_active })}
+                    className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
+                      newOutletConfig.absen_window_mode === "manual"
+                        ? (newOutletConfig.is_active ? "bg-suka-green" : "bg-gray-300")
+                        : (!newOutletConfig.is_active ? "bg-red-500" : "bg-gray-300")
+                    }`}
+                  >
+                    <span className={`pointer-events-none m-1 inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ${
+                      newOutletConfig.absen_window_mode === "manual"
+                        ? (newOutletConfig.is_active ? "translate-x-6" : "translate-x-0")
+                        : (!newOutletConfig.is_active ? "translate-x-6" : "translate-x-0")
+                    }`} />
+                  </button>
+                </div>
+                <input type="hidden" name="is_active" value={newOutletConfig.is_active ? "true" : "false"} />
+              </div>
+
+              <div className="px-5 py-4 pb-6 sm:pb-4 sm:px-6 shrink-0 bg-white border-t border-gray-100 flex gap-3 mt-auto">
                 <Button type="button" variant="secondary" className="flex-1 py-3" onClick={() => setIsModalOpen(false)}>Batal</Button>
                 <Button type="submit" className="flex-1 py-3" disabled={isPending || !selectedOutletId}>
                   {isPending ? <Spinner className="w-5 h-5 text-white" /> : "Simpan"}

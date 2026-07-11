@@ -58,7 +58,7 @@ export interface LocationWithBalance extends CashLocation {
   saldo: number
 }
 
-export type PettyCashStatus = 'pending' | 'forwarded' | 'approved' | 'rejected'
+export type PettyCashStatus = 'pending' | 'forwarded_to_korlap' | 'forwarded_to_finance' | 'approved' | 'rejected'
 export type DisbursementMethod = 'potong_setoran' | 'transfer' | 'tunai'
 
 export interface PettyCashTopup {

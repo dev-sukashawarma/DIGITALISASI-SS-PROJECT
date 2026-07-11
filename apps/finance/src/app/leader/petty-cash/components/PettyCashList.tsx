@@ -68,8 +68,9 @@ export function PettyCashList() {
                 </td>
                 <td className="py-3 px-4 text-sm text-suka-gray-500">{req.reason}</td>
                 <td className="py-3 px-4">
-                  {req.status === 'pending' && <Badge variant="warning">Menunggu</Badge>}
-                  {req.status === 'forwarded' && <Badge variant="info">Diteruskan</Badge>}
+                  {req.status === 'pending' && <Badge variant="warning">Menunggu Leader</Badge>}
+                  {req.status === 'forwarded_to_korlap' && <Badge variant="info">Menunggu Korlap</Badge>}
+                  {req.status === 'forwarded_to_finance' && <Badge variant="info">Menunggu Finance</Badge>}
                   {req.status === 'approved' && <Badge variant="success">Disetujui</Badge>}
                   {req.status === 'rejected' && <Badge variant="error">Ditolak</Badge>}
                 </td>

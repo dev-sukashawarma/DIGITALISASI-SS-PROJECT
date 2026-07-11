@@ -54,6 +54,24 @@ export function useProcessPettyCashLeader() {
   })
 }
 
+export function useProcessPettyCashKorlap() {
+  const supabase = useMemo(() => createClient(), [])
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
+      const { error } = await supabase.rpc('korlap_process_petty_cash', {
+        p_topup_id: id,
+        p_action: action
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
+    }
+  })
+}
+
 export function useProcessPettyCashFinance() {
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()

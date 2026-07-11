@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { Button, Spinner } from "@suka/design-system";
 import { Settings2, Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, AlertCircle, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -49,6 +50,9 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [selectedOutletId, setSelectedOutletId] = useState("");
   const [newOutletConfig, setNewOutletConfig] = useState<Config>({ ...globalConfig });
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // Marks true while the SPV has unsaved edits in the global ("Pusat") config form.
   // Guards refreshConfig from silently overwriting in-progress edits on realtime events.
@@ -403,79 +407,76 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
       </div>
 
       {/* MODAL TAMBAH PENGECUALIAN */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
-          <div className="w-full max-w-md animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-8 rounded-t-3xl sm:rounded-2xl bg-white shadow-xl flex flex-col max-h-[90dvh] sm:max-h-[85vh]">
+      {mounted && isModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
+          <form action={onSaveException} className="w-full max-w-md animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-8 rounded-t-3xl sm:rounded-2xl bg-white shadow-xl flex flex-col max-h-[90dvh] sm:max-h-[85vh] overflow-hidden">
             <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-gray-100 shrink-0">
               <h3 className="text-xl font-bold text-suka-ink">
                 {modalMode === "add" ? "Tambah Outlet Khusus" : "Edit Outlet Khusus"}
               </h3>
             </div>
             
-            <form action={onSaveException} className="flex flex-col flex-1 min-h-0">
-              <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-5 pb-8 sm:pb-6">
-                <div>
-                  <label className="text-sm font-bold text-suka-ink mb-2 block">Pilih Outlet</label>
-                  {modalMode === "add" ? (
-                    <Select
-                      value={selectedOutletId}
-                      onChange={val => setSelectedOutletId(val)}
-                      options={availableOutlets.map(out => ({ label: out.name, value: out.id }))}
-                      placeholder="-- Pilih Outlet --"
-                      className="w-full"
-                      searchable
-                    />
-                  ) : (
-                    <div className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 px-4 text-sm text-suka-ink font-semibold">
-                      {outlets.find(o => o.id === selectedOutletId)?.name || "Unknown Outlet"}
-                    </div>
-                  )}
-                </div>
-
-                <ConfigFormFields config={newOutletConfig} setConfig={setNewOutletConfig} />
-
-                {/* Toggle Kunci Mesin untuk spesifik cabang ini */}
-                <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${newOutletConfig.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-red-50 border border-red-100"}`}>
-                  <div>
-                    <p className="text-sm font-bold text-suka-ink">
-                      {newOutletConfig.absen_window_mode === "manual" ? "Buka Kamera Absensi (Manual)" : "Kunci Kamera (Emergency Lock)"}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {newOutletConfig.absen_window_mode === "manual" 
-                        ? "Jika dinyalakan, kamera absensi khusus cabang ini akan aktif dan bisa digunakan." 
-                        : "Jika dinyalakan, matikan paksa kamera absensi di cabang ini."}
-                    </p>
+            <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-5">
+              <div>
+                <label className="text-sm font-bold text-suka-ink mb-2 block">Pilih Outlet</label>
+                {modalMode === "add" ? (
+                  <Select
+                    value={selectedOutletId}
+                    onChange={val => setSelectedOutletId(val)}
+                    options={availableOutlets.map(out => ({ label: out.name, value: out.id }))}
+                    placeholder="-- Pilih Outlet --"
+                    className="w-full"
+                    searchable
+                  />
+                ) : (
+                  <div className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 px-4 text-sm text-suka-ink font-semibold">
+                    {outlets.find(o => o.id === selectedOutletId)?.name || "Unknown Outlet"}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setNewOutletConfig({ ...newOutletConfig, is_active: !newOutletConfig.is_active })}
-                    className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
-                      newOutletConfig.absen_window_mode === "manual"
-                        ? (newOutletConfig.is_active ? "bg-suka-green" : "bg-gray-300")
-                        : (!newOutletConfig.is_active ? "bg-red-500" : "bg-gray-300")
-                    }`}
-                  >
-                    <span className={`pointer-events-none m-1 inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ${
-                      newOutletConfig.absen_window_mode === "manual"
-                        ? (newOutletConfig.is_active ? "translate-x-6" : "translate-x-0")
-                        : (!newOutletConfig.is_active ? "translate-x-6" : "translate-x-0")
-                    }`} />
-                  </button>
+                )}
+              </div>
+
+              <ConfigFormFields config={newOutletConfig} setConfig={setNewOutletConfig} />
+
+              {/* Toggle Kunci Mesin untuk spesifik cabang ini */}
+              <div className={`flex items-center justify-between gap-4 rounded-xl p-4 ${newOutletConfig.absen_window_mode === "manual" ? "bg-gray-50 border border-gray-200" : "bg-red-50 border border-red-100"}`}>
+                <div>
+                  <p className="text-sm font-bold text-suka-ink">
+                    {newOutletConfig.absen_window_mode === "manual" ? "Buka Kamera Absensi (Manual)" : "Kunci Kamera (Emergency Lock)"}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {newOutletConfig.absen_window_mode === "manual" 
+                      ? "Jika dinyalakan, kamera absensi khusus cabang ini akan aktif dan bisa digunakan." 
+                      : "Jika dinyalakan, matikan paksa kamera absensi di cabang ini."}
+                  </p>
                 </div>
-                <input type="hidden" name="is_active" value={newOutletConfig.is_active ? "true" : "false"} />
+                <button
+                  type="button"
+                  onClick={() => setNewOutletConfig({ ...newOutletConfig, is_active: !newOutletConfig.is_active })}
+                  className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
+                    newOutletConfig.absen_window_mode === "manual"
+                      ? (newOutletConfig.is_active ? "bg-suka-green" : "bg-gray-300")
+                      : (!newOutletConfig.is_active ? "bg-red-500" : "bg-gray-300")
+                  }`}
+                >
+                  <span className={`pointer-events-none m-1 inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ${
+                    newOutletConfig.absen_window_mode === "manual"
+                      ? (newOutletConfig.is_active ? "translate-x-6" : "translate-x-0")
+                      : (!newOutletConfig.is_active ? "translate-x-6" : "translate-x-0")
+                  }`} />
+                </button>
               </div>
+              <input type="hidden" name="is_active" value={newOutletConfig.is_active ? "true" : "false"} />
+            </div>
 
-              <div className="px-5 py-4 pb-6 sm:pb-4 sm:px-6 shrink-0 bg-white border-t border-gray-100 flex gap-3 mt-auto">
-                <Button type="button" variant="secondary" className="flex-1 py-3" onClick={() => setIsModalOpen(false)}>Batal</Button>
-                <Button type="submit" className="flex-1 py-3" disabled={isPending || !selectedOutletId}>
-                  {isPending ? <Spinner className="w-5 h-5 text-white" /> : "Simpan"}
-                </Button>
-              </div>
-            </form>
-          </div>
+            <div className="px-5 pt-4 pb-8 sm:pb-5 sm:px-6 shrink-0 bg-white border-t border-gray-100 flex gap-3">
+              <Button type="button" variant="secondary" className="flex-1 py-3" onClick={() => setIsModalOpen(false)}>Batal</Button>
+              <Button type="submit" className="flex-1 py-3" disabled={isPending || !selectedOutletId}>
+                {isPending ? <Spinner className="w-5 h-5 text-white" /> : "Simpan"}
+              </Button>
+            </div>
+          </form>
         </div>
-      )}
-
+      , document.body)}
     </div>
   );
 }

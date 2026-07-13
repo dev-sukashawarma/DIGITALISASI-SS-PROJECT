@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { usePermintaanActions } from '@/hooks/usePermintaan'
 import type { PermintaanWithItems } from '@/types/permintaan'
 import { fetchCrosscheckStok } from '@/app/actions/permintaan'
+import { calculateBahanBakuRequest, type CalculatedBahan } from '@/app/actions/permintaan_target'
 
 interface Props {
   permintaan: PermintaanWithItems
@@ -20,6 +21,7 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
   )
   const [crosscheckData, setCrosscheckData] = useState<Record<string, { outletStok: number; gudangStok: number }> | null>(null)
   const [isFetchingCrosscheck, setIsFetchingCrosscheck] = useState(true)
+  const [calculatedMap, setCalculatedMap] = useState<Record<string, number>>({})
 
   useEffect(() => {
     const fetchCrosscheck = async () => {
@@ -33,8 +35,28 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
         setIsFetchingCrosscheck(false)
       }
     }
+    const fetchKebutuhan = async () => {
+      if (Array.isArray(permintaan.target_metadata) && permintaan.target_metadata.length > 0) {
+        try {
+          const targets = permintaan.target_metadata.map((tm: any) => ({
+            resep_id: tm.id,
+            qty_target: tm.qty
+          }))
+          const calcResult = await calculateBahanBakuRequest(permintaan.outlet_id, targets)
+          const map: Record<string, number> = {}
+          calcResult.forEach((c) => {
+            map[c.bahan_baku_id] = c.kebutuhan
+          })
+          setCalculatedMap(map)
+        } catch (err) {
+          console.error('Failed to calculate kebutuhan', err)
+        }
+      }
+    }
+    
     fetchCrosscheck()
-  }, [permintaan.outlet_id, permintaan.items])
+    fetchKebutuhan()
+  }, [permintaan.outlet_id, permintaan.items, permintaan.target_metadata])
 
   const hasOverStock = permintaan.items.some(
     it => crosscheckData && crosscheckData[it.bahan_baku_id] && qtys[it.bahan_baku_id] > crosscheckData[it.bahan_baku_id].gudangStok
@@ -159,6 +181,12 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
               <div key={it.bahan_baku_id} className="flex items-center justify-between gap-4 border-b border-[#d9c2b2]/10 pb-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-[#1e1b15] truncate">{it.nama ?? it.bahan_baku_id}</p>
+                  {calculatedMap[it.bahan_baku_id] !== undefined && (
+                    <p className="text-[10px] font-medium text-[#544437] mt-0.5">
+                      HPP Penggunaan: <span className="font-bold">{Number(calculatedMap[it.bahan_baku_id]).toFixed(2)}</span> {it.satuan ?? ''} | 
+                      Pembulatan: <span className="font-bold">{Math.ceil(calculatedMap[it.bahan_baku_id])}</span> {it.satuan ?? ''}
+                    </p>
+                  )}
                   <p className="text-[11px] font-semibold text-[#544437] mt-0.5">Diminta: <span className="font-bold text-[#701604]">{it.qty_diminta} {it.satuan ?? ''}</span></p>
                   {isFetchingCrosscheck ? (
                     <p className="text-[10px] text-[#544437]/60 mt-0.5 animate-pulse">Memuat stok...</p>

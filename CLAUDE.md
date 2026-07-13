@@ -37,9 +37,13 @@ Grid: 18 outlet, 3 kolom, spacious cards (340px × 280px)
 ### 2. Stock Ledger & RLS
 **Model:** `ledger_stok` signed (qty>0 inflow, <0 outflow). Tipe: terima_kiriman, pemakaian, waste, adjustment, opname_selisih, transfer_keluar/masuk, rejected_kiriman.
 
-**RLS:** 
-- `ledger_read` membatasi per `outlet_staff.outlet_id` (crew lihat outlet sendiri saja)
-- View definer (`security_barrier`, tanpa `security_invoker`) bypass RLS agar SPV lihat semua outlet
+**RLS (per 2026-07-12, migration `20260712000000`):**
+- **`ledger_read`** — satu policy tunggal untuk SELECT: `outlet_id IN (SELECT accessible_outlet_ids())`. Berlaku untuk SEMUA role. Role privileged (`admin`, `spv`, `kitchen`, `owner`, `admin_finance`, `admin_hr`) dapat akses semua outlet. `leader`/`korlap` lewat `staff_outlets`. `crew`/`kiosk`/dll lewat `outlet_staff.outlet_id` tunggal.
+- **`ledger_insert`** — hanya bisa insert ke outlet sendiri (`outlet_staff.outlet_id`).
+- **`ledger_service_insert`** — service_role bisa insert ke mana saja (untuk trigger/RPC).
+- Jangan pakai `.single()` saat query `ledger_stok` — gunakan `.maybeSingle()` atau handle `null` agar tidak crash saat RLS memblokir atau data tidak ditemukan.
+
+**View:** `ledger_transaksi_ringkas` — agregasi per transaksi (join ref_order_id/ref_opname_id/ref_shipment_id/ref_transfer_id). Ikut RLS `ledger_stok` (bukan security definer). Di-query via `useLedgerTransaksiList` hook.
 
 **Riwayat migration:** Remote sering diverged (objek sudah ada tapi riwayat tak ter-stempel). Solusi: `migration repair --status applied/reverted` sebelum `db push`.
 
@@ -48,11 +52,13 @@ Grid: 18 outlet, 3 kolom, spacious cards (340px × 280px)
 ### 3. Outlet Model
 **Canonical:** `outlet_staff` (1 row per user, `id` = auth.users.id). Bukan `outlet_users`; `profiles` (lama POS) kini VIEW kompat di atas `outlet_staff`. Role: admin, owner, spv, leader, kasir, crew, kiosk, kitchen, mitra, staff_pusat.
 
-**Multi-outlet:** `leader` bisa membina beberapa outlet via tabel `staff_outlets` (many-to-many). `kasir`/`crew`/`kiosk`/`mitra` tetap 1 outlet (`outlet_staff.outlet_id`). `spv`/`admin`/`owner` akses semua outlet. Helper `accessible_outlet_ids()` meresolusi scope. Detail jobdesk & matriks akses: `docs/ROLE-JOBDESK.md`.
+**Multi-outlet:** `leader`/`korlap` bisa membina beberapa outlet via tabel `staff_outlets` (many-to-many). `kasir`/`crew`/`kiosk`/`mitra` tetap 1 outlet (`outlet_staff.outlet_id`). `spv`/`admin`/`owner`/`kitchen`/`admin_finance`/`admin_hr` akses **semua outlet** via `accessible_outlet_ids()`. Helper ini adalah satu-satunya sumber scope untuk RLS — selalu gunakan ini, jangan hardcode outlet list. Detail jobdesk & matriks akses: `docs/ROLE-JOBDESK.md`.
 
 **Role khusus:**
+- `kitchen` — Staff Gudang Pusat/Dapur. **Akses SPV-level**: bisa lihat monitoring & ledger semua outlet (diperlukan untuk koordinasi distribusi bahan baku). Fisik berada di lokasi yang sama dengan Gudang Pusat, tetapi secara sistem tetap harus request bahan ke Gudang Pusat.
 - `mitra` — partner/investor 1 outlet; read-only; lihat Owner Dashboard scope 1 outlet (server-enforced via `accessible_outlet_ids()` + scoped views).
 - `staff_pusat` — staff kantor pusat; auto-assign ke outlet dummy "Kantor Pusat"; akses `absensi` app.
+- `korlap` — koordinator lapangan; akses semua outlet **non-Bogor** (regional) via `accessible_outlet_ids()`. Bisa juga punya outlet spesifik via `staff_outlets`.
 
 ---
 

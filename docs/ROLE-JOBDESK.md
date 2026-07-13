@@ -1,6 +1,6 @@
 # Jobdesk & Wewenang Role — Suka Shawarma Outlet Suite
 
-**Tanggal:** 2026-06-13 | **Terakhir diupdate:** 2026-07-06
+**Tanggal:** 2026-06-13 | **Terakhir diupdate:** 2026-07-13
 **Status:** Aktif
 **Sumber kebenaran identitas:** tabel `outlet_staff` (1 baris per user) + tabel pemetaan `staff_outlets` untuk role multi-outlet
 
@@ -48,7 +48,9 @@ Pemetaan istilah SOP → role sistem:
 | 9 | `mitra` | Partner/investor outlet | 1 outlet (home outlet), read-only | Manusia (eksternal) |
 | 10 | `staff_pusat` | Staf kantor pusat (non-IT) | 1 outlet (absensi saja) | Manusia (pusat) |
 
-> **Catatan `spv`:** satu role tunggal, **berada di atas Leader Outlet** dan **mengawasi seluruh 19 outlet** (bukan 1 outlet). Sifat aksesnya monitoring/evaluasi (read-heavy) lintas outlet, memakai view definer SPV yang sudah bypass RLS. Pembagian "produksi" vs "stok" adalah divisi/penugasan, bukan beda hak akses.
+> **Catatan `spv`:** satu role tunggal, **berada di atas Leader Outlet** dan **mengawasi seluruh 19 outlet**. Memakai `accessible_outlet_ids()` untuk RLS.
+
+> **Catatan `kitchen`:** sejak 2026-07-12, mendapat **akses SPV-level** — bisa lihat ledger & monitoring semua outlet. Ini diperlukan karena Kitchen/Gudang Pusat perlu koordinasi distribusi bahan ke semua outlet.
 
 ---
 
@@ -251,11 +253,12 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 
 ## Aturan Lintas-Cutting
 
-1. **RLS per scope:**
-   - `kasir`, `crew` → terikat **1 outlet** (`outlet_staff.outlet_id`).
-   - `leader` → terikat **beberapa outlet** lewat tabel `staff_outlets` (RLS cek keanggotaan, bukan kolom tunggal).
-   - `spv` → **semua outlet** lewat view definer SPV (bypass RLS).
-   - `admin`, `owner` → semua outlet (agregat/bypass).
+1. **RLS per scope (menggunakan `accessible_outlet_ids()`):**
+   - `crew`, `kiosk`, `mitra`, `staff_pusat` → terikat **1 outlet** (`outlet_staff.outlet_id`).
+   - `leader`, `korlap` → terikat **beberapa outlet** lewat tabel `staff_outlets` (RLS cek keanggotaan).
+   - `korlap` global → semua outlet **non-Bogor** berdasarkan kolom `outlets.region`.
+   - `spv`, `kitchen`, `admin`, `owner`, `admin_hr`, `admin_finance` → **semua outlet**.
+   - Semua scope di atas di-resolve oleh function **`accessible_outlet_ids()`** — satu titik kebenaran untuk RLS di semua tabel (ledger_stok, stok_balance, opname, dll.).
 2. **Least privilege:** default tolak; akses hanya yang ada di matriks. Guard middleware menolak role di luar daftar app.
 3. **Satu sumber identitas:** role & outlet selalu dibaca dari `outlet_staff`. Tabel `profiles` (lama, pos-kasir) dipensiunkan/menjadi view kompatibilitas.
 4. **Kiosk terpisah total:** alur device QR tidak melewati SSO manusia.

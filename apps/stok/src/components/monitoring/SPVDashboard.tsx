@@ -24,6 +24,7 @@ import { LogOut, RefreshCw } from 'lucide-react';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
 import { useQuery } from '@tanstack/react-query';
 import { BottomNav } from '@/components/common/BottomNav';
+import { ProductionEstimateWidget } from './ProductionEstimateWidget';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
   const name = outletName.toUpperCase();
@@ -250,12 +251,26 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     return { byOutlet: outletList, byRegion: regionMap };
   }, [items]);
 
+  const visibleOutlets = React.useMemo(() => {
+    return outlets.byOutlet;
+  }, [outlets.byOutlet, outletStaff?.role]);
+
   // Automatically set first outlet as active on initial load
   React.useEffect(() => {
-    if (outlets.byOutlet.length > 0 && !selectedOutletId) {
-      setSelectedOutletId(outlets.byOutlet[0].outlet_id);
+    if (visibleOutlets.length > 0 && !selectedOutletId) {
+      let defaultOutletId = visibleOutlets[0].outlet_id;
+      
+      const isKitchenRole = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'admin_hr';
+      if (isKitchenRole) {
+        const gudang = visibleOutlets.find(o => o.outlet_name.toUpperCase().includes('GUDANG'));
+        if (gudang) {
+          defaultOutletId = gudang.outlet_id;
+        }
+      }
+      
+      setSelectedOutletId(defaultOutletId);
     }
-  }, [outlets, selectedOutletId]);
+  }, [visibleOutlets, selectedOutletId, outletStaff?.role]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -270,7 +285,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
   const handleTransferConfirm = (sourceOutletId: string, qty: number) => {
     if (!transferItem) return;
-    const sourceOutletName = outlets.byOutlet.find(o => o.outlet_id === sourceOutletId)?.outlet_name || 'Outlet Asal';
+    const sourceOutletName = visibleOutlets.find(o => o.outlet_id === sourceOutletId)?.outlet_name || 'Outlet Asal';
     showToast(`✅ Transfer Stok Berhasil: ${qty} unit ${transferItem.item_name} dipindahkan dari ${sourceOutletName} ke ${transferItem.outlet_name}`);
     setTransferItem(null);
   };
@@ -465,7 +480,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
       {/* Mobile Outlets Horizontal Strip */}
       {activeTab === 'overview' && (
         <div className="flex lg:hidden overflow-x-auto gap-2 px-4 py-2.5 bg-suka-cream/50 border-b border-suka-brown/20 scrollbar-none flex-shrink-0 w-full">
-          {outlets.byOutlet.map((outlet) => {
+          {visibleOutlets.map((outlet) => {
             const isActive = selectedOutletId === outlet.outlet_id;
             const cleanName = outlet.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
             let statusCircleColor = 'bg-suka-green';
@@ -649,7 +664,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                   <div className="p-4 md:p-6 border-b border-suka-brown/10 flex flex-col gap-4 bg-white z-10 flex-shrink-0 shadow-sm">
                     <div className="flex justify-between items-center flex-wrap gap-4">
                       <h3 className="text-base md:text-lg font-black text-suka-brown uppercase tracking-tight">
-                        DETAIL STOK: {outlets.byOutlet.find(o => o.outlet_id === selectedOutletId)?.outlet_name.replace('SUKA SHAWARMA ', '')}
+                        DETAIL STOK: {visibleOutlets.find(o => o.outlet_id === selectedOutletId)?.outlet_name.replace('SUKA SHAWARMA ', '')}
                       </h3>
                       <div className="relative w-full sm:w-auto">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50 text-sm">🔍</span>
@@ -841,6 +856,11 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
             {/* Right Column: Action & Predictive Hub (Action Drawer) */}
             <aside className="w-full lg:w-[320px] xl:w-[23%] bg-suka-cream/50 overflow-visible lg:overflow-y-auto p-4 flex flex-col gap-6 flex-shrink-0 border-t lg:border-t-0 border-suka-brown/20">
+              {/* Widget: Estimasi Produksi (khusus kitchen) */}
+              {outletStaff?.role === 'kitchen' && currentOutletItems.length > 0 && (
+                <ProductionEstimateWidget items={currentOutletItems} />
+              )}
+
               {/* Widget 0: Approval Permintaan */}
               <div className="bg-white p-4 rounded-2xl border border-suka-brown/20 shadow-sm space-y-3 hover:scale-[1.01] transition-transform">
                 <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">
@@ -921,11 +941,27 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         {/* Approval Tab */}
         {activeTab === 'approval' && (
           <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#faf2e9]/30">
-            <div className="bg-white rounded-xl border border-suka-brown/10 shadow-sm p-4 md:p-6 max-w-4xl mx-auto space-y-4">
-              <h2 className="text-base md:text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">
-                Approval Permintaan Bahan
-              </h2>
-              <ApprovalList />
+            <div className="bg-white rounded-xl border border-suka-brown/10 shadow-sm p-4 md:p-6 max-w-4xl mx-auto space-y-6">
+
+              {/* Estimasi Produksi — hanya untuk kitchen */}
+              {outletStaff?.role === 'kitchen' && currentOutletItems.length > 0 && (
+                <div className="space-y-2">
+                  <h2 className="text-base md:text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight flex items-center gap-2">
+                    <span>🥙</span> Estimasi Produksi Hari Ini
+                  </h2>
+                  <p className="text-xs text-suka-brown/60 font-medium">
+                    Berdasarkan saldo stok: {visibleOutlets.find(o => o.outlet_id === selectedOutletId)?.outlet_name || 'outlet aktif'}
+                  </p>
+                  <ProductionEstimateWidget items={currentOutletItems} />
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <h2 className="text-base md:text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">
+                  Approval Permintaan Bahan
+                </h2>
+                <ApprovalList />
+              </div>
             </div>
           </main>
         )}

@@ -11,7 +11,7 @@ import { BottomNav } from '@/components/common/BottomNav';
 
 export default function LedgerPage() {
   const { outletStaff } = useAuth();
-  const { selectedOutletId } = useOutletScope();
+  const { selectedOutletId, boundOutlets } = useOutletScope();
   const [page, setPage] = useState(0);
   const { transaksi, loading, error } = useLedgerTransaksiList(selectedOutletId, page);
 
@@ -38,7 +38,7 @@ export default function LedgerPage() {
             <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Ledger Pergerakan Stok</h1>
             <div className="flex flex-col text-[10px] text-[#544437]/75 font-bold mt-0.5">
               <p>Crew : {outletStaff.name}</p>
-              <p>Outlet : {outletStaff.outlets?.name || 'Unknown'}</p>
+              <p>Outlet : {boundOutlets.find(o => o.id === selectedOutletId)?.name || outletStaff.outlets?.name || 'Unknown'}</p>
             </div>
           </div>
         </div>

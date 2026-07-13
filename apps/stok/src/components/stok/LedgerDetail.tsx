@@ -27,8 +27,9 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
           .from('ledger_stok')
           .select('*, bahan_baku(nama, satuan, satuan_kecil, faktor_tampilan)')
           .eq('id', ledgerId)
-          .single()
+          .maybeSingle()
         if (err) throw err
+        if (!data) throw new Error('Data ledger tidak ditemukan atau Anda tidak memiliki akses.')
         setL(data)
       } catch (err: any) {
         setError(`Gagal muat ledger: ${err.message || err}`)

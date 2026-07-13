@@ -32,6 +32,7 @@ export interface ReceiptData {
   changeAmount?: number | null
   cashierName?: string | null
   logoUrl?: string
+  receiptType?: 'customer' | 'kitchen'
 }
 
 function esc(s: string): string {
@@ -62,11 +63,12 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
       <div class="row"><span>Kembalian</span><span>${formatRupiah(d.changeAmount ?? 0)}</span></div>`
     : ''
 
-  const discRow = d.discount > 0
+  const discRow = d.discount > 0 && d.receiptType !== 'kitchen'
     ? `<div class="row"><span>Diskon</span><span>-${formatRupiah(d.discount)}</span></div>`
     : ''
 
   const logoSrc = d.logoUrl || `${origin}/logo.png`
+  const isKitchen = d.receiptType === 'kitchen'
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Struk</title>
 <style>
@@ -77,40 +79,55 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   * { box-sizing: border-box; }
   html, body { background: #fff; }
   body { margin: 0; padding: 6px 8px; font-family: 'Courier New', monospace; color: #000;
-         width: ${PAPER_WIDTH_MM}mm; font-size: 12px; line-height: 1.35; }
+         width: ${PAPER_WIDTH_MM}mm; font-size: ${isKitchen ? '18px' : '14px'}; line-height: 1.35; font-weight: 900; }
   .center { text-align: center; }
-  .bold { font-weight: 700; }
-  .lg { font-size: 15px; }
-  .muted { font-size: 11px; }
+  .bold { font-weight: 900; }
+  .lg { font-size: ${isKitchen ? '22px' : '18px'}; }
+  .muted { font-size: ${isKitchen ? '16px' : '13px'}; font-weight: 900; }
   .logo { display: block; margin: 0 auto 6px auto; width: 48px; height: 48px; object-fit: contain; filter: grayscale(100%) contrast(200%); }
-  hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+  hr { border: none; border-top: 2px dashed #000; margin: 6px 0; }
   table { width: 100%; border-collapse: collapse; }
-  td { vertical-align: top; padding: 1px 0; }
-  td.qty { width: 26px; }
+  td { vertical-align: top; padding: 1px 0; font-weight: 900; }
+  td.qty { width: ${isKitchen ? '36px' : '30px'}; font-size: ${isKitchen ? '20px' : '16px'}; }
   td.amt { text-align: right; white-space: nowrap; padding-left: 6px; }
-  td.name .note { font-size: 10px; padding-left: 2px; }
+  td.name .note { font-size: ${isKitchen ? '15px' : '12px'}; padding-left: 2px; font-weight: 900; margin-top: 2px; display: block; }
   .row { display: flex; justify-content: space-between; }
-  .total { font-size: 14px; font-weight: 700; }
-  .queue { font-size: 22px; font-weight: 700; }
+  .total { font-size: 16px; font-weight: 900; }
+  .queue { font-size: 28px; font-weight: 900; }
+  .kitchen-title { font-size: 26px; font-weight: 900; margin-bottom: 8px; text-decoration: underline; }
 </style></head>
 <body>
+  ${isKitchen ? `<div class="center kitchen-title">STRUK DAPUR</div>` : `
   <img src="${logoSrc}" class="logo" alt="Logo" />
   <div class="center bold lg">${esc(d.outletName || 'SUKA SHAWARMA')}</div>
   <div class="center muted">Suka Shawarma</div>
+  `}
   <hr/>
-  <div class="row muted"><span>${dateStr}</span><span>${payLabel}</span></div>
+  <div class="row muted"><span>${dateStr}</span><span>${!isKitchen ? payLabel : ''}</span></div>
   ${d.customerName ? `<div class="muted">Pelanggan: ${esc(d.customerName)}</div>` : ''}
-  ${d.cashierName ? `<div class="muted">Kasir: ${esc(d.cashierName)}</div>` : ''}
+  ${d.cashierName && !isKitchen ? `<div class="muted">Kasir: ${esc(d.cashierName)}</div>` : ''}
   <div class="center queue">No. ${esc(String(d.orderNumber))}</div>
   <hr/>
-  <table><tbody>${rows}</tbody></table>
+  <table><tbody>
+  ${d.items.map((it) => {
+    const noteHtml = it.note ? `<span class="note">- ${esc(it.note)}</span>` : ''
+    return `
+      <tr>
+        <td class="qty">${it.quantity}x</td>
+        <td class="name">${esc(it.name)}${noteHtml}</td>
+        ${!isKitchen ? `<td class="amt">${formatRupiah(it.subtotal)}</td>` : ''}
+      </tr>`
+  }).join('')}
+  </tbody></table>
   <hr/>
+  ${!isKitchen ? `
   <div class="row"><span>Subtotal</span><span>${formatRupiah(d.subtotal)}</span></div>
   ${discRow}
   <div class="row total"><span>TOTAL</span><span>${formatRupiah(d.total)}</span></div>
   ${cashRows}
   <hr/>
   <div class="center muted">Terima kasih & selamat menikmati!</div>
+  ` : ''}
 </body></html>`
 }
 
@@ -130,87 +147,94 @@ async function getBase64Image(url: string): Promise<string> {
   }
 }
 
-export function printReceipt(data: ReceiptData): void {
-  if (typeof window === 'undefined') return
-  
-  // Start async process
-  const origin = window.location.origin
-  const logoUrl = data.logoUrl || `${origin}/logo.png`
-
-  getBase64Image(logoUrl).then((base64Logo) => {
-    // Override logoUrl temporarily
-    const dataWithBase64 = { ...data, logoUrl: base64Logo }
-    const html = buildReceiptHtml(dataWithBase64, origin)
-
-    const iframe = document.createElement('iframe')
-    iframe.style.position = 'fixed'
-    iframe.style.right = '0'
-    iframe.style.bottom = '0'
-    iframe.style.width = '0'
-    iframe.style.height = '0'
-    iframe.style.border = '0'
-    document.body.appendChild(iframe)
-
-    const doc = iframe.contentWindow?.document
-    if (!doc) {
-      document.body.removeChild(iframe)
+export function printReceipt(data: ReceiptData): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve()
       return
     }
+    
+    // Start async process
+    const origin = window.location.origin
+    const logoUrl = data.logoUrl || `${origin}/logo.png`
 
-    doc.open()
-    doc.write(html)
-    doc.close()
+    getBase64Image(logoUrl).then((base64Logo) => {
+      // Override logoUrl temporarily
+      const dataWithBase64 = { ...data, logoUrl: base64Logo }
+      const html = buildReceiptHtml(dataWithBase64, origin)
 
-    const cleanup = () => {
-      setTimeout(() => {
-        if (iframe.parentNode) iframe.parentNode.removeChild(iframe)
-      }, 500)
-    }
+      const iframe = document.createElement('iframe')
+      iframe.style.position = 'fixed'
+      iframe.style.right = '0'
+      iframe.style.bottom = '0'
+      iframe.style.width = '0'
+      iframe.style.height = '0'
+      iframe.style.border = '0'
+      document.body.appendChild(iframe)
 
-    const win = iframe.contentWindow
-    if (!win) { cleanup(); return }
+      const doc = iframe.contentWindow?.document
+      if (!doc) {
+        document.body.removeChild(iframe)
+        resolve()
+        return
+      }
 
-    const applyPageSize = () => {
-      try {
-        const heightPx = doc.body?.scrollHeight || 0
-        if (heightPx > 0) {
-          const heightMm = Math.ceil((heightPx / 96) * 25.4) + 4
-          const style = doc.createElement('style')
-          style.textContent = `@page { size: ${PAPER_WIDTH_MM}mm ${heightMm}mm; margin: 0; }`
-          doc.head?.appendChild(style)
+      doc.open()
+      doc.write(html)
+      doc.close()
+
+      const cleanup = () => {
+        setTimeout(() => {
+          if (iframe.parentNode) iframe.parentNode.removeChild(iframe)
+        }, 500)
+      }
+
+      const win = iframe.contentWindow
+      if (!win) { cleanup(); resolve(); return }
+
+      const applyPageSize = () => {
+        try {
+          const heightPx = doc.body?.scrollHeight || 0
+          if (heightPx > 0) {
+            const heightMm = Math.ceil((heightPx / 96) * 25.4) + 4
+            const style = doc.createElement('style')
+            style.textContent = `@page { size: ${PAPER_WIDTH_MM}mm ${heightMm}mm; margin: 0; }`
+            doc.head?.appendChild(style)
+          }
+        } catch {
+          // Fallback
         }
-      } catch {
-        // Fallback
       }
-    }
 
-    let printed = false
-    const doPrint = () => {
-      if (printed) return
-      printed = true
-      try {
-        applyPageSize()
-        win.focus()
-        win.print()
-      } finally {
-        cleanup()
+      let printed = false
+      const doPrint = () => {
+        if (printed) return
+        printed = true
+        try {
+          applyPageSize()
+          win.focus()
+          win.print()
+        } finally {
+          cleanup()
+          resolve() // Resolve after the print dialog is closed/done
+        }
       }
-    }
 
-    // Karena logo sudah dirender sebagai base64 (atau fallback), kita bisa
-    // menunggu sebentar saja untuk pastikan CSS selesai dirender.
-    const checkImage = setInterval(() => {
-      const img = doc.querySelector('img')
-      if (!img || img.complete) {
+      // Karena logo sudah dirender sebagai base64 (atau fallback), kita bisa
+      // menunggu sebentar saja untuk pastikan CSS selesai dirender.
+      const checkImage = setInterval(() => {
+        const img = doc.querySelector('img')
+        if (!img || img.complete) {
+          clearInterval(checkImage)
+          doPrint()
+        }
+      }, 50)
+      
+      setTimeout(() => {
         clearInterval(checkImage)
         doPrint()
-      }
-    }, 50)
-    
-    setTimeout(() => {
-      clearInterval(checkImage)
-      doPrint()
-    }, 1500)
+      }, 1500)
+    })
   })
 }
 

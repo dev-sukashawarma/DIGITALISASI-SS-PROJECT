@@ -253,6 +253,33 @@ export default function OrderManualPage() {
         return
       }
       postToNative({ type: 'haptic', style: 'success' })
+
+      const receipt: ReceiptData = {
+        outletName: outletName || 'SUKA SHAWARMA',
+        orderNumber: data.order_number,
+        dateISO: new Date().toISOString(),
+        customerName: customerName.trim() || null,
+        items: lineList.map((l) => {
+          const unit = wrappedCalculateItemPrice(l.item.price, l.item.id)
+          return {
+            name: l.item.name,
+            note: l.note?.trim() || undefined,
+            quantity: l.quantity,
+            unit_price: unit,
+            subtotal: unit * l.quantity,
+          }
+        }),
+        subtotal: subtotalAmount,
+        discount: globalDiscount,
+        total: totalPrice,
+        paymentMethod: payment as 'cash' | 'qris',
+        amountReceived: payment === 'cash' ? amountReceived : null,
+        changeAmount: data.change_amount ?? null,
+        receiptType: 'kitchen'
+      }
+
+      await printReceipt(receipt)
+
       setSuccess({
         orderNumber: data.order_number,
         method: payment,
@@ -289,6 +316,33 @@ export default function OrderManualPage() {
       })
 
       postToNative({ type: 'haptic', style: 'success' })
+
+      const receipt: ReceiptData = {
+        outletName: outletName || 'SUKA SHAWARMA',
+        orderNumber: orderNumber,
+        dateISO: new Date().toISOString(),
+        customerName: customerName.trim() || null,
+        items: lineList.map((l) => {
+          const unit = wrappedCalculateItemPrice(l.item.price, l.item.id)
+          return {
+            name: l.item.name,
+            note: l.note?.trim() || undefined,
+            quantity: l.quantity,
+            unit_price: unit,
+            subtotal: unit * l.quantity,
+          }
+        }),
+        subtotal: subtotalAmount,
+        discount: globalDiscount,
+        total: totalPrice,
+        paymentMethod: payment as 'cash' | 'qris',
+        amountReceived: payment === 'cash' ? amountReceived : null,
+        changeAmount: payment === 'cash' ? (amountReceived !== null ? amountReceived - totalPrice : 0) : null,
+        receiptType: 'kitchen'
+      }
+
+      await printReceipt(receipt)
+
       setSuccess({
         orderNumber,
         method: payment,
@@ -367,10 +421,11 @@ export default function OrderManualPage() {
         paymentMethod: method,
         amountReceived: data.amount_received ?? null,
         changeAmount: data.change_amount ?? null,
+        receiptType: 'kitchen'
       }
 
-      // Cetak struk otomatis
-      printReceipt(receipt)
+      // Cetak struk otomatis (hanya dapur)
+      await printReceipt(receipt)
 
       setWalkInSuccess({
         orderNumber: data.order_number,
@@ -425,10 +480,11 @@ export default function OrderManualPage() {
         paymentMethod: method,
         amountReceived: amountReceived ?? null,
         changeAmount: changeAmount ?? null,
+        receiptType: 'kitchen'
       }
 
-      // Cetak struk otomatis
-      printReceipt(receipt)
+      // Cetak struk otomatis (hanya dapur)
+      await printReceipt(receipt)
 
       setWalkInSuccess({
         orderNumber: offlineOrderNumber,

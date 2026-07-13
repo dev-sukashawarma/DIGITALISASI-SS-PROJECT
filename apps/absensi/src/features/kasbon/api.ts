@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export type KasbonStatus = 'pending' | 'approved' | 'rejected' | 'not_required';
-export type KasbonFinalStatus = 'pending' | 'active' | 'paid_off' | 'rejected'; // active=approved
+// DB CHECK constraint on cash_advances.status only allows these two (disbursement lifecycle, NOT approval state)
+export type KasbonDisbursementStatus = 'active' | 'paid_off';
 
 export interface CashAdvance {
   id: string;
@@ -11,7 +12,8 @@ export interface CashAdvance {
   installment_months: number;
   reason: string;
   status_spv: KasbonStatus;
-  status: KasbonFinalStatus; // HR status / final status
+  status_hr: KasbonStatus; // real approval column
+  status: KasbonDisbursementStatus; // disbursement/payoff state, not approval
   created_at: string;
 }
 
@@ -38,12 +40,11 @@ export function useKasbonHistory(userId: string | undefined) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       // Map back to our component's expected format
       return (data || []).map(d => ({
         ...d,
         user_id: d.staff_id,
-        status_hr: d.status === 'active' || d.status === 'paid_off' ? 'approved' : d.status, // Map 'active' to approved for frontend display
       })) as any[];
     },
     enabled: !!userId,
@@ -66,7 +67,8 @@ export function useSubmitKasbon() {
           reason: payload.reason,
           installment_months: payload.installment_months,
           status_spv: payload.status_spv,
-          status: payload.status,
+          // status_hr defaults to 'pending' in DB; `status` (active/paid_off) is disbursement
+          // state and must NOT be set here — it defaults to 'active' and has no "pending" value.
         }])
         .select()
         .single();

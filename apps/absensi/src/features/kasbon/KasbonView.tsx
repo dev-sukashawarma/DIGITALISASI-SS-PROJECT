@@ -54,7 +54,6 @@ export function KasbonView() {
         installment_months: numMonths,
         reason,
         status_spv: outletStaff?.role === 'staff_pusat' ? 'not_required' : 'pending',
-        status: 'pending',
       });
       toast.show("ok", "Pengajuan kasbon berhasil dikirim");
       setShowForm(false);
@@ -204,7 +203,7 @@ export function KasbonView() {
                       <span className="font-semibold text-slate-800">
                         {formatRupiah(item.amount)}
                       </span>
-                      {getStatusBadge(item.status_spv, item.status)}
+                      {getStatusBadge(item.status_spv, item.status_hr)}
                     </div>
                     <p className="text-sm text-slate-600 mb-2">{item.reason}</p>
                     <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">

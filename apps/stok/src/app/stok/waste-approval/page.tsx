@@ -1,58 +1,21 @@
 'use client'
-import { useEffect, useId, useState } from 'react'
+import { useState } from 'react'
 import { Card, Button, Input } from '@suka/design-system'
-import { fetchPendingWasteReports, approveWasteReport, rejectWasteReport } from '@/app/actions/waste'
+import { approveWasteReport, rejectWasteReport } from '@/app/actions/waste'
 import { toast } from 'sonner'
 import { useStokBalance } from '@/hooks/useStokBalance'
+import { useWasteApprovalList } from '@/hooks/useWaste'
 import { useAuth } from '@suka/auth'
-import { useQueryClient } from '@tanstack/react-query'
-import { useRealtimeChannel } from '@/lib/realtime/useRealtimeChannel'
 
 export default function WasteApprovalPage() {
   const { outletStaff } = useAuth()
   const outletId = outletStaff?.outlet_id
 
-  // We can also fetch without outletId to get all accessible pending reports
-  const [reports, setReports] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
 
   const { balances } = useStokBalance(outletId || '')
-  const instanceId = useId()
-  const queryClient = useQueryClient()
-
-  const loadReports = async () => {
-    try {
-      setLoading(true)
-      const data = await fetchPendingWasteReports() // gets all accessible
-      setReports(data)
-    } catch (err: any) {
-      toast.error(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadReports()
-  }, [])
-
-  useRealtimeChannel({
-    channelName: `waste_approval_${instanceId}`,
-    subs: [
-      {
-        table: 'stok_waste_reports',
-        event: '*',
-        handler: () => {
-          loadReports()
-          // SPVDashboard punya query React Query terpisah (['waste_pending_all'])
-          // untuk badge jumlah pending — invalidate juga supaya tetap sinkron.
-          queryClient.invalidateQueries({ queryKey: ['waste_pending_all'] })
-        },
-      },
-    ],
-  })
+  const { reports, loading, refresh: loadReports } = useWasteApprovalList()
 
   const handleApprove = async (id: string, qty: number, bahanBakuId: string) => {
     const bal = balances.find(b => b.bahan_baku_id === bahanBakuId)
@@ -92,7 +55,7 @@ export default function WasteApprovalPage() {
     <div className="space-y-4 p-4 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Persetujuan Waste</h1>
-        <Button variant="secondary" onClick={loadReports}>Refresh</Button>
+        <Button variant="secondary" onClick={() => loadReports()}>Refresh</Button>
       </div>
 
       {reports.length === 0 ? (

@@ -862,21 +862,32 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               )}
 
               {/* Widget 0: Approval Permintaan */}
-              <div className="bg-white p-4 rounded-2xl border border-suka-brown/20 shadow-sm space-y-3 hover:scale-[1.01] transition-transform">
-                <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">
-                  <span>📝</span> Approval Permintaan
-                </h3>
-                <div className="max-h-[300px] overflow-y-auto pr-1">
+              <details className="group bg-white rounded-2xl border border-suka-brown/20 shadow-sm">
+                <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
+                  <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
+                    <span>📝</span> Approval Permintaan
+                    {pendingApprovals.length > 0 && (
+                      <span className="ml-1 bg-suka-orange text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                        {pendingApprovals.length}
+                      </span>
+                    )}
+                  </h3>
+                  <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
+                </summary>
+                <div className="max-h-[300px] overflow-y-auto px-4 pb-4">
                   <ApprovalList />
                 </div>
-              </div>
+              </details>
 
               {/* Widget 3: Live Activity Feed */}
-              <div className="bg-white p-4 rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)] space-y-3">
-                <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex items-center gap-1.5">
-                  <span>⚡</span> Live Activity
-                </h3>
-                <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+              <details className="group bg-white rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)]">
+                <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
+                  <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
+                    <span>⚡</span> Live Activity
+                  </h3>
+                  <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
+                </summary>
+                <div className="space-y-2.5 max-h-[300px] overflow-y-auto px-4 pb-4">
                   {selectedOutletId ? (
                     recentLedger.filter(l => l.outlet_id === selectedOutletId).slice(0, 5).length === 0 ? (
                       <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
@@ -913,7 +924,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                     </p>
                   )}
                 </div>
-              </div>
+              </details>
             </aside>
           </div>
         )}

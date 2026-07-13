@@ -1,5 +1,5 @@
 'use client'
-import { useId } from 'react'
+import { useId, useEffect } from 'react'
 import { useAuth } from '@suka/auth'
 import { useQuery } from '@tanstack/react-query'
 import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
@@ -60,10 +60,12 @@ export function useSaranItem(outletId: string | undefined) {
     gcTime: 60000,
   })
 
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.error('[useSaranItem] gagal memload saran:', error)
-  }
+  useEffect(() => {
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error('[useSaranItem] gagal memload saran:', error)
+    }
+  }, [error])
 
   return { saran: data ?? [], loading: isLoading }
 }

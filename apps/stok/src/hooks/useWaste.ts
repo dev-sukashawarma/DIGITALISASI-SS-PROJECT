@@ -1,8 +1,7 @@
 'use client'
-import { useId } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { fetchPendingWasteReports, fetchMyWasteReports } from '@/app/actions/waste'
-import { useRealtimeChannel } from '@/lib/realtime/useRealtimeChannel'
+import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
 import type { WasteReport } from '@/types/stok'
 
 /**
@@ -10,9 +9,6 @@ import type { WasteReport } from '@/types/stok'
  * scopes by RLS/role). Used on the waste-approval page.
  */
 export function useWasteApprovalList() {
-  const instanceId = useId()
-  const queryClient = useQueryClient()
-
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['waste_approval_list'],
     queryFn: () => fetchPendingWasteReports(),
@@ -20,18 +16,15 @@ export function useWasteApprovalList() {
     gcTime: 60000,
   })
 
-  useRealtimeChannel({
-    channelName: `waste_approval_${instanceId}`,
+  useRealtimeInvalidate({
+    channelName: 'waste_approval_list',
     subs: [
       {
         table: 'stok_waste_reports',
         event: '*',
-        handler: () => {
-          queryClient.invalidateQueries({ queryKey: ['waste_approval_list'] })
-          // SPVDashboard punya query React Query terpisah (['waste_pending_all'])
-          // untuk badge jumlah pending — invalidate juga supaya tetap sinkron.
-          queryClient.invalidateQueries({ queryKey: ['waste_pending_all'] })
-        },
+        // SPVDashboard punya query React Query terpisah (['waste_pending_all'])
+        // untuk badge jumlah pending — invalidate juga supaya tetap sinkron.
+        queryKeys: [['waste_approval_list'], ['waste_pending_all']],
       },
     ],
   })
@@ -44,8 +37,6 @@ export function useWasteApprovalList() {
  * waste-history page.
  */
 export function useMyWasteHistory(staffId: string | undefined) {
-  const instanceId = useId()
-
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['waste_history', staffId],
     queryFn: () => fetchMyWasteReports(staffId as string) as Promise<WasteReport[]>,
@@ -54,15 +45,15 @@ export function useMyWasteHistory(staffId: string | undefined) {
     gcTime: 60000,
   })
 
-  useRealtimeChannel({
-    channelName: `waste_history_${staffId ?? 'anon'}_${instanceId}`,
+  useRealtimeInvalidate({
+    channelName: `waste_history_${staffId ?? 'none'}`,
     enabled: !!staffId,
     subs: [
       {
         table: 'stok_waste_reports',
         event: '*',
         filter: staffId ? `reported_by=eq.${staffId}` : undefined,
-        handler: () => refetch(),
+        queryKeys: [['waste_history', staffId]],
       },
     ],
   })

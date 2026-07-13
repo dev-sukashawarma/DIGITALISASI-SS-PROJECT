@@ -72,29 +72,28 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Struk</title>
 <style>
-  /* @page di-set dinamis oleh printReceipt (80mm x tinggi konten). Fallback
-     valid di sini dipakai bila pengukuran gagal. 'size: 80mm auto' TIDAK valid
-     (tak boleh campur mm + auto) -> Chrome akan jatuh ke A4/A5. */
+  /* @page di-set dinamis oleh printReceipt (80mm x tinggi konten). */
   @page { size: ${PAPER_WIDTH_MM}mm 297mm; margin: 0; }
   * { box-sizing: border-box; }
   html, body { background: #fff; }
-  body { margin: 0; padding: 6px 8px; font-family: 'Courier New', monospace; color: #000;
-         width: ${PAPER_WIDTH_MM}mm; font-size: ${isKitchen ? '18px' : '14px'}; line-height: 1.35; font-weight: 900; }
+  body { margin: 0; padding: 6px 8px; font-family: 'Courier New', Courier, monospace; color: #000;
+         width: ${PAPER_WIDTH_MM}mm; font-size: ${isKitchen ? '22px' : '14px'}; line-height: 1.3; font-weight: 900; }
   .center { text-align: center; }
   .bold { font-weight: 900; }
-  .lg { font-size: ${isKitchen ? '22px' : '18px'}; }
-  .muted { font-size: ${isKitchen ? '16px' : '13px'}; font-weight: 900; }
+  .lg { font-size: ${isKitchen ? '26px' : '18px'}; }
+  .muted { font-size: ${isKitchen ? '18px' : '13px'}; font-weight: 900; }
   .logo { display: block; margin: 0 auto 6px auto; width: 48px; height: 48px; object-fit: contain; filter: grayscale(100%) contrast(200%); }
   hr { border: none; border-top: 2px dashed #000; margin: 6px 0; }
-  table { width: 100%; border-collapse: collapse; }
-  td { vertical-align: top; padding: 1px 0; font-weight: 900; }
-  td.qty { width: ${isKitchen ? '36px' : '30px'}; font-size: ${isKitchen ? '20px' : '16px'}; }
+  table { width: 100%; border-collapse: collapse; margin-top: 4px; margin-bottom: 4px; }
+  td { vertical-align: top; padding: 2px 0; font-weight: 900; }
+  td.qty { width: ${isKitchen ? '40px' : '30px'}; font-size: ${isKitchen ? '24px' : '16px'}; }
+  td.name { font-size: ${isKitchen ? '22px' : '15px'}; padding-right: 4px; }
   td.amt { text-align: right; white-space: nowrap; padding-left: 6px; }
-  td.name .note { font-size: ${isKitchen ? '15px' : '12px'}; padding-left: 2px; font-weight: 900; margin-top: 2px; display: block; }
-  .row { display: flex; justify-content: space-between; }
-  .total { font-size: 16px; font-weight: 900; }
-  .queue { font-size: 28px; font-weight: 900; }
-  .kitchen-title { font-size: 26px; font-weight: 900; margin-bottom: 8px; text-decoration: underline; }
+  .note { font-size: ${isKitchen ? '18px' : '13px'}; font-style: italic; display: block; margin-top: 2px; }
+  .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .total { font-size: 18px; font-weight: 900; margin-top: 4px; margin-bottom: 4px; }
+  .queue { font-size: 32px; font-weight: 900; margin: 4px 0; }
+  .kitchen-title { font-size: 30px; font-weight: 900; margin-bottom: 8px; text-decoration: underline; }
 </style></head>
 <body>
   ${isKitchen ? `<div class="center kitchen-title">STRUK DAPUR</div>` : `
@@ -110,7 +109,7 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   <hr/>
   <table><tbody>
   ${d.items.map((it) => {
-    const noteHtml = it.note ? `<span class="note">- ${esc(it.note)}</span>` : ''
+    const noteHtml = it.note ? `<div class="note">- ${esc(it.note)}</div>` : ''
     return `
       <tr>
         <td class="qty">${it.quantity}x</td>
@@ -126,7 +125,7 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   <div class="row total"><span>TOTAL</span><span>${formatRupiah(d.total)}</span></div>
   ${cashRows}
   <hr/>
-  <div class="center muted">Terima kasih & selamat menikmati!</div>
+  <div class="center muted" style="margin-top: 8px;">Terima kasih & selamat menikmati!</div>
   ` : ''}
 </body></html>`
 }

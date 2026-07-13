@@ -470,13 +470,27 @@ export default function KasirOrderClient({
       orderNumber: order.order_number,
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
-      items: order.order_items.map(item => ({
-        name: item.menu_item_name,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        subtotal: item.subtotal,
-        note: item.notes || undefined
-      })),
+        items: order.order_items.map(item => {
+          let name = item.menu_item_name || '';
+          let note = item.notes || '';
+          const noteSplit = name.split('|NOTE|');
+          if (noteSplit.length > 1) { 
+            note = (note ? note + ' - ' : '') + noteSplit[1].trim(); 
+            name = noteSplit[0].trim(); 
+          }
+          const parentSplit = name.split('|PARENT|');
+          if (parentSplit.length > 1) { name = parentSplit[0].trim(); }
+          const idSplit = name.split('|ID|');
+          if (idSplit.length > 1) { name = idSplit[0].trim(); }
+          
+          return {
+            name: name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal,
+            note: note || undefined
+          }
+        }),
       subtotal: order.total_amount,
       discount: 0,
       total: order.total_amount,
@@ -515,17 +529,33 @@ export default function KasirOrderClient({
       orderNumber: order.order_number,
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
-      items: order.order_items.map(item => ({
-        name: item.menu_item_name,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        subtotal: item.subtotal,
-        note: item.notes || undefined
-      })),
+      items: order.order_items.map(item => {
+        let name = item.menu_item_name || '';
+        let note = item.notes || '';
+        const noteSplit = name.split('|NOTE|');
+        if (noteSplit.length > 1) { 
+          note = (note ? note + ' - ' : '') + noteSplit[1].trim(); 
+          name = noteSplit[0].trim(); 
+        }
+        const parentSplit = name.split('|PARENT|');
+        if (parentSplit.length > 1) { name = parentSplit[0].trim(); }
+        const idSplit = name.split('|ID|');
+        if (idSplit.length > 1) { name = idSplit[0].trim(); }
+        
+        return {
+          name: name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          subtotal: item.subtotal,
+          note: note || undefined
+        }
+      }),
       subtotal: order.total_amount, // Asumsikan no discount at pos-kasir board level, or use subtotal logic
       discount: 0,
       total: order.total_amount,
       paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
+      amountReceived: order.amount_received,
+      changeAmount: order.change_amount,
       logoUrl: brandLogo || undefined,
       receiptType: 'customer'
     }

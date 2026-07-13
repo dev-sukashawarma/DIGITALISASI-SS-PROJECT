@@ -1,10 +1,9 @@
 'use client'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuth } from '@suka/auth'
 import { toast } from 'sonner'
 import { Card } from '@suka/design-system'
-import { fetchMyWasteReports } from '@/app/actions/waste'
-import { useRealtimeChannel } from '@/lib/realtime/useRealtimeChannel'
+import { useMyWasteHistory } from '@/hooks/useWaste'
 import { BottomNav } from '@/components/common/BottomNav'
 import type { WasteReport, WasteStatus } from '@/types/stok'
 
@@ -23,17 +22,11 @@ const STATUS_CLASS: Record<WasteStatus, string> = {
 export default function WasteHistoryPage() {
   const { outletStaff } = useAuth()
   const staffId = outletStaff?.id
-  const instanceId = useId()
-  const [reports, setReports] = useState<WasteReport[]>([])
-  const [loading, setLoading] = useState(true)
+  const { reports, loading } = useMyWasteHistory(staffId)
   const prevStatusRef = useRef<Map<string, WasteStatus>>(new Map())
 
-  const load = async () => {
-    if (!staffId) { setLoading(false); return }
-    const data = await fetchMyWasteReports(staffId)
-    const list = (data ?? []) as WasteReport[]
-
-    list.forEach((r) => {
+  useEffect(() => {
+    reports.forEach((r) => {
       const prev = prevStatusRef.current.get(r.id)
       if (prev === 'PENDING' && r.status === 'APPROVED') {
         toast.success(`Waste report ${r.bahan_baku?.nama ?? ''} disetujui`)
@@ -41,26 +34,8 @@ export default function WasteHistoryPage() {
         toast.error(`Waste report ${r.bahan_baku?.nama ?? ''} ditolak`)
       }
     })
-    prevStatusRef.current = new Map(list.map((r) => [r.id, r.status]))
-
-    setReports(list)
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [staffId])
-
-  useRealtimeChannel({
-    channelName: `waste_history_${staffId ?? 'anon'}_${instanceId}`,
-    enabled: !!staffId,
-    subs: [
-      {
-        table: 'stok_waste_reports',
-        event: '*',
-        filter: staffId ? `reported_by=eq.${staffId}` : undefined,
-        handler: () => { load() },
-      },
-    ],
-  })
+    prevStatusRef.current = new Map(reports.map((r) => [r.id, r.status]))
+  }, [reports])
 
   if (loading) return <div className="p-4">Memuat...</div>
 
@@ -71,7 +46,7 @@ export default function WasteHistoryPage() {
       {reports.length === 0 ? (
         <p className="text-gray-500 text-sm">Belum ada laporan waste.</p>
       ) : (
-        reports.map((r) => (
+        reports.map((r: WasteReport) => (
           <Card key={r.id} className="p-4 flex flex-col gap-1">
             <div className="flex justify-between items-start">
               <div>

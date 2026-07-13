@@ -17,7 +17,7 @@ function lastOfMonth(ym: string) {
   return new Date(y, m, 0).toISOString().slice(0, 10)             // last calendar day
 }
 
-export default function ExpenseInputView({ initialOutlets }: { initialOutlets: Outlet[] }) {
+export default function ExpenseInputView({ initialOutlets, initialExpenses }: { initialOutlets: Outlet[], initialExpenses?: any[] }) {
   const { data: outlets = initialOutlets } = useOutlets(initialOutlets)
   const { outletStaff } = useAuth()
   const isAdmin = outletStaff?.role === 'admin_finance' || outletStaff?.role === 'owner' || outletStaff?.role === 'admin'
@@ -34,7 +34,7 @@ export default function ExpenseInputView({ initialOutlets }: { initialOutlets: O
     outletId: isPusat ? 'all' : (target || 'all'),
     source: 'all',
   }), [periodMonth, month, target, isPusat])
-  const { rows } = useExpenses(filter)
+  const { rows } = useExpenses(filter, initialExpenses)
 
   const categories: readonly ExpenseCategory[] = isPusat ? PUSAT_CATEGORIES : OUTLET_CATEGORIES
   const [amounts, setAmounts] = useState<Record<string, string>>({})

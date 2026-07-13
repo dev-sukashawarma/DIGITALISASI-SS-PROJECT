@@ -110,7 +110,8 @@ export function AttendanceKioskPanel() {
       });
 
     // Realtime Subscriptions
-    const channel = supabase.channel(`kiosk-realtime-${outletId}`)
+    const uniqueChannelName = `kiosk-realtime-${outletId}-${Math.random().toString(36).substring(2, 9)}`;
+    const channel = supabase.channel(uniqueChannelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${outletId}` },

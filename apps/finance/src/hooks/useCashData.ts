@@ -6,11 +6,12 @@ import { createClient } from '@/lib/supabase'
 import type { CashLocation, CashBalance, CashTransaction, LocationWithBalance } from '@/lib/types'
 
 /** Lokasi kas + saldo tergabung (dua query, di-merge di klien — sederhana & prediktif). */
-export function useCashOverview() {
+export function useCashOverview(initialLocations?: CashLocation[], initialBalances?: CashBalance[]) {
   const supabase = useMemo(() => createClient(), [])
 
   const locationsQ = useQuery<CashLocation[]>({
     queryKey: ['cash_location'],
+    initialData: initialLocations,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cash_location')
@@ -24,6 +25,7 @@ export function useCashOverview() {
 
   const balancesQ = useQuery<CashBalance[]>({
     queryKey: ['cash_balance'],
+    initialData: initialBalances,
     queryFn: async () => {
       const { data, error } = await supabase.from('cash_balance').select('*')
       if (error) throw error
@@ -47,10 +49,11 @@ export function useCashOverview() {
 }
 
 /** Riwayat transaksi kas terbaru (dengan label lokasi). */
-export function useCashTransactions(limit = 50) {
+export function useCashTransactions(limit = 50, initialData?: CashTransaction[]) {
   const supabase = useMemo(() => createClient(), [])
   return useQuery<CashTransaction[]>({
     queryKey: ['cash_transaction', limit],
+    initialData,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cash_transaction')

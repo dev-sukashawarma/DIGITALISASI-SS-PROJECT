@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import { Button } from '@suka/design-system'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, User, Coins, Loader2, Receipt } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, User, Coins, Loader2, Receipt, Menu, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 
@@ -44,6 +44,14 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const { outletStaff, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  const BOTTOM_NAV_ITEMS = [
+    { href: '/', label: 'Beranda', icon: LayoutDashboard },
+    { href: '/petty-cash', label: 'Petty Cash', icon: Coins },
+    { href: '/setoran', label: 'Setoran', icon: Banknote },
+    { href: '/pengeluaran', label: 'Pengeluaran', icon: Receipt },
+  ]
 
   if (pathname?.startsWith('/leader') || pathname?.startsWith('/korlap')) {
     return <>{children}</>
@@ -146,6 +154,94 @@ export function CashLayout({ children }: { children: ReactNode }) {
             {children}
           </div>
         </main>
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="md:hidden flex-shrink-0 border-t border-suka-gray-200 bg-white flex items-center justify-around px-2 py-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden z-40 relative">
+          {BOTTOM_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            const active = currentNavPath === href
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setIsMenuOpen(false)}
+                className={`flex flex-col items-center justify-center w-full py-1 gap-1 transition-colors ${
+                  active ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-gray-600'
+                }`}
+              >
+                <div className={`p-1.5 rounded-full ${active ? 'bg-suka-orange/10' : 'bg-transparent'}`}>
+                  <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                </div>
+                <span className={`text-[10px] ${active ? 'font-extrabold text-suka-orange' : 'font-medium'}`}>
+                  {label}
+                </span>
+              </Link>
+            )
+          })}
+          
+          {/* Menu Lainnya Button */}
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className={`flex flex-col items-center justify-center w-full py-1 gap-1 transition-colors ${
+              isMenuOpen ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-gray-600'
+            }`}
+          >
+            <div className={`p-1.5 rounded-full ${isMenuOpen ? 'bg-suka-orange/10' : 'bg-transparent'}`}>
+              <Menu size={20} strokeWidth={isMenuOpen ? 2.5 : 2} />
+            </div>
+            <span className={`text-[10px] ${isMenuOpen ? 'font-extrabold text-suka-orange' : 'font-medium'}`}>
+              Lainnya
+            </span>
+          </button>
+        </nav>
+        
+        {/* Mobile Drawer Overlay for "Lainnya" */}
+        {isMenuOpen && (
+          <div className="md:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setIsMenuOpen(false)}>
+            <div 
+              className="absolute bottom-16 left-0 right-0 bg-white rounded-t-2xl shadow-xl p-4 pb-8" 
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4 pb-2 border-b border-suka-gray-100">
+                <h2 className="font-extrabold text-suka-brown">Menu Lainnya</h2>
+                <button onClick={() => setIsMenuOpen(false)} className="p-2 text-suka-gray-400 hover:text-suka-gray-600">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="max-h-[60vh] overflow-y-auto space-y-6">
+                {NAV_GROUPS.map((group) => (
+                  <div key={group.title}>
+                    <h3 className="mb-2 text-[10px] font-black tracking-widest text-suka-gray-400/80 uppercase">
+                      {group.title}
+                    </h3>
+                    <div className="grid grid-cols-4 gap-y-4 gap-x-2">
+                      {group.items.map(({ href, label, icon: Icon }) => {
+                        const active = currentNavPath === href
+                        return (
+                          <Link
+                            key={href}
+                            href={href}
+                            onClick={() => setIsMenuOpen(false)}
+                            className="flex flex-col items-center gap-1"
+                          >
+                            <div className={`w-12 h-12 flex items-center justify-center rounded-2xl ${
+                              active ? 'bg-suka-orange text-white' : 'bg-suka-gray-50 text-suka-gray-500 hover:bg-suka-gray-100'
+                            }`}>
+                              <Icon size={20} />
+                            </div>
+                            <span className="text-[10px] font-medium text-center text-suka-gray-600 leading-tight">
+                              {label}
+                            </span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

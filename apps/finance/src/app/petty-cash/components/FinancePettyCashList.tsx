@@ -7,8 +7,8 @@ import { usePettyCashRequests, useProcessPettyCashFinance } from '@/hooks/usePet
 import { tanggalWaktu } from '@/lib/format'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 
-export function FinancePettyCashList() {
-  const { data: allRequests, isLoading } = usePettyCashRequests()
+export function FinancePettyCashList({ initialRequests }: { initialRequests?: PettyCashTopup[] }) {
+  const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests)
   const processTopup = useProcessPettyCashFinance()
   
   const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')

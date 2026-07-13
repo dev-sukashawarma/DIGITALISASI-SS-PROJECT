@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { order_id, status, void_reason, void_at } = body
+    const { order_id, status, void_reason, void_at, voided_by } = body
 
     if (!order_id || !status) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     
     if (void_reason) updateData.void_reason = void_reason
     if (void_at) updateData.void_at = void_at
+    if (voided_by) updateData.voided_by = voided_by
 
     const { error: updateError } = await supabaseService
       .from('orders')

@@ -11,7 +11,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS \$\$
+AS $$
 DECLARE
   v_topup RECORD;
 BEGIN
@@ -74,5 +74,5 @@ BEGIN
     RAISE EXCEPTION 'Invalid action: %', p_action;
   END IF;
 END;
-\$\$;
+$$;
 GRANT EXECUTE ON FUNCTION public.finance_process_petty_cash(UUID, TEXT, TEXT, UUID) TO authenticated;

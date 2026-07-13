@@ -20,10 +20,11 @@ export interface PayablePo {
 }
 
 /** PO yang sudah diterima + tagihannya (dari view definer po_payable_spv). */
-export function usePayablePos() {
+export function usePayablePos(initialData?: PayablePo[]) {
   const supabase = useMemo(() => createClient(), [])
   return useQuery<PayablePo[]>({
     queryKey: ['po_payable'],
+    initialData,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('po_payable_spv')

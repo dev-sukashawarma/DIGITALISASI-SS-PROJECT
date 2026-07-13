@@ -21,10 +21,11 @@ export interface ExpenseRow {
 
 const EMPTY_ROWS: ExpenseRow[] = []
 
-export function useExpenses(filter: PeriodFilterValue) {
+export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[]) {
   const supabase = createClient()
   const query = useQuery<ExpenseRow[]>({
     queryKey: ['expenses', filter.from, filter.to, filter.outletId],
+    initialData,
     staleTime: 2 * 60_000,
     queryFn: async () => {
       let q1 = supabase

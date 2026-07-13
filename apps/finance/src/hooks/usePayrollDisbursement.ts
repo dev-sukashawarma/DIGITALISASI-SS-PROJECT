@@ -28,10 +28,11 @@ export interface PayrollSlip {
 }
 
 /** Slip gaji FINAL untuk satu periode (dengan nama & rekening staff). */
-export function usePayrollSlips(month: number, year: number) {
+export function usePayrollSlips(month: number, year: number, initialData?: PayrollSlip[]) {
   const supabase = useMemo(() => createClient(), [])
   return useQuery<PayrollSlip[]>({
     queryKey: ['payroll_slips', month, year],
+    initialData,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('payroll_records')

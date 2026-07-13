@@ -29,8 +29,8 @@ serve(async (req) => {
         return new Response(JSON.stringify({ message: 'Ignored: not an insert/update' }), { status: 200 })
     }
 
-    if (record.status !== 'completed' && record.status !== 'done') {
-        return new Response(JSON.stringify({ message: 'Ignored: order not completed or done' }), { status: 200 })
+    if (record.status !== 'completed' && record.status !== 'done' && record.status !== 'cancelled') {
+        return new Response(JSON.stringify({ message: 'Ignored: order not completed, done, or cancelled' }), { status: 200 })
     }
 
     // Smart detection for online orders
@@ -55,7 +55,10 @@ serve(async (req) => {
         notes: record.notes,
         created_at: record.created_at,
         updated_at: record.updated_at,
-        sales_source: finalSalesSource
+        sales_source: finalSalesSource,
+        void_reason: record.void_reason,
+        void_at: record.void_at,
+        voided_by: record.voided_by
       }, { onConflict: 'id' })
       .select()
 

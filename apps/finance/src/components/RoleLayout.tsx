@@ -120,6 +120,29 @@ export function RoleLayout({ brand, brandAccent, navGroups, homePath, defaultTit
             {children}
           </div>
         </main>
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="md:hidden flex-shrink-0 border-t border-suka-gray-200 bg-white flex items-center justify-around px-2 py-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden z-40 relative">
+          {allLinks.map(({ href, label, icon: Icon }) => {
+            const active = currentNavPath === href
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex flex-col items-center justify-center w-full py-1 gap-1 transition-colors ${
+                  active ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-gray-600'
+                }`}
+              >
+                <div className={`p-1.5 rounded-full ${active ? 'bg-suka-orange/10' : 'bg-transparent'}`}>
+                  <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                </div>
+                <span className={`text-[10px] ${active ? 'font-extrabold text-suka-orange' : 'font-medium'}`}>
+                  {label}
+                </span>
+              </Link>
+            )
+          })}
+        </nav>
       </div>
     </div>
   )

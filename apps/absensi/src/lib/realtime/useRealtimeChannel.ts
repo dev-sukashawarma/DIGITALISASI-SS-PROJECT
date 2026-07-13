@@ -29,7 +29,8 @@ export function useRealtimeChannel(opts: {
   useEffect(() => {
     if (!enabled) return;
 
-    const channel = supabase.channel(channelName);
+    const uniqueChannelName = `${channelName}-${Math.random().toString(36).substring(2, 9)}`;
+    const channel = supabase.channel(uniqueChannelName);
     subsRef.current.forEach((sub, idx) => {
       channel.on(
         "postgres_changes" as any,

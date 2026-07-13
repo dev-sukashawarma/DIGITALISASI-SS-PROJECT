@@ -1,14 +1,14 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { format, parseISO } from 'date-fns'
 import { id } from 'date-fns/locale'
-import { useHistoricalTargets } from '@/hooks/useHistoricalTargets'
+import { useHistoricalTargets, useSyncTargets } from '@/hooks/useHistoricalTargets'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { PageHeader } from '@/components/ui'
-import { Target, FileText, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react'
+import { Target, FileText, ChevronUp, ChevronDown, AlertCircle, RefreshCw } from 'lucide-react'
 
 const formatRupiah = (num: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -28,6 +28,15 @@ export default function TargetHarianPage() {
   )
   
   const { rows, isLoading, isError, error } = useHistoricalTargets(filter)
+  const syncMutation = useSyncTargets()
+
+  useEffect(() => {
+    // Auto-sync whenever the filter changes to ensure data is recorded 
+    // even if the background cron job missed its schedule.
+    if (filter.from && filter.to) {
+      syncMutation.mutate({ from: filter.from, to: filter.to })
+    }
+  }, [filter.from, filter.to])
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   const toggleGroup = (date: string) => {
@@ -73,12 +82,22 @@ export default function TargetHarianPage() {
         title="Laporan Target Harian" 
         description="Rekapitulasi historis pencapaian target harian per outlet."
       >
-        <PeriodFilter 
-          value={filter} 
-          onChange={setFilter} 
-          outlets={scopedOutlets} 
-          lockedOutletId={lockedOutletId} 
-        />
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto items-center">
+          <PeriodFilter 
+            value={filter} 
+            onChange={setFilter} 
+            outlets={scopedOutlets} 
+            lockedOutletId={lockedOutletId} 
+          />
+          <button
+            onClick={() => syncMutation.mutate({ from: filter.from, to: filter.to })}
+            disabled={syncMutation.isPending}
+            className="flex items-center gap-2 px-4 py-2 bg-suka-orange text-white text-sm font-bold rounded-2xl hover:bg-orange-600 transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+            {syncMutation.isPending ? 'Menyinkronkan...' : 'Sinkronisasi Data'}
+          </button>
+        </div>
       </PageHeader>
 
       {isLoading ? (

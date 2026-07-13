@@ -518,9 +518,23 @@ export default function KasirOrderClient({
       const pin = await showPrompt('Masukkan PIN SPV/Leader untuk otorisasi pembatalan:')
       if (!pin) return
 
-      // NOTE: For production, validate against outlet_staff table where role in ('spvkitchen', 'leader')
-      if (pin !== '123456' && pin !== '888888') {
-        showAlert('Otorisasi gagal! PIN SPV tidak valid.')
+      let voidedBy = null;
+      try {
+        const verifyRes = await fetch('/api/staff/verify-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin, outlet_id: outletId })
+        })
+        const verifyData = await verifyRes.json()
+
+        if (!verifyRes.ok || !verifyData.success) {
+          showAlert(verifyData.error || 'Otorisasi gagal! PIN SPV tidak valid.')
+          postToNative({ type: 'haptic', style: 'error' })
+          return
+        }
+        voidedBy = verifyData.staff.id;
+      } catch (err) {
+        showAlert('Koneksi terputus. Tidak bisa memverifikasi PIN saat offline.')
         postToNative({ type: 'haptic', style: 'error' })
         return
       }
@@ -536,7 +550,8 @@ export default function KasirOrderClient({
       await applyStatusChange(id, {
         status: 'cancelled',
         void_reason: voidReason,
-        void_at: new Date().toISOString()
+        void_at: new Date().toISOString(),
+        voided_by: voidedBy
       })
 
       queryClient.invalidateQueries({ queryKey: ['orders', outletId] })

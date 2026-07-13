@@ -1,7 +1,7 @@
 'use client'
 import { useMemo } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 export interface HistoricalTargetRow {
   id: string
@@ -73,4 +73,23 @@ export function useHistoricalTargets(filter: { from: string; to: string; outletI
   }, [rows])
 
   return { rows, groupedByDate, isLoading, isError, error: queryError }
+}
+
+export function useSyncTargets() {
+  const supabase = createSupabaseBrowserClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ from, to }: { from: string; to: string }) => {
+      const { error } = await supabase.rpc('sync_missing_daily_targets', {
+        p_start_date: from,
+        p_end_date: to,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      // Invalidate historical targets cache to refetch newly synced data
+      queryClient.invalidateQueries({ queryKey: ['historical_targets'] })
+    },
+  })
 }

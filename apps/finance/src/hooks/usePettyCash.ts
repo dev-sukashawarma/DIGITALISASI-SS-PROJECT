@@ -5,11 +5,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 
-export function usePettyCashRequests(status?: string) {
+export function usePettyCashRequests(status?: string, initialData?: PettyCashTopup[]) {
   const supabase = useMemo(() => createClient(), [])
 
   return useQuery<PettyCashTopup[]>({
     queryKey: ['petty_cash_topups', status],
+    initialData,
     queryFn: async () => {
       let query = supabase
         .from('petty_cash_topups')

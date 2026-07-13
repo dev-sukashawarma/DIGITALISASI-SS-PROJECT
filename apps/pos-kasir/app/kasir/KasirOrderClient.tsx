@@ -25,6 +25,7 @@ import { fetchWithTimeout } from '@/lib/offline-utils'
 import { TimeAgo } from '@/components/kasir/TimeAgo'
 import { parseOrderData, ParsedOrder } from '@/lib/order-utils'
 import { printReceipt, type ReceiptData } from '@/lib/printReceipt'
+import { useBrand } from '@/components/BrandContext'
 
 const DING_SOUND = '/sound-pesanan.mp3'
 
@@ -166,6 +167,7 @@ export default function KasirOrderClient({
   const supabase = createClient()
   const queryClient = useQueryClient()
   const { outletId: clientOutletId, outletName } = useMyOutlet()
+  const { brandLogo } = useBrand()
   const outletId = clientOutletId || serverOutletId // Fallback to SSR outletId to prevent flash
 
   const { data: serverOrders = initialOrders, isLoading: loading, isFetched: ordersFetched } = useQuery({
@@ -501,6 +503,7 @@ export default function KasirOrderClient({
       discount: 0,
       total: order.total_amount,
       paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
+      logoUrl: brandLogo || undefined,
     }
     
     // Fire print

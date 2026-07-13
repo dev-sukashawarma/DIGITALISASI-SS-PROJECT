@@ -4,6 +4,7 @@ import { ReactNode, useMemo } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, createSupabaseBrowserClient } from '@suka/auth'
 import type { OutletStaffProfile } from '@suka/auth'
+import { Toaster } from 'sonner'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { OutletScopeProvider } from '@/hooks/useOutletScope'
 
@@ -34,6 +35,7 @@ export function Providers({
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <AuthProvider supabase={supabase} initialStaff={initialStaff}>
+          <Toaster richColors position="top-center" />
           <OutletScopeProvider>{children}</OutletScopeProvider>
         </AuthProvider>
       </ErrorBoundary>

@@ -55,8 +55,8 @@ export function WalkInCartPanel(props: {
   const change = amountReceived - totalPrice
   const cashEnough = amountReceived >= totalPrice && totalPrice > 0
 
-  const canPayCash = lineList.length > 0 && cashEnough && !submitting
-  const canOpenQris = lineList.length > 0 && !submitting
+  const canPayCash = lineList.length > 0 && cashEnough && !submitting && customerName.trim() !== ''
+  const canOpenQris = lineList.length > 0 && !submitting && customerName.trim() !== ''
 
   const qrData = useMemo(
     () => `shawarma-kasir://pay?amount=${totalPrice}`,
@@ -129,12 +129,15 @@ export function WalkInCartPanel(props: {
         <div className="bg-gray-50 -mx-4 p-4 border-t border-gray-200 space-y-4">
           {/* Nama customer */}
           <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Nama Customer (opsional)</label>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+              Nama Customer <span className="text-red-500">*</span>
+            </label>
             <input
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="Misal: Budi"
               className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors text-sm"
+              required
             />
           </div>
 
@@ -252,9 +255,11 @@ export function WalkInCartPanel(props: {
             <QrCode className="w-5 h-5" /> Tampilkan QRIS
           </button>
         )}
-        {lineList.length === 0 && (
+        {lineList.length === 0 ? (
           <p className="text-xs text-gray-400 text-center -mt-1">Pilih minimal 1 menu</p>
-        )}
+        ) : !customerName.trim() ? (
+          <p className="text-xs text-red-500 text-center -mt-1 font-medium">Nama customer wajib diisi</p>
+        ) : null}
       </div>
 
       {/* ── Modal QRIS ── */}

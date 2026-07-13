@@ -1,9 +1,11 @@
 'use client'
-import { useState } from 'react'
-import { Check, Pencil, X } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Check, Pencil, X, ArrowRight, Camera, PackageSearch, FileText } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import { parsePriceInput } from '@/lib/bahanBaku'
 import type { BahanBakuWithHarga } from '@/lib/bahanBaku'
+import { EmptyState, Badge, Avatar } from '@suka/design-system'
+import { BahanBakuDetailModal } from './BahanBakuDetailModal'
 
 function formatUpdatedAt(iso: string | null): string {
   if (!iso) return '—'
@@ -11,85 +13,118 @@ function formatUpdatedAt(iso: string | null): string {
 }
 
 export function BahanBakuTable({
-  rows, onSave, saving,
+  rows, onSave, onSaveSatuan, saving, onUploadImage, uploading
 }: {
   rows: BahanBakuWithHarga[]
   onSave: (bahanBakuId: string, harga: number) => void
+  onSaveSatuan: (id: string, s: string, st: string | null, ft: number | null, sk: string | null, fk: number | null) => void
   saving: boolean
+  onUploadImage: (bahanBakuId: string, file: File, level: 'besar' | 'tengah' | 'kecil') => void
+  uploading: boolean
 }) {
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [draft, setDraft] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadTargetId, setUploadTargetId] = useState<string | null>(null)
+  const [detailItemId, setDetailItemId] = useState<string | null>(null)
+
+  const detailItem = rows.find(r => r.id === detailItemId) || null
 
   if (rows.length === 0) {
-    return <p className="rounded-xl bg-suka-gray-50 p-6 text-center text-sm text-gray-500">Tidak ada bahan baku.</p>
+    return (
+      <EmptyState 
+        icon={<PackageSearch size={48} />}
+        title="Tidak ada bahan baku" 
+        description="Bahan baku yang Anda cari tidak ditemukan."
+      />
+    )
   }
 
-  function startEdit(r: BahanBakuWithHarga) {
-    setEditingId(r.id)
-    setDraft(r.harga ? String(r.harga.harga_beli) : '')
-  }
-  function cancel() { setEditingId(null); setDraft('') }
-  function commit(id: string) {
-    const parsed = parsePriceInput(draft)
-    if (parsed === null) return
-    onSave(id, parsed)
-    setEditingId(null); setDraft('')
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file && uploadTargetId) {
+      onUploadImage(uploadTargetId, file)
+    }
+    // reset
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    setUploadTargetId(null)
   }
 
-  const inputCls = 'w-28 rounded-lg border border-suka-gray-200 px-2 py-1 text-sm outline-none focus:border-suka-orange'
+  function triggerUpload(id: string) {
+    setUploadTargetId(id)
+    fileInputRef.current?.click()
+  }
+
+  const inputCls = 'w-28 rounded-lg border border-suka-gray-300 px-2 py-1.5 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange shadow-sm'
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-suka-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-xl border border-suka-gray-200 bg-white">
+      <input 
+        type="file" 
+        accept="image/*" 
+        className="hidden" 
+        ref={fileInputRef}
+        onChange={handleFileChange}
+      />
       <table className="w-full text-sm">
-        <thead className="bg-suka-gray-50 text-left text-xs uppercase text-gray-500">
+        <thead className="bg-gray-50/80 text-left text-xs uppercase text-gray-500 font-semibold border-b border-gray-200">
           <tr>
-            <th className="px-4 py-3">Nama</th>
-            <th className="px-4 py-3">Kategori</th>
-            <th className="px-4 py-3">Satuan</th>
-            <th className="px-4 py-3">Konversi</th>
-            <th className="px-4 py-3">Harga Beli</th>
-            <th className="px-4 py-3">Terakhir Diubah</th>
-            <th className="px-4 py-3 text-right">Aksi</th>
+            <th className="px-4 py-3 whitespace-nowrap">Bahan Baku</th>
+            <th className="px-4 py-3 whitespace-nowrap">Kategori</th>
+            <th className="px-4 py-3 whitespace-nowrap">Satuan Bertingkat</th>
+            <th className="px-4 py-3 whitespace-nowrap">Harga Beli</th>
+            <th className="px-4 py-3 whitespace-nowrap">Terakhir Diubah</th>
+            <th className="px-4 py-3 whitespace-nowrap text-right">Aksi</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-gray-100">
           {rows.map((r) => {
-            const isEditing = editingId === r.id
             return (
-              <tr key={r.id} className="border-t border-suka-gray-200">
-                <td className="px-4 py-3 font-medium text-suka-ink">{r.nama}</td>
-                <td className="px-4 py-3 text-gray-500">{r.kategori}</td>
-                <td className="px-4 py-3 text-gray-500">{r.satuan}</td>
-                <td className="px-4 py-3 text-gray-500">
-                  {r.faktor_tampilan && r.satuan_kecil
-                    ? `1 ${r.satuan} = ${r.faktor_tampilan} ${r.satuan_kecil}`
-                    : '—'}
+              <tr key={r.id} className="hover:bg-gray-50/50 transition-colors group">
+                <td className="px-4 py-3">
+                  <span className="font-semibold text-suka-ink whitespace-nowrap">{r.nama}</span>
                 </td>
                 <td className="px-4 py-3">
-                  {isEditing ? (
-                    <input
-                      autoFocus className={inputCls} inputMode="numeric"
-                      value={draft ? Number(draft).toLocaleString('id-ID') : ''}
-                      onChange={(e) => setDraft(e.target.value.replace(/\D/g, ''))}
-                      onKeyDown={(e) => { if (e.key === 'Enter') commit(r.id); if (e.key === 'Escape') cancel() }}
-                    />
-                  ) : (
-                    <span className={r.harga ? 'text-suka-ink' : 'text-gray-400'}>
-                      {r.harga ? rupiah(r.harga.harga_beli) : '—'}
-                    </span>
-                  )}
+                  <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-600 border border-blue-100">{r.kategori}</span>
                 </td>
-                <td className="px-4 py-3 text-gray-500">{formatUpdatedAt(r.harga?.harga_updated_at ?? null)}</td>
                 <td className="px-4 py-3">
-                  <div className="flex justify-end gap-3 text-gray-500">
-                    {isEditing ? (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">{r.satuan}</span>
+                    
+                    {r.faktor_tengah && r.satuan_tengah && (
                       <>
-                        <button title="Simpan" disabled={saving} onClick={() => commit(r.id)} className="text-suka-green"><Check size={16} /></button>
-                        <button title="Batal" disabled={saving} onClick={cancel}><X size={16} /></button>
+                        <ArrowRight size={14} className="text-gray-400" />
+                        <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          {r.faktor_tengah} {r.satuan_tengah}
+                        </span>
                       </>
-                    ) : (
-                      <button title="Edit harga" onClick={() => startEdit(r)}><Pencil size={16} /></button>
                     )}
+                    
+                    {r.faktor_tampilan && r.satuan_kecil && (
+                      <>
+                        <ArrowRight size={14} className="text-gray-400" />
+                        <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                          {r.faktor_tampilan} {r.satuan_kecil}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={r.harga ? 'font-medium text-suka-ink' : 'text-gray-400'}>
+                    {r.harga ? rupiah(r.harga.harga_beli) : '—'}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-gray-500 text-xs">
+                  {formatUpdatedAt(r.harga?.harga_updated_at ?? null)}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex justify-end gap-2 text-gray-500">
+                    <button 
+                      title="Lihat detail" 
+                      onClick={() => setDetailItemId(r.id)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                    >
+                      <FileText size={16} />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -97,6 +132,17 @@ export function BahanBakuTable({
           })}
         </tbody>
       </table>
+
+      <BahanBakuDetailModal
+        isOpen={detailItem !== null}
+        onClose={() => setDetailItemId(null)}
+        bahanBaku={detailItem}
+        onUploadImage={onUploadImage}
+        uploading={uploading}
+        onSave={onSave}
+        onSaveSatuan={onSaveSatuan}
+        saving={saving}
+      />
     </div>
   )
 }

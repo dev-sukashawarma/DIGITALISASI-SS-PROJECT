@@ -14,7 +14,7 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
       const supabase = createClient()
       const { data: rows, error: err } = await supabase
         .from('ledger_transaksi_ringkas')
-        .select('*')
+        .select('transaksi_key, outlet_id, created_at, jumlah_bahan, ref_order_id, ref_opname_id, ref_shipment_id, ref_transfer_id, single_bahan_baku_id, single_tipe, single_qty, single_catatan, single_saldo_sesudah')
         .eq('outlet_id', outletId)
         .order('created_at', { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)

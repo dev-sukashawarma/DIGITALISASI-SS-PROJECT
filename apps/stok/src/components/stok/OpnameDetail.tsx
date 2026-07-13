@@ -31,7 +31,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
       try {
         const [opnameRes, itemsRes] = await Promise.all([
           supabase.from('opname').select('*, outlet_staff(name)').eq('id', opnameId).single(),
-          supabase.from('opname_item').select('*').eq('opname_id', opnameId)
+          supabase.from('opname_item').select('id, opname_id, bahan_baku_id, qty_fisik, qty_system, selisih, flagged, catatan').eq('opname_id', opnameId)
         ])
         
         if (opnameRes.error) throw opnameRes.error

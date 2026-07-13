@@ -69,7 +69,7 @@ export async function fetchSPVMonitoringData() {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('monitoring_view_spv')
-    .select('*')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date')
     .order('outlet_name')
     .order('item_name');
 
@@ -103,7 +103,7 @@ export async function fetchLeaderMonitoringData() {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('monitoring_view_scoped')
-    .select('*')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date')
     .order('outlet_name')
     .order('item_name');
 
@@ -157,7 +157,7 @@ export async function fetchCrewMonitoringData(userId?: string) {
 
   const { data, error } = await supabase
     .from('monitoring_view_crew')
-    .select('*')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date')
     .eq('outlet_id', staffData.outlet_id)
     .order('item_name');
 
@@ -206,7 +206,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 
   const { data: itemData, error: itemError } = await supabase
     .from('monitoring_view_spv')
-    .select('*')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, last_updated')
     .eq('outlet_id', outletId)
     .eq('bahan_baku_id', bahan_baku_id)
     .single();

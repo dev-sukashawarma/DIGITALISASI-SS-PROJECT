@@ -1,9 +1,10 @@
 'use client'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { useOfflineQueue } from '@suka/offline-queue'
 import type { Opname, OpnameItem } from '@/types/stok'
+import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
 
 export function useOpnameList(outletId: string | null | undefined) {
   const { data, isLoading } = useQuery({
@@ -20,6 +21,18 @@ export function useOpnameList(outletId: string | null | undefined) {
     staleTime: 25000,
     gcTime: 60000,
   })
+
+  const instanceId = useId()
+  useRealtimeInvalidate({
+    channelName: `opname_list_${outletId ?? 'none'}_${instanceId}`,
+    enabled: !!outletId,
+    debounceMs: 800,
+    subs: [
+      { table: 'opname', filter: outletId ? `outlet_id=eq.${outletId}` : undefined, queryKeys: [['opname', outletId]] },
+      { table: 'opname_item', queryKeys: [['opname', outletId]] },
+    ],
+  })
+
   return { opnameList: data ?? [], loading: isLoading }
 }
 

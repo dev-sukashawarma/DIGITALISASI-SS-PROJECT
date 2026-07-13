@@ -105,25 +105,58 @@ function TransaksiExpandedDetail({ outletId, transaksiKey }: { outletId: string;
   if (loading) return <p className="text-[10px] font-bold text-[#544437]/50 py-2 animate-pulse">Memuat detail...</p>;
   if (error) return <p className="text-[10px] font-bold text-[#ba1a1a] py-2">Gagal memuat: {error}</p>;
 
+  // Group by extracted item name from catatan, or generic 'catatan' text, or fallback to 'Lainnya'
+  const groupedRows: Record<string, typeof rows> = {};
+  
+  rows.forEach((r) => {
+    let groupKey = 'Detail Transaksi';
+    if (r.catatan) {
+      // Extract menu item name from "Penjualan Otomatis #123 (Menu Item Name)"
+      const match = r.catatan.match(/\((.*?)\)$/);
+      if (match && match[1]) {
+        groupKey = match[1]; // e.g. "ORIGINAL SAPI JUMBO"
+      } else {
+        groupKey = r.catatan; // Fallback to full notes, e.g. "Penjualan Otomatis #123"
+      }
+    }
+    
+    if (!groupedRows[groupKey]) groupedRows[groupKey] = [];
+    groupedRows[groupKey].push(r);
+  });
+
+  const groupKeys = Object.keys(groupedRows);
+  const showGroupHeaders = groupKeys.length > 1 || (groupKeys.length === 1 && groupKeys[0] !== 'Detail Transaksi' && !groupKeys[0].startsWith('Penjualan Otomatis #'));
+
   return (
-    <div className="mt-3 pt-3 border-t border-[#d9c2b2]/25 space-y-2">
-      {rows.map((r) => {
-        const bahan = r.bahan_baku;
-        const satuan = bahan?.satuan ?? '';
-        return (
-          <div key={r.id} className="flex justify-between items-center text-[10px]">
-            <span className="font-bold text-[#1e1b15] uppercase truncate pr-2">{bahan?.nama ?? 'Bahan'}</span>
-            <span className="text-right flex-shrink-0">
-              <span className={r.qty > 0 ? 'text-[#0a7d2c] font-bold' : 'text-[#ba1a1a] font-bold'}>
-                {formatCompositeDelta(r.qty, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
-              </span>
-              <span className="text-[#544437]/50 font-medium">
-                {' '}→ sisa {formatCompositeSaldo(r.saldo_sesudah, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
-              </span>
-            </span>
+    <div className="mt-3 pt-3 border-t border-[#d9c2b2]/25 space-y-4">
+      {groupKeys.map((groupName) => (
+        <div key={groupName} className="space-y-2">
+          {showGroupHeaders && (
+            <h5 className="text-[9px] font-bold uppercase text-[#544437]/70 tracking-widest bg-[#faf2e9] px-2 py-1 rounded border border-[#d9c2b2]/30 inline-block mb-1">
+              {groupName}
+            </h5>
+          )}
+          <div className="space-y-2">
+            {groupedRows[groupName].map((r) => {
+              const bahan = r.bahan_baku;
+              const satuan = bahan?.satuan ?? '';
+              return (
+                <div key={r.id} className={`flex justify-between items-center text-[10px] ${showGroupHeaders ? 'pl-2.5 border-l-2 border-[#d9c2b2]/30' : ''}`}>
+                  <span className="font-bold text-[#1e1b15] uppercase truncate pr-2">{bahan?.nama ?? 'Bahan'}</span>
+                  <span className="text-right flex-shrink-0">
+                    <span className={r.qty > 0 ? 'text-[#0a7d2c] font-bold' : 'text-[#ba1a1a] font-bold'}>
+                      {formatCompositeDelta(r.qty, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
+                    </span>
+                    <span className="text-[#544437]/50 font-medium">
+                      {' '}→ sisa {formatCompositeSaldo(r.saldo_sesudah, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }

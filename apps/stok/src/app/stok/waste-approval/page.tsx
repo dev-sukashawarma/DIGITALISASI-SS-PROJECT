@@ -1,15 +1,17 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Card, Button, Input } from '@suka/design-system'
 import { fetchPendingWasteReports, approveWasteReport, rejectWasteReport } from '@/app/actions/waste'
 import { toast } from 'sonner'
 import { useStokBalance } from '@/hooks/useStokBalance'
 import { useAuth } from '@suka/auth'
+import { useQueryClient } from '@tanstack/react-query'
+import { useRealtimeChannel } from '@/lib/realtime/useRealtimeChannel'
 
 export default function WasteApprovalPage() {
   const { outletStaff } = useAuth()
-  const outletId = outletStaff?.outlet_id 
-  
+  const outletId = outletStaff?.outlet_id
+
   // We can also fetch without outletId to get all accessible pending reports
   const [reports, setReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -17,6 +19,8 @@ export default function WasteApprovalPage() {
   const [rejectReason, setRejectReason] = useState('')
 
   const { balances } = useStokBalance(outletId || '')
+  const instanceId = useId()
+  const queryClient = useQueryClient()
 
   const loadReports = async () => {
     try {
@@ -33,6 +37,22 @@ export default function WasteApprovalPage() {
   useEffect(() => {
     loadReports()
   }, [])
+
+  useRealtimeChannel({
+    channelName: `waste_approval_${instanceId}`,
+    subs: [
+      {
+        table: 'stok_waste_reports',
+        event: '*',
+        handler: () => {
+          loadReports()
+          // SPVDashboard punya query React Query terpisah (['waste_pending_all'])
+          // untuk badge jumlah pending — invalidate juga supaya tetap sinkron.
+          queryClient.invalidateQueries({ queryKey: ['waste_pending_all'] })
+        },
+      },
+    ],
+  })
 
   const handleApprove = async (id: string, qty: number, bahanBakuId: string) => {
     const bal = balances.find(b => b.bahan_baku_id === bahanBakuId)

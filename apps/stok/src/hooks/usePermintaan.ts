@@ -1,10 +1,10 @@
 'use client'
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useId } from 'react'
 import { useAuth } from '@suka/auth'
 import { useQuery } from '@tanstack/react-query'
 import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
 import { createClient } from '@/lib/supabase'
-import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
+import type { BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 import {
   fetchPermintaanOutlet,
   fetchPermintaanPending,
@@ -109,41 +109,34 @@ export function usePermintaanList(outletId: string | undefined) {
 // ---------------------------------------------------------------------------
 
 export function useApprovalList() {
-  const [permintaan, setPermintaan] = useState<PermintaanWithItems[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const refresh = useCallback(async () => {
-    setError(null)
-    try {
-      const data = await fetchPermintaanPending()
-      setPermintaan(data)
-    } catch (err: any) {
-      setError(err.message || String(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { setLoading(true); refresh() }, [refresh])
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['permintaan_approval'],
+    queryFn: () => fetchPermintaanPending(),
+    staleTime: 25000,
+    gcTime: 60000,
+  })
 
   // Realtime: tak difilter per-outlet karena approver (leader/SPV/kitchen) perlu
   // melihat request dari semua outlet accessible baginya — RLS `permintaan_bahan`
   // (via `accessible_outlet_ids()`) yang membatasi baris mana yang benar-benar
   // terkirim ke client.
   const instanceId = useId()
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`permintaan_approval_${instanceId}`)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'permintaan_bahan',
-      }, () => { refresh() })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [refresh, instanceId])
+  useRealtimeInvalidate({
+    channelName: `permintaan_approval_${instanceId}`,
+    subs: [
+      {
+        table: 'permintaan_bahan',
+        queryKeys: [['permintaan_approval']],
+      },
+    ],
+  })
 
-  return { permintaan, loading, error, refresh }
+  return {
+    permintaan: data ?? [],
+    loading: isLoading,
+    error: error ? (error as Error).message : null,
+    refresh: refetch,
+  }
 }
 
 // ---------------------------------------------------------------------------

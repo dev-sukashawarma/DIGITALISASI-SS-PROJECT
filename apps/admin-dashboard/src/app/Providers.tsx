@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, createSupabaseBrowserClient } from '@suka/auth'
 import type { OutletStaffProfile } from '@suka/auth'
@@ -17,8 +17,8 @@ export function Providers({
   children: React.ReactNode
   initialStaff?: OutletStaffProfile | null
 }) {
-  const supabase = createSupabaseBrowserClient()
-  const queryClient = useMemo(
+  const [supabase] = useState(() => createSupabaseBrowserClient())
+  const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
@@ -29,8 +29,7 @@ export function Providers({
             retry: 1,
           },
         },
-      }),
-    [],
+      })
   )
 
   return (

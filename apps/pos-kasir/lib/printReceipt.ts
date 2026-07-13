@@ -31,6 +31,7 @@ export interface ReceiptData {
   amountReceived?: number | null
   changeAmount?: number | null
   cashierName?: string | null
+  logoUrl?: string
 }
 
 function esc(s: string): string {
@@ -65,6 +66,8 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
     ? `<div class="row"><span>Diskon</span><span>-${formatRupiah(d.discount)}</span></div>`
     : ''
 
+  const logoSrc = d.logoUrl || `${origin}/logo.png`
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Struk</title>
 <style>
   /* @page di-set dinamis oleh printReceipt (80mm x tinggi konten). Fallback
@@ -91,7 +94,7 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   .queue { font-size: 22px; font-weight: 700; }
 </style></head>
 <body>
-  <img src="${origin}/logo.png" class="logo" alt="Logo" />
+  <img src="${logoSrc}" class="logo" alt="Logo" />
   <div class="center bold lg">${esc(d.outletName || 'SUKA SHAWARMA')}</div>
   <div class="center muted">Suka Shawarma</div>
   <hr/>
@@ -111,82 +114,104 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
 </body></html>`
 }
 
+async function getBase64Image(url: string): Promise<string> {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch (err) {
+    // If fetch fails (e.g. CORS), fallback to original URL
+    return url
+  }
+}
+
 export function printReceipt(data: ReceiptData): void {
   if (typeof window === 'undefined') return
+  
+  // Start async process
   const origin = window.location.origin
-  const html = buildReceiptHtml(data, origin)
+  const logoUrl = data.logoUrl || `${origin}/logo.png`
 
-  const iframe = document.createElement('iframe')
-  iframe.style.position = 'fixed'
-  iframe.style.right = '0'
-  iframe.style.bottom = '0'
-  iframe.style.width = '0'
-  iframe.style.height = '0'
-  iframe.style.border = '0'
-  document.body.appendChild(iframe)
+  getBase64Image(logoUrl).then((base64Logo) => {
+    // Override logoUrl temporarily
+    const dataWithBase64 = { ...data, logoUrl: base64Logo }
+    const html = buildReceiptHtml(dataWithBase64, origin)
 
-  const doc = iframe.contentWindow?.document
-  if (!doc) {
-    document.body.removeChild(iframe)
-    return
-  }
+    const iframe = document.createElement('iframe')
+    iframe.style.position = 'fixed'
+    iframe.style.right = '0'
+    iframe.style.bottom = '0'
+    iframe.style.width = '0'
+    iframe.style.height = '0'
+    iframe.style.border = '0'
+    document.body.appendChild(iframe)
 
-  doc.open()
-  doc.write(html)
-  doc.close()
+    const doc = iframe.contentWindow?.document
+    if (!doc) {
+      document.body.removeChild(iframe)
+      return
+    }
 
-  const cleanup = () => {
-    // Beri jeda agar dialog print sempat menangkap konten sebelum iframe dibuang
-    setTimeout(() => {
-      if (iframe.parentNode) iframe.parentNode.removeChild(iframe)
-    }, 500)
-  }
+    doc.open()
+    doc.write(html)
+    doc.close()
 
-  const win = iframe.contentWindow
-  if (!win) { cleanup(); return }
+    const cleanup = () => {
+      setTimeout(() => {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe)
+      }, 500)
+    }
 
-  // Set @page ke tinggi konten sebenarnya supaya halaman pas seukuran struk
-  // (bukan A4/A5 dengan ruang kosong). Konversi px CSS -> mm: px / 96 * 25.4.
-  const applyPageSize = () => {
-    try {
-      const heightPx = doc.body?.scrollHeight || 0
-      if (heightPx > 0) {
-        const heightMm = Math.ceil((heightPx / 96) * 25.4) + 4 // sedikit padding bawah
-        const style = doc.createElement('style')
-        style.textContent = `@page { size: ${PAPER_WIDTH_MM}mm ${heightMm}mm; margin: 0; }`
-        doc.head?.appendChild(style)
+    const win = iframe.contentWindow
+    if (!win) { cleanup(); return }
+
+    const applyPageSize = () => {
+      try {
+        const heightPx = doc.body?.scrollHeight || 0
+        if (heightPx > 0) {
+          const heightMm = Math.ceil((heightPx / 96) * 25.4) + 4
+          const style = doc.createElement('style')
+          style.textContent = `@page { size: ${PAPER_WIDTH_MM}mm ${heightMm}mm; margin: 0; }`
+          doc.head?.appendChild(style)
+        }
+      } catch {
+        // Fallback
       }
-    } catch {
-      // Abaikan; fallback @page valid sudah ada di markup.
     }
-  }
 
-  // Tunggu konten siap, lalu print (sekali saja meski beberapa pemicu ter-fire)
-  let printed = false
-  const doPrint = () => {
-    if (printed) return
-    printed = true
-    try {
-      applyPageSize()
-      win.focus()
-      win.print()
-    } finally {
-      cleanup()
+    let printed = false
+    const doPrint = () => {
+      if (printed) return
+      printed = true
+      try {
+        applyPageSize()
+        win.focus()
+        win.print()
+      } finally {
+        cleanup()
+      }
     }
-  }
 
-  // Cek apakah gambar logo sudah termuat
-  const checkImage = setInterval(() => {
-    const img = doc.querySelector('img')
-    if (!img || img.complete) {
+    // Karena logo sudah dirender sebagai base64 (atau fallback), kita bisa
+    // menunggu sebentar saja untuk pastikan CSS selesai dirender.
+    const checkImage = setInterval(() => {
+      const img = doc.querySelector('img')
+      if (!img || img.complete) {
+        clearInterval(checkImage)
+        doPrint()
+      }
+    }, 50)
+    
+    setTimeout(() => {
       clearInterval(checkImage)
       doPrint()
-    }
-  }, 50)
-  
-  // Fallback timeout jika gambar gagal dimuat dalam waktu 1.5 detik
-  setTimeout(() => {
-    clearInterval(checkImage)
-    doPrint()
-  }, 1500)
+    }, 1500)
+  })
 }
+
+

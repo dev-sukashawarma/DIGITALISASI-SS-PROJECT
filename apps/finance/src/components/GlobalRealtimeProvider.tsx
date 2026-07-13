@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 
 export function GlobalRealtimeProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient()
+  const timeouts = useRef<Record<string, NodeJS.Timeout>>({})
 
   useEffect(() => {
     const supabase = createClient()
@@ -17,15 +18,18 @@ export function GlobalRealtimeProvider({ children }: { children: React.ReactNode
         'postgres_changes',
         { event: '*', schema: 'public' },
         (payload: any) => {
-          console.log(`[Realtime] Table ${payload.table} changed. Invalidating queries...`)
+          const table = payload.table
+          if (!table) return
+
+          console.log(`[Realtime] Table ${table} changed. Invalidating queries...`)
           
-          // Invalidate the specific table name in react-query
-          // Most query keys start with the table name (e.g., ['petty_cash_topups'])
-          queryClient.invalidateQueries({ queryKey: [payload.table] })
+          if (timeouts.current[table]) {
+            clearTimeout(timeouts.current[table])
+          }
           
-          // We can also invalidate everything if we want absolute certainty,
-          // but invalidating the specific table is more performant.
-          // queryClient.invalidateQueries()
+          timeouts.current[table] = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: [table] })
+          }, 300)
         }
       )
       .subscribe((status: any) => {
@@ -35,6 +39,7 @@ export function GlobalRealtimeProvider({ children }: { children: React.ReactNode
       })
 
     return () => {
+      Object.values(timeouts.current).forEach(clearTimeout)
       supabase.removeChannel(channel)
     }
   }, [queryClient])

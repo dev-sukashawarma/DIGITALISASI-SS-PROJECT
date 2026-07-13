@@ -116,3 +116,15 @@ export async function countPendingWasteReports(outletId?: string) {
   if (error) throw new Error(error.message)
   return count || 0
 }
+
+export async function fetchMyWasteReports(staffId: string) {
+  const supabase = makeServiceClient()
+  const { data, error } = await supabase
+    .from('stok_waste_reports')
+    .select('*, bahan_baku(nama, satuan)')
+    .eq('reported_by', staffId)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) throw new Error(error.message)
+  return data
+}

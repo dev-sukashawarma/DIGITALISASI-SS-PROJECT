@@ -78,3 +78,13 @@ export interface LedgerTransaksiDetailRow {
   created_at: string
   bahan_baku: { nama: string; satuan: Satuan; satuan_kecil: SatuanKecil | null; faktor_tampilan: number | null } | null
 }
+
+export type WasteStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+export interface WasteReport {
+  id: string; outlet_id: string; bahan_baku_id: string
+  qty: number; reason: string; photo_url: string | null
+  status: WasteStatus; rejection_reason: string | null
+  reported_by: string | null; approved_by: string | null
+  created_at: string; updated_at: string
+  bahan_baku?: { nama: string; satuan: string } | null
+}

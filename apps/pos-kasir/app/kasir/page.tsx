@@ -1,8 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import KasirOrderClient from './KasirOrderClient'
-import type { OrderWithItems } from '@/types'
-import { parseOrderData } from '@/lib/order-utils'
 
 export const dynamic = 'force-dynamic' // Ensure realtime SSR
 
@@ -25,24 +23,9 @@ export default async function KasirOrdersServerPage() {
   const outletId = profile?.outlet_id
   
   if (!outletId) {
-    return <KasirOrderClient initialOrders={[]} serverOutletId="" />
+    return <KasirOrderClient serverOutletId="" />
   }
 
-  // 3. Fetch data pesanan hari ini secara SSR
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const { data: initialOrders } = await supabase
-    .from('orders')
-    .select('*, order_items(*)')
-    .eq('outlet_id', outletId)
-    .or(`created_at.gte.${today.toISOString()},status.in.(pending,preparing)`)
-    .order('created_at', { ascending: false })
-    .limit(200)
-
-  // Pre-parse the data on the server
-  const parsedInitialOrders = (initialOrders as OrderWithItems[] ?? []).map(parseOrderData);
-
-  // 4. Render client component dengan data awal
-  return <KasirOrderClient initialOrders={parsedInitialOrders} serverOutletId={outletId} />
+  // 3. Render client component dengan data awal kosong agar fetch di client (CSR) untuk navigasi instan
+  return <KasirOrderClient serverOutletId={outletId} />
 }

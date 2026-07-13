@@ -119,7 +119,7 @@ export default function KasirOrderClient({
   initialOrders,
   serverOutletId
 }: { 
-  initialOrders: OrderWithItems[],
+  initialOrders?: OrderWithItems[],
   serverOutletId: string
 }) {
   const { showConfirm, showAlert, showPrompt } = useDialogStore()
@@ -161,8 +161,8 @@ export default function KasirOrderClient({
   // Audio state
   const [audioPermission, setAudioPermission] = useState(true)
 
-  const knownOrderIds = useRef<Set<string>>(new Set(initialOrders.map(o => o.id)))
-  const hasFetchedInitial = useRef<boolean>(true) // Set to true because we already have initial data from SSR
+  const knownOrderIds = useRef<Set<string>>(new Set((initialOrders || []).map(o => o.id)))
+  const hasFetchedInitial = useRef<boolean>(!!initialOrders) // Set to true because we already have initial data from SSR
 
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -170,7 +170,7 @@ export default function KasirOrderClient({
   const { brandLogo } = useBrand()
   const outletId = clientOutletId || serverOutletId // Fallback to SSR outletId to prevent flash
 
-  const { data: serverOrders = initialOrders, isLoading: loading, isFetched: ordersFetched } = useQuery({
+  const { data: serverOrders = (initialOrders || []), isLoading: loading, isFetched: ordersFetched } = useQuery({
     queryKey: ['orders', outletId],
     queryFn: () => fetchTodayOrders(outletId as string),
     enabled: !!outletId,

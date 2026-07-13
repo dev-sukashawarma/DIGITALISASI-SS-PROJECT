@@ -32,7 +32,7 @@ export interface SaranItem {
 export function useSaranItem(outletId: string | undefined) {
   const { session } = useAuth()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['saran_item', outletId],
     queryFn: async () => {
       const supabase = createClient()
@@ -58,6 +58,11 @@ export function useSaranItem(outletId: string | undefined) {
     staleTime: 25000,
     gcTime: 60000,
   })
+
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error('[useSaranItem] gagal memload saran:', error)
+  }
 
   return { saran: data ?? [], loading: isLoading }
 }

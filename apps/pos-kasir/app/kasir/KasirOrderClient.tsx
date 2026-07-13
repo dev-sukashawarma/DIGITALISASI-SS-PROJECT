@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
@@ -22,21 +22,13 @@ import type { OrderWithItems, OrderStatus } from '@/types'
 import { postToNative } from '@suka/design-system'
 import { useDialogStore } from '@/lib/dialogStore'
 import { fetchWithTimeout } from '@/lib/offline-utils'
+import { TimeAgo } from '@/components/kasir/TimeAgo'
+import { parseOrderData, ParsedOrder } from '@/lib/order-utils'
+import { printReceipt, type ReceiptData } from '@/lib/printReceipt'
 
 const DING_SOUND = '/sound-pesanan.mp3'
 
-// Waktu relatif yang mudah dibaca kasir: "Baru saja", "3 menit yang lalu", dst.
-function timeAgo(iso: string, now: number): string {
-  const diff = Math.max(0, now - new Date(iso).getTime())
-  const sec = Math.floor(diff / 1000)
-  if (sec < 60) return 'Baru saja'
-  const min = Math.floor(sec / 60)
-  if (min < 60) return `${min} menit yang lalu`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} jam yang lalu`
-  const day = Math.floor(hr / 24)
-  return `${day} hari yang lalu`
-}
+
 
 async function fetchTodayOrders(outletId: string): Promise<OrderWithItems[]> {
   const supabase = createClient()
@@ -195,7 +187,14 @@ export default function KasirOrderClient({
   const localOrderIds = new Set(localOrders.map(o => o.id))
 
   // Gabungkan: order lokal offline tampil paling atas, hindari duplikat id
-  const orders = [...localOrders, ...serverOrders.filter(o => !localOrderIds.has(o.id))]
+  const rawOrders = [...localOrders, ...serverOrders.filter(o => !localOrderIds.has(o.id))]
+
+  const orders = useMemo(() => {
+    return rawOrders.map(o => {
+      if ((o as any)._parsedItems) return o as ParsedOrder;
+      return parseOrderData(o);
+    });
+  }, [rawOrders])
 
   // Web Push Subscription
   useEffect(() => {
@@ -299,9 +298,9 @@ export default function KasirOrderClient({
     }
   }, [])
 
-  // Tick setiap detik agar label waktu relatif selalu sinkron
+  // Tick setiap 30 detik agar transisi status terjadwal tetap berjalan
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
+    const t = setInterval(() => setNow(Date.now()), 30000)
     return () => clearInterval(t)
   }, [])
 
@@ -357,8 +356,8 @@ export default function KasirOrderClient({
   // Tracking pergerakan spesifik dari "Terjadwal" ke "Antrean Masak"
   useEffect(() => {
     // Determine current terjadwal and antreanMasak
-    const currentTerjadwal = orders.filter(o => (o.status === 'pending' || o.status === 'preparing') && getEffectiveReleaseTime(o) > now)
-    const currentAntreanMasak = orders.filter(o => (o.status === 'pending' || o.status === 'preparing') && getEffectiveReleaseTime(o) <= now)
+    const currentTerjadwal = orders.filter(o => (o.status === 'pending' || o.status === 'preparing') && o._effectiveReleaseTime > now)
+    const currentAntreanMasak = orders.filter(o => (o.status === 'pending' || o.status === 'preparing') && o._effectiveReleaseTime <= now)
     
     const currentTerjadwalIds = new Set(currentTerjadwal.map(o => o.id))
     const currentAntreanMasakIds = new Set(currentAntreanMasak.map(o => o.id))
@@ -383,30 +382,10 @@ export default function KasirOrderClient({
 
   // Tracking pergerakan spesifik untuk sisa 10 menit (Urgent Escalation)
   useEffect(() => {
-    // getEffectiveReleaseTime(o) is pickup - 20m. Urgent threshold is pickup - 10m.
-    // However, if we call getEffectiveReleaseTime inside here without it being defined yet (hoisting), 
-    // it actually works at runtime in React but let's just write the inline time check safely 
-    // to avoid any temporal dead zone issues if it's evaluated immediately.
-    // Actually getEffectiveReleaseTime is defined later, so calling it inside the callback is safe.
-    const urgentThreshold = (o: OrderWithItems) => {
-      let timeStr = (o as any).pickup_time
-      if (!timeStr && o.notes && o.notes.toUpperCase().includes('AMBIL')) {
-        const match = o.notes.match(/AMBIL\s*[:\n]\s*(\d{2}:\d{2})/i)
-        if (match) timeStr = match[1]
-      }
-      if (timeStr && typeof timeStr === 'string') {
-        const timeMatch = timeStr.match(/(\d{2}):(\d{2})/)
-        if (timeMatch) {
-          const [_, h, m] = timeMatch
-          const d = new Date()
-          d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0)
-          if (d.getTime() < new Date(o.created_at).getTime()) {
-            d.setDate(d.getDate() + 1)
-          }
-          return d.getTime() - (10 * 60 * 1000)
-        }
-      }
-      return 0
+    // _effectiveReleaseTime is pickup - 20m. Urgent threshold is pickup - 10m,
+    // which is _effectiveReleaseTime + 10m.
+    const urgentThreshold = (o: ParsedOrder) => {
+      return o._effectiveReleaseTime ? o._effectiveReleaseTime + (10 * 60 * 1000) : 0;
     }
     
     // Yg masih > 10 menit (termasuk yang baru jadi 20 menit)
@@ -500,6 +479,34 @@ export default function KasirOrderClient({
     }).catch((err) => console.error('Gagal mengirim notifikasi online ke order-system:', err))
   }
 
+  // Handle completion and print receipt
+  async function handleCompleteAndPrint(order: ParsedOrder) {
+    // 1. Mark as completed
+    await markAsCompleted(order.id)
+    
+    // 2. Generate and print receipt
+    const receiptData: ReceiptData = {
+      outletName: outletName || 'SUKA SHAWARMA',
+      orderNumber: order.order_number,
+      dateISO: new Date().toISOString(),
+      customerName: order.customer_name,
+      items: order.order_items.map(item => ({
+        name: item.menu_item_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        subtotal: item.subtotal,
+        note: item.notes || undefined
+      })),
+      subtotal: order.total_amount, // Asumsikan no discount at pos-kasir board level, or use subtotal logic
+      discount: 0,
+      total: order.total_amount,
+      paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
+    }
+    
+    // Fire print
+    printReceipt(receiptData)
+  }
+
   // Cancel order
   async function cancelOrder(id: string) {
     const confirmed = await showConfirm('Batalkan pesanan ini secara permanen?');
@@ -552,47 +559,11 @@ export default function KasirOrderClient({
   const pendingOrders = filteredOrders.filter((o) => o.status === 'pending').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   const preparingOrders = filteredOrders.filter((o) => o.status === 'preparing').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   
-  // Helper untuk menentukan kapan pesanan pindah ke antrean (20 menit sebelum AMBIL)
-  const getEffectiveReleaseTime = (o: OrderWithItems) => {
-    if (o.release_time) return new Date(o.release_time).getTime()
-    
-    let timeStr = (o as any).pickup_time
-    if (!timeStr && o.notes && o.notes.toUpperCase().includes('AMBIL')) {
-      const match = o.notes.match(/AMBIL\s*[:\n]\s*(\d{2}:\d{2})/i)
-      if (match) timeStr = match[1]
-    }
-
-    if (timeStr && typeof timeStr === 'string') {
-      const timeMatch = timeStr.match(/(\d{2}):(\d{2})/)
-      if (timeMatch) {
-        const [_, h, m] = timeMatch
-        const d = new Date()
-        d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0)
-        
-        // Jika waktu ambil (d) lebih kecil dari waktu pesan (o.created_at), 
-        // artinya ini pesanan untuk besok harinya.
-        if (d.getTime() < new Date(o.created_at).getTime()) {
-          d.setDate(d.getDate() + 1)
-        }
-        
-        return d.getTime() - (20 * 60 * 1000)
-      }
-    }
-    return 0 // Langsung masak
-  }
-
-  // Helper untuk menghitung estimasi waktu masak dinamis (7 menit + (Total Qty - 1))
-  const getEstimatedCookingTime = (o: OrderWithItems) => {
-    if (!o.order_items || o.order_items.length === 0) return 7
-    const totalQty = o.order_items.reduce((sum, item) => sum + (item.quantity || 1), 0)
-    return 7 + (totalQty > 1 ? totalQty - 1 : 0)
-  }
-
-  const antreanMasak = preparingOrders.filter(o => getEffectiveReleaseTime(o) <= now)
-  const terjadwalMasak = preparingOrders.filter(o => getEffectiveReleaseTime(o) > now).sort((a, b) => getEffectiveReleaseTime(a) - getEffectiveReleaseTime(b))
+  const antreanMasak = preparingOrders.filter(o => o._effectiveReleaseTime <= now)
+  const terjadwalMasak = preparingOrders.filter(o => o._effectiveReleaseTime > now).sort((a, b) => a._effectiveReleaseTime - b._effectiveReleaseTime)
 
   // Hitung antrean global (tidak terpengaruh tab filter online/offline) untuk indikator Dapur Sibuk
-  const globalAntreanMasak = orders.filter(o => o.status === 'preparing' && getEffectiveReleaseTime(o) <= now)
+  const globalAntreanMasak = orders.filter(o => o.status === 'preparing' && o._effectiveReleaseTime <= now)
 
 
   const completedOrders = filteredOrders.filter((o) => o.status === 'completed')
@@ -604,7 +575,7 @@ export default function KasirOrderClient({
   const todayRevenue = completedOrders.reduce((sum, o) => sum + o.total_amount, 0)
 
   // Helper untuk merender card pesanan aktif (Pending & Preparing)
-  const renderActiveCard = (order: OrderWithItems) => {
+  const renderActiveCard = (order: ParsedOrder) => {
     // Determine status simply from the current context when mapping, 
     // but the object itself has order.status
     const isPending = order.status === 'pending';
@@ -617,43 +588,7 @@ export default function KasirOrderClient({
     const lineBg = isPending ? 'bg-amber-200' : 'bg-blue-200';
     const noteBg = isPending ? 'bg-amber-100/50 border-amber-200 text-amber-900' : 'bg-blue-100/50 border-blue-200 text-blue-900';
 
-    // Helper to parse and group items
-    const getGroupedItems = (orderItems: any[]) => {
-      const parsed = (orderItems || []).map(oi => {
-        let name = oi.menu_item_name || ''
-        let note = ''
-        let id = oi.id
-        let parentId = null
-        
-        const noteSplit = name.split('|NOTE|')
-        if (noteSplit.length > 1) { note = noteSplit[1]; name = noteSplit[0] }
-        
-        const parentSplit = name.split('|PARENT|')
-        if (parentSplit.length > 1) { parentId = parentSplit[1]; name = parentSplit[0] }
-        
-        const idSplit = name.split('|ID|')
-        if (idSplit.length > 1) { id = idSplit[1]; name = idSplit[0] }
-        
-        return { ...oi, parsedName: name, parsedNote: note, parsedId: id, parsedParentId: parentId }
-      })
-      
-      const rootItems = parsed.filter(i => !i.parsedParentId)
-      const validRootIds = new Set(rootItems.map(r => r.parsedId))
-      
-      const childrenMap: any = {}
-      parsed.filter(i => i.parsedParentId).forEach(i => {
-        if (!validRootIds.has(i.parsedParentId)) {
-          rootItems.push(i) // treat as root
-        } else {
-          if (!childrenMap[i.parsedParentId]) childrenMap[i.parsedParentId] = []
-          childrenMap[i.parsedParentId].push(i)
-        }
-      })
-      
-      return { rootItems, childrenMap }
-    }
-
-    const { rootItems, childrenMap } = getGroupedItems(order.order_items || []);
+    const { rootItems, childrenMap } = order._parsedItems;
 
     return (
       <div 
@@ -669,7 +604,7 @@ export default function KasirOrderClient({
                 #{order.order_number || order.id.slice(0,4).toUpperCase()}
               </span>
               <div className="text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1">
-                <Clock size={10} /> dipesan {timeAgo(order.created_at, now)}
+                <Clock size={10} /> dipesan <TimeAgo date={order.created_at} />
               </div>
               {localOrderIds.has(order.id) && (
                 <span className="mt-1.5 inline-flex items-center gap-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-max">
@@ -682,10 +617,10 @@ export default function KasirOrderClient({
                 {isPending ? <Clock size={14} className="animate-pulse" /> : <ChefHat size={14} />}
                 {isPending ? 'MENUNGGU' : 'DIPROSES'}
               </div>
-              {getEffectiveReleaseTime(order) > now && (
+              {order._effectiveReleaseTime > now && (
                 <div className="px-2 py-1 bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-bold flex items-center gap-1">
                   <Clock size={12} />
-                  Estimasi Masak: {getEstimatedCookingTime(order)} Menit
+                  Estimasi Masak: {order._estimatedCookingTime} Menit
                 </div>
               )}
             </div>
@@ -795,7 +730,7 @@ export default function KasirOrderClient({
               </button>
               <button
                 type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsCompleted(order.id) }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCompleteAndPrint(order) }}
                 className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
               >
                 <CheckCircle2 size={18} />
@@ -1104,7 +1039,7 @@ export default function KasirOrderClient({
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-slate-800">{formatRupiah(order.total_amount)}</p>
                         <p className="text-xs text-slate-500/60 mt-1 flex items-center gap-1.5 flex-wrap">
-                          <span className="font-semibold text-[#0a7d2c]">{timeAgo(order.created_at, now)}</span>
+                          <span className="font-semibold text-[#0a7d2c]"><TimeAgo date={order.created_at} /></span>
                           <span className="w-1 h-1 bg-[#d9c2b2] rounded-full" />
                           {new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                           <span className="w-1 h-1 bg-[#d9c2b2] rounded-full" />
@@ -1370,8 +1305,13 @@ export default function KasirOrderClient({
                 onClick={async () => {
                   const currentAlert = urgentAlerts[0]
                   if (currentAlert) {
-                    // Update status pesanan langsung jadi completed
-                    await applyStatusChange(currentAlert.id, { status: 'completed' })
+                    const orderToComplete = filteredOrders.find(o => o.id === currentAlert.id)
+                    if (orderToComplete) {
+                      await handleCompleteAndPrint(orderToComplete)
+                    } else {
+                      // Fallback
+                      await markAsCompleted(currentAlert.id)
+                    }
                     setUrgentAlerts(prev => prev.slice(1))
                   }
                 }}

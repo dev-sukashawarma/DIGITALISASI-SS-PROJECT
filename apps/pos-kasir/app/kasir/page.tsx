@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import KasirOrderClient from './KasirOrderClient'
 import type { OrderWithItems } from '@/types'
+import { parseOrderData } from '@/lib/order-utils'
 
 export const dynamic = 'force-dynamic' // Ensure realtime SSR
 
@@ -39,6 +40,9 @@ export default async function KasirOrdersServerPage() {
     .order('created_at', { ascending: false })
     .limit(200)
 
+  // Pre-parse the data on the server
+  const parsedInitialOrders = (initialOrders as OrderWithItems[] ?? []).map(parseOrderData);
+
   // 4. Render client component dengan data awal
-  return <KasirOrderClient initialOrders={(initialOrders as OrderWithItems[]) ?? []} serverOutletId={outletId} />
+  return <KasirOrderClient initialOrders={parsedInitialOrders} serverOutletId={outletId} />
 }

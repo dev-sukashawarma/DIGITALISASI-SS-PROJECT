@@ -771,7 +771,7 @@ export default function ShiftPage() {
                                    top.status === 'approved_by_finance' ? `⏳ Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Korlap'}` :
                                    top.status === 'forwarded_by_korlap' ? '⏳ Dana dipegang Leader' :
                                    top.status === 'forwarded_by_leader' ? '✅ Dana siap diterima Kasir' :
-                                   `✅ Selesai${top.disbursement_method ? ` - ${top.disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`})
+                                   `✅ Selesai${(top as any).disbursement_method ? ` - ${(top as any).disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`})
                                 </p>
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
                                   <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{top.creator?.name ?? '—'}</span>

@@ -4,6 +4,7 @@ import { ReactNode, useMemo } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, createSupabaseBrowserClient } from '@suka/auth'
 import type { OutletStaffProfile } from '@suka/auth'
+import { GlobalRealtimeProvider } from '@/components/GlobalRealtimeProvider'
 
 export function Providers({
   children,
@@ -31,7 +32,9 @@ export function Providers({
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider supabase={supabase} initialStaff={initialStaff}>
-        {children}
+        <GlobalRealtimeProvider>
+          {children}
+        </GlobalRealtimeProvider>
       </AuthProvider>
     </QueryClientProvider>
   )

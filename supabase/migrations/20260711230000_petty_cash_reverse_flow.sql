@@ -89,7 +89,7 @@ BEGIN
         direction, 
         source_type, 
         source_id, 
-        description,
+        note,
         occurred_at,
         created_by
       ) VALUES (

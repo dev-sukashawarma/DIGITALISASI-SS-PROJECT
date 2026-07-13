@@ -461,7 +461,7 @@ export default function KasirOrderClient({
   // Mark as Preparing
   async function markAsPreparing(order: ParsedOrder) {
     postToNative({ type: 'haptic', style: 'success' })
-    await applyStatusChange(order.id, { status: 'preparing' })
+    await applyStatusChange(order.id, { status: 'preparing', kitchen_receipt_printed: true })
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
 
     // Generate and print kitchen receipt
@@ -800,14 +800,25 @@ export default function KasirOrderClient({
                 <XCircle size={18} />
                 Batal
               </button>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCompleteAndPrint(order) }}
-                className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
-              >
-                <CheckCircle2 size={18} />
-                Pesanan Siap
-              </button>
+              {!order.kitchen_receipt_printed ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
+                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
+                >
+                  <ChefHat size={18} />
+                  Mulai Masak
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCompleteAndPrint(order) }}
+                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+                >
+                  <CheckCircle2 size={18} />
+                  Pesanan Siap
+                </button>
+              )}
             </>
           ) : null}
 

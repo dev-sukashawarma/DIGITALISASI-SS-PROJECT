@@ -74,6 +74,7 @@ export interface Order {
   order_type?: string | null
   amount_received?: number | null
   change_amount?: number | null
+  kitchen_receipt_printed?: boolean
   created_at: string
   updated_at: string
 }

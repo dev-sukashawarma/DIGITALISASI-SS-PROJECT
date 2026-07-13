@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSPVMonitoringData } from '@/hooks/useMonitoringData';
+import { useSPVMonitoringData, useMonitoringRealtime } from '@/hooks/useMonitoringData';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
 import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
@@ -31,6 +31,7 @@ function getOutletRegion(slug: string, address: string | null): string {
 
 export function LiveMonitoringPage() {
   const router = useRouter();
+  useMonitoringRealtime();
   const { data, isLoading: isMonitoringLoading, refetch } = useSPVMonitoringData();
   const { data: outletsMaster, isLoading: isOutletsLoading } = useQuery({
     queryKey: ['monitoring', 'outletsList'],
@@ -38,6 +39,12 @@ export function LiveMonitoringPage() {
   });
 
   const isLoading = isMonitoringLoading || isOutletsLoading;
+
+  // Fallback poll — jaring pengaman untuk papan TV yang ditonton tanpa interaksi
+  useEffect(() => {
+    const id = setInterval(() => { refetch(); }, 120000);
+    return () => clearInterval(id);
+  }, [refetch]);
 
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);

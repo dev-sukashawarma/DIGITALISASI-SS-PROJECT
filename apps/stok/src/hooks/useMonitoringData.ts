@@ -1,9 +1,10 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useId } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@suka/auth';
 import type { SPVMonitoringData, CrewMonitoringData } from '@/lib/types/monitoring';
 import { fetchSPVMonitoringData, fetchLeaderMonitoringData, fetchCrewMonitoringData, fetchRecentLedger, fetchStockoutForecast, fetchWasteToday } from '@/lib/queries/monitoring';
 import { useAutoRefresh } from './useAutoRefresh';
+import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate';
 
 /**
  * Live activity feed (cross-outlet stock movements) for the SPV monitoring board.
@@ -205,4 +206,23 @@ export function useCrewMonitoringData() {
     autoRefresh,
     lastFetched: data?.lastFetched || cachedDataRef.current?.lastFetched,
   };
+}
+
+/**
+ * Realtime invalidation untuk seluruh query di bawah namespace ['monitoring'].
+ * Dipanggil sekali per halaman dashboard (Monitoring-Live, SPV, Crew), bukan
+ * per data-hook, supaya tidak membuka banyak channel duplikat untuk sumber
+ * data yang sama. Debounce 2.5s karena ledger_stok/stok_balance bergerak
+ * sangat sering saat outlet ramai (tiap order kasir).
+ */
+export function useMonitoringRealtime() {
+  const instanceId = useId();
+  useRealtimeInvalidate({
+    channelName: `monitoring_realtime_${instanceId}`,
+    debounceMs: 2500,
+    subs: [
+      { table: 'stok_balance', queryKeys: [['monitoring']] },
+      { table: 'ledger_stok', queryKeys: [['monitoring']] },
+    ],
+  });
 }

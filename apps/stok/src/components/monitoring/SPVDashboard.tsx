@@ -10,7 +10,8 @@ import {
   useLeaderMonitoringData,
   useRecentLedger,
   useStockoutForecast,
-  useWasteToday
+  useWasteToday,
+  useMonitoringRealtime
 } from '@/hooks/useMonitoringData';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
@@ -42,6 +43,7 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'B
 };
 
 export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[] } = {}) {
+  useMonitoringRealtime();
   const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'approval' | 'waste_approval'>('overview');
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
   

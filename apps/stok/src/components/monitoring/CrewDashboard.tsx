@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { CrewList } from './CrewList';
 import { ProductionEstimateWidget } from './ProductionEstimateWidget';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
-import { useCrewMonitoringData } from '@/hooks/useMonitoringData';
+import { useCrewMonitoringData, useMonitoringRealtime } from '@/hooks/useMonitoringData';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
@@ -14,6 +14,7 @@ import { BottomNav } from '@/components/common/BottomNav';
 import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 
 export function CrewDashboard() {
+  useMonitoringRealtime();
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
   const [isOpnameOverdue, setIsOpnameOverdue] = useState(false);
   const [opnameAgeText, setOpnameAgeText] = useState('');

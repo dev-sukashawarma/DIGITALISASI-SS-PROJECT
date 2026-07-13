@@ -1481,16 +1481,6 @@ export default function KasirOrderClient({
           </div>
         </div>
       )}
-
-      {/* DEV TEST BUTTON */}
-      <button
-        onClick={createTestOrder}
-        disabled={isDevTesting}
-        className="fixed bottom-6 right-6 z-[90] bg-slate-800 text-white shadow-xl shadow-slate-900/20 px-4 py-3 rounded-full flex items-center gap-2 font-bold text-sm hover:bg-slate-700 active:scale-95 transition-all"
-      >
-        {isDevTesting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 text-yellow-400" />}
-        DEV: Test Order
-      </button>
     </div>
   )
 }

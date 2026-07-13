@@ -17,8 +17,10 @@ type Toast = { type: 'success' | 'error'; message: string } | null
 
 import { useDialogStore } from '@/lib/dialogStore'
 import OfflineGuardOverlay from '@/components/OfflineGuardOverlay'
+import { useBrand } from '@/components/BrandContext'
 
 export default function KioskControlPanel() {
+  const { brandLogo } = useBrand()
   const { showConfirm } = useDialogStore()
   const [outletId, setOutletId] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -381,7 +383,18 @@ export default function KioskControlPanel() {
                       <p className="text-xs text-gray-400 font-bold animate-pulse">Menghasilkan Kode...</p>
                     </div>
                   ) : qrLink ? (
-                    <QRCodeSVG value={qrLink} size={200} level="Q" includeMargin={false} />
+                    <QRCodeSVG 
+                      value={qrLink} 
+                      size={200} 
+                      level="H" 
+                      includeMargin={false}
+                      imageSettings={{
+                        src: brandLogo || "/logo.png",
+                        height: 48,
+                        width: 48,
+                        excavate: true,
+                      }}
+                    />
                   ) : (
                     <div className="w-[200px] h-[200px] flex items-center justify-center text-red-500 text-sm font-bold">
                       Gagal Memuat

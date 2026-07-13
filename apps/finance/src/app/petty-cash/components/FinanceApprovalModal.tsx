@@ -31,9 +31,17 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   if (!isOpen) return null
 
   const handleAction = async (type: 'approve' | 'reject') => {
-    if (type === 'approve' && method !== 'potong_setoran' && !cashLocationId) {
-      alert('Pilih sumber dana kas/bank terlebih dahulu')
-      return
+    if (type === 'approve' && method !== 'potong_setoran') {
+      if (!cashLocationId) {
+        alert('Pilih sumber dana kas/bank terlebih dahulu')
+        return
+      }
+
+      const selectedLoc = availableLocations.find(l => l.id === cashLocationId)
+      if (selectedLoc && selectedLoc.saldo < request.amount) {
+        alert(`Saldo tidak mencukupi! Saldo saat ini: Rp ${selectedLoc.saldo.toLocaleString('id-ID')}, dibutuhkan: Rp ${request.amount.toLocaleString('id-ID')}`)
+        return
+      }
     }
 
     setIsLoading(true)

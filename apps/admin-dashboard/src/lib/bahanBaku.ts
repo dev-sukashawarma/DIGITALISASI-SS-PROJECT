@@ -18,6 +18,18 @@ export interface BahanBakuRaw {
   faktor_tampilan: number | null
   kategori: string
   bahan_baku_harga: BahanBakuHargaRow | BahanBakuHargaRow[] | null
+  bahan_baku_sku?: BahanBakuSku[] | null
+}
+
+export interface BahanBakuSku {
+  id: string
+  bahan_baku_id: string
+  nama_kemasan: string
+  qty_isi: number
+  harga_beli: number
+  is_default: boolean
+  is_active: boolean
+  created_at: string
 }
 
 export interface BahanBakuWithHarga {
@@ -34,6 +46,7 @@ export interface BahanBakuWithHarga {
   faktor_tampilan: number | null
   kategori: string
   harga: BahanBakuHargaRow | null
+  skus?: BahanBakuSku[]
 }
 
 export function normalizeBahanBaku(raw: BahanBakuRaw): BahanBakuWithHarga {
@@ -52,7 +65,8 @@ export function normalizeBahanBaku(raw: BahanBakuRaw): BahanBakuWithHarga {
     satuan_kecil: raw.satuan_kecil, 
     faktor_tampilan: raw.faktor_tampilan, 
     kategori: raw.kategori, 
-    harga 
+    harga,
+    skus: raw.bahan_baku_sku || []
   }
 }
 

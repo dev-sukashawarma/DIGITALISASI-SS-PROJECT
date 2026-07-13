@@ -13,7 +13,8 @@ function formatUpdatedAt(iso: string | null): string {
 }
 
 export function BahanBakuTable({
-  rows, onSave, onSaveSatuan, saving, onUploadImage, uploading
+  rows, onSave, onSaveSatuan, saving, onUploadImage, uploading,
+  onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving
 }: {
   rows: BahanBakuWithHarga[]
   onSave: (bahanBakuId: string, harga: number) => void
@@ -21,6 +22,11 @@ export function BahanBakuTable({
   saving: boolean
   onUploadImage: (bahanBakuId: string, file: File, level: 'besar' | 'tengah' | 'kecil') => void
   uploading: boolean
+  onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean }) => void
+  onUpdateSku: (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number }) => void
+  onDeleteSku: (sku_id: string) => void
+  onSetDefaultSku: (vars: { bahan_baku_id: string; sku_id: string }) => void
+  skuSaving: boolean
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null)
@@ -142,6 +148,11 @@ export function BahanBakuTable({
         onSave={onSave}
         onSaveSatuan={onSaveSatuan}
         saving={saving}
+        onAddSku={onAddSku}
+        onUpdateSku={onUpdateSku}
+        onDeleteSku={onDeleteSku}
+        onSetDefaultSku={onSetDefaultSku}
+        skuSaving={skuSaving}
       />
     </div>
   )

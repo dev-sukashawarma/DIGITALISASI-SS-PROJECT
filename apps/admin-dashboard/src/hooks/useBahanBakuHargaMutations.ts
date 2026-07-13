@@ -61,5 +61,55 @@ export function useBahanBakuHargaMutations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
   })
 
-  return { setHarga, setSatuan, setImage }
+  const addSku = useMutation({
+    mutationFn: async (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean }) => {
+      // Jika ini sku default, set semua sku lain untuk bahan baku ini menjadi non-default
+      if (vars.is_default) {
+        await supabase.from('bahan_baku_sku').update({ is_default: false }).eq('bahan_baku_id', vars.bahan_baku_id)
+      }
+      
+      const { error } = await supabase.from('bahan_baku_sku').insert({
+        bahan_baku_id: vars.bahan_baku_id,
+        nama_kemasan: vars.nama_kemasan,
+        qty_isi: vars.qty_isi,
+        harga_beli: vars.harga_beli,
+        is_default: vars.is_default || false
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
+  })
+
+  const updateSku = useMutation({
+    mutationFn: async (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number }) => {
+      const { error } = await supabase.from('bahan_baku_sku').update({
+        nama_kemasan: vars.nama_kemasan,
+        qty_isi: vars.qty_isi,
+        harga_beli: vars.harga_beli
+      }).eq('id', vars.sku_id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
+  })
+
+  const deleteSku = useMutation({
+    mutationFn: async (sku_id: string) => {
+      const { error } = await supabase.from('bahan_baku_sku').delete().eq('id', sku_id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
+  })
+
+  const setDefaultSku = useMutation({
+    mutationFn: async (vars: { bahan_baku_id: string; sku_id: string }) => {
+      // Set all to false first
+      await supabase.from('bahan_baku_sku').update({ is_default: false }).eq('bahan_baku_id', vars.bahan_baku_id)
+      // Set the selected one to true
+      const { error } = await supabase.from('bahan_baku_sku').update({ is_default: true }).eq('id', vars.sku_id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
+  })
+
+  return { setHarga, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku }
 }

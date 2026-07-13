@@ -19,6 +19,11 @@ interface BahanBakuDetailModalProps {
   onSave: (id: string, harga: number) => void
   onSaveSatuan: (id: string, s: string, st: string | null, ft: number | null, sk: string | null, fk: number | null) => void
   saving: boolean
+  onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean }) => void
+  onUpdateSku: (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number }) => void
+  onDeleteSku: (sku_id: string) => void
+  onSetDefaultSku: (vars: { bahan_baku_id: string; sku_id: string }) => void
+  skuSaving: boolean
 }
 
 export function BahanBakuDetailModal({
@@ -30,6 +35,11 @@ export function BahanBakuDetailModal({
   onSave,
   onSaveSatuan,
   saving,
+  onAddSku,
+  onUpdateSku,
+  onDeleteSku,
+  onSetDefaultSku,
+  skuSaving,
 }: BahanBakuDetailModalProps) {
   const fileInputRefBesar = useRef<HTMLInputElement>(null)
   const fileInputRefTengah = useRef<HTMLInputElement>(null)
@@ -359,6 +369,119 @@ export function BahanBakuDetailModal({
                     )}
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* SKU / Variasi Kemasan */}
+            <div className="pt-6 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-suka-ink uppercase tracking-wider">Variasi Kemasan (SKU)</h3>
+                  <p className="text-xs text-gray-500 mt-1">Daftar kemasan untuk bahan ini. Harga HPP akan mengambil dari SKU yang paling efisien (termurah per satuan kecil).</p>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-left text-[11px] uppercase text-gray-500 font-semibold border-b">
+                    <tr>
+                      <th className="px-4 py-3">Nama Kemasan</th>
+                      <th className="px-4 py-3 text-center">Isi ({bahanBaku.satuan_kecil || bahanBaku.satuan})</th>
+                      <th className="px-4 py-3 text-right">Harga Beli</th>
+                      <th className="px-4 py-3 text-right">Harga / Satuan</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {bahanBaku.skus && bahanBaku.skus.length > 0 ? (
+                      bahanBaku.skus.map((sku) => {
+                        const hargaSatuan = sku.qty_isi > 0 ? sku.harga_beli / sku.qty_isi : 0
+                        const isCheapest = Math.min(...(bahanBaku.skus?.filter(s => s.qty_isi > 0).map(s => s.harga_beli / s.qty_isi) || [0])) === hargaSatuan
+                        
+                        return (
+                          <tr key={sku.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3 font-medium text-gray-900">{sku.nama_kemasan}</td>
+                            <td className="px-4 py-3 text-center text-gray-600">{sku.qty_isi}</td>
+                            <td className="px-4 py-3 text-right font-medium text-suka-orange">{rupiah(sku.harga_beli)}</td>
+                            <td className="px-4 py-3 text-right text-gray-500">{rupiah(hargaSatuan)}</td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex flex-col gap-1 items-center">
+                                {sku.is_default && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">DEFAULT HPP</span>}
+                                {isCheapest && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">TERMURAH</span>}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex justify-end gap-2">
+                                {!sku.is_default && (
+                                  <button onClick={() => onSetDefaultSku({ bahan_baku_id: bahanBaku.id, sku_id: sku.id })} disabled={skuSaving} className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded" title="Jadikan Default HPP">Jadikan Default</button>
+                                )}
+                                <button onClick={() => onDeleteSku(sku.id)} disabled={skuSaving} className="text-xs text-red-500 hover:bg-red-50 px-2 py-1 rounded">Hapus</button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400 border-dashed">
+                          Belum ada variasi kemasan. Data akan otomatis terbuat saat pertama kali menambah bahan.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Form Tambah SKU */}
+              <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Tambah Kemasan Baru</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Nama Kemasan</label>
+                    <input type="text" id="newSkuNama" placeholder="Contoh: Botol 600ml" className="w-full text-sm p-2 border rounded-md" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Total Isi ({bahanBaku.satuan_kecil || bahanBaku.satuan})</label>
+                    <input type="number" id="newSkuQty" placeholder="600" className="w-full text-sm p-2 border rounded-md" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Harga Beli</label>
+                    <input type="number" id="newSkuHarga" placeholder="15000" className="w-full text-sm p-2 border rounded-md" />
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      variant="primary" 
+                      className="w-full"
+                      disabled={skuSaving}
+                      onClick={() => {
+                        const nama = (document.getElementById('newSkuNama') as HTMLInputElement).value
+                        const qty = Number((document.getElementById('newSkuQty') as HTMLInputElement).value)
+                        const harga = Number((document.getElementById('newSkuHarga') as HTMLInputElement).value)
+                        
+                        if (!nama || qty <= 0 || harga <= 0) {
+                          alert('Mohon isi semua data kemasan dengan benar')
+                          return
+                        }
+                        
+                        onAddSku({
+                          bahan_baku_id: bahanBaku.id,
+                          nama_kemasan: nama,
+                          qty_isi: qty,
+                          harga_beli: harga,
+                          is_default: !bahanBaku.skus || bahanBaku.skus.length === 0
+                        })
+                        
+                        // reset form
+                        ;(document.getElementById('newSkuNama') as HTMLInputElement).value = '';
+                        ;(document.getElementById('newSkuQty') as HTMLInputElement).value = '';
+                        ;(document.getElementById('newSkuHarga') as HTMLInputElement).value = '';
+                      }}
+                    >
+                      Tambah
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
 

@@ -10,7 +10,7 @@ import { BahanBakuTable } from '@/components/BahanBakuTable'
 
 export default function BahanBakuPage() {
   const { data: rows = [], isLoading } = useBahanBakuHarga()
-  const { setHarga, setSatuan, setImage } = useBahanBakuHargaMutations()
+  const { setHarga, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku } = useBahanBakuHargaMutations()
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('nama-asc')
 
@@ -60,6 +60,23 @@ export default function BahanBakuPage() {
             saving={setHarga.isPending || setSatuan.isPending} 
             onUploadImage={handleUploadImage}
             uploading={setImage.isPending}
+            onAddSku={(vars) => addSku.mutate(vars, {
+              onSuccess: () => toast.success('SKU ditambahkan'),
+              onError: (e: any) => toast.error(e.message),
+            })}
+            onUpdateSku={(vars) => updateSku.mutate(vars, {
+              onSuccess: () => toast.success('SKU diperbarui'),
+              onError: (e: any) => toast.error(e.message),
+            })}
+            onDeleteSku={(id) => deleteSku.mutate(id, {
+              onSuccess: () => toast.success('SKU dihapus'),
+              onError: (e: any) => toast.error(e.message),
+            })}
+            onSetDefaultSku={(vars) => setDefaultSku.mutate(vars, {
+              onSuccess: () => toast.success('SKU default diubah'),
+              onError: (e: any) => toast.error(e.message),
+            })}
+            skuSaving={addSku.isPending || updateSku.isPending || deleteSku.isPending || setDefaultSku.isPending}
           />
         )}
       </div>

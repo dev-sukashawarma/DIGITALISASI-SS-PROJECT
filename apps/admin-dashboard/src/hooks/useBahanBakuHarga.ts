@@ -11,7 +11,7 @@ export function useBahanBakuHarga() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bahan_baku')
-        .select('id, nama, image_url, image_url_tengah, image_url_kecil, image_urls, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, kategori, bahan_baku_harga(harga_beli, harga_updated_at)')
+        .select('id, nama, image_url, image_url_tengah, image_url_kecil, image_urls, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, kategori, bahan_baku_harga(harga_beli, harga_updated_at), bahan_baku_sku(id, nama_kemasan, qty_isi, harga_beli, is_default, is_active, created_at)')
         .eq('is_active', true)
         .order('nama')
       if (error) throw error

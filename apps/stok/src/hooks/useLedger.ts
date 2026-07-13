@@ -1,7 +1,8 @@
 'use client'
-import { useCallback } from 'react'
+import { useCallback, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
+import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
 import type { LedgerTipe, LedgerTransaksiSummary, LedgerTransaksiDetailRow } from '@/types/stok'
 
 const PAGE_SIZE = 50
@@ -51,6 +52,21 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
     staleTime: 25000,
     gcTime: 60000,
   })
+
+  const instanceId = useId()
+  useRealtimeInvalidate({
+    channelName: `ledger_transaksi_${outletId ?? 'none'}_${instanceId}`,
+    enabled: !!outletId,
+    debounceMs: 800,
+    subs: [
+      {
+        table: 'ledger_stok',
+        filter: outletId ? `outlet_id=eq.${outletId}` : undefined,
+        queryKeys: [['ledger-transaksi', outletId], ['ledger-transaksi-detail', outletId]],
+      },
+    ],
+  })
+
   return { transaksi: data ?? [], loading: isLoading, error: error ? (error as Error).message : null }
 }
 

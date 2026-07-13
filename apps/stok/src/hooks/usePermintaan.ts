@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useId, useState } from 'react'
 import { useAuth } from '@suka/auth'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 import {
@@ -30,55 +31,35 @@ export interface SaranItem {
 
 export function useSaranItem(outletId: string | undefined) {
   const { session } = useAuth()
-  const [saran, setSaran] = useState<SaranItem[]>([])
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!outletId || !session) {
-      setLoading(false)
-      return
-    }
+  const { data, isLoading } = useQuery({
+    queryKey: ['saran_item', outletId],
+    queryFn: async () => {
+      const supabase = createClient()
+      // monitoring_view_crew = SECURITY DEFINER view (bypass RLS stok_balance).
+      const { data, error } = await supabase
+        .from('monitoring_view_crew')
+        .select('bahan_baku_id, item_name, satuan, current_qty, threshold, status')
+        .eq('outlet_id', outletId as string)
 
-    const supabase = createClient()
-    let cancelled = false
+      if (error) throw error
+      return (data ?? [])
+        .filter((row: any) => row.status === 'below' || row.status === 'warning')
+        .map((row: any): SaranItem => ({
+          bahan_baku_id: row.bahan_baku_id,
+          item_name: row.item_name,
+          satuan: row.satuan,
+          current_qty: row.current_qty,
+          threshold: row.threshold,
+          status: row.status as 'below' | 'warning',
+        }))
+    },
+    enabled: !!outletId && !!session,
+    staleTime: 25000,
+    gcTime: 60000,
+  })
 
-    const load = async () => {
-      setLoading(true)
-      try {
-        // monitoring_view_crew = SECURITY DEFINER view (bypass RLS stok_balance).
-        const { data, error } = await supabase
-          .from('monitoring_view_crew')
-          .select('bahan_baku_id, item_name, satuan, current_qty, threshold, status')
-          .eq('outlet_id', outletId)
-
-        if (error) throw error
-        if (!cancelled) {
-          setSaran(
-            (data ?? [])
-              .filter((row: any) => row.status === 'below' || row.status === 'warning')
-              .map((row: any) => ({
-                bahan_baku_id: row.bahan_baku_id,
-                item_name: row.item_name,
-                satuan: row.satuan,
-                current_qty: row.current_qty,
-                threshold: row.threshold,
-                status: row.status as 'below' | 'warning',
-              }))
-          )
-        }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[useSaranItem] gagal memload saran:', err)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-    return () => { cancelled = true }
-  }, [outletId, session])
-
-  return { saran, loading }
+  return { saran: data ?? [], loading: isLoading }
 }
 
 // ---------------------------------------------------------------------------

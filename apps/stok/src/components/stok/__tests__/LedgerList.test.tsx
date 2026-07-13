@@ -14,9 +14,9 @@ function makeSummary(overrides: Partial<LedgerTransaksiSummary>): LedgerTransaks
 }
 
 describe('transaksiLabel', () => {
-  it('order -> label Order Selesai + nomor order', () => {
+  it('order -> label Order #nomor + subtitle nomor order', () => {
     const t = makeSummary({ ref_order_id: 'ord-1', order_number: 123, jumlah_bahan: 12 })
-    expect(transaksiLabel(t)).toEqual({ title: 'Order Selesai', subtitle: 'Order #123' })
+    expect(transaksiLabel(t)).toEqual({ title: 'Order #123', subtitle: 'Order #123' })
   })
 
   it('opname -> label Opname + tanggal', () => {

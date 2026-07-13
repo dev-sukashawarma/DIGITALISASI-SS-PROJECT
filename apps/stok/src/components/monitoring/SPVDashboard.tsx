@@ -14,7 +14,6 @@ import {
 } from '@/hooks/useMonitoringData';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
-import Link from 'next/link';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
 import { ApprovalList } from '../permintaan/ApprovalList';
@@ -55,22 +54,11 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Live clock state
-  const [currentTime, setCurrentTime] = useState<Date | null>(null);
-
   // Collapsible sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Notification dropdown open state
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-
-  React.useEffect(() => {
-    setCurrentTime(new Date());
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Search and filter states for the right-hand detail pane
   const [searchTerm, setSearchTerm] = useState('');
@@ -89,7 +77,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   const isLeaderScoped = !!allowedOutletIds;
   const spvQuery = useSPVMonitoringData(!isLeaderScoped);
   const leaderQuery = useLeaderMonitoringData(isLeaderScoped);
-  const { data, isLoading, isError, lastFetched } = isLeaderScoped ? leaderQuery : spvQuery;
+  const { data, isLoading, isError } = isLeaderScoped ? leaderQuery : spvQuery;
 
   // Real-time and proactive hooks
   const recentLedgerQuery = useRecentLedger(15);
@@ -567,20 +555,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                           let statusCircleColor = 'bg-suka-green';
                           if (outlet.status === 'below') statusCircleColor = 'bg-red-650 animate-pulse';
                           else if (outlet.status === 'warning') statusCircleColor = 'bg-suka-orange';
-
-                          const getSubLocation = (nameStr: string) => {
-                            if (nameStr.includes('KITCHEN')) return 'Suka Shawarma';
-                            if (nameStr.includes('SUDIRMAN')) return 'Sudirman Center';
-                            if (nameStr.includes('KEMANG')) return 'Kemang Raya';
-                            if (nameStr.includes('MENTENG')) return 'Menteng Raya';
-                            if (nameStr.includes('BINTARO')) return 'Bintaro Plaza';
-                            if (nameStr.includes('TEBET')) return 'Tebet Timur';
-                            
-                            const formatted = nameStr.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                            return `${formatted} Branch`;
-                          };
-
-                          const subLocation = getSubLocation(cleanName);
 
                           if (isSidebarCollapsed) {
                             return (

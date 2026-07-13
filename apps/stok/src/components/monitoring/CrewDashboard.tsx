@@ -15,7 +15,6 @@ import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
 
 export function CrewDashboard() {
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
-  const [displayTime, setDisplayTime] = useState<string>('');
   const [isOpnameOverdue, setIsOpnameOverdue] = useState(false);
   const [opnameAgeText, setOpnameAgeText] = useState('');
   const { data, isLoading, isError, error, lastFetched, refetch } = useCrewMonitoringData();
@@ -23,10 +22,6 @@ export function CrewDashboard() {
   const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
-    if (lastFetched) {
-      setDisplayTime(new Date(lastFetched).toLocaleTimeString('id-ID'));
-    }
-
     // Calculate opname status client-side to avoid hydration mismatch
     const items = data?.items || [];
     const overdue = items.some((item) => {

@@ -58,7 +58,8 @@ const KATEGORI_ORDER: { key: string; label: string; headerColor: string }[] = [
 
 
 export function CrewList({ items, onItemClick, loading = false }: CrewListProps) {
-  const [sortBy, setSortBy] = useState<SortBy>('status');
+  // Tak ada UI untuk mengubah urutan — tetap konstanta, bukan state.
+  const sortBy: SortBy = 'status';
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'flagged'>('all');
   const [searchTerm, setSearchTerm] = useState('');
 

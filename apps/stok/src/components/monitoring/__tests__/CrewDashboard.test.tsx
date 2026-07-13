@@ -63,8 +63,9 @@ describe('CrewDashboard', () => {
       lastFetched: null,
     } as any);
 
-    render(<CrewDashboard />, { wrapper });
-    expect(screen.getByText('Loading monitoring data...')).toBeInTheDocument();
+    const { container } = render(<CrewDashboard />, { wrapper });
+    // Desain "Operasional Minimalist" mengganti teks loading dengan Skeleton shimmer.
+    expect(container.querySelectorAll('.animate-shimmer').length).toBeGreaterThan(0);
   });
 
   it('renders crew dashboard with outlet name', () => {
@@ -85,8 +86,9 @@ describe('CrewDashboard', () => {
     } as any);
 
     render(<CrewDashboard />, { wrapper });
-    expect(screen.getByText('Bandung - Monitoring')).toBeInTheDocument();
-    expect(screen.getByText(/Check stok status/)).toBeInTheDocument();
+    // Redesign: nama outlet tampil polos di header ("Bandung"), tanpa suffix "- Monitoring".
+    expect(screen.getByText('Bandung')).toBeInTheDocument();
+    expect(screen.getByText('Saldo Stok Real-time')).toBeInTheDocument();
   });
 
   it('shows error message when connection fails', () => {
@@ -129,26 +131,5 @@ describe('CrewDashboard', () => {
 
     render(<CrewDashboard />, { wrapper });
     expect(screen.getByTestId('crew-list')).toBeInTheDocument();
-  });
-
-  it('displays last updated timestamp', () => {
-    vi.mocked(hook.useCrewMonitoringData).mockReturnValue({
-      data: {
-        outlet_id: '1',
-        outlet_name: 'Bandung',
-        items: [],
-        summary: { below_threshold: 0, flagged: 0, ok: 0, total: 0 },
-        lastFetched: '2026-06-10T10:00:00Z',
-      },
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-      autoRefresh: { pause: vi.fn(), resume: vi.fn(), isPaused: () => false },
-      lastFetched: '2026-06-10T10:00:00Z',
-    } as any);
-
-    render(<CrewDashboard />, { wrapper });
-    expect(screen.getByText(/Last updated:/)).toBeInTheDocument();
   });
 });

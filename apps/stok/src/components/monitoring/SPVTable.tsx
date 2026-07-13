@@ -47,8 +47,8 @@ export function SPVTable({
   onRowClick,
   selectedOutletId,
   onThresholdChange,
-  onRestockRequest,
-  onTransferRequest,
+  // onRestockRequest/onTransferRequest: bagian dari SPVTableProps untuk konsumen
+  // (SPVDashboard mengirim handler asli), tapi belum ada trigger UI di tabel ini.
   searchTerm: externalSearchTerm,
   filterStatus: externalFilterStatus,
   hideFilters = false,
@@ -188,12 +188,12 @@ export function SPVTable({
     setEditingValue(item.threshold.toString());
   };
 
-  const cancelEditing = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const cancelEditing = (e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
     setEditingId(null);
   };
 
-  const saveEditing = (item: MonitoringItem, e: React.MouseEvent) => {
+  const saveEditing = (item: MonitoringItem, e: React.SyntheticEvent) => {
     e.stopPropagation();
     const val = Number(editingValue);
     if (!isNaN(val) && val >= 0) {

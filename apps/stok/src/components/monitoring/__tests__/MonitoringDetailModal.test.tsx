@@ -1,11 +1,18 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // Mock the monitoring queries
 vi.mock('@/lib/queries/monitoring', () => ({
   fetchItemDetail: vi.fn(),
+}));
+
+// MonitoringDetailModal juga menarik data waste pending (useQuery) — mock server
+// action-nya supaya test tidak bergantung pada Supabase asli.
+vi.mock('@/app/actions/waste', () => ({
+  fetchPendingWasteReports: vi.fn().mockResolvedValue([]),
 }));
 
 // Mock the StatusBadge component
@@ -20,6 +27,17 @@ vi.mock('../StatusBadge', () => ({
 import { MonitoringDetailModal } from '../MonitoringDetailModal';
 import * as monitoringQueries from '@/lib/queries/monitoring';
 import type { MonitoringItem } from '@/lib/types/monitoring';
+
+// MonitoringDetailModal memakai useQuery (fetchPendingWasteReports) sejak fitur
+// WasteModal terintegrasi — komponen ini butuh QueryClientProvider di setiap render.
+// Pakai opsi `wrapper` (bukan bungkus manual) supaya `rerender()` ikut ter-wrap juga.
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return rtlRender(ui, { wrapper });
+}
 
 const mockItem: MonitoringItem = {
   outlet_id: 'outlet1',

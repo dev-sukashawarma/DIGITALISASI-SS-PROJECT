@@ -96,8 +96,9 @@ describe('SPVDashboard', () => {
       lastFetched: null,
     } as any);
 
-    render(<SPVDashboard />, { wrapper });
-    expect(screen.getByText(/Memuat/)).toBeInTheDocument();
+    const { container } = render(<SPVDashboard />, { wrapper });
+    // Desain "Operasional Minimalist" mengganti teks "Memuat..." dengan Skeleton shimmer.
+    expect(container.querySelectorAll('.animate-shimmer').length).toBeGreaterThan(0);
   });
 
   it('renders dashboard with title and controls', () => {
@@ -127,7 +128,8 @@ describe('SPVDashboard', () => {
     } as any);
 
     render(<SPVDashboard />, { wrapper });
-    expect(screen.getByText(/Koneksi tidak stabil/)).toBeInTheDocument();
+    // Indikator error kini badge "Data lokal cache" (bukan lagi teks "Koneksi tidak stabil").
+    expect(screen.getByText('Data lokal cache')).toBeInTheDocument();
   });
 
   it('renders SPVTable and SPVTabs components', () => {
@@ -211,21 +213,6 @@ describe('SPVDashboard', () => {
     render(<SPVDashboard />, { wrapper });
     // Alert count should be 2 (1 below + 1 flagged)
     expect(screen.getByTestId('spv-tabs')).toHaveTextContent('alerts: 2');
-  });
-
-  it('displays last updated timestamp', () => {
-    vi.mocked(hook.useSPVMonitoringData).mockReturnValue({
-      data: { items: [], lastFetched: '2026-06-10T10:00:00Z' },
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-      autoRefresh: { pause: vi.fn(), resume: vi.fn(), isPaused: () => false },
-      lastFetched: '2026-06-10T10:00:00Z',
-    } as any);
-
-    render(<SPVDashboard />, { wrapper });
-    expect(screen.getByText(/Last updated:/)).toBeInTheDocument();
   });
 
   it('uses useSPVMonitoringData (enabled) and useLeaderMonitoringData (disabled) when rendered without allowedOutletIds', () => {
@@ -339,9 +326,11 @@ describe('SPVDashboard', () => {
 
     render(<SPVDashboard />, { wrapper });
 
-    // Verify presence of forecast widget headers/texts
-    expect(screen.getByText('Prediksi Habis (<24j)')).toBeInTheDocument();
+    // Verify presence of forecast widget headers/texts (redesign: KPI "Forecast 24j"
+    // menggantikan label lama "Prediksi Habis (<24j)"; outlet-a ter-auto-select
+    // di mount, jadi Live Activity feed menampilkan entry ledger-nya langsung).
+    expect(screen.getByText('Forecast 24j')).toBeInTheDocument();
     expect(screen.getByText('Live Activity')).toBeInTheDocument();
-    expect(screen.getByText('Sisa 12 jam (8 kg)')).toBeInTheDocument();
+    expect(screen.getByText('Minyak')).toBeInTheDocument();
   });
 });

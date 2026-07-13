@@ -150,6 +150,22 @@ export function useApprovalList() {
 
   useEffect(() => { setLoading(true); refresh() }, [refresh])
 
+  // Realtime: tak difilter per-outlet karena approver (leader/SPV/kitchen) perlu
+  // melihat request dari semua outlet accessible baginya — RLS `permintaan_bahan`
+  // (via `accessible_outlet_ids()`) yang membatasi baris mana yang benar-benar
+  // terkirim ke client.
+  const instanceId = useId()
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`permintaan_approval_${instanceId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'permintaan_bahan',
+      }, () => { refresh() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [refresh, instanceId])
+
   return { permintaan, loading, error, refresh }
 }
 

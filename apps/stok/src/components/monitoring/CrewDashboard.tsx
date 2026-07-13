@@ -95,6 +95,9 @@ export function CrewDashboard() {
                 <button onClick={() => refetch()} className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors">
                   <RefreshCw size={12} /> Refresh Data
                 </button>
+                <Link href="/stok/waste-history" className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors">
+                  🗑️ Riwayat Waste Saya
+                </Link>
                 <button onClick={handleLogout} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
                   <LogOut size={12} /> Keluar
                 </button>
@@ -127,6 +130,9 @@ export function CrewDashboard() {
                 <button onClick={() => refetch()} className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors">
                   <RefreshCw size={12} /> Refresh Data
                 </button>
+                <Link href="/stok/waste-history" className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors">
+                  🗑️ Riwayat Waste Saya
+                </Link>
                 <button onClick={handleLogout} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
                   <LogOut size={12} /> Keluar
                 </button>

@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Card, Badge, Button, Spinner, EmptyState } from '@suka/design-system'
 import { FinanceApprovalModal } from './FinanceApprovalModal'
 import { usePettyCashRequests, useProcessPettyCashFinance } from '@/hooks/usePettyCash'
-import { tanggal } from '@/lib/format'
+import { tanggalWaktu } from '@/lib/format'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 
 export function FinancePettyCashList() {
@@ -85,7 +85,7 @@ export function FinancePettyCashList() {
             <tbody>
               {requests.map((req) => (
                 <tr key={req.id} className="border-b border-suka-gray-100 last:border-0 hover:bg-suka-gray-50 transition-colors">
-                  <td className="py-3 px-4 text-sm text-suka-brown">{tanggal(req.created_at)}</td>
+                  <td className="py-3 px-4 text-sm text-suka-brown">{tanggalWaktu(req.created_at)}</td>
                   <td className="py-3 px-4 text-sm font-medium text-suka-brown">{req.outlet_staff?.name || '-'}</td>
                   <td className="py-3 px-4 text-sm font-medium text-suka-brown">{req.outlet?.name || '-'}</td>
                   <td className="py-3 px-4 text-sm text-suka-brown">

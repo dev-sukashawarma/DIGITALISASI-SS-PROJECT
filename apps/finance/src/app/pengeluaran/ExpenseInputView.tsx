@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useUpsertExpenses } from '@/hooks/useUpsertExpenses'
-import { useRole } from '@/components/layout/RoleContext'
+import { useAuth } from '@suka/auth'
 import { OUTLET_CATEGORIES, PUSAT_CATEGORIES, CATEGORY_META, type ExpenseCategory } from '@/lib/expenseCategories'
 import type { PeriodFilterValue, Outlet } from '@/lib/types'
 import { rupiah } from '@/lib/format'
@@ -19,8 +19,8 @@ function lastOfMonth(ym: string) {
 
 export default function ExpenseInputView({ initialOutlets }: { initialOutlets: Outlet[] }) {
   const { data: outlets = initialOutlets } = useOutlets(initialOutlets)
-  const { role } = useRole()
-  const isAdmin = role === 'ADMIN'
+  const { outletStaff } = useAuth()
+  const isAdmin = outletStaff?.role === 'admin_finance' || outletStaff?.role === 'owner' || outletStaff?.role === 'admin'
 
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)) // YYYY-MM
   const [target, setTarget] = useState<string>('')       // outletId | 'PUSAT'

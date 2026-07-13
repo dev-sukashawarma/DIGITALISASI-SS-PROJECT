@@ -1,78 +1,92 @@
-# SHAWARMA Self-Ordering Kiosk — Panduan Lengkap
+# SHAWARMA Self-Ordering Kiosk & POS Kasir — Panduan Lengkap
 
-## Struktur Folder
+Sistem ini telah berevolusi dari sekadar aplikasi Kiosk sederhana menjadi sistem **Enterprise POS** yang tangguh, mendukung pengoperasian kasir secara manual, offline capabilities, dan manajemen outlet secara menyeluruh.
+
+---
+
+## 1. Arsitektur & Fungsionalitas Utama
+
+Sistem ini dibagi menjadi dua bagian utama yang terintegrasi penuh:
+1. **Customer Kiosk (`/`)**
+   Digunakan oleh pelanggan untuk memesan secara mandiri.
+2. **POS Kasir (`/kasir`)**
+   Digunakan oleh kasir untuk mengelola pesanan (baik dari Kiosk maupun manual *Walk-in*), manajemen menu, hingga *petty cash* dan pengaturan tampilan toko.
+
+### Fitur Kunci:
+- **Dukungan Offline (ServiceWorker & IndexedDB)**: Transaksi dan antrean sinkronisasi tetap berjalan walaupun koneksi internet terputus. Pesanan akan otomatis tersinkronisasi kembali ketika online.
+- **Cetak Struk Otomatis**: Integrasi langsung ke printer termal (Bluetooth/Network) untuk pencetakan struk *real-time* setelah pesanan selesai.
+- **Notifikasi Suara**: Kasir akan mendapat peringatan suara instan jika ada pesanan baru yang masuk dari Kiosk.
+- **Dynamic Pairing Kiosk**: Kasir dapat memunculkan QR Code untuk di-scan oleh tablet Kiosk agar perangkat kiosk secara otomatis terhubung dengan outlet yang bersangkutan.
+- **Branding Dinamis**: Logo dan nama brand bisa dikustomisasi secara terpusat melalui pengaturan Kasir (`BrandContext`), dan akan otomatis berubah di seluruh aplikasi Kiosk maupun Kasir.
+
+---
+
+## 2. Struktur Menu POS Kasir (`/kasir`)
+
+Sistem Kasir saat ini memiliki beberapa modul yang dapat diakses melalui Sidebar:
+
+* **Order (`/kasir`)**
+  *Kanban Board* untuk melacak status pesanan: **Masuk**, **Diproses**, dan **Selesai**. Dilengkapi fitur *drag-and-drop* atau aksi tombol untuk memindahkan status.
+* **POS Manual / Walk-in (`/kasir/order-manual`)**
+  Mode kasir tradisional untuk menerima pesanan langsung dari pelanggan yang tidak menggunakan Kiosk.
+* **Manajemen Menu (`/kasir/menu`)**
+  Pengelolaan kategori, produk, harga, dan pengaturan *stock availability* (Tersedia/Habis).
+* **Petty Cash / Shift (`/kasir/shift`)**
+  Pencatatan uang masuk dan keluar pada laci kasir (modal awal, setoran akhir, pengeluaran kas).
+* **Histori (`/kasir/histori`)**
+  Laporan dan riwayat daftar pesanan yang telah selesai atau dibatalkan untuk audit.
+* **Kontrol Device Pelanggan (`/kasir/kiosk`)**
+  Manajemen integrasi perangkat Kiosk pelanggan.
+* **Laporan (`/kasir/reports`)**
+  Ringkasan analitik dan grafik data penjualan (harian/bulanan).
+* **Tampilan Layar (`/kasir/settings`)**
+  Pengaturan tema, Nama Brand, dan Logo yang tayang pada UI dan cetakan struk.
+* **Stok Outlet (Eksternal)**
+  Terhubung langsung dengan portal pusat untuk pemantauan inventaris bahan baku. Ada indikator *badge* merah jika stok menipis.
+
+---
+
+## 3. Struktur Folder
 
 ```
 shawarma-kiosk/
 ├── app/
-│   ├── layout.tsx              ← Root layout + metadata
+│   ├── layout.tsx              ← Root layout + metadata global
 │   ├── globals.css             ← Tailwind + komponen CSS kustom
-│   ├── page.tsx                ← Halaman menu utama (customer)
-│   ├── checkout/
-│   │   └── page.tsx            ← Halaman konfirmasi & checkout
-│   ├── order-success/
-│   │   └── page.tsx            ← Halaman sukses setelah pesan
-│   ├── admin/
-│   │   ├── layout.tsx          ← Layout admin (dengan navbar)
-│   │   ├── login/
-│   │   │   └── page.tsx        ← Halaman login admin
-│   │   ├── page.tsx            ← Dashboard pesanan admin
-│   │   └── menu/
-│   │       └── page.tsx        ← Manajemen menu admin
+│   ├── page.tsx                ← Halaman menu utama Kiosk (Customer)
+│   ├── checkout/               ← Halaman konfirmasi checkout Kiosk
+│   ├── order-success/          ← Halaman sukses Kiosk
+│   ├── panduan/                ← Halaman panduan onboarding
+│   ├── kasir/                  ← Modul POS Kasir Utama
+│   │   ├── layout.tsx          ← Layout kasir (dengan sidebar navigasi)
+│   │   ├── page.tsx            ← Kanban Board Pesanan (Order)
+│   │   ├── menu/               ← Manajemen menu
+│   │   ├── order-manual/       ← POS Manual Walk-in
+│   │   ├── shift/              ← Petty Cash & Manajemen Shift
+│   │   ├── histori/            ← Histori dan riwayat pesanan
+│   │   ├── kiosk/              ← Pengaturan QR Code Device Kiosk
+│   │   ├── reports/            ← Laporan Penjualan
+│   │   └── settings/           ← Pengaturan Tampilan & Branding
 │   └── api/
-│       └── checkout/
-│           └── route.ts        ← API checkout (validasi harga server-side)
-├── components/
-│   ├── MenuItem.tsx            ← Kartu menu individual
-│   ├── Cart.tsx                ← Komponen keranjang belanja
-│   ├── CategoryFilter.tsx      ← Filter kategori
-│   └── AdminNav.tsx            ← Navigasi admin
+│       └── checkout/           ← API transaksi (validasi server-side)
+├── components/                 ← Reusable UI components
 ├── lib/
-│   ├── supabase/
-│   │   ├── client.ts           ← Supabase browser client
-│   │   └── server.ts           ← Supabase server + service role client
-│   └── validations.ts          ← Validasi input & format Rupiah
-├── store/
-│   └── cart.ts                 ← State cart (Zustand + localStorage)
-├── types/
-│   └── index.ts                ← TypeScript types
-├── middleware.ts               ← Proteksi route /admin
-├── supabase-schema.sql         ← SQL schema + data dummy
-├── .env.local.example          ← Contoh environment variables
+│   ├── db.ts                   ← Setup IndexedDB (Dexie) untuk mode offline
+│   ├── supabase/               ← Koneksi Supabase client & server
+│   └── validations.ts          ← Format Rupiah & utility validation
+├── store/                      ← Global State Management (Zustand)
+├── types/                      ← Definisi TypeScript
+├── middleware.ts               ← Proteksi rute (Auth, Service Worker routing)
 └── package.json
 ```
 
 ---
 
-## Langkah 1: Setup Supabase
-
-1. Buka [supabase.com](https://supabase.com) → Create new project
-2. Tunggu project selesai dibuat (~2 menit)
-3. Buka **SQL Editor** di sidebar kiri
-4. Copy isi file `supabase-schema.sql` → Paste → klik **Run**
-5. Verifikasi di **Table Editor** — pastikan ada tabel: `categories`, `menu_items`, `orders`, `order_items`
-
-### Ambil API Keys
-
-1. Buka **Settings** → **API** di Supabase dashboard
-2. Catat:
-   - **Project URL** (contoh: `https://abcdefgh.supabase.co`)
-   - **anon/public key** (panjang, mulai dengan `eyJ...`)
-   - **service_role key** (RAHASIA, jangan pernah expose ke frontend)
-
-### Buat Admin User
-
-1. Buka **Authentication** → **Users** → **Add user**
-2. Isi email dan password admin
-3. Klik **Create user**
-
----
-
-## Langkah 2: Setup Project Lokal
+## 4. Setup Project Lokal
 
 ```bash
 # Masuk ke folder project
-cd shawarma-kiosk
+cd apps/pos-kasir
 
 # Install dependencies
 npm install
@@ -86,100 +100,33 @@ Edit file `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=https://XXXXX.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_PORTAL_URL=https://app.sukashawarma.com
 ```
 
----
-
-## Langkah 3: Jalankan Development
-
+Jalankan Development:
 ```bash
 npm run dev
 ```
 
 Buka browser:
-- **Kiosk Customer:** http://localhost:3000
-- **Admin Login:** http://localhost:3000/admin/login
-- **Admin Dashboard:** http://localhost:3000/admin (setelah login)
+- **Kiosk Customer:** `http://localhost:3000`
+- **Dashboard Kasir:** `http://localhost:3000/kasir`
 
 ---
 
-## Langkah 4: Deploy ke Vercel (Gratis)
-
-### Cara 1: Via GitHub (Rekomendasi)
-
-1. Push code ke GitHub:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit: SHAWARMA Kiosk"
-   git remote add origin https://github.com/USERNAME/shawarma-kiosk.git
-   git push -u origin main
-   ```
-
-2. Buka [vercel.com](https://vercel.com) → **New Project**
-3. Import repository dari GitHub
-4. Tambahkan environment variables:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-5. Klik **Deploy**
-
-### Cara 2: Via Vercel CLI
-
-```bash
-npm install -g vercel
-vercel login
-vercel
-```
-
----
-
-## Alur Penggunaan
-
-### Customer (Tidak Perlu Login)
-1. Buka URL kiosk
-2. Browse menu, pilih item dengan tombol **+**
-3. Atur jumlah di kartu menu atau di cart
-4. Klik **Pesan Sekarang** di cart
-5. Isi nama (opsional) & catatan khusus
-6. Klik **Pesan Sekarang** → pesanan dibuat
-7. Lihat nomor antrian di halaman sukses
-
-### Admin
-1. Buka `/admin/login`, login dengan email & password
-2. **Dashboard Pesanan:**
-   - Lihat semua pesanan real-time (auto-refresh 15 detik)
-   - Klik pesanan untuk expand detail
-   - Update status: Menunggu → Diproses → Siap → Selesai
-   - Batalkan pesanan jika diperlukan
-3. **Manajemen Menu:**
-   - Tambah/edit/hapus menu
-   - Toggle ketersediaan item (Tersedia/Habis) dengan satu klik
-
----
-
-## Keamanan
+## 5. Keamanan & Sinkronisasi
 
 | Fitur | Implementasi |
 |-------|-------------|
-| Admin protected | Middleware Next.js + Supabase Auth |
-| Customer tanpa login | RLS public SELECT untuk menu |
-| Validasi harga | Server-side di `/api/checkout` menggunakan service_role |
-| Validasi quantity | Cek `1 ≤ qty ≤ 10` di API route |
-| Inject prevention | Parameterized queries via Supabase SDK |
-| RLS | Enabled di semua tabel |
-| Service role key | Hanya di server, tidak expose ke client |
+| **Proteksi Halaman Kasir** | Middleware Next.js + Autentikasi Eksternal (Attendance Session Portal) |
+| **Kiosk Publik** | RLS public SELECT untuk melihat menu |
+| **Integrasi Portal** | Menerima data outlet dan kasir lewat integrasi URL parameters / auth portal |
+| **Mode Offline Kasir** | Menggunakan `Dexie.js` (IndexedDB) dan interceptor ServiceWorker |
+| **Validasi Harga & Qty** | Diverifikasi ulang di server (API Route) via `service_role` |
+| **Database Security** | Row Level Security (RLS) di-enable untuk semua tabel Supabase |
 
 ---
 
-## Dependensi
+## 6. Integrasi dengan Sistem Order Pusat
 
-| Package | Versi | Fungsi |
-|---------|-------|--------|
-| next | 14.x | Framework React |
-| @supabase/supabase-js | 2.x | Supabase client |
-| @supabase/ssr | 0.x | Supabase untuk Next.js SSR/middleware |
-| zustand | 4.x | State management cart |
-| tailwindcss | 3.x | Styling |
-
-Total: **5 runtime dependencies** — sangat ringan!
+Sistem POS ini dikonfigurasi untuk mensinkronkan data status pesanan bolak-balik antara *POS Lokal* dan *Sistem Portal Pusat*. Pembaruan status oleh Admin di Pusat akan ditangkap melalui webhook dan diolah oleh sistem agar status di sisi Kasir otomatis ter-update secara *real-time*.

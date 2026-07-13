@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Card, Badge, Button, Spinner, EmptyState } from '@suka/design-system'
 import { ApprovalModal } from '@/components/petty-cash/ApprovalModal'
 import { usePettyCashRequests, useProcessPettyCashKorlap, useForwardPettyCashKorlap } from '@/hooks/usePettyCash'
-import { tanggal } from '@/lib/format'
+import { tanggalWaktu } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'
 
 export function PettyCashList() {
@@ -16,8 +16,8 @@ export function PettyCashList() {
   const [selectedRequest, setSelectedRequest] = useState<PettyCashTopup | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const reviewRequests = allRequests?.filter(r => r.status === 'forwarded_to_korlap' || r.status === 'approved_by_finance') || []
-  const historyRequests = allRequests?.filter(r => r.status !== 'forwarded_to_korlap' && r.status !== 'approved_by_finance' && r.status !== 'pending') || []
+  const reviewRequests = allRequests?.filter(r => r.status === 'forwarded_to_korlap' || r.status === 'forwarded_by_leader') || []
+  const historyRequests = allRequests?.filter(r => r.status !== 'forwarded_to_korlap' && r.status !== 'forwarded_by_leader') || []
   
   const requests = activeTab === 'review' ? reviewRequests : historyRequests
 
@@ -87,7 +87,7 @@ export function PettyCashList() {
             <tbody>
               {requests.map((req) => (
                 <tr key={req.id} className="border-b border-suka-gray-100 last:border-0 hover:bg-suka-gray-50 transition-colors">
-                  <td className="py-3 px-4 text-sm text-suka-brown">{tanggal(req.created_at)}</td>
+                  <td className="py-3 px-4 text-sm text-suka-brown">{tanggalWaktu(req.created_at)}</td>
                   <td className="py-3 px-4 text-sm font-medium text-suka-brown">{req.outlet_staff?.name || '-'}</td>
                   <td className="py-3 px-4 text-sm font-medium text-suka-brown">{req.outlet?.name || '-'}</td>
                   <td className="py-3 px-4 text-sm text-suka-brown">
@@ -96,7 +96,7 @@ export function PettyCashList() {
                   <td className="py-3 px-4 text-sm text-suka-gray-500">{req.reason}</td>
                   <td className="py-3 px-4">
                     {req.status === 'pending' && <Badge variant="warning">Menunggu Leader</Badge>}
-                    {req.status === 'forwarded_to_korlap' && <Badge variant="info">Menunggu Korlap</Badge>}
+                    {req.status === 'forwarded_to_korlap' && <Badge variant="warning">Menunggu Korlap</Badge>}
                     {req.status === 'forwarded_to_finance' && <Badge variant="info">Menunggu Finance</Badge>}
                     {req.status === 'approved_by_finance' && <Badge variant="info">Disetujui Finance (Serahkan)</Badge>}
                     {req.status === 'forwarded_by_korlap' && <Badge variant="success">Diserahkan ke Leader</Badge>}
@@ -111,7 +111,7 @@ export function PettyCashList() {
                         Review
                       </Button>
                     )}
-                    {req.status === 'approved_by_finance' && activeTab === 'review' && (
+                    {req.status === 'forwarded_by_leader' && activeTab === 'review' && (
                       <Button variant="primary" size="sm" onClick={() => handleForward(req)}>
                         Teruskan Dana
                       </Button>

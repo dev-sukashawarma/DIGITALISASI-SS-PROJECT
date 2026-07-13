@@ -81,3 +81,23 @@ export interface PettyCashTopup {
   outlet_staff?: { name: string } | null
   outlet?: { id: string, name: string } | null
 }
+
+export interface Outlet {
+  id: string
+  slug: string
+  name: string
+  address: string | null
+  lat: number
+  lng: number
+  type: 'pusat' | 'cabang' | 'franchise'
+  is_active: boolean
+}
+
+export type SalesSource = 'gojek' | 'grab' | 'shopee' | 'pos' | 'manual'
+
+export interface PeriodFilterValue {
+  from: string                  // 'YYYY-MM-DD' inklusif
+  to: string                    // 'YYYY-MM-DD' inklusif
+  outletId: string | 'all'
+  source: SalesSource | 'all'
+}

@@ -7,8 +7,8 @@ import { usePettyCashRequests, useProcessPettyCashKorlap, useForwardPettyCashKor
 import { tanggalWaktu } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'
 
-export function PettyCashList() {
-  const { data: allRequests, isLoading } = usePettyCashRequests()
+export function PettyCashList({ initialRequests }: { initialRequests?: PettyCashTopup[] }) {
+  const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests)
   const processTopup = useProcessPettyCashKorlap()
   const forwardTopup = useForwardPettyCashKorlap()
   

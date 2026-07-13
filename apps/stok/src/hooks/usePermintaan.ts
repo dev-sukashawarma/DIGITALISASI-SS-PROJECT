@@ -1,5 +1,7 @@
 'use client'
 import { useCallback, useEffect, useId, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
 import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
@@ -86,45 +88,35 @@ export function useSaranItem(outletId: string | undefined) {
 // ---------------------------------------------------------------------------
 
 export function usePermintaanList(outletId: string | undefined) {
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['permintaan_list', outletId],
+    queryFn: () => fetchPermintaanOutlet(outletId as string),
+    enabled: !!outletId,
+    staleTime: 25000,
+    gcTime: 60000,
+  })
+
   // ID unik per instance hook → nama channel realtime tak bentrok bila dua
   // konsumen (PermintaanForm + PermintaanList) memakai outletId yang sama.
-  // Tanpa ini: dua channel bernama identik → "cannot add postgres_changes
-  // callbacks after subscribe()".
   const instanceId = useId()
-  const [permintaan, setPermintaan] = useState<PermintaanWithItems[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  useRealtimeInvalidate({
+    channelName: `permintaan_list_${outletId ?? 'none'}_${instanceId}`,
+    enabled: !!outletId,
+    subs: [
+      {
+        table: 'permintaan_bahan',
+        filter: outletId ? `outlet_id=eq.${outletId}` : undefined,
+        queryKeys: [['permintaan_list', outletId]],
+      },
+    ],
+  })
 
-  const refresh = useCallback(async () => {
-    if (!outletId) { setLoading(false); return }
-    setError(null)
-    try {
-      const data = await fetchPermintaanOutlet(outletId)
-      setPermintaan(data)
-    } catch (err: any) {
-      setError(err.message || String(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [outletId])
-
-  useEffect(() => { setLoading(true); refresh() }, [refresh])
-
-  // Realtime: tetap pakai client-side subscription tapi trigger server action untuk fetch
-  useEffect(() => {
-    if (!outletId) return
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`permintaan_list_${outletId}_${instanceId}`)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'permintaan_bahan',
-        filter: `outlet_id=eq.${outletId}`,
-      }, () => { refresh() })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [outletId, refresh, instanceId])
-
-  return { permintaan, loading, error, refresh }
+  return {
+    permintaan: data ?? [],
+    loading: isLoading,
+    error: error ? (error as Error).message : null,
+    refresh: refetch,
+  }
 }
 
 // ---------------------------------------------------------------------------

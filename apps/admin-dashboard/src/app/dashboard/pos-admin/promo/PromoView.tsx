@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search } from 'lucide-react'
 import { toast } from 'sonner'
+import { CurrencyInput } from '@suka/design-system'
 import { savePromosAction } from './actions'
 
 type MenuItem = {
@@ -183,15 +184,22 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-700">Nilai Diskon</label>
                 <div className="relative">
-                  {globalPromo.discount_type === 'nominal' && <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Rp</span>}
-                  <input 
-                    type="number" 
-                    onWheel={(e) => e.currentTarget.blur()}
-                    min="0"
-                    className={`w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 outline-none transition-colors font-bold text-gray-900 ${globalPromo.discount_type === 'nominal' ? 'pl-11 pr-4' : 'pl-4 pr-11'}`}
-                    value={globalPromo.discount_value || ''}
-                    onChange={e => handleGlobalPromoChange('discount_value', Number(e.target.value))}
-                  />
+                  {globalPromo.discount_type === 'nominal' ? (
+                    <CurrencyInput
+                      value={globalPromo.discount_value || 0}
+                      onChange={v => handleGlobalPromoChange('discount_value', v)}
+                      className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 pr-4 outline-none transition-colors font-bold text-gray-900"
+                    />
+                  ) : (
+                    <input
+                      type="number"
+                      onWheel={(e) => e.currentTarget.blur()}
+                      min="0"
+                      className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 outline-none transition-colors font-bold text-gray-900 pl-4 pr-11"
+                      value={globalPromo.discount_value || ''}
+                      onChange={e => handleGlobalPromoChange('discount_value', Number(e.target.value))}
+                    />
+                  )}
                   {globalPromo.discount_type === 'percentage' && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold"><Percent className="w-4 h-4"/></span>}
                 </div>
               </div>
@@ -201,12 +209,9 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Minimum Belanja (Rp) <span className="text-gray-400 text-xs font-normal">(Opsional)</span>
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Contoh: 50000"
-                    value={globalPromo.min_purchase || ''}
-                    onChange={(e) => handleGlobalPromoChange('min_purchase', e.target.value ? Number(e.target.value) : null)}
+                  <CurrencyInput
+                    value={globalPromo.min_purchase || 0}
+                    onChange={(v) => handleGlobalPromoChange('min_purchase', v || null)}
                     className="w-full rounded-lg border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500 disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
                   />
                   <p className="text-xs text-gray-500 mt-1">Kosongkan jika tanpa minimum belanja</p>
@@ -344,16 +349,23 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                             </select>
                             
                             <div className="relative">
-                              <input 
-                                type="number" 
-                                onWheel={(e) => e.currentTarget.blur()}
-                                min="0"
-                                placeholder="Nilai"
-                                className={`bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl py-2 text-sm w-28 font-bold text-blue-900 outline-none transition-colors ${promo.discount_type === 'nominal' ? 'pl-9 pr-3' : 'pl-3 pr-9'}`}
-                                value={promo.discount_value || ''}
-                                onChange={e => handleItemPromoChange(menu.id, 'discount_value', Number(e.target.value))}
-                              />
-                              {promo.discount_type === 'nominal' && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-blue-400 font-bold">Rp</span>}
+                              {promo.discount_type === 'nominal' ? (
+                                <CurrencyInput
+                                  value={promo.discount_value || 0}
+                                  onChange={v => handleItemPromoChange(menu.id, 'discount_value', v)}
+                                  className="bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl py-2 text-sm w-28 font-bold text-blue-900 outline-none transition-colors pr-3"
+                                />
+                              ) : (
+                                <input
+                                  type="number"
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                  min="0"
+                                  placeholder="Nilai"
+                                  className="bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl py-2 text-sm w-28 font-bold text-blue-900 outline-none transition-colors pl-3 pr-9"
+                                  value={promo.discount_value || ''}
+                                  onChange={e => handleItemPromoChange(menu.id, 'discount_value', Number(e.target.value))}
+                                />
+                              )}
                               {promo.discount_type === 'percentage' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-blue-400 font-bold">%</span>}
                             </div>
                           </div>

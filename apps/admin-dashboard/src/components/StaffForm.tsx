@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Button } from '@suka/design-system'
+import { Button, CurrencyInput } from '@suka/design-system'
 import { useAuth } from '@suka/auth'
 import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role } from '@/lib/types'
@@ -499,20 +499,53 @@ export function StaffForm({
             </div>
 
             <div>
-              <label htmlFor="sf-basic-salary" className={labelCls}>Gaji Pokok (Rp)</label>
-              <input id="sf-basic-salary" type="number" min={0} className={inputCls} {...register('basic_salary')} />
+              <Controller
+                name="basic_salary"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-basic-salary"
+                    label="Gaji Pokok (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
               {errors.basic_salary && <span className="text-xs text-red-500 mt-1 block">{errors.basic_salary?.message ?.toString()}</span>}
             </div>
 
             <div>
-              <label htmlFor="sf-allowance-pos" className={labelCls}>Tunjangan Jabatan (Rp)</label>
-              <input id="sf-allowance-pos" type="number" min={0} className={inputCls} {...register('allowance_position')} />
+              <Controller
+                name="allowance_position"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-allowance-pos"
+                    label="Tunjangan Jabatan (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
               {errors.allowance_position && <span className="text-xs text-red-500 mt-1 block">{errors.allowance_position?.message ?.toString()}</span>}
             </div>
 
             <div>
-              <label htmlFor="sf-allowance-pres" className={labelCls}>Tunjangan Kehadiran (Rp)</label>
-              <input id="sf-allowance-pres" type="number" min={0} className={inputCls} {...register('allowance_presence')} />
+              <Controller
+                name="allowance_presence"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-allowance-pres"
+                    label="Tunjangan Kehadiran (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
               {errors.allowance_presence && <span className="text-xs text-red-500 mt-1 block">{errors.allowance_presence?.message ?.toString()}</span>}
             </div>
 

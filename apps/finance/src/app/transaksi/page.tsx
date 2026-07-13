@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Button, Spinner } from '@suka/design-system'
+import { Button, Spinner, CurrencyInput } from '@suka/design-system'
 import { Plus, Check, X, CheckCircle } from 'lucide-react'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
 import { useCashMutations } from '@/hooks/useCashMutations'
@@ -81,11 +81,14 @@ export default function TransaksiPage() {
                 <option value="in">Kas Masuk</option>
               </select>
             </label>
-            <label className="text-sm font-semibold text-suka-gray-600">
-              Nominal (Rp)
-              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} min={0}
-                className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange" />
-            </label>
+            <div className="text-sm font-semibold text-suka-gray-600">
+              <CurrencyInput
+                label="Nominal (Rp)"
+                value={amount}
+                onChange={(v) => setAmount(String(v || ''))}
+                className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange"
+              />
+            </div>
             <label className="text-sm font-semibold text-suka-gray-600">
               Kategori
               <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="mis. operasional"

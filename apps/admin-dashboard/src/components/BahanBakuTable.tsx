@@ -68,8 +68,9 @@ export function BahanBakuTable({
                 <td className="px-4 py-3">
                   {isEditing ? (
                     <input
-                      autoFocus className={inputCls} inputMode="numeric" value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
+                      autoFocus className={inputCls} inputMode="numeric"
+                      value={draft ? Number(draft).toLocaleString('id-ID') : ''}
+                      onChange={(e) => setDraft(e.target.value.replace(/\D/g, ''))}
                       onKeyDown={(e) => { if (e.key === 'Enter') commit(r.id); if (e.key === 'Escape') cancel() }}
                     />
                   ) : (

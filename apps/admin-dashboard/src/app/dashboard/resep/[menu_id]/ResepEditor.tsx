@@ -173,9 +173,10 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
           <div className="mt-1 flex items-center relative">
             <span className="absolute left-3 text-lg font-bold text-suka-orange">Rp</span>
             <input
-              type="number"
-              value={hargaJual || ''}
-              onChange={(e) => setHargaJual(Number(e.target.value))}
+              type="text"
+              inputMode="numeric"
+              value={hargaJual ? hargaJual.toLocaleString('id-ID') : ''}
+              onChange={(e) => setHargaJual(Number(e.target.value.replace(/\D/g, '')) || 0)}
               className="w-full bg-black/20 text-3xl font-extrabold text-suka-orange rounded-lg py-1 pl-10 pr-3 border border-transparent focus:border-suka-orange focus:ring-1 focus:ring-suka-orange"
             />
           </div>

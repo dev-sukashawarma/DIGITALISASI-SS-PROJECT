@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { rupiah } from '@/lib/format';
-import { Button } from '@suka/design-system';
+import { Button, CurrencyInput } from '@suka/design-system';
 import type { PayrollRow } from '@/hooks/usePayroll';
 
 /* ------------------------------------------------------------------ */
@@ -130,14 +130,11 @@ export function PayrollSlipForm({
           {/* Editable fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Bonus</label>
-              <input
-                type="number"
-                min={0}
+              <CurrencyInput
+                label="Bonus"
                 className={inputClass}
-                value={bonus || ''}
-                onChange={(e) => setBonus(Number(e.target.value) || 0)}
-                placeholder="0"
+                value={bonus}
+                onChange={setBonus}
               />
             </div>
             <div>
@@ -154,14 +151,11 @@ export function PayrollSlipForm({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Potongan</label>
-              <input
-                type="number"
-                min={0}
+              <CurrencyInput
+                label="Potongan"
                 className={inputClass}
-                value={deductions || ''}
-                onChange={(e) => setDeductions(Number(e.target.value) || 0)}
-                placeholder="0"
+                value={deductions}
+                onChange={setDeductions}
               />
             </div>
             <div>

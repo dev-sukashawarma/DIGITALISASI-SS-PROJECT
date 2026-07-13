@@ -94,8 +94,9 @@ export default function ExpenseInputView({ initialOutlets }: { initialOutlets: O
           {categories.map(c => (
             <label key={c} className="flex items-center justify-between gap-3 group cursor-pointer p-2 hover:bg-suka-gray-50 rounded-lg transition-colors">
               <span className="text-sm font-medium text-suka-ink">{CATEGORY_META[c].label}</span>
-              <input type="number" min={0} value={amounts[c] ?? ''}
-                onChange={e => setAmounts(a => ({ ...a, [c]: e.target.value }))}
+              <input type="text" inputMode="numeric"
+                value={amounts[c] ? Number(amounts[c]).toLocaleString('id-ID') : ''}
+                onChange={e => setAmounts(a => ({ ...a, [c]: e.target.value.replace(/\D/g, '') }))}
                 className="border border-suka-gray-200 rounded-lg px-3 py-1.5 text-sm text-right w-44 focus:outline-none focus:ring-2 focus:ring-suka-brown/20 transition-shadow" placeholder="0" />
             </label>
           ))}

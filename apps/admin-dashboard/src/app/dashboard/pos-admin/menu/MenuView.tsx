@@ -9,6 +9,7 @@ import {
   FileArchive, Search,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { CurrencyInput } from '@suka/design-system'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
@@ -311,9 +312,9 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="input-label">Harga (Rp) <span className="text-red-400 font-normal">*</span></label>
-                    <input type="number" onWheel={(e) => e.currentTarget.blur()} value={form.price}
-                      onChange={(e) => setForm({ ...form, price: e.target.value })}
-                      required min="0" step="500" className="input" placeholder="35000" />
+                    <CurrencyInput value={form.price}
+                      onChange={(v) => setForm({ ...form, price: String(v) })}
+                      required className="input" />
                   </div>
                   <div>
                     <label className="input-label">Kategori</label>

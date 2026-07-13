@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@suka/design-system';
+import { Button, CurrencyInput } from '@suka/design-system';
 import { useStaff } from '@/hooks/useStaff';
 import { rupiah } from '@/lib/format';
 
@@ -106,14 +106,11 @@ export function CashAdvanceForm({
 
               {/* Amount */}
               <div>
-                <label className={labelClass}>Jumlah Pinjaman</label>
-                <input
-                  type="number"
-                  min={1}
+                <CurrencyInput
+                  label="Jumlah Pinjaman"
                   className={inputClass}
-                  value={amount || ''}
-                  onChange={(e) => setAmount(Number(e.target.value) || 0)}
-                  placeholder="Masukkan jumlah"
+                  value={amount}
+                  onChange={setAmount}
                   required
                 />
               </div>
@@ -134,18 +131,11 @@ export function CashAdvanceForm({
             <>
               {/* Payment amount */}
               <div>
-                <label className={labelClass}>Jumlah Bayar</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={maxAmount ?? undefined}
+                <CurrencyInput
+                  label="Jumlah Bayar"
                   className={inputClass}
-                  value={payAmount || ''}
-                  onChange={(e) => {
-                    const v = Number(e.target.value) || 0;
-                    setPayAmount(maxAmount != null ? Math.min(v, maxAmount) : v);
-                  }}
-                  placeholder="Masukkan jumlah"
+                  value={payAmount}
+                  onChange={(v) => setPayAmount(maxAmount != null ? Math.min(v, maxAmount) : v)}
                   required
                 />
               </div>

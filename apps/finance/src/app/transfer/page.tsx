@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Button, Spinner } from '@suka/design-system'
+import { Button, Spinner, CurrencyInput } from '@suka/design-system'
 import { ArrowRight } from 'lucide-react'
 import { useCashOverview } from '@/hooks/useCashData'
 import { useCashMutations } from '@/hooks/useCashMutations'
@@ -70,11 +70,14 @@ export default function TransferPage() {
               {locations.filter((l) => l.id !== from).map((l) => <option key={l.id} value={l.id}>{l.label} · {rupiah(l.saldo)}</option>)}
             </select>
           </label>
-          <label className="text-sm font-semibold text-suka-gray-600">
-            Nominal (Rp)
-            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} min={0}
-              className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange" />
-          </label>
+          <div className="text-sm font-semibold text-suka-gray-600">
+            <CurrencyInput
+              label="Nominal (Rp)"
+              value={amount}
+              onChange={(v) => setAmount(String(v || ''))}
+              className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange"
+            />
+          </div>
           <label className="text-sm font-semibold text-suka-gray-600">
             Catatan
             <input value={note} onChange={(e) => setNote(e.target.value)}

@@ -1,6 +1,7 @@
 export { Button } from './Button'
 export { Card } from './Card'
 export { Input } from './Input'
+export { CurrencyInput } from './CurrencyInput'
 export { Badge } from './Badge'
 export { StatusPill } from './StatusPill'
 export type { StatusKind } from './StatusPill'

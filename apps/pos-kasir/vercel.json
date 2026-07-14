@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/check-scheduled-orders",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/cancel-expired",
+      "schedule": "0 * * * *"
     }
   ]
 }

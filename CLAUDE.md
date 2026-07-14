@@ -823,10 +823,23 @@ Saat subagent mencoba push migration fitur ini, ia menjalankan `supabase migrati
 - **4 timestamp dikonfirmasi legitimate** (migration dari `main` yang sudah applied sebelumnya: 2x kitchen_receipt_printed, fix auto_toggle_menu_queue, pesan error ledger) → dipulihkan ke status `applied` via `supabase migration repair --status applied`.
 - **2 timestamp** (`20260714000002`, `20260716000000`) **tidak punya file lokal** di manapun dalam repo dan **tidak bisa dipulihkan** → ditandai untuk investigasi manual via Supabase Dashboard.
 
+### Susulan insiden — migration kita sendiri sempat hilang dari histori (ditemukan saat finishing-a-development-branch)
+Beberapa saat setelah verifikasi final di atas, `supabase migration list` dicek ulang (atas permintaan user sebelum merge) dan ternyata **`20260714100000`** (RPC `get_waste_periode`/`get_waste_breakdown`, migration sesi sebelumnya) **dan `20260714110000`** (RPC `get_budget_loss_periode`, migration sesi ini) **hilang total dari tabel `supabase_migrations.schema_migrations`** — bukan cuma status "reverted", barisnya tidak ada sama sekali. Migration list juga menunjukkan banyak entry remote-only baru bertanggal 14–17 Juli (`20260714000003`, `20260716000000`–`20260716000005`, `20260717000000`) yang tidak ada saat pengecekan sebelumnya — indikasi kuat **developer lain aktif push migration ke database remote yang sama** selagi sesi ini berjalan (database shared, bukan bug tooling).
+
+**Verifikasi ground-truth sebelum bertindak** (pelajaran dari insiden pertama — jangan repair tanpa cek dulu):
+```sql
+SELECT proname, prosecdef FROM pg_proc WHERE proname IN ('get_waste_periode','get_waste_breakdown','get_budget_loss_periode');
+-- via: supabase db query "<sql>" --linked
+```
+Hasil: **ketiga fungsi benar-benar ada di DB**, `prosecdef=true` — jadi ini murni tabel tracking yang kosong, skema/fungsi aman. Diperbaiki dengan `supabase migration repair --status applied 20260714100000 20260714110000` (hanya menyentuh 2 entry milik sesi ini sendiri, bukan punya developer lain). Diverifikasi ulang: `migration list` kembali menunjukkan Local+Remote populated untuk keduanya, dan 4 migration yang dipulihkan di insiden pertama masih tercatat aman.
+
+**Pelajaran:** `supabase migration list`/tabel histori di database **shared** ini bisa berubah kapan saja karena aktivitas tim lain — jangan asumsikan state migration statis antar-pengecekan dalam sesi yang panjang. `supabase db query "..." --linked` berguna untuk verifikasi ground-truth (fungsi/skema nyata) tanpa perlu psql, sebelum menjalankan `migration repair` apa pun.
+
 ### 📝 Next
 - Merge branch, redeploy `admin-dashboard`.
 - Smoke test manual: isi `buffer_amount` di suatu resep yang ada penjualan pada periode filter, verifikasi Budget Loss > 0 dan Gap % numerik (bukan N/A).
 - **Verifikasi manual 2 migration timestamp yang hilang (`20260714000002`, `20260716000000`) via Supabase Dashboard/Studio** — cek apakah itu migration nyata yang perlu direkonstruksi filenya, atau entry usang yang aman diabaikan.
+- **Jalankan `supabase migration list` sekali lagi tepat sebelum merge/redeploy final** — riwayat remote terbukti berubah selama sesi ini karena aktivitas tim lain, jangan andalkan hasil cek lama.
 
 ---
 

@@ -24,10 +24,62 @@ import { useDialogStore } from '@/lib/dialogStore'
 import { fetchWithTimeout } from '@/lib/offline-utils'
 import { TimeAgo } from '@/components/kasir/TimeAgo'
 import { parseOrderData, ParsedOrder } from '@/lib/order-utils'
-import { printReceipt, type ReceiptData } from '@/lib/printReceipt'
+import { printReceipt, type ReceiptData, type ReceiptLine } from '@/lib/printReceipt'
 import { useBrand } from '@/components/BrandContext'
+import { cleanItemName } from '@/lib/order-item-name'
 
 const DING_SOUND = '/sound-pesanan.mp3'
+
+function buildReceiptItems(order: ParsedOrder): ReceiptLine[] {
+  if (!order._parsedItems) {
+    return order.order_items.map(item => {
+      let name = item.menu_item_name || '';
+      let note = item.notes || '';
+      const noteSplit = name.split('|NOTE|');
+      if (noteSplit.length > 1) { 
+        note = (note ? note + ' - ' : '') + noteSplit[1].trim(); 
+        name = noteSplit[0].trim(); 
+      }
+      const parentSplit = name.split('|PARENT|');
+      if (parentSplit.length > 1) { name = parentSplit[0].trim(); }
+      const idSplit = name.split('|ID|');
+      if (idSplit.length > 1) { name = idSplit[0].trim(); }
+      
+      return {
+        name: name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        subtotal: item.subtotal,
+        note: note || undefined
+      }
+    })
+  }
+
+  const { rootItems, childrenMap } = order._parsedItems;
+  const items: ReceiptLine[] = [];
+  rootItems.forEach(root => {
+    items.push({
+      name: root.parsedName,
+      note: root.parsedNote || undefined,
+      quantity: root.quantity,
+      unit_price: root.unit_price,
+      subtotal: root.subtotal
+    })
+    if (childrenMap[root.parsedId]) {
+      childrenMap[root.parsedId].forEach(child => {
+        items.push({
+          name: child.parsedName,
+          note: child.parsedNote || undefined,
+          quantity: child.quantity,
+          unit_price: child.unit_price,
+          subtotal: child.subtotal,
+          isChild: true
+        })
+      })
+    }
+  })
+  return items;
+}
 
 
 
@@ -470,27 +522,7 @@ export default function KasirOrderClient({
       orderNumber: order.order_number,
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
-        items: order.order_items.map(item => {
-          let name = item.menu_item_name || '';
-          let note = item.notes || '';
-          const noteSplit = name.split('|NOTE|');
-          if (noteSplit.length > 1) { 
-            note = (note ? note + ' - ' : '') + noteSplit[1].trim(); 
-            name = noteSplit[0].trim(); 
-          }
-          const parentSplit = name.split('|PARENT|');
-          if (parentSplit.length > 1) { name = parentSplit[0].trim(); }
-          const idSplit = name.split('|ID|');
-          if (idSplit.length > 1) { name = idSplit[0].trim(); }
-          
-          return {
-            name: name,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            subtotal: item.subtotal,
-            note: note || undefined
-          }
-        }),
+      items: buildReceiptItems(order),
       subtotal: order.total_amount,
       discount: 0,
       total: order.total_amount,
@@ -529,27 +561,7 @@ export default function KasirOrderClient({
       orderNumber: order.order_number,
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
-      items: order.order_items.map(item => {
-        let name = item.menu_item_name || '';
-        let note = item.notes || '';
-        const noteSplit = name.split('|NOTE|');
-        if (noteSplit.length > 1) { 
-          note = (note ? note + ' - ' : '') + noteSplit[1].trim(); 
-          name = noteSplit[0].trim(); 
-        }
-        const parentSplit = name.split('|PARENT|');
-        if (parentSplit.length > 1) { name = parentSplit[0].trim(); }
-        const idSplit = name.split('|ID|');
-        if (idSplit.length > 1) { name = idSplit[0].trim(); }
-        
-        return {
-          name: name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          subtotal: item.subtotal,
-          note: note || undefined
-        }
-      }),
+      items: buildReceiptItems(order),
       subtotal: order.total_amount, // Asumsikan no discount at pos-kasir board level, or use subtotal logic
       discount: 0,
       total: order.total_amount,
@@ -1007,7 +1019,7 @@ export default function KasirOrderClient({
             const itemCounts: Record<string, number> = {};
             globalAntreanMasak.forEach(order => {
               order.order_items?.forEach(item => {
-                const name = item.menu_item_name;
+                const name = cleanItemName(item.menu_item_name);
                 itemCounts[name] = (itemCounts[name] || 0) + (item.quantity || 1);
               });
             });
@@ -1021,26 +1033,19 @@ export default function KasirOrderClient({
             if (overflowingItems.length === 0) return null;
 
             return (
-              <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-xl p-4 mb-4 shrink-0 shadow-md relative z-10 overflow-hidden">
-                <div className="absolute top-0 right-0 p-2 opacity-20">
-                  <Flame className="w-16 h-16 text-white" />
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 shrink-0 shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center gap-3">
+                <div className="flex flex-col gap-0.5 shrink-0">
+                  <div className="flex items-center gap-2 text-red-600 font-bold">
+                    <Flame className="w-5 h-5 animate-pulse" />
+                    <span className="text-sm">MENU MENUMPUK</span>
+                  </div>
+                  <span className="text-[10px] text-red-500 font-medium">Tolong kru segera eksekusi massal!</span>
                 </div>
                 
-                <div className="relative z-10 flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <Flame className="w-5 h-5 text-white animate-pulse" />
-                    <h3 className="text-sm font-black text-white tracking-wide">
-                      ⚡ WARNING: MENU MENUMPUK!
-                    </h3>
-                  </div>
-                  
-                  <p className="text-[11px] font-medium text-red-50/90 leading-tight">
-                    Ada menu yang diorder lebih dari 7 porsi sekaligus. Tolong kru segera eksekusi massal menu berikut:
-                  </p>
-                  
-                  <div className="flex flex-wrap gap-1.5 mt-1">
+                <div className="flex-1">
+                  <div className="flex flex-wrap gap-1.5">
                     {overflowingItems.map(([name, count]) => (
-                      <span key={name} className="px-2 py-1 bg-white/20 backdrop-blur-sm border border-white/30 rounded-md text-[10px] font-bold text-white shadow-sm">
+                      <span key={name} className="px-2 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded text-xs font-semibold">
                         {count}x {name}
                       </span>
                     ))}

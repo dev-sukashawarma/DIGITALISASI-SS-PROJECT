@@ -16,6 +16,7 @@ export interface ReceiptLine {
   quantity: number
   unit_price: number
   subtotal: number
+  isChild?: boolean
 }
 
 export interface ReceiptData {
@@ -110,10 +111,12 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   <table><tbody>
   ${d.items.map((it) => {
     const noteHtml = it.note ? `<div class="note">- ${esc(it.note)}</div>` : ''
+    const paddingLeft = it.isChild ? 'padding-left: 12px;' : ''
+    const prefix = it.isChild ? '- ' : ''
     return `
       <tr>
         <td class="qty">${it.quantity}x</td>
-        <td class="name">${esc(it.name)}${noteHtml}</td>
+        <td class="name" style="${paddingLeft}">${prefix}${esc(it.name)}${noteHtml}</td>
         ${!isKitchen ? `<td class="amt">${formatRupiah(it.subtotal)}</td>` : ''}
       </tr>`
   }).join('')}

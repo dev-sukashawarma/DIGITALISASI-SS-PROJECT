@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS orders (
                                CHECK (status IN ('pending','preparing','ready','completed','cancelled')),
   payment_method TEXT          CHECK (payment_method IN ('cash','qris','card')),
   total_amount   DECIMAL(10,2) NOT NULL CHECK (total_amount >= 0),
+  kitchen_receipt_printed BOOLEAN DEFAULT false,
   notes          TEXT,
   created_at     TIMESTAMPTZ   DEFAULT NOW(),
   updated_at     TIMESTAMPTZ   DEFAULT NOW()

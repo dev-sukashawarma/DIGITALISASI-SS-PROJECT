@@ -13,6 +13,8 @@ const TIPE_LABEL: Record<string, string> = {
 const FILTER_LABELS: Record<string, string> = {
   all: 'Semua',
   finalized: 'Selesai 🟢',
+  pending_approval: 'Menunggu Leader ⏳',
+  rejected: 'Ditolak ❌',
   draft: 'Draft 📝',
 };
 
@@ -21,6 +23,7 @@ export function OpnameList({ items }: { items: Opname[] }) {
   const [activeFilter, setActiveFilter] = useState('all');
 
   const draftCount = useMemo(() => items.filter((o) => o.status === 'draft').length, [items]);
+  const pendingCount = useMemo(() => items.filter((o) => o.status === 'pending_approval').length, [items]);
   const finalToday = useMemo(() => {
     const todayStr = new Date().toISOString().slice(0, 10);
     return items.filter((o) => o.status === 'finalized' && o.tanggal === todayStr).length;
@@ -55,6 +58,10 @@ export function OpnameList({ items }: { items: Opname[] }) {
         matchesFilter = o.status === 'finalized';
       } else if (activeFilter === 'draft') {
         matchesFilter = o.status === 'draft';
+      } else if (activeFilter === 'pending_approval') {
+        matchesFilter = o.status === 'pending_approval';
+      } else if (activeFilter === 'rejected') {
+        matchesFilter = o.status === 'rejected';
       }
 
       return matchesSearch && matchesFilter;
@@ -64,8 +71,8 @@ export function OpnameList({ items }: { items: Opname[] }) {
   return (
     <div className="space-y-5">
       {/* Stats Summary Cards */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-white border border-[#d9c2b2]/45 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] flex flex-col justify-center">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="p-3 bg-white border border-[#d9c2b2]/45 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] flex flex-col justify-center">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#544437]/50">
             Selesai Hari Ini
           </span>
@@ -73,7 +80,15 @@ export function OpnameList({ items }: { items: Opname[] }) {
             {finalToday} <span className="text-xs font-bold text-[#544437]/40">laporan</span>
           </span>
         </div>
-        <div className="p-4 bg-white border border-[#d9c2b2]/45 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] flex flex-col justify-center">
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl shadow-sm flex flex-col justify-center">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700/70">
+            Menunggu Leader
+          </span>
+          <span className="text-lg font-black text-amber-700 mt-1">
+            {pendingCount} <span className="text-xs font-bold text-amber-600/60">opname</span>
+          </span>
+        </div>
+        <div className="p-3 bg-white border border-[#d9c2b2]/45 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] flex flex-col justify-center">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#544437]/50">
             Draft Tertunda
           </span>
@@ -188,9 +203,17 @@ export function OpnameList({ items }: { items: Opname[] }) {
 
                 {/* Right Section: Status Badge */}
                 <div className="flex-shrink-0 pl-2">
-                  {isFinalized ? (
+                  {o.status === 'finalized' ? (
                     <span className="bg-[#93f997]/15 text-[#006e24] border border-[#93f997]/25 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider">
                       Selesai
+                    </span>
+                  ) : o.status === 'pending_approval' ? (
+                    <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider animate-pulse">
+                      ⏳ Menunggu
+                    </span>
+                  ) : o.status === 'rejected' ? (
+                    <span className="bg-red-50 text-[#ba1a1a] border border-red-200 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider">
+                      ❌ Ditolak
                     </span>
                   ) : (
                     <span className="bg-[#ffdcc2] text-[#904d00] border border-[#ffdcc2]/10 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider">

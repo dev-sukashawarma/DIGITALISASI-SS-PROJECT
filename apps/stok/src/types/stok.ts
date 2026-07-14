@@ -3,9 +3,9 @@ export type SatuanKecil = 'liter'|'ml'|'gram'|'cm'|'lembar'
 export type Kategori = 'protein'|'sayur'|'bumbu'|'saus'|'roti'|'kemasan'|'minuman'|'lainnya'
 export type LedgerTipe =
   | 'terima_kiriman' | 'pemakaian' | 'waste' | 'adjustment'
-  | 'opname_selisih' | 'transfer_keluar' | 'transfer_masuk'
+  | 'opname_selisih' | 'transfer_keluar' | 'transfer_masuk' | 'waste_pending'
 export type OpnameTipe = 'harian'|'mingguan'|'ad_hoc'
-export type OpnameStatus = 'draft'|'finalized'
+export type OpnameStatus = 'draft'|'pending_approval'|'finalized'|'rejected'
 export type StokLevel = 'aman'|'menipis'|'kritis'|'unknown'
 
 export interface BahanBaku {
@@ -21,7 +21,11 @@ export interface Opname {
   id: string; outlet_id: string; tanggal: string; tipe: OpnameTipe
   status: OpnameStatus; created_by: string | null; created_at: string
   updated_at: string; notes: string | null
+  // Approval fields (added via migration)
+  approved_by: string | null; approved_at: string | null
+  approval_notes: string | null
   outlet_staff?: { name: string } | null;
+  approved_by_staff?: { name: string } | null;
   opname_item?: {
     qty_fisik: number | null;
     qty_system: number;

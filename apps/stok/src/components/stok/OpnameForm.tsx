@@ -24,7 +24,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
   const router = useRouter();
   const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);
-  const { createDraft, upsertItems, finalize } = useOpnameActions();
+  const { createDraft, upsertItems, setPendingApproval, finalize } = useOpnameActions();
 
 
   const [fisik, setFisik] = useState<Record<string, string>>({});
@@ -132,6 +132,9 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
     });
   }, [bahanBaku, searchTerm, activeCategory]);
 
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [pendingApproval, setPendingApprovalState] = useState(false);
+
   async function handleFinalize() {
     if (Object.keys(remainderError).length > 0) {
       showToast('🔴 Perbaiki dulu input sisa yang melebihi batas kontainer.', 'warning');
@@ -151,23 +154,34 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
             bahan_baku_id: b.id,
             qty_fisik: qtyFisik,
             qty_system: qtySystem,
-            flagged: isSelisihFlagged(selisih, qtySystem),
+            flagged: isSelisihFlagged(selisih, qtySystem, b.satuan, b.satuan_kecil),
           };
         });
 
       await upsertItems(items);
-      const res = await finalize(opname.id);
-      
-      const successMsg = res.queued 
-        ? '⚠️ Offline: Data disimpan di antrean lokal & akan disinkron saat online!' 
-        : '🟢 Berhasil: Formulir opname berhasil disimpan dan difinalisasi!';
-      
-      showToast(successMsg, res.queued ? 'warning' : 'success');
 
-      // Navigate back after toast plays a bit
-      setTimeout(() => {
-        router.push('/stok/opname');
-      }, 2000);
+      const hasFlagged = items.some(i => i.flagged);
+      
+      if (hasFlagged) {
+        // Set status ke pending_approval — leader harus approve sebelum finalize
+        await setPendingApproval(opname.id);
+        setPendingApprovalState(true);
+        showToast('⚠️ Selisih terdeteksi! Opname menunggu persetujuan Leader.', 'warning');
+        // Tidak redirect — tampilkan state menunggu
+      } else {
+        const res = await finalize(opname.id);
+        
+        const successMsg = res.queued 
+          ? '⚠️ Offline: Data disimpan di antrean lokal & akan disinkron saat online!' 
+          : '🟢 Berhasil: Formulir opname berhasil disimpan dan difinalisasi!';
+        
+        showToast(successMsg, res.queued ? 'warning' : 'success');
+
+        // Navigate back after toast plays a bit
+        setTimeout(() => {
+          router.push('/stok/opname');
+        }, 2000);
+      }
     } catch (err: any) {
       showToast(`🔴 Gagal memproses opname: ${err.message || err}`, 'warning');
     } finally {
@@ -198,6 +212,23 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
 
   return (
     <div className="space-y-5 relative pb-24">
+      {/* Pending Approval Banner */}
+      {pendingApproval && (
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-5 text-center space-y-2 shadow-sm">
+          <div className="text-3xl">⏳</div>
+          <p className="font-bold text-amber-800 text-sm uppercase tracking-wide">Menunggu Persetujuan Leader</p>
+          <p className="text-xs text-amber-700/80">
+            Opname ini memiliki selisih kritis dan perlu disetujui oleh Leader sebelum dapat difinalisasi.
+            Kamu akan mendapat notifikasi setelah Leader memutuskan.
+          </p>
+          <button
+            onClick={() => router.push('/stok/opname')}
+            className="mt-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-colors"
+          >
+            Kembali ke Daftar Opname
+          </button>
+        </div>
+      )}
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 z-50 animate-bounce font-bold text-sm text-white transition-all ${
@@ -278,7 +309,14 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
                   <p className="text-[9px] text-[#544437]/60 font-semibold mt-0.5">
                     Satuan: <span className="text-gray-700 font-bold">{b.satuan}</span>
                   </p>
-                </div>
+                  {['gram', 'ml', 'kg', 'liter'].includes(b.satuan.toLowerCase()) && (
+                    <div className="mt-1.5 flex items-center gap-1 bg-[#fff8f1] border border-[#f29744]/40 px-1.5 py-1 rounded">
+                      <span className="text-[8px]">⚖️</span>
+                      <span className="text-[8px] font-bold text-[#701604] leading-tight">
+                        Pastikan TARE timbangan dgn wadah kosong.
+                      </span>
+                    </div>
+                  )}
 
                 {/* Discrepancy indicator hidden for Blind Opname */}
                 <div className="text-right min-w-[65px] flex-shrink-0">
@@ -293,7 +331,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
               </div>
 
               {/* Card Bottom: Input Actions */}
-              {b.satuan_kecil && b.faktor_tampilan ? (
+              {b.satuan_kecil && b.faktor_tampilan && !['gram', 'ml'].includes(b.satuan.toLowerCase()) ? (
                 <div className="mt-3.5 space-y-1.5">
                   <div className="flex items-center gap-2">
                     <input

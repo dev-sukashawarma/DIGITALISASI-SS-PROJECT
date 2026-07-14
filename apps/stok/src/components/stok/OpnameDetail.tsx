@@ -50,6 +50,8 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
   if (!opname || bahanLoading) return <div className="text-center py-12 text-xs font-bold text-[#544437]/50 animate-pulse">Memuat Detail Opname...</div>
 
   const isFinalized = opname.status === 'finalized';
+  const isPending = opname.status === 'pending_approval';
+  const isRejected = opname.status === 'rejected';
   const formattedDate = new Date(opname.tanggal).toLocaleDateString('id-ID', {
     weekday: 'long',
     day: 'numeric',
@@ -59,6 +61,35 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
 
   return (
     <div className="space-y-6">
+      {/* Pending Approval Banner */}
+      {isPending && (
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex items-start gap-3">
+          <span className="text-xl flex-shrink-0">⏳</span>
+          <div>
+            <p className="font-bold text-amber-800 text-xs uppercase tracking-wide">Menunggu Persetujuan Leader</p>
+            <p className="text-[10px] text-amber-700/80 mt-0.5">
+              Opname ini memiliki selisih kritis dan sedang menunggu keputusan dari Leader.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Rejected Banner */}
+      {isRejected && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+          <span className="text-xl flex-shrink-0">❌</span>
+          <div>
+            <p className="font-bold text-[#ba1a1a] text-xs uppercase tracking-wide">Opname Ditolak</p>
+            {opname.approval_notes && (
+              <p className="text-[10px] text-red-700 mt-1 font-medium">
+                Alasan: {opname.approval_notes}
+              </p>
+            )}
+            <p className="text-[10px] text-red-600/70 mt-1">Silakan lakukan opname ulang.</p>
+          </div>
+        </div>
+      )}
+
       {/* Overview Metadata Card */}
       <div className="bg-white border border-[#d9c2b2]/45 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] p-5 space-y-4">
         <div className="flex justify-between items-center border-b border-[#d9c2b2]/20 pb-4">

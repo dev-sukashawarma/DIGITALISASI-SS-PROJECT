@@ -55,6 +55,11 @@ export function useOpnameActions() {
     if (error) throw error
   }, [])
 
+  const setPendingApproval = useCallback(async (opnameId: string) => {
+    const { error } = await supabase.rpc('set_opname_pending', { p_opname_id: opnameId })
+    if (error) throw error
+  }, [])
+
   const finalize = useCallback(async (opnameId: string) => {
     try {
       const { error } = await supabase.rpc('finalize_opname', { p_opname_id: opnameId })
@@ -76,5 +81,5 @@ export function useOpnameActions() {
 
   useEffect(() => { if (isOnline) flushFinalize() }, [isOnline, flushFinalize])
 
-  return { createDraft, upsertItems, finalize }
+  return { createDraft, upsertItems, setPendingApproval, finalize }
 }

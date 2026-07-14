@@ -172,23 +172,67 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
         ? 'text-[#a43c26]'
         : 'text-[#006e24]';
 
-    const { large, small } = (() => {
-      if (!item.faktor_tampilan || !item.satuan_kecil) return { large: item.current_qty, small: 0 };
-      let whole = Math.trunc(item.current_qty);
-      const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
-      let remainder = Math.round(remainderRaw * 100) / 100;
-      if (Math.abs(remainder) >= item.faktor_tampilan) {
-        whole += Math.sign(remainder);
-        remainder = 0;
+    const { large, medium, small } = (() => {
+      let large = item.current_qty;
+      let medium = 0;
+      let small = 0;
+
+      if (item.satuan_tengah && item.faktor_tengah) {
+        let whole = Math.trunc(item.current_qty);
+        let remainderBesar = item.current_qty - whole;
+        large = whole;
+        
+        if (item.satuan_kecil && item.faktor_tampilan) {
+          let totalSmall = remainderBesar * item.faktor_tampilan;
+          totalSmall = Math.round(totalSmall * 100) / 100;
+          
+          let smallPerMedium = item.faktor_tampilan / item.faktor_tengah;
+          
+          let totalMedium = Math.trunc(totalSmall / smallPerMedium);
+          let remSmall = totalSmall - (totalMedium * smallPerMedium);
+          
+          if (Math.abs(remSmall) >= smallPerMedium) {
+            totalMedium += Math.sign(remSmall);
+            remSmall = 0;
+          }
+          
+          if (Math.abs(totalMedium) >= item.faktor_tengah) {
+            large += Math.sign(totalMedium);
+            totalMedium = 0;
+          }
+          
+          medium = Math.abs(totalMedium);
+          small = Math.abs(Math.round(remSmall * 100) / 100);
+          
+        } else {
+          let rawMedium = remainderBesar * item.faktor_tengah;
+          let remMedium = Math.round(rawMedium * 100) / 100;
+          if (Math.abs(remMedium) >= item.faktor_tengah) {
+            large += Math.sign(remMedium);
+            remMedium = 0;
+          }
+          medium = Math.abs(remMedium);
+        }
+      } else if (item.satuan_kecil && item.faktor_tampilan) {
+        let whole = Math.trunc(item.current_qty);
+        const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
+        let remainder = Math.round(remainderRaw * 100) / 100;
+        if (Math.abs(remainder) >= item.faktor_tampilan) {
+          whole += Math.sign(remainder);
+          remainder = 0;
+        }
+        large = whole;
+        small = Math.abs(remainder);
       }
-      return { large: whole, small: Math.abs(remainder) };
+      
+      return { large, medium, small };
     })();
 
     return (
       <div
         key={item.bahan_baku_id}
         onClick={() => onItemClick(item)}
-        className="grid grid-cols-[2.5fr_1.5fr_1.5fr_1.5fr_1.5fr] gap-2 items-center p-3 hover:bg-gray-50/50 cursor-pointer transition-colors min-h-[56px] text-xs sm:text-sm"
+        className="grid grid-cols-[2.5fr_1.2fr_1.2fr_1.2fr_1.2fr_1.2fr] gap-2 items-center p-3 hover:bg-gray-50/50 cursor-pointer transition-colors min-h-[56px] text-xs sm:text-sm"
       >
         <div className="flex items-center gap-2 overflow-hidden">
           <div className={`hidden sm:block shrink-0 w-2 h-2 rounded-full ${statusDotColor} ring-2`}></div>
@@ -206,6 +250,14 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
 
         <div className="font-bold text-gray-800 text-center">
           {large} <span className="text-[9px] font-normal opacity-70">{item.satuan}</span>
+        </div>
+
+        <div className="font-bold text-gray-800 text-center">
+          {item.satuan_tengah ? (
+            <>{medium} <span className="text-[9px] font-normal opacity-70">{item.satuan_tengah}</span></>
+          ) : (
+            <span className="text-gray-300">-</span>
+          )}
         </div>
 
         <div className="font-bold text-gray-800 text-center">
@@ -283,10 +335,11 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
 
 
       {/* Header table (visible on slightly larger screens or standard mobile if it fits) */}
-      <div className="grid grid-cols-[2.5fr_1.5fr_1.5fr_1.5fr_1.5fr] gap-2 px-4 py-2.5 bg-[#f4e9de] text-[#544437] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-xl border border-[#d9c2b2]/40 shadow-sm">
+      <div className="grid grid-cols-[2.5fr_1.2fr_1.2fr_1.2fr_1.2fr_1.2fr] gap-2 px-4 py-2.5 bg-[#f4e9de] text-[#544437] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-xl border border-[#d9c2b2]/40 shadow-sm">
         <div className="col-span-1">Nama Item</div>
         <div className="text-center">Threshold</div>
         <div className="text-center">Sat. Besar</div>
+        <div className="text-center">Sat. Tengah</div>
         <div className="text-center">Sat. Kecil</div>
         <div className="text-right">Status</div>
       </div>

@@ -130,9 +130,10 @@ export function SPVTable({
               <tr className="bg-suka-cream/20 text-suka-brown border-b border-suka-brown/10 text-xs font-bold uppercase tracking-wider">
                 {/* tab === 'alerts' now uses grouped rows, so no Outlet column needed here */}
                 <th className="p-4">Nama Bahan</th>
-                <th className="p-4 text-right">Sat. Besar</th>
-                <th className="p-4 text-right">Sat. Kecil</th>
                 <th className="p-4 text-right">Threshold</th>
+                <th className="p-4 text-right">Sat. Besar</th>
+                <th className="p-4 text-right">Sat. Tengah</th>
+                <th className="p-4 text-right">Sat. Kecil</th>
                 <th className="p-4 hidden md:table-cell">Opname Terakhir</th>
                 <th className="py-4 pl-4 pr-6 hidden sm:table-cell">Status</th>
               </tr>
@@ -142,6 +143,11 @@ export function SPVTable({
                 <tr key={i} className="text-sm">
                   <td className="p-4">
                     <Skeleton className="h-4 w-40" />
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end">
+                      <Skeleton className="h-4 w-12" />
+                    </div>
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end">
@@ -297,9 +303,10 @@ export function SPVTable({
                   Nama Bahan {sortField === 'item_name' && (sortDir === 'asc' ? '↑' : '↓')}
                 </button>
               </th>
-              <th className="p-4 text-right">Sat. Besar</th>
-              <th className="p-4 text-right">Sat. Kecil</th>
               <th className="p-4 text-right">Threshold</th>
+              <th className="p-4 text-right">Sat. Besar</th>
+              <th className="p-4 text-right">Sat. Tengah</th>
+              <th className="p-4 text-right">Sat. Kecil</th>
               <th className="p-4 hidden md:table-cell">Opname Terakhir</th>
               <th className="py-4 pl-4 pr-6 hidden sm:table-cell">
                 <button onClick={() => handleSort('status')} className="hover:text-suka-orange font-bold whitespace-nowrap">
@@ -338,16 +345,60 @@ export function SPVTable({
                       {grouped[outletName].map((item) => {
                         const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
                         const isEditing = editingId === editKey;
-                        const { large, small } = (() => {
-                          if (!item.faktor_tampilan || !item.satuan_kecil) return { large: item.current_qty, small: 0 };
-                          let whole = Math.trunc(item.current_qty);
-                          const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
-                          let remainder = Math.round(remainderRaw * 100) / 100;
-                          if (Math.abs(remainder) >= item.faktor_tampilan) {
-                            whole += Math.sign(remainder);
-                            remainder = 0;
+                        const { large, medium, small } = (() => {
+                          let large = item.current_qty;
+                          let medium = 0;
+                          let small = 0;
+
+                          if (item.satuan_tengah && item.faktor_tengah) {
+                            let whole = Math.trunc(item.current_qty);
+                            let remainderBesar = item.current_qty - whole;
+                            large = whole;
+                            
+                            if (item.satuan_kecil && item.faktor_tampilan) {
+                              let totalSmall = remainderBesar * item.faktor_tampilan;
+                              totalSmall = Math.round(totalSmall * 100) / 100;
+                              
+                              let smallPerMedium = item.faktor_tampilan / item.faktor_tengah;
+                              
+                              let totalMedium = Math.trunc(totalSmall / smallPerMedium);
+                              let remSmall = totalSmall - (totalMedium * smallPerMedium);
+                              
+                              if (Math.abs(remSmall) >= smallPerMedium) {
+                                totalMedium += Math.sign(remSmall);
+                                remSmall = 0;
+                              }
+                              
+                              if (Math.abs(totalMedium) >= item.faktor_tengah) {
+                                large += Math.sign(totalMedium);
+                                totalMedium = 0;
+                              }
+                              
+                              medium = Math.abs(totalMedium);
+                              small = Math.abs(Math.round(remSmall * 100) / 100);
+                              
+                            } else {
+                              let rawMedium = remainderBesar * item.faktor_tengah;
+                              let remMedium = Math.round(rawMedium * 100) / 100;
+                              if (Math.abs(remMedium) >= item.faktor_tengah) {
+                                large += Math.sign(remMedium);
+                                remMedium = 0;
+                              }
+                              medium = Math.abs(remMedium);
+                            }
+                          } else if (item.satuan_kecil && item.faktor_tampilan) {
+                            let whole = Math.trunc(item.current_qty);
+                            const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
+                            let remainder = Math.round(remainderRaw * 100) / 100;
+                            if (Math.abs(remainder) >= item.faktor_tampilan) {
+                              whole += Math.sign(remainder);
+                              remainder = 0;
+                            }
+                            large = whole;
+                            small = Math.abs(remainder);
                           }
-                          return { large: whole, small: Math.abs(remainder) };
+                          
+                          return { large, medium, small };
                         })();
                         
                         const statusColor = item.status === 'below' ? 'text-red-600' :
@@ -364,14 +415,6 @@ export function SPVTable({
                               <div className="text-xs text-suka-brown/60 mt-0.5">
                                 {getKategoriLabel(item.kategori)}
                               </div>
-                            </td>
-                            <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
-                              {large} <span className="text-[10px] font-normal opacity-70">{item.satuan || 'kg'}</span>
-                            </td>
-                            <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
-                              {item.satuan_kecil ? (
-                                <>{small} <span className="text-[10px] font-normal opacity-70">{item.satuan_kecil}</span></>
-                              ) : '-'}
                             </td>
                             <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                               {isEditing ? (
@@ -410,6 +453,19 @@ export function SPVTable({
                                   </button>
                                 </div>
                               )}
+                            </td>
+                            <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
+                              {large} <span className="text-[10px] font-normal opacity-70">{item.satuan || 'kg'}</span>
+                            </td>
+                            <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
+                              {item.satuan_tengah ? (
+                                <>{medium} <span className="text-[10px] font-normal opacity-70">{item.satuan_tengah}</span></>
+                              ) : '-'}
+                            </td>
+                            <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
+                              {item.satuan_kecil ? (
+                                <>{small} <span className="text-[10px] font-normal opacity-70">{item.satuan_kecil}</span></>
+                              ) : '-'}
                             </td>
                             <td className="p-4 text-xs font-medium text-suka-brown/80 hidden md:table-cell whitespace-nowrap">
                               {getRelativeTimeString(item.last_opname_date)}
@@ -463,16 +519,60 @@ export function SPVTable({
                       const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
                 const isEditing = editingId === editKey;
 
-                const { large, small } = (() => {
-                  if (!item.faktor_tampilan || !item.satuan_kecil) return { large: item.current_qty, small: 0 };
-                  let whole = Math.trunc(item.current_qty);
-                  const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
-                  let remainder = Math.round(remainderRaw * 100) / 100;
-                  if (Math.abs(remainder) >= item.faktor_tampilan) {
-                    whole += Math.sign(remainder);
-                    remainder = 0;
+                const { large, medium, small } = (() => {
+                  let large = item.current_qty;
+                  let medium = 0;
+                  let small = 0;
+
+                  if (item.satuan_tengah && item.faktor_tengah) {
+                    let whole = Math.trunc(item.current_qty);
+                    let remainderBesar = item.current_qty - whole;
+                    large = whole;
+                    
+                    if (item.satuan_kecil && item.faktor_tampilan) {
+                      let totalSmall = remainderBesar * item.faktor_tampilan;
+                      totalSmall = Math.round(totalSmall * 100) / 100;
+                      
+                      let smallPerMedium = item.faktor_tampilan / item.faktor_tengah;
+                      
+                      let totalMedium = Math.trunc(totalSmall / smallPerMedium);
+                      let remSmall = totalSmall - (totalMedium * smallPerMedium);
+                      
+                      if (Math.abs(remSmall) >= smallPerMedium) {
+                        totalMedium += Math.sign(remSmall);
+                        remSmall = 0;
+                      }
+                      
+                      if (Math.abs(totalMedium) >= item.faktor_tengah) {
+                        large += Math.sign(totalMedium);
+                        totalMedium = 0;
+                      }
+                      
+                      medium = Math.abs(totalMedium);
+                      small = Math.abs(Math.round(remSmall * 100) / 100);
+                      
+                    } else {
+                      let rawMedium = remainderBesar * item.faktor_tengah;
+                      let remMedium = Math.round(rawMedium * 100) / 100;
+                      if (Math.abs(remMedium) >= item.faktor_tengah) {
+                        large += Math.sign(remMedium);
+                        remMedium = 0;
+                      }
+                      medium = Math.abs(remMedium);
+                    }
+                  } else if (item.satuan_kecil && item.faktor_tampilan) {
+                    let whole = Math.trunc(item.current_qty);
+                    const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
+                    let remainder = Math.round(remainderRaw * 100) / 100;
+                    if (Math.abs(remainder) >= item.faktor_tampilan) {
+                      whole += Math.sign(remainder);
+                      remainder = 0;
+                    }
+                    large = whole;
+                    small = Math.abs(remainder);
                   }
-                  return { large: whole, small: Math.abs(remainder) };
+                  
+                  return { large, medium, small };
                 })();
                 
                 const statusColor = item.status === 'below' ? 'text-red-600' :
@@ -489,14 +589,6 @@ export function SPVTable({
                       <div className="text-xs text-suka-brown/60 mt-0.5">
                         {getKategoriLabel(item.kategori)}
                       </div>
-                    </td>
-                    <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
-                      {large} <span className="text-[10px] font-normal opacity-70">{item.satuan || 'kg'}</span>
-                    </td>
-                    <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
-                      {item.satuan_kecil ? (
-                        <>{small} <span className="text-[10px] font-normal opacity-70">{item.satuan_kecil}</span></>
-                      ) : '-'}
                     </td>
                     <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                       {isEditing ? (
@@ -535,6 +627,19 @@ export function SPVTable({
                           </button>
                         </div>
                       )}
+                    </td>
+                    <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
+                      {large} <span className="text-[10px] font-normal opacity-70">{item.satuan || 'kg'}</span>
+                    </td>
+                    <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
+                      {item.satuan_tengah ? (
+                        <>{medium} <span className="text-[10px] font-normal opacity-70">{item.satuan_tengah}</span></>
+                      ) : '-'}
+                    </td>
+                    <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
+                      {item.satuan_kecil ? (
+                        <>{small} <span className="text-[10px] font-normal opacity-70">{item.satuan_kecil}</span></>
+                      ) : '-'}
                     </td>
                     <td className="p-4 text-xs font-medium text-suka-brown/80 hidden md:table-cell whitespace-nowrap">
                       {getRelativeTimeString(item.last_opname_date)}
@@ -578,16 +683,60 @@ export function SPVTable({
             const renderCard = (item: MonitoringItem) => {
               const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
               const isEditing = editingId === editKey;
-              const { large, small } = (() => {
-                if (!item.faktor_tampilan || !item.satuan_kecil) return { large: item.current_qty, small: 0 };
-                let whole = Math.trunc(item.current_qty);
-                const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
-                let remainder = Math.round(remainderRaw * 100) / 100;
-                if (Math.abs(remainder) >= item.faktor_tampilan) {
-                  whole += Math.sign(remainder);
-                  remainder = 0;
+              const { large, medium, small } = (() => {
+                let large = item.current_qty;
+                let medium = 0;
+                let small = 0;
+
+                if (item.satuan_tengah && item.faktor_tengah) {
+                  let whole = Math.trunc(item.current_qty);
+                  let remainderBesar = item.current_qty - whole;
+                  large = whole;
+                  
+                  if (item.satuan_kecil && item.faktor_tampilan) {
+                    let totalSmall = remainderBesar * item.faktor_tampilan;
+                    totalSmall = Math.round(totalSmall * 100) / 100;
+                    
+                    let smallPerMedium = item.faktor_tampilan / item.faktor_tengah;
+                    
+                    let totalMedium = Math.trunc(totalSmall / smallPerMedium);
+                    let remSmall = totalSmall - (totalMedium * smallPerMedium);
+                    
+                    if (Math.abs(remSmall) >= smallPerMedium) {
+                      totalMedium += Math.sign(remSmall);
+                      remSmall = 0;
+                    }
+                    
+                    if (Math.abs(totalMedium) >= item.faktor_tengah) {
+                      large += Math.sign(totalMedium);
+                      totalMedium = 0;
+                    }
+                    
+                    medium = Math.abs(totalMedium);
+                    small = Math.abs(Math.round(remSmall * 100) / 100);
+                    
+                  } else {
+                    let rawMedium = remainderBesar * item.faktor_tengah;
+                    let remMedium = Math.round(rawMedium * 100) / 100;
+                    if (Math.abs(remMedium) >= item.faktor_tengah) {
+                      large += Math.sign(remMedium);
+                      remMedium = 0;
+                    }
+                    medium = Math.abs(remMedium);
+                  }
+                } else if (item.satuan_kecil && item.faktor_tampilan) {
+                  let whole = Math.trunc(item.current_qty);
+                  const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
+                  let remainder = Math.round(remainderRaw * 100) / 100;
+                  if (Math.abs(remainder) >= item.faktor_tampilan) {
+                    whole += Math.sign(remainder);
+                    remainder = 0;
+                  }
+                  large = whole;
+                  small = Math.abs(remainder);
                 }
-                return { large: whole, small: Math.abs(remainder) };
+                
+                return { large, medium, small };
               })();
               const statusColor = item.status === 'below' ? 'text-red-600' : item.status === 'warning' ? 'text-orange-600' : 'text-green-700';
 
@@ -616,6 +765,12 @@ export function SPVTable({
                       <p className="text-[9px] text-[#544437]/60 font-semibold mb-0.5 uppercase tracking-wider">Sat. Besar</p>
                       <p className={`font-black text-sm ${statusColor}`}>{large} <span className="text-[10px] font-normal opacity-70">{item.satuan || 'kg'}</span></p>
                     </div>
+                    {item.satuan_tengah && (
+                      <div className="text-center">
+                        <p className="text-[9px] text-[#544437]/60 font-semibold mb-0.5 uppercase tracking-wider">Sat. Tengah</p>
+                        <p className={`font-black text-sm ${statusColor}`}>{medium} <span className="text-[10px] font-normal opacity-70">{item.satuan_tengah}</span></p>
+                      </div>
+                    )}
                     {item.satuan_kecil && (
                       <div className="text-right">
                         <p className="text-[9px] text-[#544437]/60 font-semibold mb-0.5 uppercase tracking-wider">Sat. Kecil</p>

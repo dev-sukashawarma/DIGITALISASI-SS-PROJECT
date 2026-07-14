@@ -7,7 +7,9 @@ export interface MonitoringItem {
   item_name: string;
   satuan: string;
   satuan_kecil: string | null;
+  satuan_tengah: string | null;
   faktor_tampilan: number | null;
+  faktor_tengah: number | null;
   kategori: string;
   kategori_core: string | null;
   current_qty: number;
@@ -47,7 +49,9 @@ export interface OpnameStatus {
 export interface DetailItem extends MonitoringItem {
   // Satuan kecil untuk tampilan majemuk saldo (mis. liter untuk kompan). Independen dari faktor_konversi (BOM/resep).
   satuan_kecil: string | null;
+  satuan_tengah: string | null;
   faktor_tampilan: number | null;
+  faktor_tengah: number | null;
   recent_ledger: {
     type: string;
     qty: number;

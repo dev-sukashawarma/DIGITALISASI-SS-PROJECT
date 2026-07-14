@@ -768,5 +768,35 @@ papan-kehadiran (refactor ke hook), Cuti (+ **buang polling 15s**; sub dipindah 
 
 ---
 
-**Last updated:** 2026-07-10  
+## Session 2026-07-14: Waste-COGS Integration (apps/admin-dashboard)
+
+**Status:** ✅ COMPLETED — kode di branch worktree `feat/waste-cogs-integration`, migration applied ke remote. ⚠️ Belum di-merge ke `main`, belum redeploy.
+
+### Masalah
+Waste yang sudah di-approve (alur existing: crew lapor → SPV approve → trigger `ledger_stok`) tak pernah masuk ke laporan keuangan. HPP di dashboard murni teoritis dari resep (`get_hpp_periode`), tak pernah menyentuh `stok_waste_reports`.
+
+### Keputusan
+Waste jadi baris biaya **terpisah** ("Kerugian Waste") yang mengurangi Laba Bersih, **bukan** dicampur ke HPP resep — supaya HPP tetap bersih untuk analisa food cost per menu. Basis harga: harga beli saat ini (bukan snapshot historis).
+
+### Implementasi
+1. **2 RPC baru** (migration `20260714100000_waste_cogs_integration.sql`): `get_waste_periode` (total ter-scope, semua authenticated) dan `get_waste_breakdown` (rincian granular, owner/admin only — raise exception untuk role lain).
+2. **`profit.ts`** — `computeProfit`/`computeOutletProfit` dapat param `wasteValue` opsional (default 0), mengurangi `labaBersih` saja, tak menyentuh `labaKotor`/HPP.
+3. **3 permukaan UI:** StatTile "Kerugian Waste" + kolom tabel di Profit page; card read-only (disembunyikan saat scope Pusat) di Expenses page; halaman analitik baru `/dashboard/owner/waste` (4 breakdown: per outlet, per alasan, per bahan, tren waktu) — owner/admin only via nav + guard di level RPC.
+4. **Mitra** — tak lihat breakdown waste, tapi Laba Bersih mereka tetap terpotong nilai waste yang sama (RPC total tak dibatasi role, hanya breakdown yang dibatasi).
+
+### Verifikasi
+Full test suite **85/92 pass** (7 kegagalan pre-existing tak terkait, drift `navConfig.test.ts` soal grup "Manajemen POS"/"expenses input" — sudah ada sebelum sesi ini); type-check bersih untuk semua file yang disentuh (error tersisa juga pre-existing, di file BOM/bahan-baku sesi lain); `yarn build` sukses dengan route `/dashboard/owner/waste` muncul.
+
+### Artefak
+- Spec: `docs/superpowers/specs/2026-07-14-waste-cogs-integration-design.md`
+- Plan: `docs/superpowers/plans/2026-07-14-waste-cogs-integration.md`
+
+### 📝 Next (manual)
+- Merge branch `feat/waste-cogs-integration` ke `main`.
+- Redeploy `admin-dashboard` ke produksi (perubahan baru live setelah redeploy).
+- Smoke test manual: approve 1 waste report di apps/stok, verifikasi angka konsisten di Profit/Expenses/Waste page, verifikasi akun mitra test tak lihat breakdown tapi Laba Bersih tetap terpotong.
+
+---
+
+**Last updated:** 2026-07-14  
 **Owner:** Dev Suka Shawarma

@@ -17,6 +17,8 @@ config.js
 !config.example.js
 **/config.local.*
 
+credential-db.md
+
 # Supabase
 .supabase/
 supabase/.branches/

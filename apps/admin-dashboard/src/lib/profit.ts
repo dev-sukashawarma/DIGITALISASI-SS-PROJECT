@@ -18,9 +18,7 @@ export function computeProfit(omzet: number, hpp: number, expenses: number, wast
   }
 }
 
-export interface OutletProfit {
-  labaKotor: number; labaBersih: number; marginKotor: number; marginBersih: number
-}
+export type OutletProfit = ProfitResult
 
 /** Laba Outlet = Omzet − HPP − Pengeluaran Outlet − Kerugian Waste (outlet itu saja). */
 export function computeOutletProfit(omzet: number, hpp: number, pengeluaranOutlet: number, wasteValue: number = 0): OutletProfit {

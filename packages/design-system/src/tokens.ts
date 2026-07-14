@@ -2,6 +2,7 @@
 // Source: LINKTREE SS/SUKA Shawarma Design System/colors_and_type.css
 
 export const COLORS = {
+  'suka-primary': '#f29744',
   'suka-orange': '#f29744',
   'suka-brown': '#701604',
   'suka-ink': '#400a07',

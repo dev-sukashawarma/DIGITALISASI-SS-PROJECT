@@ -459,10 +459,47 @@ export default function KasirOrderClient({
   }
 
   // Mark as Preparing
-  async function markAsPreparing(id: string) {
+  async function markAsPreparing(order: ParsedOrder) {
     postToNative({ type: 'haptic', style: 'success' })
-    await applyStatusChange(id, { status: 'preparing' })
+    await applyStatusChange(order.id, { status: 'preparing', kitchen_receipt_printed: true })
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
+
+    // Generate and print kitchen receipt
+    const receiptData: ReceiptData = {
+      outletName: outletName || 'SUKA SHAWARMA',
+      orderNumber: order.order_number,
+      dateISO: new Date().toISOString(),
+      customerName: order.customer_name,
+        items: order.order_items.map(item => {
+          let name = item.menu_item_name || '';
+          let note = item.notes || '';
+          const noteSplit = name.split('|NOTE|');
+          if (noteSplit.length > 1) { 
+            note = (note ? note + ' - ' : '') + noteSplit[1].trim(); 
+            name = noteSplit[0].trim(); 
+          }
+          const parentSplit = name.split('|PARENT|');
+          if (parentSplit.length > 1) { name = parentSplit[0].trim(); }
+          const idSplit = name.split('|ID|');
+          if (idSplit.length > 1) { name = idSplit[0].trim(); }
+          
+          return {
+            name: name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal,
+            note: note || undefined
+          }
+        }),
+      subtotal: order.total_amount,
+      discount: 0,
+      total: order.total_amount,
+      paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
+      logoUrl: brandLogo || undefined,
+      receiptType: 'kitchen'
+    }
+    
+    printReceipt(receiptData)
   }
 
   // Mark as Completed
@@ -492,18 +529,35 @@ export default function KasirOrderClient({
       orderNumber: order.order_number,
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
-      items: order.order_items.map(item => ({
-        name: item.menu_item_name,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        subtotal: item.subtotal,
-        note: item.notes || undefined
-      })),
+      items: order.order_items.map(item => {
+        let name = item.menu_item_name || '';
+        let note = item.notes || '';
+        const noteSplit = name.split('|NOTE|');
+        if (noteSplit.length > 1) { 
+          note = (note ? note + ' - ' : '') + noteSplit[1].trim(); 
+          name = noteSplit[0].trim(); 
+        }
+        const parentSplit = name.split('|PARENT|');
+        if (parentSplit.length > 1) { name = parentSplit[0].trim(); }
+        const idSplit = name.split('|ID|');
+        if (idSplit.length > 1) { name = idSplit[0].trim(); }
+        
+        return {
+          name: name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          subtotal: item.subtotal,
+          note: note || undefined
+        }
+      }),
       subtotal: order.total_amount, // Asumsikan no discount at pos-kasir board level, or use subtotal logic
       discount: 0,
       total: order.total_amount,
       paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
+      amountReceived: order.amount_received,
+      changeAmount: order.change_amount,
       logoUrl: brandLogo || undefined,
+      receiptType: 'customer'
     }
     
     // Fire print
@@ -729,7 +783,7 @@ export default function KasirOrderClient({
               </button>
               <button
                 type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order.id) }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
                 className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
               >
                 <ChefHat size={18} />
@@ -746,14 +800,25 @@ export default function KasirOrderClient({
                 <XCircle size={18} />
                 Batal
               </button>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCompleteAndPrint(order) }}
-                className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
-              >
-                <CheckCircle2 size={18} />
-                Pesanan Siap
-              </button>
+              {!order.kitchen_receipt_printed ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
+                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
+                >
+                  <ChefHat size={18} />
+                  Mulai Masak
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCompleteAndPrint(order) }}
+                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+                >
+                  <CheckCircle2 size={18} />
+                  Pesanan Siap
+                </button>
+              )}
             </>
           ) : null}
 

@@ -41,7 +41,9 @@ export function transaksiLabel(t: LedgerTransaksiSummary): { title: string; subt
     return { title: 'Opname', subtitle: tanggal ? `${t.opname_tipe ?? ''} — ${tanggal}` : null };
   }
   if (t.ref_shipment_id) {
-    return { title: 'Terima Kiriman', subtitle: null };
+    // Generate a short ID (e.g. SJ-A1B2C3) from the UUID
+    const shortId = t.ref_shipment_id.split('-')[0].toUpperCase();
+    return { title: 'Terima Kiriman', subtitle: `Surat Jalan #${shortId}` };
   }
   if (t.ref_transfer_id) {
     return { title: 'Transfer Stok', subtitle: null };
@@ -185,19 +187,19 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
       const matchesSearch = searchTerm === '' || nameMatch || refMatch;
 
       let matchesFilter = false;
-      const tipe = t.jumlah_bahan === 1 ? t.single_tipe : null;
       if (activeFilter === 'all') {
         matchesFilter = true;
       } else if (activeFilter === 'inbound') {
-        matchesFilter = !!t.ref_order_id === false && (tipe ? ['terima_kiriman', 'transfer_masuk'].includes(tipe) : !!t.ref_shipment_id);
+        const isTerima = !!t.ref_shipment_id || t.single_tipe === 'terima_kiriman' || t.single_tipe === 'transfer_masuk';
+        matchesFilter = !t.ref_order_id && isTerima;
       } else if (activeFilter === 'order') {
         matchesFilter = !!t.ref_order_id;
       } else if (activeFilter === 'waste') {
-        matchesFilter = tipe === 'waste';
+        matchesFilter = t.single_tipe === 'waste';
       } else if (activeFilter === 'outbound') {
-        matchesFilter = !t.ref_order_id && (tipe ? ['pemakaian', 'transfer_keluar'].includes(tipe) : false);
+        matchesFilter = !t.ref_order_id && (!!t.ref_transfer_id && t.single_tipe !== 'transfer_masuk' || t.single_tipe === 'pemakaian' || t.single_tipe === 'transfer_keluar');
       } else if (activeFilter === 'adjustment') {
-        matchesFilter = !!t.ref_opname_id || (tipe ? ['adjustment', 'opname_selisih'].includes(tipe) : false);
+        matchesFilter = !!t.ref_opname_id || t.single_tipe === 'adjustment' || t.single_tipe === 'opname_selisih';
       }
 
       return matchesSearch && matchesFilter;

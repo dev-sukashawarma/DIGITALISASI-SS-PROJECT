@@ -930,18 +930,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#faf2e9]/30">
             <div className="bg-white rounded-xl border border-suka-brown/10 shadow-sm p-4 md:p-6 max-w-4xl mx-auto space-y-6">
 
-              {/* Estimasi Produksi — hanya untuk kitchen */}
-              {outletStaff?.role === 'kitchen' && currentOutletItems.length > 0 && (
-                <div className="space-y-2">
-                  <h2 className="text-base md:text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight flex items-center gap-2">
-                    <span>🥙</span> Estimasi Produksi Hari Ini
-                  </h2>
-                  <p className="text-xs text-suka-brown/60 font-medium">
-                    Berdasarkan saldo stok: {visibleOutlets.find(o => o.outlet_id === selectedOutletId)?.outlet_name || 'outlet aktif'}
-                  </p>
-                  <ProductionEstimateWidget items={currentOutletItems} />
-                </div>
-              )}
+
 
               <div className="space-y-4">
                 <h2 className="text-base md:text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">

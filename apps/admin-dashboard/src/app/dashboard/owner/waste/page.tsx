@@ -12,6 +12,9 @@ import { PageHeader, StatTile, Section, StatTilesSkeleton } from '@/components/u
 import { rupiah } from '@/lib/format'
 import CountUp from 'react-countup'
 import { TrendingDown } from 'lucide-react'
+import { useBudgetLoss } from '@/hooks/useBudgetLoss'
+import { computeWasteGap } from '@/lib/wasteGap'
+import { Target } from 'lucide-react'
 
 const WasteTrendChart = dynamic(
   () => import('@/components/WasteTrendChart').then((m) => m.WasteTrendChart),
@@ -22,13 +25,23 @@ export default function WastePage() {
   const { data: outlets = [] } = useOutlets()
   const { filter, setFilter, lockedOutletId } = useScopedFilter()
 
-  const { rows, loading, error } = useWasteBreakdown(filter)
+  const { rows, loading: wasteLoading, error: wasteError } = useWasteBreakdown(filter)
+  const budgetLoss = useBudgetLoss(filter)
+  const loading = wasteLoading || budgetLoss.loading
+  const error = wasteError || budgetLoss.error
 
   const totalNilai = useMemo(() => rows.reduce((s, r) => s + r.nilai, 0), [rows])
   const byOutlet = useMemo(() => aggregateByOutlet(rows), [rows])
   const byReason = useMemo(() => aggregateByReason(rows), [rows])
   const byBahan = useMemo(() => aggregateByBahan(rows), [rows])
   const byDate = useMemo(() => aggregateByDate(rows), [rows])
+  const totalBudget = useMemo(() => budgetLoss.rows.reduce((s, r) => s + r.budget_loss, 0), [budgetLoss.rows])
+  const gap = useMemo(() => computeWasteGap(totalNilai, totalBudget), [totalNilai, totalBudget])
+  const budgetByOutlet = useMemo(() => {
+    const map = new Map<string, number>()
+    budgetLoss.rows.forEach(r => map.set(r.outlet_id, r.budget_loss))
+    return map
+  }, [budgetLoss.rows])
 
   return (
     <div className="space-y-6">
@@ -46,13 +59,27 @@ export default function WastePage() {
         <StatTilesSkeleton count={1} />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatTile
               label="Total Kerugian Waste"
               value={<><span className="text-lg align-top">Rp </span><CountUp end={totalNilai} duration={1} separator="." /></>}
               sub="Approved, periode terpilih"
               icon={TrendingDown}
               accent="red"
+            />
+            <StatTile
+              label="Budget Loss (BOM)"
+              value={<><span className="text-lg align-top">Rp </span><CountUp end={totalBudget} duration={1} separator="." /></>}
+              sub="Alokasi Loss dari resep x qty terjual"
+              icon={Target}
+              accent="brown"
+            />
+            <StatTile
+              label="Gap %"
+              value={gap.gapPct === null ? 'N/A' : <><CountUp end={gap.gapPct} duration={1} decimals={1} /> %</>}
+              sub={gap.gapPct === null ? 'Belum ada budget pada periode ini' : gap.gapPct > 0 ? 'Waste melebihi alokasi BOM' : 'Di bawah alokasi BOM'}
+              icon={TrendingDown}
+              accent={gap.gapPct === null ? 'brown' : gap.gapPct > 0 ? 'red' : 'green'}
             />
           </div>
 
@@ -71,17 +98,27 @@ export default function WastePage() {
                     <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
                       <th className="py-3 px-6">Outlet</th>
                       <th className="py-3 px-6 text-right">Nilai</th>
+                      <th className="py-3 px-6 text-right">Budget Loss</th>
+                      <th className="py-3 px-6 text-right">Gap %</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-suka-gray-100 font-medium">
                     {byOutlet.length === 0 ? (
-                      <tr><td colSpan={2} className="py-8 text-center text-suka-gray-400">Belum ada waste pada periode ini</td></tr>
-                    ) : byOutlet.map(o => (
-                      <tr key={o.id}>
-                        <td className="py-3 px-6 text-suka-ink font-bold">{o.name.replace('SUKA SHAWARMA ', '')}</td>
-                        <td className="py-3 px-6 text-right text-red-700 font-extrabold">{rupiah(o.nilai)}</td>
-                      </tr>
-                    ))}
+                      <tr><td colSpan={4} className="py-8 text-center text-suka-gray-400">Belum ada waste pada periode ini</td></tr>
+                    ) : byOutlet.map(o => {
+                      const budget = budgetByOutlet.get(o.id) ?? 0
+                      const rowGap = computeWasteGap(o.nilai, budget)
+                      return (
+                        <tr key={o.id}>
+                          <td className="py-3 px-6 text-suka-ink font-bold">{o.name.replace('SUKA SHAWARMA ', '')}</td>
+                          <td className="py-3 px-6 text-right text-red-700 font-extrabold">{rupiah(o.nilai)}</td>
+                          <td className="py-3 px-6 text-right text-suka-gray-600">{rupiah(budget)}</td>
+                          <td className={`py-3 px-6 text-right font-bold ${rowGap.gapPct === null ? 'text-suka-gray-400' : rowGap.gapPct > 0 ? 'text-red-700' : 'text-suka-green'}`}>
+                            {rowGap.gapPct === null ? 'N/A' : `${rowGap.gapPct.toFixed(1)}%`}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

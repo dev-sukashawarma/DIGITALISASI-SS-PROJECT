@@ -45,13 +45,14 @@ export default function OrderManualPage() {
   const [unavailableIds, setUnavailableIds] = useState<Set<string>>(new Set())
   const [autoUnavailableIds, setAutoUnavailableIds] = useState<Set<string>>(new Set())
   const [forceAvailableIds, setForceAvailableIds] = useState<Set<string>>(new Set())
+  const [upsellIds, setUpsellIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
   const [activeCat, setActiveCat] = useState<string>('all')
 
   // Keranjang lokal (terisolasi dari cart kiosk pelanggan)
-  const [lines, setLines] = useState<Record<string, Line>>({})
+  const [lines, setLines] = useState<import('@/components/kasir/WalkInCartPanel').Line[]>([])
   const [channel, setChannel] = useState<string | null>(null)
   const [payment, setPayment] = useState<Payment | null>(null)
   const [customerName, setCustomerName] = useState('')
@@ -61,6 +62,12 @@ export default function OrderManualPage() {
   const [error, setError] = useState<string | null>(null)
   const [showInfo, setShowInfo] = useState(true)
   const [success, setSuccess] = useState<{ orderNumber: number; method: Payment | null; change: number | null } | null>(null)
+
+  // ── Modal State ─────────────────────────────────────────────────────────
+  const [selectedMenu, setSelectedMenu] = useState<MenuItem | null>(null)
+  const [selectedMenuQty, setSelectedMenuQty] = useState(1)
+  const [selectedMenuNote, setSelectedMenuNote] = useState('')
+  const [selectedExtras, setSelectedExtras] = useState<Record<string, number>>({})
 
   // ── State khusus jalur walk-in (kasir langsung) ───────────────────────────
   const [walkInSubmitting, setWalkInSubmitting] = useState(false)
@@ -74,7 +81,7 @@ export default function OrderManualPage() {
   const handleSwitchMode = (newMode: Mode) => {
     if (newMode !== mode) {
       setMode(newMode)
-      setLines({})
+      setLines([])
       setChannel(null)
       setPayment(null)
       setCustomerName('')
@@ -105,7 +112,7 @@ export default function OrderManualPage() {
             supabase.from('categories').select('*').order('sort_order'),
             supabase.from('kiosk_settings').select('key, value')
               .eq('outlet_id', outletId)
-              .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids']),
+              .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids', 'upsell_ids']),
           ])
         )
 
@@ -118,11 +125,13 @@ export default function OrderManualPage() {
         let fetchedUnav: string[] = []
         let fetchedAutoUnav: string[] = []
         let fetchedForceAvail: string[] = []
+        let fetchedUpsell: string[] = []
         try {
           unavRes.data?.forEach(row => {
             if (row.key === 'unavailable_menu_ids') fetchedUnav = row.value ? JSON.parse(row.value) : []
             if (row.key === 'auto_unavailable_menu_ids') fetchedAutoUnav = row.value ? JSON.parse(row.value) : []
             if (row.key === 'force_available_menu_ids') fetchedForceAvail = row.value ? JSON.parse(row.value) : []
+            if (row.key === 'upsell_ids') fetchedUpsell = row.value ? JSON.parse(row.value) : []
           })
         } catch {}
 
@@ -131,6 +140,7 @@ export default function OrderManualPage() {
         setUnavailableIds(new Set(fetchedUnav))
         setAutoUnavailableIds(new Set(fetchedAutoUnav))
         setForceAvailableIds(new Set(fetchedForceAvail))
+        setUpsellIds(fetchedUpsell)
 
         // Save to Dexie
         const now = Date.now()
@@ -157,6 +167,11 @@ export default function OrderManualPage() {
           settings_data: fetchedForceAvail,
           synced_at: now
         })
+        await db.kiosk_settings.put({
+          id: 'upsell_ids',
+          settings_data: fetchedUpsell,
+          synced_at: now
+        })
       } catch (err) {
         console.warn('Network error or fetch failed, falling back to Dexie', err)
         const cachedItems = await db.menu_items.toArray()
@@ -174,6 +189,8 @@ export default function OrderManualPage() {
         setAutoUnavailableIds(new Set(cachedAutoUnav?.settings_data || []))
         const cachedForceAvail = await db.kiosk_settings.get('force_available_menu_ids')
         setForceAvailableIds(new Set(cachedForceAvail?.settings_data || []))
+        const cachedUpsell = await db.kiosk_settings.get('upsell_ids')
+        setUpsellIds(cachedUpsell?.settings_data || [])
       } finally {
         setLoading(false)
       }
@@ -209,31 +226,48 @@ export default function OrderManualPage() {
     })
   }, [items, unavailableIds, autoUnavailableIds, forceAvailableIds, activeCat, search])
 
+  const upsellItems = useMemo(() => {
+    return items.filter(it => upsellIds.includes(it.id) && it.is_available !== false)
+  }, [items, upsellIds])
+
   // ── Helper keranjang ──────────────────────────────────────────────────────
-  const addItem = useCallback((item: MenuItem) => {
+  const addItem = useCallback((item: MenuItem, quantity: number = 1, note: string = '', parentId?: string) => {
+    const newCartItemId = Math.random().toString(36).substring(2, 9)
     setLines((prev) => {
-      const ex = prev[item.id]
-      const quantity = Math.min((ex?.quantity ?? 0) + 1, 10)
-      return { ...prev, [item.id]: { item, quantity, note: ex?.note ?? '' } }
+      const newLine = { cartItemId: newCartItemId, item, quantity, note, parentId }
+      return [...prev, newLine]
     })
+    return newCartItemId
   }, [])
 
-  const setQty = useCallback((id: string, qty: number) => {
+  const setQty = useCallback((cartItemId: string, qty: number) => {
     setLines((prev) => {
       if (qty <= 0) {
-        const { [id]: _, ...rest } = prev
-        return rest
+        // If it's a parent, also remove children
+        const toRemove = new Set([cartItemId])
+        prev.forEach(l => { if (l.parentId === cartItemId) toRemove.add(l.cartItemId) })
+        return prev.filter(l => !toRemove.has(l.cartItemId))
       }
-      if (!prev[id]) return prev
-      return { ...prev, [id]: { ...prev[id], quantity: Math.min(qty, 10) } }
+      return prev.map(l => l.cartItemId === cartItemId ? { ...l, quantity: Math.min(qty, 10) } : l)
     })
   }, [])
 
-  const setNote = useCallback((id: string, note: string) => {
-    setLines((prev) => prev[id] ? { ...prev, [id]: { ...prev[id], note } } : prev)
+  const setNote = useCallback((cartItemId: string, note: string) => {
+    setLines((prev) => prev.map(l => l.cartItemId === cartItemId ? { ...l, note } : l))
   }, [])
 
-  const lineList = Object.values(lines)
+  const handleMenuClick = useCallback((it: MenuItem) => {
+    if (upsellItems.length > 0) {
+      setSelectedMenu(it)
+      setSelectedMenuQty(1)
+      setSelectedMenuNote('')
+      setSelectedExtras({})
+    } else {
+      addItem(it)
+    }
+  }, [upsellItems, addItem])
+
+  const lineList = lines
   const totalItems = lineList.reduce((s, l) => s + l.quantity, 0)
   
   const baseSubtotal = lineList.reduce((s, l) => s + l.item.price * l.quantity, 0)
@@ -319,7 +353,7 @@ export default function OrderManualPage() {
       // invalidate cache
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       // reset untuk order berikutnya
-      setLines({})
+      setLines([])
       setChannel(null)
       setPayment(null)
       setCustomerName('')
@@ -379,7 +413,7 @@ export default function OrderManualPage() {
         method: payment,
         change: payment === 'cash' ? (amountReceived !== null ? amountReceived - totalPrice : 0) : null
       })
-      setLines({})
+      setLines([])
       setChannel(null)
       setPayment(null)
       setCustomerName('')
@@ -681,12 +715,12 @@ export default function OrderManualPage() {
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
               {visibleItems.map((it) => {
-                const qty = lines[it.id]?.quantity ?? 0
+                const qty = lineList.filter(l => l.item.id === it.id).reduce((sum, l) => sum + l.quantity, 0)
                 const disabled = it.isDisabled
                 return (
                   <div
                     key={it.id}
-                    onClick={() => !disabled && addItem(it)}
+                    onClick={() => !disabled && handleMenuClick(it)}
                     className={`group bg-white rounded-xl border overflow-hidden transition-all duration-200 ${disabled ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer active:scale-[0.98]'} ${qty > 0 && !disabled ? 'border-amber-400 shadow-sm ring-1 ring-amber-400' : 'border-gray-200 hover:border-amber-300'}`}
                   >
                     <div className="h-24 bg-gray-50 relative overflow-hidden">
@@ -723,18 +757,6 @@ export default function OrderManualPage() {
                             <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(it.price)}</span>
                           )}
                         </div>
-                        {qty > 0 && (
-                          <div className="flex items-center gap-1.5 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setQty(it.id, qty - 1) }}
-                              className="w-6 h-6 rounded-md bg-white shadow-sm text-gray-700 flex items-center justify-center transition-colors hover:bg-gray-100 active:scale-95"
-                              aria-label={`Kurangi ${it.name}`}
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="font-bold text-gray-900 text-xs w-3 text-center">{qty}</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -861,6 +883,106 @@ export default function OrderManualPage() {
                 embedded
               />
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ══ Kasir Menu Modal (with Extras) ══ */}
+      {selectedMenu && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] shadow-2xl animate-[popIn_0.2s_ease-out]">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <h2 className="font-bold text-lg text-gray-800 line-clamp-1">{selectedMenu.name}</h2>
+              <button onClick={() => setSelectedMenu(null)} className="p-2 bg-white hover:bg-gray-100 rounded-xl transition-colors shadow-sm border border-gray-200">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto p-5 space-y-6 flex-1 scrollbar-thin scrollbar-thumb-gray-200">
+              {/* Catatan */}
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                  <StickyNote className="w-4 h-4 text-amber-500" /> Catatan Khusus
+                </label>
+                <textarea
+                  value={selectedMenuNote}
+                  onChange={(e) => setSelectedMenuNote(e.target.value)}
+                  placeholder="Contoh: Pedas, tanpa bawang..."
+                  className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors text-sm resize-none h-20"
+                />
+              </div>
+
+              {/* Extras */}
+              {upsellItems.length > 0 && (
+                <div>
+                  <label className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                    <Plus className="w-4 h-4 text-amber-500" /> Menu Ekstra
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {upsellItems.map((ex) => {
+                      const qty = selectedExtras[ex.id] || 0
+                      return (
+                        <div key={ex.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${qty > 0 ? 'border-amber-400 bg-amber-50/30' : 'border-gray-200 bg-white hover:border-amber-200'}`}>
+                          <div className="flex-1 min-w-0 pr-2">
+                            <p className="font-bold text-sm text-gray-800 line-clamp-1">{ex.name}</p>
+                            <p className="text-amber-600 font-bold text-xs mt-0.5">+{formatRupiah(wrappedCalculateItemPrice(ex.price, ex.id))}</p>
+                          </div>
+                          {qty > 0 ? (
+                            <div className="flex items-center gap-2 bg-white rounded-lg p-1 border border-gray-200 shadow-sm">
+                              <button onClick={() => setSelectedExtras(prev => ({ ...prev, [ex.id]: Math.max(0, qty - 1) }))} className="w-6 h-6 rounded flex items-center justify-center bg-gray-50 text-gray-600 hover:bg-gray-100">
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="font-bold text-sm w-4 text-center">{qty}</span>
+                              <button onClick={() => setSelectedExtras(prev => ({ ...prev, [ex.id]: qty + 1 }))} className="w-6 h-6 rounded flex items-center justify-center bg-amber-500 text-white hover:bg-amber-600">
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setSelectedExtras(prev => ({ ...prev, [ex.id]: 1 }))} className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-600 hover:border-amber-400 hover:text-amber-500 transition-colors">
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Quantity */}
+              <div className="flex items-center justify-between pt-2">
+                <span className="font-bold text-gray-700">Jumlah Pesanan</span>
+                <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-1.5 border border-gray-200">
+                  <button onClick={() => setSelectedMenuQty(Math.max(1, selectedMenuQty - 1))} className="w-10 h-10 rounded-lg bg-white shadow-sm flex items-center justify-center text-gray-600 hover:bg-gray-50 active:scale-95 transition-all">
+                    <Minus className="w-5 h-5" />
+                  </button>
+                  <span className="font-bold text-lg w-8 text-center">{selectedMenuQty}</span>
+                  <button onClick={() => setSelectedMenuQty(selectedMenuQty + 1)} className="w-10 h-10 rounded-lg bg-amber-500 text-white shadow-sm flex items-center justify-center hover:bg-amber-600 active:scale-95 transition-all">
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-100 bg-white">
+              <button
+                onClick={() => {
+                  const parentId = addItem(selectedMenu, selectedMenuQty, selectedMenuNote)
+                  Object.entries(selectedExtras).forEach(([extraId, extraQty]) => {
+                    if (extraQty > 0) {
+                      const extraItem = items.find(i => i.id === extraId)
+                      if (extraItem) {
+                        addItem(extraItem, extraQty * selectedMenuQty, '', parentId)
+                      }
+                    }
+                  })
+                  setSelectedMenu(null)
+                }}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-amber-500/20"
+              >
+                Tambah ke Keranjang
+              </button>
+            </div>
           </div>
         </div>
       )}

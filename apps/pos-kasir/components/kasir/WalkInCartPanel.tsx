@@ -9,9 +9,11 @@ import { formatRupiah } from '@/lib/validations'
 import type { MenuItem } from '@/types'
 
 export interface Line {
+  cartItemId: string
   item: MenuItem
   quantity: number
   note: string
+  parentId?: string
 }
 
 export type Payment = 'cash' | 'qris'
@@ -32,8 +34,8 @@ export function WalkInCartPanel(props: {
   missingAmount?: number
   customerName: string
   setCustomerName: (v: string) => void
-  setQty: (id: string, qty: number) => void
-  setNote: (id: string, note: string) => void
+  setQty: (cartItemId: string, qty: number) => void
+  setNote: (cartItemId: string, note: string) => void
   calculateItemPrice: (price: number, id: string) => number
   submitting: boolean
   error: string | null
@@ -89,37 +91,43 @@ export function WalkInCartPanel(props: {
           <div className="space-y-3 max-h-[36vh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
             {lineList.map((l) => {
               const discountedPrice = calculateItemPrice(l.item.price, l.item.id)
+              const isChild = !!l.parentId
               return (
-                <div key={l.item.id} className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200">
+                <div key={l.cartItemId} className={`bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200 ${isChild ? 'ml-6 bg-amber-50/30' : ''}`}>
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 text-sm leading-snug">{l.item.name}</p>
+                      <p className={`font-semibold text-gray-800 leading-snug ${isChild ? 'text-xs text-amber-900' : 'text-sm'}`}>
+                        {isChild && <span className="font-extrabold text-amber-500 mr-1.5">↳ Extra</span>}
+                        {l.item.name}
+                      </p>
                       <div className="flex items-center gap-1.5 mt-1">
                         {discountedPrice < l.item.price && (
                           <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(l.item.price * l.quantity)}</span>
                         )}
-                        <p className="text-amber-600 font-bold text-sm">{formatRupiah(discountedPrice * l.quantity)}</p>
+                        <p className={`${isChild ? 'text-amber-700' : 'text-amber-600'} font-bold text-sm`}>{formatRupiah(discountedPrice * l.quantity)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-100 flex-shrink-0">
-                      <button onClick={() => setQty(l.item.id, l.quantity - 1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
+                      <button onClick={() => setQty(l.cartItemId, l.quantity - 1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
                         {l.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
                       </button>
                       <span className="font-bold text-sm w-5 text-center text-gray-800">{l.quantity}</span>
-                      <button onClick={() => setQty(l.item.id, l.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
+                      <button onClick={() => setQty(l.cartItemId, l.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
-                  <div className="relative mt-2.5">
-                    <StickyNote className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      value={l.note}
-                      onChange={(e) => setNote(l.item.id, e.target.value)}
-                      placeholder="Catatan opsional..."
-                      className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white transition-colors"
-                    />
-                  </div>
+                  {!isChild && (
+                    <div className="relative mt-2.5">
+                      <StickyNote className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        value={l.note}
+                        onChange={(e) => setNote(l.cartItemId, e.target.value)}
+                        placeholder="Catatan opsional..."
+                        className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white transition-colors"
+                      />
+                    </div>
+                  )}
                 </div>
               )
             })}

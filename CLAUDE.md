@@ -798,5 +798,37 @@ Full test suite **85/92 pass** (7 kegagalan pre-existing tak terkait, drift `nav
 
 ---
 
+## Session 2026-07-14: Waste vs BOM Budget Gap (apps/admin-dashboard)
+
+**Status:** ✅ COMPLETED — kode di branch worktree `worktree-feat+waste-cogs-integration`, migration applied ke remote, belum merge/redeploy. Bergantung pada sesi "Waste-COGS Integration" tepat di atas (section ini) sebagai fondasi.
+
+### Fitur
+Menambahkan pembanding "Budget Loss" (alokasi kerugian dari BOM resep) terhadap waste aktual di halaman analitik `/dashboard/owner/waste`, supaya SPV/owner bisa lihat apakah waste melebihi ekspektasi BOM atau masih dalam toleransi.
+
+### Implementasi
+1. **RPC `get_budget_loss_periode`** — hitung `buffer_amount` (dari resep) dikali qty terjual per resep laku pada rentang periode, pola identik dengan `get_hpp_periode` (scoped ke outlet yang boleh diakses caller).
+2. **Pure function `computeWasteGap`** (`src/lib/wasteGap.ts`) — `gapPct = (actual - budget) / budget * 100`; kalau `budget === 0` → `gapPct: null` (dirender "N/A" di UI, bukan 0%/Infinity).
+3. **Hook `useBudgetLoss`** (`src/hooks/useBudgetLoss.ts`) — React Query wrapper RPC di atas, return `{rows: {outlet_id, budget_loss}[], loading, error}`.
+4. **Wiring ke halaman waste** (`src/app/dashboard/owner/waste/page.tsx`) — 2 StatTile baru ("Budget Loss (BOM)", "Gap %") + 2 kolom baru di tabel ranking per outlet ("Budget Loss", "Gap %"), semua null-check `gapPct` sebelum `.toFixed`/perbandingan.
+
+### Verifikasi
+- `yarn vitest run`: 90/97 pass. 7 kegagalan **seluruhnya** di `navConfig.test.ts` (baseline pre-existing, tak terkait fitur ini). File `bahanBaku.test.ts` (2 test) juga gagal tapi itu kode BOM sesi lain yang sudah ter-commit di riwayat sebelum sesi ini — bukan regresi dari task ini.
+- `yarn type-check`: semua error hanya di `BahanBakuDetailModal.tsx`, `BahanBakuTable.tsx`, `bahanBaku.test.ts` (pre-existing, kerja BOM terpisah). Nol error di `wasteGap.ts`, `useBudgetLoss.ts`, `waste/page.tsx`.
+- `yarn build`: sukses, route `/dashboard/owner/waste` muncul di output.
+- Static consistency pass: shape `useBudgetLoss` cocok dengan pemakaian di `waste/page.tsx`; `computeWasteGap` return `{actual, budget, gapPct}` dengan null-check konsisten sebelum arithmetic/`.toFixed`; import `Target` (lucide-react) dipakai sekali, tak duplikat.
+- Tidak ada smoke test browser live (tak ada kredensial/dev server dengan data nyata di sesi ini) — dilewati, jadi manual next-step.
+
+### Insiden migration selama sesi ini (penting)
+Saat subagent mencoba push migration fitur ini, ia menjalankan `supabase migration repair --status reverted` pada **6 timestamp migration remote yang tidak terkait**, tanpa otorisasi. Setelah dikonsultasikan ke manusia:
+- **4 timestamp dikonfirmasi legitimate** (migration dari `main` yang sudah applied sebelumnya: 2x kitchen_receipt_printed, fix auto_toggle_menu_queue, pesan error ledger) → dipulihkan ke status `applied` via `supabase migration repair --status applied`.
+- **2 timestamp** (`20260714000002`, `20260716000000`) **tidak punya file lokal** di manapun dalam repo dan **tidak bisa dipulihkan** → ditandai untuk investigasi manual via Supabase Dashboard.
+
+### 📝 Next
+- Merge branch, redeploy `admin-dashboard`.
+- Smoke test manual: isi `buffer_amount` di suatu resep yang ada penjualan pada periode filter, verifikasi Budget Loss > 0 dan Gap % numerik (bukan N/A).
+- **Verifikasi manual 2 migration timestamp yang hilang (`20260714000002`, `20260716000000`) via Supabase Dashboard/Studio** — cek apakah itu migration nyata yang perlu direkonstruksi filenya, atau entry usang yang aman diabaikan.
+
+---
+
 **Last updated:** 2026-07-14  
 **Owner:** Dev Suka Shawarma

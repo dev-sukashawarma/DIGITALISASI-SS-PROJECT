@@ -20,13 +20,15 @@ export default async function KioskHomePage() {
   }
 
   // 2. Fetch data menu SSR — paralel, satu round-trip dari server ke Supabase
-  const [items_result, cats_result, cover_result, bs_result, outlet_result, unav_result] = await Promise.all([
+  const [items_result, cats_result, cover_result, bs_result, outlet_result, unav_result, auto_unav_result, force_avail_result] = await Promise.all([
     supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'cover_image_url').maybeSingle(),
     supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
     supabase.from('outlets').select('name').eq('id', outletId).single(),
     supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
+    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'auto_unavailable_menu_ids').maybeSingle(),
+    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'force_available_menu_ids').maybeSingle(),
   ])
 
   const parseIds = (raw: string | null | undefined) => {
@@ -34,11 +36,19 @@ export default async function KioskHomePage() {
   }
 
   const unavailableIds: string[] = parseIds(unav_result?.data?.value)
+  const autoUnavailableIds: string[] = parseIds(auto_unav_result?.data?.value)
+  const forceAvailableIds: string[] = parseIds(force_avail_result?.data?.value)
+  
   const rawItems = (items_result.data as MenuItem[]) ?? []
   const menuItems = rawItems.map(item => {
     const isGlobal = item.outlet_id === null
-    if (isGlobal && unavailableIds.includes(item.id)) {
-      return { ...item, is_available: false }
+    if (isGlobal) {
+      const isManualUnav = unavailableIds.includes(item.id)
+      const isAutoUnav = autoUnavailableIds.includes(item.id)
+      const isForceAvail = forceAvailableIds.includes(item.id)
+      if (isManualUnav || (isAutoUnav && !isForceAvail)) {
+        return { ...item, is_available: false }
+      }
     }
     return item
   })

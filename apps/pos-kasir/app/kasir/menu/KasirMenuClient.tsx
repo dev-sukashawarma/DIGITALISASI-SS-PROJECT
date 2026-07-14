@@ -25,7 +25,10 @@ export interface MenuQueryData {
   bestsellers: string[]
   upsells: string[]
   recommendations: string[]
+  recommendations: string[]
   unavailableIds: string[]
+  autoUnavailableIds: string[]
+  forceAvailableIds: string[]
 }
 
 async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
@@ -38,7 +41,7 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
         supabase.from('categories').select('*').order('sort_order'),
         supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
         supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'upsell_ids').maybeSingle(),
-        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
+        supabase.from('kiosk_settings').select('key, value').eq('outlet_id', outletId).in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids']),
         supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'recommendation_ids').maybeSingle(),
       ])
     )
@@ -51,6 +54,17 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
       try { return raw ? JSON.parse(raw) : [] } catch { return [] }
     }
 
+    let manualIds: string[] = []
+    let autoIds: string[] = []
+    let forceIds: string[] = []
+    if (unav) {
+      unav.forEach(row => {
+        if (row.key === 'unavailable_menu_ids') manualIds = parseIds(row.value)
+        if (row.key === 'auto_unavailable_menu_ids') autoIds = parseIds(row.value)
+        if (row.key === 'force_available_menu_ids') forceIds = parseIds(row.value)
+      })
+    }
+
     // Update dexie cache
     const now = Date.now()
     if (m) {
@@ -60,7 +74,9 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
       await db.categories.bulkPut(c.map((cat: any) => ({ ...cat, synced_at: now })))
     }
     if (unav) {
-      await db.kiosk_settings.put({ id: 'unavailable_menu_ids', settings_data: parseIds(unav.value), synced_at: now })
+      await db.kiosk_settings.put({ id: 'unavailable_menu_ids', settings_data: manualIds, synced_at: now })
+      await db.kiosk_settings.put({ id: 'auto_unavailable_menu_ids', settings_data: autoIds, synced_at: now })
+      await db.kiosk_settings.put({ id: 'force_available_menu_ids', settings_data: forceIds, synced_at: now })
     }
 
     return {
@@ -69,7 +85,9 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
       bestsellers: parseIds(b?.value),
       upsells: parseIds(u?.value),
       recommendations: parseIds(rec?.value),
-      unavailableIds: parseIds(unav?.value),
+      unavailableIds: manualIds,
+      autoUnavailableIds: autoIds,
+      forceAvailableIds: forceIds,
     }
   } catch (err) {
     console.warn('Network error fetching Kasir Menu, falling back to Dexie:', err)
@@ -77,6 +95,8 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
     const cachedItems = await db.menu_items.toArray()
     const cachedCategories = await db.categories.toArray()
     const cachedUnav = await db.kiosk_settings.get('unavailable_menu_ids')
+    const cachedAuto = await db.kiosk_settings.get('auto_unavailable_menu_ids')
+    const cachedForce = await db.kiosk_settings.get('force_available_menu_ids')
     
     return {
       items: cachedItems as any,
@@ -85,6 +105,8 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
       upsells: [],
       recommendations: [],
       unavailableIds: cachedUnav?.settings_data || [],
+      autoUnavailableIds: cachedAuto?.settings_data || [],
+      forceAvailableIds: cachedForce?.settings_data || [],
     }
   }
 }
@@ -160,6 +182,8 @@ export default function KasirMenuClient({
   const upsells = data?.upsells ?? []
   const recommendations = data?.recommendations ?? []
   const unavailableIds = data?.unavailableIds ?? []
+  const autoUnavailableIds = data?.autoUnavailableIds ?? []
+  const forceAvailableIds = data?.forceAvailableIds ?? []
 
   const invalidateMenu = () => queryClient.invalidateQueries({ queryKey: ['menu', outletId] })
 
@@ -271,6 +295,28 @@ export default function KasirMenuClient({
     }
   }
 
+  async function toggleForceAvail(item: MenuItem) {
+    if (!outletId) return
+    if (!guardOnline()) return
+    const isForce = forceAvailableIds.includes(item.id)
+    const newForce = isForce
+      ? forceAvailableIds.filter(id => id !== item.id)
+      : [...forceAvailableIds, item.id]
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('kiosk_settings').upsert({
+        outlet_id: outletId,
+        key: 'force_available_menu_ids',
+        value: JSON.stringify(newForce)
+      })
+      if (error) throw error
+      invalidateMenu()
+      showToast({ type: 'success', message: isForce ? `Batal Paksa Aktif untuk ${item.name}` : `${item.name} Dipaksa Aktif` })
+    } catch (e) {
+      showToast({ type: 'error', message: 'Gagal mengubah status Paksa Aktif' })
+    }
+  }
 
   const filteredItems = items.filter(item => {
     if (!searchQuery) return true;
@@ -343,9 +389,14 @@ export default function KasirMenuClient({
               <tbody>
                 {filteredItems.map((item, idx) => {
                   const isGlobal = item.outlet_id === null;
+                  const isManualUnav = unavailableIds.includes(item.id);
+                  const isAutoUnav = autoUnavailableIds.includes(item.id);
+                  const isForceAvail = forceAvailableIds.includes(item.id);
                   const isAvail = isGlobal 
-                    ? item.is_available && !unavailableIds.includes(item.id)
+                    ? item.is_available && !(isManualUnav || (isAutoUnav && !isForceAvail))
                     : item.is_available;
+                  
+                  const autoDisabled = isAutoUnav && !isForceAvail;
 
                   return (
                     <tr
@@ -394,7 +445,7 @@ export default function KasirMenuClient({
                       </td>
 
                       {/* Status toggle */}
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="py-3.5 px-4 text-center flex flex-col items-center gap-1">
                         <button onClick={() => toggleAvail(item)}
                           className={`text-xs font-bold px-3.5 py-1.5 rounded-2xl transition-all
                             ${isAvail
@@ -402,6 +453,12 @@ export default function KasirMenuClient({
                               : 'bg-red-50 text-red-500 hover:bg-red-100'}`}>
                           {isAvail ? 'Tersedia' : 'Habis'}
                         </button>
+                        {autoDisabled && (
+                          <span className="text-[10px] text-gray-400 font-medium bg-gray-100 px-2 py-0.5 rounded-full">(Habis di Sistem)</span>
+                        )}
+                        {isForceAvail && (
+                          <span className="text-[10px] text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">(Dipaksa Aktif)</span>
+                        )}
                       </td>
 
                       {/* Actions */}
@@ -429,6 +486,13 @@ export default function KasirMenuClient({
                               <span className={bestsellers.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Tandai Best Seller</span>
                               {bestsellers.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
                             </button>
+                            
+                            {(isAutoUnav) && (
+                              <button onClick={() => { toggleForceAvail(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-amber-50 rounded-xl text-[13px] flex items-center justify-between transition-colors border-t border-gray-100 mt-1">
+                                <span className={isForceAvail ? 'font-bold text-amber-600' : 'font-medium text-amber-600'}>{isForceAvail ? 'Batal Paksa Aktif' : 'Paksa Aktif (Abaikan Sistem)'}</span>
+                                {isForceAvail && <Check className="w-4 h-4 text-amber-600" />}
+                              </button>
+                            )}
                             
                                                       </div>
                         )}

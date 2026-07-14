@@ -41,27 +41,35 @@ export default function KioskMenuClient({ initialData }: { initialData: KioskIni
         { event: '*', schema: 'public', table: 'kiosk_settings' },
         (payload) => {
           const updated = payload.new as any
-          if (updated.key === 'unavailable_menu_ids' || updated.key === 'auto_unavailable_menu_ids') {
+          if (updated.key === 'unavailable_menu_ids' || updated.key === 'auto_unavailable_menu_ids' || updated.key === 'force_available_menu_ids') {
             // Fetch both settings to combine them
             supabase
               .from('kiosk_settings')
               .select('key, value')
               .eq('outlet_id', outletId)
-              .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids'])
+              .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids'])
               .then(({ data }) => {
                 let manualIds: string[] = []
                 let autoIds: string[] = []
+                let forceIds: string[] = []
                 data?.forEach(row => {
                   try {
                     if (row.key === 'unavailable_menu_ids') manualIds = JSON.parse(row.value || '[]')
                     if (row.key === 'auto_unavailable_menu_ids') autoIds = JSON.parse(row.value || '[]')
+                    if (row.key === 'force_available_menu_ids') forceIds = JSON.parse(row.value || '[]')
                   } catch (e) {}
                 })
-                const combined = new Set([...manualIds, ...autoIds])
+                const manualSet = new Set(manualIds)
+                const autoSet = new Set(autoIds)
+                const forceSet = new Set(forceIds)
                 
                 setMenuItems(prev => prev.map(item => {
                   if (item.outlet_id === null) {
-                    return { ...item, is_available: !combined.has(item.id) }
+                    const isManualUnav = manualSet.has(item.id)
+                    const isAutoUnav = autoSet.has(item.id)
+                    const isForceAvail = forceSet.has(item.id)
+                    const isAvailable = !(isManualUnav || (isAutoUnav && !isForceAvail))
+                    return { ...item, is_available: isAvailable }
                   }
                   return item
                 }))

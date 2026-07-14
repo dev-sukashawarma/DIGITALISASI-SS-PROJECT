@@ -43,6 +43,8 @@ export default function OrderManualPage() {
   const [items, setItems] = useState<MenuItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [unavailableIds, setUnavailableIds] = useState<Set<string>>(new Set())
+  const [autoUnavailableIds, setAutoUnavailableIds] = useState<Set<string>>(new Set())
+  const [forceAvailableIds, setForceAvailableIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
@@ -101,8 +103,9 @@ export default function OrderManualPage() {
               .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
               .order('sort_order'),
             supabase.from('categories').select('*').order('sort_order'),
-            supabase.from('kiosk_settings').select('value')
-              .eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
+            supabase.from('kiosk_settings').select('key, value')
+              .eq('outlet_id', outletId)
+              .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids']),
           ])
         )
 
@@ -113,13 +116,21 @@ export default function OrderManualPage() {
         const fetchedItems = menuRes.data ?? []
         const fetchedCategories = catRes.data ?? []
         let fetchedUnav: string[] = []
+        let fetchedAutoUnav: string[] = []
+        let fetchedForceAvail: string[] = []
         try {
-          fetchedUnav = unavRes.data?.value ? JSON.parse(unavRes.data.value) : []
+          unavRes.data?.forEach(row => {
+            if (row.key === 'unavailable_menu_ids') fetchedUnav = row.value ? JSON.parse(row.value) : []
+            if (row.key === 'auto_unavailable_menu_ids') fetchedAutoUnav = row.value ? JSON.parse(row.value) : []
+            if (row.key === 'force_available_menu_ids') fetchedForceAvail = row.value ? JSON.parse(row.value) : []
+          })
         } catch {}
 
         setItems(fetchedItems)
         setCategories(fetchedCategories)
         setUnavailableIds(new Set(fetchedUnav))
+        setAutoUnavailableIds(new Set(fetchedAutoUnav))
+        setForceAvailableIds(new Set(fetchedForceAvail))
 
         // Save to Dexie
         const now = Date.now()
@@ -136,6 +147,16 @@ export default function OrderManualPage() {
           settings_data: fetchedUnav,
           synced_at: now
         })
+        await db.kiosk_settings.put({
+          id: 'auto_unavailable_menu_ids',
+          settings_data: fetchedAutoUnav,
+          synced_at: now
+        })
+        await db.kiosk_settings.put({
+          id: 'force_available_menu_ids',
+          settings_data: fetchedForceAvail,
+          synced_at: now
+        })
       } catch (err) {
         console.warn('Network error or fetch failed, falling back to Dexie', err)
         const cachedItems = await db.menu_items.toArray()
@@ -149,6 +170,10 @@ export default function OrderManualPage() {
         } else {
           setUnavailableIds(new Set())
         }
+        const cachedAutoUnav = await db.kiosk_settings.get('auto_unavailable_menu_ids')
+        setAutoUnavailableIds(new Set(cachedAutoUnav?.settings_data || []))
+        const cachedForceAvail = await db.kiosk_settings.get('force_available_menu_ids')
+        setForceAvailableIds(new Set(cachedForceAvail?.settings_data || []))
       } finally {
         setLoading(false)
       }
@@ -171,12 +196,18 @@ export default function OrderManualPage() {
   const visibleItems = useMemo(() => {
     return items.filter((it) => {
       if (it.is_available === false) return false
-      if (unavailableIds.has(it.id)) return false
+      // We don't filter out unavailableIds here anymore, so they can be rendered as disabled
       if (activeCat !== 'all' && it.category_id !== activeCat) return false
       if (search.trim() && !it.name.toLowerCase().includes(search.trim().toLowerCase())) return false
       return true
+    }).map(it => {
+      const isManualUnav = unavailableIds.has(it.id)
+      const isAutoUnav = autoUnavailableIds.has(it.id)
+      const isForceAvail = forceAvailableIds.has(it.id)
+      const isDisabled = isManualUnav || (isAutoUnav && !isForceAvail)
+      return { ...it, isDisabled }
     })
-  }, [items, unavailableIds, activeCat, search])
+  }, [items, unavailableIds, autoUnavailableIds, forceAvailableIds, activeCat, search])
 
   // ── Helper keranjang ──────────────────────────────────────────────────────
   const addItem = useCallback((item: MenuItem) => {
@@ -651,11 +682,12 @@ export default function OrderManualPage() {
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
               {visibleItems.map((it) => {
                 const qty = lines[it.id]?.quantity ?? 0
+                const disabled = it.isDisabled
                 return (
                   <div
                     key={it.id}
-                    onClick={() => addItem(it)}
-                    className={`group bg-white rounded-xl border overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer active:scale-[0.98] ${qty > 0 ? 'border-amber-400 shadow-sm ring-1 ring-amber-400' : 'border-gray-200 hover:border-amber-300'}`}
+                    onClick={() => !disabled && addItem(it)}
+                    className={`group bg-white rounded-xl border overflow-hidden transition-all duration-200 ${disabled ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer active:scale-[0.98]'} ${qty > 0 && !disabled ? 'border-amber-400 shadow-sm ring-1 ring-amber-400' : 'border-gray-200 hover:border-amber-300'}`}
                   >
                     <div className="h-24 bg-gray-50 relative overflow-hidden">
                       {it.image_url ? (
@@ -666,12 +698,17 @@ export default function OrderManualPage() {
                           <Sandwich className="w-8 h-8" />
                         </div>
                       )}
-                      {qty > 0 && (
+                      {qty > 0 && !disabled && (
                         <span className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md ring-2 ring-white">
                           {qty}
                         </span>
                       )}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
+                      {disabled && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px]">
+                          <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full border border-red-400 shadow-sm">HABIS</span>
+                        </div>
+                      )}
+                      {!disabled && <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />}
                     </div>
                     <div className="p-2.5 flex flex-col justify-between">
                       <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem]">{it.name}</p>

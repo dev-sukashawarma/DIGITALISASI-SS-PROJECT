@@ -69,7 +69,7 @@ export async function fetchSPVMonitoringData() {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('monitoring_view_spv')
-    .select('*')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date')
     .order('outlet_name')
     .order('item_name');
 
@@ -103,7 +103,7 @@ export async function fetchLeaderMonitoringData() {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('monitoring_view_scoped')
-    .select('*')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date')
     .order('outlet_name')
     .order('item_name');
 
@@ -157,7 +157,7 @@ export async function fetchCrewMonitoringData(userId?: string) {
 
   const { data, error } = await supabase
     .from('monitoring_view_crew')
-    .select('*')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date')
     .eq('outlet_id', staffData.outlet_id)
     .order('item_name');
 
@@ -206,7 +206,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 
   const { data: itemData, error: itemError } = await supabase
     .from('monitoring_view_spv')
-    .select('*')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, last_updated')
     .eq('outlet_id', outletId)
     .eq('bahan_baku_id', bahan_baku_id)
     .single();
@@ -338,7 +338,7 @@ export async function fetchRecentLedger(limit = 50): Promise<LedgerFeedEntry[]> 
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('ledger_feed_spv')
-    .select('*')
+    .select('id, outlet_id, outlet_name, bahan_baku_id, item_name, satuan, tipe, qty, catatan, saldo_sesudah, created_at')
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -369,7 +369,7 @@ export async function fetchStockoutForecast(maxDays = 1, limit = 6): Promise<Sto
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('stockout_forecast_spv')
-    .select('*')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, daily_rate, days_left')
     .lte('days_left', maxDays)
     .order('days_left', { ascending: true })
     .limit(limit);
@@ -397,7 +397,7 @@ export async function fetchWasteToday(): Promise<WasteTodaySummary> {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('ledger_feed_spv')
-    .select('*')
+    .select('id, outlet_id, outlet_name, bahan_baku_id, item_name, satuan, tipe, qty, catatan, saldo_sesudah, created_at')
     .in('tipe', LOSS_TIPE as unknown as string[])
     .gte('created_at', startOfDay.toISOString())
     .order('created_at', { ascending: false });
@@ -443,7 +443,7 @@ export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDe
 
   const { data: items, error } = await supabase
     .from('monitoring_view_spv')
-    .select('*')
+    .select('bahan_baku_id, item_name, current_qty, threshold, satuan, status')
     .eq('outlet_id', outletId)
     .order('item_name');
 

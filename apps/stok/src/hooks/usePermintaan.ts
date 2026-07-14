@@ -1,10 +1,10 @@
 'use client'
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useId, useEffect } from 'react'
+import { useAuth } from '@suka/auth'
 import { useQuery } from '@tanstack/react-query'
 import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
-import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
-import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
+import type { BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 import {
   fetchPermintaanOutlet,
   fetchPermintaanPending,
@@ -32,55 +32,42 @@ export interface SaranItem {
 
 export function useSaranItem(outletId: string | undefined) {
   const { session } = useAuth()
-  const [saran, setSaran] = useState<SaranItem[]>([])
-  const [loading, setLoading] = useState(true)
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['saran_item', outletId],
+    queryFn: async () => {
+      const supabase = createClient()
+      // monitoring_view_crew = SECURITY DEFINER view (bypass RLS stok_balance).
+      const { data, error } = await supabase
+        .from('monitoring_view_crew')
+        .select('bahan_baku_id, item_name, satuan, current_qty, threshold, status')
+        .eq('outlet_id', outletId as string)
+
+      if (error) throw error
+      return (data ?? [])
+        .filter((row: any) => row.status === 'below' || row.status === 'warning')
+        .map((row: any): SaranItem => ({
+          bahan_baku_id: row.bahan_baku_id,
+          item_name: row.item_name,
+          satuan: row.satuan,
+          current_qty: row.current_qty,
+          threshold: row.threshold,
+          status: row.status as 'below' | 'warning',
+        }))
+    },
+    enabled: !!outletId && !!session,
+    staleTime: 25000,
+    gcTime: 60000,
+  })
 
   useEffect(() => {
-    if (!outletId || !session) {
-      setLoading(false)
-      return
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error('[useSaranItem] gagal memload saran:', error)
     }
+  }, [error])
 
-    const supabase = createClient()
-    let cancelled = false
-
-    const load = async () => {
-      setLoading(true)
-      try {
-        // monitoring_view_crew = SECURITY DEFINER view (bypass RLS stok_balance).
-        const { data, error } = await supabase
-          .from('monitoring_view_crew')
-          .select('bahan_baku_id, item_name, satuan, current_qty, threshold, status')
-          .eq('outlet_id', outletId)
-
-        if (error) throw error
-        if (!cancelled) {
-          setSaran(
-            (data ?? [])
-              .filter((row: any) => row.status === 'below' || row.status === 'warning')
-              .map((row: any) => ({
-                bahan_baku_id: row.bahan_baku_id,
-                item_name: row.item_name,
-                satuan: row.satuan,
-                current_qty: row.current_qty,
-                threshold: row.threshold,
-                status: row.status as 'below' | 'warning',
-              }))
-          )
-        }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[useSaranItem] gagal memload saran:', err)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-    return () => { cancelled = true }
-  }, [outletId, session])
-
-  return { saran, loading }
+  return { saran: data ?? [], loading: isLoading }
 }
 
 // ---------------------------------------------------------------------------
@@ -124,41 +111,34 @@ export function usePermintaanList(outletId: string | undefined) {
 // ---------------------------------------------------------------------------
 
 export function useApprovalList() {
-  const [permintaan, setPermintaan] = useState<PermintaanWithItems[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const refresh = useCallback(async () => {
-    setError(null)
-    try {
-      const data = await fetchPermintaanPending()
-      setPermintaan(data)
-    } catch (err: any) {
-      setError(err.message || String(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { setLoading(true); refresh() }, [refresh])
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['permintaan_approval'],
+    queryFn: () => fetchPermintaanPending(),
+    staleTime: 25000,
+    gcTime: 60000,
+  })
 
   // Realtime: tak difilter per-outlet karena approver (leader/SPV/kitchen) perlu
   // melihat request dari semua outlet accessible baginya — RLS `permintaan_bahan`
   // (via `accessible_outlet_ids()`) yang membatasi baris mana yang benar-benar
   // terkirim ke client.
   const instanceId = useId()
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`permintaan_approval_${instanceId}`)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'permintaan_bahan',
-      }, () => { refresh() })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [refresh, instanceId])
+  useRealtimeInvalidate({
+    channelName: `permintaan_approval_${instanceId}`,
+    subs: [
+      {
+        table: 'permintaan_bahan',
+        queryKeys: [['permintaan_approval']],
+      },
+    ],
+  })
 
-  return { permintaan, loading, error, refresh }
+  return {
+    permintaan: data ?? [],
+    loading: isLoading,
+    error: error ? (error as Error).message : null,
+    refresh: refetch,
+  }
 }
 
 // ---------------------------------------------------------------------------

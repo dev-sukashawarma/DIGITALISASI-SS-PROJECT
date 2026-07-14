@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { usePermintaanActions } from '@/hooks/usePermintaan'
 import type { PermintaanWithItems } from '@/types/permintaan'
 import { fetchCrosscheckStok } from '@/app/actions/permintaan'
-import { calculateBahanBakuRequest, type CalculatedBahan } from '@/app/actions/permintaan_target'
+import { calculateBahanBakuRequest } from '@/app/actions/permintaan_target'
 
 interface Props {
   permintaan: PermintaanWithItems

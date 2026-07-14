@@ -187,7 +187,6 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
       const matchesSearch = searchTerm === '' || nameMatch || refMatch;
 
       let matchesFilter = false;
-      const tipe = t.jumlah_bahan === 1 ? t.single_tipe : null;
       if (activeFilter === 'all') {
         matchesFilter = true;
       } else if (activeFilter === 'inbound') {

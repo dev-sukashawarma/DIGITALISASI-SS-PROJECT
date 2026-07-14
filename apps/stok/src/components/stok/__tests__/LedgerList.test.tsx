@@ -30,8 +30,8 @@ describe('transaksiLabel', () => {
     expect(transaksiLabel(t)).toEqual({ title: 'Waste', subtitle: null })
   })
 
-  it('shipment -> label Terima Kiriman tanpa subtitle', () => {
+  it('shipment -> label Terima Kiriman + subtitle nomor surat jalan', () => {
     const t = makeSummary({ ref_shipment_id: 'sh-1', jumlah_bahan: 3 })
-    expect(transaksiLabel(t)).toEqual({ title: 'Terima Kiriman', subtitle: null })
+    expect(transaksiLabel(t)).toEqual({ title: 'Terima Kiriman', subtitle: 'Surat Jalan #SH' })
   })
 })

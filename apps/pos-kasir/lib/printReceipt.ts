@@ -111,12 +111,21 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   <table><tbody>
   ${d.items.map((it) => {
     const noteHtml = it.note ? `<div class="note">- ${esc(it.note)}</div>` : ''
-    const paddingLeft = it.isChild ? 'padding-left: 12px;' : ''
-    const prefix = it.isChild ? '- ' : ''
+    
+    if (it.isChild) {
+      return `
+      <tr>
+        <td colspan="2" class="name" style="padding-left: 15px; font-size: ${isKitchen ? '20px' : '14px'};">
+          |- ${it.quantity}x EXTRA ${esc(it.name)}${noteHtml}
+        </td>
+        ${!isKitchen ? `<td class="amt">${formatRupiah(it.subtotal)}</td>` : ''}
+      </tr>`
+    }
+    
     return `
       <tr>
         <td class="qty">${it.quantity}x</td>
-        <td class="name" style="${paddingLeft}">${prefix}${esc(it.name)}${noteHtml}</td>
+        <td class="name">${esc(it.name)}${noteHtml}</td>
         ${!isKitchen ? `<td class="amt">${formatRupiah(it.subtotal)}</td>` : ''}
       </tr>`
   }).join('')}

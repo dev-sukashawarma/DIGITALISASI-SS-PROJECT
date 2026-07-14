@@ -24,6 +24,7 @@ export function useOutletMutations() {
         lng: values.lng,
         type: values.type,
         is_active: values.is_active,
+        marquee_warning_threshold: values.marquee_warning_threshold,
       })
       if (error) friendly(error)
     },
@@ -43,6 +44,7 @@ export function useOutletMutations() {
           lng: values.lng,
           type: values.type,
           is_active: values.is_active,
+          marquee_warning_threshold: values.marquee_warning_threshold,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)

@@ -18,6 +18,7 @@ function toFormValues(o: Outlet): OutletFormValues {
   return {
     name: o.name, slug: o.slug, address: o.address ?? '',
     lat: o.lat, lng: o.lng, type: o.type, is_active: o.is_active,
+    marquee_warning_threshold: o.marquee_warning_threshold,
   }
 }
 

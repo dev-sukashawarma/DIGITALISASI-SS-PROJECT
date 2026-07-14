@@ -1,0 +1,1 @@
+ALTER TABLE outlets ADD COLUMN marquee_warning_threshold INT DEFAULT 7 NOT NULL;

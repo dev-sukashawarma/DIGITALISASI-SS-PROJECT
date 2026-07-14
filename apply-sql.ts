@@ -1,0 +1,1 @@
+const { Client } = require('pg'); const client = new Client({ connectionString: 'postgresql://postgres:postgres@localhost:54322/postgres' }); async function run() { await client.connect(); await client.query('ALTER TABLE outlets ADD COLUMN IF NOT EXISTS marquee_warning_threshold INT DEFAULT 7 NOT NULL'); console.log('success'); process.exit(0); } run().catch(console.error);

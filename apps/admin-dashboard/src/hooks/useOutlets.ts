@@ -11,7 +11,7 @@ export function useOutlets(initialData?: Outlet[]) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlets')
-        .select('id, slug, name, address, lat, lng, type, is_active')
+        .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
         .order('name')
       if (error) throw error
       return data ?? []

@@ -11,7 +11,12 @@ export default function StockWidget() {
 
   if (!outletId || isLoading || criticalItems.length === 0) return null
 
-  const outOfStockNames = criticalItems.map(item => item.item_name).join(' • ')
+  const outOfStockNames = criticalItems.map(item => {
+    if (item.projection_text) {
+      return `${item.item_name} - ${item.projection_text}`
+    }
+    return item.item_name
+  }).join(' • ')
 
   return (
     <a 

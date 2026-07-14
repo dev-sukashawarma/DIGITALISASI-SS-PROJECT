@@ -12,6 +12,7 @@ export interface Outlet {
   type: string
   is_active: boolean
   region?: string | null
+  marquee_warning_threshold: number
 }
 
 export interface OutletFormValues {
@@ -22,6 +23,7 @@ export interface OutletFormValues {
   lng: number
   type: string
   is_active: boolean
+  marquee_warning_threshold: number
 }
 
 export interface OutletFilterValues {

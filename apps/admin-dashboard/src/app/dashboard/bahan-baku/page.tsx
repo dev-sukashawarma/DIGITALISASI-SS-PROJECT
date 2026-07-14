@@ -1,18 +1,24 @@
 'use client'
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { Spinner } from '@suka/design-system'
+import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react'
 import { useBahanBakuHarga } from '@/hooks/useBahanBakuHarga'
 import { useBahanBakuHargaMutations } from '@/hooks/useBahanBakuHargaMutations'
+import { usePOPriceAlerts } from '@/hooks/usePOPriceAlerts'
 import { filterAndSortBahanBaku, type SortOption } from '@/lib/bahanBaku'
 import { BahanBakuFilters } from '@/components/BahanBakuFilters'
 import { BahanBakuTable } from '@/components/BahanBakuTable'
+import { rupiah } from '@/lib/format'
 
 export default function BahanBakuPage() {
   const { data: rows = [], isLoading } = useBahanBakuHarga()
   const { setHarga, setMerek, setNama, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku } = useBahanBakuHargaMutations()
+  const { data: priceAlerts = [] } = usePOPriceAlerts()
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('nama-asc')
+  const [alertDismissed, setAlertDismissed] = useState(false)
 
   const filtered = useMemo(() => filterAndSortBahanBaku(rows, search, sortBy), [rows, search, sortBy])
 
@@ -58,6 +64,49 @@ export default function BahanBakuPage() {
         <p className="text-sm text-gray-500">Kelola gambar, konversi satuan bertingkat, dan harga beli bahan baku.</p>
       </div>
 
+      {/* Price Alert Banner */}
+      {priceAlerts.length > 0 && !alertDismissed && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+              <AlertTriangle size={15} className="text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-800">
+                {priceAlerts.length} bahan baku punya harga berbeda dari PO terakhir
+              </p>
+              <p className="text-xs text-amber-600 mt-0.5 mb-3">
+                Harga aktual di PO yang sudah diterima berbeda &gt;5% dari harga master. Hover badge di kolom harga untuk detail.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {priceAlerts.slice(0, 5).map(a => {
+                  const naik = a.selisih_pct > 0
+                  const pct = Math.abs(a.selisih_pct * 100).toFixed(1)
+                  return (
+                    <span key={a.bahan_baku_id} className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${
+                      naik ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'
+                    }`}>
+                      {naik ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                      {a.nama}
+                      <span className="font-bold">{naik ? '+' : '-'}{pct}%</span>
+                    </span>
+                  )
+                })}
+                {priceAlerts.length > 5 && (
+                  <span className="text-xs text-amber-600 font-medium self-center">+{priceAlerts.length - 5} lainnya</span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setAlertDismissed(true)}
+              className="text-amber-400 hover:text-amber-600 transition-colors text-xs font-medium shrink-0"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-suka-gray-200 p-5 shadow-sm space-y-4">
         <BahanBakuFilters 
           search={search} onSearch={setSearch} 
@@ -93,6 +142,7 @@ export default function BahanBakuPage() {
               onError: (e: any) => toast.error(e.message),
             })}
             skuSaving={addSku.isPending || updateSku.isPending || deleteSku.isPending || setDefaultSku.isPending}
+            priceAlerts={priceAlerts}
           />
         )}
       </div>

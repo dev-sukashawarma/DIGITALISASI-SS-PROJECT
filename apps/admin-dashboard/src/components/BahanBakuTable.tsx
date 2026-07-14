@@ -1,11 +1,12 @@
 'use client'
 import { useState, useRef } from 'react'
-import { Check, Pencil, X, ArrowRight, Camera, PackageSearch, FileText } from 'lucide-react'
+import { Check, Pencil, X, ArrowRight, Camera, PackageSearch, FileText, AlertTriangle } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import { parsePriceInput } from '@/lib/bahanBaku'
 import type { BahanBakuWithHarga } from '@/lib/bahanBaku'
 import { EmptyState, Badge, Avatar } from '@suka/design-system'
 import { BahanBakuDetailModal } from './BahanBakuDetailModal'
+import type { PriceAlert } from '@/hooks/usePOPriceAlerts'
 
 function formatUpdatedAt(iso: string | null): string {
   if (!iso) return '—'
@@ -14,7 +15,7 @@ function formatUpdatedAt(iso: string | null): string {
 
 export function BahanBakuTable({
   rows, onSave, onSaveMerek, onSaveNama, onSaveSatuan, saving, onUploadImage, uploading,
-  onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving
+  onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving, priceAlerts = []
 }: {
   rows: BahanBakuWithHarga[]
   onSave: (bahanBakuId: string, harga: number) => void
@@ -29,7 +30,10 @@ export function BahanBakuTable({
   onDeleteSku: (sku_id: string) => void
   onSetDefaultSku: (vars: { bahan_baku_id: string; sku_id: string }) => void
   skuSaving: boolean
+  priceAlerts?: PriceAlert[]
 }) {
+  // Build alert map: bahan_baku_id → alert
+  const alertMap = new Map<string, PriceAlert>(priceAlerts.map(a => [a.bahan_baku_id, a]))
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null)
   const [detailItemId, setDetailItemId] = useState<string | null>(null)
@@ -121,9 +125,27 @@ export function BahanBakuTable({
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={r.harga ? 'font-medium text-suka-ink' : 'text-gray-400'}>
-                    {r.harga ? rupiah(r.harga.harga_beli) : '—'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={r.harga ? 'font-medium text-suka-ink' : 'text-gray-400'}>
+                      {r.harga ? rupiah(r.harga.harga_beli) : '—'}
+                    </span>
+                    {alertMap.has(r.id) && (() => {
+                      const alert = alertMap.get(r.id)!
+                      const naik = alert.selisih_pct > 0
+                      const pct = Math.abs(alert.selisih_pct * 100).toFixed(1)
+                      return (
+                        <span
+                          title={`Harga aktual di ${alert.nomor_po}: ${rupiah(alert.harga_terima)} (${naik ? '+' : '-'}${pct}%)`}
+                          className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full cursor-help ${
+                            naik ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-50 text-green-600 border border-green-200'
+                          }`}
+                        >
+                          <AlertTriangle size={9} />
+                          {naik ? '+' : '-'}{pct}%
+                        </span>
+                      )
+                    })()}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">
                   {formatUpdatedAt(r.harga?.harga_updated_at ?? null)}

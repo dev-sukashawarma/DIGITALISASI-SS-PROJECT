@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Camera, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck } from 'lucide-react'
-import { usePODetail, useUpdatePOStatus, useUploadInvoice, getSignedInvoiceUrl, type POStatus, type POWithItems } from '@/hooks/usePurchaseOrder'
+import { ArrowLeft, Camera, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react'
+import { usePODetail, useUpdatePOStatus, useUploadInvoice, getSignedInvoiceUrl, type POStatus, type POWithItems, type POItem } from '@/hooks/usePurchaseOrder'
+import { useBahanBakuOptions } from '@/hooks/usePurchaseOrder'
+import { useBahanBakuHargaMutations } from '@/hooks/useBahanBakuHargaMutations'
 import { rupiah } from '@/lib/format'
 import { Spinner } from '@suka/design-system'
+import { toast } from 'sonner'
 
 const STATUS_LABEL: Record<POStatus, string> = {
   draft: 'Draft',
@@ -32,13 +35,132 @@ const NEXT_STATUS_LABEL: Partial<Record<POStatus, string>> = {
   draft: 'Kirim ke Supplier',
 }
 
+// ─── Price Sync Modal ─────────────────────────────────────────────────────────
+
+type PriceDiffItem = {
+  item: POItem
+  harga_master: number | null
+  selisih_pct: number
+}
+
+function PriceSyncModal({
+  diffs,
+  onConfirm,
+  onSkip,
+  saving,
+}: {
+  diffs: PriceDiffItem[]
+  onConfirm: (selectedIds: string[]) => void
+  onSkip: () => void
+  saving: boolean
+}) {
+  const [checked, setChecked] = useState<Set<string>>(
+    () => new Set(diffs.filter(d => d.item.harga_terima !== null).map(d => d.item.bahan_baku_id))
+  )
+
+  function toggle(id: string) {
+    setChecked(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const selectedCount = checked.size
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-suka-gray-200 overflow-hidden">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-suka-gray-100 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+            <RefreshCw size={16} className="text-amber-600" />
+          </div>
+          <div>
+            <h2 className="font-bold text-suka-brown text-sm">Perbarui Harga Master?</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Harga aktual berbeda dari harga master</p>
+          </div>
+        </div>
+
+        {/* Items */}
+        <div className="divide-y divide-suka-gray-100 max-h-72 overflow-y-auto">
+          {diffs.map(({ item, harga_master, selisih_pct }) => {
+            const isChecked = checked.has(item.bahan_baku_id)
+            const naik = selisih_pct > 0
+            const pct = Math.abs(selisih_pct * 100).toFixed(1)
+            return (
+              <label
+                key={item.bahan_baku_id}
+                className="flex items-center gap-3 px-5 py-3.5 cursor-pointer hover:bg-suka-gray-50 transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => toggle(item.bahan_baku_id)}
+                  className="w-4 h-4 accent-suka-orange rounded"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-suka-ink text-sm truncate">
+                    {(item as any).bahan_baku?.nama ?? item.bahan_baku_id}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-gray-400">
+                      {harga_master !== null ? rupiah(harga_master) : '—'}
+                    </span>
+                    <span className="text-gray-300 text-xs">→</span>
+                    <span className="text-xs font-semibold text-suka-ink">
+                      {rupiah(item.harga_terima!)}
+                    </span>
+                    <span className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                      naik ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                    }`}>
+                      {naik ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                      {naik ? '+' : '-'}{pct}%
+                    </span>
+                  </div>
+                </div>
+              </label>
+            )
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-suka-gray-100 flex gap-3">
+          <button
+            onClick={onSkip}
+            disabled={saving}
+            className="flex-1 py-2.5 border border-suka-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-suka-gray-50 transition-colors disabled:opacity-50"
+          >
+            Lewati
+          </button>
+          <button
+            onClick={() => onConfirm([...checked])}
+            disabled={saving || selectedCount === 0}
+            className="flex-1 py-2.5 bg-suka-orange text-white rounded-xl text-sm font-bold hover:bg-suka-orange/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {saving ? <Spinner className="w-4 h-4" /> : <RefreshCw size={14} />}
+            Update {selectedCount > 0 ? `(${selectedCount} item)` : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function PODetailView({ id, initialData }: { id: string, initialData: POWithItems }) {
   const router = useRouter()
   const { data: po, isLoading, error } = usePODetail(id, initialData)
   const updateStatus = useUpdatePOStatus()
   const uploadInvoice = useUploadInvoice()
+  const { setHarga } = useBahanBakuHargaMutations()
+  const { data: bahanBakuOptions = [] } = useBahanBakuOptions()
   const fileRef = useRef<HTMLInputElement>(null)
   const [invoiceUrls, setInvoiceUrls] = useState<string[]>([])
+  const [showPriceSync, setShowPriceSync] = useState(false)
+  const [syncSaving, setSyncSaving] = useState(false)
+  const [syncDone, setSyncDone] = useState(false)
 
   // Load signed URLs for invoice photos
   useEffect(() => {
@@ -62,6 +184,42 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   const selisih = totalTerima - totalPesan
   const nextStatus = NEXT_STATUS[po.status]
 
+  // ─── Hitung selisih harga untuk price sync ───────────────────────────────
+  const isReceived = po.status === 'diterima_lengkap' || po.status === 'sebagian_diterima'
+
+  const priceDiffs: PriceDiffItem[] = isReceived
+    ? po.items
+        .filter(it => it.harga_terima !== null)
+        .map(it => {
+          const option = bahanBakuOptions.find(b => b.id === it.bahan_baku_id)
+          const harga_master = option?.harga_beli ?? null
+          const selisih_pct = harga_master !== null && harga_master > 0
+            ? (it.harga_terima! - harga_master) / harga_master
+            : it.harga_terima !== null ? 1 : 0
+          return { item: it, harga_master, selisih_pct }
+        })
+        .filter(d => Math.abs(d.selisih_pct) > 0.05)
+    : []
+
+  async function handlePriceSync(selectedBahanBakuIds: string[]) {
+    setSyncSaving(true)
+    try {
+      const toUpdate = priceDiffs.filter(d => selectedBahanBakuIds.includes(d.item.bahan_baku_id))
+      await Promise.all(
+        toUpdate.map(d =>
+          setHarga.mutateAsync({ bahan_baku_id: d.item.bahan_baku_id, harga_beli: d.item.harga_terima! })
+        )
+      )
+      toast.success(`Harga master diperbarui untuk ${toUpdate.length} bahan baku`)
+      setSyncDone(true)
+      setShowPriceSync(false)
+    } catch (e: any) {
+      toast.error('Gagal update harga: ' + e.message)
+    } finally {
+      setSyncSaving(false)
+    }
+  }
+
   async function handleUploadInvoice(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -71,6 +229,16 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
 
   return (
     <div className="space-y-5 max-w-3xl animate-fade-in">
+      {/* Price Sync Modal */}
+      {showPriceSync && (
+        <PriceSyncModal
+          diffs={priceDiffs}
+          onConfirm={handlePriceSync}
+          onSkip={() => setShowPriceSync(false)}
+          saving={syncSaving}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-start gap-3">
         <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-suka-gray-50 text-gray-400 hover:text-suka-brown transition-colors mt-0.5">
@@ -86,6 +254,36 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           <p className="text-sm text-gray-500 mt-0.5">{po.supplier_nama} · {new Date(po.tanggal_po).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
       </div>
+
+      {/* Price Sync Banner */}
+      {isReceived && priceDiffs.length > 0 && !syncDone && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+            <RefreshCw size={15} className="text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800">
+              {priceDiffs.length} bahan baku punya harga aktual berbeda dari master
+            </p>
+            <p className="text-xs text-amber-600 mt-0.5">Selisih &gt; 5% dari harga master saat ini</p>
+          </div>
+          <button
+            onClick={() => setShowPriceSync(true)}
+            className="shrink-0 px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+          >
+            <RefreshCw size={12} />
+            Perbarui
+          </button>
+        </div>
+      )}
+
+      {/* Sync done confirmation */}
+      {syncDone && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
+          <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+          <p className="text-sm text-green-800 font-medium">Harga master berhasil diperbarui dari PO ini.</p>
+        </div>
+      )}
 
       {/* Info cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

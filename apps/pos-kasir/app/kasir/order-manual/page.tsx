@@ -248,7 +248,12 @@ export default function OrderManualPage() {
         prev.forEach(l => { if (l.parentId === cartItemId) toRemove.add(l.cartItemId) })
         return prev.filter(l => !toRemove.has(l.cartItemId))
       }
-      return prev.map(l => l.cartItemId === cartItemId ? { ...l, quantity: Math.min(qty, 10) } : l)
+      const newQty = Math.min(qty, 10);
+      return prev.map(l => {
+        if (l.cartItemId === cartItemId) return { ...l, quantity: newQty }
+        if (l.parentId === cartItemId) return { ...l, quantity: Math.min(l.quantity, newQty) }
+        return l
+      })
     })
   }, [])
 
@@ -298,6 +303,8 @@ export default function OrderManualPage() {
         menu_item_id: l.item.id,
         quantity: l.quantity,
         note: l.note,
+        parent_id: l.parentId,
+        cartItemId: l.cartItemId
       })),
     }
 
@@ -395,6 +402,7 @@ export default function OrderManualPage() {
             quantity: l.quantity,
             unit_price: unit,
             subtotal: unit * l.quantity,
+            isChild: !!l.parentId
           }
         }),
         subtotal: subtotalAmount,
@@ -438,6 +446,7 @@ export default function OrderManualPage() {
         quantity: l.quantity,
         unit_price: unit,
         subtotal: unit * l.quantity,
+        isChild: !!l.parentId
       }
     })
     const snapCustomer = customerName.trim() || null
@@ -452,6 +461,8 @@ export default function OrderManualPage() {
         menu_item_id: l.item.id,
         quantity: l.quantity,
         note: l.note,
+        parent_id: l.parentId,
+        cartItemId: l.cartItemId
       })),
     }
 
@@ -503,7 +514,7 @@ export default function OrderManualPage() {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
 
       // Reset keranjang untuk transaksi berikutnya
-      setLines({})
+      setLines([])
       setCustomerName('')
       setCartOpen(false)
       setWalkInPanelKey((k) => k + 1)
@@ -519,6 +530,8 @@ export default function OrderManualPage() {
           quantity: l.quantity,
           unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id),
           subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity,
+          parent_id: l.parentId,
+          cartItemId: l.cartItemId
         })),
         payment_method: method,
         customer_name: snapCustomer,
@@ -559,7 +572,7 @@ export default function OrderManualPage() {
       })
 
       // Reset keranjang untuk transaksi berikutnya
-      setLines({})
+      setLines([])
       setCustomerName('')
       setCartOpen(false)
       setWalkInPanelKey((k) => k + 1)
@@ -922,25 +935,37 @@ export default function OrderManualPage() {
                     {upsellItems.map((ex) => {
                       const qty = selectedExtras[ex.id] || 0
                       return (
-                        <div key={ex.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${qty > 0 ? 'border-amber-400 bg-amber-50/30' : 'border-gray-200 bg-white hover:border-amber-200'}`}>
-                          <div className="flex-1 min-w-0 pr-2">
-                            <p className="font-bold text-sm text-gray-800 line-clamp-1">{ex.name}</p>
-                            <p className="text-amber-600 font-bold text-xs mt-0.5">+{formatRupiah(wrappedCalculateItemPrice(ex.price, ex.id))}</p>
+                        <div 
+                          key={ex.id} 
+                          onClick={() => {
+                            setSelectedExtras(prev => {
+                              const current = prev[ex.id] || 0
+                              return { ...prev, [ex.id]: current > 0 ? 0 : 1 }
+                            })
+                          }}
+                          className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${qty > 0 ? 'border-amber-400 bg-amber-50/30' : 'border-gray-200 bg-white hover:border-amber-200'}`}
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                            {ex.image_url ? (
+                              <img src={ex.image_url} alt={ex.name} className="w-12 h-12 rounded-lg object-cover shadow-sm flex-shrink-0" />
+                            ) : (
+                              <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 border border-gray-200/60">
+                                <span className="text-gray-400 text-[10px] font-bold">No Image</span>
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-sm text-gray-800 line-clamp-1">{ex.name}</p>
+                              <p className="text-amber-600 font-bold text-xs mt-0.5">+{formatRupiah(wrappedCalculateItemPrice(ex.price, ex.id))}</p>
+                            </div>
                           </div>
                           {qty > 0 ? (
-                            <div className="flex items-center gap-2 bg-white rounded-lg p-1 border border-gray-200 shadow-sm">
-                              <button onClick={() => setSelectedExtras(prev => ({ ...prev, [ex.id]: Math.max(0, qty - 1) }))} className="w-6 h-6 rounded flex items-center justify-center bg-gray-50 text-gray-600 hover:bg-gray-100">
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className="font-bold text-sm w-4 text-center">{qty}</span>
-                              <button onClick={() => setSelectedExtras(prev => ({ ...prev, [ex.id]: qty + 1 }))} className="w-6 h-6 rounded flex items-center justify-center bg-amber-500 text-white hover:bg-amber-600">
-                                <Plus className="w-3 h-3" />
-                              </button>
+                            <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-sm pointer-events-none">
+                              <CheckCircle2 className="w-5 h-5" />
                             </div>
                           ) : (
-                            <button onClick={() => setSelectedExtras(prev => ({ ...prev, [ex.id]: 1 }))} className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-600 hover:border-amber-400 hover:text-amber-500 transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-600 transition-colors pointer-events-none">
                               <Plus className="w-4 h-4" />
-                            </button>
+                            </div>
                           )}
                         </div>
                       )
@@ -1126,39 +1151,87 @@ function CartPanel(props: {
           </div>
         ) : (
           <div className="space-y-3 max-h-[40vh] lg:max-h-[38vh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
-            {lineList.map((l) => {
-              const discountedPrice = calculateItemPrice(l.item.price, l.item.id)
+            {lineList.filter(l => !l.parentId).map((root) => {
+              const children = lineList.filter(l => l.parentId === root.cartItemId)
+              const discountedPrice = calculateItemPrice(root.item.price, root.item.id)
               return (
-                <div key={l.item.id} className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 text-sm leading-snug">{l.item.name}</p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        {discountedPrice < l.item.price && (
-                          <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(l.item.price * l.quantity)}</span>
-                        )}
-                        <p className="text-amber-600 font-bold text-sm">{formatRupiah(discountedPrice * l.quantity)}</p>
+                <div key={root.cartItemId} className="py-2 flex flex-col gap-2 relative">
+                  {/* Vertical Line for Cart */}
+                  {children.length > 0 && (
+                    <div className="absolute left-[20px] top-10 bottom-4 w-[2px] bg-gray-200 z-0" />
+                  )}
+                  
+                  <div className="relative z-10 bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 text-sm leading-snug">{root.item.name}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {discountedPrice < root.item.price && (
+                            <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(root.item.price * root.quantity)}</span>
+                          )}
+                          <p className="text-amber-600 font-bold text-sm">{formatRupiah(discountedPrice * root.quantity)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-100 flex-shrink-0">
+                        <button onClick={() => setQty(root.cartItemId, root.quantity - 1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
+                          {root.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
+                        </button>
+                        <span className="font-bold text-sm w-5 text-center text-gray-800">{root.quantity}</span>
+                        <button onClick={() => setQty(root.cartItemId, root.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-100 flex-shrink-0">
-                      <button onClick={() => setQty(l.item.id, l.quantity - 1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
-                        {l.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
-                      </button>
-                      <span className="font-bold text-sm w-5 text-center text-gray-800">{l.quantity}</span>
-                      <button onClick={() => setQty(l.item.id, l.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="relative mt-2.5">
+                      <StickyNote className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        value={root.note}
+                        onChange={(e) => setNote(root.cartItemId, e.target.value)}
+                        placeholder="Catatan opsional..."
+                        className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white transition-colors"
+                      />
                     </div>
                   </div>
-                  <div className="relative mt-2.5">
-                    <StickyNote className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      value={l.note}
-                      onChange={(e) => setNote(l.item.id, e.target.value)}
-                      placeholder="Catatan opsional..."
-                      className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white transition-colors"
-                    />
-                  </div>
+
+                  {/* Children */}
+                  {children.length > 0 && (
+                    <div className="mt-1 space-y-2 relative z-10">
+                      {children.map(child => {
+                        const childDiscountedPrice = calculateItemPrice(child.item.price, child.item.id)
+                        return (
+                          <div key={child.cartItemId} className="relative pl-[3rem]">
+                            {/* L-Shape branch indicator */}
+                            <div className="absolute left-[20px] top-[1.25rem] w-4 h-[2px] bg-gray-200" />
+                            <div className="bg-amber-50/30 rounded-xl p-2 border border-amber-100/50 transition-all hover:border-amber-200 shadow-sm">
+                              <div className="flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-amber-900 leading-snug text-xs">
+                                    <span className="font-extrabold text-amber-500 mr-1.5">↳ Extra</span>
+                                    {child.item.name}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    {childDiscountedPrice < child.item.price && (
+                                      <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(child.item.price * child.quantity)}</span>
+                                    )}
+                                    <p className="text-amber-700 font-bold text-sm">{formatRupiah(childDiscountedPrice * child.quantity)}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 bg-white rounded-lg p-1 border border-gray-100 flex-shrink-0 shadow-sm">
+                                  <button onClick={() => setQty(child.cartItemId, child.quantity - 1)} className="w-6 h-6 rounded-md bg-gray-50 text-gray-600 flex items-center justify-center hover:bg-gray-100 active:scale-95 transition-all">
+                                    {child.quantity === 1 ? <Trash2 className="w-3 h-3 text-red-500" /> : <Minus className="w-3 h-3" />}
+                                  </button>
+                                  <span className="font-bold text-xs w-4 text-center text-gray-800">{child.quantity}</span>
+                                  <button onClick={() => setQty(child.cartItemId, child.quantity + 1)} className="w-6 h-6 rounded-md bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 active:scale-95 transition-all">
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )
             })}

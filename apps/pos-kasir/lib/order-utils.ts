@@ -74,16 +74,36 @@ export function parseOrderData(order: OrderWithItems): ParsedOrder {
     return { ...oi, parsedName: name, parsedNote: note, parsedId: id, parsedParentId: parentId };
   });
   
-  const rootItems = parsedItems.filter(i => !i.parsedParentId);
-  const validRootIds = new Set(rootItems.map(r => r.parsedId));
-  
+  const rootItems: ParsedOrderItem[] = [];
   const childrenMap: Record<string, ParsedOrderItem[]> = {};
-  parsedItems.filter(i => i.parsedParentId).forEach(i => {
-    if (!validRootIds.has(i.parsedParentId!)) {
-      rootItems.push(i); // treat as root if parent not found
+  
+  let lastRootId: string | null = null;
+
+  parsedItems.forEach(i => {
+    const isImplicitExtra = !i.parsedParentId && (i.parsedName.toLowerCase().startsWith('extra ') || i.parsedName.toLowerCase().startsWith('toping '));
+
+    if (i.parsedParentId) {
+      // Explicit parent
+      if (!childrenMap[i.parsedParentId]) childrenMap[i.parsedParentId] = [];
+      childrenMap[i.parsedParentId].push(i);
+    } else if (isImplicitExtra && lastRootId) {
+      // Implicit parent fallback for legacy orders
+      i.parsedParentId = lastRootId;
+      if (!childrenMap[lastRootId]) childrenMap[lastRootId] = [];
+      childrenMap[lastRootId].push(i);
     } else {
-      if (!childrenMap[i.parsedParentId!]) childrenMap[i.parsedParentId!] = [];
-      childrenMap[i.parsedParentId!].push(i);
+      // Root item
+      rootItems.push(i);
+      lastRootId = i.parsedId;
+    }
+  });
+
+  // Verify explicit parents exist, otherwise hoist to root
+  const validRootIds = new Set(rootItems.map(r => r.parsedId));
+  Object.keys(childrenMap).forEach(parentId => {
+    if (!validRootIds.has(parentId)) {
+      rootItems.push(...childrenMap[parentId]);
+      delete childrenMap[parentId];
     }
   });
 

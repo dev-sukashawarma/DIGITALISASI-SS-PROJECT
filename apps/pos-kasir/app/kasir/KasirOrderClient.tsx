@@ -613,59 +613,54 @@ export default function KasirOrderClient({
   }
 
   // Cancel order
-  async function cancelOrder(id: string) {
-    const confirmed = await showConfirm('Batalkan pesanan ini secara permanen?');
-    if (confirmed) {
-      // 1. PIN Authorization (Hardened)
-      const pin = await showPrompt('Masukkan PIN SPV/Leader untuk otorisasi pembatalan:')
-      if (!pin) return
+  async function cancelOrder(order: ParsedOrder) {
+    if (order.status !== 'pending') {
+      showAlert('Pesanan yang sudah diproses tidak dapat dibatalkan.')
+      return
+    }
 
-      let voidedBy = null;
-      try {
-        const verifyRes = await fetch('/api/staff/verify-pin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin, outlet_id: outletId })
-        })
-        const verifyData = await verifyRes.json()
+    const confirmed = await showConfirm('Batalkan pesanan ini secara permanen?')
+    if (!confirmed) return
 
-        if (!verifyRes.ok || !verifyData.success) {
-          showAlert(verifyData.error || 'Otorisasi gagal! PIN SPV tidak valid.')
-          postToNative({ type: 'haptic', style: 'error' })
-          return
-        }
-        voidedBy = verifyData.staff.id;
-      } catch (err) {
-        showAlert('Koneksi terputus. Tidak bisa memverifikasi PIN saat offline.')
-        postToNative({ type: 'haptic', style: 'error' })
-        return
-      }
+    const voidReason = await showPrompt('Alasan pembatalan (wajib):')
+    if (!voidReason?.trim()) {
+      showAlert('Alasan pembatalan wajib diisi!')
+      return
+    }
 
-      // 2. Void Reason
-      const voidReason = await showPrompt('Alasan pembatalan (wajib):')
-      if (!voidReason?.trim()) {
-        showAlert('Alasan pembatalan wajib diisi!')
-        return
-      }
+    postToNative({ type: 'haptic', style: 'warning' })
+    
+    // 1. Set cancellation_status ke pending_approval
+    const success = await applyStatusChange(order.id, {
+      cancellation_reason: voidReason,
+      cancellation_status: 'pending_approval'
+    })
 
-      postToNative({ type: 'haptic', style: 'warning' })
-      await applyStatusChange(id, {
-        status: 'cancelled',
-        void_reason: voidReason,
-        void_at: new Date().toISOString(),
-        voided_by: voidedBy
+    if (!success) return
+
+    queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
+
+    // 2. Request Magic Link & WA URL ke Leader
+    try {
+      const res = await fetch('/api/cancellations/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: order.id, reason: voidReason })
       })
-
-      queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
-
-      const targetOrder = orders.find(o => o.id === id)
-      if (targetOrder && targetOrder.source === 'online' && targetOrder.external_order_id) {
-        fetch('/api/orders/notify-online-cancel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order_id: id }),
-        }).catch((err) => console.error('Gagal mengirim notifikasi cancel ke order-system:', err))
+      const data = await res.json()
+      
+      if (!res.ok) {
+        showAlert('Pesanan menunggu pembatalan, tapi gagal membuat link WA: ' + (data.error || 'Unknown error'))
+        return
       }
+
+      // 3. Arahkan otomatis ke WA Leader
+      if (data.waUrl) {
+        window.open(data.waUrl, '_blank')
+      }
+    } catch (err) {
+      console.error('Request cancellation error:', err)
+      showAlert('Koneksi terputus. Gagal meminta persetujuan pembatalan ke Leader.')
     }
   }
 
@@ -856,11 +851,16 @@ export default function KasirOrderClient({
               <Loader2 className="w-4 h-4 animate-spin" />
               Tunggu QRIS
             </div>
+          ) : (order as any).cancellation_status === 'pending_approval' ? (
+            <div className="flex-1 bg-yellow-50 text-yellow-600 font-bold py-3.5 rounded-xl border border-yellow-200 flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Menunggu Persetujuan Batal
+            </div>
           ) : isPending ? (
             <>
               <button
                 type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order.id) }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
                 className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
               >
                 <XCircle size={18} />
@@ -877,19 +877,11 @@ export default function KasirOrderClient({
             </>
           ) : order.status === 'preparing' ? (
             <>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order.id) }}
-                className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
-              >
-                <XCircle size={18} />
-                Batal
-              </button>
               {!order.kitchen_receipt_printed ? (
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
-                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
+                  className="relative z-50 cursor-pointer w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
                 >
                   <ChefHat size={18} />
                   Mulai Masak
@@ -898,7 +890,7 @@ export default function KasirOrderClient({
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCompleteAndPrint(order) }}
-                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+                  className="relative z-50 cursor-pointer w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
                 >
                   <CheckCircle2 size={18} />
                   Pesanan Siap

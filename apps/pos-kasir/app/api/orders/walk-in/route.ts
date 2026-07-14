@@ -14,6 +14,8 @@ interface WalkInItem {
   menu_item_id: string
   quantity: number
   note?: string
+  parent_id?: string
+  cartItemId?: string
 }
 
 interface WalkInPayload {
@@ -126,9 +128,18 @@ export async function POST(request: Request) {
     const subtotal = unitPrice * quantity
     total += subtotal
 
-    // Konvensi |NOTE| supaya catatan per-item diparsing UI kasir
+    // Konvensi |NOTE|, |ID|, dan |PARENT| supaya hierarchy diparsing UI kasir & dapur
     const note = (reqItem.note ?? '').trim()
-    const finalName = note ? `${menuItem.name}|NOTE|${note}` : menuItem.name
+    let finalName = menuItem.name
+    if (reqItem.cartItemId) {
+      finalName += `|ID|${reqItem.cartItemId}`
+    }
+    if (reqItem.parent_id) {
+      finalName += `|PARENT|${reqItem.parent_id}`
+    }
+    if (note) {
+      finalName += `|NOTE|${note}`
+    }
 
     validatedItems.push({
       menu_item_id: menuItem.id,

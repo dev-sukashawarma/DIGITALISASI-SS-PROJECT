@@ -65,10 +65,18 @@ export const useCart = create<CartStore>()(
             const toRemove = new Set([cartItemId, ...childrenToRemove]);
             return { items: state.items.filter((i) => !toRemove.has(i.cartItemId)) }
           }
+          const newQty = Math.min(quantity, 10);
           return {
-            items: state.items.map((i) =>
-              i.cartItemId === cartItemId ? { ...i, quantity: Math.min(quantity, 10) } : i
-            ),
+            items: state.items.map((i) => {
+              if (i.cartItemId === cartItemId) {
+                return { ...i, quantity: newQty }
+              }
+              if (i.parentId === cartItemId) {
+                // Jangan biarkan quantity extra melebihi quantity parentnya saat dikurangi
+                return { ...i, quantity: Math.min(i.quantity, newQty) }
+              }
+              return i
+            }),
           }
         }),
 

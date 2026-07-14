@@ -154,7 +154,13 @@ export default function ProductDetailClient({
             <h3 className="font-extrabold text-gray-900 text-lg mb-3 px-1">Extra</h3>
             <div className="space-y-2">
               {upsellItems.map(u => (
-                <div key={u.id} className="flex items-center gap-4 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
+                <div 
+                  key={u.id} 
+                  className={`flex items-center gap-4 p-3 rounded-2xl border transition-all ${selectedUpsells[u.id] ? 'border-amber-400 bg-amber-50/50' : 'border-gray-100 bg-white shadow-sm cursor-pointer hover:border-amber-200'}`}
+                  onClick={() => {
+                    if (!selectedUpsells[u.id]) setSelectedUpsells(p => ({...p, [u.id]: 1}))
+                  }}
+                >
                   <div className="w-14 h-14 bg-gray-50 rounded-[1rem] overflow-hidden relative flex-shrink-0">
                     {u.image_url ? (
                       <Image src={u.image_url} alt={u.name} fill className="object-cover" unoptimized/>

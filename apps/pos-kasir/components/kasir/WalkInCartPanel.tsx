@@ -89,43 +89,87 @@ export function WalkInCartPanel(props: {
           </div>
         ) : (
           <div className="space-y-3 max-h-[36vh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
-            {lineList.map((l) => {
-              const discountedPrice = calculateItemPrice(l.item.price, l.item.id)
-              const isChild = !!l.parentId
+            {lineList.filter(l => !l.parentId).map((root) => {
+              const children = lineList.filter(l => l.parentId === root.cartItemId)
+              const discountedPrice = calculateItemPrice(root.item.price, root.item.id)
               return (
-                <div key={l.cartItemId} className={`bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200 ${isChild ? 'ml-6 bg-amber-50/30' : ''}`}>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-semibold text-gray-800 leading-snug ${isChild ? 'text-xs text-amber-900' : 'text-sm'}`}>
-                        {isChild && <span className="font-extrabold text-amber-500 mr-1.5">↳ Extra</span>}
-                        {l.item.name}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        {discountedPrice < l.item.price && (
-                          <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(l.item.price * l.quantity)}</span>
-                        )}
-                        <p className={`${isChild ? 'text-amber-700' : 'text-amber-600'} font-bold text-sm`}>{formatRupiah(discountedPrice * l.quantity)}</p>
+                <div key={root.cartItemId} className="py-2 flex flex-col gap-2 relative">
+                  {/* Vertical Line for Cart */}
+                  {children.length > 0 && (
+                    <div className="absolute left-[20px] top-10 bottom-4 w-[2px] bg-gray-200 z-0" />
+                  )}
+                  
+                  <div className="relative z-10 bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 leading-snug text-sm">
+                          {root.item.name}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {discountedPrice < root.item.price && (
+                            <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(root.item.price * root.quantity)}</span>
+                          )}
+                          <p className="text-amber-600 font-bold text-sm">{formatRupiah(discountedPrice * root.quantity)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-100 flex-shrink-0">
+                        <button onClick={() => setQty(root.cartItemId, root.quantity - 1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
+                          {root.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
+                        </button>
+                        <span className="font-bold text-sm w-5 text-center text-gray-800">{root.quantity}</span>
+                        <button onClick={() => setQty(root.cartItemId, root.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-100 flex-shrink-0">
-                      <button onClick={() => setQty(l.cartItemId, l.quantity - 1)} className="w-7 h-7 rounded-md bg-white shadow-sm text-gray-600 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
-                        {l.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
-                      </button>
-                      <span className="font-bold text-sm w-5 text-center text-gray-800">{l.quantity}</span>
-                      <button onClick={() => setQty(l.cartItemId, l.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  {!isChild && (
                     <div className="relative mt-2.5">
                       <StickyNote className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
-                        value={l.note}
-                        onChange={(e) => setNote(l.cartItemId, e.target.value)}
+                        value={root.note}
+                        onChange={(e) => setNote(root.cartItemId, e.target.value)}
                         placeholder="Catatan opsional..."
                         className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white transition-colors"
                       />
+                    </div>
+                  </div>
+
+                  {/* Children */}
+                  {children.length > 0 && (
+                    <div className="mt-1 space-y-2 relative z-10">
+                      {children.map(child => {
+                        const childDiscountedPrice = calculateItemPrice(child.item.price, child.item.id)
+                        return (
+                          <div key={child.cartItemId} className="relative pl-[3rem]">
+                            {/* L-Shape branch indicator */}
+                            <div className="absolute left-[20px] top-[1.25rem] w-4 h-[2px] bg-gray-200" />
+                            <div className="bg-amber-50/30 rounded-xl p-2 border border-amber-100/50 transition-all hover:border-amber-200 shadow-sm">
+                              <div className="flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-amber-900 leading-snug text-xs">
+                                    <span className="font-extrabold text-amber-500 mr-1.5">↳ Extra</span>
+                                    {child.item.name}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    {childDiscountedPrice < child.item.price && (
+                                      <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(child.item.price * child.quantity)}</span>
+                                    )}
+                                    <p className="text-amber-700 font-bold text-sm">{formatRupiah(childDiscountedPrice * child.quantity)}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 bg-white rounded-lg p-1 border border-gray-100 flex-shrink-0 shadow-sm">
+                                  <button onClick={() => setQty(child.cartItemId, child.quantity - 1)} className="w-6 h-6 rounded-md bg-gray-50 text-gray-600 flex items-center justify-center hover:bg-gray-100 active:scale-95 transition-all">
+                                    {child.quantity === 1 ? <Trash2 className="w-3 h-3 text-red-500" /> : <Minus className="w-3 h-3" />}
+                                  </button>
+                                  <span className="font-bold text-xs w-4 text-center text-gray-800">{child.quantity}</span>
+                                  <button onClick={() => setQty(child.cartItemId, child.quantity + 1)} className="w-6 h-6 rounded-md bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 active:scale-95 transition-all">
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>

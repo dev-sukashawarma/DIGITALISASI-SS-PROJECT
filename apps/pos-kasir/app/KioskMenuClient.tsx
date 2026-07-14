@@ -41,16 +41,31 @@ export default function KioskMenuClient({ initialData }: { initialData: KioskIni
         { event: '*', schema: 'public', table: 'kiosk_settings' },
         (payload) => {
           const updated = payload.new as any
-          if (updated.key === 'unavailable_menu_ids') {
-            try {
-              const unavIds: string[] = JSON.parse(updated.value || '[]')
-              setMenuItems(prev => prev.map(item => {
-                if (item.outlet_id === null) {
-                  return { ...item, is_available: !unavIds.includes(item.id) }
-                }
-                return item
-              }))
-            } catch (e) {}
+          if (updated.key === 'unavailable_menu_ids' || updated.key === 'auto_unavailable_menu_ids') {
+            // Fetch both settings to combine them
+            supabase
+              .from('kiosk_settings')
+              .select('key, value')
+              .eq('outlet_id', outletId)
+              .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids'])
+              .then(({ data }) => {
+                let manualIds: string[] = []
+                let autoIds: string[] = []
+                data?.forEach(row => {
+                  try {
+                    if (row.key === 'unavailable_menu_ids') manualIds = JSON.parse(row.value || '[]')
+                    if (row.key === 'auto_unavailable_menu_ids') autoIds = JSON.parse(row.value || '[]')
+                  } catch (e) {}
+                })
+                const combined = new Set([...manualIds, ...autoIds])
+                
+                setMenuItems(prev => prev.map(item => {
+                  if (item.outlet_id === null) {
+                    return { ...item, is_available: !combined.has(item.id) }
+                  }
+                  return item
+                }))
+              })
           } else if (updated.key === 'bestseller_ids') {
             try { setBestsellerIds(JSON.parse(updated.value || '[]')) } catch (e) {}
           } else if (updated.key === 'cover_image_url') {

@@ -1,3 +1,6 @@
+-- 0. Ensure outlets.marquee_warning_threshold column exists
+ALTER TABLE public.outlets ADD COLUMN IF NOT EXISTS marquee_warning_threshold INT DEFAULT 7 NOT NULL;
+
 -- 1. Remove auto disable logic from process_menu_sync_queue
 CREATE OR REPLACE FUNCTION public.process_menu_sync_queue()
 RETURNS void AS $$
@@ -5,6 +8,7 @@ BEGIN
     DELETE FROM public.menu_sync_queue;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
 
 -- 2. Clear out any existing auto_unavailable_menu_ids
 UPDATE public.kiosk_settings 

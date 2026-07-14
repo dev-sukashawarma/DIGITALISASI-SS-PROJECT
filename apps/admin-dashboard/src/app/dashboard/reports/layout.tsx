@@ -15,6 +15,7 @@ const REPORT_TABS: ReportTab[] = [
   { href: '/dashboard/reports/voids', label: 'Batal & Kecurangan', roles: ['OWNER', 'ADMIN'] },
   { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', roles: ['OWNER', 'ADMIN'] },
   { href: '/dashboard/reports/target-harian', label: 'Target Harian', roles: ['OWNER', 'ADMIN'] },
+  { href: '/dashboard/reports/crew-bonus', label: 'Bonus Crew', roles: ['OWNER', 'ADMIN'] },
   { href: '/dashboard/reports/pembelian', label: 'Pembelian', roles: ['ADMIN'] },
   { href: '/dashboard/reports/pos', label: 'Shift POS', roles: ['ADMIN'] },
 ]

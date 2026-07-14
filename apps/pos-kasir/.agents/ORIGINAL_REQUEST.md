@@ -62,3 +62,39 @@ Buat sebuah API route baru di POS Kasir (contoh: `/api/orders/update-status`) ya
 - [ ] Tersedia *source code* lengkap untuk API route `/api/orders/update-status` di POS Kasir.
 - [ ] API penerima di POS Kasir memvalidasi *secret token* untuk mencegah akses publik yang tidak sah.
 - [ ] Perubahan status di *database* POS Kasir dipastikan berjalan (teruji via *mock script* atau agen penilai).
+
+## Follow-up — 2026-07-14T05:00:42Z
+
+Implement a Crew Bonus feature in the POS system where crew members equally share a daily bonus if their outlet meets its daily sales target, with monthly automated calculation and reporting.
+
+Working directory: c:\Users\Digital Marketing\OneDrive\Desktop\project\DIGITALISASI-SS-PROJECT\apps\pos-kasir
+Integrity mode: development
+
+## Requirements
+
+### R1. Database & Target Settings
+Update the existing `daily_sales_targets` table (via Supabase migration) to include a `bonus_amount` column (Decimal/Numeric, default 0). Update any relevant RPCs (e.g., `set_daily_target`) to accept and store this new field.
+
+### R2. Bonus Calculation Logic
+Create a Supabase RPC named `calculate_monthly_crew_bonus(p_month INT, p_year INT, p_outlet_id UUID)`. The logic must:
+- Filter `orders` with status `completed` for the given month.
+- Group sales per day and compare against the day's `target_amount` from `daily_sales_targets`.
+- If a day's sales >= target, accumulate that day's `bonus_amount`.
+- Get the count of staff with the `crew` role at that outlet.
+- Divide the total accumulated bonus equally among the crew (pembagian rata).
+- Return a summary: Crew Name, Role, Outlet, Days Target Reached, Total Bonus Received.
+
+### R3. Admin Configuration UI
+Modify the existing Outlet/Target Settings page in the frontend to include an input for "Nominal Bonus Harian (Rp)". Ensure this is only accessible/editable by `admin` or `owner` roles.
+
+### R4. Monthly Report UI
+Create a new report page (e.g., `/dashboard/reports/crew-bonus`) with filters for Month, Year, and Outlet. Display a table showing the data returned by the `calculate_monthly_crew_bonus` RPC. Admin/Owner can see all outlets, while crew only see their own.
+
+## Acceptance Criteria
+
+### Functionality & Verification
+- [ ] Migration script successfully adds the `bonus_amount` column without breaking existing data.
+- [ ] A test script (e.g., `scratch/test-bonus-logic.js`) demonstrates that the RPC correctly groups sales by day, checks targets, and divides the bonus equally among crew members.
+- [ ] The Frontend Target Setting UI successfully saves the `bonus_amount` to the database.
+- [ ] The Frontend Report UI successfully fetches and displays the correct bonus calculation based on mock/test orders.
+- [ ] RLS policies prevent unauthorized modification of the bonus amount.

@@ -17,6 +17,7 @@ export interface TargetRow {
   outlet_id: string
   outlet_name: string
   target_amount: number
+  bonus_amount: number
   is_override: boolean
 }
 
@@ -65,15 +66,17 @@ function cleanName(name: string) {
 interface TargetsViewProps {
   initialTargets: TargetRow[]
   initialGlobalDefault: number
+  initialGlobalDefaultBonus: number
   initialHistory: OverviewRow[]
 }
 
-export default function TargetsView({ initialTargets, initialGlobalDefault, initialHistory }: TargetsViewProps) {
+export default function TargetsView({ initialTargets, initialGlobalDefault, initialGlobalDefaultBonus, initialHistory }: TargetsViewProps) {
   const supabase = createSupabaseBrowserClient()
   const { isReadOnly } = useRole()
 
   const [rows, setRows] = useState<TargetRow[]>(initialTargets)
   const [globalDefault, setGlobalDefault] = useState<number>(initialGlobalDefault)
+  const [globalDefaultBonus, setGlobalDefaultBonus] = useState<number>(initialGlobalDefaultBonus)
   const [history, setHistory] = useState<OverviewRow[]>(initialHistory)
 
   // ── Compose (target + pesan) ────────────────────────────────────────────
@@ -81,6 +84,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
   const [selectedOutlets, setSelectedOutlets] = useState<Set<string>>(new Set())
   const [outletSearch, setOutletSearch] = useState('')
   const [targetInput, setTargetInput] = useState('')
+  const [bonusInput, setBonusInput] = useState('')
   const [kind, setKind] = useState<Kind>('motivasi')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -91,6 +95,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
 
   // ── Per-outlet quick edit ───────────────────────────────────────────────
   const [overrideInputs, setOverrideInputs] = useState<Record<string, string>>({})
+  const [overrideBonusInputs, setOverrideBonusInputs] = useState<Record<string, string>>({})
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [savedKey, setSavedKey] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -103,7 +108,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
       supabase.rpc('get_current_targets'),
       supabase
         .from('daily_sales_targets')
-        .select('target_amount')
+        .select('target_amount, bonus_amount')
         .is('outlet_id', null)
         .order('effective_from', { ascending: false })
         .order('created_at', { ascending: false })
@@ -116,6 +121,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     }
     setRows((targets ?? []) as TargetRow[])
     setGlobalDefault(globalRow?.target_amount ? Number(globalRow.target_amount) : 0)
+    setGlobalDefaultBonus(globalRow?.bonus_amount ? Number(globalRow.bonus_amount) : 0)
   }, [supabase])
 
   const loadHistory = useCallback(async () => {
@@ -165,6 +171,8 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
 
   const targetAmount = Number(targetInput.replace(/\D/g, ''))
   const hasTarget = targetInput.trim() !== '' && Number.isFinite(targetAmount) && targetAmount >= 0
+  const bonusAmount = Number(bonusInput.replace(/\D/g, ''))
+  const hasBonus = bonusInput.trim() !== '' && Number.isFinite(bonusAmount) && bonusAmount >= 0
   const hasMessage = body.trim().length > 0
   const audienceValid = audienceAll || selectedOutlets.size > 0
 
@@ -172,6 +180,10 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     if (sending) return
     if (!audienceValid) {
       toast.error('Silakan pilih minimal satu outlet terlebih dahulu.')
+      return
+    }
+    if (hasBonus && !hasTarget) {
+      toast.error('Nominal target harian harus diisi jika ingin mengatur bonus harian.')
       return
     }
     if (!hasTarget && !hasMessage) {
@@ -182,11 +194,19 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     try {
       if (hasTarget) {
         if (audienceAll) {
-          const { error } = await supabase.rpc('set_daily_target', { p_outlet: null, p_amount: targetAmount })
+          const { error } = await supabase.rpc('set_daily_target', {
+            p_outlet: null,
+            p_amount: targetAmount,
+            p_bonus: hasBonus ? bonusAmount : 0
+          })
           if (error) throw error
         } else {
           for (const id of selectedOutlets) {
-            const { error } = await supabase.rpc('set_daily_target', { p_outlet: id, p_amount: targetAmount })
+            const { error } = await supabase.rpc('set_daily_target', {
+              p_outlet: id,
+              p_amount: targetAmount,
+              p_bonus: hasBonus ? bonusAmount : 0
+            })
             if (error) throw error
           }
         }
@@ -205,6 +225,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
       setSent(true)
       setTimeout(() => setSent(false), 2000)
       setTargetInput('')
+      setBonusInput('')
       setTitle('')
       setBody('')
       setSelectedOutlets(new Set())
@@ -219,14 +240,30 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
 
   // ── Per-outlet quick edit ─────────────────────────────────────────────────
   const saveOverride = async (outletId: string) => {
-    const raw = overrideInputs[outletId] ?? ''
-    const amount = Number(raw.replace(/\D/g, ''))
+    const row = rows.find((x) => x.outlet_id === outletId)
+    if (!row) return
+
+    const rawTarget = overrideInputs[outletId] ?? ''
+    const rawBonus = overrideBonusInputs[outletId] ?? ''
+
+    if (!rawTarget.trim() && !rawBonus.trim()) return
+
+    const amount = rawTarget.trim() !== '' ? Number(rawTarget.replace(/\D/g, '')) : row.target_amount
+    const bonus = rawBonus.trim() !== '' ? Number(rawBonus.replace(/\D/g, '')) : row.bonus_amount
+
     if (!Number.isFinite(amount) || amount < 0) return
+    if (!Number.isFinite(bonus) || bonus < 0) return
+
     setSavingKey(outletId)
-    const { error } = await supabase.rpc('set_daily_target', { p_outlet: outletId, p_amount: amount })
+    const { error } = await supabase.rpc('set_daily_target', {
+      p_outlet: outletId,
+      p_amount: amount,
+      p_bonus: bonus
+    })
     setSavingKey(null)
     if (error) { toast.error(error.message); return; }
     setOverrideInputs((m) => ({ ...m, [outletId]: '' }))
+    setOverrideBonusInputs((m) => ({ ...m, [outletId]: '' }))
     flashSaved(outletId)
     await loadTargets()
   }
@@ -374,6 +411,28 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                   <p className="text-[10px] text-suka-gray-400 font-semibold mt-1.5">
                     {audienceAll
                       ? <>Jadi <b>default global</b> (kini {rupiah(globalDefault)}/hari). Outlet dengan override tidak berubah.</>
+                      : <>Jadi <b>override</b> untuk {selectedOutlets.size || 0} outlet terpilih.</>}
+                  </p>
+                </div>
+
+                {/* Bonus Harian (opsional) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider mb-2">
+                    <Sparkles className="w-3 h-3 inline mr-1" /> Nominal Bonus Harian (opsional)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-sm font-bold">Rp</span>
+                    <input
+                      inputMode="numeric"
+                      value={bonusInput ? Number(bonusInput).toLocaleString('id-ID') : ''}
+                      onChange={(e) => setBonusInput(e.target.value.replace(/\D/g, ''))}
+                      placeholder="mis. 150.000"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
+                    />
+                  </div>
+                  <p className="text-[10px] text-suka-gray-400 font-semibold mt-1.5">
+                    {audienceAll
+                      ? <>Jadi <b>default global</b> (kini {rupiah(globalDefaultBonus)}/hari). Outlet dengan override tidak berubah.</>
                       : <>Jadi <b>override</b> untuk {selectedOutlets.size || 0} outlet terpilih.</>}
                   </p>
                 </div>
@@ -540,7 +599,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                 <Store className="w-4 h-4 text-suka-brown" />
                 <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Target Per Outlet</h3>
                 {!isReadOnly && (
-                  <span className="text-[10px] font-bold text-suka-gray-400">· Default global: {rupiah(globalDefault)}/hari</span>
+                  <span className="text-[10px] font-bold text-suka-gray-400">· Default global: Target {rupiah(globalDefault)} & Bonus {rupiah(globalDefaultBonus)} / hari</span>
                 )}
               </div>
               <div className="relative w-full sm:w-64">
@@ -570,44 +629,63 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                         <span className="text-[9px] font-bold text-suka-gray-400 bg-suka-gray-100 px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0">Default</span>
                       )}
                     </div>
-                    <div className="text-xs font-bold text-suka-gray-500 sm:w-32 shrink-0">
-                      Kini: <span className="text-suka-brown">{rupiah(r.target_amount)}</span>
+                    <div className="text-xs font-bold text-suka-gray-500 sm:w-64 shrink-0 flex flex-col md:flex-row md:gap-3">
+                      <div>Target: <span className="text-suka-brown">{rupiah(r.target_amount)}</span></div>
+                      <div>Bonus: <span className="text-suka-orange">{rupiah(r.bonus_amount)}</span></div>
                     </div>
                     {isReadOnly ? (
-                      <div className="flex flex-1 items-center">
-                        <span className="text-sm font-extrabold text-suka-brown">{rupiah(r.target_amount)}</span>
-                        <span className="ml-2 text-[10px] font-bold text-suka-gray-400 uppercase">/ hari</span>
+                      <div className="flex flex-1 items-center gap-4">
+                        <div>
+                          <span className="text-sm font-extrabold text-suka-brown">{rupiah(r.target_amount)}</span>
+                          <span className="ml-1 text-[10px] font-bold text-suka-gray-400 uppercase">Target</span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-extrabold text-suka-orange">{rupiah(r.bonus_amount)}</span>
+                          <span className="ml-1 text-[10px] font-bold text-suka-gray-400 uppercase">Bonus</span>
+                        </div>
                       </div>
                     ) : (
-                      <div className="flex flex-1 gap-2">
+                      <div className="flex flex-1 flex-col md:flex-row gap-2">
                         <div className="relative flex-1">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-xs font-bold">Rp</span>
                           <input
                             inputMode="numeric"
                             value={overrideInputs[r.outlet_id] ? Number(overrideInputs[r.outlet_id]).toLocaleString('id-ID') : ''}
                             onChange={(e) => setOverrideInputs((m) => ({ ...m, [r.outlet_id]: e.target.value.replace(/\D/g, '') }))}
-                            placeholder="set override..."
-                            className="w-full pl-8 pr-3 py-2 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
+                            placeholder="target override..."
+                            className="w-full pl-8 pr-3 py-2 rounded-xl text-xs font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
                           />
                         </div>
-                        <button
-                          onClick={() => saveOverride(r.outlet_id)}
-                          disabled={isSaving || !(overrideInputs[r.outlet_id] ?? '')}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-suka-orange hover:bg-amber-600 disabled:opacity-40 text-white font-bold text-xs transition-all active:scale-95 shrink-0"
-                        >
-                          {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isSaved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                          <span className="hidden sm:inline">Simpan</span>
-                        </button>
-                        {r.is_override && (
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-xs font-bold">Rp</span>
+                          <input
+                            inputMode="numeric"
+                            value={overrideBonusInputs[r.outlet_id] ? Number(overrideBonusInputs[r.outlet_id]).toLocaleString('id-ID') : ''}
+                            onChange={(e) => setOverrideBonusInputs((m) => ({ ...m, [r.outlet_id]: e.target.value.replace(/\D/g, '') }))}
+                            placeholder="bonus override..."
+                            className="w-full pl-8 pr-3 py-2 rounded-xl text-xs font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
+                          />
+                        </div>
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => clearOverride(r.outlet_id)}
-                            disabled={isSaving}
-                            title="Hapus override (ikut default)"
-                            className="flex items-center justify-center px-2.5 py-2 rounded-xl border border-suka-gray-200 text-suka-gray-500 hover:text-suka-brown hover:border-suka-brown/20 transition-all active:scale-95 shrink-0"
+                            onClick={() => saveOverride(r.outlet_id)}
+                            disabled={isSaving || (!(overrideInputs[r.outlet_id] ?? '').trim() && !(overrideBonusInputs[r.outlet_id] ?? '').trim())}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-suka-orange hover:bg-amber-600 disabled:opacity-40 text-white font-bold text-xs transition-all active:scale-95 shrink-0"
                           >
-                            <RotateCcw className="w-3.5 h-3.5" />
+                            {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isSaved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                            <span className="hidden sm:inline">Simpan</span>
                           </button>
-                        )}
+                          {r.is_override && (
+                            <button
+                              onClick={() => clearOverride(r.outlet_id)}
+                              disabled={isSaving}
+                              title="Hapus override (ikut default)"
+                              className="flex items-center justify-center px-2.5 py-2 rounded-xl border border-suka-gray-200 text-suka-gray-500 hover:text-suka-brown hover:border-suka-brown/20 transition-all active:scale-95 shrink-0"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

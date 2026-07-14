@@ -1,7 +1,12 @@
-import { type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { enforceAppAccess } from '@suka/auth'
 
 export function middleware(request: NextRequest) {
+  // Rute publik → langsung lolos tanpa cek auth
+  if (request.nextUrl.pathname.startsWith('/public/')) {
+    return NextResponse.next()
+  }
+
   // Skip enforceAppAccess untuk localhost development
   if (request.nextUrl.hostname === 'localhost') {
     return undefined

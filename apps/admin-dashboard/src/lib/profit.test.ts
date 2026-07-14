@@ -40,3 +40,23 @@ describe('computeCompanyProfit', () => {
     expect(r.labaPerusahaan).toBe(3_800_000)
   })
 })
+
+describe('computeProfit dengan waste', () => {
+  it('kerugian waste mengurangi laba bersih, tidak menyentuh laba kotor/HPP', () => {
+    const r = computeProfit(10_000_000, 4_000_000, 2_000_000, 500_000)
+    expect(r.labaKotor).toBe(6_000_000)      // omzet - hpp, tidak berubah
+    expect(r.labaBersih).toBe(3_500_000)     // labaKotor - expenses - waste
+  })
+  it('wasteValue default 0 kalau tidak diberikan (backward compatible)', () => {
+    const r = computeProfit(10_000_000, 4_000_000, 2_000_000)
+    expect(r.labaBersih).toBe(4_000_000)
+  })
+})
+
+describe('computeOutletProfit dengan waste', () => {
+  it('laba outlet = omzet - hpp - pengeluaran outlet - waste', () => {
+    const r = computeOutletProfit(1_000_000, 300_000, 200_000, 50_000)
+    expect(r.labaKotor).toBe(700_000)
+    expect(r.labaBersih).toBe(450_000)
+  })
+})

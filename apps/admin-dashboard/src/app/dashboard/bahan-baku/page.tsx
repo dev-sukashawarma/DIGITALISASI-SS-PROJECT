@@ -1,6 +1,5 @@
 'use client'
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
 import { toast } from 'sonner'
 import { Spinner } from '@suka/design-system'
 import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react'
@@ -10,7 +9,6 @@ import { usePOPriceAlerts } from '@/hooks/usePOPriceAlerts'
 import { filterAndSortBahanBaku, type SortOption } from '@/lib/bahanBaku'
 import { BahanBakuFilters } from '@/components/BahanBakuFilters'
 import { BahanBakuTable } from '@/components/BahanBakuTable'
-import { rupiah } from '@/lib/format'
 
 export default function BahanBakuPage() {
   const { data: rows = [], isLoading } = useBahanBakuHarga()

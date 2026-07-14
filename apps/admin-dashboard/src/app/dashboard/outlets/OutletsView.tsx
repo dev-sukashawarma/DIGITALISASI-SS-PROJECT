@@ -1,7 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useOutletMutations } from '@/hooks/useOutletMutations'
@@ -89,17 +89,39 @@ export default function OutletsPage() {
         </Button>
       </div>
 
-      {showForm && !editing && (
-        <div className="rounded-2xl border-2 border-suka-orange/40 bg-white p-4 sm:p-6">
-          <h3 className="mb-4 font-bold text-suka-ink">Outlet Baru</h3>
-          <OutletForm isEdit={false} submitting={create.isPending} onSubmit={handleCreate} />
-        </div>
-      )}
-
-      {editing && (
-        <div className="rounded-2xl border-2 border-blue-300 bg-white p-4 sm:p-6">
-          <h3 className="mb-4 font-bold text-suka-ink">Edit — {editing.name}</h3>
-          <OutletForm isEdit submitting={update.isPending} onSubmit={handleUpdate} initial={toFormValues(editing)} />
+      {(showForm || editing) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-6 backdrop-blur-sm">
+          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-suka-gray-100 p-4 sm:p-6 bg-suka-cream/30">
+              <h3 className="text-xl font-bold text-suka-ink">
+                {editing ? `Edit — ${editing.name}` : 'Outlet Baru'}
+              </h3>
+              <button 
+                onClick={() => { setShowForm(false); setEditing(null) }}
+                className="p-2 -mr-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {editing ? (
+                <OutletForm 
+                  isEdit 
+                  submitting={update.isPending} 
+                  onSubmit={handleUpdate} 
+                  initial={toFormValues(editing)} 
+                  onCancel={() => setEditing(null)}
+                />
+              ) : (
+                <OutletForm 
+                  isEdit={false} 
+                  submitting={create.isPending} 
+                  onSubmit={handleCreate} 
+                  onCancel={() => setShowForm(false)}
+                />
+              )}
+            </div>
+          </div>
         </div>
       )}
 

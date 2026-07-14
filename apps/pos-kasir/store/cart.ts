@@ -50,14 +50,20 @@ export const useCart = create<CartStore>()(
       },
 
       removeItem: (cartItemId) =>
-        set((state) => ({
-          items: state.items.filter((i) => i.cartItemId !== cartItemId),
-        })),
+        set((state) => {
+          const childrenToRemove = state.items.filter((i) => i.parentId === cartItemId).map(i => i.cartItemId);
+          const toRemove = new Set([cartItemId, ...childrenToRemove]);
+          return {
+            items: state.items.filter((i) => !toRemove.has(i.cartItemId)),
+          }
+        }),
 
       updateQuantity: (cartItemId, quantity) =>
         set((state) => {
           if (quantity <= 0) {
-            return { items: state.items.filter((i) => i.cartItemId !== cartItemId) }
+            const childrenToRemove = state.items.filter((i) => i.parentId === cartItemId).map(i => i.cartItemId);
+            const toRemove = new Set([cartItemId, ...childrenToRemove]);
+            return { items: state.items.filter((i) => !toRemove.has(i.cartItemId)) }
           }
           return {
             items: state.items.map((i) =>

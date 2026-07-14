@@ -14,12 +14,13 @@ const EMPTY: OutletFormValues = {
 }
 
 export function OutletForm({
-  initial, submitting, isEdit, onSubmit,
+  initial, submitting, isEdit, onSubmit, onCancel
 }: {
   initial?: OutletFormValues
   submitting: boolean
   isEdit: boolean
   onSubmit: (v: OutletFormValues) => void
+  onCancel?: () => void
 }) {
   const [v, setV] = useState<OutletFormValues>(initial ?? EMPTY)
   const [slugTouched, setSlugTouched] = useState(isEdit)
@@ -109,7 +110,12 @@ export function OutletForm({
         <span className="font-medium text-suka-ink">Aktif</span>
       </label>
 
-      <div className="sm:col-span-2">
+      <div className="sm:col-span-2 flex items-center justify-end gap-3 mt-4 pt-4 border-t border-suka-gray-100">
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-suka-gray-500 hover:text-suka-ink transition-colors">
+            Batal
+          </button>
+        )}
         <Button type="submit" disabled={submitting} className="rounded-xl">
           {submitting ? 'Menyimpan…' : isEdit ? 'Simpan Perubahan' : 'Buat Outlet'}
         </Button>

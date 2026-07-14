@@ -14,16 +14,16 @@ export async function GET(request: Request) {
 
     const supabase = createServiceClient()
 
-    // 24 jam yang lalu
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    // 5 jam yang lalu
+    const expiredTime = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString()
 
-    // Ambil order yang masih 'pending' (menunggu pembayaran) lebih dari 24 jam lalu update menjadi cancelled
+    // Ambil order yang masih 'pending' (menunggu pembayaran) lebih dari 5 jam lalu update menjadi cancelled
     // Kita gunakan update dengan filter lte created_at
     const { data: cancelledOrders, error: updateError } = await supabase
       .from('orders')
       .update({ status: 'cancelled' })
       .eq('status', 'pending')
-      .lte('created_at', yesterday)
+      .lte('created_at', expiredTime)
       .select('id, receipt_number')
 
     if (updateError) throw updateError

@@ -160,7 +160,7 @@ export default function BonusTab() {
                   </td>
                 </tr>
               ) : (
-                dailyData?.map((row: any, i: number) => {
+                [...dailyData].reverse().map((row: any, i: number) => {
                   const dateLabel = new Date(row.order_date).toLocaleDateString('id-ID', {
                     day: 'numeric', month: 'short'
                   })

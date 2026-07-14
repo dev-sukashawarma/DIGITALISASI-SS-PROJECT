@@ -23,7 +23,7 @@ const links = [
   },
   { href: '/kasir/menu',       label: 'Manajemen Menu',icon: Sandwich },
   { href: '/kasir/shift',      label: 'Petty Cash',   icon: Wallet },
-  { href: '/kasir/histori',    label: 'Histori',       icon: ClipboardList },
+  { href: '/kasir/histori',    label: 'Histori & Bonus',       icon: ClipboardList },
   { href: '/kasir/kiosk',      label: 'Kontrol Device Pelanggan', icon: Monitor },
   { href: '/kasir/reports',    label: 'Laporan',       icon: BarChart3 },
   { href: '/kasir/settings',   label: 'Tampilan Layar',icon: ImageIcon },

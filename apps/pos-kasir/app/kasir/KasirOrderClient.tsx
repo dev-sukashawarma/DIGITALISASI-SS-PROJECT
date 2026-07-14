@@ -18,6 +18,7 @@ import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import ChannelBadge from '@/components/ChannelBadge'
 import StockMarquee from '@/components/StockMarquee'
+import { useStockAlerts } from '@/lib/useStockAlerts'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { postToNative } from '@suka/design-system'
 import { useDialogStore } from '@/lib/dialogStore'
@@ -226,6 +227,28 @@ export default function KasirOrderClient({
   const { outletId: clientOutletId, outletName } = useMyOutlet()
   const { brandLogo } = useBrand()
   const outletId = clientOutletId || serverOutletId // Fallback to SSR outletId to prevent flash
+
+  const { criticalItems } = useStockAlerts(outletId)
+  
+  const shawarmaRemaining = useMemo(() => {
+    if (!criticalItems || criticalItems.length === 0) return null;
+    let minPortions = Infinity;
+    criticalItems.forEach(item => {
+      if (!item.projection_text) return
+      const parts = item.projection_text.split(' atau ')
+      parts.forEach(part => {
+        const match = part.match(/(.*?)\s*\((\d+)\s*porsi\)/)
+        if (match) {
+          const menuName = match[1].trim()
+          const portions = parseInt(match[2], 10)
+          if (menuName.toLowerCase().includes('shawarma')) {
+            minPortions = Math.min(minPortions, portions)
+          }
+        }
+      })
+    })
+    return minPortions === Infinity ? null : minPortions;
+  }, [criticalItems])
 
   const { data: serverOrders = (initialOrders || []), isLoading: loading, isFetched: ordersFetched } = useQuery({
     queryKey: ['orders', outletId],
@@ -522,7 +545,8 @@ export default function KasirOrderClient({
   // Mark as Preparing
   async function markAsPreparing(order: ParsedOrder) {
     postToNative({ type: 'haptic', style: 'success' })
-    await applyStatusChange(order.id, { status: 'preparing', kitchen_receipt_printed: true })
+    const success = await applyStatusChange(order.id, { status: 'preparing', kitchen_receipt_printed: true })
+    if (!success) return
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
 
     // Generate and print kitchen receipt
@@ -546,7 +570,8 @@ export default function KasirOrderClient({
   // Mark as Completed
   async function markAsCompleted(id: string) {
     postToNative({ type: 'haptic', style: 'success' })
-    await applyStatusChange(id, { status: 'completed' })
+    const success = await applyStatusChange(id, { status: 'completed' })
+    if (!success) return false
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
     queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
 
@@ -557,12 +582,14 @@ export default function KasirOrderClient({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order_id: id }),
     }).catch((err) => console.error('Gagal mengirim notifikasi online ke order-system:', err))
+    return true
   }
 
   // Handle completion and print receipt
   async function handleCompleteAndPrint(order: ParsedOrder) {
     // 1. Mark as completed
-    await markAsCompleted(order.id)
+    const success = await markAsCompleted(order.id)
+    if (!success) return
     
     // 2. Generate and print receipt
     const receiptData: ReceiptData = {
@@ -641,6 +668,43 @@ export default function KasirOrderClient({
       }
     }
   }
+
+  // Auto cancel orders pending > 5 hours
+  useEffect(() => {
+    if (!ordersFetched) return;
+    
+    const checkExpired = () => {
+      const fiveHoursAgo = Date.now() - 5 * 60 * 60 * 1000
+      const expired = orders.filter(o => o.status === 'pending' && new Date(o.created_at).getTime() < fiveHoursAgo)
+      
+      if (expired.length > 0) {
+        expired.forEach(async (order) => {
+          try {
+            const success = await applyStatusChange(order.id, {
+              status: 'cancelled',
+              void_reason: 'Otomatis batal karena melewati batas waktu 5 jam',
+              void_at: new Date().toISOString()
+            })
+            if (!success) return; // Prevent side-effects if failed
+            if (order.source === 'online' && order.external_order_id) {
+              fetch('/api/orders/notify-online-cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: order.id }),
+              }).catch(() => {})
+            }
+          } catch (err) {
+            console.error('Failed to auto-cancel order', err)
+          }
+        })
+        queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
+      }
+    }
+
+    const t = setInterval(checkExpired, 60000)
+    checkExpired()
+    return () => clearInterval(t)
+  }, [orders, outletId, queryClient, ordersFetched])
 
   const filteredOrders = orders.filter(o => {
     if (sourceFilter === 'all') return true
@@ -885,10 +949,18 @@ export default function KasirOrderClient({
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Order</h1>
           {isMounted && outletName && (
-            <p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-1.5 bg-[#f5ede3] px-3 py-1.5 rounded-lg w-max max-w-full border border-[#d9c2b2]">
-              <Store className="w-4 h-4 text-[#f29744] shrink-0" />
-              <span className="truncate">Anda berada di cabang: <strong className="text-[#1e1b15]">{outletName}</strong></span>
-            </p>
+            <div className="flex flex-col gap-1.5 mt-1">
+              <p className="text-sm font-medium text-slate-500 flex items-center gap-1.5 bg-[#f5ede3] px-3 py-1.5 rounded-lg w-max max-w-full border border-[#d9c2b2]">
+                <Store className="w-4 h-4 text-[#f29744] shrink-0" />
+                <span className="truncate">Anda berada di cabang: <strong className="text-[#1e1b15]">{outletName}</strong></span>
+              </p>
+              {shawarmaRemaining !== null && shawarmaRemaining < 7 && (
+                <Link href="/kasir/info-porsi" className="text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded-lg flex items-center w-max transition-colors shadow-sm">
+                  <Flame className="w-3.5 h-3.5 mr-1.5 animate-pulse" />
+                  Sisa Shawarma: {shawarmaRemaining === 0 ? 'HABIS' : `${shawarmaRemaining} Porsi`} <span className="ml-1 text-red-500/70 font-normal">(Klik Detail)</span>
+                </Link>
+              )}
+            </div>
           )}
         </div>
         

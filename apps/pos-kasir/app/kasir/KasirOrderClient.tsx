@@ -17,7 +17,7 @@ import {
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import ChannelBadge from '@/components/ChannelBadge'
-import StockWidget from '@/components/StockWidget'
+import StockMarquee from '@/components/StockMarquee'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { postToNative } from '@suka/design-system'
 import { useDialogStore } from '@/lib/dialogStore'
@@ -212,6 +212,11 @@ export default function KasirOrderClient({
 
   // Audio state
   const [audioPermission, setAudioPermission] = useState(true)
+
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const knownOrderIds = useRef<Set<string>>(new Set((initialOrders || []).map(o => o.id)))
   const hasFetchedInitial = useRef<boolean>(!!initialOrders) // Set to true because we already have initial data from SSR
@@ -505,7 +510,11 @@ export default function KasirOrderClient({
         return true
       }
       console.error('Update order failed:', error)
-      showAlert(`Gagal mengupdate pesanan: ${error.message}`)
+      let errMsg = error.message || 'Terjadi kesalahan sistem';
+      if (errMsg.includes('Stok tidak cukup')) {
+        errMsg = 'Stok bahan baku tidak mencukupi untuk memproses pesanan ini.';
+      }
+      showAlert(`Gagal mengupdate pesanan: ${errMsg}`)
       return false
     }
   }
@@ -869,13 +878,13 @@ export default function KasirOrderClient({
         </button>
       )}
 
-      <StockWidget />
+      <StockMarquee />
 
       {/* ── Header & Stats ── */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 flex-wrap pb-4 border-b border-slate-200">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Order</h1>
-          {outletName && (
+          {isMounted && outletName && (
             <p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-1.5 bg-[#f5ede3] px-3 py-1.5 rounded-lg w-max max-w-full border border-[#d9c2b2]">
               <Store className="w-4 h-4 text-[#f29744] shrink-0" />
               <span className="truncate">Anda berada di cabang: <strong className="text-[#1e1b15]">{outletName}</strong></span>

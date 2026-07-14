@@ -5,7 +5,7 @@ ALTER TABLE public.outlets ADD COLUMN IF NOT EXISTS marquee_warning_threshold IN
 CREATE OR REPLACE FUNCTION public.process_menu_sync_queue()
 RETURNS void AS $$
 BEGIN
-    DELETE FROM public.menu_sync_queue;
+    DELETE FROM public.menu_sync_queue WHERE outlet_id IS NOT NULL;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

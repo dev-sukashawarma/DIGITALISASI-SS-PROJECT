@@ -1,19 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch, Tag, Loader2, Wallet, ChefHat } from 'lucide-react'
+import { ClipboardList, Sandwich, LogOut, Bell, BarChart3, Menu, X, Monitor, Image as ImageIcon, BookOpen, ChevronLeft, ChevronRight, ArrowLeft, PackageSearch, Tag, Loader2, Wallet, ChefHat, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { fastLogout } from '@/lib/fast-logout'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { useStockAlerts } from '@/lib/useStockAlerts'
 import { getStokUrl } from '@/lib/stokUrl'
-import { useEffect } from 'react'
 import { useBrand } from '@/components/BrandContext'
 import { useNetworkStatus } from '@/lib/useNetworkStatus'
+
 const links = [
-  { href: '/kasir',            label: 'Order',         icon: Bell },
+  { 
+    label: 'Order', 
+    icon: Bell,
+    subItems: [
+      { href: '/kasir', label: 'Pesanan Kasir' },
+      { href: '/kasir/info-porsi', label: 'Info Porsi & Stok' }
+    ]
+  },
   { href: '/kasir/menu',       label: 'Manajemen Menu',icon: Sandwich },
   { href: '/kasir/shift',      label: 'Petty Cash',   icon: Wallet },
   { href: '/kasir/histori',    label: 'Histori',       icon: ClipboardList },
@@ -40,6 +47,14 @@ export default function KasirNav() {
   const [offlineQueueCount, setOfflineQueueCount] = useState(0)
 
   const [isCollapsed, setIsCollapsed] = useState(true)
+  const [orderDropdownOpen, setOrderDropdownOpen] = useState(false)
+
+  // When expanding sidebar, ensure dropdown is closed initially
+  useEffect(() => {
+    if (isCollapsed) {
+      setOrderDropdownOpen(false)
+    }
+  }, [isCollapsed])
 
   useEffect(() => {
     // Polling for offline queue count
@@ -56,7 +71,6 @@ export default function KasirNav() {
     const interval = setInterval(fetchQueueCount, 10000)
     return () => clearInterval(interval)
   }, [])
-
 
   useEffect(() => {
     const stored = localStorage.getItem('kasir_sidebar_collapsed')
@@ -108,7 +122,6 @@ export default function KasirNav() {
     }
 
     setLoggingOut(true)
-    // Hard redirect di fastLogout otomatis membuang cache React Query.
     await fastLogout(resolvedPortalUrl)
   }
 
@@ -154,7 +167,7 @@ export default function KasirNav() {
 
       {/* Sidebar */}
       <aside
-        className={`print:hidden fixed lg:sticky top-0 left-0 z-50 lg:z-auto
+        className={`print:hidden fixed lg:sticky top-0 left-0 z-50 lg:z-[100]
           h-[100dvh] shrink-0 self-start
           bg-[#f5ede3] border-r border-[#d9c2b2]
           flex flex-col
@@ -200,24 +213,102 @@ export default function KasirNav() {
           </button>
         </div>
 
-        <nav className={`flex-1 overflow-y-auto py-6 space-y-2 ${isCollapsed ? 'px-2.5' : 'px-4'}`}>
-          {links.map(({ href, label, icon: Icon }) => {
-            const active = href === '/kasir' ? pathname === '/kasir' : pathname.startsWith(href)
+        <nav className={`flex-1 py-6 space-y-2 ${isCollapsed ? 'px-2.5 overflow-visible' : 'px-4 overflow-y-auto'} pb-24`}>
+          {links.map((link) => {
+            const hasSubItems = !!link.subItems && link.subItems.length > 0;
+            const Icon = link.icon;
+
+            if (!hasSubItems) {
+              const href = link.href!;
+              const active = href === '/kasir' ? pathname === '/kasir' : pathname.startsWith(href)
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setOpen(false)}
+                  className={`flex items-center rounded-2xl text-[15px] font-bold transition-all
+                    ${isCollapsed ? 'justify-center p-3.5' : 'gap-3 px-4 py-3'}
+                    ${active 
+                      ? 'bg-[#f29744] text-[#643400] border-l-4 border-[#904d00] shadow-sm' 
+                      : 'text-[#544437] hover:text-[#1e1b15] hover:bg-[#e9e1d8]'}`}
+                  title={isCollapsed ? link.label : undefined}
+                >
+                  <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-[#904d00]' : 'text-[#877365]'}`} strokeWidth={active ? 2.5 : 2} />
+                  {!isCollapsed && <span className="animate-fade-in truncate">{link.label}</span>}
+                </Link>
+              )
+            }
+
+            // Dropdown logic for subItems
+            const anySubActive = link.subItems!.some(sub => sub.href === '/kasir' ? pathname === '/kasir' : pathname.startsWith(sub.href));
+
             return (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className={`flex items-center rounded-2xl text-[15px] font-bold transition-all
-                  ${isCollapsed ? 'justify-center p-3.5' : 'gap-3 px-4 py-3'}
-                  ${active 
-                    ? 'bg-[#f29744] text-[#643400] border-l-4 border-[#904d00] shadow-sm' 
-                    : 'text-[#544437] hover:text-[#1e1b15] hover:bg-[#e9e1d8]'}`}
-                title={isCollapsed ? label : undefined}
-              >
-                <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-[#904d00]' : 'text-[#877365]'}`} strokeWidth={active ? 2.5 : 2} />
-                {!isCollapsed && <span className="animate-fade-in truncate">{label}</span>}
-              </Link>
+              <div key={link.label} className="relative group">
+                {/* Main Button */}
+                <button
+                  onClick={() => {
+                    setOrderDropdownOpen(!orderDropdownOpen)
+                  }}
+                  className={`flex items-center justify-between w-full rounded-2xl text-[15px] font-bold transition-all
+                    ${isCollapsed ? 'justify-center p-3.5' : 'px-4 py-3'}
+                    ${anySubActive && !orderDropdownOpen && isCollapsed
+                      ? 'bg-[#f29744] text-[#643400] border-l-4 border-[#904d00] shadow-sm' 
+                      : 'text-[#544437] hover:text-[#1e1b15] hover:bg-[#e9e1d8]'}`}
+                >
+                  <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+                    <Icon className={`w-5 h-5 shrink-0 ${anySubActive && isCollapsed ? 'text-[#904d00]' : 'text-[#877365]'}`} strokeWidth={anySubActive && isCollapsed ? 2.5 : 2} />
+                    {!isCollapsed && <span className="animate-fade-in truncate">{link.label}</span>}
+                  </div>
+                  {!isCollapsed && <ChevronDown className={`w-4 h-4 text-[#877365] transition-transform ${orderDropdownOpen ? 'rotate-180' : ''}`} />}
+                </button>
+
+                {/* Accordion for Expanded Sidebar */}
+                {!isCollapsed && orderDropdownOpen && (
+                  <div className="mt-1 flex flex-col space-y-1 pl-11 pr-2 animate-fade-in">
+                    {link.subItems!.map(sub => {
+                      const subActive = sub.href === '/kasir' ? pathname === '/kasir' : pathname.startsWith(sub.href)
+                      return (
+                        <Link 
+                          key={sub.href} 
+                          href={sub.href} 
+                          onClick={() => {
+                            setOpen(false)
+                            setOrderDropdownOpen(false)
+                          }} 
+                          className={`block px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${subActive ? 'bg-[#f29744] text-white shadow-sm' : 'text-[#544437] hover:bg-[#e9e1d8] hover:text-[#1e1b15]'}`}
+                        >
+                          {sub.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Popover for Collapsed Sidebar (desktop hover/click) */}
+                {isCollapsed && (
+                  <div className={`absolute left-full top-0 ml-3 w-48 bg-[#fff8f1] border border-[#d9c2b2] shadow-xl rounded-2xl p-2 z-[100] animate-fade-in before:content-[''] before:absolute before:top-4 before:-left-2 before:border-t-8 before:border-t-transparent before:border-b-8 before:border-b-transparent before:border-r-8 before:border-r-[#fff8f1] ${orderDropdownOpen ? 'block' : 'hidden lg:group-hover:block'}`}>
+                    <div className="text-xs font-bold text-[#a48e7f] mb-2 px-3 uppercase tracking-wider">{link.label}</div>
+                    <div className="flex flex-col gap-1">
+                      {link.subItems!.map(sub => {
+                        const subActive = sub.href === '/kasir' ? pathname === '/kasir' : pathname.startsWith(sub.href)
+                        return (
+                          <Link 
+                            key={sub.href} 
+                            href={sub.href} 
+                            onClick={() => {
+                              setOpen(false)
+                              setOrderDropdownOpen(false)
+                            }} 
+                            className={`block px-3 py-2 rounded-xl text-sm font-bold transition-colors ${subActive ? 'bg-[#f29744] text-white shadow-sm' : 'text-[#544437] hover:bg-[#e9e1d8] hover:text-[#1e1b15]'}`}
+                          >
+                            {sub.label}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             )
           })}
 

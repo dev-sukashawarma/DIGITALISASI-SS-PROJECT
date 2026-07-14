@@ -12,7 +12,7 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   WITH waste_valued AS (
     SELECT
       w.outlet_id,
-      w.qty * (COALESCE(bh.harga_beli, 0) / COALESCE(b.faktor_konversi, 1)) AS nilai
+      w.qty * COALESCE(bh.harga_beli, 0) AS nilai
     FROM stok_waste_reports w
     JOIN bahan_baku b ON b.id = w.bahan_baku_id
     LEFT JOIN bahan_baku_harga bh ON bh.bahan_baku_id = w.bahan_baku_id
@@ -28,6 +28,8 @@ $$;
 
 GRANT EXECUTE ON FUNCTION get_waste_periode(date, date) TO authenticated;
 
+DROP FUNCTION IF EXISTS get_waste_breakdown(date, date);
+
 CREATE OR REPLACE FUNCTION get_waste_breakdown(p_from date, p_to date)
 RETURNS TABLE(
   outlet_id uuid,
@@ -37,6 +39,9 @@ RETURNS TABLE(
   bahan_nama text,
   tanggal date,
   qty numeric,
+  qty_kecil numeric,
+  satuan_kecil text,
+  hpp_kecil numeric,
   nilai numeric
 )
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -54,7 +59,10 @@ BEGIN
     b.nama AS bahan_nama,
     (w.created_at AT TIME ZONE 'Asia/Jakarta')::date AS tanggal,
     w.qty,
-    w.qty * (COALESCE(bh.harga_beli, 0) / COALESCE(b.faktor_konversi, 1)) AS nilai
+    w.qty * COALESCE(b.faktor_konversi, 1) AS qty_kecil,
+    b.satuan_kecil,
+    COALESCE(bh.harga_beli, 0) / COALESCE(b.faktor_konversi, 1) AS hpp_kecil,
+    w.qty * COALESCE(bh.harga_beli, 0) AS nilai
   FROM stok_waste_reports w
   JOIN outlets o ON o.id = w.outlet_id
   JOIN bahan_baku b ON b.id = w.bahan_baku_id

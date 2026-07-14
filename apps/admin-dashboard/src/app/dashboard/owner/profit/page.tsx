@@ -145,6 +145,7 @@ export default function ProfitPage() {
               sub="Pemasukan Completed Orders"
               icon={TrendingUp}
               accent="green"
+              tooltip="Total uang masuk dari seluruh transaksi penjualan yang berhasil di aplikasi kasir POS."
             />
             <StatTile
               label={isAllOutlets ? 'Laba Bersih Perusahaan' : 'Laba Bersih Outlet'}
@@ -154,6 +155,7 @@ export default function ProfitPage() {
                 : (displayLaba >= 0 ? 'Surplus Bersih' : 'Defisit Bersih')}
               icon={ArrowLeftRight}
               accent={displayLaba >= 0 ? 'orange' : 'red'}
+              tooltip="Hasil keuntungan murni setelah omzet kotor dipotong oleh seluruh beban biaya, HPP, pengeluaran, dan kerugian waste."
             />
             <StatTile
               label="Profit Margin"
@@ -161,18 +163,19 @@ export default function ProfitPage() {
               sub="Efisiensi Profitabilitas"
               icon={Percent}
               accent="brown"
+              tooltip="Persentase porsi laba bersih yang didapatkan dari tiap Rp 1 omzet. Dihitung dari (Laba Bersih / Omzet) * 100%."
             />
           </div>
 
           {/* Rincian — angka pendukung disembunyikan agar layar tidak sesak */}
           <Section title="Rincian Perhitungan">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatTile label="HPP Bahan Baku" value={<><span className="text-lg align-top">Rp </span><CountUp end={totalHpp} duration={1} separator="." /></>} sub="Biaya Bahan Terjual" icon={Boxes} accent="brown" />
-              <StatTile label="Laba Kotor" value={<><span className="text-lg align-top">Rp </span><CountUp end={labaKotor} duration={1} separator="." /></>} sub={`Omzet − HPP · ${marginKotor.toFixed(1)}%`} icon={Layers} accent="green" />
-              <StatTile label="Pengeluaran Outlet" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranOutlet} duration={1} separator="." /></>} sub={`Bulanan: Rp ${(pengeluaranOutletBulanan/1000).toLocaleString('id-ID')}k | Kas Kecil: Rp ${(pengeluaranOutletPettyCash/1000).toLocaleString('id-ID')}k`} icon={TrendingDown} accent="red" />
-              <StatTile label="Kerugian Waste" value={<><span className="text-lg align-top">Rp </span><CountUp end={totalWaste} duration={1} separator="." /></>} sub="Approved, di luar HPP resep" icon={TrendingDown} accent="red" />
+              <StatTile label="HPP Bahan Baku" value={<><span className="text-lg align-top">Rp </span><CountUp end={totalHpp} duration={1} separator="." /></>} sub="Biaya Bahan Terjual" icon={Boxes} accent="brown" tooltip="Total biaya/modal bahan baku yang terpakai HANYA untuk porsi yang berhasil laku terjual (berdasarkan resep)." />
+              <StatTile label="Laba Kotor" value={<><span className="text-lg align-top">Rp </span><CountUp end={labaKotor} duration={1} separator="." /></>} sub={`Omzet − HPP · ${marginKotor.toFixed(1)}%`} icon={Layers} accent="green" tooltip="Sisa pendapatan setelah omzet dipotong harga modal bahan baku (HPP). Ini adalah keuntungan kotor penjualan makanan." />
+              <StatTile label="Pengeluaran Outlet" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranOutlet} duration={1} separator="." /></>} sub={`Bulanan: Rp ${(pengeluaranOutletBulanan/1000).toLocaleString('id-ID')}k | Kas Kecil: Rp ${(pengeluaranOutletPettyCash/1000).toLocaleString('id-ID')}k`} icon={TrendingDown} accent="red" tooltip="Total seluruh beban biaya operasional, tagihan bulanan (gaji, listrik, sewa), dan kas kecil di outlet tersebut." />
+              <StatTile label="Kerugian Waste" value={<><span className="text-lg align-top">Rp </span><CountUp end={totalWaste} duration={1} separator="." /></>} sub="Approved, di luar HPP resep" icon={TrendingDown} accent="red" tooltip="Total kerugian dari bahan baku yang rusak, basi, atau terbuang (dilaporkan lewat form Waste dan sudah disetujui)." />
               {isAllOutlets && (
-                <StatTile label="Biaya Pusat" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranPusat} duration={1} separator="." /></>} sub="Tak dibebankan ke outlet" icon={Building2} accent="red" />
+                <StatTile label="Biaya Pusat" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranPusat} duration={1} separator="." /></>} sub="Tak dibebankan ke outlet" icon={Building2} accent="red" tooltip="Beban biaya overhead perusahaan/manajemen pusat yang tidak dipotong dari profit cabang outlet mana pun." />
               )}
             </div>
           </Section>
@@ -183,66 +186,68 @@ export default function ProfitPage() {
           </Section>
 
           {/* Outlet Profitability Leaderboard Table */}
-          <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-suka-gray-100 flex justify-between items-center">
-              <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Profitabilitas per Outlet</h3>
-              <span className="text-xs font-bold text-suka-gray-500 uppercase">Diurutkan dari Profit Bersih Tertinggi</span>
-            </div>
+          {isAllOutlets && (
+            <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-suka-gray-100 flex justify-between items-center">
+                <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Profitabilitas per Outlet</h3>
+                <span className="text-xs font-bold text-suka-gray-500 uppercase">Diurutkan dari Profit Bersih Tertinggi</span>
+              </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
-                    <th className="py-3 px-6 w-12 text-center">#</th>
-                    <th className="py-3 px-6">Nama Outlet</th>
-                    <th className="py-3 px-6 text-right">Omzet</th>
-                    <th className="py-3 px-6 text-right">HPP</th>
-                    <th className="py-3 px-6 text-right">Laba Kotor</th>
-                    <th className="py-3 px-6 text-right">Pengeluaran</th>
-                    <th className="py-3 px-6 text-right">Kerugian Waste</th>
-                    <th className="py-3 px-6 text-right">Laba Bersih</th>
-                    <th className="py-3 px-6 text-center">Margin %</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-suka-gray-100 font-medium">
-                  {outletBreakdown.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="py-8 text-center text-suka-gray-400">Belum ada aktivitas bisnis pada periode ini</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
+                      <th className="py-3 px-6 w-12 text-center">#</th>
+                      <th className="py-3 px-6">Nama Outlet</th>
+                      <th className="py-3 px-6 text-right">Omzet</th>
+                      <th className="py-3 px-6 text-right">HPP</th>
+                      <th className="py-3 px-6 text-right">Laba Kotor</th>
+                      <th className="py-3 px-6 text-right">Pengeluaran</th>
+                      <th className="py-3 px-6 text-right">Kerugian Waste</th>
+                      <th className="py-3 px-6 text-right">Laba Bersih</th>
+                      <th className="py-3 px-6 text-center">Margin %</th>
                     </tr>
-                  ) : (
-                    outletBreakdown.map((row, index) => {
-                      const isProfit = row.net >= 0
-                      const marginColor = row.margin >= 20 
-                        ? 'text-suka-green bg-green-50' 
-                        : row.margin >= 5 
-                        ? 'text-suka-orange bg-suka-cream' 
-                        : 'text-red-700 bg-red-50'
+                  </thead>
+                  <tbody className="divide-y divide-suka-gray-100 font-medium">
+                    {outletBreakdown.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-8 text-center text-suka-gray-400">Belum ada aktivitas bisnis pada periode ini</td>
+                      </tr>
+                    ) : (
+                      outletBreakdown.map((row, index) => {
+                        const isProfit = row.net >= 0
+                        const marginColor = row.margin >= 20 
+                          ? 'text-suka-green bg-green-50' 
+                          : row.margin >= 5 
+                          ? 'text-suka-orange bg-suka-cream' 
+                          : 'text-red-700 bg-red-50'
 
-                      return (
-                        <tr key={row.id} className="hover:bg-suka-cream/20 transition-colors">
-                          <td className="py-3.5 px-6 text-center text-suka-gray-400 font-bold">{index + 1}</td>
-                          <td className="py-3.5 px-6 text-suka-ink font-bold">{row.name.replace('SUKA SHAWARMA ', '')}</td>
-                          <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.omzet)}</td>
-                          <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.hpp)}</td>
-                          <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.labaKotor)}</td>
-                          <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.expense)}</td>
-                          <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.waste)}</td>
-                          <td className={`py-3.5 px-6 text-right font-extrabold ${isProfit ? 'text-suka-green' : 'text-red-700'}`}>
-                            {rupiah(row.net)}
-                          </td>
-                          <td className="py-3.5 px-6 text-center">
-                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${marginColor}`}>
-                              {row.margin.toFixed(1)}%
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
+                        return (
+                          <tr key={row.id} className="hover:bg-suka-cream/20 transition-colors">
+                            <td className="py-3.5 px-6 text-center text-suka-gray-400 font-bold">{index + 1}</td>
+                            <td className="py-3.5 px-6 text-suka-ink font-bold">{row.name.replace('SUKA SHAWARMA ', '')}</td>
+                            <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.omzet)}</td>
+                            <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.hpp)}</td>
+                            <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.labaKotor)}</td>
+                            <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.expense)}</td>
+                            <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.waste)}</td>
+                            <td className={`py-3.5 px-6 text-right font-extrabold ${isProfit ? 'text-suka-green' : 'text-red-700'}`}>
+                              {rupiah(row.net)}
+                            </td>
+                            <td className="py-3.5 px-6 text-center">
+                              <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${marginColor}`}>
+                                {row.margin.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

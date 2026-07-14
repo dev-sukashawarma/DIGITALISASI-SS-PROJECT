@@ -20,7 +20,34 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
       if (err) throw err
 
-      const summaries = (rows as Omit<LedgerTransaksiSummary, 'order_number' | 'order_items_names' | 'opname_tanggal' | 'opname_tipe'>[]) ?? []
+      let summaries = (rows as Omit<LedgerTransaksiSummary, 'order_number' | 'order_items_names' | 'opname_tanggal' | 'opname_tipe'>[]) ?? []
+
+      if (page === 0) {
+        const { data: pendingWastes, error: wasteErr } = await supabase
+          .from('stok_waste_reports')
+          .select('id, created_at, bahan_baku_id, qty, reason')
+          .eq('outlet_id', outletId)
+          .eq('status', 'PENDING')
+        
+        if (!wasteErr && pendingWastes && pendingWastes.length > 0) {
+          const wasteSummaries = pendingWastes.map(w => ({
+            transaksi_key: `waste_pending_${w.id}`,
+            outlet_id: outletId!,
+            created_at: w.created_at,
+            jumlah_bahan: 1,
+            ref_order_id: null,
+            ref_opname_id: null,
+            ref_shipment_id: null,
+            ref_transfer_id: null,
+            single_bahan_baku_id: w.bahan_baku_id,
+            single_tipe: 'waste_pending' as const,
+            single_qty: -w.qty,
+            single_catatan: w.reason,
+            single_saldo_sesudah: null,
+          }))
+          summaries = [...wasteSummaries, ...summaries].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        }
+      }
 
       const orderIds = [...new Set(summaries.map((s) => s.ref_order_id).filter((v): v is string => !!v))]
       const opnameIds = [...new Set(summaries.map((s) => s.ref_opname_id).filter((v): v is string => !!v))]
@@ -63,6 +90,11 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
         table: 'ledger_stok',
         filter: outletId ? `outlet_id=eq.${outletId}` : undefined,
         queryKeys: [['ledger-transaksi', outletId], ['ledger-transaksi-detail', outletId]],
+      },
+      {
+        table: 'stok_waste_reports',
+        filter: outletId ? `outlet_id=eq.${outletId}` : undefined,
+        queryKeys: [['ledger-transaksi', outletId]],
       },
     ],
   })

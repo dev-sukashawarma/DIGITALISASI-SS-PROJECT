@@ -16,6 +16,7 @@ const LABEL: Record<string, string> = {
   opname_selisih: 'Selisih Opname',
   transfer_keluar: 'Transfer Keluar',
   transfer_masuk: 'Transfer Masuk',
+  waste_pending: 'Waste (Menunggu Verifikasi)',
 };
 
 const FILTER_LABELS: Record<string, string> = {
@@ -76,6 +77,9 @@ export function transaksiVisual(t: LedgerTransaksiSummary): { icon: string; bgCl
   }
   if (t.single_tipe === 'waste' || t.single_tipe === 'pemakaian') {
     return { icon: '🗑️', bgClass: 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10' };
+  }
+  if (t.single_tipe === 'waste_pending') {
+    return { icon: '⏳', bgClass: 'bg-[#fff8f1] text-[#e67e22] border-[#e67e22]/30' };
   }
   if (t.single_tipe === 'transfer_keluar') {
     return { icon: '📤', bgClass: 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10' };
@@ -195,7 +199,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
       } else if (activeFilter === 'order') {
         matchesFilter = !!t.ref_order_id;
       } else if (activeFilter === 'waste') {
-        matchesFilter = t.single_tipe === 'waste';
+        matchesFilter = t.single_tipe === 'waste' || t.single_tipe === 'waste_pending';
       } else if (activeFilter === 'outbound') {
         matchesFilter = !t.ref_order_id && (!!t.ref_transfer_id && t.single_tipe !== 'transfer_masuk' || t.single_tipe === 'pemakaian' || t.single_tipe === 'transfer_keluar');
       } else if (activeFilter === 'adjustment') {
@@ -245,6 +249,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
         {filteredItems.map((t) => {
           const { title, subtitle } = transaksiLabel(t);
           const isManual = t.jumlah_bahan === 1 && !t.ref_order_id && !t.ref_opname_id && !t.ref_shipment_id && !t.ref_transfer_id;
+          const isPending = t.single_tipe === 'waste_pending';
           const relativeTime = getRelativeTimeString(t.created_at);
           const isExpanded = expandedKey === t.transaksi_key;
           const detailId = `transaksi-detail-${t.transaksi_key}`;
@@ -283,9 +288,15 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
                     <p className={`font-bold text-sm ${(t.single_qty ?? 0) > 0 ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
                       {formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
                     </p>
-                    <p className="text-[9px] text-[#544437]/60 font-bold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#d9c2b2]/20 inline-block mt-1">
-                      Saldo: {formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
-                    </p>
+                    {isPending ? (
+                      <p className="text-[9px] text-[#e67e22] font-bold bg-[#fff8f1] px-2 py-0.5 rounded border border-[#e67e22]/20 inline-block mt-1">
+                        Menunggu Verifikasi
+                      </p>
+                    ) : (
+                      <p className="text-[9px] text-[#544437]/60 font-bold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#d9c2b2]/20 inline-block mt-1">
+                        Saldo: {formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
+                      </p>
+                    )}
                   </>
                 ) : (
                   <span className="text-[10px] font-bold text-[#701604]/70">
@@ -297,11 +308,23 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           );
 
           if (isManual) {
+            const innerClasses = isPending
+              ? "bg-[#fffcf9] rounded-2xl border border-[#e67e22]/30 p-4 shadow-[0px_4px_12px_rgba(230,126,34,0.03)] mb-2.5 opacity-80"
+              : "bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md transition-all duration-200 mb-2.5 cursor-pointer active:scale-[0.98]";
+
+            const inner = (
+              <div className={innerClasses}>
+                {headerRow}
+              </div>
+            );
+
+            if (isPending) {
+              return <div key={t.transaksi_key}>{inner}</div>;
+            }
+
             return (
               <Link key={t.transaksi_key} href={`/stok/ledger/${t.transaksi_key}`}>
-                <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md transition-all duration-200 mb-2.5 cursor-pointer active:scale-[0.98]">
-                  {headerRow}
-                </div>
+                {inner}
               </Link>
             );
           }

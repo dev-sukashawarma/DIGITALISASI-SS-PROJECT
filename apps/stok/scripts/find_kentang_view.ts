@@ -1,0 +1,22 @@
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+
+async function run() {
+  const { data, error } = await supabase
+    .from('monitoring_view_crew')
+    .select('outlet_name, item_name, current_qty, threshold, status')
+    .ilike('item_name', '%KENTANG%')
+    .order('current_qty', { ascending: false })
+    .limit(5);
+    
+  if (error) {
+    console.error('Error fetching data:', error);
+  } else {
+    console.log('Top KENTANG in view:', data);
+  }
+}
+
+run();

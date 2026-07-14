@@ -27,6 +27,9 @@ export function useWasteBreakdown(filter: PeriodFilterValue) {
         bahan_nama: r.bahan_nama as string,
         tanggal: r.tanggal as string,
         qty: Number(r.qty),
+        qty_kecil: Number(r.qty_kecil),
+        satuan_kecil: r.satuan_kecil as string,
+        hpp_kecil: Number(r.hpp_kecil),
         nilai: Number(r.nilai),
       }))
       if (filter.outletId !== 'all') rows = rows.filter((r) => r.outlet_id === filter.outletId)

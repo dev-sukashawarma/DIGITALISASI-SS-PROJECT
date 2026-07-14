@@ -186,7 +186,10 @@ export default function SupplierPage() {
                 {s.bahan_baku_ids && s.bahan_baku_ids.length > 0 && (
                   <p className="text-xs text-gray-500 mt-1.5">
                     <span className="font-semibold text-gray-600">{s.bahan_baku_ids.length} item:</span>{' '}
-                    {s.bahan_baku_ids.map(id => bahanList.find(b => b.id === id)?.nama).filter(Boolean).slice(0, 5).join(', ')}
+                    {s.bahan_baku_ids.map(id => {
+                      const b = bahanList.find(b => b.id === id)
+                      return b ? `${b.nama} (${b.satuan})` : null
+                    }).filter(Boolean).slice(0, 5).join(', ')}
                     {s.bahan_baku_ids.length > 5 && ' ...'}
                   </p>
                 )}

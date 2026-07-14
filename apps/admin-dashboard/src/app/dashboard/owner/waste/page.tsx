@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useWasteBreakdown } from '@/hooks/useWasteBreakdown'
-import { aggregateByOutlet, aggregateByReason, aggregateByBahan, aggregateByDate } from '@/lib/wasteBreakdown'
+import { aggregateByOutlet, aggregateByDate, aggregateByBahanAndReason } from '@/lib/wasteBreakdown'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { PageHeader, StatTile, Section, StatTilesSkeleton } from '@/components/ui'
 import { rupiah } from '@/lib/format'
@@ -32,8 +32,7 @@ export default function WastePage() {
 
   const totalNilai = useMemo(() => rows.reduce((s, r) => s + r.nilai, 0), [rows])
   const byOutlet = useMemo(() => aggregateByOutlet(rows), [rows])
-  const byReason = useMemo(() => aggregateByReason(rows), [rows])
-  const byBahan = useMemo(() => aggregateByBahan(rows), [rows])
+  const byBahanAndReason = useMemo(() => aggregateByBahanAndReason(rows), [rows])
   const byDate = useMemo(() => aggregateByDate(rows), [rows])
   const totalBudget = useMemo(() => budgetLoss.rows.reduce((s, r) => s + r.budget_loss, 0), [budgetLoss.rows])
   const gap = useMemo(() => computeWasteGap(totalNilai, totalBudget), [totalNilai, totalBudget])
@@ -87,95 +86,80 @@ export default function WastePage() {
             <WasteTrendChart data={byDate} />
           </Section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-suka-gray-100">
-                <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Ranking per Outlet</h3>
+          {/* Layout berubah tergantung apakah filter outlet 'all' atau spesifik */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {filter.outletId === 'all' && (
+              <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-suka-gray-100">
+                  <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Ranking per Outlet</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
+                        <th className="py-3 px-6">Outlet</th>
+                        <th className="py-3 px-6 text-right">Nilai</th>
+                        <th className="py-3 px-6 text-right">Budget Loss</th>
+                        <th className="py-3 px-6 text-right">Gap %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-suka-gray-100 font-medium">
+                      {byOutlet.length === 0 ? (
+                        <tr><td colSpan={4} className="py-8 text-center text-suka-gray-400">Belum ada waste pada periode ini</td></tr>
+                      ) : byOutlet.map(o => {
+                        const budget = budgetByOutlet.get(o.id) ?? 0
+                        const rowGap = computeWasteGap(o.nilai, budget)
+                        return (
+                          <tr key={o.id}>
+                            <td className="py-3 px-6 text-suka-ink font-bold">{o.name.replace('SUKA SHAWARMA ', '')}</td>
+                            <td className="py-3 px-6 text-right text-red-700 font-extrabold">{rupiah(o.nilai)}</td>
+                            <td className="py-3 px-6 text-right text-suka-gray-600">{rupiah(budget)}</td>
+                            <td className={`py-3 px-6 text-right font-bold ${rowGap.gapPct === null ? 'text-suka-gray-400' : rowGap.gapPct > 0 ? 'text-red-700' : 'text-suka-green'}`}>
+                              {rowGap.gapPct === null ? 'N/A' : `${rowGap.gapPct.toFixed(1)}%`}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
-                      <th className="py-3 px-6">Outlet</th>
-                      <th className="py-3 px-6 text-right">Nilai</th>
-                      <th className="py-3 px-6 text-right">Budget Loss</th>
-                      <th className="py-3 px-6 text-right">Gap %</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-suka-gray-100 font-medium">
-                    {byOutlet.length === 0 ? (
-                      <tr><td colSpan={4} className="py-8 text-center text-suka-gray-400">Belum ada waste pada periode ini</td></tr>
-                    ) : byOutlet.map(o => {
-                      const budget = budgetByOutlet.get(o.id) ?? 0
-                      const rowGap = computeWasteGap(o.nilai, budget)
-                      return (
-                        <tr key={o.id}>
-                          <td className="py-3 px-6 text-suka-ink font-bold">{o.name.replace('SUKA SHAWARMA ', '')}</td>
-                          <td className="py-3 px-6 text-right text-red-700 font-extrabold">{rupiah(o.nilai)}</td>
-                          <td className="py-3 px-6 text-right text-suka-gray-600">{rupiah(budget)}</td>
-                          <td className={`py-3 px-6 text-right font-bold ${rowGap.gapPct === null ? 'text-suka-gray-400' : rowGap.gapPct > 0 ? 'text-red-700' : 'text-suka-green'}`}>
-                            {rowGap.gapPct === null ? 'N/A' : `${rowGap.gapPct.toFixed(1)}%`}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            )}
 
-            <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
+            <div className={`bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden ${filter.outletId !== 'all' ? 'lg:col-span-2' : ''}`}>
               <div className="px-6 py-4 border-b border-suka-gray-100">
-                <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Per Alasan</h3>
+                <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Rincian Waste</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
+                      <th className="py-3 px-6">Tanggal</th>
+                      <th className="py-3 px-6">Bahan Baku</th>
                       <th className="py-3 px-6">Alasan</th>
+                      <th className="py-3 px-6 text-right">Qty</th>
+                      <th className="py-3 px-6 text-right">HPP / satuan</th>
                       <th className="py-3 px-6 text-right">Nilai</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-suka-gray-100 font-medium">
-                    {byReason.length === 0 ? (
-                      <tr><td colSpan={2} className="py-8 text-center text-suka-gray-400">Belum ada waste pada periode ini</td></tr>
-                    ) : byReason.map(r => (
-                      <tr key={r.reason}>
-                        <td className="py-3 px-6 text-suka-ink font-bold">{r.reason}</td>
-                        <td className="py-3 px-6 text-right text-red-700 font-extrabold">{rupiah(r.nilai)}</td>
+                    {byBahanAndReason.length === 0 ? (
+                      <tr><td colSpan={6} className="py-8 text-center text-suka-gray-400">Belum ada waste pada periode ini</td></tr>
+                    ) : byBahanAndReason.map(b => (
+                      <tr key={b.id}>
+                        <td className="py-3 px-6 text-suka-gray-600 whitespace-nowrap">
+                          {new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(b.tanggal))}
+                        </td>
+                        <td className="py-3 px-6 text-suka-ink font-bold">{b.bahan_nama}</td>
+                        <td className="py-3 px-6 text-suka-gray-600">{b.reason}</td>
+                        <td className="py-3 px-6 text-right text-suka-gray-600">{b.qty_kecil} {b.satuan_kecil}</td>
+                        <td className="py-3 px-6 text-right text-suka-gray-600">{rupiah(b.hpp_kecil)}</td>
+                        <td className="py-3 px-6 text-right text-red-700 font-extrabold">{rupiah(b.nilai)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-suka-gray-100">
-              <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Bahan Baku Paling Sering Waste</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
-                    <th className="py-3 px-6">Bahan Baku</th>
-                    <th className="py-3 px-6 text-right">Qty</th>
-                    <th className="py-3 px-6 text-right">Nilai</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-suka-gray-100 font-medium">
-                  {byBahan.length === 0 ? (
-                    <tr><td colSpan={3} className="py-8 text-center text-suka-gray-400">Belum ada waste pada periode ini</td></tr>
-                  ) : byBahan.map(b => (
-                    <tr key={b.id}>
-                      <td className="py-3 px-6 text-suka-ink font-bold">{b.name}</td>
-                      <td className="py-3 px-6 text-right text-suka-gray-600">{b.qty}</td>
-                      <td className="py-3 px-6 text-right text-red-700 font-extrabold">{rupiah(b.nilai)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
         </>

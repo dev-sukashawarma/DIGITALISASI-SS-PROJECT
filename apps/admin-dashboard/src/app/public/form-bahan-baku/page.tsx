@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { submitBahanBaku, getBahanBakuList, addBahanBakuSku, deleteBahanBakuSku, setDefaultBahanBakuSku } from './actions'
 import { Camera, Package, UploadCloud, CheckCircle2, AlertCircle, ChevronRight, Search, ImageIcon, Pencil } from 'lucide-react'
@@ -31,6 +31,18 @@ type BahanBaku = {
 }
 
 export default function FormBahanBakuPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-4 border-orange-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <FormBahanBakuContent />
+    </Suspense>
+  )
+}
+
+function FormBahanBakuContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
   

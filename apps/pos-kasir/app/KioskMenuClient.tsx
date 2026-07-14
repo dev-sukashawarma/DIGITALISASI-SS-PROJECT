@@ -64,14 +64,11 @@ export default function KioskMenuClient({ initialData }: { initialData: KioskIni
                 const forceSet = new Set(forceIds)
                 
                 setMenuItems(prev => prev.map(item => {
-                  if (item.outlet_id === null) {
-                    const isManualUnav = manualSet.has(item.id)
-                    const isAutoUnav = autoSet.has(item.id)
-                    const isForceAvail = forceSet.has(item.id)
-                    const isAvailable = !(isManualUnav || (isAutoUnav && !isForceAvail))
-                    return { ...item, is_available: isAvailable }
-                  }
-                  return item
+                  const isManualUnav = manualSet.has(item.id)
+                  const isAutoUnav = autoSet.has(item.id)
+                  const isForceAvail = forceSet.has(item.id)
+                  const isAvailable = !(isManualUnav || (isAutoUnav && !isForceAvail))
+                  return { ...item, is_available: isAvailable }
                 }))
               })
           } else if (updated.key === 'bestseller_ids') {

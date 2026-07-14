@@ -41,14 +41,11 @@ export default async function KioskHomePage() {
   
   const rawItems = (items_result.data as MenuItem[]) ?? []
   const menuItems = rawItems.map(item => {
-    const isGlobal = item.outlet_id === null
-    if (isGlobal) {
-      const isManualUnav = unavailableIds.includes(item.id)
-      const isAutoUnav = autoUnavailableIds.includes(item.id)
-      const isForceAvail = forceAvailableIds.includes(item.id)
-      if (isManualUnav || (isAutoUnav && !isForceAvail)) {
-        return { ...item, is_available: false }
-      }
+    const isManualUnav = unavailableIds.includes(item.id)
+    const isAutoUnav = autoUnavailableIds.includes(item.id)
+    const isForceAvail = forceAvailableIds.includes(item.id)
+    if (isManualUnav || (isAutoUnav && !isForceAvail)) {
+      return { ...item, is_available: false }
     }
     return item
   })

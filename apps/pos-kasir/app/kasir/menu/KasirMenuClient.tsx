@@ -392,9 +392,7 @@ export default function KasirMenuClient({
                   const isManualUnav = unavailableIds.includes(item.id);
                   const isAutoUnav = autoUnavailableIds.includes(item.id);
                   const isForceAvail = forceAvailableIds.includes(item.id);
-                  const isAvail = isGlobal 
-                    ? item.is_available && !(isManualUnav || (isAutoUnav && !isForceAvail))
-                    : item.is_available;
+                  const isAvail = item.is_available && !(isManualUnav || (isAutoUnav && !isForceAvail));
                   
                   const autoDisabled = isAutoUnav && !isForceAvail;
 

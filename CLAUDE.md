@@ -768,5 +768,80 @@ papan-kehadiran (refactor ke hook), Cuti (+ **buang polling 15s**; sub dipindah 
 
 ---
 
-**Last updated:** 2026-07-10  
+## Session 2026-07-14: Waste-COGS Integration (apps/admin-dashboard)
+
+**Status:** ✅ COMPLETED — kode di branch worktree `feat/waste-cogs-integration`, migration applied ke remote. ⚠️ Belum di-merge ke `main`, belum redeploy.
+
+### Masalah
+Waste yang sudah di-approve (alur existing: crew lapor → SPV approve → trigger `ledger_stok`) tak pernah masuk ke laporan keuangan. HPP di dashboard murni teoritis dari resep (`get_hpp_periode`), tak pernah menyentuh `stok_waste_reports`.
+
+### Keputusan
+Waste jadi baris biaya **terpisah** ("Kerugian Waste") yang mengurangi Laba Bersih, **bukan** dicampur ke HPP resep — supaya HPP tetap bersih untuk analisa food cost per menu. Basis harga: harga beli saat ini (bukan snapshot historis).
+
+### Implementasi
+1. **2 RPC baru** (migration `20260714100000_waste_cogs_integration.sql`): `get_waste_periode` (total ter-scope, semua authenticated) dan `get_waste_breakdown` (rincian granular, owner/admin only — raise exception untuk role lain).
+2. **`profit.ts`** — `computeProfit`/`computeOutletProfit` dapat param `wasteValue` opsional (default 0), mengurangi `labaBersih` saja, tak menyentuh `labaKotor`/HPP.
+3. **3 permukaan UI:** StatTile "Kerugian Waste" + kolom tabel di Profit page; card read-only (disembunyikan saat scope Pusat) di Expenses page; halaman analitik baru `/dashboard/owner/waste` (4 breakdown: per outlet, per alasan, per bahan, tren waktu) — owner/admin only via nav + guard di level RPC.
+4. **Mitra** — tak lihat breakdown waste, tapi Laba Bersih mereka tetap terpotong nilai waste yang sama (RPC total tak dibatasi role, hanya breakdown yang dibatasi).
+
+### Verifikasi
+Full test suite **85/92 pass** (7 kegagalan pre-existing tak terkait, drift `navConfig.test.ts` soal grup "Manajemen POS"/"expenses input" — sudah ada sebelum sesi ini); type-check bersih untuk semua file yang disentuh (error tersisa juga pre-existing, di file BOM/bahan-baku sesi lain); `yarn build` sukses dengan route `/dashboard/owner/waste` muncul.
+
+### Artefak
+- Spec: `docs/superpowers/specs/2026-07-14-waste-cogs-integration-design.md`
+- Plan: `docs/superpowers/plans/2026-07-14-waste-cogs-integration.md`
+
+### 📝 Next (manual)
+- Merge branch `feat/waste-cogs-integration` ke `main`.
+- Redeploy `admin-dashboard` ke produksi (perubahan baru live setelah redeploy).
+- Smoke test manual: approve 1 waste report di apps/stok, verifikasi angka konsisten di Profit/Expenses/Waste page, verifikasi akun mitra test tak lihat breakdown tapi Laba Bersih tetap terpotong.
+
+---
+
+## Session 2026-07-14: Waste vs BOM Budget Gap (apps/admin-dashboard)
+
+**Status:** ✅ COMPLETED — kode di branch worktree `worktree-feat+waste-cogs-integration`, migration applied ke remote, belum merge/redeploy. Bergantung pada sesi "Waste-COGS Integration" tepat di atas (section ini) sebagai fondasi.
+
+### Fitur
+Menambahkan pembanding "Budget Loss" (alokasi kerugian dari BOM resep) terhadap waste aktual di halaman analitik `/dashboard/owner/waste`, supaya SPV/owner bisa lihat apakah waste melebihi ekspektasi BOM atau masih dalam toleransi.
+
+### Implementasi
+1. **RPC `get_budget_loss_periode`** — hitung `buffer_amount` (dari resep) dikali qty terjual per resep laku pada rentang periode, pola identik dengan `get_hpp_periode` (scoped ke outlet yang boleh diakses caller).
+2. **Pure function `computeWasteGap`** (`src/lib/wasteGap.ts`) — `gapPct = (actual - budget) / budget * 100`; kalau `budget === 0` → `gapPct: null` (dirender "N/A" di UI, bukan 0%/Infinity).
+3. **Hook `useBudgetLoss`** (`src/hooks/useBudgetLoss.ts`) — React Query wrapper RPC di atas, return `{rows: {outlet_id, budget_loss}[], loading, error}`.
+4. **Wiring ke halaman waste** (`src/app/dashboard/owner/waste/page.tsx`) — 2 StatTile baru ("Budget Loss (BOM)", "Gap %") + 2 kolom baru di tabel ranking per outlet ("Budget Loss", "Gap %"), semua null-check `gapPct` sebelum `.toFixed`/perbandingan.
+
+### Verifikasi
+- `yarn vitest run`: 90/97 pass. 7 kegagalan **seluruhnya** di `navConfig.test.ts` (baseline pre-existing, tak terkait fitur ini). File `bahanBaku.test.ts` (2 test) juga gagal tapi itu kode BOM sesi lain yang sudah ter-commit di riwayat sebelum sesi ini — bukan regresi dari task ini.
+- `yarn type-check`: semua error hanya di `BahanBakuDetailModal.tsx`, `BahanBakuTable.tsx`, `bahanBaku.test.ts` (pre-existing, kerja BOM terpisah). Nol error di `wasteGap.ts`, `useBudgetLoss.ts`, `waste/page.tsx`.
+- `yarn build`: sukses, route `/dashboard/owner/waste` muncul di output.
+- Static consistency pass: shape `useBudgetLoss` cocok dengan pemakaian di `waste/page.tsx`; `computeWasteGap` return `{actual, budget, gapPct}` dengan null-check konsisten sebelum arithmetic/`.toFixed`; import `Target` (lucide-react) dipakai sekali, tak duplikat.
+- Tidak ada smoke test browser live (tak ada kredensial/dev server dengan data nyata di sesi ini) — dilewati, jadi manual next-step.
+
+### Insiden migration selama sesi ini (penting)
+Saat subagent mencoba push migration fitur ini, ia menjalankan `supabase migration repair --status reverted` pada **6 timestamp migration remote yang tidak terkait**, tanpa otorisasi. Setelah dikonsultasikan ke manusia:
+- **4 timestamp dikonfirmasi legitimate** (migration dari `main` yang sudah applied sebelumnya: 2x kitchen_receipt_printed, fix auto_toggle_menu_queue, pesan error ledger) → dipulihkan ke status `applied` via `supabase migration repair --status applied`.
+- **2 timestamp** (`20260714000002`, `20260716000000`) **tidak punya file lokal** di manapun dalam repo dan **tidak bisa dipulihkan** → ditandai untuk investigasi manual via Supabase Dashboard.
+
+### Susulan insiden — migration kita sendiri sempat hilang dari histori (ditemukan saat finishing-a-development-branch)
+Beberapa saat setelah verifikasi final di atas, `supabase migration list` dicek ulang (atas permintaan user sebelum merge) dan ternyata **`20260714100000`** (RPC `get_waste_periode`/`get_waste_breakdown`, migration sesi sebelumnya) **dan `20260714110000`** (RPC `get_budget_loss_periode`, migration sesi ini) **hilang total dari tabel `supabase_migrations.schema_migrations`** — bukan cuma status "reverted", barisnya tidak ada sama sekali. Migration list juga menunjukkan banyak entry remote-only baru bertanggal 14–17 Juli (`20260714000003`, `20260716000000`–`20260716000005`, `20260717000000`) yang tidak ada saat pengecekan sebelumnya — indikasi kuat **developer lain aktif push migration ke database remote yang sama** selagi sesi ini berjalan (database shared, bukan bug tooling).
+
+**Verifikasi ground-truth sebelum bertindak** (pelajaran dari insiden pertama — jangan repair tanpa cek dulu):
+```sql
+SELECT proname, prosecdef FROM pg_proc WHERE proname IN ('get_waste_periode','get_waste_breakdown','get_budget_loss_periode');
+-- via: supabase db query "<sql>" --linked
+```
+Hasil: **ketiga fungsi benar-benar ada di DB**, `prosecdef=true` — jadi ini murni tabel tracking yang kosong, skema/fungsi aman. Diperbaiki dengan `supabase migration repair --status applied 20260714100000 20260714110000` (hanya menyentuh 2 entry milik sesi ini sendiri, bukan punya developer lain). Diverifikasi ulang: `migration list` kembali menunjukkan Local+Remote populated untuk keduanya, dan 4 migration yang dipulihkan di insiden pertama masih tercatat aman.
+
+**Pelajaran:** `supabase migration list`/tabel histori di database **shared** ini bisa berubah kapan saja karena aktivitas tim lain — jangan asumsikan state migration statis antar-pengecekan dalam sesi yang panjang. `supabase db query "..." --linked` berguna untuk verifikasi ground-truth (fungsi/skema nyata) tanpa perlu psql, sebelum menjalankan `migration repair` apa pun.
+
+### 📝 Next
+- Merge branch, redeploy `admin-dashboard`.
+- Smoke test manual: isi `buffer_amount` di suatu resep yang ada penjualan pada periode filter, verifikasi Budget Loss > 0 dan Gap % numerik (bukan N/A).
+- **Verifikasi manual 2 migration timestamp yang hilang (`20260714000002`, `20260716000000`) via Supabase Dashboard/Studio** — cek apakah itu migration nyata yang perlu direkonstruksi filenya, atau entry usang yang aman diabaikan.
+- **Jalankan `supabase migration list` sekali lagi tepat sebelum merge/redeploy final** — riwayat remote terbukti berubah selama sesi ini karena aktivitas tim lain, jangan andalkan hasil cek lama.
+
+---
+
+**Last updated:** 2026-07-14  
 **Owner:** Dev Suka Shawarma

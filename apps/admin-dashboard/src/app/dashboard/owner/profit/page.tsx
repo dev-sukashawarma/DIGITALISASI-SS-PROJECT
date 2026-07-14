@@ -6,6 +6,7 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { useSalesDaily } from '@/hooks/useSalesDaily'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useHpp } from '@/hooks/useHpp'
+import { useWaste } from '@/hooks/useWaste'
 import { computeProfit, computeCompanyProfit } from '@/lib/profit'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { rupiah } from '@/lib/format'
@@ -26,9 +27,10 @@ export default function ProfitPage() {
   const sales = useSalesDaily(filter, outlets)
   const expenses = useExpenses(filter)
   const hpp = useHpp(filter)
+  const waste = useWaste(filter)
 
-  const loading = sales.loading || expenses.loading || hpp.loading
-  const error = sales.error || expenses.error || hpp.error
+  const loading = sales.loading || expenses.loading || hpp.loading || waste.loading
+  const error = sales.error || expenses.error || hpp.error || waste.error
 
   const isAllOutlets = filter.outletId === 'all'
 
@@ -45,8 +47,9 @@ export default function ProfitPage() {
     () => expenses.rows.filter(r => r.scope === 'pusat').reduce((sum, r) => sum + r.amount, 0),
     [expenses.rows])
   const totalHpp = useMemo(() => hpp.rows.reduce((sum, r) => sum + r.hpp, 0), [hpp.rows])
+  const totalWaste = useMemo(() => waste.rows.reduce((sum, r) => sum + r.nilai_waste, 0), [waste.rows])
   // Laba outlet: Omzet − HPP − Pengeluaran Outlet. labaBersih di sini = Σ laba outlet saat "Semua Outlet".
-  const { labaKotor, labaBersih, marginKotor } = computeProfit(totalOmzet, totalHpp, pengeluaranOutlet)
+  const { labaKotor, labaBersih, marginKotor } = computeProfit(totalOmzet, totalHpp, pengeluaranOutlet, totalWaste)
   // Saat "Semua Outlet": Laba Perusahaan = Σ laba outlet − Pengeluaran Pusat. Satu outlet: pusat = 0.
   const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat).labaPerusahaan
   const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
@@ -54,14 +57,14 @@ export default function ProfitPage() {
 
   // Outlets breakdown
   const outletBreakdown = useMemo(() => {
-    const map = new Map<string, { name: string; omzet: number; expense: number; hpp: number }>()
+    const map = new Map<string, { name: string; omzet: number; expense: number; hpp: number; waste: number }>()
 
     outlets.forEach(o => {
-      map.set(o.id, { name: o.name, omzet: 0, expense: 0, hpp: 0 })
+      map.set(o.id, { name: o.name, omzet: 0, expense: 0, hpp: 0, waste: 0 })
     })
 
     sales.rows.forEach(s => {
-      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, expense: 0, hpp: 0 }
+      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, expense: 0, hpp: 0, waste: 0 }
       cur.omzet += s.omzet
       map.set(s.outlet_id, cur)
     })
@@ -69,27 +72,33 @@ export default function ProfitPage() {
     expenses.rows.forEach(e => {
       // Pengeluaran Pusat (scope pusat / outlet_id NULL) tak dibebankan ke outlet manapun.
       if (e.scope !== 'outlet' || !e.outlet_id) return
-      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name ?? 'Outlet Tidak Dikenal', omzet: 0, expense: 0, hpp: 0 }
+      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name ?? 'Outlet Tidak Dikenal', omzet: 0, expense: 0, hpp: 0, waste: 0 }
       cur.expense += e.amount
       map.set(e.outlet_id, cur)
     })
 
     hpp.rows.forEach(h => {
-      const cur = map.get(h.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, expense: 0, hpp: 0 }
+      const cur = map.get(h.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, expense: 0, hpp: 0, waste: 0 }
       cur.hpp += h.hpp
       map.set(h.outlet_id, cur)
     })
 
+    waste.rows.forEach(w => {
+      const cur = map.get(w.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, expense: 0, hpp: 0, waste: 0 }
+      cur.waste += w.nilai_waste
+      map.set(w.outlet_id, cur)
+    })
+
     return [...map.entries()]
       .map(([id, val]) => {
-        const net = val.omzet - val.hpp - val.expense
+        const net = val.omzet - val.hpp - val.expense - val.waste
         const labaKotor = val.omzet - val.hpp
         const margin = val.omzet > 0 ? (net / val.omzet) * 100 : 0
-        return { id, name: val.name, omzet: val.omzet, expense: val.expense, hpp: val.hpp, labaKotor, net, margin }
+        return { id, name: val.name, omzet: val.omzet, expense: val.expense, hpp: val.hpp, waste: val.waste, labaKotor, net, margin }
       })
-      .filter(item => item.omzet > 0 || item.expense > 0 || item.hpp > 0)
+      .filter(item => item.omzet > 0 || item.expense > 0 || item.hpp > 0 || item.waste > 0)
       .sort((a, b) => b.net - a.net)
-  }, [sales.rows, expenses.rows, hpp.rows, outlets])
+  }, [sales.rows, expenses.rows, hpp.rows, waste.rows, outlets])
 
   // Group by date for Cash Flow Chart
   const byDate = useMemo(() => {
@@ -161,6 +170,7 @@ export default function ProfitPage() {
               <StatTile label="HPP Bahan Baku" value={<><span className="text-lg align-top">Rp </span><CountUp end={totalHpp} duration={1} separator="." /></>} sub="Biaya Bahan Terjual" icon={Boxes} accent="brown" />
               <StatTile label="Laba Kotor" value={<><span className="text-lg align-top">Rp </span><CountUp end={labaKotor} duration={1} separator="." /></>} sub={`Omzet − HPP · ${marginKotor.toFixed(1)}%`} icon={Layers} accent="green" />
               <StatTile label="Pengeluaran Outlet" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranOutlet} duration={1} separator="." /></>} sub={`Bulanan: Rp ${(pengeluaranOutletBulanan/1000).toLocaleString('id-ID')}k | Kas Kecil: Rp ${(pengeluaranOutletPettyCash/1000).toLocaleString('id-ID')}k`} icon={TrendingDown} accent="red" />
+              <StatTile label="Kerugian Waste" value={<><span className="text-lg align-top">Rp </span><CountUp end={totalWaste} duration={1} separator="." /></>} sub="Approved, di luar HPP resep" icon={TrendingDown} accent="red" />
               {isAllOutlets && (
                 <StatTile label="Biaya Pusat" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranPusat} duration={1} separator="." /></>} sub="Tak dibebankan ke outlet" icon={Building2} accent="red" />
               )}
@@ -189,6 +199,7 @@ export default function ProfitPage() {
                     <th className="py-3 px-6 text-right">HPP</th>
                     <th className="py-3 px-6 text-right">Laba Kotor</th>
                     <th className="py-3 px-6 text-right">Pengeluaran</th>
+                    <th className="py-3 px-6 text-right">Kerugian Waste</th>
                     <th className="py-3 px-6 text-right">Laba Bersih</th>
                     <th className="py-3 px-6 text-center">Margin %</th>
                   </tr>
@@ -196,7 +207,7 @@ export default function ProfitPage() {
                 <tbody className="divide-y divide-suka-gray-100 font-medium">
                   {outletBreakdown.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-suka-gray-400">Belum ada aktivitas bisnis pada periode ini</td>
+                      <td colSpan={9} className="py-8 text-center text-suka-gray-400">Belum ada aktivitas bisnis pada periode ini</td>
                     </tr>
                   ) : (
                     outletBreakdown.map((row, index) => {
@@ -215,6 +226,7 @@ export default function ProfitPage() {
                           <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.hpp)}</td>
                           <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.labaKotor)}</td>
                           <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.expense)}</td>
+                          <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.waste)}</td>
                           <td className={`py-3.5 px-6 text-right font-extrabold ${isProfit ? 'text-suka-green' : 'text-red-700'}`}>
                             {rupiah(row.net)}
                           </td>

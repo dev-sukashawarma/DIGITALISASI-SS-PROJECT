@@ -6,10 +6,10 @@ export interface ProfitResult {
   marginBersih: number
 }
 
-/** Laba Kotor = Omzet − HPP; Laba Bersih = Laba Kotor − Expenses. Margin % thd omzet. */
-export function computeProfit(omzet: number, hpp: number, expenses: number): ProfitResult {
+/** Laba Kotor = Omzet − HPP; Laba Bersih = Laba Kotor − Expenses − Kerugian Waste. Margin % thd omzet. */
+export function computeProfit(omzet: number, hpp: number, expenses: number, wasteValue: number = 0): ProfitResult {
   const labaKotor = omzet - hpp
-  const labaBersih = labaKotor - expenses
+  const labaBersih = labaKotor - expenses - wasteValue
   return {
     labaKotor,
     labaBersih,
@@ -18,14 +18,12 @@ export function computeProfit(omzet: number, hpp: number, expenses: number): Pro
   }
 }
 
-export interface OutletProfit {
-  labaKotor: number; labaBersih: number; marginKotor: number; marginBersih: number
-}
+export type OutletProfit = ProfitResult
 
-/** Laba Outlet = Omzet − HPP − Pengeluaran Outlet (outlet itu saja). */
-export function computeOutletProfit(omzet: number, hpp: number, pengeluaranOutlet: number): OutletProfit {
+/** Laba Outlet = Omzet − HPP − Pengeluaran Outlet − Kerugian Waste (outlet itu saja). */
+export function computeOutletProfit(omzet: number, hpp: number, pengeluaranOutlet: number, wasteValue: number = 0): OutletProfit {
   const labaKotor = omzet - hpp
-  const labaBersih = labaKotor - pengeluaranOutlet
+  const labaBersih = labaKotor - pengeluaranOutlet - wasteValue
   return {
     labaKotor,
     labaBersih,
@@ -34,7 +32,7 @@ export function computeOutletProfit(omzet: number, hpp: number, pengeluaranOutle
   }
 }
 
-/** Laba Perusahaan = Σ Laba Outlet − Σ Pengeluaran Pusat. */
+/** Laba Perusahaan = Σ Laba Outlet − Σ Pengeluaran Pusat. (Waste sudah terpotong di level outlet.) */
 export function computeCompanyProfit(sumLabaOutlet: number, pengeluaranPusat: number) {
   return { labaPerusahaan: sumLabaOutlet - pengeluaranPusat }
 }

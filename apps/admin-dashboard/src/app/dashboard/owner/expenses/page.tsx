@@ -3,11 +3,12 @@
 import { useMemo, useState } from 'react'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useExpenses } from '@/hooks/useExpenses'
+import { useWaste } from '@/hooks/useWaste'
 import { useRole } from '@/components/layout/RoleContext'
 import { PageHeader, StatTile, Section, StatTilesSkeleton } from '@/components/ui'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import CountUp from 'react-countup'
-import { Wallet } from 'lucide-react'
+import { Wallet, TrendingDown } from 'lucide-react'
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import dynamic from 'next/dynamic'
 
@@ -44,6 +45,7 @@ export default function ExpensesPage() {
   }), [periodMonth, month, target, isPusat])
 
   const { rows, loading, error } = useExpenses(filter)
+  const { rows: wasteRows, loading: wasteLoading } = useWaste(filter)
 
   const filteredRows = useMemo(() => {
     if (target === 'all') {
@@ -58,6 +60,7 @@ export default function ExpensesPage() {
   const totalAmount = useMemo(() => filteredRows.reduce((s, r) => s + r.amount, 0), [filteredRows])
   const amountBulanan = useMemo(() => filteredRows.filter(r => r.source === 'monthly').reduce((s, r) => s + r.amount, 0), [filteredRows])
   const amountPettyCash = useMemo(() => filteredRows.filter(r => r.source === 'petty_cash').reduce((s, r) => s + r.amount, 0), [filteredRows])
+  const totalWaste = useMemo(() => wasteRows.reduce((s, r) => s + r.nilai_waste, 0), [wasteRows])
 
   const byCategory = useMemo(() => {
     const map = new Map<string, number>()
@@ -99,11 +102,11 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {loading ? (
+      {loading || wasteLoading ? (
         <StatTilesSkeleton count={3} />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <StatTile
               label="Total Pengeluaran"
               value={<><span className="text-lg align-top">Rp </span><CountUp end={totalAmount} duration={1} separator="." /></>}
@@ -111,6 +114,15 @@ export default function ExpensesPage() {
               icon={Wallet}
               accent="brown"
             />
+            {!isPusat && (
+              <StatTile
+                label="Kerugian Waste"
+                value={<><span className="text-lg align-top">Rp </span><CountUp end={totalWaste} duration={1} separator="." /></>}
+                sub="Read-only, dari approval waste (bukan input manual)"
+                icon={TrendingDown}
+                accent="red"
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

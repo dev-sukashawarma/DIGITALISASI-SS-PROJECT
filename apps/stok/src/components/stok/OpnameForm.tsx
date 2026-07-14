@@ -317,6 +317,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
                       </span>
                     </div>
                   )}
+                </div>
 
                 {/* Discrepancy indicator hidden for Blind Opname */}
                 <div className="text-right min-w-[65px] flex-shrink-0">

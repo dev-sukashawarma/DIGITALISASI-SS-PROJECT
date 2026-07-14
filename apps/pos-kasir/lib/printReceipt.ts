@@ -97,9 +97,11 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   .kitchen-title { font-size: 30px; font-weight: 900; margin-bottom: 8px; text-decoration: underline; }
 </style></head>
 <body>
-  ${isKitchen ? `<div class="center kitchen-title">STRUK DAPUR</div>` : `
   <img src="${logoSrc}" class="logo" alt="Logo" />
   <div class="center bold lg">${esc(d.outletName || 'SUKA SHAWARMA')}</div>
+  ${isKitchen ? `
+  <div class="center kitchen-title" style="margin-top: 8px;">STRUK DAPUR</div>
+  ` : `
   <div class="center muted">Suka Shawarma</div>
   `}
   <hr/>
@@ -115,8 +117,9 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
     if (it.isChild) {
       return `
       <tr>
-        <td colspan="2" class="name" style="padding-left: 15px; font-size: ${isKitchen ? '20px' : '14px'};">
-          |- ${it.quantity}x EXTRA ${esc(it.name)}${noteHtml}
+        <td class="qty"></td>
+        <td class="name" style="padding-left: 10px;">
+          └─ ${it.quantity}x EXTRA ${esc(it.name)}${noteHtml}
         </td>
         ${!isKitchen ? `<td class="amt">${formatRupiah(it.subtotal)}</td>` : ''}
       </tr>`

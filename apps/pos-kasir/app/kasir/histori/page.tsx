@@ -17,6 +17,8 @@ import type { OrderWithItems, OrderStatus } from '@/types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { fetchWithTimeout } from '@/lib/offline-utils'
 
+import BonusTab from './BonusTab'
+
 const STATUS_CONF: Partial<Record<OrderStatus, {
   label: string; color: string; badge: string; icon: any
 }>> = {
@@ -62,6 +64,7 @@ async function fetchHistoriOrders(outletId: string, filter: OrderStatus | 'all')
 
 export default function AdminOrdersPage() {
   const { showConfirm } = useDialogStore()
+  const [activeTab, setActiveTab] = useState<'histori' | 'bonus'>('histori')
   const [filter, setFilter]     = useState<OrderStatus | 'all'>('all')
   const [expandedId, setExpand] = useState<string | null>(null)
   const { outletId, outletName } = useMyOutlet()
@@ -70,7 +73,7 @@ export default function AdminOrdersPage() {
   const { data: orders = [], isLoading: loading, refetch } = useQuery({
     queryKey: ['histori', outletId, filter],
     queryFn: () => fetchHistoriOrders(outletId as string, filter),
-    enabled: !!outletId,
+    enabled: !!outletId && activeTab === 'histori',
     refetchInterval: 15000,
     staleTime: 15000,
     retry: false,
@@ -94,10 +97,10 @@ export default function AdminOrdersPage() {
   return (
     <div className="space-y-6">
 
-      {/* ── Page title ── */}
-      <div className="flex items-center justify-between">
+      {/* ── Page title & Tabs ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Dashboard Pesanan</h1>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Histori & Bonus</h1>
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             {outletName && (
               <p className="text-xs font-medium text-gray-500 flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200">
@@ -105,17 +108,43 @@ export default function AdminOrdersPage() {
                 <span className="font-bold text-gray-700">{outletName}</span>
               </p>
             )}
-            <p className="text-gray-400 text-xs">Auto-refresh setiap 15 detik</p>
+            {activeTab === 'histori' && <p className="text-gray-400 text-xs">Auto-refresh setiap 15 detik</p>}
           </div>
         </div>
-        <button
-          onClick={() => refetch()}
-          className="btn-secondary py-2 px-4 text-sm"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          Refresh
-        </button>
+        
+        <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl w-full sm:w-auto">
+          <button
+            onClick={() => setActiveTab('histori')}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'histori' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Histori Pesanan
+          </button>
+          <button
+            onClick={() => setActiveTab('bonus')}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'bonus' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Lihat Bonus
+          </button>
+        </div>
       </div>
+
+      {activeTab === 'bonus' ? (
+        <BonusTab />
+      ) : (
+        <>
+          <div className="flex justify-end">
+            <button
+              onClick={() => refetch()}
+              className="btn-secondary py-2 px-4 text-sm"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refresh
+            </button>
+          </div>
 
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -383,6 +412,8 @@ export default function AdminOrdersPage() {
             )
           })}
         </div>
+      )}
+        </>
       )}
     </div>
   )

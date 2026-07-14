@@ -69,3 +69,12 @@ describe('Master Bahan Baku nav item', () => {
     }
   })
 })
+
+describe('Kerugian Waste nav item', () => {
+  it('OWNER dan ADMIN punya akses, MITRA dan ADMIN_HR tidak', () => {
+    expect(accessibleItems('OWNER').map(i => i.href)).toContain('/dashboard/owner/waste')
+    expect(accessibleItems('ADMIN').map(i => i.href)).toContain('/dashboard/owner/waste')
+    expect(accessibleItems('MITRA').map(i => i.href)).not.toContain('/dashboard/owner/waste')
+    expect(accessibleItems('ADMIN_HR').map(i => i.href)).not.toContain('/dashboard/owner/waste')
+  })
+})

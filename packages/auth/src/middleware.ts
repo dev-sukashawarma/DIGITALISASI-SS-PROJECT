@@ -55,6 +55,11 @@ export async function enforceAppAccess(
     return redirectResponse
   }
 
+  // --- Bypass auth untuk rute publik (tidak butuh login) ---
+  if (request.nextUrl.pathname.startsWith('/public/')) {
+    return response
+  }
+
   // --- Identitas: JWT lokal bila secret ada, fallback getUser() ---
   const userId = await resolveUserId(supabase, process.env.SUPABASE_JWT_SECRET)
   if (!userId) {

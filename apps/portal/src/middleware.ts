@@ -26,6 +26,11 @@ export async function middleware(request: NextRequest) {
     return redirectResponse
   }
 
+  // Rute publik → langsung lolos tanpa cek login
+  if (pathname.startsWith('/public/')) {
+    return response
+  }
+
   // Already logged in → check staff status and redirect to launcher
   if (userId && pathname === '/') {
     const { data: staff } = await supabase

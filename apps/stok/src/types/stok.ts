@@ -12,6 +12,8 @@ export interface BahanBaku {
   id: string; nama: string; satuan: Satuan; kategori: Kategori
   default_reorder_point: number; is_active: boolean; created_at: string
   faktor_konversi: number
+  satuan_tengah: string | null
+  faktor_tengah: number | null
   satuan_kecil: SatuanKecil | null
   faktor_tampilan: number | null
 }
@@ -76,7 +78,7 @@ export interface LedgerTransaksiDetailRow {
   saldo_sebelum: number
   saldo_sesudah: number
   created_at: string
-  bahan_baku: { nama: string; satuan: Satuan; satuan_kecil: SatuanKecil | null; faktor_tampilan: number | null } | null
+  bahan_baku: { nama: string; satuan: Satuan; satuan_tengah: string | null; faktor_tengah: number | null; satuan_kecil: SatuanKecil | null; faktor_tampilan: number | null } | null
 }
 
 export type WasteStatus = 'PENDING' | 'APPROVED' | 'REJECTED'

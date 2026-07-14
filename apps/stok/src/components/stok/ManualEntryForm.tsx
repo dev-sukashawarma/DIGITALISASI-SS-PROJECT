@@ -26,6 +26,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [selectedUnitType, setSelectedUnitType] = useState<'besar'|'tengah'|'kecil'>('besar')
 
   const needsReason = tipe === 'adjustment' || tipe === 'waste'
   const qtyNum = Number(qty)
@@ -41,7 +42,17 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   async function submit() {
     setBusy(true)
     setErrorMsg(null)
-    
+
+    const selectedBahan = bahanBaku.find(b => b.id === bahanBakuId)
+    let finalQty = Number(qty)
+    if (selectedBahan) {
+      if (selectedUnitType === 'kecil' && selectedBahan.faktor_tampilan) {
+        finalQty = finalQty / selectedBahan.faktor_tampilan
+      } else if (selectedUnitType === 'tengah' && selectedBahan.faktor_tengah) {
+        finalQty = finalQty / selectedBahan.faktor_tengah
+      }
+    }
+
     if (tipe === 'waste') {
       if (!file) {
         setErrorMsg('Foto bukti harus diunggah untuk laporan waste')
@@ -64,7 +75,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         await submitWasteReport({
           outlet_id: outletId,
           bahan_baku_id: bahanBakuId,
-          qty: Number(qty),
+          qty: finalQty,
           reason: catatan,
           photo_url: photoUrl
         })
@@ -78,9 +89,9 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
     try {
       await addManual({
         outletId, bahanBakuId, tipe,
-        qtyAbs: Math.abs(Number(qty)),
+        qtyAbs: Math.abs(finalQty),
         catatan, createdBy,
-      }, tipe === 'adjustment' ? Number(qty) : undefined)
+      }, tipe === 'adjustment' ? finalQty : undefined)
       router.push('/stok/ledger')
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : String(err))
@@ -117,7 +128,10 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         <select
           className="w-full border border-[#d9c2b2]/40 rounded-xl px-4 py-2.5 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] font-medium transition-all shadow-sm cursor-pointer"
           value={bahanBakuId}
-          onChange={e => setBahanBakuId(e.target.value)}
+          onChange={e => {
+            setBahanBakuId(e.target.value)
+            setSelectedUnitType('besar')
+          }}
         >
           <option value="">— Pilih bahan baku —</option>
           {bahanBaku.map(b => <option key={b.id} value={b.id}>{b.nama} ({b.satuan})</option>)}
@@ -139,14 +153,35 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
 
       <div className="flex flex-col gap-2">
         <label className="text-xs font-bold text-[#544437]/75 uppercase tracking-wide">Kuantitas</label>
-        <Input
-          type="number"
-          inputMode="decimal"
-          placeholder={tipe === 'adjustment' ? 'Qty (boleh negatif)' : 'Qty'}
-          value={qty}
-          onChange={e => setQty(e.target.value)}
-          className="px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] placeholder-[#544437]/40 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm"
-        />
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            inputMode="decimal"
+            placeholder={tipe === 'adjustment' ? 'Qty (boleh negatif)' : 'Qty'}
+            value={qty}
+            onChange={e => setQty(e.target.value)}
+            className="flex-1 px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] placeholder-[#544437]/40 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm"
+          />
+          {bahanBakuId && (() => {
+            const selectedBahan = bahanBaku.find(b => b.id === bahanBakuId)
+            if (!selectedBahan) return null
+            return (
+              <select
+                value={selectedUnitType}
+                onChange={e => setSelectedUnitType(e.target.value as 'besar'|'tengah'|'kecil')}
+                className="px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] font-bold focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm cursor-pointer min-w-[80px]"
+              >
+                <option value="besar">{selectedBahan.satuan}</option>
+                {selectedBahan.satuan_tengah && selectedBahan.faktor_tengah ? (
+                  <option value="tengah">{selectedBahan.satuan_tengah}</option>
+                ) : null}
+                {selectedBahan.satuan_kecil && selectedBahan.faktor_tampilan ? (
+                  <option value="kecil">{selectedBahan.satuan_kecil}</option>
+                ) : null}
+              </select>
+            )
+          })()}
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">

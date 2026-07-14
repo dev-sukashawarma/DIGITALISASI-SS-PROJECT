@@ -13,11 +13,13 @@ function formatUpdatedAt(iso: string | null): string {
 }
 
 export function BahanBakuTable({
-  rows, onSave, onSaveSatuan, saving, onUploadImage, uploading,
+  rows, onSave, onSaveMerek, onSaveNama, onSaveSatuan, saving, onUploadImage, uploading,
   onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving
 }: {
   rows: BahanBakuWithHarga[]
   onSave: (bahanBakuId: string, harga: number) => void
+  onSaveMerek: (bahanBakuId: string, merek: string | null) => void
+  onSaveNama: (bahanBakuId: string, nama: string) => void
   onSaveSatuan: (id: string, s: string, st: string | null, ft: number | null, sk: string | null, fk: number | null) => void
   saving: boolean
   onUploadImage: (bahanBakuId: string, file: File, level: 'besar' | 'tengah' | 'kecil') => void
@@ -74,6 +76,7 @@ export function BahanBakuTable({
         <thead className="bg-gray-50/80 text-left text-xs uppercase text-gray-500 font-semibold border-b border-gray-200">
           <tr>
             <th className="px-4 py-3 whitespace-nowrap">Bahan Baku</th>
+            <th className="px-4 py-3 whitespace-nowrap">Merek</th>
             <th className="px-4 py-3 whitespace-nowrap">Kategori</th>
             <th className="px-4 py-3 whitespace-nowrap">Satuan Bertingkat</th>
             <th className="px-4 py-3 whitespace-nowrap">Harga Beli</th>
@@ -87,6 +90,9 @@ export function BahanBakuTable({
               <tr key={r.id} className="hover:bg-gray-50/50 transition-colors group">
                 <td className="px-4 py-3">
                   <span className="font-semibold text-suka-ink whitespace-nowrap">{r.nama}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-gray-600 whitespace-nowrap">{r.merek || '—'}</span>
                 </td>
                 <td className="px-4 py-3">
                   <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-600 border border-blue-100">{r.kategori}</span>
@@ -146,6 +152,8 @@ export function BahanBakuTable({
         onUploadImage={onUploadImage}
         uploading={uploading}
         onSave={onSave}
+        onSaveMerek={onSaveMerek}
+        onSaveNama={onSaveNama}
         onSaveSatuan={onSaveSatuan}
         saving={saving}
         onAddSku={onAddSku}

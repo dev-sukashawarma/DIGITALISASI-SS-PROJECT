@@ -7,6 +7,7 @@ export interface BahanBakuHargaRow {
 export interface BahanBakuRaw {
   id: string
   nama: string
+  merek: string | null
   image_url: string | null
   image_url_tengah: string | null
   image_url_kecil: string | null
@@ -35,6 +36,7 @@ export interface BahanBakuSku {
 export interface BahanBakuWithHarga {
   id: string
   nama: string
+  merek: string | null
   image_url: string | null
   image_url_tengah: string | null
   image_url_kecil: string | null
@@ -55,6 +57,7 @@ export function normalizeBahanBaku(raw: BahanBakuRaw): BahanBakuWithHarga {
   return { 
     id: raw.id, 
     nama: raw.nama, 
+    merek: raw.merek,
     image_url: raw.image_url,
     image_url_tengah: raw.image_url_tengah,
     image_url_kecil: raw.image_url_kecil,

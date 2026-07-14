@@ -16,7 +16,9 @@ interface BahanBakuDetailModalProps {
   bahanBaku: BahanBakuWithHarga | null
   onUploadImage: (id: string, file: File, level: 'besar' | 'tengah' | 'kecil') => void
   uploading: boolean
-  onSave: (id: string, harga: number) => void
+  onSave: (id: string, h: number) => void
+  onSaveMerek: (id: string, m: string | null) => void
+  onSaveNama: (id: string, n: string) => void
   onSaveSatuan: (id: string, s: string, st: string | null, ft: number | null, sk: string | null, fk: number | null) => void
   saving: boolean
   onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean }) => void
@@ -27,19 +29,9 @@ interface BahanBakuDetailModalProps {
 }
 
 export function BahanBakuDetailModal({
-  isOpen,
-  onClose,
-  bahanBaku,
-  onUploadImage,
-  uploading,
-  onSave,
-  onSaveSatuan,
-  saving,
-  onAddSku,
-  onUpdateSku,
-  onDeleteSku,
-  onSetDefaultSku,
-  skuSaving,
+  isOpen, onClose, bahanBaku, onUploadImage, uploading,
+  onSave, onSaveMerek, onSaveNama, onSaveSatuan, saving,
+  onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving
 }: BahanBakuDetailModalProps) {
   const fileInputRefBesar = useRef<HTMLInputElement>(null)
   const fileInputRefTengah = useRef<HTMLInputElement>(null)
@@ -47,6 +39,12 @@ export function BahanBakuDetailModal({
   
   const [isEditingHarga, setIsEditingHarga] = useState(false)
   const [draftHarga, setDraftHarga] = useState('')
+
+  const [isEditingMerek, setIsEditingMerek] = useState(false)
+  const [draftMerek, setDraftMerek] = useState('')
+  
+  const [isEditingNama, setIsEditingNama] = useState(false)
+  const [draftNama, setDraftNama] = useState('')
 
   const [isEditingSatuan, setIsEditingSatuan] = useState(false)
   const [draftSatuan, setDraftSatuan] = useState({
@@ -58,11 +56,17 @@ export function BahanBakuDetailModal({
   })
   
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
+  const [showSkuSection, setShowSkuSection] = useState(false)
   
   useEffect(() => {
     if (isOpen && bahanBaku) {
       setIsEditingHarga(false)
       setDraftHarga('')
+      setIsEditingMerek(false)
+      setDraftMerek(bahanBaku.merek || '')
+      setIsEditingNama(false)
+      setDraftNama(bahanBaku.nama || '')
+      setShowSkuSection(false)
       setIsEditingSatuan(false)
       setDraftSatuan({
         satuan: bahanBaku.satuan,
@@ -134,8 +138,61 @@ export function BahanBakuDetailModal({
               {/* Main Info */}
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Nama Bahan Baku</label>
-                  <div className="mt-1 text-lg font-bold text-suka-ink">{bahanBaku.nama}</div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Nama Bahan Baku</label>
+                    {!isEditingNama && (
+                      <button 
+                        onClick={() => {
+                          setIsEditingNama(true)
+                          setDraftNama(bahanBaku.nama || '')
+                        }}
+                        className="text-suka-orange hover:bg-orange-50 p-1 rounded transition-colors"
+                        title="Edit Nama"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {isEditingNama ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        autoFocus
+                        className="w-full rounded-lg border border-suka-gray-300 px-3 py-1.5 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange shadow-sm font-bold" 
+                        value={draftNama}
+                        onChange={(e) => setDraftNama(e.target.value)}
+                        onKeyDown={(e) => { 
+                          if (e.key === 'Enter' && draftNama.trim()) {
+                            onSaveNama(bahanBaku.id, draftNama.trim())
+                            setIsEditingNama(false)
+                          }
+                          if (e.key === 'Escape') setIsEditingNama(false) 
+                        }}
+                        disabled={saving}
+                      />
+                      <button 
+                        onClick={() => {
+                          if (draftNama.trim()) {
+                            onSaveNama(bahanBaku.id, draftNama.trim())
+                            setIsEditingNama(false)
+                          }
+                        }}
+                        disabled={saving || !draftNama.trim()}
+                        className="p-1.5 bg-green-50 text-green-600 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
+                      >
+                        <Check size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setIsEditingNama(false)}
+                        disabled={saving}
+                        className="p-1.5 bg-gray-50 text-gray-600 rounded-md hover:bg-gray-200 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-lg font-bold text-suka-ink">{bahanBaku.nama}</div>
+                  )}
                 </div>
                 
                 <div>
@@ -145,6 +202,64 @@ export function BahanBakuDetailModal({
                       {bahanBaku.kategori}
                     </span>
                   </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Merek</label>
+                    {!isEditingMerek && (
+                      <button 
+                        onClick={() => {
+                          setIsEditingMerek(true)
+                          setDraftMerek(bahanBaku.merek || '')
+                        }}
+                        className="text-suka-orange hover:bg-orange-50 p-1 rounded transition-colors"
+                        title="Edit Merek"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {isEditingMerek ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        autoFocus
+                        className="w-48 rounded-lg border border-suka-gray-300 px-3 py-1.5 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange shadow-sm font-bold" 
+                        value={draftMerek}
+                        onChange={(e) => setDraftMerek(e.target.value)}
+                        onKeyDown={(e) => { 
+                          if (e.key === 'Enter') {
+                            onSaveMerek(bahanBaku.id, draftMerek.trim() || null)
+                            setIsEditingMerek(false)
+                          }
+                          if (e.key === 'Escape') setIsEditingMerek(false) 
+                        }}
+                        disabled={saving}
+                      />
+                      <button 
+                        onClick={() => {
+                          onSaveMerek(bahanBaku.id, draftMerek.trim() || null)
+                          setIsEditingMerek(false)
+                        }}
+                        disabled={saving}
+                        className="p-1.5 bg-green-50 text-green-600 rounded-md hover:bg-green-100 transition-colors"
+                      >
+                        <Check size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setIsEditingMerek(false)}
+                        disabled={saving}
+                        className="p-1.5 bg-gray-50 text-gray-600 rounded-md hover:bg-gray-200 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-sm font-medium text-gray-600">
+                      {bahanBaku.merek || '—'}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -374,12 +489,22 @@ export function BahanBakuDetailModal({
 
             {/* SKU / Variasi Kemasan */}
             <div className="pt-6 border-t border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-bold text-suka-ink uppercase tracking-wider">Variasi Kemasan (SKU)</h3>
-                  <p className="text-xs text-gray-500 mt-1">Daftar kemasan untuk bahan ini. Harga HPP akan mengambil dari SKU yang paling efisien (termurah per satuan kecil).</p>
-                </div>
-              </div>
+              {!showSkuSection ? (
+                <button 
+                  type="button"
+                  onClick={() => setShowSkuSection(true)}
+                  className="w-full py-3 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>+ Tambah Variasi Kemasan Baru</span>
+                </button>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-suka-ink uppercase tracking-wider">Variasi Kemasan (SKU)</h3>
+                      <p className="text-xs text-gray-500 mt-1">Daftar kemasan untuk bahan ini. Harga HPP akan mengambil dari SKU yang paling efisien (termurah per satuan kecil).</p>
+                    </div>
+                  </div>
               
               <div className="overflow-x-auto rounded-xl border border-gray-200">
                 <table className="w-full text-sm">
@@ -483,6 +608,8 @@ export function BahanBakuDetailModal({
                   </div>
                 </div>
               </div>
+              </>
+            )}
             </div>
 
             {/* Photo Slots Per Level */}

@@ -19,6 +19,26 @@ export function useBahanBakuHargaMutations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
   })
 
+  const setMerek = useMutation({
+    mutationFn: async (vars: { bahan_baku_id: string; merek: string | null }) => {
+      const { error } = await supabase.from('bahan_baku').update({
+        merek: vars.merek
+      }).eq('id', vars.bahan_baku_id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
+  })
+
+  const setNama = useMutation({
+    mutationFn: async (vars: { bahan_baku_id: string; nama: string }) => {
+      const { error } = await supabase.from('bahan_baku').update({
+        nama: vars.nama
+      }).eq('id', vars.bahan_baku_id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
+  })
+
   const setSatuan = useMutation({
     mutationFn: async (vars: { 
       bahan_baku_id: string; 
@@ -111,5 +131,5 @@ export function useBahanBakuHargaMutations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
   })
 
-  return { setHarga, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku }
+  return { setHarga, setMerek, setNama, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku }
 }

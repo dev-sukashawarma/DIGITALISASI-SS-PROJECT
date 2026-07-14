@@ -10,7 +10,7 @@ import { BahanBakuTable } from '@/components/BahanBakuTable'
 
 export default function BahanBakuPage() {
   const { data: rows = [], isLoading } = useBahanBakuHarga()
-  const { setHarga, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku } = useBahanBakuHargaMutations()
+  const { setHarga, setMerek, setNama, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku } = useBahanBakuHargaMutations()
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('nama-asc')
 
@@ -19,6 +19,20 @@ export default function BahanBakuPage() {
   function handleSave(bahanBakuId: string, harga: number) {
     setHarga.mutate({ bahan_baku_id: bahanBakuId, harga_beli: harga }, {
       onSuccess: () => toast.success('Harga disimpan'),
+      onError: (e: any) => toast.error(e.message),
+    })
+  }
+
+  function handleSaveMerek(bahanBakuId: string, merek: string | null) {
+    setMerek.mutate({ bahan_baku_id: bahanBakuId, merek }, {
+      onSuccess: () => toast.success('Merek disimpan'),
+      onError: (e: any) => toast.error(e.message),
+    })
+  }
+
+  function handleSaveNama(bahanBakuId: string, nama: string) {
+    setNama.mutate({ bahan_baku_id: bahanBakuId, nama }, {
+      onSuccess: () => toast.success('Nama berhasil diubah'),
       onError: (e: any) => toast.error(e.message),
     })
   }
@@ -56,8 +70,10 @@ export default function BahanBakuPage() {
           <BahanBakuTable 
             rows={filtered} 
             onSave={handleSave}
+            onSaveMerek={handleSaveMerek}
+            onSaveNama={handleSaveNama}
             onSaveSatuan={handleSaveSatuan}
-            saving={setHarga.isPending || setSatuan.isPending} 
+            saving={setHarga.isPending || setMerek.isPending || setNama.isPending || setSatuan.isPending} 
             onUploadImage={handleUploadImage}
             uploading={setImage.isPending}
             onAddSku={(vars) => addSku.mutate(vars, {

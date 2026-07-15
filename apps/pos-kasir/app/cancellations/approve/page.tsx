@@ -10,11 +10,34 @@ function ApproveContent() {
 
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string; newStatus?: string } | null>(null)
+  
+  const [detailsLoading, setDetailsLoading] = useState(true)
+  const [orderDetails, setOrderDetails] = useState<any>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) {
       setResult({ success: false, message: 'Token tidak ditemukan.' })
+      setDetailsLoading(false)
+      return
     }
+
+    fetch(`/api/cancellations/details?token=${token}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          setResult({ success: false, message: data.error })
+        } else {
+          setUserRole(data.role)
+          setOrderDetails(data.order)
+        }
+      })
+      .catch(err => {
+        setResult({ success: false, message: 'Gagal memuat detail pesanan.' })
+      })
+      .finally(() => {
+        setDetailsLoading(false)
+      })
   }, [token])
 
   async function handleAction(action: 'approve' | 'reject') {
@@ -48,6 +71,34 @@ function ApproveContent() {
     }
   }
 
+  if (detailsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+      </div>
+    )
+  }
+
+  if (userRole === 'crew') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+          <div className="bg-red-100 text-red-600 p-4 rounded-full mb-4 inline-flex">
+            <XCircle size={48} />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Akses Ditolak</h1>
+          <p className="text-gray-600 mb-8">Maaf, Anda masuk sebagai Crew dan tidak memiliki wewenang untuk menyetujui pembatalan pesanan ini.</p>
+          <a
+            href="/kasir"
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-md shadow-blue-600/20"
+          >
+            Kembali ke Kasir
+          </a>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
       <div className="bg-white p-6 md:p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
@@ -69,9 +120,31 @@ function ApproveContent() {
           </div>
         ) : (
           <>
-            <p className="text-gray-600 mb-8 mt-4">
-              Apakah Anda menyetujui permintaan pembatalan pesanan ini? Aksi ini tidak dapat dibatalkan.
-            </p>
+            {orderDetails && (
+              <div className="bg-gray-100 p-4 rounded-xl mb-6 mt-4 text-left border border-gray-200">
+                <div className="mb-2">
+                  <span className="text-xs text-gray-500 font-semibold uppercase">Outlet</span>
+                  <p className="text-sm font-medium text-gray-900">{orderDetails.outletName}</p>
+                </div>
+                <div className="mb-2">
+                  <span className="text-xs text-gray-500 font-semibold uppercase">Pelanggan</span>
+                  <p className="text-sm font-medium text-gray-900">{orderDetails.customerName}</p>
+                </div>
+                <div className="mb-2">
+                  <span className="text-xs text-gray-500 font-semibold uppercase">Alasan Pembatalan</span>
+                  <p className="text-sm font-medium text-red-600">{orderDetails.reason}</p>
+                </div>
+                <div className="pt-2 mt-2 border-t border-gray-200">
+                  <span className="text-xs text-gray-500 font-semibold uppercase">Total Belanja</span>
+                  <p className="text-lg font-bold text-gray-900">Rp {orderDetails.totalAmount?.toLocaleString('id-ID')}</p>
+                </div>
+              </div>
+            )}
+            {!orderDetails && (
+              <p className="text-gray-600 mb-8 mt-4">
+                Apakah Anda menyetujui permintaan pembatalan pesanan ini? Aksi ini tidak dapat dibatalkan.
+              </p>
+            )}
 
             <div className="flex flex-col gap-3">
               <button

@@ -26,6 +26,8 @@ interface Line {
   item: MenuItem
   quantity: number
   note: string
+  cartItemId: string
+  parentId?: string
 }
 
 type Payment = 'cash' | 'qris'
@@ -52,7 +54,7 @@ export default function OrderManualPage() {
   const [activeCat, setActiveCat] = useState<string>('all')
 
   // Keranjang lokal (terisolasi dari cart kiosk pelanggan)
-  const [lines, setLines] = useState<import('@/components/kasir/WalkInCartPanel').Line[]>([])
+  const [lines, setLines] = useState<Line[]>([])
   const [channel, setChannel] = useState<string | null>(null)
   const [payment, setPayment] = useState<Payment | null>(null)
   const [customerName, setCustomerName] = useState('')

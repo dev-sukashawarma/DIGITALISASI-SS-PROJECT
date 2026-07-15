@@ -26,20 +26,53 @@ export async function POST(req: Request) {
     }
 
     // 2. Cari Leader untuk outlet tersebut
-    const { data: leader, error: leaderErr } = await supabase
-      .from('outlet_staff')
-      .select('id, whatsapp, outlets(name)')
-      .eq('outlet_id', order.outlet_id)
-      .eq('role', 'leader')
-      .eq('is_active', true)
-      .limit(1)
-      .single()
+    let leaderPhone: string | null = null;
+    let outletName = 'Outlet';
 
-    if (leaderErr || !leader || !leader.whatsapp) {
-      return NextResponse.json({ error: 'Leader not found or no WhatsApp number set for this outlet' }, { status: 404 })
+    // Ambil nama outlet
+    const { data: outletData } = await supabase
+      .from('outlets')
+      .select('name')
+      .eq('id', order.outlet_id)
+      .single()
+    
+    if (outletData) {
+      outletName = outletData.name;
     }
 
-    const outletName = (leader.outlets as any)?.name || 'Outlet'
+    // Cek via staff_outlets (Leader yang membawahi banyak outlet)
+    const { data: staffMapping } = await supabase
+      .from('staff_outlets')
+      .select('outlet_staff!inner(phone, status, role)')
+      .eq('outlet_id', order.outlet_id)
+      .eq('outlet_staff.role', 'leader')
+      .eq('outlet_staff.status', 'active')
+      .not('outlet_staff.phone', 'is', null)
+      .neq('outlet_staff.phone', '')
+      .limit(1)
+
+    if (staffMapping && staffMapping.length > 0) {
+      leaderPhone = (staffMapping[0].outlet_staff as any).phone;
+    } else {
+      // Fallback: cek via outlet_staff langsung
+      const { data: directLeaders } = await supabase
+        .from('outlet_staff')
+        .select('phone')
+        .eq('outlet_id', order.outlet_id)
+        .eq('role', 'leader')
+        .eq('status', 'active')
+        .not('phone', 'is', null)
+        .neq('phone', '')
+        .limit(1)
+        
+      if (directLeaders && directLeaders.length > 0) {
+        leaderPhone = directLeaders[0].phone;
+      }
+    }
+
+    if (!leaderPhone) {
+      return NextResponse.json({ error: 'Leader not found or no WhatsApp number set for this outlet' }, { status: 404 })
+    }
 
     // 3. Hitung waktu kedaluwarsa token (misal 24 jam dari sekarang)
     const expiresAt = new Date()
@@ -68,7 +101,7 @@ export async function POST(req: Request) {
     const message = `*PERMINTAAN PEMBATALAN PESANAN*\n\nOutlet: ${outletName}\nNo Order: ${order.order_number}\nPelanggan: ${order.customer_name}\nTotal: Rp ${order.total_amount.toLocaleString('id-ID')}\nAlasan: ${reason}\n\nSilakan klik link berikut untuk *MENYETUJUI* atau *MENOLAK* pembatalan ini (link hanya berlaku 1 kali):\n\n${magicLink}`
     
     // Format WA number: Ensure starts with 62 or +62
-    let phone = leader.whatsapp.replace(/\D/g, '')
+    let phone = leaderPhone.replace(/\D/g, '')
     if (phone.startsWith('0')) phone = '62' + phone.substring(1)
 
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`

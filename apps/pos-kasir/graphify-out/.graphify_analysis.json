@@ -1,0 +1,1406 @@
+{
+  "communities": {
+    "0": [
+      "app_api_admin_guides_route",
+      "app_api_admin_guides_route_delete",
+      "app_api_admin_guides_route_get",
+      "app_api_admin_guides_route_post",
+      "app_api_admin_guides_route_put",
+      "app_api_checkout_route",
+      "app_api_checkout_route_post",
+      "app_api_cron_cancel_expired_route",
+      "app_api_cron_cancel_expired_route_get",
+      "app_api_cron_check_scheduled_orders_route",
+      "app_api_cron_check_scheduled_orders_route_get",
+      "app_api_kasir_generate_kiosk_qr_route",
+      "app_api_kasir_generate_kiosk_qr_route_post",
+      "app_api_kasir_kiosk_accounts_route",
+      "app_api_kasir_kiosk_accounts_route_get",
+      "app_api_kiosk_logout_route",
+      "app_api_kiosk_logout_route_post",
+      "app_api_orders_incoming_route",
+      "app_api_orders_incoming_route_incomingorderpayload",
+      "app_api_orders_incoming_route_post",
+      "app_api_orders_incoming_route_timingsafeequal",
+      "app_api_orders_manual_route",
+      "app_api_orders_manual_route_manualitem",
+      "app_api_orders_manual_route_manualpayload",
+      "app_api_orders_manual_route_post",
+      "app_api_orders_manual_route_valid_channels",
+      "app_api_orders_notify_online_cancel_route",
+      "app_api_orders_notify_online_cancel_route_post",
+      "app_api_orders_notify_online_done_route",
+      "app_api_orders_notify_online_done_route_post",
+      "app_api_orders_pull_online_route",
+      "app_api_orders_pull_online_route_post",
+      "app_api_orders_sync_active_route",
+      "app_api_orders_sync_active_route_post",
+      "app_api_orders_sync_internal_route",
+      "app_api_orders_sync_internal_route_post",
+      "app_api_orders_update_status_internal_route",
+      "app_api_orders_update_status_internal_route_post",
+      "app_api_orders_update_status_route",
+      "app_api_orders_update_status_route_post",
+      "app_api_orders_update_status_route_timingsafeequal",
+      "app_api_orders_walk_in_route",
+      "app_api_orders_walk_in_route_post",
+      "app_api_orders_walk_in_route_walkinitem",
+      "app_api_orders_walk_in_route_walkinpayload",
+      "app_api_push_subscribe_route",
+      "app_api_push_subscribe_route_post",
+      "app_api_qris_simulate_route",
+      "app_api_qris_simulate_route_post",
+      "app_api_settings_route",
+      "app_api_settings_route_get",
+      "app_api_settings_route_post",
+      "app_api_staff_verify_pin_route",
+      "app_api_staff_verify_pin_route_post",
+      "app_api_users_id_route",
+      "app_api_users_id_route_delete",
+      "app_api_users_id_route_put",
+      "app_api_users_id_route_verifyadmin",
+      "app_api_users_route",
+      "app_api_users_route_post",
+      "app_kasir_page",
+      "app_kasir_page_kasirordersserverpage",
+      "app_menu_id_page",
+      "app_menu_id_page_productdetailpage",
+      "app_recommendations_page",
+      "app_recommendations_page_recommendationspage",
+      "app_recommendations_recommendationsclient_recommendationsettings",
+      "lib_kiosk_logout",
+      "lib_kiosk_logout_kioskaccount",
+      "lib_kiosk_logout_logoutrequest",
+      "lib_kiosk_logout_requesterprofile",
+      "lib_kiosk_logout_resolvelogouttargets",
+      "lib_kiosk_logout_resolveresult",
+      "lib_preptime",
+      "lib_preptime_calculatereleasetime",
+      "lib_preptime_calculatetotalpreptime",
+      "lib_preptime_parsepickuptime",
+      "lib_promo_calculator",
+      "lib_promo_calculator_basepromo",
+      "lib_promo_calculator_calculateglobaldiscount",
+      "lib_promo_calculator_calculateitemprice",
+      "lib_promo_calculator_food_app_channels",
+      "lib_promo_calculator_promoscope",
+      "lib_promo_calculator_promotype",
+      "lib_supabase_server",
+      "lib_supabase_server_createclient",
+      "lib_supabase_server_createserviceclient",
+      "lib_supabase_server_ts_docref_adr_0008",
+      "lib_validations_validatecheckoutpayload",
+      "tests_kiosk_logout_test",
+      "tests_kiosk_logout_test_kiosks",
+      "tests_sync_status_test"
+    ],
+    "1": [
+      "app_kasir_kasirorderclient",
+      "app_kasir_kasirorderclient_buildreceiptitems",
+      "app_kasir_kasirorderclient_fetchtodayorders",
+      "app_kasir_kasirorderclient_kasirorderclient",
+      "app_kasir_kasirorderclient_renderordernotes",
+      "app_kasir_reports_page",
+      "app_kasir_reports_page_daterange",
+      "app_kasir_reports_page_fetchreportorders",
+      "app_kasir_reports_page_fetchreportshifts",
+      "app_kasir_reports_page_orderrow",
+      "app_kasir_reports_page_range_labels",
+      "app_kasir_reports_page_reportspage",
+      "app_kasir_reports_page_shiftrow",
+      "app_order_success_page",
+      "app_order_success_page_ordersuccesscontent",
+      "app_order_success_page_ordersuccesspage",
+      "app_order_success_page_payment_labels",
+      "components_branchfilter",
+      "components_branchfilter_branchfilter",
+      "components_branchfilter_branchfilterprops",
+      "components_kasir_timeago",
+      "components_kasir_timeago_timeago",
+      "components_kasir_timeago_timeagoprops",
+      "components_offlinesyncmanager",
+      "components_offlinesyncmanager_offlinesyncmanager",
+      "lib_db",
+      "lib_db_appstaterow",
+      "lib_db_categorycache",
+      "lib_db_db",
+      "lib_db_kiosksettingscache",
+      "lib_db_localorderrow",
+      "lib_db_menuitemcache",
+      "lib_db_ordercacherow",
+      "lib_db_shiftcache",
+      "lib_db_sukaposdb",
+      "lib_db_sukaposdb_constructor",
+      "lib_db_syncqueuemutation",
+      "lib_db_syncqueueorder",
+      "lib_offline",
+      "lib_offline_cacheorders",
+      "lib_offline_createlocalorder",
+      "lib_offline_createlocalorderinput",
+      "lib_offline_isnetworkerror",
+      "lib_offline_localorderiteminput",
+      "lib_offline_localorderrowstoorders",
+      "lib_offline_nextlocalordernumber",
+      "lib_offline_patchcachedorder",
+      "lib_offline_patchlocalorder",
+      "lib_offline_queuestatusmutation",
+      "lib_offline_readcachedorders",
+      "lib_offline_readcachedtodayorders",
+      "lib_offline_utils",
+      "lib_offline_utils_fetchwithtimeout",
+      "lib_order_item_name",
+      "lib_order_item_name_cleanitemname",
+      "lib_order_item_name_isextraitem",
+      "lib_order_item_name_parseditemname",
+      "lib_order_item_name_parseitemname",
+      "lib_order_utils",
+      "lib_order_utils_parsedorder",
+      "lib_order_utils_parsedorderitem",
+      "lib_order_utils_parseorderdata",
+      "tests_order_item_name_test",
+      "types_index",
+      "types_index_checkoutpayload",
+      "types_index_order",
+      "types_index_orderitem",
+      "types_index_ordersource",
+      "types_index_orderstatus",
+      "types_index_orderwithitems",
+      "types_index_outlet",
+      "types_index_userprofile",
+      "types_index_userrole"
+    ],
+    "2": [
+      "app_api_recommendations_route",
+      "app_api_recommendations_route_get",
+      "app_checkout_page",
+      "app_checkout_page_checkoutpage",
+      "app_checkout_page_payment_options",
+      "app_checkout_page_paymentoption",
+      "app_kioskmenuclient",
+      "app_kioskmenuclient_kioskinitialdata",
+      "app_kioskmenuclient_kioskmenuclient",
+      "app_menu_id_productdetailclient",
+      "app_menu_id_productdetailclient_productdetailclient",
+      "app_page",
+      "app_page_kioskhomepage",
+      "app_recommendations_recommendationsclient",
+      "app_recommendations_recommendationsclient_recommendationsclient",
+      "components_attractscreen",
+      "components_attractscreen_attractscreen",
+      "components_attractscreen_attractscreenprops",
+      "components_cart",
+      "components_cart_cart",
+      "components_cart_cartheader",
+      "components_cart_cartitemrow",
+      "components_categoryfilter",
+      "components_categoryfilter_categoryfilter",
+      "components_categoryfilter_props",
+      "components_kasir_walkincartpanel",
+      "components_kasir_walkincartpanel_line",
+      "components_kasir_walkincartpanel_payment",
+      "components_kasir_walkincartpanel_quick_cash",
+      "components_kasir_walkincartpanel_walkincartpanel",
+      "components_kioskui",
+      "components_kioskui_kioskui",
+      "components_kioskui_props",
+      "components_menuitem",
+      "components_menuitem_menuitem",
+      "components_menuitem_props",
+      "components_recommendationstrip",
+      "components_recommendationstrip_props",
+      "components_recommendationstrip_recommendationstrip",
+      "lib_recommendations",
+      "lib_recommendations_orderitemids",
+      "lib_recommendations_rankinput",
+      "lib_recommendations_rankrecommendations",
+      "lib_usepromos",
+      "lib_usepromos_outletpromo",
+      "lib_usepromos_usepromos",
+      "lib_validations",
+      "lib_validations_formatrupiah",
+      "lib_validations_validationerror",
+      "store_cart",
+      "store_cart_cartstore",
+      "store_cart_usecart",
+      "tests_recommendations_test",
+      "tests_recommendations_test_menu",
+      "types_index_cartitem",
+      "types_index_category",
+      "types_index_menuitem",
+      "types_index_paymentmethod"
+    ],
+    "3": [
+      "canvas_confetti",
+      "dexie",
+      "dexie_react_hooks",
+      "dotenv",
+      "localtunnel",
+      "lucide_react",
+      "next",
+      "package_dependencies",
+      "package_dependencies_canvas_confetti",
+      "package_dependencies_dexie",
+      "package_dependencies_dexie_react_hooks",
+      "package_dependencies_dotenv",
+      "package_dependencies_localtunnel",
+      "package_dependencies_lucide_react",
+      "package_dependencies_next",
+      "package_dependencies_pg",
+      "package_dependencies_qrcode_react",
+      "package_dependencies_react",
+      "package_dependencies_react_dom",
+      "package_dependencies_react_is",
+      "package_dependencies_recharts",
+      "package_dependencies_serwist",
+      "package_dependencies_serwist_next",
+      "package_dependencies_suka_auth",
+      "package_dependencies_supabase_ssr",
+      "package_dependencies_supabase_supabase_js",
+      "package_dependencies_tanstack_react_query",
+      "package_dependencies_web_push",
+      "package_dependencies_yudiel_react_qr_scanner",
+      "package_dependencies_zustand",
+      "pg",
+      "qrcode_react",
+      "react",
+      "react_dom",
+      "react_is",
+      "recharts",
+      "serwist",
+      "serwist_next",
+      "suka_auth",
+      "supabase_ssr",
+      "supabase_supabase_js",
+      "tanstack_react_query",
+      "web_push",
+      "yudiel_react_qr_scanner",
+      "zustand"
+    ],
+    "4": [
+      "esbuild",
+      "eslint",
+      "eslint_config_next",
+      "package",
+      "package_devdependencies",
+      "package_devdependencies_esbuild",
+      "package_devdependencies_eslint",
+      "package_devdependencies_eslint_config_next",
+      "package_devdependencies_playwright_test",
+      "package_devdependencies_postcss",
+      "package_devdependencies_tailwindcss",
+      "package_devdependencies_tailwindcss_postcss",
+      "package_devdependencies_tailwindcss_typography",
+      "package_devdependencies_types_canvas_confetti",
+      "package_devdependencies_types_node",
+      "package_devdependencies_types_react",
+      "package_devdependencies_types_react_dom",
+      "package_devdependencies_types_web_push",
+      "package_devdependencies_typescript",
+      "package_devdependencies_vitest",
+      "package_name",
+      "package_private",
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_build_sw",
+      "package_scripts_dev",
+      "package_scripts_lint",
+      "package_scripts_prebuild",
+      "package_scripts_start",
+      "package_scripts_test",
+      "package_scripts_type_check",
+      "package_version",
+      "playwright_test",
+      "postcss",
+      "tailwindcss",
+      "tailwindcss_postcss",
+      "tailwindcss_typography",
+      "types_canvas_confetti",
+      "types_node",
+      "types_react",
+      "types_react_dom",
+      "types_web_push",
+      "typescript",
+      "vitest"
+    ],
+    "5": [
+      "ref",
+      "ref_dom",
+      "ref_dom_iterable",
+      "ref_esnext",
+      "ref_next_dev_types_ts",
+      "ref_next_env_d_ts",
+      "ref_next_types_ts",
+      "ref_node_modules",
+      "ref_ts",
+      "ref_tsx",
+      "tsconfig",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_allowjs",
+      "tsconfig_compileroptions_esmoduleinterop",
+      "tsconfig_compileroptions_incremental",
+      "tsconfig_compileroptions_isolatedmodules",
+      "tsconfig_compileroptions_jsx",
+      "tsconfig_compileroptions_lib",
+      "tsconfig_compileroptions_module",
+      "tsconfig_compileroptions_moduleresolution",
+      "tsconfig_compileroptions_noemit",
+      "tsconfig_compileroptions_paths",
+      "tsconfig_compileroptions_plugins",
+      "tsconfig_compileroptions_resolvejsonmodule",
+      "tsconfig_compileroptions_skiplibcheck",
+      "tsconfig_compileroptions_strict",
+      "tsconfig_compileroptions_target",
+      "tsconfig_exclude",
+      "tsconfig_include",
+      "tsconfig_paths"
+    ],
+    "6": [
+      "app_kiosk_qr_login_page",
+      "app_kiosk_qr_login_page_qrlogincontent",
+      "app_kiosk_qr_login_page_qrloginpage",
+      "components_blockedoverlay",
+      "components_blockedoverlay_blockedoverlay",
+      "components_blockedoverlay_blocktype",
+      "components_blockedoverlay_checklistprogress",
+      "components_globalblockermount",
+      "components_kioskpresencemount",
+      "components_kioskpresencemount_kioskpresencemount",
+      "components_ordernotification",
+      "components_ordernotification_ordernotification",
+      "components_zipuploadmodal",
+      "components_zipuploadmodal_importeditem",
+      "components_zipuploadmodal_productresult",
+      "components_zipuploadmodal_step",
+      "components_zipuploadmodal_zipuploadmodal",
+      "components_zipuploadmodal_zipuploadmodalprops",
+      "lib_supabase_client",
+      "lib_supabase_client_createclient",
+      "lib_supabase_client_ts_docref_adr_0008",
+      "lib_usekioskcontrol",
+      "lib_usekioskcontrol_args",
+      "lib_usekioskcontrol_usekioskcontrol",
+      "lib_usependingpettycash",
+      "lib_usependingpettycash_fetchpendingcount",
+      "lib_usependingpettycash_usependingpettycash"
+    ],
+    "7": [
+      "components_channelbadge",
+      "components_channelbadge_channelbadge",
+      "components_ordersourcebadge",
+      "components_ordersourcebadge_ordersourcebadge",
+      "lib_admin_analytics",
+      "lib_admin_analytics_adminanalytics",
+      "lib_admin_analytics_chart_ranges",
+      "lib_admin_analytics_chartrange",
+      "lib_admin_analytics_computeanalytics",
+      "lib_admin_analytics_daterange",
+      "lib_admin_analytics_orderrow",
+      "lib_admin_analytics_period_short",
+      "lib_admin_analytics_resolverange",
+      "lib_admin_analytics_sourcebreakdownrow",
+      "lib_channels",
+      "lib_channels_channelconfig",
+      "lib_channels_channels",
+      "lib_channels_getchannel",
+      "lib_order_source",
+      "lib_order_source_ordersourceinfo",
+      "lib_order_source_resolveordersource",
+      "tests_admin_analytics_test",
+      "tests_admin_analytics_test_now",
+      "tests_admin_analytics_test_order",
+      "tests_admin_analytics_test_orders",
+      "tests_admin_analytics_test_outlets"
+    ],
+    "8": [
+      "app_panduan_page",
+      "app_panduan_page_guide",
+      "app_panduan_page_panduanpage",
+      "components_brandcontext",
+      "components_brandcontext_brandcontext",
+      "components_brandcontext_brandcontexttype",
+      "components_brandcontext_brandprovider",
+      "components_brandcontext_usebrand",
+      "components_kasirnav",
+      "components_kasirnav_kasirnav",
+      "components_kasirnav_links",
+      "components_stockmarquee",
+      "components_stockmarquee_stockmarquee",
+      "lib_fast_logout",
+      "lib_fast_logout_clearsupabaseauthcookies",
+      "lib_fast_logout_fastlogout",
+      "lib_stokurl",
+      "lib_stokurl_getstokurl",
+      "lib_usestockalerts",
+      "lib_usestockalerts_fetchstockalerts",
+      "lib_usestockalerts_stockalertitem",
+      "lib_usestockalerts_stockstatus",
+      "lib_usestockalerts_usestockalerts"
+    ],
+    "9": [
+      "app_kasir_order_manual_loading",
+      "app_kasir_order_manual_loading_cashierloading",
+      "app_kasir_shift_page",
+      "app_kasir_shift_page_cashorder",
+      "app_kasir_shift_page_category_label",
+      "app_kasir_shift_page_expense",
+      "app_kasir_shift_page_formatdatetime",
+      "app_kasir_shift_page_formattime",
+      "app_kasir_shift_page_ledgeritem",
+      "app_kasir_shift_page_pettycashtopup",
+      "app_kasir_shift_page_shift",
+      "app_kasir_shift_page_shiftpage",
+      "components_globaldialogs",
+      "components_globaldialogs_globaldialogs",
+      "components_kioskcontrolpanel_kioskcontrolpanel",
+      "components_skeleton",
+      "components_skeleton_skeleton",
+      "lib_dialogstore",
+      "lib_dialogstore_dialogoptions",
+      "lib_dialogstore_dialogstate",
+      "lib_dialogstore_usedialogstore"
+    ],
+    "10": [
+      "app_kasir_settings_page_kasirsettingspage",
+      "components_briefingbanner",
+      "components_briefingbanner_briefingbanner",
+      "components_briefingbanner_kind",
+      "components_briefingbanner_message",
+      "components_briefingbanner_msg_style",
+      "components_briefingbanner_progress",
+      "components_briefingbanner_rupiahcompact",
+      "components_pettycashnotification",
+      "components_pettycashnotification_pettycashnotification",
+      "lib_usemyoutlet",
+      "lib_usemyoutlet_fetchmyoutlet",
+      "lib_usemyoutlet_fetchmyoutletfromnetwork",
+      "lib_usemyoutlet_myoutletdata",
+      "lib_usemyoutlet_usemyoutlet"
+    ],
+    "11": [
+      "app_layout",
+      "app_layout_inter",
+      "app_layout_metadata",
+      "app_layout_rootlayout",
+      "app_layout_viewport",
+      "components_audiounlockmount",
+      "components_audiounlockmount_audiounlockmount",
+      "components_globalblockermount_globalblockermount",
+      "components_globalrealtimeprovider",
+      "components_globalrealtimeprovider_globalrealtimeprovider",
+      "components_providers",
+      "components_providers_providers",
+      "components_serviceworkerregister",
+      "components_serviceworkerregister_serviceworkerregister"
+    ],
+    "12": [
+      "app_api_zip_upload_route",
+      "app_api_zip_upload_route_allowed_types",
+      "app_api_zip_upload_route_analyzeimagewithgemini",
+      "app_api_zip_upload_route_capitalizewords",
+      "app_api_zip_upload_route_delay",
+      "app_api_zip_upload_route_geminianalysis",
+      "app_api_zip_upload_route_getmimetype",
+      "app_api_zip_upload_route_matchpricefromlist",
+      "app_api_zip_upload_route_normalizename",
+      "app_api_zip_upload_route_post",
+      "app_api_zip_upload_route_stripduplicatesuffix",
+      "jszip",
+      "package_dependencies_jszip"
+    ],
+    "13": [
+      "scripts_gen_guide_assets",
+      "scripts_gen_guide_assets_bigordercard",
+      "scripts_gen_guide_assets_c",
+      "scripts_gen_guide_assets_dirname",
+      "scripts_gen_guide_assets_dot",
+      "scripts_gen_guide_assets_esc",
+      "scripts_gen_guide_assets_files",
+      "scripts_gen_guide_assets_frame",
+      "scripts_gen_guide_assets_nav",
+      "scripts_gen_guide_assets_ordercol",
+      "scripts_gen_guide_assets_out",
+      "scripts_gen_guide_assets_pill",
+      "scripts_gen_guide_assets_sidebar"
+    ],
+    "14": [
+      "scripts_generate_guide_assets",
+      "scripts_generate_guide_assets_addguide",
+      "scripts_generate_guide_assets_badge",
+      "scripts_generate_guide_assets_card",
+      "scripts_generate_guide_assets_dirname",
+      "scripts_generate_guide_assets_esc",
+      "scripts_generate_guide_assets_frame",
+      "scripts_generate_guide_assets_guides",
+      "scripts_generate_guide_assets_nav_items",
+      "scripts_generate_guide_assets_numberdot",
+      "scripts_generate_guide_assets_out_dir",
+      "scripts_generate_guide_assets_sidebar",
+      "scripts_generate_guide_assets_text"
+    ],
+    "15": [
+      "app_kasir_kiosk_page",
+      "app_kasir_kiosk_page_kasirkioskpage",
+      "app_kasir_settings_page",
+      "components_kioskcontrolpanel",
+      "components_kioskcontrolpanel_kioskpresence",
+      "components_kioskcontrolpanel_toast",
+      "components_networkindicator",
+      "components_networkindicator_networkindicator",
+      "components_offlineguardoverlay",
+      "components_offlineguardoverlay_offlineguardoverlay",
+      "lib_usenetworkstatus",
+      "lib_usenetworkstatus_usenetworkstatus"
+    ],
+    "16": [
+      "scripts_fix_menu_prices",
+      "scripts_fix_menu_prices_categories",
+      "scripts_fix_menu_prices_createclient",
+      "scripts_fix_menu_prices_deletestorageimage",
+      "scripts_fix_menu_prices_env",
+      "scripts_fix_menu_prices_fixes",
+      "scripts_fix_menu_prices_fs",
+      "scripts_fix_menu_prices_loadenvlocal",
+      "scripts_fix_menu_prices_main",
+      "scripts_fix_menu_prices_path",
+      "scripts_fix_menu_prices_sb"
+    ],
+    "17": [
+      "scripts_import_suka_shawarma_menu",
+      "scripts_import_suka_shawarma_menu_categories",
+      "scripts_import_suka_shawarma_menu_createclient",
+      "scripts_import_suka_shawarma_menu_env",
+      "scripts_import_suka_shawarma_menu_fs",
+      "scripts_import_suka_shawarma_menu_items",
+      "scripts_import_suka_shawarma_menu_loadenvlocal",
+      "scripts_import_suka_shawarma_menu_main",
+      "scripts_import_suka_shawarma_menu_path",
+      "scripts_import_suka_shawarma_menu_sb"
+    ],
+    "18": [
+      "scripts_seed_panduan_kasir",
+      "scripts_seed_panduan_kasir_categories",
+      "scripts_seed_panduan_kasir_dirname",
+      "scripts_seed_panduan_kasir_env",
+      "scripts_seed_panduan_kasir_guides",
+      "scripts_seed_panduan_kasir_img",
+      "scripts_seed_panduan_kasir_main",
+      "scripts_seed_panduan_kasir_raw",
+      "scripts_seed_panduan_kasir_readenv",
+      "scripts_seed_panduan_kasir_supabase"
+    ],
+    "19": [
+      "scripts_setup_integration",
+      "scripts_setup_integration_crypto",
+      "scripts_setup_integration_envpath",
+      "scripts_setup_integration_fs",
+      "scripts_setup_integration_generatesecret",
+      "scripts_setup_integration_kasirtoordersecret",
+      "scripts_setup_integration_ordertokasirsecret",
+      "scripts_setup_integration_path",
+      "scripts_setup_integration_ssorderconfigpath",
+      "scripts_setup_integration_updateoraddenv"
+    ],
+    "20": [
+      "lib_printreceipt",
+      "lib_printreceipt_buildreceipthtml",
+      "lib_printreceipt_esc",
+      "lib_printreceipt_getbase64image",
+      "lib_printreceipt_printreceipt",
+      "lib_printreceipt_receiptdata",
+      "lib_printreceipt_receiptline",
+      "tests_walkin_receipt_test",
+      "tests_walkin_receipt_test_base"
+    ],
+    "21": [
+      "scripts_lower_menu_prices",
+      "scripts_lower_menu_prices_createclient",
+      "scripts_lower_menu_prices_env",
+      "scripts_lower_menu_prices_fs",
+      "scripts_lower_menu_prices_loadenvlocal",
+      "scripts_lower_menu_prices_main",
+      "scripts_lower_menu_prices_path",
+      "scripts_lower_menu_prices_rp",
+      "scripts_lower_menu_prices_sb"
+    ],
+    "22": [
+      "app_kasir_histori_bonustab",
+      "app_kasir_histori_bonustab_bonustab",
+      "app_kasir_histori_page",
+      "app_kasir_histori_page_adminorderspage",
+      "app_kasir_histori_page_fetchhistoriorders",
+      "app_kasir_histori_page_status_conf",
+      "app_kasir_histori_page_status_next",
+      "app_kasir_histori_page_status_next_label"
+    ],
+    "23": [
+      "app_payment_qris_page",
+      "app_payment_qris_page_qrispaymentcontent",
+      "app_payment_qris_page_qrispaymentpage",
+      "lib_haptics",
+      "lib_haptics_playsyntheticbeep",
+      "lib_haptics_triggererrorfeedback",
+      "lib_haptics_triggersuccessfeedback",
+      "lib_haptics_triggerwarningfeedback"
+    ],
+    "24": [
+      "scripts_generate_outlet_sql",
+      "scripts_generate_outlet_sql_createclient",
+      "scripts_generate_outlet_sql_dotenv",
+      "scripts_generate_outlet_sql_generatesql",
+      "scripts_generate_outlet_sql_kasirsupabase",
+      "scripts_generate_outlet_sql_normalizename",
+      "scripts_generate_outlet_sql_ordersupabase",
+      "scripts_generate_outlet_sql_path"
+    ],
+    "25": [
+      "scripts_sync_outlets_dotenv",
+      "scripts_sync_outlets_js_scripts_sync_outlets_createclient_e2691a",
+      "scripts_sync_outlets_js_scripts_sync_outlets_e2691a",
+      "scripts_sync_outlets_js_scripts_sync_outlets_syncoutlets_e2691a",
+      "scripts_sync_outlets_kasirsupabase",
+      "scripts_sync_outlets_normalizename",
+      "scripts_sync_outlets_ordersupabase",
+      "scripts_sync_outlets_path"
+    ],
+    "26": [
+      "app_kasir_layout",
+      "app_kasir_layout_kasirlayout",
+      "components_offlinewarmup",
+      "components_offlinewarmup_offlinewarmup",
+      "components_offlinewarmup_warm_routes",
+      "components_onlineordersync",
+      "components_onlineordersync_onlineordersync"
+    ],
+    "27": [
+      "app_kasir_menu_kasirmenuclient",
+      "app_kasir_menu_kasirmenuclient_fetchmenudata",
+      "app_kasir_menu_kasirmenuclient_kasirmenuclient",
+      "app_kasir_menu_kasirmenuclient_menuquerydata",
+      "app_kasir_menu_kasirmenuclient_toast",
+      "app_kasir_menu_page",
+      "app_kasir_menu_page_kasirmenuserverpage"
+    ],
+    "28": [
+      "ban_outlet",
+      "ban_outlet_createclient",
+      "ban_outlet_env",
+      "ban_outlet_envcontent",
+      "ban_outlet_fs",
+      "ban_outlet_supabase",
+      "ban_outlet_test"
+    ],
+    "29": [
+      "check_users",
+      "check_users_check",
+      "check_users_createclient",
+      "check_users_env",
+      "check_users_envcontent",
+      "check_users_fs",
+      "check_users_supabase"
+    ],
+    "30": [
+      "scratch_test_bonus_logic",
+      "scratch_test_bonus_logic_assert",
+      "scratch_test_bonus_logic_createclient",
+      "scratch_test_bonus_logic_path",
+      "scratch_test_bonus_logic_run",
+      "scratch_test_bonus_logic_supabase",
+      "scratch_test_bonus_logic_validateoutputrows"
+    ],
+    "31": [
+      "seed_guides",
+      "seed_guides_createclient",
+      "seed_guides_env",
+      "seed_guides_envcontent",
+      "seed_guides_fs",
+      "seed_guides_run",
+      "seed_guides_supabase"
+    ],
+    "32": [
+      "test_query",
+      "test_query_createclient",
+      "test_query_env",
+      "test_query_envcontent",
+      "test_query_fs",
+      "test_query_supabase",
+      "test_query_test"
+    ],
+    "33": [
+      "test_query_2",
+      "test_query_2_createclient",
+      "test_query_2_env",
+      "test_query_2_envcontent",
+      "test_query_2_fs",
+      "test_query_2_supabase",
+      "test_query_2_test"
+    ],
+    "34": [
+      "app_kasir_order_manual_page",
+      "app_kasir_order_manual_page_cartpanel",
+      "app_kasir_order_manual_page_line",
+      "app_kasir_order_manual_page_mode",
+      "app_kasir_order_manual_page_ordermanualpage",
+      "app_kasir_order_manual_page_payment"
+    ],
+    "35": [
+      "scratch_run_bonus_calculation_migration",
+      "scratch_run_bonus_calculation_migration_createclient",
+      "scratch_run_bonus_calculation_migration_fs",
+      "scratch_run_bonus_calculation_migration_path",
+      "scratch_run_bonus_calculation_migration_run",
+      "scratch_run_bonus_calculation_migration_supabase"
+    ],
+    "36": [
+      "scratch_run_bonus_migration",
+      "scratch_run_bonus_migration_createclient",
+      "scratch_run_bonus_migration_fs",
+      "scratch_run_bonus_migration_path",
+      "scratch_run_bonus_migration_run",
+      "scratch_run_bonus_migration_supabase"
+    ],
+    "37": [
+      "scratch_verify_bonus_calculation",
+      "scratch_verify_bonus_calculation_createclient",
+      "scratch_verify_bonus_calculation_path",
+      "scratch_verify_bonus_calculation_run",
+      "scratch_verify_bonus_calculation_supabase",
+      "scratch_verify_bonus_calculation_validateoutputrows"
+    ],
+    "38": [
+      "scripts_check_kasir_outlets",
+      "scripts_check_kasir_outlets_check",
+      "scripts_check_kasir_outlets_createclient",
+      "scripts_check_kasir_outlets_dotenv",
+      "scripts_check_kasir_outlets_path",
+      "scripts_check_kasir_outlets_supabase"
+    ],
+    "39": [
+      "scripts_cleanup_old_guides",
+      "scripts_cleanup_old_guides_dirname",
+      "scripts_cleanup_old_guides_env",
+      "scripts_cleanup_old_guides_old_categories",
+      "scripts_cleanup_old_guides_readenv",
+      "scripts_cleanup_old_guides_supabase"
+    ],
+    "40": [
+      "scripts_fix_stuck_orders",
+      "scripts_fix_stuck_orders_createclient",
+      "scripts_fix_stuck_orders_dotenv",
+      "scripts_fix_stuck_orders_fixorders",
+      "scripts_fix_stuck_orders_path",
+      "scripts_fix_stuck_orders_supabase"
+    ],
+    "41": [
+      "check_sync",
+      "check_sync_createclient",
+      "check_sync_poskasirdb",
+      "check_sync_run",
+      "check_sync_ssorderdb"
+    ],
+    "42": [
+      "generate_live_guide",
+      "generate_live_guide_chromium",
+      "generate_live_guide_fs",
+      "generate_live_guide_main",
+      "generate_live_guide_path"
+    ],
+    "43": [
+      "migrate_walkin",
+      "migrate_walkin_createclient",
+      "migrate_walkin_fs",
+      "migrate_walkin_run",
+      "migrate_walkin_supabase"
+    ],
+    "44": [
+      "run_bonus_migration",
+      "run_bonus_migration_createclient",
+      "run_bonus_migration_fs",
+      "run_bonus_migration_run",
+      "run_bonus_migration_supabase"
+    ],
+    "45": [
+      "run_magic_link",
+      "run_magic_link_createclient",
+      "run_magic_link_fs",
+      "run_magic_link_run",
+      "run_magic_link_supabase"
+    ],
+    "46": [
+      "run_migration",
+      "run_migration_createclient",
+      "run_migration_fs",
+      "run_migration_run",
+      "run_migration_supabase"
+    ],
+    "47": [
+      "scratch_verify_bonus_migration",
+      "scratch_verify_bonus_migration_createclient",
+      "scratch_verify_bonus_migration_path",
+      "scratch_verify_bonus_migration_run",
+      "scratch_verify_bonus_migration_supabase"
+    ],
+    "48": [
+      "scripts_fix_duplicates",
+      "scripts_fix_duplicates_createclient",
+      "scripts_fix_duplicates_orderdb",
+      "scripts_fix_duplicates_posdb",
+      "scripts_fix_duplicates_run"
+    ],
+    "49": [
+      "scripts_force_hours",
+      "scripts_force_hours_createclient",
+      "scripts_force_hours_orderdb",
+      "scripts_force_hours_posdb",
+      "scripts_force_hours_run"
+    ],
+    "50": [
+      "scripts_sync_outlets_js_scripts_sync_outlets_createclient_e4d84a",
+      "scripts_sync_outlets_js_scripts_sync_outlets_e4d84a",
+      "scripts_sync_outlets_js_scripts_sync_outlets_syncoutlets_e4d84a",
+      "scripts_sync_outlets_orderdb",
+      "scripts_sync_outlets_posdb"
+    ],
+    "51": [
+      "app_api_bypass_approve_route",
+      "app_api_bypass_approve_route_generatehtmlmsg",
+      "app_api_bypass_approve_route_get",
+      "app_api_bypass_approve_route_post"
+    ],
+    "52": [
+      "app_api_topup_approve_route",
+      "app_api_topup_approve_route_generatehtmlmsg",
+      "app_api_topup_approve_route_get",
+      "app_api_topup_approve_route_post"
+    ],
+    "53": [
+      "app_sw",
+      "app_sw_customcache",
+      "app_sw_serwist",
+      "app_sw_workerglobalscope"
+    ],
+    "54": [
+      "check_25g",
+      "check_25g_createclient",
+      "check_25g_run",
+      "check_25g_supabase"
+    ],
+    "55": [
+      "check_duplicates",
+      "check_duplicates_createclient",
+      "check_duplicates_posdb",
+      "check_duplicates_run"
+    ],
+    "56": [
+      "check_orders",
+      "check_orders_createclient",
+      "check_orders_run",
+      "check_orders_supabase"
+    ],
+    "57": [
+      "check_stok_balance",
+      "check_stok_balance_createclient",
+      "check_stok_balance_run",
+      "check_stok_balance_supabase"
+    ],
+    "58": [
+      "check_sync_internal",
+      "check_sync_internal_createclient",
+      "check_sync_internal_posdb",
+      "check_sync_internal_run"
+    ],
+    "59": [
+      "check_tables2",
+      "check_tables2_check",
+      "check_tables2_createclient",
+      "check_tables2_supabase"
+    ],
+    "60": [
+      "migrate",
+      "migrate_createclient",
+      "migrate_run",
+      "migrate_supabase"
+    ],
+    "61": [
+      "migrate_promo",
+      "migrate_promo_createclient",
+      "migrate_promo_run",
+      "migrate_promo_supabase"
+    ],
+    "62": [
+      "scripts_check_constraint",
+      "scripts_check_constraint_createclient",
+      "scripts_check_constraint_orderdb",
+      "scripts_check_constraint_run"
+    ],
+    "63": [
+      "scripts_test_mitra",
+      "scripts_test_mitra_createclient",
+      "scripts_test_mitra_orderdb",
+      "scripts_test_mitra_run"
+    ],
+    "64": [
+      "test",
+      "test_createclient",
+      "test_main",
+      "test_ssorderdb"
+    ],
+    "65": [
+      "test_db_checkorders",
+      "test_db_createclient",
+      "test_db_js_test_db",
+      "test_db_supabase"
+    ],
+    "66": [
+      "test_db_outlet",
+      "test_db_outlet_checkorders",
+      "test_db_outlet_createclient",
+      "test_db_outlet_supabase"
+    ],
+    "67": [
+      "test_order",
+      "test_order_createclient",
+      "test_order_run",
+      "test_order_supabase"
+    ],
+    "68": [
+      "app_api_cancellations_action_route",
+      "app_api_cancellations_action_route_post",
+      "app_api_cancellations_action_route_supabase"
+    ],
+    "69": [
+      "app_api_cancellations_request_route",
+      "app_api_cancellations_request_route_post",
+      "app_api_cancellations_request_route_supabase"
+    ],
+    "70": [
+      "app_cancellations_approve_page",
+      "app_cancellations_approve_page_approvecontent",
+      "app_cancellations_approve_page_cancellationapprovepage"
+    ],
+    "71": [
+      "app_offline_page",
+      "app_offline_page_offline_routes",
+      "app_offline_page_offlinefallbackpage"
+    ],
+    "72": [
+      "check_db_createclient",
+      "check_db_js_check_db_beb17c",
+      "check_db_s"
+    ],
+    "73": [
+      "check_mitra_deleted",
+      "check_mitra_deleted_checkremainingmitra",
+      "check_mitra_deleted_supabase"
+    ],
+    "74": [
+      "check_outlets",
+      "check_outlets_checkoutlets",
+      "check_outlets_supabase"
+    ],
+    "75": [
+      "check_promos",
+      "check_promos_check",
+      "check_promos_supabase"
+    ],
+    "76": [
+      "check_schema",
+      "check_schema_migratesystemguides",
+      "check_schema_supabase"
+    ],
+    "77": [
+      "clean_menu",
+      "clean_menu_content",
+      "clean_menu_fs"
+    ],
+    "78": [
+      "fix_mitra",
+      "fix_mitra_fixmitra",
+      "fix_mitra_supabase"
+    ],
+    "79": [
+      "get_outlets",
+      "get_outlets_main",
+      "get_outlets_supabase"
+    ],
+    "80": [
+      "middleware",
+      "middleware_config",
+      "middleware_middleware"
+    ],
+    "81": [
+      "next_config",
+      "next_config_js_docref_adr_0008",
+      "next_config_nextconfig"
+    ],
+    "82": [
+      "run_rls_migration",
+      "run_rls_migration_run",
+      "run_rls_migration_supabase"
+    ],
+    "83": [
+      "scratch",
+      "scratch_check",
+      "scratch_supabase"
+    ],
+    "84": [
+      "scratch_test_promo3",
+      "scratch_test_promo3_calculateitemprice",
+      "scratch_test_promo3_promos"
+    ],
+    "85": [
+      "scripts_test_sync_status",
+      "scripts_test_sync_status_execsync",
+      "scripts_test_sync_status_path"
+    ],
+    "86": [
+      "setup_all_mitra",
+      "setup_all_mitra_setupallmitra",
+      "setup_all_mitra_supabase"
+    ],
+    "87": [
+      "setup_mitra",
+      "setup_mitra_setupmitra",
+      "setup_mitra_supabase"
+    ],
+    "88": [
+      "setup_owner",
+      "setup_owner_setupowner",
+      "setup_owner_supabase"
+    ],
+    "89": [
+      "test_join",
+      "test_join_supabase",
+      "test_join_test"
+    ],
+    "90": [
+      "test_regex",
+      "test_regex_run",
+      "test_regex_supabase"
+    ],
+    "91": [
+      "test_sync_active",
+      "test_sync_active_http",
+      "test_sync_active_req"
+    ],
+    "92": [
+      "app_api_admin_outlets_sync_to_online_route",
+      "app_api_admin_outlets_sync_to_online_route_post"
+    ],
+    "93": [
+      "app_api_dev_test_order_route",
+      "app_api_dev_test_order_route_post"
+    ],
+    "94": [
+      "app_api_health_route",
+      "app_api_health_route_get"
+    ],
+    "95": [
+      "app_error",
+      "app_error_error"
+    ],
+    "96": [
+      "app_global_error",
+      "app_global_error_globalerror"
+    ],
+    "97": [
+      "app_kasir_info_porsi_page",
+      "app_kasir_info_porsi_page_infoporsipage"
+    ],
+    "98": [
+      "app_kasir_kiosk_loading",
+      "app_kasir_kiosk_loading_kasirkioskloading"
+    ],
+    "99": [
+      "app_kasir_loading",
+      "app_kasir_loading_kasirordersloading"
+    ],
+    "100": [
+      "app_not_found",
+      "app_not_found_notfound"
+    ],
+    "101": [
+      "check_db_js_check_db_4418c7",
+      "check_db_run"
+    ],
+    "102": [
+      "check_tables",
+      "check_tables_run"
+    ],
+    "103": [
+      "mock_attendance",
+      "mock_attendance_run"
+    ],
+    "104": [
+      "scripts_expose_kasir",
+      "scripts_expose_kasir_localtunnel"
+    ],
+    "105": [
+      "scripts_fetch_svgs",
+      "scripts_fetch_svgs_run"
+    ],
+    "106": [
+      "test_sync",
+      "test_sync_createclient"
+    ],
+    "107": [
+      "update_db",
+      "update_db_run"
+    ],
+    "108": [
+      "vercel",
+      "vercel_crons"
+    ],
+    "109": [
+      "e2e_example_spec"
+    ],
+    "110": [
+      "playwright_config"
+    ],
+    "111": [
+      "postcss_config"
+    ],
+    "112": [
+      "scripts_build_sw"
+    ],
+    "113": [
+      "tailwind_config"
+    ],
+    "114": [
+      "test_db_mjs_test_db"
+    ],
+    "115": [
+      "vitest_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.05016722408026756,
+    "1": 0.05136986301369863,
+    "2": 0.08711433756805807,
+    "3": 0.044444444444444446,
+    "4": 0.045454545454545456,
+    "5": 0.06666666666666667,
+    "6": 0.1396011396011396,
+    "7": 0.12,
+    "8": 0.15019762845849802,
+    "9": 0.12857142857142856,
+    "10": 0.2,
+    "11": 0.18681318681318682,
+    "12": 0.2692307692307692,
+    "13": 0.2692307692307692,
+    "14": 0.24358974358974358,
+    "15": 0.25757575757575757,
+    "16": 0.2,
+    "17": 0.2,
+    "18": 0.2,
+    "19": 0.2,
+    "20": 0.3611111111111111,
+    "21": 0.25,
+    "22": 0.2857142857142857,
+    "23": 0.39285714285714285,
+    "24": 0.2857142857142857,
+    "25": 0.2857142857142857,
+    "26": 0.38095238095238093,
+    "27": 0.38095238095238093,
+    "28": 0.2857142857142857,
+    "29": 0.2857142857142857,
+    "30": 0.3333333333333333,
+    "31": 0.2857142857142857,
+    "32": 0.2857142857142857,
+    "33": 0.2857142857142857,
+    "34": 0.3333333333333333,
+    "35": 0.3333333333333333,
+    "36": 0.3333333333333333,
+    "37": 0.4,
+    "38": 0.3333333333333333,
+    "39": 0.3333333333333333,
+    "40": 0.3333333333333333,
+    "41": 0.4,
+    "42": 0.4,
+    "43": 0.4,
+    "44": 0.4,
+    "45": 0.4,
+    "46": 0.4,
+    "47": 0.4,
+    "48": 0.4,
+    "49": 0.4,
+    "50": 0.4,
+    "51": 0.8333333333333334,
+    "52": 0.8333333333333334,
+    "53": 0.5,
+    "54": 0.5,
+    "55": 0.5,
+    "56": 0.5,
+    "57": 0.5,
+    "58": 0.5,
+    "59": 0.5,
+    "60": 0.5,
+    "61": 0.5,
+    "62": 0.5,
+    "63": 0.5,
+    "64": 0.5,
+    "65": 0.5,
+    "66": 0.5,
+    "67": 0.5,
+    "68": 0.6666666666666666,
+    "69": 0.6666666666666666,
+    "70": 0.6666666666666666,
+    "71": 0.6666666666666666,
+    "72": 0.6666666666666666,
+    "73": 0.6666666666666666,
+    "74": 0.6666666666666666,
+    "75": 0.6666666666666666,
+    "76": 0.6666666666666666,
+    "77": 0.6666666666666666,
+    "78": 0.6666666666666666,
+    "79": 0.6666666666666666,
+    "80": 0.6666666666666666,
+    "81": 0.6666666666666666,
+    "82": 0.6666666666666666,
+    "83": 0.6666666666666666,
+    "84": 0.6666666666666666,
+    "85": 0.6666666666666666,
+    "86": 0.6666666666666666,
+    "87": 0.6666666666666666,
+    "88": 0.6666666666666666,
+    "89": 0.6666666666666666,
+    "90": 0.6666666666666666,
+    "91": 0.6666666666666666,
+    "92": 1.0,
+    "93": 1.0,
+    "94": 1.0,
+    "95": 1.0,
+    "96": 1.0,
+    "97": 1.0,
+    "98": 1.0,
+    "99": 1.0,
+    "100": 1.0,
+    "101": 1.0,
+    "102": 1.0,
+    "103": 1.0,
+    "104": 1.0,
+    "105": 1.0,
+    "106": 1.0,
+    "107": 1.0,
+    "108": 1.0,
+    "109": 1.0,
+    "110": 1.0,
+    "111": 1.0,
+    "112": 1.0,
+    "113": 1.0,
+    "114": 1.0,
+    "115": 1.0
+  },
+  "gods": [
+    {
+      "id": "lib_supabase_client_createclient",
+      "label": "createClient()",
+      "degree": 55
+    },
+    {
+      "id": "lib_supabase_server_createserviceclient",
+      "label": "createServiceClient()",
+      "degree": 51
+    },
+    {
+      "id": "lib_supabase_server_createclient",
+      "label": "createClient()",
+      "degree": 37
+    },
+    {
+      "id": "lib_validations_formatrupiah",
+      "label": "formatRupiah()",
+      "degree": 30
+    },
+    {
+      "id": "lib_usemyoutlet_usemyoutlet",
+      "label": "useMyOutlet()",
+      "degree": 22
+    },
+    {
+      "id": "types_index_menuitem",
+      "label": "MenuItem",
+      "degree": 20
+    },
+    {
+      "id": "tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 16
+    },
+    {
+      "id": "store_cart_usecart",
+      "label": "useCart",
+      "degree": 15
+    },
+    {
+      "id": "app_kasir_kasirorderclient_kasirorderclient",
+      "label": "KasirOrderClient()",
+      "degree": 13
+    },
+    {
+      "id": "lib_usepromos_usepromos",
+      "label": "usePromos()",
+      "degree": 12
+    }
+  ],
+  "surprises": [
+    {
+      "source": "KasirOrderClient()",
+      "target": "order()",
+      "source_files": [
+        "app/kasir/KasirOrderClient.tsx",
+        "tests/admin-analytics.test.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities; peripheral node `order()` unexpectedly reaches hub `KasirOrderClient()`"
+    },
+    {
+      "source": "QRLoginContent()",
+      "target": "text()",
+      "source_files": [
+        "app/kiosk/qr-login/page.tsx",
+        "scripts/generate-guide-assets.mjs"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "KioskHomePage()",
+      "target": "createClient()",
+      "source_files": [
+        "app/page.tsx",
+        "lib/supabase/server.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities; peripheral node `KioskHomePage()` unexpectedly reaches hub `createClient()`"
+    },
+    {
+      "source": "QRISPaymentContent()",
+      "target": "formatRupiah()",
+      "source_files": [
+        "app/payment/qris/page.tsx",
+        "lib/validations.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities; peripheral node `QRISPaymentContent()` unexpectedly reaches hub `formatRupiah()`"
+    },
+    {
+      "source": "ZipUploadModalProps",
+      "target": "Category",
+      "source_files": [
+        "components/ZipUploadModal.tsx",
+        "types/index.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "connects across different repos/directories; bridges separate communities; peripheral node `ZipUploadModalProps` unexpectedly reaches hub `Category`"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

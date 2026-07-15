@@ -190,7 +190,7 @@ export default function BonusTab() {
                             <CheckCircle2 className="w-4 h-4" strokeWidth={2.5} />
                           </div>
                         ) : (
-                          <div className="inline-flex items-center justify-center bg-gray-50 text-gray-400 rounded-full p-1.5">
+                          <div className="inline-flex items-center justify-center bg-red-50 text-red-500 rounded-full p-1.5">
                             <XCircle className="w-4 h-4" strokeWidth={2.5} />
                           </div>
                         )}

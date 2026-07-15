@@ -1,71 +1,76 @@
-import { AlertCircle, AlertTriangle } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
+'use client'
 
-export const metadata = {
-  title: 'Info Porsi - Kasir Suka Shawarma',
-}
+import { useState, useEffect } from 'react'
+import { AlertCircle, AlertTriangle, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
-// Function to fetch data on the server
-async function getPortionData() {
-  const supabase = await createClient()
-  
-  // 1. Get current user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  
-  // 2. Get outlet_id from outlet_staff
-  const { data: profile } = await supabase
-    .from('outlet_staff')
-    .select('outlet_id, role')
-    .eq('id', user.id)
-    .single()
-    
-  let outletId = profile?.outlet_id
-  if (profile?.role === 'admin' && !outletId) {
-    outletId = '550e8400-e29b-41d4-a716-446655440001' // Fallback for admin
-  }
-  
-  if (!outletId) return null
+export default function InfoPorsiPage() {
+  const [limitedMenus, setLimitedMenus] = useState<[string, number][] | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // 3. Get critical stock alerts
-  const { data: criticalItems } = await supabase
-    .from('monitoring_view_crew')
-    .select('item_name, projection_text')
-    .eq('outlet_id', outletId)
-    .eq('status', 'below')
-    
-  if (!criticalItems || criticalItems.length === 0) return []
+  useEffect(() => {
+    async function fetchPortions() {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
 
-  // 4. Parse projections
-  const menuPortions: Record<string, number> = {}
+        const { data: profile } = await supabase
+          .from('outlet_staff')
+          .select('outlet_id, role')
+          .eq('id', user.id)
+          .single()
 
-  criticalItems.forEach(item => {
-    if (!item.projection_text) return
-    const parts = item.projection_text.split(' atau ')
-    parts.forEach(part => {
-      const match = part.match(/(.*?)\s*\((\d+)\s*porsi\)/)
-      if (match) {
-        const menuName = match[1].trim()
-        const portions = parseInt(match[2], 10)
-        if (menuPortions[menuName] === undefined) {
-          menuPortions[menuName] = portions
-        } else {
-          menuPortions[menuName] = Math.min(menuPortions[menuName], portions)
+        let outletId = profile?.outlet_id
+        if (profile?.role === 'admin' && !outletId) {
+          outletId = '550e8400-e29b-41d4-a716-446655440001'
         }
+
+        if (!outletId) return
+
+        const { data: criticalItems } = await supabase
+          .from('monitoring_view_crew')
+          .select('item_name, projection_text')
+          .eq('outlet_id', outletId)
+          .eq('status', 'below')
+
+        if (!criticalItems || criticalItems.length === 0) {
+          setLimitedMenus([])
+          return
+        }
+
+        const menuPortions: Record<string, number> = {}
+
+        criticalItems.forEach(item => {
+          if (!item.projection_text) return
+          const parts = item.projection_text.split(' atau ')
+          parts.forEach((part: string) => {
+            const match = part.match(/(.*?)\s*\((\d+)\s*porsi\)/)
+            if (match) {
+              const menuName = match[1].trim()
+              const portions = parseInt(match[2], 10)
+              if (menuPortions[menuName] === undefined) {
+                menuPortions[menuName] = portions
+              } else {
+                menuPortions[menuName] = Math.min(menuPortions[menuName], portions)
+              }
+            }
+          })
+        })
+
+        const sorted = Object.entries(menuPortions)
+          .sort((a, b) => a[1] - b[1])
+
+        setLimitedMenus(sorted)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
       }
-    })
-  })
+    }
 
-  // 5. Filter < 7 and sort
-  const limitedMenus = Object.entries(menuPortions)
-    .filter(([_, portions]) => portions < 7)
-    .sort((a, b) => a[1] - b[1])
-    
-  return limitedMenus
-}
-
-export default async function InfoPorsiPage() {
-  const limitedMenus = await getPortionData()
+    fetchPortions()
+  }, [])
 
   return (
     <div className="flex-1 w-full flex flex-col bg-[#fff8f1] min-h-screen">
@@ -73,17 +78,21 @@ export default async function InfoPorsiPage() {
         <div className="mb-6 flex items-start gap-3 bg-red-50 p-4 rounded-xl border border-red-100">
           <AlertCircle className="w-6 h-6 text-red-500 shrink-0 mt-0.5" />
           <div>
-            <h1 className="text-xl font-bold text-red-800">Informasi Porsi & Bahan Baku (Server Rendered)</h1>
+            <h1 className="text-xl font-bold text-red-800">Informasi Porsi & Bahan Baku</h1>
             <p className="text-red-700/80 text-sm mt-1">
-              Halaman ini menampilkan seluruh menu yang bahan bakunya akan segera habis (sisa porsi di bawah 7) atau sudah habis (0 porsi).
+              Halaman ini menampilkan seluruh menu yang bahan bakunya akan segera habis (di bawah batas minimal) atau sudah habis (0 porsi).
             </p>
           </div>
         </div>
 
-        {(!limitedMenus || limitedMenus.length === 0) ? (
+        {loading ? (
+          <div className="flex items-center justify-center p-12">
+            <Loader2 className="w-8 h-8 animate-spin text-[#d9c2b2]" />
+          </div>
+        ) : (!limitedMenus || limitedMenus.length === 0) ? (
           <div className="bg-white border border-[#d9c2b2] p-8 text-center rounded-2xl shadow-sm">
             <h3 className="text-lg font-bold text-[#1e1b15]">Stok Aman</h3>
-            <p className="text-[#877365]">Tidak ada menu dengan porsi kritis (di bawah 7).</p>
+            <p className="text-[#877365]">Tidak ada menu dengan porsi kritis (di bawah batas minimal).</p>
           </div>
         ) : (
           <div className="block w-full bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">

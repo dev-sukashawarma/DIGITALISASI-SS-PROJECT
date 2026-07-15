@@ -1,0 +1,436 @@
+{
+  "communities": {
+    "0": [
+      "src_app_lokasi_components_lokasiview",
+      "src_app_lokasi_components_lokasiview_lokasiview",
+      "src_app_lokasi_page",
+      "src_app_lokasi_page_lokasipage",
+      "src_app_payroll_components_payrollview",
+      "src_app_payroll_components_payrollview_months",
+      "src_app_payroll_components_payrollview_pay_meta",
+      "src_app_payroll_components_payrollview_payrollview",
+      "src_app_payroll_page",
+      "src_app_payroll_page_payrollpage",
+      "src_app_transaksi_components_transaksiview",
+      "src_app_transaksi_components_transaksiview_transaksiview",
+      "src_app_transaksi_page",
+      "src_app_transaksi_page_transaksipage",
+      "src_app_transfer_components_transferview",
+      "src_app_transfer_components_transferview_transferview",
+      "src_app_transfer_page",
+      "src_app_transfer_page_transferpage",
+      "src_hooks_usecashdata",
+      "src_hooks_usecashdata_usecashoverview",
+      "src_hooks_usecashmutations",
+      "src_hooks_usecashmutations_usecashmutations",
+      "src_hooks_usefinancerole",
+      "src_hooks_usefinancerole_usefinancerole",
+      "src_hooks_usepayrolldisbursement",
+      "src_hooks_usepayrolldisbursement_payrollpaymentstatus",
+      "src_hooks_usepayrolldisbursement_payrollslip",
+      "src_hooks_usepayrolldisbursement_usepayrolldisburse",
+      "src_hooks_usepayrolldisbursement_usepayrollslips",
+      "src_lib_format_rupiah",
+      "src_lib_types",
+      "src_lib_types_cashbalance",
+      "src_lib_types_cashdirection",
+      "src_lib_types_cashkind",
+      "src_lib_types_cashlocation",
+      "src_lib_types_cashscope",
+      "src_lib_types_cashsourcetype",
+      "src_lib_types_cashtransaction",
+      "src_lib_types_locationwithbalance",
+      "src_lib_types_pettycashstatus",
+      "src_lib_types_salessource"
+    ],
+    "1": [
+      "lucide_react",
+      "next",
+      "package",
+      "package_dependencies",
+      "package_dependencies_lucide_react",
+      "package_dependencies_next",
+      "package_dependencies_react",
+      "package_dependencies_react_dom",
+      "package_dependencies_sonner",
+      "package_dependencies_suka_auth",
+      "package_dependencies_suka_design_system",
+      "package_dependencies_supabase_ssr",
+      "package_dependencies_supabase_supabase_js",
+      "package_dependencies_tanstack_react_query",
+      "package_description",
+      "package_name",
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_dev",
+      "package_scripts_lint",
+      "package_scripts_start",
+      "package_scripts_test",
+      "package_scripts_test_watch",
+      "package_scripts_type_check",
+      "package_type",
+      "package_version",
+      "react",
+      "react_dom",
+      "sonner",
+      "suka_auth",
+      "suka_design_system",
+      "supabase_ssr",
+      "supabase_supabase_js",
+      "tanstack_react_query"
+    ],
+    "2": [
+      "src_app_actions_expenses",
+      "src_app_actions_expenses_upsertexpensesaction",
+      "src_app_pengeluaran_expenseinputview",
+      "src_app_pengeluaran_expenseinputview_expenseinputview",
+      "src_app_pengeluaran_expenseinputview_firstofmonth",
+      "src_app_pengeluaran_expenseinputview_lastofmonth",
+      "src_app_pengeluaran_page",
+      "src_app_pengeluaran_page_expenseinputpage",
+      "src_app_pengeluaran_page_firstofmonth",
+      "src_app_pengeluaran_page_lastofmonth",
+      "src_components_targetcombobox",
+      "src_components_targetcombobox_targetcombobox",
+      "src_components_targetcombobox_targetcomboboxprops",
+      "src_components_targetcombobox_targetoption",
+      "src_hooks_useexpenses",
+      "src_hooks_useexpenses_empty_rows",
+      "src_hooks_useexpenses_expenserow",
+      "src_hooks_useexpenses_useexpenses",
+      "src_hooks_useoutlets",
+      "src_hooks_useoutlets_useoutlets",
+      "src_hooks_useupsertexpenses",
+      "src_hooks_useupsertexpenses_upsertexpenseinput",
+      "src_hooks_useupsertexpenses_useupsertexpenses",
+      "src_lib_expensecategories",
+      "src_lib_expensecategories_category_meta",
+      "src_lib_expensecategories_derivescope",
+      "src_lib_expensecategories_expense_categories",
+      "src_lib_expensecategories_expensecategory",
+      "src_lib_expensecategories_expensescope",
+      "src_lib_expensecategories_outlet_categories",
+      "src_lib_expensecategories_pusat_categories",
+      "src_lib_expensecategories_pusat_set",
+      "src_lib_types_outlet",
+      "src_lib_types_periodfiltervalue"
+    ],
+    "3": [
+      "src_app_korlap_petty_cash_components_pettycashlist",
+      "src_app_korlap_petty_cash_components_pettycashlist_pettycashlist",
+      "src_app_korlap_petty_cash_page",
+      "src_app_korlap_petty_cash_page_pettycashpage",
+      "src_app_leader_page",
+      "src_app_leader_page_formatcurrency",
+      "src_app_leader_page_leaderdashboardpage",
+      "src_app_leader_petty_cash_components_pettycashlist",
+      "src_app_leader_petty_cash_components_pettycashlist_pettycashlist",
+      "src_app_leader_petty_cash_page",
+      "src_app_leader_petty_cash_page_pettycashpage",
+      "src_app_petty_cash_components_financeapprovalmodal",
+      "src_app_petty_cash_components_financeapprovalmodal_financeapprovalmodal",
+      "src_app_petty_cash_components_financeapprovalmodal_financeapprovalmodalprops",
+      "src_app_petty_cash_components_financepettycashlist",
+      "src_app_petty_cash_components_financepettycashlist_financepettycashlist",
+      "src_app_petty_cash_page",
+      "src_app_petty_cash_page_financepettycashpage",
+      "src_components_petty_cash_approvalmodal",
+      "src_components_petty_cash_approvalmodal_approvalmodal",
+      "src_components_petty_cash_approvalmodal_approvalmodalprops",
+      "src_hooks_usepettycash",
+      "src_hooks_usepettycash_useforwardpettycashkorlap",
+      "src_hooks_usepettycash_useforwardpettycashleader",
+      "src_hooks_usepettycash_usepettycashrequests",
+      "src_hooks_usepettycash_useprocesspettycashfinance",
+      "src_hooks_usepettycash_useprocesspettycashkorlap",
+      "src_hooks_usepettycash_useprocesspettycashleader",
+      "src_hooks_usepettycash_usereceivepettycashcrew",
+      "src_lib_format_tanggalwaktu",
+      "src_lib_types_disbursementmethod",
+      "src_lib_types_pettycashtopup"
+    ],
+    "4": [
+      "src_app_dashboardclient",
+      "src_app_dashboardclient_dashboardpage",
+      "src_app_page",
+      "src_app_page_dashboardpage",
+      "src_app_supplier_components_supplierview",
+      "src_app_supplier_components_supplierview_pay_meta",
+      "src_app_supplier_components_supplierview_supplierview",
+      "src_app_supplier_page",
+      "src_app_supplier_page_supplierpage",
+      "src_components_ui",
+      "src_components_ui_sectioncard",
+      "src_components_ui_statcard",
+      "src_components_ui_status_meta",
+      "src_components_ui_txstatusbadge",
+      "src_hooks_usesuppliersettlement",
+      "src_hooks_usesuppliersettlement_payablepo",
+      "src_hooks_usesuppliersettlement_popaymentstatus",
+      "src_hooks_usesuppliersettlement_usepayablepos",
+      "src_hooks_usesuppliersettlement_usesettlepo",
+      "src_lib_cashsummary",
+      "src_lib_cashsummary_countpendingapproval",
+      "src_lib_cashsummary_netcashsummary",
+      "src_lib_cashsummary_summarizebalances",
+      "src_lib_cashsummary_test",
+      "src_lib_format",
+      "src_lib_format_rupiahcompact",
+      "src_lib_format_tanggal",
+      "src_lib_types_cashtxstatus"
+    ],
+    "5": [
+      "jsdom",
+      "package_devdependencies",
+      "package_devdependencies_jsdom",
+      "package_devdependencies_postcss",
+      "package_devdependencies_tailwindcss",
+      "package_devdependencies_testing_library_dom",
+      "package_devdependencies_testing_library_jest_dom",
+      "package_devdependencies_testing_library_react",
+      "package_devdependencies_types_node",
+      "package_devdependencies_types_react",
+      "package_devdependencies_types_react_dom",
+      "package_devdependencies_typescript",
+      "package_devdependencies_vitest",
+      "postcss",
+      "tailwindcss",
+      "testing_library_dom",
+      "types_node",
+      "types_react",
+      "types_react_dom",
+      "typescript",
+      "vitest",
+      "vitest_setup"
+    ],
+    "6": [
+      "ref_next_env_d_ts",
+      "ref_next_types_ts",
+      "ref_node_modules",
+      "ref_src",
+      "ref_ts",
+      "ref_tsconfig_json",
+      "ref_tsx",
+      "ref_vitest_globals",
+      "tsconfig",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_baseurl",
+      "tsconfig_compileroptions_incremental",
+      "tsconfig_compileroptions_jsx",
+      "tsconfig_compileroptions_paths",
+      "tsconfig_compileroptions_plugins",
+      "tsconfig_compileroptions_types",
+      "tsconfig_exclude",
+      "tsconfig_extends",
+      "tsconfig_include",
+      "tsconfig_paths"
+    ],
+    "7": [
+      "src_app_providers",
+      "src_app_setoran_components_setoranview",
+      "src_app_setoran_components_setoranview_setoranview",
+      "src_app_setoran_page",
+      "src_app_setoran_page_setoranpage",
+      "src_components_globalrealtimeprovider",
+      "src_components_globalrealtimeprovider_globalrealtimeprovider",
+      "src_hooks_usecashdata_usecashtransactions",
+      "src_hooks_usecashdeposit",
+      "src_hooks_usecashdeposit_outletoption",
+      "src_hooks_usecashdeposit_usecashdeposit",
+      "src_hooks_usecashdeposit_useoutlets",
+      "src_hooks_useexpectedcash",
+      "src_hooks_useexpectedcash_useexpectedcash",
+      "src_lib_supabase",
+      "src_lib_supabase_createclient",
+      "src_lib_supabase_createserversupabaseclient"
+    ],
+    "8": [
+      "src_app_korlap_layout",
+      "src_app_korlap_layout_korlaplayout",
+      "src_app_leader_layout",
+      "src_app_leader_layout_leaderlayout",
+      "src_components_korlaplayout",
+      "src_components_korlaplayout_korlaplayout",
+      "src_components_korlaplayout_nav_groups",
+      "src_components_leaderlayout",
+      "src_components_leaderlayout_leaderlayout",
+      "src_components_leaderlayout_nav_groups",
+      "src_components_rolelayout",
+      "src_components_rolelayout_navgroup",
+      "src_components_rolelayout_navitem",
+      "src_components_rolelayout_rolelayout",
+      "src_components_rolelayout_rolelayoutprops"
+    ],
+    "9": [
+      "src_app_layout",
+      "src_app_layout_metadata",
+      "src_app_layout_rootlayout",
+      "src_app_layout_viewport",
+      "src_app_providers_providers",
+      "src_components_cashlayout",
+      "src_components_cashlayout_all_links",
+      "src_components_cashlayout_cashlayout",
+      "src_components_cashlayout_nav_groups",
+      "src_components_cashlayout_navgroup",
+      "src_components_cashlayout_navitem"
+    ],
+    "10": [
+      "src_middleware",
+      "src_middleware_config",
+      "src_middleware_middleware"
+    ],
+    "11": [
+      "next_config",
+      "next_config_nextconfig"
+    ],
+    "12": [
+      "next_env_d",
+      "next_env_d_rationale_5"
+    ],
+    "13": [
+      "src_app_korlap_page",
+      "src_app_korlap_page_korlapdashboardpage"
+    ],
+    "14": [
+      "postcss_config"
+    ],
+    "15": [
+      "tailwind_config"
+    ],
+    "16": [
+      "vitest_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.13414634146341464,
+    "1": 0.058823529411764705,
+    "2": 0.12121212121212122,
+    "3": 0.15120967741935484,
+    "4": 0.12698412698412698,
+    "5": 0.09956709956709957,
+    "6": 0.1,
+    "7": 0.25,
+    "8": 0.19047619047619047,
+    "9": 0.21818181818181817,
+    "10": 0.6666666666666666,
+    "11": 1.0,
+    "12": 1.0,
+    "13": 1.0,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0
+  },
+  "gods": [
+    {
+      "id": "src_lib_supabase_createclient",
+      "label": "createClient()",
+      "degree": 31
+    },
+    {
+      "id": "src_hooks_usecashdata_usecashoverview",
+      "label": "useCashOverview()",
+      "degree": 20
+    },
+    {
+      "id": "src_lib_format_rupiah",
+      "label": "rupiah()",
+      "degree": 17
+    },
+    {
+      "id": "src_lib_format_tanggalwaktu",
+      "label": "tanggalWaktu()",
+      "degree": 13
+    },
+    {
+      "id": "src_hooks_usepettycash_usepettycashrequests",
+      "label": "usePettyCashRequests()",
+      "degree": 12
+    },
+    {
+      "id": "src_lib_types_pettycashtopup",
+      "label": "PettyCashTopup",
+      "degree": 12
+    },
+    {
+      "id": "src_hooks_usefinancerole_usefinancerole",
+      "label": "useFinanceRole()",
+      "degree": 11
+    },
+    {
+      "id": "src_app_setoran_components_setoranview_setoranview",
+      "label": "SetoranView()",
+      "degree": 10
+    },
+    {
+      "id": "src_lib_types_cashlocation",
+      "label": "CashLocation",
+      "degree": 10
+    },
+    {
+      "id": "src_lib_types_cashbalance",
+      "label": "CashBalance",
+      "degree": 9
+    }
+  ],
+  "surprises": [
+    {
+      "source": "types",
+      "target": "@testing-library/dom",
+      "source_files": [
+        "tsconfig.json",
+        "package.json"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "extends",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "useReceivePettyCashCrew()",
+      "target": "createClient()",
+      "source_files": [
+        "src/hooks/usePettyCash.ts",
+        "src/lib/supabase.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities; peripheral node `useReceivePettyCashCrew()` unexpectedly reaches hub `createClient()`"
+    },
+    {
+      "source": "DashboardPage()",
+      "target": "useCashOverview()",
+      "source_files": [
+        "src/app/DashboardClient.tsx",
+        "src/hooks/useCashData.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "DashboardPage()",
+      "target": "useCashTransactions()",
+      "source_files": [
+        "src/app/DashboardClient.tsx",
+        "src/hooks/useCashData.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "DashboardPage()",
+      "target": "usePettyCashRequests()",
+      "source_files": [
+        "src/app/DashboardClient.tsx",
+        "src/hooks/usePettyCash.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

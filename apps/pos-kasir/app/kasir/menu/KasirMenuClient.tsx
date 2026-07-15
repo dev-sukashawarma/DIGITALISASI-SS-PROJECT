@@ -25,7 +25,6 @@ export interface MenuQueryData {
   bestsellers: string[]
   upsells: string[]
   recommendations: string[]
-  recommendations: string[]
   unavailableIds: string[]
   autoUnavailableIds: string[]
   forceAvailableIds: string[]

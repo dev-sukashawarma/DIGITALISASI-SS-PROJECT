@@ -22,8 +22,9 @@ menyusul di pass berikutnya.
 
 ## Keputusan Kunci
 
-1. **Home & akses.** Halaman baru `/dashboard/pos-admin/printer` ("Pengaturan Printer"),
-   masuk grup nav **Manajemen POS**, role **ADMIN** (sama seperti "Pengaturan POS").
+1. **Home & akses.** Halaman baru `/dashboard/printer` ("Pengaturan Printer"),
+   masuk grup nav **Sistem**, role **ADMIN** (sejajar "Pusat Notifikasi" &
+   "Kesehatan Sistem" yang juga ADMIN-only di grup itu).
 2. **Persistensi = localStorage (device-local).** Printer thermal terikat fisik ke satu
    perangkat; `apps/pos-kasir` sudah pakai pola ini (`saved_printer_id` di localStorage).
    Tanpa DB → perubahan terisolasi penuh, tidak menyentuh Supabase.
@@ -76,8 +77,9 @@ aksen amber, pola toast success/error). Tiga kartu:
 
 ## Isolasi & Testing
 
-- Perubahan: 4 file di `src/lib/printer/`, 1 halaman + 1 view, 1 baris `navConfig.ts`,
-  update `navConfig.test.ts` (assert item "Pengaturan Printer" untuk ADMIN).
+- Perubahan: 4 file di `src/lib/printer/`, 1 halaman (`src/app/dashboard/printer/page.tsx`)
+  + 1 view, 1 baris item di grup **Sistem** pada `navConfig.ts`, update
+  `navConfig.test.ts` (assert item "Pengaturan Printer" muncul untuk ADMIN, tidak untuk OWNER).
 - Unit test kandidat (pure, tanpa DOM/Bluetooth): `printerConfig` load/save round-trip
   + default fallback; `buildSampleReceipt` menghasilkan bytes non-kosong sesuai config.
 - Bluetooth & UI = smoke test manual (butuh perangkat fisik) — di luar unit test.

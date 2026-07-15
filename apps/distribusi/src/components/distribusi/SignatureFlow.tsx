@@ -291,13 +291,6 @@ export function SignatureFlow({
 
       {/* Send button */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between border-t border-suka-brown/10 pt-4">
-        <button
-          onClick={handleSend}
-          disabled={sending || missingRoles.length > 0}
-          className="w-full sm:w-auto px-6 py-3 bg-[#701604] hover:opacity-95 text-white font-bold text-sm rounded-xl shadow-md disabled:opacity-50 transition-all cursor-pointer"
-        >
-          {sending ? 'Mengirim...' : 'Kirim Surat Jalan'}
-        </button>
         <div className="text-xs font-bold tracking-wide w-full sm:w-auto text-center">
           {missingRoles.length > 0 ? (
             <div className="text-orange-600 bg-orange-50 border border-orange-200 px-3 py-2 rounded-lg w-full sm:w-auto inline-block">
@@ -309,6 +302,13 @@ export function SignatureFlow({
             </div>
           )}
         </div>
+        <button
+          onClick={handleSend}
+          disabled={sending || missingRoles.length > 0}
+          className="w-full sm:w-auto px-6 py-3 bg-[#701604] hover:opacity-95 text-white font-bold text-sm rounded-xl shadow-md disabled:opacity-50 transition-all cursor-pointer"
+        >
+          {sending ? 'Mengirim...' : 'Kirim Surat Jalan'}
+        </button>
       </div>
       
       {/* Alert Modal */}

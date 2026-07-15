@@ -11,14 +11,15 @@ interface BonusSimulationCardProps {
 
 export default function BonusSimulationCard({ targetAmount, bonusAmount }: BonusSimulationCardProps) {
   const [crewCount, setCrewCount] = useState<number>(1)
-  const [simulatedSales, setSimulatedSales] = useState<number>(targetAmount)
+  const [isTargetReached, setIsTargetReached] = useState<boolean>(true)
+  const [additionalItems, setAdditionalItems] = useState<number>(0)
 
-  // Maximum slider value (misal 2x target harian)
-  const maxSales = Math.max(targetAmount * 2, 1000000)
+  // Maximum slider value for additional items
+  const maxItems = 50
+  const bonusPerItem = 5000
 
   // Hitung bonus
-  const isReached = simulatedSales >= targetAmount
-  const totalBonus = isReached ? bonusAmount : 0
+  const totalBonus = isTargetReached ? bonusAmount + (additionalItems * bonusPerItem) : 0
   const bonusPerPerson = crewCount > 0 ? Math.floor(totalBonus / crewCount) : 0
 
   return (
@@ -28,8 +29,8 @@ export default function BonusSimulationCard({ targetAmount, bonusAmount }: Bonus
           <Calculator className="w-5 h-5 text-blue-600" strokeWidth={2} />
         </div>
         <div>
-          <h3 className="font-bold text-gray-900 text-lg">Simulasi Bonus Harian</h3>
-          <p className="text-sm text-gray-500">Hitung perkiraan bonus berdasarkan target penjualan</p>
+          <h3 className="font-bold text-gray-900 text-lg">Simulasi Bonus Tambahan</h3>
+          <p className="text-sm text-gray-500">Hitung bonus ekstra per item terjual di atas target</p>
         </div>
       </div>
       
@@ -65,27 +66,48 @@ export default function BonusSimulationCard({ targetAmount, bonusAmount }: Bonus
           </div>
 
           <div className="pt-2">
-            <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+            <div className="flex items-center justify-between mb-4">
               <label className="block text-sm font-semibold text-gray-700">
-                Simulasi Penjualan
+                Target Harian Tercapai?
               </label>
-              <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
-                {formatRupiah(simulatedSales)}
-              </span>
+              <button
+                type="button"
+                onClick={() => setIsTargetReached(!isTargetReached)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isTargetReached ? 'bg-blue-600' : 'bg-gray-200'}`}
+                role="switch"
+                aria-checked={isTargetReached}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isTargetReached ? 'translate-x-5' : 'translate-x-0'}`}
+                />
+              </button>
             </div>
-            <input
-              type="range"
-              min="0"
-              max={maxSales}
-              step="10000"
-              value={simulatedSales}
-              onChange={(e) => setSimulatedSales(parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-            />
-            <div className="flex flex-wrap justify-between items-center gap-1 text-xs text-gray-500 mt-2 font-medium">
-              <span>Rp 0</span>
-              <span className="text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded-md whitespace-nowrap">Target: {formatRupiah(targetAmount)}</span>
-              <span>{formatRupiah(maxSales)}</span>
+
+            <div className={`transition-opacity duration-200 ${isTargetReached ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Item Tambahan Terjual
+                </label>
+                <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+                  {additionalItems} Item
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max={maxItems}
+                step="1"
+                value={additionalItems}
+                onChange={(e) => setAdditionalItems(parseInt(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                disabled={!isTargetReached}
+              />
+              <div className="flex flex-wrap justify-between items-center gap-1 text-xs text-gray-500 mt-2 font-medium">
+                <span>0 Item</span>
+                <span className="text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded-md whitespace-nowrap">Target {formatRupiah(targetAmount)}</span>
+                <span>{maxItems} Item</span>
+              </div>
             </div>
           </div>
         </div>
@@ -94,22 +116,22 @@ export default function BonusSimulationCard({ targetAmount, bonusAmount }: Bonus
         <div className="card p-5 shadow-sm border border-gray-100 flex flex-col justify-center relative overflow-hidden w-full min-w-0 mt-2 lg:mt-0">
           {/* Progress bar background for visual flair */}
           <div 
-            className={`absolute bottom-0 left-0 h-1 transition-all duration-300 ease-out ${isReached ? 'bg-green-500' : 'bg-gray-200'}`} 
-            style={{ width: `${Math.min(100, (simulatedSales / targetAmount) * 100)}%` }}
+            className={`absolute bottom-0 left-0 h-1 transition-all duration-300 ease-out ${isTargetReached ? 'bg-green-500' : 'bg-gray-200'}`} 
+            style={{ width: isTargetReached ? `${Math.min(100, 10 + (additionalItems / maxItems) * 90)}%` : '0%' }}
           />
           
           <div className="flex items-center justify-between mb-4">
-            <div className={`w-10 h-10 ${isReached ? 'bg-green-100' : 'bg-gray-100'} rounded-2xl flex items-center justify-center`}>
-              <TrendingUp className={`w-5 h-5 ${isReached ? 'text-green-600' : 'text-gray-400'}`} strokeWidth={2} />
+            <div className={`w-10 h-10 ${isTargetReached ? 'bg-green-100' : 'bg-gray-100'} rounded-2xl flex items-center justify-center`}>
+              <TrendingUp className={`w-5 h-5 ${isTargetReached ? 'text-green-600' : 'text-gray-400'}`} strokeWidth={2} />
             </div>
             <span className="text-gray-400 font-semibold text-sm">Perkiraan Bonus</span>
           </div>
-          <p className={`text-3xl font-bold ${isReached ? 'text-gray-900' : 'text-gray-400'}`}>
+          <p className={`text-3xl font-bold ${isTargetReached ? 'text-gray-900' : 'text-gray-400'}`}>
             {formatRupiah(bonusPerPerson)}
           </p>
           <p className="text-gray-400 text-xs mt-1">
-            {isReached 
-              ? `Total bonus ${formatRupiah(totalBonus)} dibagi ${crewCount} orang` 
+            {isTargetReached 
+              ? `Bonus dasar + Ekstra ${additionalItems} item dibagi ${crewCount} orang` 
               : 'Target harian belum tercapai'}
           </p>
         </div>

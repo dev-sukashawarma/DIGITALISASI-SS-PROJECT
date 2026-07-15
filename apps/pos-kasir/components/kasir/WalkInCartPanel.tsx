@@ -88,7 +88,7 @@ export function WalkInCartPanel(props: {
             <p className="text-sm font-medium">Belum ada menu dipilih</p>
           </div>
         ) : (
-          <div className="space-y-3 max-h-[36vh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
+          <div className="space-y-3 max-h-[36dvh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
             {lineList.filter(l => !l.parentId).map((root) => {
               const children = lineList.filter(l => l.parentId === root.cartItemId)
               const discountedPrice = calculateItemPrice(root.item.price, root.item.id)

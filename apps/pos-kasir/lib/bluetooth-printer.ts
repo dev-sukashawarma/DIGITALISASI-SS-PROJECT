@@ -150,7 +150,7 @@ export async function printViaBluetooth(data: ReceiptData) {
   // Items
   data.items.forEach(it => {
     let name = it.name;
-    if (it.isChild) name = `L_ ${name}`;
+    if (it.isChild) name = `|- EXTRA ${name}`;
     
     // Qty x Price
     const line1Left = `${it.quantity}x ${name}`;

@@ -264,11 +264,19 @@ export default function OrderManualPage() {
   }, [])
 
   const handleMenuClick = useCallback((it: MenuItem) => {
+    const cat = categories.find(c => c.id === it.category_id)
+    const catName = (cat?.name || '').toLowerCase()
+
+    if (catName.includes('drink') || catName.includes('minuman')) {
+      addItem(it, 1, '')
+      return
+    }
+
     setSelectedMenu(it)
     setSelectedMenuQty(1)
     setSelectedMenuNote('')
     setSelectedExtras({})
-  }, [])
+  }, [categories, addItem])
 
   const lineList = lines
   const totalItems = lineList.reduce((s, l) => s + l.quantity, 0)
@@ -778,7 +786,7 @@ export default function OrderManualPage() {
         </div>
 
         {/* ══ KANAN: keranjang (desktop sticky) ══ */}
-        <div className="hidden md:block sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto scrollbar-hide">
+        <div className="hidden md:block sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto scrollbar-hide">
           {mode === 'walkin' ? (
             <WalkInCartPanel
               key={walkInPanelKey}
@@ -1141,14 +1149,14 @@ function CartPanel(props: {
           </div>
         )}
 
-        {/* Items */}
+{/* Items */}
         {lineList.length === 0 ? (
           <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
             <ShoppingBag className="w-10 h-10 mx-auto mb-3 text-gray-300" />
             <p className="text-sm font-medium">Belum ada menu dipilih</p>
           </div>
         ) : (
-          <div className="space-y-3 max-h-[40vh] lg:max-h-[38vh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
+          <div className="space-y-3 max-h-[40dvh] lg:max-h-[38dvh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
             {lineList.filter(l => !l.parentId).map((root) => {
               const children = lineList.filter(l => l.parentId === root.cartItemId)
               const discountedPrice = calculateItemPrice(root.item.price, root.item.id)

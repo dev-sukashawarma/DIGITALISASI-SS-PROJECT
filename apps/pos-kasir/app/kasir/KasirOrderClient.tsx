@@ -900,7 +900,7 @@ export default function KasirOrderClient({
                   className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
                 >
                   <CheckCircle2 size={18} />
-                  Pesanan Siap
+                  Pesanan Selesai
                 </button>
               )}
             </>

@@ -49,15 +49,17 @@ export class EscPosEncoder {
     // For Indonesian we mostly use standard ASCII
     for (let i = 0; i < str.length; i++) {
       let code = str.charCodeAt(i);
+      // Convert NBSP to space to fix 'Rpá' bug
+      if (code === 160) code = 32;
       // Fallback non-ascii to ?
-      if (code > 255) code = 63;
+      else if (code > 255) code = 63;
       this.buffer.push(code);
     }
     return this;
   }
 
   public newline() {
-    this.buffer.push(0x0a); // LF
+    this.buffer.push(0x0d, 0x0a); // CR LF
     return this;
   }
 

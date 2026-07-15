@@ -104,7 +104,7 @@ function FormBahanBakuContent() {
   // Block rendering if no token
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="h-full w-full overflow-y-auto flex items-center justify-center bg-gray-50 p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-red-100 p-8 text-center space-y-4">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
           <h2 className="text-xl font-bold text-gray-900">Akses Ditolak</h2>
@@ -116,7 +116,7 @@ function FormBahanBakuContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="h-full w-full overflow-y-auto flex items-center justify-center bg-gray-50 p-4">
         <div className="w-8 h-8 border-4 border-suka-orange border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -124,7 +124,7 @@ function FormBahanBakuContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="h-full w-full overflow-y-auto flex items-center justify-center bg-gray-50 p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-emerald-100 p-8 text-center space-y-4">
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto" />
           <h2 className="text-2xl font-bold text-gray-900">Berhasil!</h2>
@@ -201,7 +201,7 @@ function FormBahanBakuContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="h-full w-full overflow-y-auto bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="text-center space-y-2">
           <div className="w-12 h-12 bg-suka-orange/10 text-suka-orange rounded-full flex items-center justify-center mx-auto">

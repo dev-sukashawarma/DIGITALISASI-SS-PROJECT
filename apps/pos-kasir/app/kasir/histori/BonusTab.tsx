@@ -7,6 +7,7 @@ import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import { Skeleton } from '@/components/Skeleton'
 import { Trophy, CheckCircle2, XCircle, TrendingUp, Users, Calendar } from 'lucide-react'
+import BonusSimulationCard from './BonusSimulationCard'
 
 export default function BonusTab() {
   const { outletId } = useMyOutlet()
@@ -123,6 +124,14 @@ export default function BonusTab() {
           <p className="text-gray-400 text-xs mt-1">Keseluruhan sebelum dibagi</p>
         </div>
       </div>
+
+      {/* ── Bonus Simulation ── */}
+      {dailyData && dailyData.length > 0 && (
+        <BonusSimulationCard 
+          targetAmount={Number(dailyData[dailyData.length - 1].target_amount) || 0}
+          bonusAmount={Number(dailyData[dailyData.length - 1].bonus_amount) || 0}
+        />
+      )}
 
       {/* ── Daily Breakdown Table ── */}
       <div className="card overflow-hidden">

@@ -68,7 +68,10 @@ export function buildReceiptHtml(
 
   // ── Layout terpusat (fallback = perilaku hardcoded lama) ──
   const paperWidth = layout.paperWidth
-  const scale = layout.fontScale === 'besar' ? 1.3 : 1
+  // Kitchen branch sudah memakai px besar bawaan; jangan kalikan lagi (default
+  // struk_dapur.fontScale='besar' akan menggandakan ukuran → regresi). fontScale
+  // hanya menskala jalur customer. Kitchen tetap identik dengan perilaku lama.
+  const scale = isKitchen ? 1 : (layout.fontScale === 'besar' ? 1.3 : 1)
   const fs = (basePx: number) => Math.round(basePx * scale)
   const headerText = layout.headerText // ada di Customer & Kitchen layout
   // Customer: header override nama outlet bila non-kosong. Kitchen: .lg tetap nama outlet.

@@ -31,4 +31,13 @@ describe('buildReceiptHtml layout', () => {
     const html = buildReceiptHtml(base, '', { ...DEFAULT_PRINT_LAYOUT.struk_customer, paperWidth: 80 })
     expect(html).toContain('80mm')
   })
+
+  it('struk dapur default: ukuran font TIDAK di-skala (no-regresi)', () => {
+    // struk_dapur.fontScale default = 'besar', tapi cabang kitchen sudah pakai px besar.
+    // Pastikan tak dikalikan lagi: body tetap 22px (bukan 29px).
+    const kitchen: ReceiptData = { ...base, receiptType: 'kitchen' }
+    const html = buildReceiptHtml(kitchen, '', DEFAULT_PRINT_LAYOUT.struk_dapur)
+    expect(html).toContain('font-size: 22px')
+    expect(html).not.toContain('font-size: 29px')
+  })
 })

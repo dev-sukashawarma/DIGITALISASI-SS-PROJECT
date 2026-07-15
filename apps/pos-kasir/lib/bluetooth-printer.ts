@@ -149,16 +149,22 @@ export async function printViaBluetooth(data: ReceiptData) {
 
   // Items
   data.items.forEach(it => {
-    let name = it.name;
-    if (it.isChild) name = `|- EXTRA ${name}`;
-    
-    // Qty x Price
-    const line1Left = `${it.quantity}x ${name}`;
-    const line1Right = !isKitchen ? formatRupiah(it.subtotal) : '';
-    encoder.row(line1Left, line1Right);
+    if (it.isChild) {
+      // Sembunyikan qty, indentasi 4 spasi
+      const name = `    |- EXTRA ${it.name}`;
+      const line1Right = !isKitchen ? formatRupiah(it.subtotal) : '';
+      encoder.row(name, line1Right);
+    } else {
+      // Menu utama
+      const line1Left = `${it.quantity}x ${it.name}`;
+      const line1Right = !isKitchen ? formatRupiah(it.subtotal) : '';
+      encoder.row(line1Left, line1Right);
+    }
     
     if (it.note) {
-      encoder.line(` - ${it.note}`);
+      // Note di-indent 2 spasi, atau 6 spasi jika ini adalah note untuk menu ekstra
+      const indent = it.isChild ? '      ' : '  ';
+      encoder.line(`${indent}- ${it.note}`);
     }
   });
 

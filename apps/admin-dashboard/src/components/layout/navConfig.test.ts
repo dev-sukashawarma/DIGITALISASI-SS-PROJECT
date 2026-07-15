@@ -78,3 +78,15 @@ describe('Kerugian Waste nav item', () => {
     expect(accessibleItems('ADMIN_HR').map(i => i.href)).not.toContain('/dashboard/owner/waste')
   })
 })
+
+describe('Pengaturan Printer nav item', () => {
+  it('ADMIN punya Pengaturan Printer di grup Sistem, OWNER tidak', () => {
+    const admin = accessibleItems('ADMIN').map((i) => i.href)
+    const owner = accessibleItems('OWNER').map((i) => i.href)
+    expect(admin).toContain('/dashboard/printer')
+    expect(owner).not.toContain('/dashboard/printer')
+
+    const sistem = accessibleGroups('ADMIN').find((g) => g.title === 'Sistem')
+    expect(sistem?.items.map((i) => i.href)).toContain('/dashboard/printer')
+  })
+})

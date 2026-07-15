@@ -523,3 +523,131 @@ export function downloadBarcode(filename: string, dataUrl: string) {
   element.click()
   document.body.removeChild(element)
 }
+
+export function printBarcode(docNumber: string, dataUrl: string) {
+  const PAPER_WIDTH_MM = 58;
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Print QR Code - ${docNumber}</title>
+        <style>
+          @page { margin: 0mm; }
+          @media print { @page { margin: 0mm; } }
+          * { box-sizing: border-box; }
+          html, body { background: #fff; margin: 0; padding: 0; }
+          body { 
+            width: ${PAPER_WIDTH_MM}mm; 
+            padding: 8px 4px; 
+            font-family: 'Courier New', Courier, monospace; 
+            color: #000;
+            text-align: center;
+          }
+          .title { 
+            font-size: 16px; 
+            font-weight: 900; 
+            margin-bottom: 2px;
+            text-transform: uppercase;
+          }
+          .subtitle {
+            font-size: 13px;
+            font-weight: 900;
+            margin-bottom: 8px;
+            text-decoration: underline;
+          }
+          img { 
+            width: 45mm; 
+            height: 45mm; 
+            display: block;
+            margin: 0 auto;
+          }
+          .footer {
+            margin-top: 10px;
+            font-size: 10px;
+            font-weight: 900;
+            border-top: 1px dashed #000;
+            padding-top: 6px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="title">VERIFIKASI SJ</div>
+        <div class="subtitle">${docNumber}</div>
+        <img src="${dataUrl}" alt="QR Code" />
+        <div class="footer">Distribusi<br/>Suka Shawarma</div>
+      </body>
+    </html>
+  `;
+
+  const iframe = document.createElement('iframe')
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0'
+  iframe.style.height = '0'
+  iframe.style.border = '0'
+  document.body.appendChild(iframe)
+
+  const doc = iframe.contentWindow?.document
+  if (!doc) {
+    document.body.removeChild(iframe)
+    return
+  }
+
+  doc.open()
+  doc.write(html)
+  doc.close()
+
+  const cleanup = () => {
+    setTimeout(() => {
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe)
+    }, 500)
+  }
+
+  const win = iframe.contentWindow
+  if (!win) { cleanup(); return }
+
+  const applyPageSize = () => {
+    try {
+      const heightPx = doc.body?.scrollHeight || 0
+      if (heightPx > 0) {
+        // Calculate needed height in mm based on 96 DPI
+        const heightMm = Math.ceil((heightPx / 96) * 25.4) + 4
+        const style = doc.createElement('style')
+        style.textContent = `@media print { @page { size: ${PAPER_WIDTH_MM}mm ${heightMm}mm; margin: 0mm; } }`
+        doc.head?.appendChild(style)
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  let printed = false
+  const doPrint = () => {
+    if (printed) return
+    printed = true
+    try {
+      applyPageSize()
+      win.focus()
+      win.print()
+    } finally {
+      cleanup()
+    }
+  }
+
+  // Tunggu gambar ter-load sebelum diprint
+  const checkImage = setInterval(() => {
+    const img = doc.querySelector('img')
+    if (!img || img.complete) {
+      clearInterval(checkImage)
+      doPrint()
+    }
+  }, 50)
+  
+  setTimeout(() => {
+    clearInterval(checkImage)
+    doPrint()
+  }, 1500)
+}
+

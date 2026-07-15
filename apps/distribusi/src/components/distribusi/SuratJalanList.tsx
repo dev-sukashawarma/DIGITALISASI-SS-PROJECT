@@ -7,7 +7,7 @@ import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
 import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { BottomNav } from './BottomNav'
-import { ArrowLeft, Plus, Calendar, AlertCircle, FileDown, Eye, Check, QrCode } from 'lucide-react'
+import { ArrowLeft, Plus, Calendar, AlertCircle, FileDown, Eye, Check, QrCode, Printer } from 'lucide-react'
 import { Skeleton } from '@suka/design-system'
 
 function FormattedDate({ iso }: { iso: string | null | undefined }) {
@@ -32,6 +32,13 @@ export function SuratJalanList() {
     const url = `${window.location.origin}/distribusi/terima/${sjId}`
     const dataUrl = await generateQRDataUrl(url, 400)
     downloadBarcode(`Barcode-SJ-${docNumber}.png`, dataUrl)
+  }
+
+  const handlePrintBarcode = async (sjId: string, docNumber: string) => {
+    const { generateQRDataUrl, printBarcode } = await import('@/utils/generatePDF')
+    const url = `${window.location.origin}/distribusi/terima/${sjId}`
+    const dataUrl = await generateQRDataUrl(url, 400)
+    printBarcode(docNumber, dataUrl)
   }
 
   const handleDownloadPDF = async (sjId: string) => {
@@ -258,7 +265,7 @@ export function SuratJalanList() {
                           }}
                           className="flex-1 py-2.5 bg-suka-brown hover:bg-suka-ink text-white font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
                         >
-                          <FileDown size={12} /> Unduh PDF
+                          <FileDown size={12} /> PDF
                         </button>
                         <button
                           onClick={(e) => {
@@ -267,7 +274,16 @@ export function SuratJalanList() {
                           }}
                           className="flex-1 py-2.5 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
                         >
-                          <QrCode size={12} /> QR Code
+                          <QrCode size={12} /> QR
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePrintBarcode(sj.id, sj.document_number || sj.id.substring(0, 8));
+                          }}
+                          className="flex-1 py-2.5 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
+                        >
+                          <Printer size={12} /> Print
                         </button>
                       </div>
                     )}

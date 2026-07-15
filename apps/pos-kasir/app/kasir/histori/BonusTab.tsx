@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -13,6 +13,7 @@ export default function BonusTab() {
   const { outletId } = useMyOutlet()
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
+  const [simulatedCrewCount, setSimulatedCrewCount] = useState<number>(0)
 
   // 1. Fetch Summary
   const { data: summaryData, isLoading: loadingSummary } = useQuery({
@@ -52,7 +53,15 @@ export default function BonusTab() {
   const totalDaysReached = dailyData?.filter((d: any) => d.is_reached)?.length || 0;
   const totalBonusPool = dailyData?.filter((d: any) => d.is_reached)?.reduce((acc: number, d: any) => acc + Number(d.bonus_amount) + (Number(d.additional_items || 0) * 5000), 0) || 0;
   const activeCrewCount = summaryData?.length || 0;
-  const bonusPerPerson = summaryData?.[0]?.total_bonus_received || 0;
+  
+  useEffect(() => {
+    if (activeCrewCount > 0 && simulatedCrewCount === 0) {
+      setSimulatedCrewCount(activeCrewCount);
+    }
+  }, [activeCrewCount, simulatedCrewCount]);
+
+  const displayCrewCount = simulatedCrewCount > 0 ? simulatedCrewCount : activeCrewCount || 1;
+  const bonusPerPerson = Math.floor(totalBonusPool / displayCrewCount);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -109,7 +118,7 @@ export default function BonusTab() {
             <span className="text-gray-400 font-semibold text-sm">Bonus Per Orang</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">{loadingSummary ? '-' : formatRupiah(bonusPerPerson)}</p>
-          <p className="text-gray-400 text-xs mt-1">Estimasi dibagikan ke {activeCrewCount} orang</p>
+          <p className="text-gray-400 text-xs mt-1">Estimasi dibagikan ke {displayCrewCount} orang</p>
         </div>
 
         {/* Total Keseluruhan Bonus */}
@@ -130,6 +139,8 @@ export default function BonusTab() {
         <BonusSimulationCard 
           targetAmount={Number(dailyData[dailyData.length - 1].target_amount) || 0}
           bonusAmount={Number(dailyData[dailyData.length - 1].bonus_amount) || 0}
+          crewCount={displayCrewCount}
+          setCrewCount={setSimulatedCrewCount}
         />
       )}
 

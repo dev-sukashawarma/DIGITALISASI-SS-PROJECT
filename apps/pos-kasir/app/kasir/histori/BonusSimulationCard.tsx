@@ -7,10 +7,11 @@ import { Calculator, Users, TrendingUp, Minus, Plus } from 'lucide-react'
 interface BonusSimulationCardProps {
   targetAmount: number;
   bonusAmount: number;
+  crewCount: number;
+  setCrewCount: (val: number) => void;
 }
 
-export default function BonusSimulationCard({ targetAmount, bonusAmount }: BonusSimulationCardProps) {
-  const [crewCount, setCrewCount] = useState<number>(1)
+export default function BonusSimulationCard({ targetAmount, bonusAmount, crewCount, setCrewCount }: BonusSimulationCardProps) {
   const [isTargetReached, setIsTargetReached] = useState<boolean>(true)
   const [additionalItems, setAdditionalItems] = useState<number>(0)
 

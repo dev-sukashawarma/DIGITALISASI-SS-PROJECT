@@ -5,10 +5,12 @@
 // untuk mencetak ke printer thermal yang terpasang sebagai printer sistem.
 
 import { formatRupiah } from '@/lib/validations'
+import { usePrinterStore } from './printerStore'
+import { printViaBluetooth } from './bluetooth-printer'
 
 // Lebar kertas thermal. Umum: 80mm (default) atau 58mm. Ganti ke 58 bila
 // printer memakai kertas 58mm.
-const PAPER_WIDTH_MM = 80
+const PAPER_WIDTH_MM = 58
 
 export interface ReceiptLine {
   name: string
@@ -170,8 +172,25 @@ export function printReceipt(data: ReceiptData): Promise<void> {
       resolve()
       return
     }
-    
-    // Start async process
+
+    // Cek apakah printer Bluetooth terkoneksi
+    const store = usePrinterStore.getState();
+    if (store.characteristic) {
+      printViaBluetooth(data)
+        .then(() => resolve())
+        .catch(err => {
+          console.error('Print Bluetooth gagal, fallback ke window.print', err);
+          fallbackPrint(data, resolve);
+        });
+      return;
+    }
+
+    // Jika tidak terkoneksi, gunakan fallback HTML iframe window.print()
+    fallbackPrint(data, resolve);
+  });
+}
+
+function fallbackPrint(data: ReceiptData, resolve: () => void) {
     const origin = window.location.origin
     const logoUrl = data.logoUrl || `${origin}/logo.png`
 
@@ -252,7 +271,6 @@ export function printReceipt(data: ReceiptData): Promise<void> {
         doPrint()
       }, 1500)
     })
-  })
 }
 
 

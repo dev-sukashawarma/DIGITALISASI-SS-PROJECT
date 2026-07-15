@@ -203,6 +203,7 @@ export async function POST(request: Request) {
     total_amount: finalTotal,
     discount_amount: globalDiscount > 0 ? globalDiscount : null,
     status: 'preparing',
+    kitchen_receipt_printed: true,
     source: 'pos',
     channel: null,
     sales_source: 'pos',

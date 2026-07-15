@@ -215,6 +215,7 @@ export async function POST(request: Request) {
     source: 'manual',
     channel: body.channel,
     sales_source: validSalesSource,
+    kitchen_receipt_printed: true,
   }
 
   let order: { id: string; order_number: number } | null = null

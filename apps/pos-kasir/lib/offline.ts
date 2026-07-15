@@ -133,6 +133,7 @@ export async function createLocalOrder(input: CreateLocalOrderInput): Promise<{ 
     customer_name: input.customer_name,
     customer_phone: null,
     status: 'preparing',
+    kitchen_receipt_printed: true,
     payment_method: input.payment_method as any,
     total_amount: input.total_amount,
     notes: null,

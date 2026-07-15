@@ -74,9 +74,9 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Struk</title>
 <style>
   /* @page di-set dinamis oleh printReceipt (80mm x tinggi konten). */
-  @page { margin: 0mm; }
+  @page { margin: 0; }
   @media print {
-    @page { margin: 0mm; }
+    @page { margin: 0; }
   }
   * { box-sizing: border-box; }
   html, body { background: #fff; }
@@ -215,7 +215,7 @@ export function printReceipt(data: ReceiptData): Promise<void> {
           if (heightPx > 0) {
             const heightMm = Math.ceil((heightPx / 96) * 25.4) + 4
             const style = doc.createElement('style')
-            style.textContent = `@media print { @page { size: ${PAPER_WIDTH_MM}mm ${heightMm}mm; margin: 0mm; } }`
+            style.textContent = `@media print { @page { size: ${PAPER_WIDTH_MM}mm ${heightMm}mm; margin: 0; } }`
             doc.head?.appendChild(style)
           }
         } catch {

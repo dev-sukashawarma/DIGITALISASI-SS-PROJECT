@@ -59,7 +59,7 @@ export class EscPosEncoder {
   }
 
   public newline() {
-    this.buffer.push(0x0d, 0x0a); // CR LF
+    this.buffer.push(0x0a); // LF only (to prevent \r\n getting split across bluetooth chunks)
     return this;
   }
 

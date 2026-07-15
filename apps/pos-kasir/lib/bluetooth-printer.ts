@@ -150,8 +150,11 @@ export async function printViaBluetooth(data: ReceiptData) {
   // Items
   data.items.forEach(it => {
     if (it.isChild) {
-      // Sembunyikan qty, indentasi 4 spasi
-      const name = `    |- EXTRA ${it.name}`;
+      // Sembunyikan qty, indentasi 4 spasi, hilangkan duplikasi kata EXTRA
+      const cleanName = it.name.toUpperCase().startsWith('EXTRA') 
+        ? it.name.substring(5).trim() 
+        : it.name;
+      const name = `    |- EXTRA ${cleanName}`;
       const line1Right = !isKitchen ? formatRupiah(it.subtotal) : '';
       encoder.row(name, line1Right);
     } else {
@@ -175,7 +178,8 @@ export async function printViaBluetooth(data: ReceiptData) {
     if (data.discount > 0) {
       encoder.row('Diskon', `-${formatRupiah(data.discount)}`);
     }
-    encoder.bold(true).size(false, true).row('TOTAL', formatRupiah(data.total)).size(false, false).bold(false);
+    // Hapus double height (size) untuk mencegah bug TOTALP pada printer thermal murah
+    encoder.bold(true).row('TOTAL', formatRupiah(data.total)).bold(false);
     
     if (data.paymentMethod === 'cash') {
       encoder.row('Tunai', formatRupiah(data.amountReceived ?? 0));
@@ -190,14 +194,15 @@ export async function printViaBluetooth(data: ReceiptData) {
   // --- END RECEIPT GENERATION ---
 
   const payload = encoder.encode();
-  const maxChunkSize = 256; // Send 256 bytes per chunk to avoid MTU limits on Android
   
+  // Safe chunking logic: send small chunks to prevent buffer overflow or split \r\n
+  const maxChunkSize = 128; 
   try {
     for (let i = 0; i < payload.length; i += maxChunkSize) {
       const chunk = payload.slice(i, i + maxChunkSize);
       await store.characteristic.writeValue(chunk);
-      // Wait a tiny bit between chunks for printer buffer
-      await new Promise(r => setTimeout(r, 20)); 
+      // Increased delay to allow printer to process buffer properly
+      await new Promise(r => setTimeout(r, 40)); 
     }
   } catch (err: any) {
     console.error('Print chunk failed:', err);

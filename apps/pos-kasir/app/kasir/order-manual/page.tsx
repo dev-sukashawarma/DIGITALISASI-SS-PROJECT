@@ -267,7 +267,7 @@ export default function OrderManualPage() {
     const cat = categories.find(c => c.id === it.category_id)
     const catName = (cat?.name || '').toLowerCase()
 
-    if (!catName.includes('kebab')) {
+    if (catName.includes('drink') || catName.includes('minuman') || catName.includes('topping')) {
       addItem(it, 1, '')
       return
     }
@@ -786,7 +786,7 @@ export default function OrderManualPage() {
         </div>
 
         {/* ══ KANAN: keranjang (desktop sticky) ══ */}
-        <div className="hidden md:block sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto scrollbar-hide">
+        <div className="hidden md:block sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 pr-2 pb-20">
           {mode === 'walkin' ? (
             <WalkInCartPanel
               key={walkInPanelKey}
@@ -850,7 +850,7 @@ export default function OrderManualPage() {
       {cartOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40" onClick={() => setCartOpen(false)} />
-          <div className="relative bg-gray-50 rounded-t-3xl max-h-[88vh] overflow-y-auto p-4 animate-[slideUp_.2s_ease-out]">
+          <div className="relative bg-gray-50 rounded-t-3xl max-h-[88vh] overflow-y-auto p-4 animate-[slideUp_.2s_ease-out] scrollbar-thin scrollbar-thumb-gray-200 pb-20">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-gray-900 text-lg">Keranjang</h2>
               <button onClick={() => setCartOpen(false)} className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-500">

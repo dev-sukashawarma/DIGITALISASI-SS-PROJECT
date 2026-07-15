@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { formatRupiah } from '@/lib/validations'
-import { Calculator, Users, TrendingUp } from 'lucide-react'
+import { Calculator, Users, TrendingUp, Minus, Plus } from 'lucide-react'
 
 interface BonusSimulationCardProps {
   targetAmount: number;
@@ -40,16 +40,27 @@ export default function BonusSimulationCard({ targetAmount, bonusAmount }: Bonus
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Jumlah Crew Hadir
             </label>
-            <div className="flex items-center bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-shadow">
-              <Users className="w-5 h-5 text-gray-400 mr-2 shrink-0" />
-              <input
-                type="number"
-                min="1"
-                value={crewCount || ''}
-                onChange={(e) => setCrewCount(parseInt(e.target.value) || 0)}
-                className="w-full min-w-0 bg-transparent border-none text-sm font-medium text-gray-900 focus:ring-0 p-0"
-                placeholder="Masukkan jumlah crew"
-              />
+            <div className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-1.5 shadow-sm max-w-[200px]">
+              <button 
+                onClick={() => setCrewCount(Math.max(1, crewCount - 1))}
+                className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 transition-colors border border-gray-100"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              
+              <div className="flex items-center gap-2 px-3">
+                <Users className="w-4 h-4 text-blue-500" />
+                <span className="font-bold text-gray-900 text-lg min-w-[2ch] text-center">
+                  {crewCount}
+                </span>
+              </div>
+
+              <button 
+                onClick={() => setCrewCount(crewCount + 1)}
+                className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 transition-colors border border-gray-100"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
           </div>
 

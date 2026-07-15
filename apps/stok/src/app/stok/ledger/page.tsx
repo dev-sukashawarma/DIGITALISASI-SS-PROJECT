@@ -30,31 +30,27 @@ export default function LedgerPage() {
     <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-32">
       {/* Header Banner */}
       <header className="bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex items-center justify-between shadow-[0_2px_8px_rgba(144,77,0,0.03)] sticky top-0 z-40">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm" title="Kembali ke Dashboard">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/dashboard" className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm" title="Kembali ke Dashboard">
             <span className="text-base">←</span>
           </Link>
-          <div className="flex flex-col">
-            <h1 className="font-bold text-sm text-[#701604] uppercase tracking-tight leading-tight">Ledger Pergerakan Stok</h1>
-            <div className="flex flex-col text-[10px] text-[#544437]/75 font-bold mt-0.5">
-              <p>Crew : {outletStaff.name}</p>
-              <p>Outlet : {boundOutlets.find(o => o.id === selectedOutletId)?.name || outletStaff.outlets?.name || 'Unknown'}</p>
-            </div>
-          </div>
+          <h1 className="text-xl font-extrabold text-[#701604] tracking-tight truncate">
+            Ledger Stok
+          </h1>
         </div>
-        
-        <div className="flex items-center gap-2">
+        <div className="flex items-center shrink-0">
           <OutletSwitcher />
-          <Link href="/stok/ledger/new">
-            <button className="px-3.5 py-1.5 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm uppercase tracking-wider active:scale-95">
-              + Entri Manual
-            </button>
-          </Link>
         </div>
       </header>
 
       {/* Main Container */}
       <main className="max-w-3xl mx-auto px-4 mt-6 space-y-6">
+        <Link href="/stok/ledger/new" className="block">
+          <button className="w-full py-3.5 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm uppercase tracking-wider active:scale-95 flex items-center justify-center gap-2">
+            <span>📝</span> + Buat Entri Manual
+          </button>
+        </Link>
+        
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs font-bold text-red-700">
             🚨 Error: {error}

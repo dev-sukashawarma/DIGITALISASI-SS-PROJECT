@@ -16,6 +16,7 @@ const LABEL_MAP: Record<string, string> = {
 
 export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
   const [l, setL] = useState<any | null>(null)
+  const [creatorName, setCreatorName] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -31,6 +32,21 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
         if (err) throw err
         if (!data) throw new Error('Data ledger tidak ditemukan atau Anda tidak memiliki akses.')
         setL(data)
+
+        if (data.created_by) {
+          const { data: staff } = await supabase
+            .from('outlet_staff')
+            .select('name')
+            .eq('id', data.created_by)
+            .maybeSingle()
+          if (staff) {
+            setCreatorName(staff.name)
+          } else {
+            setCreatorName('Sistem')
+          }
+        } else {
+          setCreatorName('Sistem')
+        }
       } catch (err: any) {
         setError(`Gagal muat ledger: ${err.message || err}`)
       }
@@ -85,6 +101,13 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
             })}
           </span>
         </div>
+
+        {creatorName && (
+          <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
+            <span className="text-xs font-bold text-[#544437]/70">Dibuat Oleh</span>
+            <span className="text-xs font-semibold text-[#1e1b15]">{creatorName}</span>
+          </div>
+        )}
 
         <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
           <span className="text-xs font-bold text-[#544437]/70">Bahan Baku</span>

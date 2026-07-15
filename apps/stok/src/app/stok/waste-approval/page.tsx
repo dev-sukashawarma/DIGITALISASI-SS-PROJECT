@@ -49,70 +49,114 @@ export default function WasteApprovalPage() {
     }
   }
 
-  if (loading) return <div className="p-4">Memuat...</div>
+  if (loading) return (
+    <div className="flex-1 flex items-center justify-center min-h-[400px]">
+      <div className="flex flex-col items-center gap-3">
+        <span className="text-4xl animate-bounce">♻️</span>
+        <p className="text-sm font-bold text-suka-brown/60 tracking-widest uppercase">Memuat Laporan...</p>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="space-y-4 p-4 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Persetujuan Waste</h1>
-        <Button variant="secondary" onClick={() => loadReports()}>Refresh</Button>
+    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto flex flex-col h-full bg-[#faf2e9]/30">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-[#701604] tracking-tight flex items-center gap-2">
+            <span>🗑️</span> Persetujuan Waste
+          </h1>
+          <p className="text-sm font-semibold text-[#544437]/70 mt-1">Kelola dan tinjau laporan waste dari outlet.</p>
+        </div>
+        <button
+          onClick={() => loadReports()}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-[#d9c2b2] text-[#544437] rounded-xl text-sm font-bold shadow-sm hover:bg-[#faf2e9] active:scale-95 transition-all"
+        >
+          <span>🔄</span> Refresh
+        </button>
       </div>
 
       {reports.length === 0 ? (
-        <p className="text-gray-500">Tidak ada laporan waste yang pending.</p>
+        <div className="flex-1 flex flex-col items-center justify-center bg-white border border-[#d9c2b2]/40 rounded-3xl p-12 text-center shadow-sm min-h-[300px]">
+          <span className="text-5xl opacity-50 mb-4">✨</span>
+          <h3 className="text-lg font-bold text-[#544437]">Semua Bersih!</h3>
+          <p className="text-[#544437]/60 font-medium max-w-sm mt-2">Tidak ada laporan waste yang menunggu persetujuan saat ini.</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {reports.map(r => {
             const bal = balances.find(b => b.bahan_baku_id === r.bahan_baku_id)
             const isNegativeWarning = r.qty > (bal?.saldo || 0)
             
             return (
-              <Card key={r.id} className="p-4 flex flex-col gap-3">
-                <div className="flex justify-between">
-                  <div>
-                    <h3 className="font-bold">{r.bahan_baku?.nama}</h3>
-                    <p className="text-sm text-gray-500">{r.outlets?.name} • Oleh: {r.reported_by_staff?.name}</p>
+              <div key={r.id} className="bg-white border border-[#d9c2b2]/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col relative group">
+                {/* Header Card */}
+                <div className="flex justify-between items-start mb-4">
+                  <div className="space-y-1">
+                    <span className="inline-block text-[10px] font-black bg-[#ffdcc2] text-[#6d3900] px-2 py-0.5 rounded uppercase tracking-wider">
+                      Laporan Waste
+                    </span>
+                    <h3 className="font-black text-[#701604] text-lg leading-tight mt-1">{r.bahan_baku?.nama}</h3>
+                    <p className="text-[11px] font-bold text-[#544437]/70 uppercase tracking-wide flex items-center gap-1">
+                      <span>🏪</span> {r.outlets?.name?.replace('SUKA SHAWARMA ', '') || 'Unknown'}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-red-600">{r.qty} {r.bahan_baku?.satuan}</p>
-                    <p className="text-xs text-gray-400">Waste</p>
+                    <p className="font-black text-xl text-[#ba1a1a]">{r.qty} <span className="text-sm font-bold text-[#544437]/60 lowercase">{r.bahan_baku?.satuan}</span></p>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 p-2 rounded text-sm">
-                  <span className="font-semibold">Alasan:</span> {r.reason}
+                {/* Reporter Info */}
+                <div className="flex items-center gap-2 mb-4 p-2 bg-[#faf2e9] rounded-lg border border-[#d9c2b2]/30">
+                  <div className="w-6 h-6 rounded-full bg-[#d9c2b2] flex items-center justify-center text-[10px] font-bold text-white">
+                    {r.reported_by_staff?.name?.charAt(0) || '?'}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-[#544437]/60 uppercase">Dilaporkan Oleh</p>
+                    <p className="text-xs font-bold text-[#1e1b15]">{r.reported_by_staff?.name || 'Unknown'}</p>
+                  </div>
                 </div>
 
+                {/* Reason */}
+                <div className="bg-white border border-dashed border-[#d9c2b2] p-3 rounded-xl text-sm mb-4">
+                  <span className="font-bold text-[#544437] text-[11px] uppercase tracking-wider block mb-1">Alasan Waste:</span>
+                  <p className="text-[#1e1b15] font-medium italic">"{r.reason}"</p>
+                </div>
+
+                {/* Negative Warning */}
                 {isNegativeWarning && (
-                  <div className="bg-yellow-50 text-yellow-800 text-xs p-2 rounded border border-yellow-200">
-                    ⚠️ Saldo saat ini: {bal?.saldo || 0}. Menyetujui ini akan membuat stok menjadi negatif.
+                  <div className="bg-red-50 text-red-700 text-[11px] font-bold p-3 rounded-xl border border-red-200 mb-4 flex gap-2 items-start">
+                    <span className="text-base leading-none">⚠️</span>
+                    <p>Saldo saat ini: <span className="font-black">{bal?.saldo || 0}</span>. Menyetujui ini akan membuat stok menjadi negatif!</p>
                   </div>
                 )}
 
+                {/* Photo Proof */}
                 {r.photo_url && (
-                  <div className="mt-2">
-                    <a href={r.photo_url} target="_blank" rel="noreferrer" className="text-blue-500 text-sm hover:underline">
-                      Lihat Foto Bukti ↗
+                  <div className="mb-4">
+                    <a href={r.photo_url} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full py-2 bg-[#f0f9ff] text-[#0284c7] border border-[#bae6fd] hover:bg-[#e0f2fe] rounded-xl text-xs font-bold transition-colors">
+                      <span>📸</span> Lihat Foto Bukti
                     </a>
                   </div>
                 )}
 
-                <div className="flex gap-2 mt-auto pt-4">
-                  <Button 
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white" 
+                <div className="flex-grow"></div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-4 border-t border-[#d9c2b2]/30 mt-2">
+                  <button 
+                    className="flex-1 bg-suka-green hover:bg-green-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5" 
                     onClick={() => handleApprove(r.id, r.qty, r.bahan_baku_id)}
                   >
-                    Setujui
-                  </Button>
-                  <Button 
-                    variant="secondary" 
-                    className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                    <span>✓</span> Setujui
+                  </button>
+                  <button 
+                    className="flex-1 bg-white border-2 border-red-200 text-red-600 hover:bg-red-50 font-bold text-sm py-2.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5"
                     onClick={() => setRejectingId(r.id)}
                   >
-                    Tolak
-                  </Button>
+                    <span>✕</span> Tolak
+                  </button>
                 </div>
-              </Card>
+              </div>
             )
           })}
         </div>
@@ -120,20 +164,31 @@ export default function WasteApprovalPage() {
 
       {/* Reject Modal */}
       {rejectingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl">
-            <h2 className="text-lg font-bold mb-4">Alasan Penolakan</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-[#d9c2b2]/50 transform transition-all">
+            <h2 className="text-xl font-black text-[#701604] mb-2 flex items-center gap-2">
+              <span>⚠️</span> Tolak Laporan
+            </h2>
+            <p className="text-sm font-semibold text-[#544437]/70 mb-5">Berikan alasan penolakan waste ini.</p>
             <form onSubmit={handleRejectSubmit} className="space-y-4">
-              <Input
-                autoFocus
-                placeholder="Misal: Foto buram, salah item"
-                value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)}
-                required
-              />
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={() => setRejectingId(null)}>Batal</Button>
-                <Button type="submit" className="bg-red-600 text-white hover:bg-red-700">Tolak Laporan</Button>
+              <div>
+                <label className="text-[11px] font-bold text-[#544437] uppercase tracking-wider mb-1.5 block">Alasan Penolakan</label>
+                <textarea
+                  autoFocus
+                  placeholder="Misal: Foto buram, salah item..."
+                  className="w-full p-3 bg-[#faf2e9] border border-[#d9c2b2]/50 rounded-xl focus:ring-2 focus:ring-suka-orange focus:border-suka-orange outline-none text-sm font-medium resize-none h-24"
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" className="flex-1 px-4 py-2.5 border-2 border-[#d9c2b2] text-[#544437] font-bold rounded-xl hover:bg-[#faf2e9] transition-colors" onClick={() => setRejectingId(null)}>
+                  Batal
+                </button>
+                <button type="submit" className="flex-1 px-4 py-2.5 bg-red-650 text-white font-bold rounded-xl hover:bg-red-700 shadow-sm transition-colors">
+                  Tolak Laporan
+                </button>
               </div>
             </form>
           </div>

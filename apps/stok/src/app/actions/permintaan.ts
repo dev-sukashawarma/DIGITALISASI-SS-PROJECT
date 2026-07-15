@@ -62,7 +62,24 @@ export async function fetchPermintaanOutlet(outletId: string): Promise<Permintaa
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map(mapRow)
+  
+  const rawData = data ?? []
+  const staffIds = [...new Set(rawData.map(d => d.dibuat_oleh).filter(Boolean))]
+  let staffMap: Record<string, string> = {}
+  
+  if (staffIds.length > 0) {
+    const { data: staffData } = await supabase.from('outlet_staff').select('id, name').in('id', staffIds)
+    if (staffData) {
+      staffData.forEach(s => {
+        staffMap[s.id] = s.name
+      })
+    }
+  }
+
+  return rawData.map(d => {
+    const res = mapRow(d)
+    return { ...res, staff_name: staffMap[d.dibuat_oleh] || 'Sistem' }
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +95,24 @@ export async function fetchPermintaanPending(): Promise<PermintaanWithItems[]> {
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map(mapRow)
+  
+  const rawData = data ?? []
+  const staffIds = [...new Set(rawData.map(d => d.dibuat_oleh).filter(Boolean))]
+  let staffMap: Record<string, string> = {}
+  
+  if (staffIds.length > 0) {
+    const { data: staffData } = await supabase.from('outlet_staff').select('id, name').in('id', staffIds)
+    if (staffData) {
+      staffData.forEach(s => {
+        staffMap[s.id] = s.name
+      })
+    }
+  }
+
+  return rawData.map(d => {
+    const res = mapRow(d)
+    return { ...res, staff_name: staffMap[d.dibuat_oleh] || 'Sistem' }
+  })
 }
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { SignatureCanvas } from './SignatureCanvas'
 
@@ -26,35 +26,75 @@ export function SignatureFlow({
   onSent,
 }: SignatureFlowProps) {
   const [signedBy, setSignedBy] = useState('')
-  const [role, setRole] = useState('Kitchen SPV')
+  const [role, setRole] = useState('Admin Kitchen')
   const [signatureImage, setSignatureImage] = useState<string>('')
   const [showCanvas, setShowCanvas] = useState(false)
   const [signing, setSigning] = useState(false)
   const [sending, setSending] = useState(false)
+  const [kitchenStaff, setKitchenStaff] = useState<string[]>([])
+  const [allStaff, setAllStaff] = useState<string[]>([])
+  const [driverType, setDriverType] = useState<'internal' | 'external'>('internal')
 
-  const REQUIRED_ROLES = ['Kitchen SPV', 'Supir']
+  useEffect(() => {
+    const fetchStaff = async () => {
+      const supabase = createSupabaseBrowserClient()
+      const { data } = await supabase
+        .from('outlet_staff')
+        .select('name, role')
+        .eq('status', 'active')
+        .order('name')
+      
+      if (data) {
+        setKitchenStaff(data.filter(d => d.role === 'kitchen').map(d => d.name))
+        setAllStaff(data.map(d => d.name))
+      }
+    }
+    fetchStaff()
+  }, [])
+  const [alertConfig, setAlertConfig] = useState<{ show: boolean; title: string; message: string; type: 'error' | 'success' | 'warning' } | null>(null)
+  
+  const showAlert = (title: string, message: string, type: 'error' | 'success' | 'warning' = 'error') => {
+    setAlertConfig({ show: true, title, message, type })
+  }
+  
+  const closeAlert = () => setAlertConfig(null)
+
+  const REQUIRED_ROLES = ['Admin Kitchen', 'Supir']
   const signedRoles = signatures.map((s) => s.role)
   const missingRoles = REQUIRED_ROLES.filter((r) => !signedRoles.includes(r))
 
-  const handleSign = async () => {
+  useEffect(() => {
+    if (signedRoles.includes('Admin Kitchen') && !signedRoles.includes('Supir')) {
+      if (role !== 'Supir') {
+        setRole('Supir')
+        setSignedBy('')
+      }
+    }
+  }, [signatures])
+
+  const handleSign = async (imgToUse?: string) => {
+    const finalImg = imgToUse || signatureImage;
+
     if (!signedBy.trim()) {
-      alert('Nama penanda tangan harus diisi')
+      showAlert('Peringatan', 'Nama penanda tangan harus diisi', 'warning')
       return
     }
 
-    if (!signatureImage) {
-      alert('Tanda tangan harus digambar terlebih dahulu')
+    if (!finalImg) {
+      showAlert('Peringatan', 'Tanda tangan harus digambar terlebih dahulu', 'warning')
       return
     }
 
     if (signatures.some((s) => s.role === role)) {
-      alert(`${role} sudah menandatangani. Tidak bisa menambah tanda tangan ganda.`)
+      showAlert('Peringatan', `${role} sudah menandatangani. Tidak bisa menambah tanda tangan ganda.`, 'warning')
       return
     }
 
-    if (signatureImage.length > MAX_SIGNATURE_SIZE) {
-      alert(
-        `Tanda tangan terlalu besar (${(signatureImage.length / 1024).toFixed(1)}KB). Coba ulang dengan stroke yang lebih ringan atau canvas yang lebih kecil.`
+    if (finalImg.length > MAX_SIGNATURE_SIZE) {
+      showAlert(
+        'Ukuran Terlalu Besar',
+        `Tanda tangan terlalu besar (${(finalImg.length / 1024).toFixed(1)}KB). Coba ulang dengan stroke yang lebih ringan atau canvas yang lebih kecil.`,
+        'warning'
       )
       return
     }
@@ -63,13 +103,13 @@ export function SignatureFlow({
     const supabase = createSupabaseBrowserClient()
 
     try {
-      console.log('Signing with image size:', signatureImage.length, 'bytes')
+      console.log('Signing with image size:', finalImg.length, 'bytes')
 
       const { data, error } = await supabase.rpc('sign_surat_jalan', {
         p_surat_jalan_id: suratJalanId,
         p_signed_by_name: signedBy,
         p_role: role,
-        p_signature_image: signatureImage,
+        p_signature_image: finalImg,
       })
 
       if (error) {
@@ -86,11 +126,11 @@ export function SignatureFlow({
       setSignedBy('')
       setSignatureImage('')
       setShowCanvas(false)
-      alert(`Tanda tangan dari ${signedBy} berhasil ditambahkan`)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal menambah tanda tangan'
+      showAlert('Berhasil', `Tanda tangan dari ${signedBy} berhasil ditambahkan`, 'success')
+    } catch (err: any) {
+      const message = err?.message || err?.details || 'Gagal menambah tanda tangan'
       console.error('Full error:', err)
-      alert(`Error: ${message}`)
+      showAlert('Gagal', message, 'error')
     } finally {
       setSigning(false)
     }
@@ -98,7 +138,7 @@ export function SignatureFlow({
 
   const handleSend = async () => {
     if (missingRoles.length > 0) {
-      alert(`Tanda tangan yang masih diperlukan: ${missingRoles.join(', ')}`)
+      showAlert('Peringatan', `Tanda tangan yang masih diperlukan: ${missingRoles.join(', ')}`, 'warning')
       return
     }
 
@@ -112,11 +152,11 @@ export function SignatureFlow({
 
       if (error) throw error
 
-      alert('Surat Jalan berhasil dikirim!')
-      onSent()
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal mengirim'
-      alert(`Error: ${message}`)
+      showAlert('Berhasil', 'Surat Jalan berhasil dikirim!', 'success')
+      setTimeout(() => onSent(), 2000)
+    } catch (err: any) {
+      const message = err?.message || err?.details || 'Gagal mengirim'
+      showAlert('Gagal Mengirim', message, 'error')
     } finally {
       setSending(false)
     }
@@ -153,65 +193,95 @@ export function SignatureFlow({
       )}
 
       {/* Add signature form */}
-      <div className="space-y-4 border-t border-suka-brown/10 pt-4">
-        <p className="text-sm font-bold text-suka-brown">Tambah Tanda Tangan Baru</p>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            value={signedBy}
-            onChange={(e) => setSignedBy(e.target.value)}
-            placeholder="Nama penanda tangan"
-            className="flex-1 bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all"
-          />
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all"
-          >
-            <option
-              value="Kitchen SPV"
-              disabled={signatures.some((s) => s.role === 'Kitchen SPV')}
-            >
-              {signatures.some((s) => s.role === 'Kitchen SPV')
-                ? 'Kitchen SPV ✓'
-                : 'Kitchen SPV'}
-            </option>
-            <option
-              value="Supir"
-              disabled={signatures.some((s) => s.role === 'Supir')}
-            >
-              {signatures.some((s) => s.role === 'Supir')
-                ? 'Supir ✓'
-                : 'Supir (Pengemudi)'}
-            </option>
-          </select>
-          <button
-            onClick={() => setShowCanvas(!showCanvas)}
-            className="px-4 py-2.5 border border-suka-brown/15 text-suka-brown font-semibold text-sm rounded-xl bg-white hover:bg-suka-cream transition-all cursor-pointer"
-          >
-            {showCanvas ? 'Sembunyikan Canvas' : 'Gambar Tanda Tangan'}
-          </button>
-        </div>
+      {missingRoles.length > 0 && (
+        <div className="space-y-4 border-t border-suka-brown/10 pt-4">
+          <p className="text-sm font-bold text-suka-brown">Tambah Tanda Tangan Baru</p>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 items-start">
+              <select
+                value={role}
+                onChange={(e) => { setRole(e.target.value); setSignedBy(''); }}
+                className="w-full sm:w-1/3 bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all h-[42px]"
+              >
+                <option value="Admin Kitchen" disabled={signatures.some((s) => s.role === 'Admin Kitchen')}>
+                  {signatures.some((s) => s.role === 'Admin Kitchen') ? 'Admin Kitchen ✓' : 'Admin Kitchen'}
+                </option>
+                <option value="Supir" disabled={signatures.some((s) => s.role === 'Supir')}>
+                  {signatures.some((s) => s.role === 'Supir') ? 'Supir ✓' : 'Supir (Pengemudi)'}
+                </option>
+              </select>
 
-        {showCanvas && (
-          <SignatureCanvas onSignatureSaved={(img) => setSignatureImage(img)} />
-        )}
-
-        {signatureImage && (
-          <div className="flex items-center gap-4 border border-suka-brown/10 p-3 bg-[#fff8f1]/50 rounded-xl">
-            <div className="bg-white p-2 border border-suka-brown/10 rounded-lg">
-              <img src={signatureImage} alt="preview" className="h-10 w-auto object-contain" />
+              <div className="flex-1 w-full flex flex-col gap-2">
+                {role === 'Admin Kitchen' ? (
+                  <select
+                    value={signedBy}
+                    onChange={(e) => setSignedBy(e.target.value)}
+                    className="w-full bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all h-[42px]"
+                  >
+                    <option value="" disabled>Pilih Nama Admin Kitchen</option>
+                    {kitchenStaff.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="flex flex-col gap-2 w-full">
+                    <div className="flex items-center gap-4 px-1 pb-1">
+                      <label className="flex items-center gap-1.5 text-xs text-suka-brown font-semibold cursor-pointer">
+                        <input type="radio" checked={driverType === 'internal'} onChange={() => { setDriverType('internal'); setSignedBy(''); }} className="accent-suka-orange" />
+                        Supir Internal
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-suka-brown font-semibold cursor-pointer">
+                        <input type="radio" checked={driverType === 'external'} onChange={() => { setDriverType('external'); setSignedBy(''); }} className="accent-suka-orange" />
+                        Supir Eksternal
+                      </label>
+                    </div>
+                    {driverType === 'internal' ? (
+                      <select
+                        value={signedBy}
+                        onChange={(e) => setSignedBy(e.target.value)}
+                        className="w-full bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all h-[42px]"
+                      >
+                        <option value="" disabled>Pilih Nama Supir Internal</option>
+                        {allStaff.map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={signedBy}
+                        onChange={(e) => setSignedBy(e.target.value)}
+                        placeholder="Ketik nama Lalamove / Eksternal"
+                        className="w-full bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all h-[42px]"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+
             <button
-              onClick={handleSign}
-              disabled={signing}
-              className="px-4 py-2 bg-suka-orange hover:bg-orange-600 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              onClick={() => setShowCanvas(!showCanvas)}
+              className="w-full px-4 py-2.5 border border-suka-brown/15 text-suka-brown font-semibold text-sm rounded-xl bg-white hover:bg-suka-cream transition-all cursor-pointer mt-1"
             >
-              {signing ? 'Menandatangani...' : 'Konfirmasi & Simpan'}
+              {showCanvas ? 'Sembunyikan Canvas' : 'Gambar Tanda Tangan'}
             </button>
           </div>
-        )}
-      </div>
+
+          {showCanvas && !signing && (
+            <SignatureCanvas onSignatureSaved={(img) => {
+              setSignatureImage(img)
+              handleSign(img)
+            }} />
+          )}
+          
+          {signing && (
+            <div className="flex items-center justify-center p-6 bg-[#fff8f1]/50 border border-suka-brown/10 rounded-xl">
+              <p className="text-suka-orange font-bold text-sm animate-pulse">Menyimpan Tanda Tangan...</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Send button */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between border-t border-suka-brown/10 pt-4">
@@ -222,18 +292,51 @@ export function SignatureFlow({
         >
           {sending ? 'Mengirim...' : 'Kirim Surat Jalan'}
         </button>
-        <span className="text-xs font-bold tracking-wide">
+        <div className="text-xs font-bold tracking-wide w-full sm:w-auto text-center">
           {missingRoles.length > 0 ? (
-            <span className="text-orange-600 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg">
+            <div className="text-orange-600 bg-orange-50 border border-orange-200 px-3 py-2 rounded-lg w-full sm:w-auto inline-block">
               ⚠️ Menunggu tanda tangan: {missingRoles.join(', ')}
-            </span>
+            </div>
           ) : (
-            <span className="text-suka-green bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg">
+            <div className="text-suka-green bg-green-50 border border-green-200 px-3 py-2 rounded-lg w-full sm:w-auto inline-block">
               ✓ Semua tanda tangan lengkap - Siap dikirim
-            </span>
+            </div>
           )}
-        </span>
+        </div>
       </div>
+      
+      {/* Alert Modal */}
+      {alertConfig && alertConfig.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-xs shadow-xl flex flex-col items-center text-center space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
+              alertConfig.type === 'error' ? 'bg-red-50 text-red-600' : 
+              alertConfig.type === 'success' ? 'bg-green-50 text-suka-green' : 
+              'bg-orange-50 text-orange-600'
+            }`}>
+              {alertConfig.type === 'error' && (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              )}
+              {alertConfig.type === 'success' && (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+              )}
+              {alertConfig.type === 'warning' && (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+              )}
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-suka-brown mb-1.5">{alertConfig.title}</h4>
+              <p className="text-xs text-suka-brown/80 leading-relaxed">{alertConfig.message}</p>
+            </div>
+            <button
+              onClick={closeAlert}
+              className="w-full mt-2 py-2.5 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm cursor-pointer"
+            >
+              OK, Mengerti
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

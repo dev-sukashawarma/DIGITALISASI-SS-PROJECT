@@ -47,9 +47,16 @@ export function ApprovalList() {
                   )}
                 </div>
                 <div>
-                  <h3 className="font-bold text-[#701604] text-base truncate">
-                    {p.outlet_name ?? p.outlet_id}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-[#701604] text-base truncate">
+                      {p.outlet_name ?? p.outlet_id}
+                    </h3>
+                    {p.staff_name && (
+                      <span className="text-[10px] font-medium text-[#544437]/70 bg-[#f5ede3] px-2 py-0.5 rounded-full border border-[#d9c2b2]/30">
+                        Oleh: {p.staff_name}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs font-semibold text-[#1e1b15] mt-0.5">
                     {p.items.length} item bahan baku
                   </p>

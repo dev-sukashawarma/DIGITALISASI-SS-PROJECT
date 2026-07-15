@@ -78,6 +78,25 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
             </div>
           ) : detail ? (
             <>
+              {/* Unit Info */}
+              {(detail.satuan_kecil || detail.satuan_tengah) && (
+                <div className="bg-[#fff8f1] border border-[#d9c2b2]/50 p-2.5 rounded-xl text-[#544437] text-xs font-semibold flex items-center gap-2 shadow-sm">
+                  <span className="text-sm">ℹ️</span>
+                  <span>
+                    Keterangan: 1 <span className="capitalize">{detail.satuan}</span> 
+                    {detail.satuan_tengah && detail.faktor_tengah ? ` = ${detail.faktor_tengah} ` : ''}
+                    {detail.satuan_tengah && detail.faktor_tengah ? <span className="capitalize">{detail.satuan_tengah}</span> : ''}
+                    {detail.satuan_kecil && detail.faktor_tampilan ? ` = ${detail.faktor_tampilan} ` : ''}
+                    {detail.satuan_kecil && detail.faktor_tampilan ? <span className="capitalize">{detail.satuan_kecil}</span> : ''}
+                    {detail.satuan_tengah && detail.faktor_tengah && detail.satuan_kecil && detail.faktor_tampilan && (
+                      <span className="ml-1 text-[#544437]/80">
+                        (1 <span className="capitalize">{detail.satuan_tengah}</span> = {detail.faktor_tampilan / detail.faktor_tengah} <span className="capitalize">{detail.satuan_kecil}</span>)
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
+
               {/* Current Status */}
               <div className="grid grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-[#d9c2b2]/40 shadow-sm">
                 <div>

@@ -10,13 +10,10 @@ import { combineOpnameInput } from '@/lib/format/compositeUnit';
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'Semua',
-  protein: 'Protein',
-  sayur: 'Sayuran',
+  'item core': 'Item Core',
   bumbu: 'Bumbu',
-  saus: 'Saus & Mayo',
-  roti: 'Roti & Karbo',
-  kemasan: 'Packaging',
   minuman: 'Minuman',
+  kemasan: 'Packaging',
   lainnya: 'Lainnya',
 };
 
@@ -293,26 +290,26 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
           return (
             <div
               key={b.id}
-              className="p-4 rounded-xl border flex flex-col justify-between min-h-[135px] transition-all duration-200 border-[#d9c2b2]/45 bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45"
+              className="p-5 rounded-xl border flex flex-col justify-between min-h-[150px] transition-all duration-200 border-[#d9c2b2]/45 bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45"
             >
               {/* Card Top: Details */}
               <div className="flex justify-between items-start gap-3">
-                <div className="space-y-0.5 min-w-0">
+                <div className="space-y-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-1.5 py-0.5 rounded border border-[#d9c2b2]/30">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
                       {CATEGORY_LABELS[b.kategori] || b.kategori}
                     </span>
                   </div>
-                  <h3 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide mt-1.5 leading-tight truncate">
+                  <h3 className="font-bold text-[#1e1b15] text-sm uppercase tracking-wide mt-2 leading-tight truncate">
                     {b.nama}
                   </h3>
-                  <p className="text-[9px] text-[#544437]/60 font-semibold mt-0.5">
+                  <p className="text-[10px] text-[#544437]/60 font-semibold mt-1">
                     Satuan: <span className="text-gray-700 font-bold">{b.satuan}</span>
                   </p>
                   {['gram', 'ml', 'kg', 'liter'].includes(b.satuan.toLowerCase()) && (
-                    <div className="mt-1.5 flex items-center gap-1 bg-[#fff8f1] border border-[#f29744]/40 px-1.5 py-1 rounded">
-                      <span className="text-[8px]">⚖️</span>
-                      <span className="text-[8px] font-bold text-[#701604] leading-tight">
+                    <div className="mt-2 flex items-center gap-1.5 bg-[#fff8f1] border border-[#f29744]/40 px-2 py-1.5 rounded-lg">
+                      <span className="text-[10px]">⚖️</span>
+                      <span className="text-[9px] font-bold text-[#701604] leading-tight">
                         Pastikan TARE timbangan dgn wadah kosong.
                       </span>
                     </div>
@@ -333,51 +330,51 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
 
               {/* Card Bottom: Input Actions */}
               {b.satuan_kecil && b.faktor_tampilan && !['gram', 'ml'].includes(b.satuan.toLowerCase()) ? (
-                <div className="mt-3.5 space-y-1.5">
+                <div className="mt-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
                       inputMode="numeric"
                       min={0}
-                      className="w-16 text-center bg-white border border-[#d9c2b2]/45 rounded-lg font-extrabold text-xs text-[#701604] py-1.5 no-spinner"
+                      className="w-20 text-center bg-white border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-2.5 no-spinner shadow-inner focus:ring-2 focus:ring-[#f29744]/50 focus:border-[#f29744]"
                       placeholder="0"
                       value={containerInput[b.id] ?? ''}
                       onChange={(e) =>
                         handleCompositeChange(b.id, e.target.value, remainderInput[b.id] ?? '', b.faktor_tampilan!)
                       }
                     />
-                    <span className="text-[9px] font-bold text-[#544437]/60">{b.satuan} +</span>
+                    <span className="text-[10px] font-bold text-[#544437]/60">{b.satuan} +</span>
                     <input
                       type="number"
                       inputMode="decimal"
                       min={0}
-                      className="w-16 text-center bg-white border border-[#d9c2b2]/45 rounded-lg font-extrabold text-xs text-[#701604] py-1.5 no-spinner"
+                      className="w-20 text-center bg-white border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-2.5 no-spinner shadow-inner focus:ring-2 focus:ring-[#f29744]/50 focus:border-[#f29744]"
                       placeholder="0"
                       value={remainderInput[b.id] ?? ''}
                       onChange={(e) =>
                         handleCompositeChange(b.id, containerInput[b.id] ?? '', e.target.value, b.faktor_tampilan!)
                       }
                     />
-                    <span className="text-[9px] font-bold text-[#544437]/60">{b.satuan_kecil}</span>
+                    <span className="text-[10px] font-bold text-[#544437]/60">{b.satuan_kecil}</span>
                   </div>
                   {remainderError[b.id] && (
-                    <p className="text-[9px] font-bold text-[#ba1a1a]">{remainderError[b.id]}</p>
+                    <p className="text-[10px] font-bold text-[#ba1a1a]">{remainderError[b.id]}</p>
                   )}
                 </div>
               ) : (
-                <div className="mt-3.5 flex items-center justify-end">
-                  <div className="flex items-center bg-[#faf2e9]/40 border border-[#d9c2b2]/45 rounded-lg overflow-hidden p-0.5 shadow-sm">
+                <div className="mt-4 flex items-center justify-end">
+                  <div className="flex items-center bg-[#faf2e9]/40 border border-[#d9c2b2]/45 rounded-xl overflow-hidden p-1 shadow-sm">
                     <button
                       type="button"
                       onClick={() => handleDecrement(b.id, step)}
-                      className="w-8 h-8 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-90 transition-all rounded-md text-xs cursor-pointer"
+                      className="w-10 h-10 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-95 transition-all rounded-lg text-sm cursor-pointer bg-white border border-[#d9c2b2]/20 shadow-sm"
                     >
                       —
                     </button>
                     <input
                       type="number"
                       inputMode="decimal"
-                      className="w-14 text-center bg-transparent border-none focus:outline-none focus:ring-0 font-extrabold text-xs text-[#701604] focus:ring-transparent focus:border-transparent py-1 no-spinner"
+                      className="w-20 text-center bg-transparent border-none focus:outline-none focus:ring-0 font-extrabold text-sm text-[#701604] focus:ring-transparent focus:border-transparent py-2 no-spinner"
                       placeholder="fisik"
                       value={val}
                       onChange={(e) => {
@@ -388,7 +385,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
                     <button
                       type="button"
                       onClick={() => handleIncrement(b.id, step)}
-                      className="w-8 h-8 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-90 transition-all rounded-md text-xs cursor-pointer"
+                      className="w-10 h-10 flex items-center justify-center font-bold text-[#701604] hover:bg-[#faf2e9] active:scale-95 transition-all rounded-lg text-sm cursor-pointer bg-white border border-[#d9c2b2]/20 shadow-sm"
                     >
                       +
                     </button>

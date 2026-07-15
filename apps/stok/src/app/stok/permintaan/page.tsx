@@ -16,6 +16,7 @@ export default function PermintaanPage() {
   const { selectedOutletId } = useOutletScope()
   const [refreshKey, setRefreshKey] = useState(0)
   const [mainTab, setMainTab] = useState<'buat' | 'riwayat'>('buat')
+  const [isCartView, setIsCartView] = useState(false)
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><p className="text-gray-500">Memuat…</p></div>
@@ -32,21 +33,23 @@ export default function PermintaanPage() {
   return (
     <div className="bg-[#fff8f1] min-h-screen pb-28">
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <Link
-              href="/dashboard"
-              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm"
-              title="Kembali ke Dashboard"
-            >
-              <span className="text-base">←</span>
-            </Link>
-            <h1 className="text-xl font-extrabold text-[#701604] tracking-tight truncate">
-              Permintaan Bahan Baku
-            </h1>
+        {!isCartView && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <Link
+                href="/dashboard"
+                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm"
+                title="Kembali ke Dashboard"
+              >
+                <span className="text-base">←</span>
+              </Link>
+              <h1 className="text-xl font-extrabold text-[#701604] tracking-tight truncate">
+                Permintaan Bahan Baku
+              </h1>
+            </div>
+            <OutletSwitcher />
           </div>
-          <OutletSwitcher />
-        </div>
+        )}
 
         {isKitchen ? (
           <section className="space-y-3">
@@ -55,23 +58,25 @@ export default function PermintaanPage() {
           </section>
         ) : (
           <>
-            <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-[#d9c2b2]/40">
-              <button
-                onClick={() => setMainTab('buat')}
-                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider rounded-xl transition-all ${mainTab === 'buat' ? 'bg-[#701604] text-white shadow-md' : 'text-[#544437] hover:bg-[#fff7ed]'}`}
-              >
-                Buat Baru
-              </button>
-              <button
-                onClick={() => setMainTab('riwayat')}
-                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider rounded-xl transition-all ${mainTab === 'riwayat' ? 'bg-[#701604] text-white shadow-md' : 'text-[#544437] hover:bg-[#fff7ed]'}`}
-              >
-                Riwayat
-              </button>
-            </div>
+            {!isCartView && (
+              <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-[#d9c2b2]/40">
+                <button
+                  onClick={() => setMainTab('buat')}
+                  className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider rounded-xl transition-all ${mainTab === 'buat' ? 'bg-[#701604] text-white shadow-md' : 'text-[#544437] hover:bg-[#fff7ed]'}`}
+                >
+                  Buat Baru
+                </button>
+                <button
+                  onClick={() => setMainTab('riwayat')}
+                  className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider rounded-xl transition-all ${mainTab === 'riwayat' ? 'bg-[#701604] text-white shadow-md' : 'text-[#544437] hover:bg-[#fff7ed]'}`}
+                >
+                  Riwayat
+                </button>
+              </div>
+            )}
 
             {mainTab === 'buat' && selectedOutletId && (
-              <PermintaanForm outletId={selectedOutletId} onSubmitSuccess={handleSubmitSuccess} />
+              <PermintaanForm outletId={selectedOutletId} onSubmitSuccess={handleSubmitSuccess} onCartViewChange={setIsCartView} />
             )}
             
             {mainTab === 'riwayat' && selectedOutletId && (

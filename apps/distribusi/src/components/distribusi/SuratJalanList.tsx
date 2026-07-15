@@ -67,7 +67,7 @@ export function SuratJalanList() {
       id: sj.id,
       document_number: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
       outlet_name: outletData?.outlet?.name || 'Unknown',
-      sender_outlet: 'Outlet Kitchen Bogor',
+      sender_outlet: 'GUDANG PUSAT (HQ)',
       status: sj.status,
       created_at: sj.created_at,
       verification_url: `${window.location.origin}/distribusi/terima/${sj.id}`,

@@ -3,8 +3,9 @@ import { useEffect, useState, useMemo } from 'react'
 import { useSaranItem, usePermintaanActions, usePermintaanList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { fetchActiveResep, calculateBahanBakuRequest, type ResepMenu, type CalculatedBahan } from '@/app/actions/permintaan_target'
+import { formatTriUnitSaldo } from '@/lib/format/compositeUnit'
 
-export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string; onSubmitSuccess?: () => void }) {
+export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: { outletId: string; onSubmitSuccess?: () => void; onCartViewChange?: (isCart: boolean) => void }) {
   const { saran } = useSaranItem(outletId)
   const { bahanBaku } = useBahanBaku()
   const { buat } = usePermintaanActions()
@@ -44,21 +45,13 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
       .finally(() => setLoadingMenus(false))
   }, [outletId])
 
-  // Auto-add critical items to manualBahan
   useEffect(() => {
-    if (saran.length === 0) return
-    setManualBahan(prev => {
-      let changed = false
-      const next = { ...prev }
-      saran.forEach(s => {
-        if (next[s.bahan_baku_id] || pendingItemIds.has(s.bahan_baku_id)) return
-        const def = Math.max(1, Math.ceil(s.threshold - s.current_qty))
-        next[s.bahan_baku_id] = def
-        changed = true
-      })
-      return changed ? next : prev
-    })
-  }, [saran, pendingItemIds])
+    if (onCartViewChange) {
+      onCartViewChange(isCartView)
+    }
+  }, [isCartView, onCartViewChange])
+
+  // Dihapus: useEffect auto-add critical items to manualBahan
 
   // Calculate whenever menuTargets change
   useEffect(() => {
@@ -207,15 +200,18 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
   // CART VIEW
   if (isCartView) {
     return (
-      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-20">
-        <div className="flex items-center justify-between mb-2">
-          <button 
-            onClick={() => setIsCartView(false)}
-            className="flex items-center gap-2 text-suka-brown font-semibold bg-white px-4 py-2 rounded-xl shadow-sm border border-suka-gray-200 active:scale-95 transition-all"
-          >
-            ← Kembali
-          </button>
-          <h2 className="font-['Lilita_One'] text-2xl text-suka-ink">Tinjau Permintaan</h2>
+      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsCartView(false)}
+              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm"
+              title="Kembali ke Pilihan Menu"
+            >
+              <span className="text-base">←</span>
+            </button>
+            <h2 className="text-xl font-extrabold text-[#701604] tracking-tight">Tinjau Permintaan</h2>
+          </div>
         </div>
 
         {errorMsg && (
@@ -225,56 +221,104 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
           </div>
         )}
 
+        {Object.keys(menuTargets).length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-suka-gray-200 overflow-hidden">
+            <div className="p-4 bg-suka-orange/10 border-b border-suka-orange/20">
+              <span className="font-bold text-suka-brown">Target Menu yang Dipesan</span>
+            </div>
+            <div className="p-4 flex flex-col gap-3">
+              {Object.entries(menuTargets).map(([id, qty]) => {
+                const menu = menus.find(m => m.id === id);
+                if (!menu || qty <= 0) return null;
+                return (
+                  <div key={id} className="flex justify-between items-center border-b border-suka-gray-100 pb-2 last:border-0 last:pb-0">
+                    <span className="font-medium text-suka-ink text-sm">{menu.nama}</span>
+                    <span className="font-bold text-suka-orange bg-orange-100 px-3 py-1 rounded-lg text-sm">{qty}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl shadow-sm border border-suka-gray-200 overflow-hidden">
           <div className="p-4 bg-suka-cream border-b border-suka-orange/20 flex justify-between items-center">
             <span className="font-bold text-suka-brown">Hasil Kalkulasi Bahan Baku</span>
             {calculating && <span className="text-xs text-suka-orange font-bold animate-pulse">Menghitung...</span>}
           </div>
-          
-          <div className="divide-y divide-suka-gray-100 max-h-[60vh] overflow-y-auto">
+          <div className="rounded-b-2xl">
+            <div className="divide-y divide-suka-gray-100 max-h-[60vh] overflow-y-auto">
+              {finalCart.length > 0 && (
+                <div className="hidden md:grid grid-cols-[minmax(160px,2fr)_1fr_1fr_110px] gap-3 px-4 py-3 bg-suka-gray-50 border-b border-suka-gray-200 text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider text-center items-center sticky top-0 z-10 shadow-sm">
+                <div className="text-left">Nama Bahan</div>
+                <div>Stok</div>
+                <div>Kebutuhan</div>
+                <div className="text-right">Pembulatan</div>
+              </div>
+            )}
             {finalCart.length === 0 ? (
               <div className="p-8 text-center text-suka-gray-500 font-medium">Belum ada bahan baku yang perlu diminta.</div>
             ) : (
-              finalCart.map(item => (
-                <div key={item.id} className="p-4 flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-suka-ink truncate text-sm">{item.nama}</h3>
-                    <div className="flex gap-2 items-center mt-1">
+              finalCart.map(item => {
+                const b = bahanBaku.find(x => x.id === item.id);
+                return (
+                <div key={item.id} className="px-4 py-4 md:py-3 flex flex-col md:grid md:grid-cols-[minmax(160px,2fr)_1fr_1fr_110px] gap-1 md:gap-3 md:items-center hover:bg-suka-gray-50/50 transition-colors">
+                  <div className="min-w-0 pr-2">
+                    <h3 className="font-bold text-suka-ink text-base md:text-sm">{item.nama}</h3>
+                    <div className="flex gap-2 items-center mt-1 mb-2 md:mb-0 flex-wrap">
                       {item.source === 'calc' || item.source === 'both' ? (
-                        <span className="bg-orange-100 text-suka-orange text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Target Menu</span>
+                        <span className="bg-orange-100 text-suka-orange text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Target Menu</span>
                       ) : null}
                       {item.source === 'manual' || item.source === 'both' ? (
-                        <span className="bg-suka-gray-100 text-suka-gray-600 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Manual/Kritis</span>
+                        <span className="bg-suka-gray-100 text-suka-gray-600 text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Manual/Kritis</span>
                       ) : null}
-                      {item.current_qty !== undefined && (
-                        <span className="text-[10px] text-red-500 font-bold uppercase">Sisa: {item.current_qty}</span>
-                      )}
                     </div>
                   </div>
                   
-                  {item.source === 'manual' ? (
-                    // User can adjust manual items
-                    <div className="flex items-center bg-suka-gray-50 rounded-lg p-1 border border-suka-gray-200">
-                      <button onClick={() => updateManualBahan(item.id, -1)} className="w-8 h-8 flex items-center justify-center text-suka-brown font-bold rounded hover:bg-white hover:shadow-sm transition-all">-</button>
-                      <input 
-                        type="number" value={item.qty} 
-                        onChange={e => setManualBahan(prev => ({...prev, [item.id]: Number(e.target.value)}))}
-                        className="w-12 text-center bg-transparent border-none p-0 font-bold text-sm text-suka-ink focus:ring-0" 
-                      />
-                      <button onClick={() => updateManualBahan(item.id, 1)} className="w-8 h-8 flex items-center justify-center text-suka-brown font-bold rounded hover:bg-white hover:shadow-sm transition-all">+</button>
-                    </div>
-                  ) : (
-                    // Calculated items are mostly read-only unless we allow overriding. For now, show readonly.
-                    <div className="text-right flex flex-col items-end">
-                      <div>
-                        <span className="font-bold text-suka-ink text-lg">{item.qty}</span>
-                        <span className="text-suka-gray-500 text-xs ml-1">{item.satuan}</span>
+                  <div className="flex justify-between items-center md:justify-center mt-2 md:mt-0">
+                    <span className="md:hidden text-[10px] font-bold text-suka-gray-400 uppercase">Stok (Sisa)</span>
+                    {item.current_qty !== undefined ? (
+                      <span className="text-[11px] md:text-[10px] text-red-500 font-bold uppercase whitespace-pre-line text-right md:text-center leading-tight">{formatTriUnitSaldo(item.current_qty, item.satuan, b?.satuan_tengah, b?.faktor_tengah, b?.satuan_kecil, b?.faktor_tampilan, true)}</span>
+                    ) : (
+                      <span className="text-suka-gray-400 font-bold">-</span>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-between items-center md:justify-center mt-1.5 md:mt-0">
+                    <span className="md:hidden text-[10px] font-bold text-suka-gray-400 uppercase">Kebutuhan (BOM)</span>
+                    {item.kebutuhan !== undefined ? (
+                      <span className="text-[11px] md:text-[10px] text-blue-500 font-bold uppercase text-right md:text-center leading-tight">{item.kebutuhan} {item.satuan}</span>
+                    ) : (
+                      <span className="text-suka-gray-400 font-bold">-</span>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-between items-center md:justify-end mt-3 md:mt-0 pt-3 md:pt-0 border-t border-suka-gray-100 md:border-0">
+                    <span className="md:hidden text-[10px] font-bold text-suka-gray-500 uppercase">Dipesan</span>
+                    {item.source === 'manual' ? (
+                      // User can adjust manual items
+                      <div className="flex items-center bg-suka-gray-50 rounded-lg p-1 border border-suka-gray-200">
+                        <button onClick={() => updateManualBahan(item.id, -1)} className="w-8 h-8 flex items-center justify-center text-suka-brown font-bold rounded hover:bg-white hover:shadow-sm transition-all">-</button>
+                        <input 
+                          type="number" value={item.qty} 
+                          onChange={e => setManualBahan(prev => ({...prev, [item.id]: Number(e.target.value)}))}
+                          className="w-12 text-center bg-transparent border-none p-0 font-bold text-sm text-suka-ink focus:ring-0" 
+                        />
+                        <button onClick={() => updateManualBahan(item.id, 1)} className="w-8 h-8 flex items-center justify-center text-suka-brown font-bold rounded hover:bg-white hover:shadow-sm transition-all">+</button>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      // Calculated items are mostly read-only unless we allow overriding. For now, show readonly.
+                      <div className="text-right flex items-baseline gap-1">
+                        <span className="font-bold text-suka-ink text-xl md:text-lg">{item.qty}</span>
+                        <span className="text-suka-gray-500 text-[11px] md:text-[10px]">{item.satuan}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))
+                )
+              })
             )}
+            </div>
           </div>
           
           <div className="p-4 bg-suka-gray-50 border-t border-suka-gray-200">
@@ -381,7 +425,6 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
                             }}
                             className="w-12 text-center bg-white border border-suka-orange/20 rounded-md py-1 px-0 font-bold text-suka-orange text-sm focus:outline-none focus:ring-1 focus:ring-suka-orange" 
                           />
-                          <span className="font-bold text-suka-orange text-sm">porsi</span>
                         </div>
                         <button onClick={() => updateMenuTarget(m.id, 1)} className="w-8 h-8 flex items-center justify-center text-suka-orange font-bold bg-white rounded shadow-sm">+</button>
                       </div>
@@ -425,6 +468,32 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
               </button>
             </div>
 
+            {saran.filter(s => !manualBahan[s.bahan_baku_id] && !pendingItemIds.has(s.bahan_baku_id)).length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Saran Item Kritis:</p>
+                <div className="space-y-2">
+                  {saran.filter(s => !manualBahan[s.bahan_baku_id] && !pendingItemIds.has(s.bahan_baku_id)).map(s => {
+                    const b = bahanBaku.find(x => x.id === s.bahan_baku_id)
+                    if (!b) return null
+                    return (
+                      <div key={s.bahan_baku_id} className="flex items-center justify-between bg-white p-2 rounded-lg border border-red-200 shadow-sm">
+                        <div>
+                          <p className="font-bold text-suka-ink text-sm">{b.nama}</p>
+                          <p className="text-xs text-red-500 font-medium">Sisa {formatTriUnitSaldo(s.current_qty, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan)}</p>
+                        </div>
+                        <button 
+                          onClick={() => setManualBahan(p => ({...p, [s.bahan_baku_id]: Math.max(1, Math.ceil(s.threshold - s.current_qty))}))} 
+                          className="bg-red-50 hover:bg-red-100 transition-colors text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200"
+                        >
+                          + Tambah
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               {Object.entries(manualBahan).length === 0 ? (
                 <div className="text-center py-4 text-suka-gray-500 text-xs">Belum ada item manual</div>
@@ -438,7 +507,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess }: { outletId: string
                       <div>
                         <p className="font-bold text-suka-ink text-sm">{b.nama}</p>
                         <p className="text-xs text-suka-gray-500">
-                          {b.satuan} {saranItem && <span className="text-red-500 ml-1">(Kritis: Sisa {saranItem.current_qty})</span>}
+                          {b.satuan} {saranItem && <span className="text-red-500 ml-1">(Kritis: Sisa {formatTriUnitSaldo(saranItem.current_qty, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan)})</span>}
                         </p>
                       </div>
                       <div className="flex items-center bg-suka-gray-50 rounded p-1 border border-suka-gray-200">

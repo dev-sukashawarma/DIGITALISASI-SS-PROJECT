@@ -10,7 +10,8 @@ export function formatCompositeSaldo(
   qty: number,
   satuan: string,
   satuanKecil: string | null,
-  faktorTampilan: number | null
+  faktorTampilan: number | null,
+  multiline: boolean = false
 ): string {
   if (!satuanKecil || !faktorTampilan) {
     // Fallback tanpa tanda '+': saldo = total absolut, beda dari delta (pergerakan bertanda).
@@ -30,10 +31,75 @@ export function formatCompositeSaldo(
     remainder = 0
   }
 
-  // Separator: '+' jika remainder >= 0 (termasuk 0), '-' jika remainder negatif.
-  const separator = remainder < 0 ? '-' : '+'
   const absRemainder = Math.abs(remainder)
-  return `${whole} ${satuan} ${separator} ${absRemainder} ${satuanKecil}`
+  if (absRemainder === 0) {
+    return `${whole} ${satuan}`
+  }
+  
+  const separator = remainder < 0 ? '-' : '+'
+  const joiner = multiline ? `\n${separator} ` : ` ${separator} `
+  return `${whole} ${satuan}${joiner}${absRemainder} ${satuanKecil}`
+}
+
+export function formatTriUnitSaldo(
+  qty: number,
+  satuanBesar: string,
+  satuanTengah?: string | null,
+  faktorTengah?: number | null,
+  satuanKecil?: string | null,
+  faktorTampilan?: number | null,
+  multiline: boolean = false
+): string {
+  const joiner = multiline ? '\n' : ' '
+
+  if (!satuanKecil || !faktorTampilan) {
+    if (satuanTengah && faktorTengah) {
+      let whole = Math.trunc(qty)
+      const remainderRaw = (qty - whole) * faktorTengah
+      let remainder = Math.round(remainderRaw * 100) / 100
+      
+      if (Math.abs(remainder) >= faktorTengah) {
+        whole += Math.sign(remainder)
+        remainder = 0
+      }
+      
+      const parts = []
+      if (whole !== 0 || remainder === 0) parts.push(`${whole} ${satuanBesar}`)
+      if (remainder !== 0) parts.push(`${Math.abs(remainder)} ${satuanTengah}`)
+      return (qty < 0 ? "-" : "") + parts.join(joiner)
+    }
+    return `${qty} ${satuanBesar}`
+  }
+
+  if (satuanTengah && faktorTengah) {
+    let sisaBesar = Math.abs(qty)
+    let besar = Math.trunc(sisaBesar)
+    
+    const sisaTengahRaw = (sisaBesar - besar) * faktorTengah
+    let tengah = Math.trunc(sisaTengahRaw)
+    
+    const faktorKecilPerTengah = faktorTampilan / faktorTengah
+    const sisaKecilRaw = (sisaTengahRaw - tengah) * faktorKecilPerTengah
+    let kecil = Math.round(sisaKecilRaw * 100) / 100
+
+    if (Math.abs(kecil) >= faktorKecilPerTengah) {
+      tengah += Math.sign(kecil)
+      kecil = 0
+    }
+    if (Math.abs(tengah) >= faktorTengah) {
+      besar += Math.sign(tengah)
+      tengah = 0
+    }
+
+    const parts = []
+    if (besar !== 0 || (tengah === 0 && kecil === 0)) parts.push(`${besar} ${satuanBesar}`)
+    if (tengah !== 0) parts.push(`${tengah} ${satuanTengah}`)
+    if (kecil !== 0) parts.push(`${kecil} ${satuanKecil}`)
+
+    return (qty < 0 ? "-" : "") + parts.join(joiner)
+  }
+
+  return formatCompositeSaldo(qty, satuanBesar, satuanKecil, faktorTampilan, multiline)
 }
 
 /**

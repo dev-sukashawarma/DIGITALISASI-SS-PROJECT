@@ -25,6 +25,7 @@ export interface Permintaan {
 export interface PermintaanWithItems extends Permintaan {
   items: PermintaanItem[]
   outlet_name?: string
+  staff_name?: string
 }
 
 export interface BuatPermintaanItemInput {

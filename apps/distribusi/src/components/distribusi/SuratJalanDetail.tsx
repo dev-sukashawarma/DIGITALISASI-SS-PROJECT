@@ -84,7 +84,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
           id: data.id,
           document_number: data.document_number || `SJ-${data.id.substring(0, 8).toUpperCase()}`,
           outlet_name: data.outlets?.name || 'Unknown',
-          sender_outlet: 'Outlet Kitchen Bogor',
+          sender_outlet: 'GUDANG PUSAT (HQ)',
           status: data.status,
           created_at: data.created_at,
           verification_url: `${window.location.origin}/distribusi/terima/${data.id}`,
@@ -137,7 +137,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
       id: data.id,
       document_number: data.document_number || `SJ-${data.id.substring(0, 8).toUpperCase()}`,
       outlet_name: data.outlets?.name || 'Unknown',
-      sender_outlet: 'Outlet Kitchen Bogor',
+      sender_outlet: 'GUDANG PUSAT (HQ)',
       status: data.status,
       created_at: data.created_at,
       verification_url: `${window.location.origin}/distribusi/terima/${data.id}`,
@@ -284,7 +284,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-[#fff8f1] p-4 rounded-xl border border-[#d9c2b2]/20">
               <p className="text-[9px] font-black text-[#544437]/55 uppercase tracking-wider">Dikirim Dari</p>
-              <p className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide mt-1.5">Outlet Kitchen Bogor</p>
+              <p className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide mt-1.5">GUDANG PUSAT (HQ)</p>
             </div>
             <div className="bg-[#fff8f1] p-4 rounded-xl border border-[#d9c2b2]/20">
               <p className="text-[9px] font-black text-[#544437]/55 uppercase tracking-wider">Tujuan Outlet</p>

@@ -16,10 +16,9 @@ export function ProductionEstimateWidget({ items }: Props) {
   return (
     <details className="group bg-white rounded-2xl border border-suka-brown/20 shadow-sm flex flex-col">
       <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
-        <div className="flex items-center gap-2 text-suka-orange">
-          <span className="text-xl">🥙</span>
-          <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Estimasi Produksi</h2>
-        </div>
+        <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
+          <span>🥙</span> Estimasi Produksi
+        </h3>
         <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
       </summary>
       

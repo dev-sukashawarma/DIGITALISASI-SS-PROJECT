@@ -110,12 +110,13 @@ export function usePermintaanList(outletId: string | undefined) {
 // Hook: useApprovalList — pakai Server Action (bypass refresh-token race)
 // ---------------------------------------------------------------------------
 
-export function useApprovalList() {
+export function useApprovalList(enabled: boolean = true) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['permintaan_approval'],
     queryFn: () => fetchPermintaanPending(),
     staleTime: 25000,
     gcTime: 60000,
+    enabled,
   })
 
   // Realtime: tak difilter per-outlet karena approver (leader/SPV/kitchen) perlu
@@ -125,6 +126,7 @@ export function useApprovalList() {
   const instanceId = useId()
   useRealtimeInvalidate({
     channelName: `permintaan_approval_${instanceId}`,
+    enabled,
     subs: [
       {
         table: 'permintaan_bahan',

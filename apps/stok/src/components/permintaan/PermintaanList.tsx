@@ -26,14 +26,19 @@ export function PermintaanList({ outletId }: { outletId: string }) {
         
         return (
           <div key={p.id} className="bg-white border border-[#d9c2b2]/40 rounded-2xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className={`text-[11px] font-bold ${STATUS_STYLE[p.status]}`}>
-                  {STATUS_LABEL[p.status]}
-                </span>
-                <span className="text-xs font-semibold text-[#544437]">{reqCode}</span>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] font-bold ${STATUS_STYLE[p.status]}`}>
+                    {STATUS_LABEL[p.status]}
+                  </span>
+                  <span className="text-xs font-semibold text-[#544437]">{reqCode}</span>
+                </div>
+                {p.staff_name && (
+                  <span className="text-[10px] font-medium text-[#544437]/70">Dibuat oleh: {p.staff_name}</span>
+                )}
               </div>
-              <span className="text-[12px] text-[#544437]/60">
+              <span className="text-[11px] text-[#544437]/60 whitespace-nowrap pt-1">
                 {new Date(p.created_at).toLocaleString('id-ID', {
                   day: '2-digit',
                   month: '2-digit',

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 
-export default function CancellationApprovePage() {
+function ApproveContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
 
@@ -96,5 +96,17 @@ export default function CancellationApprovePage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function CancellationApprovePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+      </div>
+    }>
+      <ApproveContent />
+    </Suspense>
   )
 }

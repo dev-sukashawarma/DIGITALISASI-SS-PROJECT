@@ -7,6 +7,7 @@
 import { formatRupiah } from '@/lib/validations'
 import { usePrinterStore } from './printerStore'
 import { printViaBluetooth } from './bluetooth-printer'
+import { DEFAULT_PRINT_LAYOUT, type CustomerLayout, type KitchenLayout } from './printLayout'
 
 // Lebar kertas thermal. Umum: 80mm (default) atau 58mm. Ganti ke 58 bila
 // printer memakai kertas 58mm.
@@ -42,22 +43,17 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
+export function buildReceiptHtml(
+  d: ReceiptData,
+  origin: string = '',
+  layout: CustomerLayout | KitchenLayout =
+    d.receiptType === 'kitchen' ? DEFAULT_PRINT_LAYOUT.struk_dapur : DEFAULT_PRINT_LAYOUT.struk_customer,
+): string {
   const date = new Date(d.dateISO)
   const dateStr = date.toLocaleString('id-ID', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
-
-  const rows = d.items.map((it) => {
-    const noteHtml = it.note ? `<div class="note">- ${esc(it.note)}</div>` : ''
-    return `
-      <tr>
-        <td class="qty">${it.quantity}x</td>
-        <td class="name">${esc(it.name)}${noteHtml}</td>
-        <td class="amt">${formatRupiah(it.subtotal)}</td>
-      </tr>`
-  }).join('')
 
   const payLabel = d.paymentMethod === 'cash' ? 'TUNAI' : 'QRIS'
   const cashRows = d.paymentMethod === 'cash'
@@ -73,9 +69,23 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   const logoSrc = d.logoUrl || `${origin}/logo.png`
   const isKitchen = d.receiptType === 'kitchen'
 
+  // ── Layout terpusat (fallback = perilaku hardcoded lama) ──
+  const paperWidth = layout.paperWidth
+  const scale = layout.fontScale === 'besar' ? 1.3 : 1
+  const fs = (basePx: number) => Math.round(basePx * scale)
+  const headerText = layout.headerText // ada di Customer & Kitchen layout
+  // Customer: header override nama outlet bila non-kosong. Kitchen: .lg tetap nama outlet.
+  const bigTitle = isKitchen ? (d.outletName || 'SUKA SHAWARMA') : (headerText || d.outletName || 'SUKA SHAWARMA')
+  const kitchenTitle = headerText || 'STRUK DAPUR'
+  const footerText = 'footerText' in layout ? layout.footerText : 'Terima kasih & selamat menikmati!'
+  const showCashier = !isKitchen && (layout as CustomerLayout).showCashier
+  const showCustomer = layout.showCustomer
+  const showItemNotes = isKitchen || (layout as CustomerLayout).showItemNotes
+  const showLogo = layout.showLogo
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Struk</title>
 <style>
-  /* @page di-set dinamis oleh printReceipt (80mm x tinggi konten). */
+  /* @page di-set dinamis oleh printReceipt (paperWidth x tinggi konten). */
   @page { margin: 0mm; }
   @media print {
     @page { margin: 0mm; size: auto; }
@@ -84,45 +94,45 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   * { box-sizing: border-box; }
   html, body { background: #fff; }
   body { margin: 0mm; padding: 6px 8px; font-family: 'Courier New', Courier, monospace; color: #000;
-         width: ${PAPER_WIDTH_MM}mm; font-size: ${isKitchen ? '22px' : '14px'}; line-height: 1.3; font-weight: 900; }
+         width: ${paperWidth}mm; font-size: ${fs(isKitchen ? 22 : 14)}px; line-height: 1.3; font-weight: 900; }
   .center { text-align: center; }
   .bold { font-weight: 900; }
-  .lg { font-size: ${isKitchen ? '26px' : '18px'}; }
-  .muted { font-size: ${isKitchen ? '18px' : '13px'}; font-weight: 900; }
+  .lg { font-size: ${fs(isKitchen ? 26 : 18)}px; }
+  .muted { font-size: ${fs(isKitchen ? 18 : 13)}px; font-weight: 900; }
   .logo { display: block; margin: 0 auto 6px auto; width: 48px; height: 48px; object-fit: contain; filter: grayscale(100%) contrast(200%); }
   hr { border: none; border-top: 2px dashed #000; margin: 6px 0; }
   table { width: 100%; border-collapse: collapse; margin-top: 4px; margin-bottom: 4px; }
   td { vertical-align: top; padding: 2px 0; font-weight: 900; }
-  td.qty { width: ${isKitchen ? '40px' : '30px'}; font-size: ${isKitchen ? '24px' : '16px'}; }
-  td.name { font-size: ${isKitchen ? '22px' : '15px'}; padding-right: 4px; }
+  td.qty { width: ${isKitchen ? '40px' : '30px'}; font-size: ${fs(isKitchen ? 24 : 16)}px; }
+  td.name { font-size: ${fs(isKitchen ? 22 : 15)}px; padding-right: 4px; }
   td.name.child-item { padding-left: 10px; border-left: 1.5px solid #000; position: relative; left: 6px; }
   td.amt { text-align: right; white-space: nowrap; padding-left: 6px; }
   td.amt.child-amt { padding-top: 0; padding-bottom: 0; }
   .child-amt-inner { padding-top: 2px; padding-bottom: 2px; }
-  .note { font-size: ${isKitchen ? '18px' : '13px'}; font-style: italic; display: block; margin-top: 2px; }
+  .note { font-size: ${fs(isKitchen ? 18 : 13)}px; font-style: italic; display: block; margin-top: 2px; }
   .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
   .total { font-size: 18px; font-weight: 900; margin-top: 4px; margin-bottom: 4px; }
   .queue { font-size: 32px; font-weight: 900; margin: 4px 0; }
   .kitchen-title { font-size: 30px; font-weight: 900; margin-bottom: 8px; text-decoration: underline; }
 </style></head>
 <body>
-  <img src="${logoSrc}" class="logo" alt="Logo" />
-  <div class="center bold lg">${esc(d.outletName || 'SUKA SHAWARMA')}</div>
+  ${showLogo ? `<img src="${logoSrc}" class="logo" alt="Logo" />` : ''}
+  <div class="center bold lg">${esc(bigTitle)}</div>
   ${isKitchen ? `
-  <div class="center kitchen-title" style="margin-top: 8px;">STRUK DAPUR</div>
+  <div class="center kitchen-title" style="margin-top: 8px;">${esc(kitchenTitle)}</div>
   ` : `
   <div class="center muted">Suka Shawarma</div>
   `}
   <hr/>
   <div class="row muted"><span>${dateStr}</span><span>${!isKitchen ? payLabel : ''}</span></div>
-  ${d.customerName ? `<div class="muted">Pelanggan: ${esc(d.customerName)}</div>` : ''}
-  ${d.cashierName && !isKitchen ? `<div class="muted">Kasir: ${esc(d.cashierName)}</div>` : ''}
+  ${showCustomer && d.customerName ? `<div class="muted">Pelanggan: ${esc(d.customerName)}</div>` : ''}
+  ${showCashier && d.cashierName ? `<div class="muted">Kasir: ${esc(d.cashierName)}</div>` : ''}
   <div class="center queue">No. ${esc(String(d.orderNumber))}</div>
   <hr/>
   <table><tbody>
   ${d.items.map((it) => {
-    const noteHtml = it.note ? `<div class="note">- ${esc(it.note)}</div>` : ''
-    
+    const noteHtml = (it.note && showItemNotes) ? `<div class="note">- ${esc(it.note)}</div>` : ''
+
     if (it.isChild) {
       return `
       <tr>
@@ -133,7 +143,7 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
         ${!isKitchen ? `<td class="amt child-amt"><div class="child-amt-inner">${formatRupiah(it.subtotal)}</div></td>` : ''}
       </tr>`
     }
-    
+
     return `
       <tr>
         <td class="qty">${it.quantity}x</td>
@@ -149,7 +159,7 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   <div class="row total"><span>TOTAL</span><span>${formatRupiah(d.total)}</span></div>
   ${cashRows}
   <hr/>
-  <div class="center muted" style="margin-top: 8px;">Terima kasih & selamat menikmati!</div>
+  <div class="center muted" style="margin-top: 8px;">${footerText.split('\n').map((l) => esc(l)).join('<br/>')}</div>
   ` : ''}
 </body></html>`
 }

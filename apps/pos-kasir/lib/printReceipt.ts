@@ -7,11 +7,8 @@
 import { formatRupiah } from '@/lib/validations'
 import { usePrinterStore } from './printerStore'
 import { printViaBluetooth } from './bluetooth-printer'
-import { DEFAULT_PRINT_LAYOUT, type CustomerLayout, type KitchenLayout } from './printLayout'
-
-// Lebar kertas thermal. Umum: 80mm (default) atau 58mm. Ganti ke 58 bila
-// printer memakai kertas 58mm.
-const PAPER_WIDTH_MM = 58
+import { createClient } from '@/lib/supabase/client'
+import { fetchPrintLayout, DEFAULT_PRINT_LAYOUT, type CustomerLayout, type KitchenLayout } from './printLayout'
 
 export interface ReceiptLine {
   name: string
@@ -187,31 +184,38 @@ export function printReceipt(data: ReceiptData): Promise<void> {
       return
     }
 
-    // Cek apakah printer Bluetooth terkoneksi
-    const store = usePrinterStore.getState();
-    if (store.characteristic) {
-      printViaBluetooth(data)
-        .then(() => resolve())
-        .catch(err => {
-          console.error('Print Bluetooth gagal, fallback ke window.print', err);
-          fallbackPrint(data, resolve);
-        });
-      return;
-    }
+    // Ambil layout cetak terpusat (fallback ke default bila gagal), lalu pilih
+    // template sesuai jenis struk. Call site tak berubah — fetch di sini.
+    ;(async () => {
+      const layout = await fetchPrintLayout(createClient()).catch(() => DEFAULT_PRINT_LAYOUT)
+      const tpl = data.receiptType === 'kitchen' ? layout.struk_dapur : layout.struk_customer
 
-    // Jika tidak terkoneksi, gunakan fallback HTML iframe window.print()
-    fallbackPrint(data, resolve);
+      // Cek apakah printer Bluetooth terkoneksi
+      const store = usePrinterStore.getState();
+      if (store.characteristic) {
+        printViaBluetooth(data, tpl)
+          .then(() => resolve())
+          .catch(err => {
+            console.error('Print Bluetooth gagal, fallback ke window.print', err);
+            fallbackPrint(data, resolve, tpl);
+          });
+        return;
+      }
+
+      // Jika tidak terkoneksi, gunakan fallback HTML iframe window.print()
+      fallbackPrint(data, resolve, tpl);
+    })();
   });
 }
 
-function fallbackPrint(data: ReceiptData, resolve: () => void) {
+function fallbackPrint(data: ReceiptData, resolve: () => void, tpl: CustomerLayout | KitchenLayout) {
     const origin = window.location.origin
     const logoUrl = data.logoUrl || `${origin}/logo.png`
 
     getBase64Image(logoUrl).then((base64Logo) => {
       // Override logoUrl temporarily
       const dataWithBase64 = { ...data, logoUrl: base64Logo }
-      const html = buildReceiptHtml(dataWithBase64, origin)
+      const html = buildReceiptHtml(dataWithBase64, origin, tpl)
 
       const iframe = document.createElement('iframe')
       iframe.style.position = 'fixed'
@@ -248,7 +252,7 @@ function fallbackPrint(data: ReceiptData, resolve: () => void) {
           if (heightPx > 0) {
             const heightMm = Math.ceil((heightPx / 96) * 25.4) + 4
             const style = doc.createElement('style')
-            style.textContent = `@media print { @page { size: ${PAPER_WIDTH_MM}mm ${heightMm}mm; margin: 0; } }`
+            style.textContent = `@media print { @page { size: ${tpl.paperWidth}mm ${heightMm}mm; margin: 0; } }`
             doc.head?.appendChild(style)
           }
         } catch {

@@ -69,14 +69,14 @@ export class EscPosEncoder {
     return this;
   }
 
-  public hr(char = '-') {
-    this.line(char.repeat(32)); // Standard 58mm has 32 chars
+  public hr(char = '-', width = 32) {
+    this.line(char.repeat(width)); // Standard 58mm has 32 chars, 80mm has 48
     return this;
   }
 
   // Padding helper: "Left          Right"
-  public row(left: string, right: string, char = ' ') {
-    const totalLength = 32;
+  public row(left: string, right: string, char = ' ', width = 32) {
+    const totalLength = width;
     if (left.length + right.length > totalLength) {
       // If it exceeds, we can truncate the left side or wrap. Let's truncate for now.
       left = left.substring(0, totalLength - right.length - 1);

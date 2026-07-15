@@ -79,7 +79,8 @@ export async function submitBahanBaku(formData: FormData) {
     const uploadImage = async (file: File) => {
       const ext = file.name.split('.').pop()
       const filename = `gudang_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`
-      const { error } = await supabase.storage.from('bahan-baku').upload(filename, file)
+      const buffer = await file.arrayBuffer()
+      const { error } = await supabase.storage.from('bahan-baku').upload(filename, buffer, { contentType: file.type })
       if (error) throw new Error(`Gagal upload gambar: ${error.message}`)
       const { data: { publicUrl } } = supabase.storage.from('bahan-baku').getPublicUrl(filename)
       return publicUrl

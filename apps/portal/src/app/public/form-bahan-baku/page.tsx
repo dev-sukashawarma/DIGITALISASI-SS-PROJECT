@@ -172,6 +172,49 @@ function FormBahanBakuContent() {
     setFaktorTampilan(item.faktor_tampilan ? String(item.faktor_tampilan) : '')
   }
 
+  async function compressImage(file: File): Promise<File> {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = document.createElement('img')
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const MAX_WIDTH = 1200
+          const MAX_HEIGHT = 1200
+          let width = img.width
+          let height = img.height
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width
+              width = MAX_WIDTH
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height
+              height = MAX_HEIGHT
+            }
+          }
+
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0, width, height)
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name, { type: 'image/jpeg' }))
+            } else {
+              resolve(file)
+            }
+          }, 'image/jpeg', 0.8)
+        }
+        img.src = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!selectedItem) {
@@ -186,6 +229,16 @@ function FormBahanBakuContent() {
       const formData = new FormData(e.currentTarget)
       formData.append('token', token!)
       formData.append('id', selectedItem.id)
+      
+      // Compress images before sending to prevent Vercel 4.5MB Payload limit
+      const img = formData.get('image') as File | null
+      if (img && img.size > 0) formData.set('image', await compressImage(img))
+      
+      const imgTengah = formData.get('image_tengah') as File | null
+      if (imgTengah && imgTengah.size > 0) formData.set('image_tengah', await compressImage(imgTengah))
+      
+      const imgKecil = formData.get('image_kecil') as File | null
+      if (imgKecil && imgKecil.size > 0) formData.set('image_kecil', await compressImage(imgKecil))
       
       const res = await submitBahanBaku(formData)
       if (res.success) {

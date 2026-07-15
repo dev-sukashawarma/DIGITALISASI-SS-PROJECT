@@ -199,13 +199,13 @@ BEGIN
   ),
   BonusItems AS (
     SELECT 
-      do.order_dt AS dt,
+      dor.order_dt AS dt,
       COALESCE(SUM(oi.quantity), 0)::INT AS add_items
-    FROM DailyOrders do
-    JOIN DailyTargets dt ON dt.dt = do.order_dt
-    JOIN public.order_items oi ON oi.order_id = do.order_id
-    WHERE do.running_total >= dt.target_amount
-    GROUP BY do.order_dt
+    FROM DailyOrders dor
+    JOIN DailyTargets dt ON dt.dt = dor.order_dt
+    JOIN public.order_items oi ON oi.order_id = dor.order_id
+    WHERE dor.running_total >= dt.target_amount
+    GROUP BY dor.order_dt
   )
   SELECT 
     d.dt AS order_date,

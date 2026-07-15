@@ -585,12 +585,11 @@ export default function KasirOrderClient({
   }
 
   // Handle completion and print receipt
-  async function handleCompleteAndPrint(order: ParsedOrder) {
-    // 1. Mark as completed
-    const success = await markAsCompleted(order.id)
+  async function handlePrintCustomerOnly(order: ParsedOrder) {
+    const success = await applyStatusChange(order.id, { customer_receipt_printed: true })
     if (!success) return
     
-    // 2. Generate and print receipt
+    // Generate and print receipt
     const receiptData: ReceiptData = {
       outletName: outletName || 'SUKA SHAWARMA',
       orderNumber: order.order_number,
@@ -606,9 +605,45 @@ export default function KasirOrderClient({
       logoUrl: brandLogo || undefined,
       receiptType: 'customer'
     }
-    
-    // Fire print
-    printReceipt(receiptData)
+
+    try {
+      await printReceipt(receiptData)
+    } catch (err: any) {
+      console.error('Print error:', err)
+      // Tampilkan error jika printer bermasalah
+      useDialogStore.getState().showAlert({
+        title: 'Gagal Mencetak',
+        message: err.message || 'Pastikan bluetooth menyala dan printer terhubung.',
+      })
+    }
+  }
+
+  async function handleReprintCustomer(order: ParsedOrder) {
+    const receiptData: ReceiptData = {
+      outletName: outletName || 'SUKA SHAWARMA',
+      orderNumber: order.order_number,
+      dateISO: new Date().toISOString(),
+      customerName: order.customer_name,
+      items: buildReceiptItems(order),
+      subtotal: order.total_amount,
+      discount: 0,
+      total: order.total_amount,
+      paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
+      amountReceived: order.amount_received,
+      changeAmount: order.change_amount,
+      logoUrl: brandLogo || undefined,
+      receiptType: 'customer'
+    }
+
+    try {
+      await printReceipt(receiptData)
+    } catch (err: any) {
+      console.error('Print error:', err)
+      useDialogStore.getState().showAlert({
+        title: 'Gagal Mencetak',
+        message: err.message || 'Pastikan bluetooth menyala dan printer terhubung.',
+      })
+    }
   }
 
   // Cancel order
@@ -893,15 +928,34 @@ export default function KasirOrderClient({
                   <ChefHat size={18} />
                   Mulai Masak
                 </button>
-              ) : (
+              ) : !order.customer_receipt_printed ? (
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCompleteAndPrint(order) }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrintCustomerOnly(order) }}
                   className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
                 >
-                  <CheckCircle2 size={18} />
-                  Pesanan Selesai
+                  <Printer size={18} />
+                  Cetak Struk
                 </button>
+              ) : (
+                <div className="w-2/3 flex gap-2 relative z-50">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsCompleted(order.id) }}
+                    className="cursor-pointer flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+                  >
+                    <CheckCircle2 size={18} />
+                    Selesai
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleReprintCustomer(order) }}
+                    className="cursor-pointer px-4 flex items-center justify-center bg-white border-2 border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-500 py-3.5 rounded-xl transition-all shadow-sm active:scale-95"
+                    title="Cetak Ulang Struk"
+                  >
+                    <Printer size={18} />
+                  </button>
+                </div>
               )}
             </>
           ) : null}

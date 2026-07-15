@@ -76,9 +76,10 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Struk</title>
 <style>
   /* @page di-set dinamis oleh printReceipt (80mm x tinggi konten). */
-  @page { margin: 0; }
+  @page { margin: 0mm; }
   @media print {
-    @page { margin: 0; }
+    @page { margin: 0mm; size: auto; }
+    html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; }
   }
   * { box-sizing: border-box; }
   html, body { background: #fff; }
@@ -94,7 +95,10 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
   td { vertical-align: top; padding: 2px 0; font-weight: 900; }
   td.qty { width: ${isKitchen ? '40px' : '30px'}; font-size: ${isKitchen ? '24px' : '16px'}; }
   td.name { font-size: ${isKitchen ? '22px' : '15px'}; padding-right: 4px; }
+  td.name.child-item { padding-left: 10px; border-left: 1.5px solid #000; position: relative; left: 6px; }
   td.amt { text-align: right; white-space: nowrap; padding-left: 6px; }
+  td.amt.child-amt { padding-top: 0; padding-bottom: 0; }
+  .child-amt-inner { padding-top: 2px; padding-bottom: 2px; }
   .note { font-size: ${isKitchen ? '18px' : '13px'}; font-style: italic; display: block; margin-top: 2px; }
   .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
   .total { font-size: 18px; font-weight: 900; margin-top: 4px; margin-bottom: 4px; }
@@ -123,12 +127,10 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
       return `
       <tr>
         <td class="qty"></td>
-        <td class="name" style="padding-left: 8px;">
-          <div style="border-left: 1.5px solid #000; padding-left: 6px; margin-top: -2px; margin-bottom: -2px; padding-top: 2px; padding-bottom: 2px;">
-            ${it.quantity}x EXTRA ${esc(it.name)}${noteHtml}
-          </div>
+        <td class="name child-item">
+          ${it.quantity}x EXTRA ${esc(it.name)}${noteHtml}
         </td>
-        ${!isKitchen ? `<td class="amt">${formatRupiah(it.subtotal)}</td>` : ''}
+        ${!isKitchen ? `<td class="amt child-amt"><div class="child-amt-inner">${formatRupiah(it.subtotal)}</div></td>` : ''}
       </tr>`
     }
     

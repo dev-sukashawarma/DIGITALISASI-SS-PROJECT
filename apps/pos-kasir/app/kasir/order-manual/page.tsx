@@ -267,7 +267,7 @@ export default function OrderManualPage() {
     const cat = categories.find(c => c.id === it.category_id)
     const catName = (cat?.name || '').toLowerCase()
 
-    if (catName.includes('drink') || catName.includes('minuman')) {
+    if (!catName.includes('kebab')) {
       addItem(it, 1, '')
       return
     }

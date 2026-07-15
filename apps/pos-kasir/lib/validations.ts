@@ -52,9 +52,5 @@ export function validateCheckoutPayload(body: unknown): ValidationError[] {
 }
 
 export function formatRupiah(amount: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(amount)
+  return 'Rp ' + Math.floor(amount).toLocaleString('id-ID')
 }

@@ -59,18 +59,22 @@ export function SignatureFlow({
   
   const closeAlert = () => setAlertConfig(null)
 
-  const REQUIRED_ROLES = ['Admin Kitchen', 'Supir']
   const signedRoles = signatures.map((s) => s.role)
-  const missingRoles = REQUIRED_ROLES.filter((r) => !signedRoles.includes(r))
+  const hasAdmin = signedRoles.includes('Admin Kitchen') || signedRoles.includes('Kitchen SPV')
+  const hasSupir = signedRoles.includes('Supir')
+  
+  const missingRoles = []
+  if (!hasAdmin) missingRoles.push('Admin Kitchen')
+  if (!hasSupir) missingRoles.push('Supir')
 
   useEffect(() => {
-    if (signedRoles.includes('Admin Kitchen') && !signedRoles.includes('Supir')) {
+    if (hasAdmin && !hasSupir) {
       if (role !== 'Supir') {
         setRole('Supir')
         setSignedBy('')
       }
     }
-  }, [signatures])
+  }, [signatures, hasAdmin, hasSupir])
 
   const handleSign = async (imgToUse?: string) => {
     const finalImg = imgToUse || signatureImage;
@@ -155,7 +159,9 @@ export function SignatureFlow({
       showAlert('Berhasil', 'Surat Jalan berhasil dikirim!', 'success')
       setTimeout(() => onSent(), 2000)
     } catch (err: any) {
-      const message = err?.message || err?.details || 'Gagal mengirim'
+      let message = err?.message || err?.details || 'Gagal mengirim'
+      // Format angka desimal yang terlalu panjang dari database (e.g., 0.7400000000000000000 -> 0.74)
+      message = message.replace(/(\d+\.\d+)/g, (match: string) => parseFloat(match).toString())
       showAlert('Gagal Mengirim', message, 'error')
     } finally {
       setSending(false)
@@ -203,11 +209,11 @@ export function SignatureFlow({
                 onChange={(e) => { setRole(e.target.value); setSignedBy(''); }}
                 className="w-full sm:w-1/3 bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all h-[42px]"
               >
-                <option value="Admin Kitchen" disabled={signatures.some((s) => s.role === 'Admin Kitchen')}>
-                  {signatures.some((s) => s.role === 'Admin Kitchen') ? 'Admin Kitchen ✓' : 'Admin Kitchen'}
+                <option value="Admin Kitchen" disabled={hasAdmin}>
+                  {hasAdmin ? 'Admin Kitchen ✓' : 'Admin Kitchen'}
                 </option>
-                <option value="Supir" disabled={signatures.some((s) => s.role === 'Supir')}>
-                  {signatures.some((s) => s.role === 'Supir') ? 'Supir ✓' : 'Supir (Pengemudi)'}
+                <option value="Supir" disabled={hasSupir}>
+                  {hasSupir ? 'Supir ✓' : 'Supir (Pengemudi)'}
                 </option>
               </select>
 

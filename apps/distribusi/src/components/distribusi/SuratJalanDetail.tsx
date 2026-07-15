@@ -60,9 +60,15 @@ export function SuratJalanDetail({ id }: { id: string }) {
   const router = useRouter()
   const { outletStaff } = useAuth()
   const { data, loading, error } = useSuratJalanDetail(id)
-  const [signatures, setSignatures] = useState<any[]>(data?.signatures || [])
+  const [signatures, setSignatures] = useState<any[]>([])
   const [verifying, setVerifying] = useState(false)
   const [pdfHtml, setPdfHtml] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (data?.signatures) {
+      setSignatures(data.signatures)
+    }
+  }, [data?.signatures])
 
   const buildItemsWithFoto = async (items: any[]) => {
     return Promise.all(items.map(async (item: any) => {

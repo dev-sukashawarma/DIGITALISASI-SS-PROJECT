@@ -50,7 +50,7 @@ export default function BonusTab() {
 
   // Derive stats
   const totalDaysReached = dailyData?.filter((d: any) => d.is_reached)?.length || 0;
-  const totalBonusPool = dailyData?.filter((d: any) => d.is_reached)?.reduce((acc: number, d: any) => acc + Number(d.bonus_amount), 0) || 0;
+  const totalBonusPool = dailyData?.filter((d: any) => d.is_reached)?.reduce((acc: number, d: any) => acc + Number(d.bonus_amount) + (Number(d.additional_items || 0) * 5000), 0) || 0;
   const activeCrewCount = summaryData?.length || 0;
   const bonusPerPerson = summaryData?.[0]?.total_bonus_received || 0;
 
@@ -190,7 +190,7 @@ export default function BonusTab() {
                       </td>
                       <td className="px-5 py-3.5">
                         <span className={`font-semibold ${row.is_reached ? 'text-green-600' : 'text-gray-400'}`}>
-                          {row.is_reached ? `+ ${formatRupiah(row.bonus_amount)}` : '-'}
+                          {row.is_reached ? `+ ${formatRupiah(Number(row.bonus_amount) + (Number(row.additional_items || 0) * 5000))}` : '-'}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-center">

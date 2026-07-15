@@ -5,6 +5,24 @@ import { revalidatePath } from 'next/cache'
 
 const MAGIC_TOKEN = process.env.GUDANG_MAGIC_TOKEN || 'SUKA-GUDANG-2026'
 
+export async function createBahanBaku(token: string, nama: string, satuan: string) {
+  if (token !== MAGIC_TOKEN) return { success: false, error: 'Akses ditolak' }
+  const supabase = createServiceClient()
+  if (!nama || !satuan) return { success: false, error: 'Nama dan satuan wajib diisi' }
+  
+  const { data, error } = await supabase.from('bahan_baku').insert({
+    nama,
+    satuan,
+    kategori: 'Lain-lain',
+    is_active: true,
+    is_fisik_checked: false
+  }).select(`id, nama, kategori, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, image_url, image_url_tengah, image_url_kecil, is_fisik_checked`).single()
+  
+  if (error) return { success: false, error: error.message }
+  revalidatePath('/public/form-bahan-baku')
+  return { success: true, data }
+}
+
 export async function getBahanBakuList(token: string) {
   try {
     if (token !== MAGIC_TOKEN) {

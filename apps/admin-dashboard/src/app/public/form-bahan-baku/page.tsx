@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { submitBahanBaku, getBahanBakuList, addBahanBakuSku, deleteBahanBakuSku, setDefaultBahanBakuSku } from './actions'
+import { submitBahanBaku, getBahanBakuList, addBahanBakuSku, deleteBahanBakuSku, setDefaultBahanBakuSku, createBahanBaku } from './actions'
 import { Camera, Package, UploadCloud, CheckCircle2, AlertCircle, ChevronRight, Search, ImageIcon, Pencil } from 'lucide-react'
 
 const SATUAN_OPTIONS = [
@@ -61,6 +61,9 @@ function FormBahanBakuContent() {
   const [previewUrlTengah, setPreviewUrlTengah] = useState<string | null>(null)
   const [previewUrlKecil, setPreviewUrlKecil] = useState<string | null>(null)
   const [showSkuSection, setShowSkuSection] = useState(false)
+  const [isCreatingNew, setIsCreatingNew] = useState(false)
+  const [newBahanNama, setNewBahanNama] = useState('')
+  const [newBahanSatuan, setNewBahanSatuan] = useState('Kg')
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileInputRefTengah = useRef<HTMLInputElement>(null)
@@ -215,17 +218,26 @@ function FormBahanBakuContent() {
           </div>
         )}
 
-        {!selectedItem ? (
+        {!selectedItem && !isCreatingNew ? (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-6 space-y-4 max-w-xl mx-auto">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Cari nama bahan baku..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange outline-none bg-gray-50"
-              />
+            <div className="relative flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input 
+                  type="text" 
+                  placeholder="Cari nama bahan baku..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange outline-none bg-gray-50"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreatingNew(true)}
+                className="px-4 py-3 bg-suka-orange text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors whitespace-nowrap"
+              >
+                + Bahan Baru
+              </button>
             </div>
             <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-2">
               {filteredList.length === 0 ? (
@@ -266,6 +278,62 @@ function FormBahanBakuContent() {
                   </button>
                 ))
               )}
+            </div>
+          </div>
+        ) : isCreatingNew && !selectedItem ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-6 space-y-4 max-w-xl mx-auto">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Tambah Bahan Baku Baru</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1 block">Nama Bahan Baku</label>
+                <input
+                  type="text"
+                  value={newBahanNama}
+                  onChange={(e) => setNewBahanNama(e.target.value)}
+                  placeholder="Contoh: Bawang Putih Bubuk"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-suka-orange outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1 block">Satuan Besar (Utama)</label>
+                <select
+                  value={newBahanSatuan}
+                  onChange={(e) => setNewBahanSatuan(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-suka-orange outline-none bg-white"
+                >
+                  {SATUAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingNew(false)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-600 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting || !newBahanNama.trim()}
+                  onClick={async () => {
+                    if (!token) return
+                    setIsSubmitting(true)
+                    const res = await createBahanBaku(token, newBahanNama, newBahanSatuan)
+                    if (res.success && res.data) {
+                      setBahanBakuList([...bahanBakuList, res.data])
+                      handleSelect(res.data)
+                      setIsCreatingNew(false)
+                      setNewBahanNama('')
+                    } else {
+                      setErrorMsg(res.error || 'Gagal membuat bahan baku')
+                    }
+                    setIsSubmitting(false)
+                  }}
+                  className="flex-1 py-3 bg-suka-orange text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Menyimpan...' : 'Lanjut & Lengkapi'}
+                </button>
+              </div>
             </div>
           </div>
         ) : (

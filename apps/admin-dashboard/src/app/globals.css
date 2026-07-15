@@ -101,10 +101,10 @@
 
 @layer base {
   html {
-    height: 100%;
+    min-height: 100%;
   }
   body {
-    height: 100%;
+    min-height: 100%;
     font-family: "Plus Jakarta Sans", system-ui, sans-serif;
     color: #400a07; /* Suka Ink */
     background-color: #fff7ed; /* Suka Cream */

@@ -614,8 +614,8 @@ export default function KasirOrderClient({
 
   // Cancel order
   async function cancelOrder(order: ParsedOrder) {
-    if (order.status !== 'pending') {
-      showAlert('Pesanan yang sudah diproses tidak dapat dibatalkan.')
+    if (order.status !== 'pending' && order.status !== 'preparing') {
+      showAlert('Hanya pesanan aktif yang dapat dibatalkan.')
       return
     }
 
@@ -877,11 +877,19 @@ export default function KasirOrderClient({
             </>
           ) : order.status === 'preparing' ? (
             <>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
+                className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
+              >
+                <XCircle size={18} />
+                Batal
+              </button>
               {!order.kitchen_receipt_printed ? (
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
-                  className="relative z-50 cursor-pointer w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
+                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
                 >
                   <ChefHat size={18} />
                   Mulai Masak
@@ -890,7 +898,7 @@ export default function KasirOrderClient({
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCompleteAndPrint(order) }}
-                  className="relative z-50 cursor-pointer w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
                 >
                   <CheckCircle2 size={18} />
                   Pesanan Siap

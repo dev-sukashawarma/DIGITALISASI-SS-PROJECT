@@ -264,15 +264,11 @@ export default function OrderManualPage() {
   }, [])
 
   const handleMenuClick = useCallback((it: MenuItem) => {
-    if (upsellItems.length > 0) {
-      setSelectedMenu(it)
-      setSelectedMenuQty(1)
-      setSelectedMenuNote('')
-      setSelectedExtras({})
-    } else {
-      addItem(it)
-    }
-  }, [upsellItems, addItem])
+    setSelectedMenu(it)
+    setSelectedMenuQty(1)
+    setSelectedMenuNote('')
+    setSelectedExtras({})
+  }, [])
 
   const lineList = lines
   const totalItems = lineList.reduce((s, l) => s + l.quantity, 0)
@@ -1292,7 +1288,19 @@ function CartPanel(props: {
                 >
                   Uang Pas
                 </button>
-                {QUICK_CASH.filter((v) => v >= totalPrice).slice(0, 4).map((v) => (
+                {(() => {
+                  if (totalPrice <= 0) return [20000, 50000, 100000, 150000, 200000].slice(0, 4);
+                  const options = new Set<number>();
+                  [10000, 20000, 50000, 100000].forEach(step => {
+                    const rounded = Math.ceil(totalPrice / step) * step;
+                    if (rounded > totalPrice) options.add(rounded);
+                    if (rounded + step > totalPrice) options.add(rounded + step);
+                  });
+                  [50000, 100000, 150000, 200000, 300000, 500000].forEach(fixed => {
+                    if (fixed > totalPrice) options.add(fixed);
+                  });
+                  return Array.from(options).sort((a, b) => a - b).slice(0, 4);
+                })().map((v) => (
                   <button
                     key={v}
                     onClick={() => setCashInput(String(v))}

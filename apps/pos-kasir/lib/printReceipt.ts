@@ -123,8 +123,10 @@ export function buildReceiptHtml(d: ReceiptData, origin: string = ''): string {
       return `
       <tr>
         <td class="qty"></td>
-        <td class="name" style="padding-left: 10px;">
-          └─ ${it.quantity}x EXTRA ${esc(it.name)}${noteHtml}
+        <td class="name" style="padding-left: 8px;">
+          <div style="border-left: 1.5px solid #000; padding-left: 6px; margin-top: -2px; margin-bottom: -2px; padding-top: 2px; padding-bottom: 2px;">
+            ${it.quantity}x EXTRA ${esc(it.name)}${noteHtml}
+          </div>
         </td>
         ${!isKitchen ? `<td class="amt">${formatRupiah(it.subtotal)}</td>` : ''}
       </tr>`

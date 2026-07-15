@@ -265,18 +265,17 @@ export default function KasirOrderClient({
     () => (outletId ? db.local_orders.where('outlet_id').equals(outletId).toArray() : Promise.resolve([] as LocalOrderRow[])),
     [outletId]
   )
-  const localOrders = localOrderRowsToOrders(localOrderRows ?? [])
-  const localOrderIds = new Set(localOrders.map(o => o.id))
-
-  // Gabungkan: order lokal offline tampil paling atas, hindari duplikat id
-  const rawOrders = [...localOrders, ...serverOrders.filter(o => !localOrderIds.has(o.id))]
+  const localOrders = useMemo(() => localOrderRowsToOrders(localOrderRows ?? []), [localOrderRows]);
+  const localOrderIds = useMemo(() => new Set(localOrders.map(o => o.id)), [localOrders]);
 
   const orders = useMemo(() => {
+    const rawOrders = [...localOrders, ...serverOrders.filter(o => !localOrderIds.has(o.id))];
+
     return rawOrders.map(o => {
       if ((o as any)._parsedItems) return o as ParsedOrder;
       return parseOrderData(o);
     });
-  }, [rawOrders])
+  }, [localOrders, localOrderIds, serverOrders])
 
   // Web Push Subscription
   useEffect(() => {

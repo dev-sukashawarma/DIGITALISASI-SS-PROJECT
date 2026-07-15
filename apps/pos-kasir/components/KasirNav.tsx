@@ -11,6 +11,9 @@ import { useStockAlerts } from '@/lib/useStockAlerts'
 import { getStokUrl } from '@/lib/stokUrl'
 import { useBrand } from '@/components/BrandContext'
 import { useNetworkStatus } from '@/lib/useNetworkStatus'
+import { usePrinterStore } from '@/lib/printerStore'
+import { connectBluetoothPrinter, autoConnectBluetoothPrinter } from '@/lib/bluetooth-printer'
+import { Printer } from 'lucide-react'
 
 const links = [
   { 
@@ -48,6 +51,7 @@ export default function KasirNav() {
 
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [orderDropdownOpen, setOrderDropdownOpen] = useState(false)
+  const { device, isConnecting, disconnect } = usePrinterStore()
 
   // When expanding sidebar, ensure dropdown is closed initially
   useEffect(() => {
@@ -55,6 +59,11 @@ export default function KasirNav() {
       setOrderDropdownOpen(false)
     }
   }, [isCollapsed])
+
+  // Try auto-connecting to Bluetooth printer on mount
+  useEffect(() => {
+    autoConnectBluetoothPrinter();
+  }, [])
 
   useEffect(() => {
     // Polling for offline queue count
@@ -341,6 +350,30 @@ export default function KasirNav() {
             <ArrowLeft className="w-5 h-5 shrink-0 text-[#877365]" strokeWidth={2} />
             {!isCollapsed && <span className="animate-fade-in">Portal</span>}
           </a>
+          
+          <button
+            onClick={() => {
+              if (device) disconnect();
+              else connectBluetoothPrinter();
+            }}
+            disabled={isConnecting}
+            className={`w-full flex items-center rounded-2xl text-[15px] font-bold transition-colors disabled:opacity-60 disabled:cursor-wait
+              ${isCollapsed ? 'justify-center p-3.5' : 'gap-3 px-4 py-3'}
+              ${device ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'text-[#544437] hover:text-[#1e1b15] hover:bg-[#e9e1d8]'}`}
+            title={isCollapsed ? (device ? `Printer: ${device.name || 'Terhubung'}` : "Hubungkan Printer") : undefined}
+          >
+            {isConnecting ? (
+              <Loader2 className="w-5 h-5 shrink-0 animate-spin" strokeWidth={2} />
+            ) : (
+              <Printer className={`w-5 h-5 shrink-0 ${device ? 'text-indigo-600' : 'text-[#877365]'}`} strokeWidth={2} />
+            )}
+            {!isCollapsed && (
+              <span className="animate-fade-in truncate">
+                {isConnecting ? 'Menghubungkan...' : device ? (device.name || 'Printer Aktif') : 'Koneksi Printer'}
+              </span>
+            )}
+          </button>
+          
           <button
             onClick={handleLogout}
             disabled={loggingOut}

@@ -1,7 +1,6 @@
 'use server'
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { createServerClient } = require('@supabase/ssr')
+import { createServerClient } from '@supabase/ssr'
 import { revalidatePath } from 'next/cache'
 
 const MAGIC_TOKEN = process.env.GUDANG_MAGIC_TOKEN || 'SUKA-GUDANG-2026'

@@ -1,8 +1,8 @@
 'use client'
 import { useState, useRef, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { submitBahanBaku, getBahanBakuList, addBahanBakuSku, deleteBahanBakuSku, setDefaultBahanBakuSku, createBahanBaku } from './actions'
-import { Camera, Package, UploadCloud, CheckCircle2, AlertCircle, ChevronRight, Search, ImageIcon, Pencil } from 'lucide-react'
+import { Camera, Package, CheckCircle2, AlertCircle, Search, ImageIcon, Pencil } from 'lucide-react'
 
 const SATUAN_OPTIONS = [
   'Bal', 'Blok', 'Bungkus', 'Dus', 'Gram', 'Ikat', 'Kaleng', 'Karton', 'Karung', 'Kg', 'Lembar', 'Liter', 'Lusin', 'Ml', 'Pack', 'Pcs', 'Renceng', 'Roll', 'Sachet', 'Sisir', 'Toples', 'Tube'

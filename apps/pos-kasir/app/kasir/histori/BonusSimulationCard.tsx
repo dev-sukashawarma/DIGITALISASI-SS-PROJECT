@@ -22,9 +22,9 @@ export default function BonusSimulationCard({ targetAmount, bonusAmount }: Bonus
   const bonusPerPerson = crewCount > 0 ? Math.floor(totalBonus / crewCount) : 0
 
   return (
-    <div className="card p-5 shadow-sm border border-gray-100 mb-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center justify-center">
+    <div className="card p-4 md:p-6 shadow-sm border border-gray-100 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center justify-center shrink-0">
           <Calculator className="w-5 h-5 text-blue-600" strokeWidth={2} />
         </div>
         <div>
@@ -33,28 +33,28 @@ export default function BonusSimulationCard({ targetAmount, bonusAmount }: Bonus
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-stretch">
         {/* Kontrol Input */}
-        <div className="space-y-6">
+        <div className="space-y-6 w-full min-w-0 flex flex-col justify-center">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Jumlah Crew Hadir
             </label>
             <div className="flex items-center bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-shadow">
-              <Users className="w-5 h-5 text-gray-400 mr-2" />
+              <Users className="w-5 h-5 text-gray-400 mr-2 shrink-0" />
               <input
                 type="number"
                 min="1"
                 value={crewCount || ''}
                 onChange={(e) => setCrewCount(parseInt(e.target.value) || 0)}
-                className="w-full bg-transparent border-none text-sm font-medium text-gray-900 focus:ring-0 p-0"
+                className="w-full min-w-0 bg-transparent border-none text-sm font-medium text-gray-900 focus:ring-0 p-0"
                 placeholder="Masukkan jumlah crew"
               />
             </div>
           </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-2">
+          <div className="pt-2">
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
               <label className="block text-sm font-semibold text-gray-700">
                 Simulasi Penjualan
               </label>
@@ -71,16 +71,16 @@ export default function BonusSimulationCard({ targetAmount, bonusAmount }: Bonus
               onChange={(e) => setSimulatedSales(parseInt(e.target.value))}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
-            <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
+            <div className="flex flex-wrap justify-between items-center gap-1 text-xs text-gray-500 mt-2 font-medium">
               <span>Rp 0</span>
-              <span className="text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded">Target: {formatRupiah(targetAmount)}</span>
+              <span className="text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded-md whitespace-nowrap">Target: {formatRupiah(targetAmount)}</span>
               <span>{formatRupiah(maxSales)}</span>
             </div>
           </div>
         </div>
 
         {/* Hasil Simulasi */}
-        <div className="card p-5 shadow-sm border border-gray-100 flex flex-col justify-center relative overflow-hidden h-full">
+        <div className="card p-5 shadow-sm border border-gray-100 flex flex-col justify-center relative overflow-hidden w-full min-w-0 mt-2 lg:mt-0">
           {/* Progress bar background for visual flair */}
           <div 
             className={`absolute bottom-0 left-0 h-1 transition-all duration-300 ease-out ${isReached ? 'bg-green-500' : 'bg-gray-200'}`} 

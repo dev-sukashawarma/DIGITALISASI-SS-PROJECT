@@ -3,12 +3,16 @@
 import { useEffect, useState } from 'react'
 import { usePrinterStore } from '@/lib/printerStore'
 import { connectBluetoothPrinter, autoConnectBluetoothPrinter } from '@/lib/bluetooth-printer'
-import { Printer, Bluetooth, CheckCircle2, Loader2, MousePointerClick } from 'lucide-react'
+import { Printer, Bluetooth, CheckCircle2, Loader2, MousePointerClick, Check } from 'lucide-react'
 
 export default function PrinterBlockerMount() {
   const { device, isConnecting } = usePrinterStore()
   const [hasInteracted, setHasInteracted] = useState(false)
   const [autoConnectAttempted, setAutoConnectAttempted] = useState(false)
+  
+  // State for success animation before unmounting
+  const [shouldRender, setShouldRender] = useState(!device)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   // Auto-connect attempt on first interaction
   useEffect(() => {
@@ -39,102 +43,110 @@ export default function PrinterBlockerMount() {
     }
   }, [hasInteracted, device, autoConnectAttempted])
 
-  // If we already have a device, don't show anything
-  if (device) return null
+  // Handle successful connection animation
+  useEffect(() => {
+    if (device) {
+      setShowSuccess(true)
+      const timer = setTimeout(() => {
+        setShouldRender(false)
+      }, 2000)
+      return () => clearTimeout(timer)
+    } else {
+      setShowSuccess(false)
+      setShouldRender(true)
+    }
+  }, [device])
+
+  if (!shouldRender) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-300">
+    <div className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 transition-opacity duration-500 ${showSuccess ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+      <div className={`bg-white/95 backdrop-blur-xl border border-white/20 rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden flex flex-col transition-all duration-500 transform ${showSuccess ? 'scale-95' : 'scale-100 animate-in fade-in zoom-in-95'}`}>
         
-        {/* Header */}
-        <div className="bg-indigo-600 p-8 text-center text-white relative">
-          <div className="mx-auto bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
-            <Printer className="w-8 h-8 text-white" />
+        {showSuccess ? (
+          <div className="p-12 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+              <Check className="w-10 h-10 text-green-600" strokeWidth={3} />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Terhubung!</h2>
+            <p className="text-gray-500">{device?.name || 'Printer Bluetooth'} siap digunakan.</p>
           </div>
-          <h2 className="text-2xl font-bold mb-2">Koneksi Printer Wajib</h2>
-          <p className="text-indigo-100 text-sm">
-            Anda harus menghubungkan printer Bluetooth sebelum melayani transaksi.
-          </p>
-        </div>
-
-        {/* Content (Wizard Steps) */}
-        <div className="p-8">
-          <div className="space-y-6">
-            
-            {/* Step 1 */}
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
-                1
+        ) : (
+          <div className="p-8">
+            {/* Header */}
+            <div className="flex flex-col items-center text-center mb-8">
+              <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-5 ring-8 ring-indigo-50/50">
+                <Printer className="w-8 h-8 text-indigo-600" strokeWidth={1.5} />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  Siapkan Printer <Printer className="w-4 h-4 text-gray-500" />
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">Pastikan daya printer menyala dan terisi kertas struk.</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2 tracking-tight">Koneksi Printer</h2>
+              <p className="text-gray-500 text-sm max-w-[280px]">
+                Printer Bluetooth wajib terhubung untuk melayani transaksi.
+              </p>
+            </div>
+
+            {/* Content (Wizard Steps) */}
+            <div className="space-y-4 mb-8">
+              {/* Step 1 */}
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50/80 border border-gray-100 transition-colors hover:bg-gray-50">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white shadow-sm border border-gray-200 text-gray-600 flex items-center justify-center font-bold text-sm">
+                  1
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                    Siapkan Printer
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">Pastikan daya menyala dan kertas struk terisi penuh.</p>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50/80 border border-gray-100 transition-colors hover:bg-gray-50">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white shadow-sm border border-gray-200 text-gray-600 flex items-center justify-center font-bold text-sm">
+                  2
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                    Aktifkan Bluetooth
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">Nyalakan koneksi Bluetooth di perangkat kasir ini.</p>
+                </div>
               </div>
             </div>
 
-            {/* Step 2 */}
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
-                2
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  Aktifkan Bluetooth <Bluetooth className="w-4 h-4 text-gray-500" />
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">Nyalakan Bluetooth di tablet/device kasir ini.</p>
-              </div>
+            {/* Action Button */}
+            <div>
+              {!hasInteracted && !autoConnectAttempted ? (
+                <div 
+                  className="w-full py-4 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center gap-3 cursor-pointer hover:bg-orange-100 transition-all active:scale-[0.98]"
+                  onClick={() => {
+                    // Triggers the global click listener
+                  }}
+                >
+                  <MousePointerClick className="w-5 h-5 text-orange-600 animate-bounce" />
+                  <span className="text-sm font-semibold text-orange-700">Sentuh layar untuk memulai</span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => connectBluetoothPrinter()}
+                  disabled={isConnecting}
+                  className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-black text-white py-4 rounded-2xl font-semibold text-[15px] transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-gray-900/20"
+                >
+                  {isConnecting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Mencari Perangkat...
+                    </>
+                  ) : (
+                    <>
+                      <Bluetooth className="w-5 h-5" />
+                      Hubungkan Printer
+                    </>
+                  )}
+                </button>
+              )}
             </div>
-
-            {/* Step 3 */}
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
-                3
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  Hubungkan <CheckCircle2 className="w-4 h-4 text-gray-500" />
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">Tekan tombol di bawah dan pilih nama printer Anda.</p>
-              </div>
-            </div>
-
           </div>
-
-          {/* Action Button */}
-          <div className="mt-8">
-            {!hasInteracted && !autoConnectAttempted ? (
-              <div className="text-center p-4 bg-orange-50 rounded-xl border border-orange-100 flex flex-col items-center gap-2 cursor-pointer hover:bg-orange-100 transition-colors"
-                onClick={() => {
-                  // This click will trigger the document click listener above
-                }}
-              >
-                <MousePointerClick className="w-6 h-6 text-orange-500 animate-bounce" />
-                <p className="text-sm text-orange-700 font-medium">Klik sembarang area layar untuk mengecek riwayat koneksi</p>
-              </div>
-            ) : (
-              <button
-                onClick={() => connectBluetoothPrinter()}
-                disabled={isConnecting}
-                className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold text-lg transition-colors disabled:opacity-70 disabled:cursor-wait shadow-lg shadow-indigo-200"
-              >
-                {isConnecting ? (
-                  <>
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    Menghubungkan...
-                  </>
-                ) : (
-                  <>
-                    <Bluetooth className="w-6 h-6" />
-                    Hubungkan Printer Sekarang
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-          
-        </div>
+        )}
       </div>
     </div>
   )

@@ -22,13 +22,34 @@ export default async function AdminMenuPage(props: {
     itemsQuery = itemsQuery.ilike('name', `%${q}%`)
   }
 
-  const [itemsRes, categoriesRes] = await Promise.all([
+  const [itemsRes, categoriesRes, settingsRes] = await Promise.all([
     itemsQuery,
     supabase.from('categories').select('*').order('sort_order'),
+    supabase.from('kiosk_settings').select('key, value').is('outlet_id', null).in('key', ['upsell_ids', 'bestseller_ids', 'recommendation_ids'])
   ])
 
   const initialItems: MenuItem[] = itemsRes.data || []
   const initialCategories: Category[] = categoriesRes.data || []
+  const settingsData = settingsRes.data || []
+  
+  const parseIds = (key: string) => {
+    try {
+      const val = settingsData.find(s => s.key === key)?.value
+      return val ? JSON.parse(val) : []
+    } catch { return [] }
+  }
 
-  return <MenuView initialItems={initialItems} initialCategories={initialCategories} />
+  const upsellIds = parseIds('upsell_ids')
+  const bestsellerIds = parseIds('bestseller_ids')
+  const recommendationIds = parseIds('recommendation_ids')
+
+  return (
+    <MenuView 
+      initialItems={initialItems} 
+      initialCategories={initialCategories} 
+      initialUpsells={upsellIds}
+      initialBestsellers={bestsellerIds}
+      initialRecommendations={recommendationIds}
+    />
+  )
 }

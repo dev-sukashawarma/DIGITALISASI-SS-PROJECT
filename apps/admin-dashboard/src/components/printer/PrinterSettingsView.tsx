@@ -25,11 +25,18 @@ const TABS: { key: TabKey; label: string }[] = [
 // ── HTML preview per template (untuk uji cetak browser fallback + preview di layar) ──
 function esc(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
 
-function customerPreviewHtml(c: PrintLayout['struk_customer'], forPrint: boolean): string {
+// Logo brand asli bila tersedia; jika belum ada logo terpasang, fallback ke placeholder.
+function logoTag(show: boolean, logoUrl: string | null): string {
+  if (!show) return ''
+  if (logoUrl) return `<img class="logo-img" src="${esc(logoUrl)}" alt="Logo" />`
+  return `<div class="logo">[LOGO]</div>`
+}
+
+function customerPreviewHtml(c: PrintLayout['struk_customer'], forPrint: boolean, logoUrl: string | null): string {
   const notes = c.showItemNotes ? `<div class="note">- pedas, tanpa bawang</div>` : ''
   const cashier = c.showCashier ? `<div class="muted">Kasir: Contoh</div>` : ''
   const cust = c.showCustomer ? `<div class="muted">Pelanggan: Contoh</div>` : ''
-  const logo = c.showLogo ? `<div class="logo">[LOGO]</div>` : ''
+  const logo = logoTag(c.showLogo, logoUrl)
   const scale = c.fontScale === 'besar' ? 1.25 : 1
   const body = `
     ${logo}
@@ -49,9 +56,9 @@ function customerPreviewHtml(c: PrintLayout['struk_customer'], forPrint: boolean
   return wrapHtml(c.paperWidth, scale, body, forPrint)
 }
 
-function kitchenPreviewHtml(c: PrintLayout['struk_dapur'], forPrint: boolean): string {
+function kitchenPreviewHtml(c: PrintLayout['struk_dapur'], forPrint: boolean, logoUrl: string | null): string {
   const cust = c.showCustomer ? `<div class="muted">Pelanggan: Contoh</div>` : ''
-  const logo = c.showLogo ? `<div class="logo">[LOGO]</div>` : ''
+  const logo = logoTag(c.showLogo, logoUrl)
   const body = `
     ${logo}
     <div class="lg">${esc(c.headerText || 'STRUK DAPUR')}</div>
@@ -66,8 +73,8 @@ function kitchenPreviewHtml(c: PrintLayout['struk_dapur'], forPrint: boolean): s
   return wrapHtml(c.paperWidth, c.fontScale === 'besar' ? 1.35 : 1.1, body, forPrint)
 }
 
-function qrPreviewHtml(c: PrintLayout['qr_surat_jalan'], forPrint: boolean): string {
-  const logo = c.showLogo ? `<div class="logo">[LOGO]</div>` : ''
+function qrPreviewHtml(c: PrintLayout['qr_surat_jalan'], forPrint: boolean, logoUrl: string | null): string {
+  const logo = logoTag(c.showLogo, logoUrl)
   const body = `
     ${logo}
     <div class="lg">${esc(c.title)}</div>
@@ -86,6 +93,7 @@ function wrapHtml(paperWidth: number, scale: number, body: string, forPrint: boo
     .lg { font-size:${Math.round(17 * scale)}px; }
     .muted { font-size:${Math.round(12 * scale)}px; }
     .logo { font-size:11px; border:1px dashed #000; display:inline-block; padding:2px 6px; margin-bottom:4px; }
+    .logo-img { width:44px; height:44px; object-fit:contain; display:block; margin:0 auto 4px auto; filter:grayscale(100%) contrast(150%); }
     .hr { border-top:2px dashed #000; margin:5px 0; }
     .row, .child, .total { display:flex; justify-content:space-between; text-align:left; }
     .child { padding-left:10px; border-left:2px solid #000; margin-left:4px; }
@@ -94,14 +102,15 @@ function wrapHtml(paperWidth: number, scale: number, body: string, forPrint: boo
   </style></head><body>${body}</body></html>`
 }
 
-function previewHtml(tab: TabKey, layout: PrintLayout, forPrint: boolean): string {
-  if (tab === 'struk_customer') return customerPreviewHtml(layout.struk_customer, forPrint)
-  if (tab === 'struk_dapur') return kitchenPreviewHtml(layout.struk_dapur, forPrint)
-  return qrPreviewHtml(layout.qr_surat_jalan, forPrint)
+function previewHtml(tab: TabKey, layout: PrintLayout, forPrint: boolean, logoUrl: string | null): string {
+  if (tab === 'struk_customer') return customerPreviewHtml(layout.struk_customer, forPrint, logoUrl)
+  if (tab === 'struk_dapur') return kitchenPreviewHtml(layout.struk_dapur, forPrint, logoUrl)
+  return qrPreviewHtml(layout.qr_surat_jalan, forPrint, logoUrl)
 }
 
 export default function PrinterSettingsView() {
   const { device, isConnecting, error } = usePrinterState()
+  const [brandLogo, setBrandLogo] = useState<string | null>(null)
   const [layout, setLayout] = useState<PrintLayout>(DEFAULT_PRINT_LAYOUT)
   const [tab, setTab] = useState<TabKey>('struk_customer')
   const [loading, setLoading] = useState(true)
@@ -116,8 +125,15 @@ export default function PrinterSettingsView() {
     autoConnectBluetoothPrinter()
     ;(async () => {
       try {
-        const { data } = await supabase.from('global_settings').select('value').eq('key', PRINT_LAYOUT_KEY).maybeSingle()
-        setLayout(mergePrintLayout((data as any)?.value))
+        const { data } = await supabase
+          .from('global_settings')
+          .select('key, value')
+          .in('key', [PRINT_LAYOUT_KEY, 'brand_logo'])
+        const rows = (data as { key: string; value: unknown }[] | null) ?? []
+        const layoutRow = rows.find((r) => r.key === PRINT_LAYOUT_KEY)
+        const logoRow = rows.find((r) => r.key === 'brand_logo')
+        setLayout(mergePrintLayout(layoutRow?.value))
+        setBrandLogo(typeof logoRow?.value === 'string' ? logoRow.value : null)
       } catch { setLayout(DEFAULT_PRINT_LAYOUT) }
       finally { setLoading(false) }
     })()
@@ -156,7 +172,7 @@ export default function PrinterSettingsView() {
       if (printerStore.getState().characteristic) {
         await printBytes(buildTemplateReceipt(tab, layout))
       } else {
-        await printHtmlFallback(previewHtml(tab, layout, true))
+        await printHtmlFallback(previewHtml(tab, layout, true, brandLogo))
       }
       showToast('success', 'Uji cetak dikirim')
     } catch (e: any) { showToast('error', e?.message || 'Uji cetak gagal') }
@@ -275,7 +291,7 @@ export default function PrinterSettingsView() {
               <div className="flex justify-center bg-slate-50 rounded-xl p-4 border border-slate-100 overflow-auto">
                 <iframe title="preview" className="bg-white shadow-md border border-slate-200"
                   style={{ width: (layout[tab] as any).paperWidth === 80 ? 320 : 230, height: 380, border: 0 }}
-                  srcDoc={previewHtml(tab, layout, false)} />
+                  srcDoc={previewHtml(tab, layout, false, brandLogo)} />
               </div>
               <button onClick={handleTestPrint} disabled={testing}
                 className="w-full px-6 py-3 bg-suka-orange text-white rounded-xl font-bold hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">

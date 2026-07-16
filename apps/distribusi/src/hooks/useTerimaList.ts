@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useAuth } from '@suka/auth'
 
@@ -13,52 +13,31 @@ interface SuratJalan {
   outlets?: { name: string }
 }
 
+async function fetchTerima(outletId: string | null | undefined): Promise<SuratJalan[]> {
+  const supabase = createSupabaseBrowserClient()
+  let query = supabase
+    .from('surat_jalan')
+    .select('id, outlet_id, status, created_at, document_number, outlets(name)')
+    .in('status', ['dikirim', 'dikirim_lengkap', 'diterima_sebagian'])
+
+  if (outletId) query = query.eq('outlet_id', outletId)
+
+  const { data, error } = await query.order('created_at', { ascending: false })
+  if (error) throw error
+
+  return (data || []).map((sj: any) => ({
+    ...sj,
+    outlets: Array.isArray(sj.outlets) ? sj.outlets[0] : sj.outlets,
+  })) as SuratJalan[]
+}
+
 export function useTerimaList() {
   const { outletStaff } = useAuth()
-  const [data, setData] = useState<SuratJalan[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const outletId = outletStaff?.outlet_id
+  const { data = [], isLoading: loading, error } = useQuery({
+    queryKey: ['surat_jalan_terima', outletId ?? 'all'],
+    queryFn: () => fetchTerima(outletId),
+  })
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const supabase = createSupabaseBrowserClient()
-        let query = supabase
-          .from('surat_jalan')
-          .select('id, outlet_id, status, created_at, document_number, outlets(name)')
-          .in('status', ['dikirim', 'dikirim_lengkap', 'diterima_sebagian'])
-
-        // Crew sees only SJ for their own outlet
-        if (outletStaff?.outlet_id) {
-          query = query.eq('outlet_id', outletStaff.outlet_id)
-        }
-
-        const { data, error: err } = await query
-          .order('created_at', { ascending: false })
-
-        if (err) {
-          setError(err.message)
-          setData([])
-        } else {
-          const formatted = (data || []).map((sj: any) => ({
-            ...sj,
-            outlets: Array.isArray(sj.outlets) ? sj.outlets[0] : sj.outlets
-          }))
-          setData(formatted as SuratJalan[])
-        }
-      } catch (err: any) {
-        setError(err?.message || 'Terjadi kesalahan')
-        setData([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [outletStaff?.outlet_id])
-
-  return { data, loading, error }
+  return { data, loading, error: error ? (error as Error).message : null }
 }

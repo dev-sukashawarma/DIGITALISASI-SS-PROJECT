@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { createSupabaseBrowserClient } from '@suka/auth'
 
 interface SuratJalan {
@@ -18,79 +18,47 @@ interface SuratJalanWithOutlet extends SuratJalan {
 
 type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif'
 
+async function fetchSuratJalan(dateFilter: DateFilter): Promise<SuratJalanWithOutlet[]> {
+  const supabase = createSupabaseBrowserClient()
+  let query = supabase
+    .from('surat_jalan')
+    .select('id, outlet_id, status, created_at, document_number, outlets(name), surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
+    .order('created_at', { ascending: false })
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  if (dateFilter === 'today') query = query.gte('created_at', today)
+  else if (dateFilter === '7days') query = query.gte('created_at', sevenDaysAgo)
+  else if (dateFilter === '30days') query = query.gte('created_at', thirtyDaysAgo)
+  else if (dateFilter === 'belum_verif') query = query.in('status', ['diterima_lengkap', 'diterima_sebagian'])
+  else if (dateFilter === 'telah_verif') query = query.eq('status', 'selesai')
+
+  const { data: sjList, error } = await query
+  if (error) throw error
+
+  return (sjList || []).map((sj: any) => {
+    const items = sj.surat_jalan_item || []
+    const has_problem = items.some(
+      (it: any) => it.kondisi === 'rusak' || (it.qty_terima != null && it.qty_terima < it.qty_dikirim)
+    )
+    const outlet = Array.isArray(sj.outlets) ? sj.outlets[0] : sj.outlets
+    return { ...sj, outlet, has_problem }
+  }) as SuratJalanWithOutlet[]
+}
+
 export function useSuratJalanList(dateFilter: DateFilter = 'all') {
-  const [data, setData] = useState<SuratJalanWithOutlet[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      setError(null)
-
-      const supabase = createSupabaseBrowserClient()
-      let query = supabase
-        .from('surat_jalan')
-        .select('id, outlet_id, status, created_at, document_number, outlets(name), surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
-        .order('created_at', { ascending: false })
-
-      // Apply date filters
-      const now = new Date()
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
-
-      if (dateFilter === 'today') {
-        query = query.gte('created_at', today)
-      } else if (dateFilter === '7days') {
-        query = query.gte('created_at', sevenDaysAgo)
-      } else if (dateFilter === '30days') {
-        query = query.gte('created_at', thirtyDaysAgo)
-      } else if (dateFilter === 'belum_verif') {
-        query = query.in('status', ['diterima_lengkap', 'diterima_sebagian'])
-      } else if (dateFilter === 'telah_verif') {
-        query = query.eq('status', 'selesai')
-      }
-
-      try {
-        const { data: sjList, error: err } = await query
-
-        if (err) {
-          setError(err.message)
-          setData([])
-          return
-        }
-
-        const result = (sjList || []).map((sj: any) => {
-          const items = sj.surat_jalan_item || []
-          const has_problem = items.some(
-            (it: any) => it.kondisi === 'rusak' || (it.qty_terima != null && it.qty_terima < it.qty_dikirim)
-          )
-          // outlets dari embed bisa array atau objek tergantung kardinalitas relasi
-          const outlet = Array.isArray(sj.outlets) ? sj.outlets[0] : sj.outlets
-          return {
-            ...sj,
-            outlet,
-            has_problem,
-          }
-        })
-
-        setData(result as SuratJalanWithOutlet[])
-      } catch (err: any) {
-        setError(err?.message || 'Terjadi kesalahan')
-        setData([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [dateFilter])
+  const { data = [], isLoading: loading, error } = useQuery({
+    queryKey: ['surat_jalan', dateFilter],
+    queryFn: () => fetchSuratJalan(dateFilter),
+  })
 
   const draftCount = data.filter((sj) => sj.status === 'draft').length
   const sentCount = data.filter((sj) => sj.status === 'dikirim').length
   const diterimaCount = data.filter((sj) => sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian').length
   const selesaiCount = data.filter((sj) => sj.status === 'selesai').length
 
-  return { data, loading, error, draftCount, sentCount, diterimaCount, selesaiCount }
+  return { data, loading, error: error ? (error as Error).message : null, draftCount, sentCount, diterimaCount, selesaiCount }
 }

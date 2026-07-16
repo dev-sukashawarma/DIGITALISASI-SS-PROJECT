@@ -55,7 +55,7 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
     const getSetting = (key: string, preferGlobal: boolean = false) => {
       if (['bestseller_ids', 'upsell_ids', 'recommendation_ids'].includes(key)) {
         const globalRow = settings?.find(s => s.key === key && (s.outlet_id === null || s.outlet_id === PUSAT_OUTLET_ID))
-        return globalRow?.value || '[]'
+        return parseIds(globalRow?.value || '[]')
       }
       const rows = settings?.filter(s => s.key === key) || []
       const sortedRows = [...rows].sort((a, b) => {

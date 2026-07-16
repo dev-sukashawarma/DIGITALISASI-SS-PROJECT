@@ -75,7 +75,20 @@ export default function GlobalBlockerMount() {
     // Lihat CONTEXT.md bagian "Operasional Harian Outlet & Gate Kasir"
     async function checkKasirGate(outletId: string) {
       try {
-        const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+        // Use formatting that strictly outputs YYYY-MM-DD to avoid locale parsing issues
+        const now = new Date()
+        const formatter = new Intl.DateTimeFormat('en-CA', { 
+          timeZone: 'Asia/Jakarta', 
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit' 
+        })
+        const parts = formatter.formatToParts(now)
+        const y = parts.find(p => p.type === 'year')?.value
+        const m = parts.find(p => p.type === 'month')?.value
+        const d = parts.find(p => p.type === 'day')?.value
+        const todayStr = `${y}-${m}-${d}`
+        
         const start = new Date(`${todayStr}T00:00:00+07:00`).toISOString()
         const end = new Date(`${todayStr}T23:59:59+07:00`).toISOString()
 

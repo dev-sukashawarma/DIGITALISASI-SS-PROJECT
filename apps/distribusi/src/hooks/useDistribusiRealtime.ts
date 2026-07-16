@@ -3,10 +3,13 @@
 import { useRealtimeInvalidate } from '@suka/realtime'
 
 /**
- * Realtime distribusi.
+ * Realtime distribusi (Surat Jalan).
  * - Pusat (daftar Surat Jalan): tanpa outletId → subscribe semua surat_jalan.
  * - Outlet (Terima): dengan outletId → subscribe surat_jalan outlet itu saja.
- * Keduanya juga menyalakan Permintaan Bahan.
+ *
+ * Catatan: Permintaan Bahan TIDAK di-subscribe di sini — daftar/approval
+ * permintaan berada di app `stok` (PermintaanList/ApprovalList), bukan
+ * distribusi. Realtime permintaan menjadi tanggung jawab app stok (follow-up).
  */
 export function useDistribusiRealtime(outletId?: string | null) {
   useRealtimeInvalidate({
@@ -16,11 +19,6 @@ export function useDistribusiRealtime(outletId?: string | null) {
         table: 'surat_jalan',
         filter: outletId ? `outlet_id=eq.${outletId}` : undefined,
         queryKeys: outletId ? [['surat_jalan_terima', outletId]] : [['surat_jalan']],
-      },
-      {
-        table: 'permintaan_bahan',
-        filter: outletId ? `outlet_id=eq.${outletId}` : undefined,
-        queryKeys: [['permintaan_bahan']],
       },
     ],
   })

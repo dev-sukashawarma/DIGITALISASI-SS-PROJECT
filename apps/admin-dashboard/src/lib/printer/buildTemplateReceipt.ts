@@ -43,6 +43,7 @@ export function buildTemplateReceipt(
   enc.line('Suka Shawarma').alignLeft().hr('-', w)
   if (c.showCashier) enc.line('Kasir: Contoh')
   if (c.showCustomer) enc.line('Pelanggan: Contoh')
+  enc.alignCenter().bold(true).size(false, true).line('No. 123').size(false, false).bold(false).alignLeft()
   enc.hr('-', w)
   enc.row('1x Shawarma Ayam', 'Rp 25.000', ' ', w)
   if (c.showItemNotes) enc.line(' - pedas, tanpa bawang')

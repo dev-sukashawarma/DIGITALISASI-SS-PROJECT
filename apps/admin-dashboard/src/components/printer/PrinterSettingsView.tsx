@@ -44,6 +44,7 @@ function customerPreviewHtml(c: PrintLayout['struk_customer'], forPrint: boolean
     <div class="muted">Suka Shawarma</div>
     <div class="hr"></div>
     ${cashier}${cust}
+    <div class="queue">No. 123</div>
     <div class="hr"></div>
     <div class="row"><span>1x Shawarma Ayam</span><span>Rp 25.000</span></div>${notes}
     <div class="child"><span>EXTRA Keju</span><span>Rp 5.000</span></div>
@@ -64,7 +65,7 @@ function kitchenPreviewHtml(c: PrintLayout['struk_dapur'], forPrint: boolean, lo
     <div class="lg">${esc(c.headerText || 'STRUK DAPUR')}</div>
     <div class="hr"></div>
     ${cust}
-    <div>No. 123</div>
+    <div class="queue">No. 123</div>
     <div class="hr"></div>
     <div>1x Shawarma Ayam</div>
     <div class="child"><span>EXTRA Keju</span></div>
@@ -98,6 +99,7 @@ function wrapHtml(paperWidth: number, scale: number, body: string, forPrint: boo
     .row, .child, .total { display:flex; justify-content:space-between; text-align:left; }
     .child { padding-left:10px; border-left:2px solid #000; margin-left:4px; }
     .note { text-align:left; font-style:italic; font-size:${Math.round(11 * scale)}px; }
+    .queue { font-size:${Math.round(22 * scale)}px; font-weight:900; margin:4px 0; }
     .qr { border:2px solid #000; margin:8px auto; display:flex; align-items:center; justify-content:center; }
   </style></head><body>${body}</body></html>`
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
-import { Skeleton } from '@suka/design-system';
+import { Skeleton, getBahanBakuSource } from '@suka/design-system';
 
 
 /** Konsisten dengan kategori di admin-dashboard: item core, bumbu, minuman, kemasan, lainnya */
@@ -84,6 +84,16 @@ export function SPVTable({
     if (filterStatus !== 'all') {
       result = result.filter((item) => item.status === filterStatus);
     }
+
+    // Filter out GUDANG_PUSAT items if the outlet is not a Gudang
+    result = result.filter((item) => {
+      const source = getBahanBakuSource(item.item_name);
+      const isGudang = (item.outlet_name || '').toUpperCase().includes('GUDANG');
+      if (source === 'GUDANG_PUSAT' && !isGudang) {
+        return false;
+      }
+      return true;
+    });
 
     // Filter by search term
     if (searchTerm) {
@@ -412,8 +422,26 @@ export function SPVTable({
                           >
                             <td className="p-4 pl-8">
                               <div className="font-bold text-sm text-suka-ink uppercase tracking-wide">{item.item_name}</div>
-                              <div className="text-xs text-suka-brown/60 mt-0.5">
-                                {getKategoriLabel(item.kategori)}
+                              <div className="flex gap-2 items-center text-xs text-suka-brown/60 mt-0.5">
+                                <span>{getKategoriLabel(item.kategori)}</span>
+                                {(() => {
+                                  const source = getBahanBakuSource(item.item_name);
+                                  if (source === 'UNKNOWN') return null;
+                                  let badgeClass = '';
+                                  let badgeLabel = '';
+                                  if (source === 'KITCHEN' || source === 'GUDANG_PUSAT') {
+                                    badgeClass = 'bg-red-50 text-red-700 border-red-200';
+                                    badgeLabel = 'Gedung Pusat';
+                                  } else if (source === 'OUTLET') {
+                                    badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                                    badgeLabel = 'Outlet';
+                                  }
+                                  return (
+                                    <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase rounded border ${badgeClass}`}>
+                                      {badgeLabel}
+                                    </span>
+                                  )
+                                })()}
                               </div>
                             </td>
                             <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -586,8 +614,26 @@ export function SPVTable({
                   >
                     <td className="p-4">
                       <div className="font-bold text-sm text-suka-ink uppercase tracking-wide">{item.item_name}</div>
-                      <div className="text-xs text-suka-brown/60 mt-0.5">
-                        {getKategoriLabel(item.kategori)}
+                      <div className="flex gap-2 items-center text-xs text-suka-brown/60 mt-0.5">
+                        <span>{getKategoriLabel(item.kategori)}</span>
+                        {(() => {
+                          const source = getBahanBakuSource(item.item_name);
+                          if (source === 'UNKNOWN') return null;
+                          let badgeClass = '';
+                          let badgeLabel = '';
+                          if (source === 'KITCHEN' || source === 'GUDANG_PUSAT') {
+                            badgeClass = 'bg-red-50 text-red-700 border-red-200';
+                            badgeLabel = 'Gedung Pusat';
+                          } else if (source === 'OUTLET') {
+                            badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                            badgeLabel = 'Outlet';
+                          }
+                          return (
+                            <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase rounded border ${badgeClass}`}>
+                              {badgeLabel}
+                            </span>
+                          )
+                        })()}
                       </div>
                     </td>
                     <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -748,6 +794,24 @@ export function SPVTable({
                         <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-1.5 py-0.5 rounded border border-[#d9c2b2]/30">
                           {getKategoriLabel(item.kategori)}
                         </span>
+                        {(() => {
+                          const source = getBahanBakuSource(item.item_name);
+                          if (source === 'UNKNOWN') return null;
+                          let badgeClass = '';
+                          let badgeLabel = '';
+                          if (source === 'KITCHEN' || source === 'GUDANG_PUSAT') {
+                            badgeClass = 'bg-red-50 text-red-700 border-red-200';
+                            badgeLabel = 'Gedung Pusat';
+                          } else if (source === 'OUTLET') {
+                            badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                            badgeLabel = 'Outlet';
+                          }
+                          return (
+                            <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${badgeClass}`}>
+                              {badgeLabel}
+                            </span>
+                          )
+                        })()}
                         {item.status !== 'ok' && (
                           <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${item.status === 'below' ? 'bg-red-50 text-red-700 border border-red-200/80' : 'bg-orange-50 text-orange-700 border border-orange-200/80'}`}>
                             {item.status === 'below' ? 'Kritis' : 'Menipis'}

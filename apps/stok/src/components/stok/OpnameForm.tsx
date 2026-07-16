@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useBahanBaku } from '@/hooks/useBahanBaku';
 import { useStokBalance } from '@/hooks/useStokBalance';
 import { useOpnameActions } from '@/hooks/useOpname';
+import { useQuery } from '@tanstack/react-query';
+import { fetchOutletsList } from '@/lib/queries/monitoring';
+import { getBahanBakuSource } from '@suka/design-system';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
 import { combineOpnameInput } from '@/lib/format/compositeUnit';
 
@@ -22,6 +25,12 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
   const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);
   const { createDraft, upsertItems, setPendingApproval, finalize } = useOpnameActions();
+
+  const { data: outlets } = useQuery({
+    queryKey: ['monitoring', 'outlets'],
+    queryFn: fetchOutletsList,
+  });
+  const isGudang = outlets?.find(o => o.id === outletId)?.nama?.toUpperCase().includes('GUDANG') ?? false;
 
 
   const [fisik, setFisik] = useState<Record<string, string>>({});
@@ -123,11 +132,14 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
   // Filter materials based on search and category
   const filteredBahan = useMemo(() => {
     return bahanBaku.filter((b) => {
+      const source = getBahanBakuSource(b.nama);
+      if (source === 'GUDANG_PUSAT' && !isGudang) return false;
+
       const matchesSearch = b.nama.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = activeCategory === 'all' || b.kategori === activeCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [bahanBaku, searchTerm, activeCategory]);
+  }, [bahanBaku, searchTerm, activeCategory, isGudang]);
 
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [pendingApproval, setPendingApprovalState] = useState(false);

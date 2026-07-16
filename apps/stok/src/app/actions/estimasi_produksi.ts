@@ -50,26 +50,17 @@ export async function fetchEstimasiRecipes(outletId: string): Promise<EstimasiRe
       )
     `)
     .eq('is_active', true)
+    .not('menu_item_ref', 'is', null)
     .or(`scope.eq.global,and(scope.eq.outlet,outlet_id.eq.${outletId})`)
 
   if (resepError) throw new Error(resepError.message)
   if (!resepData) return []
 
-  // 2. Resolve menu_items (karena tidak ada FK langsung)
-  const { data: menuData } = await supabase
-    .from('menu_items')
-    .select('id, name')
-    
-  let menuMap = new Map<string, string>()
-  if (menuData) {
-    menuMap = new Map(menuData.map(m => [m.id, m.name]))
-  }
-
   // 3. Format data
   const result: EstimasiRecipe[] = []
 
   for (const row of resepData) {
-    const menuName = row.menu_item_ref ? menuMap.get(row.menu_item_ref) || row.nama : row.nama;
+    const menuName = row.nama;
     
     // Konversi bahan
     const ingredients: EstimasiIngredient[] = []

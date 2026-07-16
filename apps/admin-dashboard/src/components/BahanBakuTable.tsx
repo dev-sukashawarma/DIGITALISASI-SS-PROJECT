@@ -4,7 +4,7 @@ import { Check, Pencil, X, ArrowRight, Camera, PackageSearch, FileText, AlertTri
 import { rupiah } from '@/lib/format'
 import { parsePriceInput } from '@/lib/bahanBaku'
 import type { BahanBakuWithHarga } from '@/lib/bahanBaku'
-import { EmptyState, Badge, Avatar } from '@suka/design-system'
+import { EmptyState, Badge, Avatar, getBahanBakuSource } from '@suka/design-system'
 import { BahanBakuDetailModal } from './BahanBakuDetailModal'
 import type { PriceAlert } from '@/hooks/usePOPriceAlerts'
 
@@ -99,7 +99,27 @@ export function BahanBakuTable({
                   <span className="text-gray-600 whitespace-nowrap">{r.merek || '—'}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-600 border border-blue-100">{r.kategori}</span>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-600 border border-blue-100">{r.kategori}</span>
+                    {(() => {
+                      const source = getBahanBakuSource(r.nama);
+                      if (source === 'UNKNOWN') return null;
+                      let badgeClass = '';
+                      let badgeLabel = '';
+                      if (source === 'KITCHEN' || source === 'GUDANG_PUSAT') {
+                        badgeClass = 'bg-red-50 text-red-700 border-red-200';
+                        badgeLabel = 'Gedung Pusat';
+                      } else if (source === 'OUTLET') {
+                        badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                        badgeLabel = 'Beli Outlet';
+                      }
+                      return (
+                        <span className={`inline-block px-2 py-1 text-[10px] uppercase font-bold rounded-full border ${badgeClass}`}>
+                          {badgeLabel}
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">

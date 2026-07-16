@@ -1,6 +1,7 @@
 export * from './tokens'
 export * from './components'
 export { cn } from './utils/cn'
+export { getBahanBakuSource } from './utils/bahanBaku'
 export {
   isRunningInWebView,
   isWebViewUserAgent,

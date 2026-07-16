@@ -2,7 +2,7 @@
   {
     "nama": "BAWANG",
     "kategori": "bumbu",
-    "satuan": "kg",
+    "satuan": "Bal",
     "satuan_kecil": "gram",
     "faktor_konversi": 1
   },
@@ -16,14 +16,14 @@
   {
     "nama": "GARAM",
     "kategori": "bumbu",
-    "satuan": "pack",
-    "satuan_kecil": null,
+    "satuan": "Bal",
+    "satuan_kecil": "Gram",
     "faktor_konversi": 1
   },
   {
     "nama": "JINTEN",
     "kategori": "bumbu",
-    "satuan": "kg",
+    "satuan": "Karung",
     "satuan_kecil": "gram",
     "faktor_konversi": 1
   },
@@ -37,7 +37,7 @@
   {
     "nama": "KETUMBAR",
     "kategori": "bumbu",
-    "satuan": "kg",
+    "satuan": "Karung",
     "satuan_kecil": "gram",
     "faktor_konversi": 1
   },
@@ -45,15 +45,15 @@
     "nama": "KUNYIT",
     "kategori": "bumbu",
     "satuan": "crt",
-    "satuan_kecil": null,
+    "satuan_kecil": "Sachet",
     "faktor_konversi": 1
   },
   {
     "nama": "SAOS SAMYANG",
     "kategori": "bumbu",
-    "satuan": "kg",
+    "satuan": "Dus",
     "satuan_kecil": "gram",
-    "faktor_konversi": 1000
+    "faktor_konversi": 20000
   },
   {
     "nama": "SASA",
@@ -86,16 +86,16 @@
   {
     "nama": "KEJU",
     "kategori": "item core",
-    "satuan": "crt",
+    "satuan": "Dus",
     "satuan_kecil": "lembar",
     "faktor_konversi": 240
   },
   {
     "nama": "KENTANG",
     "kategori": "item core",
-    "satuan": "kg",
+    "satuan": "Karton",
     "satuan_kecil": "gram",
-    "faktor_konversi": 1000
+    "faktor_konversi": 4000
   },
   {
     "nama": "KULIT 25",
@@ -128,9 +128,9 @@
   {
     "nama": "MAYONES",
     "kategori": "item core",
-    "satuan": "kg",
+    "satuan": "Dus",
     "satuan_kecil": "gram",
-    "faktor_konversi": 1000
+    "faktor_konversi": 12000
   },
   {
     "nama": "MINYAK SAYUR",
@@ -142,16 +142,16 @@
   {
     "nama": "SAOS CABE",
     "kategori": "item core",
-    "satuan": "kg",
-    "satuan_kecil": "gram",
-    "faktor_konversi": 1000
+    "satuan": "Dus",
+    "satuan_kecil": "Kg",
+    "faktor_konversi": 16500
   },
   {
     "nama": "SAOS TOMAT",
     "kategori": "item core",
-    "satuan": "kg",
+    "satuan": "Dus",
     "satuan_kecil": "gram",
-    "faktor_konversi": 1000
+    "faktor_konversi": 16500
   },
   {
     "nama": "SAPI",
@@ -171,106 +171,120 @@
     "nama": "CUP + TUTUP",
     "kategori": "kemasan",
     "satuan": "pcs",
-    "satuan_kecil": null,
+    "satuan_kecil": "Pcs",
     "faktor_konversi": 1
   },
   {
     "nama": "DUS PACKING",
     "kategori": "kemasan",
-    "satuan": "pcs",
-    "satuan_kecil": null,
-    "faktor_konversi": 1
+    "satuan": "Bungkus",
+    "satuan_kecil": "Pcs",
+    "faktor_konversi": 500
   },
   {
     "nama": "FOIL",
     "kategori": "kemasan",
-    "satuan": "pcs",
+    "satuan": "Dus",
     "satuan_kecil": "cm",
-    "faktor_konversi": 760
+    "faktor_konversi": 18240
   },
   {
     "nama": "KERTAS STRUK",
     "kategori": "kemasan",
     "satuan": "pack",
-    "satuan_kecil": null,
+    "satuan_kecil": "Roll",
     "faktor_konversi": 1
   },
   {
     "nama": "PAPER WRAP",
     "kategori": "kemasan",
-    "satuan": "pcs",
-    "satuan_kecil": null,
-    "faktor_konversi": 1
+    "satuan": "Pack",
+    "satuan_kecil": "Lembar",
+    "faktor_konversi": 500
   },
   {
     "nama": "PLASTIK BESAR",
     "kategori": "kemasan",
-    "satuan": "pack",
-    "satuan_kecil": null,
+    "satuan": "Ikat",
+    "satuan_kecil": "Lembar",
     "faktor_konversi": 1
   },
   {
     "nama": "PLASTIK KECIL",
     "kategori": "kemasan",
     "satuan": "ikat",
-    "satuan_kecil": null,
+    "satuan_kecil": "Lembar",
     "faktor_konversi": 1
   },
   {
     "nama": "PLASTIK MERAH",
     "kategori": "kemasan",
-    "satuan": "pcs",
-    "satuan_kecil": null,
-    "faktor_konversi": 1
+    "satuan": "Ikat",
+    "satuan_kecil": "Lembar",
+    "faktor_konversi": 100
   },
   {
     "nama": "PLASTIK VACUM",
     "kategori": "kemasan",
     "satuan": "pcs",
-    "satuan_kecil": null,
-    "faktor_konversi": 1
+    "satuan_kecil": "Lembar",
+    "faktor_konversi": 100
   },
   {
     "nama": "POLYBAG",
     "kategori": "kemasan",
-    "satuan": "pack",
-    "satuan_kecil": null,
+    "satuan": "Ikat",
+    "satuan_kecil": "Lembar",
     "faktor_konversi": 1
   },
   {
-    "nama": "SARUNG TANGAN BENI",
+    "nama": "SARUNG TANGAN BENING",
     "kategori": "kemasan",
     "satuan": "pack",
-    "satuan_kecil": null,
+    "satuan_kecil": "Pcs",
     "faktor_konversi": 1
   },
   {
     "nama": "STIKER",
     "kategori": "kemasan",
-    "satuan": "pcs",
+    "satuan": "Roll",
+    "satuan_kecil": "Pcs",
+    "faktor_konversi": 100
+  },
+  {
+    "nama": "Cling Wrap",
+    "kategori": "Lain-lain",
+    "satuan": "Dus",
+    "satuan_kecil": "Roll",
+    "faktor_konversi": 1
+  },
+  {
+    "nama": "test",
+    "kategori": "Lain-lain",
+    "satuan": "Blok",
     "satuan_kecil": null,
     "faktor_konversi": 1
   },
   {
     "nama": "MIE",
     "kategori": "lainnya",
-    "satuan": "pcs",
-    "satuan_kecil": null,
-    "faktor_konversi": 1
+    "satuan": "Dus",
+    "satuan_kecil": "Gram",
+    "faktor_konversi": 40
   },
   {
     "nama": "SABUN",
     "kategori": "lainnya",
     "satuan": "pcs",
-    "satuan_kecil": null,
+    "satuan_kecil": "Ml",
     "faktor_konversi": 1
   },
   {
     "nama": "ES BATU",
     "kategori": "minuman",
-    "satuan": "pcs",
-    "satuan_kecil": null,
-    "faktor_konversi": 1
+    "satuan": "Bal",
+    "satuan_kecil": "Gram",
+    "faktor_konversi": 1000
   },
   {
     "nama": "POWDER MIX",

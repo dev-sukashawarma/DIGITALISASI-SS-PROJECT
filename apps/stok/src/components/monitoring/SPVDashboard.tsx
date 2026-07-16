@@ -25,6 +25,7 @@ import { fetchPendingWasteReports } from '@/app/actions/waste';
 import { useQuery } from '@tanstack/react-query';
 import { BottomNav } from '@/components/common/BottomNav';
 import { ProductionEstimateWidget } from './ProductionEstimateWidget';
+import { updateThresholdAction } from '@/app/actions/threshold';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
   const name = outletName.toUpperCase();
@@ -280,13 +281,34 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     setTransferItem(null);
   };
 
-  const handleThresholdChange = (outletId: string, bahanBakuId: string, value: number) => {
+  const handleThresholdChange = async (outletId: string, bahanBakuId: string, value: number) => {
+    // Optimistic update
     const overrideKey = `${outletId}-${bahanBakuId}`;
     setLocalThresholdOverrides(prev => ({
       ...prev,
       [overrideKey]: value
     }));
-    showToast(`✅ Batas minimum (Threshold) diperbarui menjadi ${value}`);
+    
+    // Save to DB
+    try {
+      await updateThresholdAction(outletId, bahanBakuId, value);
+      showToast(`✅ Batas minimum (Threshold) diperbarui menjadi ${value}`);
+      // Refresh real data to ensure sync
+      if (isLeaderScoped) {
+        leaderQuery.refetch();
+      } else {
+        spvQuery.refetch();
+      }
+    } catch (error) {
+      console.error('Failed to update threshold:', error);
+      showToast('❌ Gagal menyimpan threshold. Silakan coba lagi.');
+      // Revert optimistic update
+      setLocalThresholdOverrides(prev => {
+        const next = { ...prev };
+        delete next[overrideKey];
+        return next;
+      });
+    }
   };
 
 

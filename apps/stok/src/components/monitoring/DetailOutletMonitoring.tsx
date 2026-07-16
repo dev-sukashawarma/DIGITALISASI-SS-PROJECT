@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList, fetchOutletItemsDetail } from '@/lib/queries/monitoring';
+import { getBahanBakuSource } from '@suka/design-system';
 
 function formatLedgerType(type: string): string {
   const map: Record<string, string> = {
@@ -73,12 +74,16 @@ export function DetailOutletMonitoring({ outletId }: { outletId: string }) {
 
   // Filter items in real-time
   const filteredItems = useMemo(() => {
+    const isGudang = outletName.toUpperCase().includes('GUDANG');
     return items.filter((item) => {
+      const source = getBahanBakuSource(item.item_name);
+      if (source === 'GUDANG_PUSAT' && !isGudang) return false;
+
       const matchesSearch = item.item_name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [items, searchQuery, statusFilter]);
+  }, [items, searchQuery, statusFilter, outletName]);
 
   if (isLoading) {
     return (
@@ -351,6 +356,24 @@ export function DetailOutletMonitoring({ outletId }: { outletId: string }) {
                     <h3 className="text-sm font-black text-suka-ink uppercase tracking-wide leading-snug line-clamp-1">
                       {item.item_name}
                     </h3>
+                    {(() => {
+                      const source = getBahanBakuSource(item.item_name);
+                      if (source === 'UNKNOWN') return null;
+                      let badgeClass = '';
+                      let badgeLabel = '';
+                      if (source === 'KITCHEN' || source === 'GUDANG_PUSAT') {
+                        badgeClass = 'bg-red-50 text-red-700 border-red-200';
+                        badgeLabel = 'Gedung Pusat';
+                      } else if (source === 'OUTLET') {
+                        badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                        badgeLabel = 'Outlet';
+                      }
+                      return (
+                        <span className={`inline-block mt-1 px-1.5 py-0.5 text-[9px] font-bold uppercase rounded border ${badgeClass}`}>
+                          {badgeLabel}
+                        </span>
+                      )
+                    })()}
                   </div>
 
                   <div className="bg-suka-cream/35 border border-suka-brown/5 rounded-xl p-2.5 flex items-center justify-between">

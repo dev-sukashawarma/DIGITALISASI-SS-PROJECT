@@ -84,8 +84,8 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
       if (pendingItemIds.has(c.bahan_baku_id)) return
       const b = bahanBaku.find(x => x.id === c.bahan_baku_id)
       const distUnit = b?.satuan_distribusi || c.satuan
-      // qtyDist uses saran_qty (recommendation after subtracting current stock), not total kebutuhan
-      const qtyDist = b ? convertToDistribusiUnit(c.saran_qty, b) : c.saran_qty
+      // qtyDist uses c.kebutuhan so the 'Pembulatan' shows the rounded-up raw requirement regardless of stock
+      const qtyDist = b ? convertToDistribusiUnit(c.kebutuhan, b) : c.kebutuhan
       map.set(c.bahan_baku_id, {
         id: c.bahan_baku_id,
         nama: c.nama_bahan,

@@ -77,18 +77,20 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
 
   // Combine Final Cart
   const finalCart = useMemo(() => {
-    const map = new Map<string, { id: string, nama: string, satuan: string, qty: number, source: 'calc' | 'manual' | 'both', current_qty?: number, kebutuhan?: number }>()
+    const map = new Map<string, { id: string, nama: string, satuan: string, dist_satuan: string, qty: number, source: 'calc' | 'manual' | 'both', current_qty?: number, kebutuhan?: number }>()
     
     // Add Calculated
     calculatedResult.forEach(c => {
       if (pendingItemIds.has(c.bahan_baku_id)) return
       const b = bahanBaku.find(x => x.id === c.bahan_baku_id)
       const distUnit = b?.satuan_distribusi || c.satuan
-      const qtyDist = b ? convertToDistribusiUnit(c.kebutuhan, b) : c.kebutuhan
+      // qtyDist uses saran_qty (recommendation after subtracting current stock), not total kebutuhan
+      const qtyDist = b ? convertToDistribusiUnit(c.saran_qty, b) : c.saran_qty
       map.set(c.bahan_baku_id, {
         id: c.bahan_baku_id,
         nama: c.nama_bahan,
-        satuan: distUnit,
+        satuan: c.satuan,
+        dist_satuan: distUnit,
         qty: Math.ceil(qtyDist),
         source: 'calc',
         current_qty: c.sisa_stok,
@@ -96,7 +98,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
       })
     })
 
-    // Add Manual/Kritis
+    // Add Manual
     Object.entries(manualBahan).forEach(([id, qty]) => {
       if (qty <= 0 || pendingItemIds.has(id)) return
       const b = bahanBaku.find(x => x.id === id)
@@ -112,7 +114,8 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
         map.set(id, {
           id,
           nama: b.nama,
-          satuan: distUnit,
+          satuan: b.satuan,
+          dist_satuan: distUnit,
           qty,
           source: 'manual',
           current_qty: saranItem?.current_qty
@@ -304,7 +307,6 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
                   <div className="flex justify-between items-center md:justify-end mt-3 md:mt-0 pt-3 md:pt-0 border-t border-suka-gray-100 md:border-0">
                     <span className="md:hidden text-[10px] font-bold text-suka-gray-500 uppercase">Dipesan</span>
                     {item.source === 'manual' ? (
-                      // User can adjust manual items
                       <div className="flex items-center bg-suka-gray-50 rounded-lg p-1 border border-suka-gray-200">
                         <button onClick={() => updateManualBahan(item.id, -1)} className="w-8 h-8 flex items-center justify-center text-suka-brown font-bold rounded hover:bg-white hover:shadow-sm transition-all">-</button>
                         <input 
@@ -315,10 +317,9 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
                         <button onClick={() => updateManualBahan(item.id, 1)} className="w-8 h-8 flex items-center justify-center text-suka-brown font-bold rounded hover:bg-white hover:shadow-sm transition-all">+</button>
                       </div>
                     ) : (
-                      // Calculated items are mostly read-only unless we allow overriding. For now, show readonly.
                       <div className="text-right flex items-baseline gap-1">
                         <span className="font-bold text-suka-ink text-xl md:text-lg">{item.qty}</span>
-                        <span className="text-suka-gray-500 text-[11px] md:text-[10px]">{item.satuan}</span>
+                        <span className="text-suka-gray-500 text-[11px] md:text-[10px]">{item.dist_satuan || item.satuan}</span>
                       </div>
                     )}
                   </div>

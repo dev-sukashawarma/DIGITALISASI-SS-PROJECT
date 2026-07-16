@@ -8,7 +8,6 @@ import { Toaster } from 'sonner'
 
 import { RoleProvider } from '@/components/layout/RoleContext'
 import { GlobalDialogs } from '@/components/GlobalDialogs'
-import { GlobalRealtimeProvider } from '@/components/GlobalRealtimeProvider'
 
 export function Providers({
   children,
@@ -36,11 +35,9 @@ export function Providers({
     <QueryClientProvider client={queryClient}>
       <AuthProvider supabase={supabase} initialStaff={initialStaff}>
         <RoleProvider>
-          <GlobalRealtimeProvider>
-            {children}
-            <Toaster richColors position="top-center" />
-            <GlobalDialogs />
-          </GlobalRealtimeProvider>
+          {children}
+          <Toaster richColors position="top-center" />
+          <GlobalDialogs />
         </RoleProvider>
       </AuthProvider>
     </QueryClientProvider>

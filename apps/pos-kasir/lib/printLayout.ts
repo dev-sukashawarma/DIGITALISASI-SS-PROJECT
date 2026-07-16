@@ -34,8 +34,8 @@ export const DEFAULT_PRINT_LAYOUT: PrintLayout = {
     fontFamily: 'monospace', fontSizePx: 14, bold: true, marginMm: 2,
   },
   struk_dapur: {
-    paperWidth: 58, showLogo: true, headerText: 'STRUK DAPUR', fontScale: 'besar', showCustomer: true,
-    fontFamily: 'monospace', fontSizePx: 22, bold: true, marginMm: 2,
+    paperWidth: 58, showLogo: false, headerText: 'STRUK DAPUR', fontScale: 'normal', showCustomer: true,
+    fontFamily: 'monospace', fontSizePx: 14, bold: true, marginMm: 2,
   },
   qr_surat_jalan: {
     paperWidth: 58, showLogo: false, title: 'VERIFIKASI SJ', footerText: 'Distribusi\nSuka Shawarma', qrSizeMm: 45,

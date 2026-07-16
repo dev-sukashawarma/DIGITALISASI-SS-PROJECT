@@ -125,12 +125,17 @@ export default function OrderManualPage() {
 
         const fetchedItems = menuRes.data ?? []
         const fetchedCategories = catRes.data ?? []
+        const settings = unavRes.data
         const parseIds = (raw: string | null | undefined) => {
           try { return raw ? JSON.parse(raw) : [] } catch { return [] }
         }
 
         const getSetting = (key: string, preferGlobal: boolean = false) => {
-          const rows = unavRes.data?.filter(s => s.key === key) || []
+          if (['bestseller_ids', 'upsell_ids', 'recommendation_ids'].includes(key)) {
+            const globalRow = settings?.find(s => s.key === key && (s.outlet_id === null || s.outlet_id === PUSAT_OUTLET_ID))
+            return parseIds(globalRow?.value || '[]')
+          }
+          const rows = settings?.filter(s => s.key === key) || []
           const sortedRows = [...rows].sort((a, b) => {
             const getWeight = (id: string | null) => {
               if (preferGlobal) {
@@ -226,9 +231,10 @@ export default function OrderManualPage() {
       .channel(`kasir-order-manual-${outletId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => fetchMenu())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'kiosk_settings' }, (payload: any) => {
-        if (payload.new && (payload.new.outlet_id === outletId || payload.new.outlet_id === null)) {
+        const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
+        if (payload.new && (payload.new.outlet_id === outletId || payload.new.outlet_id === null || payload.new.outlet_id === PUSAT_OUTLET_ID)) {
           fetchMenu()
-        } else if (payload.old && (payload.old.outlet_id === outletId || payload.old.outlet_id === null)) {
+        } else if (payload.old && (payload.old.outlet_id === outletId || payload.old.outlet_id === null || payload.old.outlet_id === PUSAT_OUTLET_ID)) {
           fetchMenu()
         }
       })

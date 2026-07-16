@@ -32,7 +32,6 @@ export default function InfoPorsiPage() {
           .from('monitoring_view_crew')
           .select('item_name, projection_text')
           .eq('outlet_id', outletId)
-          .eq('status', 'below')
 
         if (!criticalItems || criticalItems.length === 0) {
           setLimitedMenus([])
@@ -59,7 +58,7 @@ export default function InfoPorsiPage() {
         })
 
         const sorted = Object.entries(menuPortions)
-          .sort((a, b) => a[1] - b[1])
+          .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
 
         setLimitedMenus(sorted)
       } catch (e) {
@@ -75,12 +74,12 @@ export default function InfoPorsiPage() {
   return (
     <div className="flex-1 w-full flex flex-col bg-[#fff8f1] min-h-screen">
       <div className="px-4 pt-6 pb-4 max-w-[1600px] mx-auto w-full">
-        <div className="mb-6 flex items-start gap-3 bg-red-50 p-4 rounded-xl border border-red-100">
-          <AlertCircle className="w-6 h-6 text-red-500 shrink-0 mt-0.5" />
+        <div className="mb-6 flex items-start gap-3 bg-white p-4 rounded-xl border border-[#d9c2b2] shadow-sm">
+          <AlertCircle className="w-6 h-6 text-[#877365] shrink-0 mt-0.5" />
           <div>
-            <h1 className="text-xl font-bold text-red-800">Informasi Porsi & Bahan Baku</h1>
-            <p className="text-red-700/80 text-sm mt-1">
-              Halaman ini menampilkan seluruh menu yang bahan bakunya akan segera habis (di bawah batas minimal) atau sudah habis (0 porsi).
+            <h1 className="text-xl font-bold text-[#1e1b15]">Informasi Sisa Porsi Menu</h1>
+            <p className="text-[#877365] text-sm mt-1">
+              Halaman ini menampilkan estimasi sisa porsi untuk seluruh menu berdasarkan stok bahan baku saat ini.
             </p>
           </div>
         </div>
@@ -91,29 +90,47 @@ export default function InfoPorsiPage() {
           </div>
         ) : (!limitedMenus || limitedMenus.length === 0) ? (
           <div className="bg-white border border-[#d9c2b2] p-8 text-center rounded-2xl shadow-sm">
-            <h3 className="text-lg font-bold text-[#1e1b15]">Stok Aman</h3>
-            <p className="text-[#877365]">Tidak ada menu dengan porsi kritis (di bawah batas minimal).</p>
+            <h3 className="text-lg font-bold text-[#1e1b15]">Belum Ada Data</h3>
+            <p className="text-[#877365]">Tidak ada data stok/resep yang dapat dihitung porsinya.</p>
           </div>
         ) : (
-          <div className="block w-full bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">
+          <div className="block w-full bg-white border border-[#d9c2b2] rounded-xl p-4 shadow-sm">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h3 className="text-red-800 font-bold text-base mb-3">
-                  Sisa Porsi Menu Saat Ini:
+                <h3 className="text-[#1e1b15] font-bold text-base mb-3">
+                  Estimasi Porsi Tersedia:
                 </h3>
                 <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-3">
-                  {limitedMenus.map(([menuName, portions], idx) => (
-                    <li key={idx} className="flex flex-col gap-1 text-red-800 text-sm bg-red-100/50 p-3 rounded-lg border border-red-100/80">
-                      <span className="font-semibold leading-tight flex-1">
-                        {menuName}
-                      </span>
-                      <span className="font-bold text-red-600 flex items-center gap-1.5 mt-auto">
-                        <span className={`inline-block w-2 h-2 rounded-full ${portions === 0 ? 'bg-red-600' : 'bg-orange-500'}`}></span>
-                        {portions === 0 ? 'HABIS (0 porsi)' : `Sisa ${portions} porsi`}
-                      </span>
-                    </li>
-                  ))}
+                  {limitedMenus.map(([menuName, portions], idx) => {
+                    let textColor = 'text-green-700';
+                    let bgColor = 'bg-green-50';
+                    let borderColor = 'border-green-200';
+                    let dotColor = 'bg-green-500';
+
+                    if (portions === 0) {
+                      textColor = 'text-red-700';
+                      bgColor = 'bg-red-50';
+                      borderColor = 'border-red-200';
+                      dotColor = 'bg-red-600';
+                    } else if (portions < 7) {
+                      textColor = 'text-orange-700';
+                      bgColor = 'bg-orange-50';
+                      borderColor = 'border-orange-200';
+                      dotColor = 'bg-orange-500';
+                    }
+
+                    return (
+                      <li key={idx} className={`flex flex-col gap-1 ${textColor} text-sm ${bgColor} p-3 rounded-lg border ${borderColor}`}>
+                        <span className="font-semibold leading-tight flex-1">
+                          {menuName}
+                        </span>
+                        <span className={`font-bold flex items-center gap-1.5 mt-auto`}>
+                          <span className={`inline-block w-2 h-2 rounded-full ${dotColor}`}></span>
+                          {portions === 0 ? 'HABIS (0 porsi)' : `Sisa ${portions} porsi`}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </div>

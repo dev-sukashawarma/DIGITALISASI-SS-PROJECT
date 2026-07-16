@@ -10,7 +10,7 @@ import { ReceiptSignatureStep } from './ReceiptSignatureStep'
 type Kondisi = 'baik' | 'jelek'
 
 type ItemVerification = {
-  qty_terima: number
+  qty_terima: number | ''
   kondisi: Kondisi
   catatan: string
   foto_path: string | null
@@ -67,7 +67,7 @@ export function VerifikasiForm({ id }: { id: string }) {
       const initial: Record<string, ItemVerification> = {}
       data.surat_jalan_item.forEach((item: any) => {
         initial[item.id] = {
-          qty_terima: 0, // Wajib input manual
+          qty_terima: '', // Wajib input manual
           kondisi: 'baik',
           catatan: '',
           foto_path: null,
@@ -140,7 +140,7 @@ export function VerifikasiForm({ id }: { id: string }) {
   const items = data.surat_jalan_item || []
   const currentItem = items[currentIndex]
   const currentVerif: ItemVerification = verifications[currentItem?.id] ?? {
-    qty_terima: 0, // Wajib input manual
+    qty_terima: '', // Wajib input manual
     kondisi: 'baik',
     catatan: '',
     foto_path: null,
@@ -157,8 +157,16 @@ export function VerifikasiForm({ id }: { id: string }) {
   }
 
   const handleBaik = () => {
-    if (currentVerif.qty_terima === 0) {
+    if (currentVerif.qty_terima === '' || currentVerif.qty_terima === 0) {
       alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
+      return
+    }
+    if (currentVerif.qty_terima < 0) {
+      alert('Qty terima tidak boleh kurang dari 0')
+      return
+    }
+    if (currentVerif.qty_terima > currentItem.qty_dikirim) {
+      alert('Qty terima tidak boleh melebihi qty dikirim')
       return
     }
     setVerifications((prev) => ({
@@ -169,8 +177,12 @@ export function VerifikasiForm({ id }: { id: string }) {
   }
 
   const handleJelekConfirm = () => {
-    if (currentVerif.qty_terima === 0) {
+    if (currentVerif.qty_terima === '') {
       alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
+      return
+    }
+    if (currentVerif.qty_terima < 0) {
+      alert('Qty terima tidak boleh kurang dari 0')
       return
     }
     if (currentVerif.qty_terima > currentItem.qty_dikirim) {
@@ -257,10 +269,10 @@ export function VerifikasiForm({ id }: { id: string }) {
         return supabase
           .from('surat_jalan_item')
           .update({
-            qty_terima: v.qty_terima,
+            qty_terima: Number(v.qty_terima),
             kondisi: v.kondisi === 'jelek' ? 'rusak' : 'baik',
             catatan: v.catatan || null,
-            flagged: v.qty_terima !== item.qty_dikirim || v.kondisi === 'jelek',
+            flagged: Number(v.qty_terima) !== item.qty_dikirim || v.kondisi === 'jelek',
             foto_path: v.foto_path || null,
             verified_at: new Date().toISOString(),
           })
@@ -416,11 +428,11 @@ export function VerifikasiForm({ id }: { id: string }) {
                   max={currentItem?.qty_dikirim}
                   value={currentVerif.qty_terima}
                   onChange={(e) => {
-                    const val = parseFloat(e.target.value) || 0
-                    setVerif({ qty_terima: val, kondisi: val < (currentItem?.qty_dikirim ?? 0) ? 'jelek' : currentVerif.kondisi })
+                    const val = e.target.value === '' ? '' : parseFloat(e.target.value) || 0
+                    setVerif({ qty_terima: val, kondisi: typeof val === 'number' && val < (currentItem?.qty_dikirim ?? 0) ? 'jelek' : currentVerif.kondisi })
                   }}
                   className={`border-2 rounded-xl px-2 py-1.5 text-lg font-extrabold text-center w-20 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] transition-all ${
-                    isJelekMode || currentVerif.qty_terima < (currentItem?.qty_dikirim ?? 0) ? 'border-[#ba1a1a]' : 'border-[#0a7d2c]'
+                    isJelekMode || (typeof currentVerif.qty_terima === 'number' && currentVerif.qty_terima < (currentItem?.qty_dikirim ?? 0)) ? 'border-[#ba1a1a]' : 'border-[#0a7d2c]'
                   }`}
                 />
                 <span className="text-xs font-bold text-[#544437]/70">{currentItem?.bahan_baku?.satuan}</span>
@@ -457,7 +469,7 @@ export function VerifikasiForm({ id }: { id: string }) {
                 </button>
                 <button
                   onClick={() => {
-                    if (currentVerif.qty_terima === 0) {
+                    if (currentVerif.qty_terima === '') {
                       alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
                       return
                     }

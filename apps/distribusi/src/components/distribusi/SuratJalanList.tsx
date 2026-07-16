@@ -7,6 +7,7 @@ import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
 import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { BottomNav } from './BottomNav'
+import { PrinterStatus } from './PrinterStatus'
 import { ArrowLeft, Plus, Calendar, AlertCircle, FileDown, Eye, Check, QrCode, Printer } from 'lucide-react'
 import { Skeleton } from '@suka/design-system'
 
@@ -40,6 +41,22 @@ export function SuratJalanList() {
     const url = `${window.location.origin}/distribusi/terima/${sjId}`
     const dataUrl = await generateQRDataUrl(url, 400)
     const layout = await fetchPrintLayout(createSupabaseBrowserClient()).catch(() => DEFAULT_PRINT_LAYOUT)
+    
+    // Check if bluetooth printer is connected
+    const { usePrinterStore } = await import('@/utils/printer/printerStore')
+    const store = usePrinterStore.getState()
+    
+    if (store.device && store.characteristic) {
+      try {
+        const { printQRViaBluetooth } = await import('@/utils/printer/bluetooth-printer')
+        await printQRViaBluetooth(docNumber, dataUrl, layout.qr_surat_jalan, { tanggal, tujuanOutlet })
+        return
+      } catch (err: any) {
+        alert('Gagal cetak via Bluetooth: ' + err.message)
+      }
+    }
+    
+    // Fallback to browser print if no bluetooth or bluetooth failed
     printBarcode(docNumber, dataUrl, layout.qr_surat_jalan, { tanggal, tujuanOutlet })
   }
 
@@ -117,11 +134,12 @@ export function SuratJalanList() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <PrinterStatus />
           <Link
             href="/distribusi/surat-jalan/new"
             className="px-3 py-2 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-suka-orange/20 uppercase tracking-widest active:scale-95 flex items-center gap-1 cursor-pointer"
           >
-            <Plus size={14} /> <span>Buat SJ</span>
+            <Plus size={14} /> <span className="hidden sm:inline">Buat SJ</span>
           </Link>
         </div>
       </header>

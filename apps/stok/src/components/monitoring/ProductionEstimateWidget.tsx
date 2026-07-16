@@ -1,15 +1,43 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
-import { calculateProductionEstimate } from '@/lib/stok/productionEstimate';
+import { calculateProductionEstimate, type ProductionEstimate } from '@/lib/stok/productionEstimate';
+import { fetchEstimasiRecipes, type EstimasiRecipe } from '@/app/actions/estimasi_produksi';
 
 interface Props {
   items: Partial<MonitoringItem>[];
 }
 
 export function ProductionEstimateWidget({ items }: Props) {
-  const estimates = useMemo(() => calculateProductionEstimate(items), [items]);
+  const [recipes, setRecipes] = useState<EstimasiRecipe[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const outletId = items.length > 0 ? items[0].outlet_id : null;
+
+  useEffect(() => {
+    if (!outletId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    fetchEstimasiRecipes(outletId)
+      .then(setRecipes)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [outletId]);
+
+  const estimates = useMemo(() => calculateProductionEstimate(items, recipes), [items, recipes]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl border border-suka-brown/20 shadow-sm p-4 animate-pulse">
+        <div className="h-4 bg-suka-gray-200 rounded w-1/3 mb-2"></div>
+        <div className="h-3 bg-suka-gray-200 rounded w-1/2"></div>
+      </div>
+    );
+  }
 
   if (estimates.length === 0) return null;
 

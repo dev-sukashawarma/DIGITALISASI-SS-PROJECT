@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { useOfflineQueue } from '@suka/offline-queue'
 import type { Opname, OpnameItem } from '@/types/stok'
-import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
+import { useRealtimeInvalidate } from '@suka/realtime'
 
 export function useOpnameList(outletId: string | null | undefined) {
   const { data, isLoading } = useQuery({

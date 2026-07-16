@@ -1,7 +1,7 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { fetchPendingWasteReports, fetchMyWasteReports } from '@/app/actions/waste'
-import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
+import { useRealtimeInvalidate } from '@suka/realtime'
 import type { WasteReport } from '@/types/stok'
 
 /**

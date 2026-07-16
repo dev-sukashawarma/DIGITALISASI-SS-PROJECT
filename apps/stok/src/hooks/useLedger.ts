@@ -2,7 +2,7 @@
 import { useCallback, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
-import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
+import { useRealtimeInvalidate } from '@suka/realtime'
 import type { LedgerTipe, LedgerTransaksiSummary, LedgerTransaksiDetailRow } from '@/types/stok'
 
 const PAGE_SIZE = 50

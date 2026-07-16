@@ -2,7 +2,7 @@
 import { useId, useEffect } from 'react'
 import { useAuth } from '@suka/auth'
 import { useQuery } from '@tanstack/react-query'
-import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
+import { useRealtimeInvalidate } from '@suka/realtime'
 import { createClient } from '@/lib/supabase'
 import type { BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 import {

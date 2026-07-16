@@ -4,7 +4,7 @@ import { useAuth } from '@suka/auth';
 import type { SPVMonitoringData, CrewMonitoringData } from '@/lib/types/monitoring';
 import { fetchSPVMonitoringData, fetchLeaderMonitoringData, fetchCrewMonitoringData, fetchRecentLedger, fetchStockoutForecast, fetchWasteToday } from '@/lib/queries/monitoring';
 import { useAutoRefresh } from './useAutoRefresh';
-import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate';
+import { useRealtimeInvalidate } from '@suka/realtime';
 
 /**
  * Live activity feed (cross-outlet stock movements) for the SPV monitoring board.

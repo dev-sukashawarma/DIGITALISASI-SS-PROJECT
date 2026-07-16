@@ -2,7 +2,7 @@
 import { useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
-import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
+import { useRealtimeInvalidate } from '@suka/realtime'
 import type { StokBalance } from '@/types/stok'
 
 export function useStokBalance(outletId: string | undefined) {

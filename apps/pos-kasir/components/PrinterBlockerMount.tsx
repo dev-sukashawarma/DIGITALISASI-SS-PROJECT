@@ -102,12 +102,12 @@ export default function PrinterBlockerMount() {
             <p className="text-slate-500">{device?.name || 'Printer Bluetooth'} siap digunakan.</p>
           </div>
         ) : isScanningAnim ? (
-          <div className="flex flex-col items-center justify-center text-center bg-gradient-to-b from-indigo-50/50 to-white min-h-[460px] animate-in fade-in duration-300">
+          <div className="flex flex-col items-center justify-center text-center bg-gradient-to-b from-blue-50/50 to-white min-h-[460px] animate-in fade-in duration-300">
             <div className="relative w-40 h-40 flex items-center justify-center mb-8 mt-4">
-              <div className="absolute inset-[-20px] bg-indigo-500 rounded-full animate-[ping_2.5s_infinite] opacity-20"></div>
-              <div className="absolute inset-[-10px] bg-indigo-400 rounded-full animate-[ping_2.5s_infinite_400ms] opacity-30"></div>
-              <div className="absolute inset-0 bg-indigo-300 rounded-full animate-[ping_2.5s_infinite_800ms] opacity-40"></div>
-              <div className="relative z-10 w-24 h-24 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center shadow-xl shadow-indigo-500/40 border-4 border-white">
+              <div className="absolute inset-[-20px] bg-blue-500 rounded-full animate-[ping_2.5s_infinite] opacity-20"></div>
+              <div className="absolute inset-[-10px] bg-blue-400 rounded-full animate-[ping_2.5s_infinite_400ms] opacity-30"></div>
+              <div className="absolute inset-0 bg-blue-300 rounded-full animate-[ping_2.5s_infinite_800ms] opacity-40"></div>
+              <div className="relative z-10 w-24 h-24 bg-[#0082FC] rounded-full flex items-center justify-center shadow-xl shadow-blue-500/40 border-4 border-white">
                 <Bluetooth className="w-10 h-10 text-white animate-pulse" />
               </div>
             </div>

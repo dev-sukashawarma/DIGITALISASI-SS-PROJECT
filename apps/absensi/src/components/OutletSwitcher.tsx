@@ -4,33 +4,40 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { Store } from "lucide-react";
 import { Select } from "@/components/Select";
+import { useAuth } from '@suka/auth';
 
 type Outlet = { id: string; name: string };
 
 export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId: string, onChange: (id: string) => void }) {
   const supabase = createClient();
+  const { outletStaff } = useAuth();
   const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     async function load() {
-      // 1. Get accessible IDs
-      const { data: rpcData, error } = await supabase.rpc("accessible_outlet_ids");
-      if (error) {
-        if (mounted) setLoading(false);
-        return;
+      const isSpv = outletStaff?.role === 'spv';
+      let ids: string[] = [];
+      
+      if (!isSpv) {
+        // 1. Get accessible IDs
+        const { data: rpcData, error } = await supabase.rpc("accessible_outlet_ids");
+        if (error) {
+          if (mounted) setLoading(false);
+          return;
+        }
+        ids = rpcData?.map((r: any) => typeof r === 'string' ? r : r.accessible_outlet_ids) || [];
       }
-      
-      const ids = rpcData?.map((r: any) => typeof r === 'string' ? r : r.accessible_outlet_ids) || [];
-      
+
       // 2. Fetch outlet details
-      if (ids.length > 0) {
-        const { data } = await supabase
-          .from("outlets")
-          .select("id, name")
-          .in("id", ids)
-          .order("name");
+      if (isSpv || ids.length > 0) {
+        let query = supabase.from("outlets").select("id, name").order("name");
+        if (!isSpv && ids.length > 0) {
+          query = query.in("id", ids);
+        }
+        const { data } = await query;
+        
         if (data && mounted) {
           setOutlets(data);
           if (!currentOutletId && data.length > 0) {
@@ -42,7 +49,7 @@ export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId:
     }
     load();
     return () => { mounted = false; };
-  }, [supabase, currentOutletId, onChange]);
+  }, [supabase, currentOutletId, onChange, outletStaff]);
 
   if (loading || outlets.length <= 1) return null;
 

@@ -28,7 +28,7 @@ export default async function EditResepPage({ params }: { params: Promise<{ menu
   // Fetch all bahan baku for dropdown (+ harga & isi kemasan untuk kartu HPP)
   const { data: bahanBakuList } = await supabase
     .from('bahan_baku')
-    .select('id, nama, satuan, satuan_kecil, kategori, faktor_konversi, bahan_baku_harga(harga_beli, harga_beli_display, kemasan_qty, kemasan_satuan), bahan_baku_sku(nama_kemasan, qty_isi, harga_beli, is_default, is_active)')
+    .select('id, nama, satuan, satuan_kecil, kategori, faktor_konversi, bahan_baku_harga(harga_beli, harga_beli_display, kemasan_qty, kemasan_satuan), bahan_baku_sku(nama_kemasan, qty_isi, harga_beli, is_default, is_active, tingkatan_satuan, image_url)')
     .order('nama')
 
   // Fetch existing global recipe (+ buffer Loss & catatan)

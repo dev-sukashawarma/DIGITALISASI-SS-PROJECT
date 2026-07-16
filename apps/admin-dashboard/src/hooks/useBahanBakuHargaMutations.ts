@@ -82,7 +82,7 @@ export function useBahanBakuHargaMutations() {
   })
 
   const addSku = useMutation({
-    mutationFn: async (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean }) => {
+    mutationFn: async (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean; tingkatan_satuan?: string | null }) => {
       // Jika ini sku default, set semua sku lain untuk bahan baku ini menjadi non-default
       if (vars.is_default) {
         await supabase.from('bahan_baku_sku').update({ is_default: false }).eq('bahan_baku_id', vars.bahan_baku_id)
@@ -93,7 +93,8 @@ export function useBahanBakuHargaMutations() {
         nama_kemasan: vars.nama_kemasan,
         qty_isi: vars.qty_isi,
         harga_beli: vars.harga_beli,
-        is_default: vars.is_default || false
+        is_default: vars.is_default || false,
+        tingkatan_satuan: vars.tingkatan_satuan || null
       })
       if (error) throw new Error(error.message)
     },
@@ -131,5 +132,21 @@ export function useBahanBakuHargaMutations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
   })
 
-  return { setHarga, setMerek, setNama, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku }
+  const setSkuImage = useMutation({
+    mutationFn: async (vars: { sku_id: string; file: File }) => {
+      const ext = vars.file.name.split('.').pop()
+      const path = `sku_${vars.sku_id}_${Date.now()}.${ext}`
+      
+      const { error: uploadError } = await supabase.storage.from('bahan-baku').upload(path, vars.file)
+      if (uploadError) throw new Error(uploadError.message)
+      
+      const { data: { publicUrl } } = supabase.storage.from('bahan-baku').getPublicUrl(path)
+      
+      const { error: dbError } = await supabase.from('bahan_baku_sku').update({ image_url: publicUrl }).eq('id', vars.sku_id)
+      if (dbError) throw new Error(dbError.message)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
+  })
+
+  return { setHarga, setMerek, setNama, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku, setSkuImage }
 }

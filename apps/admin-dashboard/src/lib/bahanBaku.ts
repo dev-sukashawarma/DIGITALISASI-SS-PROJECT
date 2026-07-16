@@ -30,6 +30,8 @@ export interface BahanBakuSku {
   harga_beli: number
   is_default: boolean
   is_active: boolean
+  tingkatan_satuan?: string | null
+  image_url?: string | null
   created_at: string
 }
 

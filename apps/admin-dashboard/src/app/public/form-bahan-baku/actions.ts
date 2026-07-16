@@ -32,7 +32,7 @@ export async function getBahanBakuList(token: string) {
     // Fetch active bahan baku, order by name
     const { data, error } = await supabase
       .from('bahan_baku')
-      .select('id, nama, kategori, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, image_url, image_url_tengah, image_url_kecil, is_fisik_checked, bahan_baku_sku(id, nama_kemasan, qty_isi, harga_beli, is_default, is_active, created_at)')
+      .select('id, nama, kategori, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, image_url, image_url_tengah, image_url_kecil, is_fisik_checked, bahan_baku_sku(id, nama_kemasan, qty_isi, harga_beli, is_default, is_active, tingkatan_satuan, image_url, created_at)')
       .eq('is_active', true)
       .order('nama')
 
@@ -44,7 +44,7 @@ export async function getBahanBakuList(token: string) {
   }
 }
 
-export async function addBahanBakuSku(token: string, vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default: boolean }) {
+export async function addBahanBakuSku(token: string, vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default: boolean; tingkatan_satuan?: string | null }) {
   if (token !== MAGIC_TOKEN) return { success: false, error: 'Akses ditolak' }
   const supabase = createServiceClient()
   if (vars.is_default) {
@@ -56,7 +56,8 @@ export async function addBahanBakuSku(token: string, vars: { bahan_baku_id: stri
     qty_isi: vars.qty_isi,
     harga_beli: vars.harga_beli,
     is_default: vars.is_default,
-    is_active: true
+    is_active: true,
+    tingkatan_satuan: vars.tingkatan_satuan || null
   })
   if (error) return { success: false, error: error.message }
   revalidatePath('/public/form-bahan-baku')

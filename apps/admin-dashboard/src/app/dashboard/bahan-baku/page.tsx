@@ -12,7 +12,7 @@ import { BahanBakuTable } from '@/components/BahanBakuTable'
 
 export default function BahanBakuPage() {
   const { data: rows = [], isLoading } = useBahanBakuHarga()
-  const { setHarga, setMerek, setNama, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku } = useBahanBakuHargaMutations()
+  const { setHarga, setMerek, setNama, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku, setSkuImage } = useBahanBakuHargaMutations()
   const { data: priceAlerts = [] } = usePOPriceAlerts()
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('nama-asc')
@@ -139,7 +139,11 @@ export default function BahanBakuPage() {
               onSuccess: () => toast.success('SKU default diubah'),
               onError: (e: any) => toast.error(e.message),
             })}
-            skuSaving={addSku.isPending || updateSku.isPending || deleteSku.isPending || setDefaultSku.isPending}
+            setSkuImage={(sku_id, file) => setSkuImage.mutate({ sku_id, file }, {
+              onSuccess: () => toast.success('Gambar SKU berhasil diunggah'),
+              onError: (e: any) => toast.error(e.message),
+            })}
+            skuSaving={addSku.isPending || updateSku.isPending || deleteSku.isPending || setDefaultSku.isPending || setSkuImage.isPending}
             priceAlerts={priceAlerts}
           />
         )}

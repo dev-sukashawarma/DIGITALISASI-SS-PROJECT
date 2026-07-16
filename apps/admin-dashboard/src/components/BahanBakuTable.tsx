@@ -25,10 +25,11 @@ export function BahanBakuTable({
   saving: boolean
   onUploadImage: (bahanBakuId: string, file: File, level: 'besar' | 'tengah' | 'kecil') => void
   uploading: boolean
-  onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean }) => void
+  onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean; tingkatan_satuan?: string | null }) => void
   onUpdateSku: (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number }) => void
   onDeleteSku: (sku_id: string) => void
   onSetDefaultSku: (vars: { bahan_baku_id: string; sku_id: string }) => void
+  setSkuImage?: (sku_id: string, file: File) => void
   skuSaving: boolean
   priceAlerts?: PriceAlert[]
 }) {
@@ -203,6 +204,7 @@ export function BahanBakuTable({
         onDeleteSku={onDeleteSku}
         onSetDefaultSku={onSetDefaultSku}
         skuSaving={skuSaving}
+        setSkuImage={setSkuImage}
       />
     </div>
   )

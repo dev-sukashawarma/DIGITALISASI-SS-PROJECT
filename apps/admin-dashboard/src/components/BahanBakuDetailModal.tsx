@@ -21,7 +21,8 @@ interface BahanBakuDetailModalProps {
   onSaveNama: (id: string, n: string) => void
   onSaveSatuan: (id: string, s: string, st: string | null, ft: number | null, sk: string | null, fk: number | null) => void
   saving: boolean
-  onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean }) => void
+  onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean; tingkatan_satuan?: string | null }) => void
+  setSkuImage?: (sku_id: string, file: File) => void
   onUpdateSku: (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number }) => void
   onDeleteSku: (sku_id: string) => void
   onSetDefaultSku: (vars: { bahan_baku_id: string; sku_id: string }) => void
@@ -31,12 +32,14 @@ interface BahanBakuDetailModalProps {
 export function BahanBakuDetailModal({
   isOpen, onClose, bahanBaku, onUploadImage, uploading,
   onSave, onSaveMerek, onSaveNama, onSaveSatuan, saving,
-  onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving
+  onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving, setSkuImage
 }: BahanBakuDetailModalProps) {
   const fileInputRefBesar = useRef<HTMLInputElement>(null)
   const fileInputRefTengah = useRef<HTMLInputElement>(null)
   const fileInputRefKecil = useRef<HTMLInputElement>(null)
+  const skuFileInputRef = useRef<HTMLInputElement>(null)
   
+  const [activeSkuUploadId, setActiveSkuUploadId] = useState<string | null>(null)
   const [isEditingHarga, setIsEditingHarga] = useState(false)
   const [draftHarga, setDraftHarga] = useState('')
 
@@ -90,6 +93,15 @@ export function BahanBakuDetailModal({
     if (file) {
       onUploadImage(bahanBaku.id, file, level)
     }
+    if (e.target) e.target.value = ''
+  }
+
+  const handleSkuFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && activeSkuUploadId && setSkuImage) {
+      setSkuImage(activeSkuUploadId, file)
+    }
+    setActiveSkuUploadId(null)
     if (e.target) e.target.value = ''
   }
 
@@ -511,6 +523,8 @@ export function BahanBakuDetailModal({
                   <thead className="bg-gray-50 text-left text-[11px] uppercase text-gray-500 font-semibold border-b">
                     <tr>
                       <th className="px-4 py-3">Nama Kemasan</th>
+                      <th className="px-4 py-3">Tingkatan</th>
+                      <th className="px-4 py-3 text-center">Gambar</th>
                       <th className="px-4 py-3 text-center">Isi ({bahanBaku.satuan_kecil || bahanBaku.satuan})</th>
                       <th className="px-4 py-3 text-right">Harga Beli</th>
                       <th className="px-4 py-3 text-right">Harga / Satuan</th>
@@ -527,6 +541,26 @@ export function BahanBakuDetailModal({
                         return (
                           <tr key={sku.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-4 py-3 font-medium text-gray-900">{sku.nama_kemasan}</td>
+                            <td className="px-4 py-3 text-gray-600">
+                              {sku.tingkatan_satuan ? (
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${sku.tingkatan_satuan === 'Besar' ? 'bg-blue-50 text-blue-700 border border-blue-200' : sku.tingkatan_satuan === 'Tengah' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                                  {sku.tingkatan_satuan}
+                                </span>
+                              ) : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div 
+                                className="w-10 h-10 mx-auto rounded-lg border border-gray-200 overflow-hidden relative group bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer flex items-center justify-center"
+                                onClick={() => { setActiveSkuUploadId(sku.id); skuFileInputRef.current?.click() }}
+                                title="Klik untuk ubah gambar"
+                              >
+                                {sku.image_url ? (
+                                  <img src={sku.image_url} alt={sku.nama_kemasan} className="w-full h-full object-cover" />
+                                ) : (
+                                  <Camera size={14} className="text-gray-400" />
+                                )}
+                              </div>
+                            </td>
                             <td className="px-4 py-3 text-center text-gray-600">{sku.qty_isi}</td>
                             <td className="px-4 py-3 text-right font-medium text-suka-orange">{rupiah(sku.harga_beli)}</td>
                             <td className="px-4 py-3 text-right text-gray-500">{rupiah(hargaSatuan)}</td>
@@ -549,22 +583,32 @@ export function BahanBakuDetailModal({
                       })
                     ) : (
                       <tr>
-                        <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400 border-dashed">
+                        <td colSpan={8} className="px-4 py-6 text-center text-sm text-gray-400 border-dashed">
                           Belum ada variasi kemasan. Data akan otomatis terbuat saat pertama kali menambah bahan.
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
+                <input type="file" accept="image/*" className="hidden" ref={skuFileInputRef} onChange={handleSkuFileChange} />
               </div>
 
               {/* Form Tambah SKU */}
               <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Tambah Kemasan Baru</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Nama Kemasan</label>
                     <input type="text" id="newSkuNama" placeholder="Contoh: Botol 600ml" className="w-full text-sm p-2 border rounded-md" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Tingkatan</label>
+                    <select id="newSkuTingkatan" className="w-full text-sm p-2 border rounded-md bg-white">
+                      <option value="">(Pilih)</option>
+                      <option value="Besar">Besar</option>
+                      <option value="Tengah">Tengah</option>
+                      <option value="Kecil">Kecil</option>
+                    </select>
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Total Isi ({bahanBaku.satuan_kecil || bahanBaku.satuan})</label>
@@ -581,6 +625,7 @@ export function BahanBakuDetailModal({
                       disabled={skuSaving}
                       onClick={() => {
                         const nama = (document.getElementById('newSkuNama') as HTMLInputElement).value
+                        const tingkatan = (document.getElementById('newSkuTingkatan') as HTMLSelectElement).value
                         const qty = Number((document.getElementById('newSkuQty') as HTMLInputElement).value)
                         const harga = Number((document.getElementById('newSkuHarga') as HTMLInputElement).value)
                         
@@ -594,11 +639,13 @@ export function BahanBakuDetailModal({
                           nama_kemasan: nama,
                           qty_isi: qty,
                           harga_beli: harga,
-                          is_default: !bahanBaku.skus || bahanBaku.skus.length === 0
+                          is_default: !bahanBaku.skus || bahanBaku.skus.length === 0,
+                          tingkatan_satuan: tingkatan || null
                         })
                         
                         // reset form
                         ;(document.getElementById('newSkuNama') as HTMLInputElement).value = '';
+                        ;(document.getElementById('newSkuTingkatan') as HTMLSelectElement).value = '';
                         ;(document.getElementById('newSkuQty') as HTMLInputElement).value = '';
                         ;(document.getElementById('newSkuHarga') as HTMLInputElement).value = '';
                       }}

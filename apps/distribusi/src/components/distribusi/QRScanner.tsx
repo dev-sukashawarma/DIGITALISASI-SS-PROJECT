@@ -23,17 +23,27 @@ export function QRScanner() {
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
     animFrameRef.current = null
 
-    const cleanedCode = code.trim().toUpperCase()
+    let cleanedCode = code.trim()
+
+    // Jika hasil scan berupa URL (misal scan QR dari device/app lain), ekstrak ID di bagian akhir
+    if (cleanedCode.includes('/')) {
+      const parts = cleanedCode.split('/')
+      cleanedCode = parts[parts.length - 1]
+    }
+
+    const isUUID = cleanedCode.length === 36 && cleanedCode.includes('-')
+    const finalCode = isUUID ? cleanedCode.toLowerCase() : cleanedCode.toUpperCase()
+    const column = isUUID ? 'id' : 'verification_code'
 
     const supabase = createSupabaseBrowserClient()
     const { data, error } = await supabase
       .from('surat_jalan')
       .select('id, status')
-      .eq('verification_code', cleanedCode)
+      .eq(column, finalCode)
       .single()
 
     if (error || !data) {
-      setError(`Kode verifikasi "${cleanedCode}" tidak ditemukan`)
+      setError(`Kode verifikasi "${finalCode}" tidak ditemukan`)
       return
     }
     if (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian' || data.status === 'selesai' || data.status === 'diterima') {

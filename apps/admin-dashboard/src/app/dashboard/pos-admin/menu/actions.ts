@@ -71,13 +71,14 @@ export async function deleteAllMenuItems(items: MenuItem[]) {
 export async function toggleGlobalSetting(key: string, newIds: string[]) {
   const supabase = await getSupabase()
   await supabase.from('kiosk_settings').upsert({
-    outlet_id: null,
+    outlet_id: '550e8400-e29b-41d4-a716-446655440001',
     key,
     value: JSON.stringify(newIds)
   })
-  await supabase.from('kiosk_settings').delete().not('outlet_id', 'is', null).eq('key', key)
+  await supabase.from('kiosk_settings').delete().neq('outlet_id', '550e8400-e29b-41d4-a716-446655440001').eq('key', key)
   revalidatePath('/dashboard/pos-admin/menu')
 }
+
 
 
 

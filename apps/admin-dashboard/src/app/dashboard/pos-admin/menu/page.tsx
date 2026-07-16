@@ -25,7 +25,7 @@ export default async function AdminMenuPage(props: {
   const [itemsRes, categoriesRes, settingsRes] = await Promise.all([
     itemsQuery,
     supabase.from('categories').select('*').order('sort_order'),
-    supabase.from('kiosk_settings').select('key, value').is('outlet_id', null).in('key', ['upsell_ids', 'bestseller_ids', 'recommendation_ids'])
+    supabase.from('kiosk_settings').select('key, value').eq('outlet_id', '550e8400-e29b-41d4-a716-446655440001').in('key', ['upsell_ids', 'bestseller_ids', 'recommendation_ids'])
   ])
 
   const initialItems: MenuItem[] = itemsRes.data || []
@@ -53,3 +53,4 @@ export default async function AdminMenuPage(props: {
     />
   )
 }
+

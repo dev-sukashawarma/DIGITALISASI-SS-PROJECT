@@ -11,13 +11,14 @@ Mempersiapkan peluncuran Beta Tester di Outlet Kitchen dan Outlet Empang dengan 
   2. Pembayaran: `payments` (jika tabel terpisah) / data payment di dalam `orders`
   3. Riwayat Stok: `stok_mutations` / `ledger_stok`
   4. Absensi: Data kehadiran uji coba (`attendance` / `absensi`) untuk staf di outlet tersebut.
-  5. Antrean/Penomoran: Reset nomor urut antrean harian jika memungkinkan.
+  5. Antrean/Penomoran: **Nomor antrean (daily queue) direset kembali ke 0/1 untuk outlet tersebut.**
 - **Keamanan:** Memerlukan konfirmasi teks (misal mengetik `RESET`) untuk mencegah eksekusi tidak sengaja.
+- **Penanganan Sesi Staf:** Tidak ada penanganan khusus (staf yang sedang login dibiarkan saja, jika terjadi *error*, mereka hanya perlu *refresh/login* ulang).
 
 ## 3. Architecture & Components
 
 ### 3.1. Frontend (UI)
-- **Lokasi:** Terintegrasi pada *Admin Dashboard*, kemungkinan di halaman pengaturan outlet atau manajemen data.
+- **Lokasi:** Terintegrasi pada *Admin Dashboard* di halaman **System Health** (`apps/admin-dashboard/src/app/dashboard/system-health`).
 - **Komponen:**
   - Tombol aksi berwarna merah (Danger Zone).
   - Modal Konfirmasi.

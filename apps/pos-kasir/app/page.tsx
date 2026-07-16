@@ -56,7 +56,7 @@ export default async function KioskHomePage() {
   }
 
   let cover = getSetting('cover_image_url', false)
-  let bs = getSetting('bestseller_ids', true)
+  let bs = getSetting('bestseller_ids', false)
   let unav = getSetting('unavailable_menu_ids', false)
   let autoUnav = getSetting('auto_unavailable_menu_ids', false)
   let forceAvail = getSetting('force_available_menu_ids', false)

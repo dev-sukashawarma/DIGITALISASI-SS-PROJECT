@@ -154,7 +154,7 @@ export default function OrderManualPage() {
         let fetchedUnav = getSetting('unavailable_menu_ids', false)
         let fetchedAutoUnav = getSetting('auto_unavailable_menu_ids', false)
         let fetchedForceAvail = getSetting('force_available_menu_ids', false)
-        let fetchedUpsell = getSetting('upsell_ids', true)
+        let fetchedUpsell = getSetting('upsell_ids', false)
 
         try {
         } catch {}

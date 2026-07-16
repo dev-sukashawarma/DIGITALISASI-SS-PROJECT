@@ -58,7 +58,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   }
 
   let unavIds = getSetting('unavailable_menu_ids', false)
-  let upIds = getSetting('upsell_ids', true)
+  let upIds = getSetting('upsell_ids', false)
 
   // Apply availability override
   const isGlobal = mainItem.outlet_id === null

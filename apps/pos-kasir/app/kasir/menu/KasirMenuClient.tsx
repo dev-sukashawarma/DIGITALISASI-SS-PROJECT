@@ -77,9 +77,9 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
     let manualIds = getSetting('unavailable_menu_ids', false)
     let autoIds = getSetting('auto_unavailable_menu_ids', false)
     let forceIds = getSetting('force_available_menu_ids', false)
-    let bs = getSetting('bestseller_ids', true)
-    let up = getSetting('upsell_ids', true)
-    let rec = getSetting('recommendation_ids', true)
+    let bs = getSetting('bestseller_ids', false)
+    let up = getSetting('upsell_ids', false)
+    let rec = getSetting('recommendation_ids', false)
 
     // Update dexie cache
     const now = Date.now()
@@ -259,13 +259,13 @@ export default function KasirMenuClient({
     try {
       const supabase = createClient()
       const { error } = await supabase.from('kiosk_settings').upsert({
-        outlet_id: null,
+        outlet_id: outletId === PUSAT_OUTLET_ID ? null : outletId,
         key: 'bestseller_ids',
         value: JSON.stringify(newBs)
       })
       if (error) throw error
       invalidateMenu()
-      showToast({ type: 'success', message: isBs ? `${item.name} dihapus dari Best Seller (Global)` : `${item.name} ditandai sebagai Best Seller (Global)` })
+      showToast({ type: 'success', message: isBs ? `${item.name} dihapus dari Best Seller${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` : `${item.name} ditandai sebagai Best Seller${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` })
     } catch (e) {
       showToast({ type: 'error', message: 'Gagal mengubah Best Seller' })
     }
@@ -284,13 +284,13 @@ export default function KasirMenuClient({
     try {
       const supabase = createClient()
       const { error } = await supabase.from('kiosk_settings').upsert({
-        outlet_id: null,
+        outlet_id: outletId === PUSAT_OUTLET_ID ? null : outletId,
         key: 'upsell_ids',
         value: JSON.stringify(newUp)
       })
       if (error) throw error
       invalidateMenu()
-      showToast({ type: 'success', message: isUp ? `${item.name} dihapus dari Menu Ekstra (Global)` : `${item.name} dijadikan Menu Ekstra (Global)` })
+      showToast({ type: 'success', message: isUp ? `${item.name} dihapus dari Menu Ekstra${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` : `${item.name} dijadikan Menu Ekstra${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` })
     } catch (e) {
       showToast({ type: 'error', message: 'Gagal mengubah Menu Ekstra' })
     }
@@ -307,13 +307,13 @@ export default function KasirMenuClient({
     try {
       const supabase = createClient()
       const { error } = await supabase.from('kiosk_settings').upsert({
-        outlet_id: null,
+        outlet_id: outletId === PUSAT_OUTLET_ID ? null : outletId,
         key: 'recommendation_ids',
         value: JSON.stringify(newRec)
       })
       if (error) throw error
       invalidateMenu()
-      showToast({ type: 'success', message: isRec ? `${item.name} dihapus dari Menu Rekomendasi (Global)` : `${item.name} dijadikan Menu Rekomendasi (Global)` })
+      showToast({ type: 'success', message: isRec ? `${item.name} dihapus dari Menu Rekomendasi${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` : `${item.name} dijadikan Menu Rekomendasi${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` })
     } catch (e) {
       showToast({ type: 'error', message: 'Gagal mengubah Menu Rekomendasi' })
     }
@@ -496,24 +496,18 @@ export default function KasirMenuClient({
                         
                         {openDropdownId === item.id && (
                           <div className="dropdown-menu absolute right-5 top-14 z-50 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 animate-scale-in origin-top-right">
-                            {outletId === PUSAT_OUTLET_ID && (
-                              <button onClick={() => { toggleRecommendation(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
-                                <span className={recommendations.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Jadikan Menu Rekomendasi</span>
-                                {recommendations.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
-                              </button>
-                            )}
-                            {outletId === PUSAT_OUTLET_ID && (
-                              <button onClick={() => { toggleUpsell(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
-                                <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Jadikan Menu Ekstra</span>
-                                {upsells.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
-                              </button>
-                            )}
-                            {outletId === PUSAT_OUTLET_ID && (
-                              <button onClick={() => { toggleBestseller(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
-                                <span className={bestsellers.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Tandai Best Seller</span>
-                                {bestsellers.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
-                              </button>
-                            )}
+                            <button onClick={() => { toggleRecommendation(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
+                              <span className={recommendations.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Jadikan Menu Rekomendasi</span>
+                              {recommendations.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
+                            </button>
+                            <button onClick={() => { toggleUpsell(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
+                              <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Jadikan Menu Ekstra</span>
+                              {upsells.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
+                            </button>
+                            <button onClick={() => { toggleBestseller(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
+                              <span className={bestsellers.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Tandai Best Seller</span>
+                              {bestsellers.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
+                            </button>
                             
                             {(isAutoUnav) && (
                               <button onClick={() => { toggleForceAvail(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-amber-50 rounded-xl text-[13px] flex items-center justify-between transition-colors border-t border-gray-100 mt-1">

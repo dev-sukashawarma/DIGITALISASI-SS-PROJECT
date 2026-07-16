@@ -11,7 +11,7 @@ import {
   printBytes, printHtmlFallback,
 } from '@/lib/printer/bluetooth-printer'
 import {
-  DEFAULT_PRINT_LAYOUT, mergePrintLayout, PRINT_LAYOUT_KEY, type PrintLayout,
+  DEFAULT_PRINT_LAYOUT, mergePrintLayout, PRINT_LAYOUT_KEY, type PrintLayout, type Typography,
 } from '@/lib/printer/printLayout'
 import { buildTemplateReceipt } from '@/lib/printer/buildTemplateReceipt'
 
@@ -37,7 +37,6 @@ function customerPreviewHtml(c: PrintLayout['struk_customer'], forPrint: boolean
   const cashier = c.showCashier ? `<div class="muted">Kasir: Contoh</div>` : ''
   const cust = c.showCustomer ? `<div class="muted">Pelanggan: Contoh</div>` : ''
   const logo = logoTag(c.showLogo, logoUrl)
-  const scale = c.fontScale === 'besar' ? 1.25 : 1
   const body = `
     ${logo}
     <div class="lg">${esc(c.headerText || 'SUKA SHAWARMA')}</div>
@@ -54,7 +53,7 @@ function customerPreviewHtml(c: PrintLayout['struk_customer'], forPrint: boolean
     <div class="row total"><strong>TOTAL</strong><strong>Rp 85.000</strong></div>
     <div class="hr"></div>
     ${c.footerText.split('\n').map((l) => `<div>${esc(l)}</div>`).join('')}`
-  return wrapHtml(c.paperWidth, scale, body, forPrint)
+  return wrapHtml(c.paperWidth, c, body, forPrint)
 }
 
 function kitchenPreviewHtml(c: PrintLayout['struk_dapur'], forPrint: boolean, logoUrl: string | null): string {
@@ -71,7 +70,7 @@ function kitchenPreviewHtml(c: PrintLayout['struk_dapur'], forPrint: boolean, lo
     <div class="child"><span>EXTRA Keju</span></div>
     <div class="child"><span>EXTRA Kentang</span></div>
     <div>2x Kebab Daging</div>`
-  return wrapHtml(c.paperWidth, c.fontScale === 'besar' ? 1.35 : 1.1, body, forPrint)
+  return wrapHtml(c.paperWidth, c, body, forPrint)
 }
 
 function qrPreviewHtml(c: PrintLayout['qr_surat_jalan'], forPrint: boolean, logoUrl: string | null): string {
@@ -82,24 +81,34 @@ function qrPreviewHtml(c: PrintLayout['qr_surat_jalan'], forPrint: boolean, logo
     <div class="qr" style="width:${c.qrSizeMm}mm;height:${c.qrSizeMm}mm">QR</div>
     <div class="hr"></div>
     ${c.footerText.split('\n').map((l) => `<div>${esc(l)}</div>`).join('')}`
-  return wrapHtml(c.paperWidth, 1, body, forPrint)
+  return wrapHtml(c.paperWidth, c, body, forPrint)
 }
 
-function wrapHtml(paperWidth: number, scale: number, body: string, forPrint: boolean): string {
+const FONT_STACK: Record<Typography['fontFamily'], string> = {
+  monospace: `'Courier New', Courier, monospace`,
+  sans: `Arial, Helvetica, sans-serif`,
+  serif: `'Times New Roman', Times, serif`,
+}
+
+function wrapHtml(paperWidth: number, typo: Typography, body: string, forPrint: boolean): string {
+  const base = Math.max(6, typo.fontSizePx)
+  const px = (mult: number) => Math.round(base * mult)
+  const weight = typo.bold ? 900 : 400
+  const fam = FONT_STACK[typo.fontFamily] ?? FONT_STACK.monospace
   const page = forPrint ? `@page { size: ${paperWidth}mm auto; margin: 0; }` : ''
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview</title><style>
     ${page}
-    body { width:${paperWidth}mm; margin:0; padding:6px 8px; font-family:'Courier New',monospace;
-           color:#000; font-weight:900; font-size:${Math.round(13 * scale)}px; text-align:center; }
-    .lg { font-size:${Math.round(17 * scale)}px; }
-    .muted { font-size:${Math.round(12 * scale)}px; }
+    body { width:${paperWidth}mm; margin:0; padding:${typo.marginMm}mm; font-family:${fam};
+           color:#000; font-weight:${weight}; font-size:${base}px; text-align:center; }
+    .lg { font-size:${px(1.25)}px; }
+    .muted { font-size:${px(0.85)}px; }
     .logo { font-size:11px; border:1px dashed #000; display:inline-block; padding:2px 6px; margin-bottom:4px; }
     .logo-img { width:44px; height:44px; object-fit:contain; display:block; margin:0 auto 4px auto; filter:grayscale(100%) contrast(150%); }
     .hr { border-top:2px dashed #000; margin:5px 0; }
     .row, .child, .total { display:flex; justify-content:space-between; text-align:left; }
     .child { padding-left:10px; border-left:2px solid #000; margin-left:4px; }
-    .note { text-align:left; font-style:italic; font-size:${Math.round(11 * scale)}px; }
-    .queue { font-size:${Math.round(22 * scale)}px; font-weight:900; margin:4px 0; }
+    .note { text-align:left; font-style:italic; font-size:${px(0.8)}px; }
+    .queue { font-size:${px(1.55)}px; font-weight:${weight}; margin:4px 0; }
     .qr { border:2px solid #000; margin:8px auto; display:flex; align-items:center; justify-content:center; }
   </style></head><body>${body}</body></html>`
 }
@@ -257,6 +266,32 @@ export default function PrinterSettingsView() {
                 <span className="text-sm font-bold text-slate-700">Tampilkan logo</span>
               </label>
 
+              {/* Tipografi & margin — semua template. Font/ukuran/margin berlaku di cetak HTML/browser; di thermal hanya Tebal yang berefek. */}
+              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-4">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tipografi & Margin</p>
+                <Field label="Font">
+                  <div className="flex gap-3">
+                    {([['monospace', 'Monospace'], ['sans', 'Sans'], ['serif', 'Serif']] as const).map(([val, lbl]) => (
+                      <button key={val} type="button" onClick={() => setField(tab, 'fontFamily', val)}
+                        className={numBtn((layout[tab] as any).fontFamily === val)}>{lbl}</button>
+                    ))}
+                  </div>
+                </Field>
+                <div className="flex gap-4 flex-wrap">
+                  <Field label="Ukuran font (px)">
+                    <input type="number" min={8} max={48} value={(layout[tab] as any).fontSizePx}
+                      onChange={(e) => setField(tab, 'fontSizePx', Number(e.target.value) || 14)}
+                      className="w-24 border border-slate-300 rounded-xl px-4 py-2.5" />
+                  </Field>
+                  <Field label="Margin (mm)">
+                    <input type="number" min={0} max={10} step={0.5} value={(layout[tab] as any).marginMm}
+                      onChange={(e) => setField(tab, 'marginMm', Number(e.target.value))}
+                      className="w-24 border border-slate-300 rounded-xl px-4 py-2.5" />
+                  </Field>
+                </div>
+                <Toggle label="Tebal (bold)" checked={(layout[tab] as any).bold} onChange={(v) => setField(tab, 'bold', v)} />
+              </div>
+
               {tab === 'qr_surat_jalan' ? (
                 <>
                   <TextField label="Judul" value={layout.qr_surat_jalan.title} onChange={(v) => setField(tab, 'title', v)} />
@@ -272,14 +307,6 @@ export default function PrinterSettingsView() {
                   <TextField
                     label={tab === 'struk_dapur' ? 'Judul' : 'Header (kosong = nama outlet)'}
                     value={(layout[tab] as any).headerText} onChange={(v) => setField(tab, 'headerText', v)} />
-                  <Field label="Ukuran Font">
-                    <div className="flex gap-3">
-                      {(['normal', 'besar'] as const).map((f) => (
-                        <button key={f} type="button" onClick={() => setField(tab, 'fontScale', f)}
-                          className={numBtn((layout[tab] as any).fontScale === f) + ' capitalize'}>{f}</button>
-                      ))}
-                    </div>
-                  </Field>
                   {tab === 'struk_customer' && (
                     <>
                       <TextField label="Footer" value={layout.struk_customer.footerText} onChange={(v) => setField(tab, 'footerText', v)} />

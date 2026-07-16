@@ -14,7 +14,7 @@ export interface BasePromo {
   apply_to_food_apps?: boolean;
 }
 
-const FOOD_APP_CHANNELS = ['gofood', 'grabfood', 'shopeefood', 'tiktok'];
+const FOOD_APP_CHANNELS = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'];
 
 export function calculateItemPrice(
   originalPrice: number,

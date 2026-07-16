@@ -45,20 +45,40 @@ export default function KioskMenuClient({ initialData }: { initialData: KioskIni
             // Fetch both settings to combine them
             supabase
               .from('kiosk_settings')
-              .select('key, value')
-              .eq('outlet_id', outletId)
+              .select('key, value, outlet_id')
+              .or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`)
               .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids'])
               .then(({ data }) => {
-                let manualIds: string[] = []
-                let autoIds: string[] = []
-                let forceIds: string[] = []
-                data?.forEach(row => {
-                  try {
-                    if (row.key === 'unavailable_menu_ids') manualIds = JSON.parse(row.value || '[]')
-                    if (row.key === 'auto_unavailable_menu_ids') autoIds = JSON.parse(row.value || '[]')
-                    if (row.key === 'force_available_menu_ids') forceIds = JSON.parse(row.value || '[]')
-                  } catch (e) {}
-                })
+                const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
+                const parseIds = (raw: string | null | undefined) => {
+                  try { return raw ? JSON.parse(raw) : [] } catch { return [] }
+                }
+                const getSetting = (key: string, preferGlobal: boolean = false) => {
+                  const rows = data?.filter(s => s.key === key) || []
+                  const sortedRows = [...rows].sort((a, b) => {
+                    const getWeight = (id: string | null) => {
+                      if (preferGlobal) {
+                        if (id === null) return 3
+                        if (id === PUSAT_OUTLET_ID) return 2
+                        if (id === outletId) return 1
+                        return 0
+                      } else {
+                        if (id === outletId) return 3
+                        if (id === PUSAT_OUTLET_ID) return 2
+                        if (id === null) return 1
+                        return 0
+                      }
+                    }
+                    return getWeight(a.outlet_id) - getWeight(b.outlet_id)
+                  })
+                  const best = sortedRows.pop()
+                  return parseIds(best?.value)
+                }
+
+                let manualIds = getSetting('unavailable_menu_ids', false)
+                let autoIds = getSetting('auto_unavailable_menu_ids', false)
+                let forceIds = getSetting('force_available_menu_ids', false)
+
                 const manualSet = new Set(manualIds)
                 const autoSet = new Set(autoIds)
                 const forceSet = new Set(forceIds)

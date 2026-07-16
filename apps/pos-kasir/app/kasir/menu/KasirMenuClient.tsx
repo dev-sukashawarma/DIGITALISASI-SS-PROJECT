@@ -36,9 +36,9 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
   try {
     const [{ data: m, error: mErr }, { data: c, error: cErr }, { data: settings, error: sErr }] = await fetchWithTimeout(
       Promise.all([
-        supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
+        supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`).order('sort_order'),
         supabase.from('categories').select('*').order('sort_order'),
-        supabase.from('kiosk_settings').select('key, value, outlet_id').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).in('key', ['bestseller_ids', 'upsell_ids', 'unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids', 'recommendation_ids']),
+        supabase.from('kiosk_settings').select('key, value, outlet_id').or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`).in('key', ['bestseller_ids', 'upsell_ids', 'unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids', 'recommendation_ids']),
       ])
     )
 
@@ -46,31 +46,40 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
     if (cErr) throw cErr
     if (sErr && sErr.code !== 'PGRST116') throw sErr
 
+    const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
+
     const parseIds = (raw: string | null | undefined) => {
       try { return raw ? JSON.parse(raw) : [] } catch { return [] }
     }
 
-    const sortedSettings = [...(settings || [])].sort((a, b) => {
-      if (a.outlet_id === null && b.outlet_id !== null) return -1
-      if (a.outlet_id !== null && b.outlet_id === null) return 1
-      return 0
-    })
+    const getSetting = (key: string, preferGlobal: boolean = false) => {
+      const rows = settings?.filter(s => s.key === key) || []
+      const sortedRows = [...rows].sort((a, b) => {
+        const getWeight = (id: string | null) => {
+          if (preferGlobal) {
+            if (id === null) return 3
+            if (id === PUSAT_OUTLET_ID) return 2
+            if (id === outletId) return 1
+            return 0
+          } else {
+            if (id === outletId) return 3
+            if (id === PUSAT_OUTLET_ID) return 2
+            if (id === null) return 1
+            return 0
+          }
+        }
+        return getWeight(a.outlet_id) - getWeight(b.outlet_id)
+      })
+      const best = sortedRows.pop()
+      return parseIds(best?.value)
+    }
 
-    let manualIds: string[] = []
-    let autoIds: string[] = []
-    let forceIds: string[] = []
-    let bs: string[] = []
-    let up: string[] = []
-    let rec: string[] = []
-    
-    sortedSettings.forEach(row => {
-      if (row.key === 'unavailable_menu_ids') manualIds = parseIds(row.value)
-      if (row.key === 'auto_unavailable_menu_ids') autoIds = parseIds(row.value)
-      if (row.key === 'force_available_menu_ids') forceIds = parseIds(row.value)
-      if (row.key === 'bestseller_ids') bs = parseIds(row.value)
-      if (row.key === 'upsell_ids') up = parseIds(row.value)
-      if (row.key === 'recommendation_ids') rec = parseIds(row.value)
-    })
+    let manualIds = getSetting('unavailable_menu_ids', false)
+    let autoIds = getSetting('auto_unavailable_menu_ids', false)
+    let forceIds = getSetting('force_available_menu_ids', false)
+    let bs = getSetting('bestseller_ids', true)
+    let up = getSetting('upsell_ids', true)
+    let rec = getSetting('recommendation_ids', true)
 
     // Update dexie cache
     const now = Date.now()
@@ -250,17 +259,19 @@ export default function KasirMenuClient({
     try {
       const supabase = createClient()
       const { error } = await supabase.from('kiosk_settings').upsert({
-        outlet_id: outletId,
+        outlet_id: null,
         key: 'bestseller_ids',
         value: JSON.stringify(newBs)
       })
       if (error) throw error
       invalidateMenu()
-      showToast({ type: 'success', message: isBs ? `${item.name} dihapus dari Best Seller` : `${item.name} ditandai sebagai Best Seller` })
+      showToast({ type: 'success', message: isBs ? `${item.name} dihapus dari Best Seller (Global)` : `${item.name} ditandai sebagai Best Seller (Global)` })
     } catch (e) {
       showToast({ type: 'error', message: 'Gagal mengubah Best Seller' })
     }
   }
+
+  const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 
   async function toggleUpsell(item: MenuItem) {
     if (!outletId) return
@@ -273,13 +284,13 @@ export default function KasirMenuClient({
     try {
       const supabase = createClient()
       const { error } = await supabase.from('kiosk_settings').upsert({
-        outlet_id: outletId,
+        outlet_id: null,
         key: 'upsell_ids',
         value: JSON.stringify(newUp)
       })
       if (error) throw error
       invalidateMenu()
-      showToast({ type: 'success', message: isUp ? `${item.name} dihapus dari Menu Ekstra` : `${item.name} dijadikan Menu Ekstra` })
+      showToast({ type: 'success', message: isUp ? `${item.name} dihapus dari Menu Ekstra (Global)` : `${item.name} dijadikan Menu Ekstra (Global)` })
     } catch (e) {
       showToast({ type: 'error', message: 'Gagal mengubah Menu Ekstra' })
     }
@@ -296,13 +307,13 @@ export default function KasirMenuClient({
     try {
       const supabase = createClient()
       const { error } = await supabase.from('kiosk_settings').upsert({
-        outlet_id: outletId,
+        outlet_id: null,
         key: 'recommendation_ids',
         value: JSON.stringify(newRec)
       })
       if (error) throw error
       invalidateMenu()
-      showToast({ type: 'success', message: isRec ? `${item.name} dihapus dari Menu Rekomendasi` : `${item.name} dijadikan Menu Rekomendasi` })
+      showToast({ type: 'success', message: isRec ? `${item.name} dihapus dari Menu Rekomendasi (Global)` : `${item.name} dijadikan Menu Rekomendasi (Global)` })
     } catch (e) {
       showToast({ type: 'error', message: 'Gagal mengubah Menu Rekomendasi' })
     }
@@ -485,18 +496,24 @@ export default function KasirMenuClient({
                         
                         {openDropdownId === item.id && (
                           <div className="dropdown-menu absolute right-5 top-14 z-50 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 animate-scale-in origin-top-right">
-                            <button onClick={() => { toggleRecommendation(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
-                              <span className={recommendations.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Jadikan Menu Rekomendasi</span>
-                              {recommendations.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
-                            </button>
-                            <button onClick={() => { toggleUpsell(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
-                              <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Jadikan Menu Ekstra</span>
-                              {upsells.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
-                            </button>
-                            <button onClick={() => { toggleBestseller(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
-                              <span className={bestsellers.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Tandai Best Seller</span>
-                              {bestsellers.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
-                            </button>
+                            {outletId === PUSAT_OUTLET_ID && (
+                              <button onClick={() => { toggleRecommendation(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
+                                <span className={recommendations.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Jadikan Menu Rekomendasi</span>
+                                {recommendations.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
+                              </button>
+                            )}
+                            {outletId === PUSAT_OUTLET_ID && (
+                              <button onClick={() => { toggleUpsell(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
+                                <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Jadikan Menu Ekstra</span>
+                                {upsells.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
+                              </button>
+                            )}
+                            {outletId === PUSAT_OUTLET_ID && (
+                              <button onClick={() => { toggleBestseller(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
+                                <span className={bestsellers.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Tandai Best Seller</span>
+                                {bestsellers.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}
+                              </button>
+                            )}
                             
                             {(isAutoUnav) && (
                               <button onClick={() => { toggleForceAvail(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-amber-50 rounded-xl text-[13px] flex items-center justify-between transition-colors border-t border-gray-100 mt-1">

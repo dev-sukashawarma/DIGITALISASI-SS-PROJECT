@@ -21,11 +21,11 @@ export default async function KioskHomePage() {
 
   // 2. Fetch data menu SSR — paralel, satu round-trip dari server ke Supabase
   const [items_result, cats_result, outlet_result, settings_result] = await Promise.all([
-    supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
+    supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`).order('sort_order'),
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('outlets').select('name').eq('id', outletId).single(),
     supabase.from('kiosk_settings').select('key, value, outlet_id')
-      .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
+      .or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`)
       .in('key', ['cover_image_url', 'bestseller_ids', 'unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids'])
   ])
 
@@ -33,20 +33,33 @@ export default async function KioskHomePage() {
     try { return raw ? JSON.parse(raw) : [] } catch { return [] }
   }
 
-  const sortedSettings = [...(settings_result.data || [])].sort((a, b) => {
-    if (a.outlet_id === null && b.outlet_id !== null) return -1
-    if (a.outlet_id !== null && b.outlet_id === null) return 1
-    return 0
-  })
+  const getSetting = (key: string, preferGlobal: boolean = false) => {
+    const rows = settings_result.data?.filter(s => s.key === key) || []
+    const sortedRows = [...rows].sort((a, b) => {
+      const getWeight = (id: string | null) => {
+        if (preferGlobal) {
+          if (id === null) return 3
+          if (id === PUSAT_OUTLET_ID) return 2
+          if (id === outletId) return 1
+          return 0
+        } else {
+          if (id === outletId) return 3
+          if (id === PUSAT_OUTLET_ID) return 2
+          if (id === null) return 1
+          return 0
+        }
+      }
+      return getWeight(a.outlet_id) - getWeight(b.outlet_id)
+    })
+    const best = sortedRows.pop()
+    return best?.value
+  }
 
-  let cover, bs, unav, autoUnav, forceAvail
-  sortedSettings.forEach(row => {
-    if (row.key === 'cover_image_url') cover = row.value
-    if (row.key === 'bestseller_ids') bs = row.value
-    if (row.key === 'unavailable_menu_ids') unav = row.value
-    if (row.key === 'auto_unavailable_menu_ids') autoUnav = row.value
-    if (row.key === 'force_available_menu_ids') forceAvail = row.value
-  })
+  let cover = getSetting('cover_image_url', false)
+  let bs = getSetting('bestseller_ids', true)
+  let unav = getSetting('unavailable_menu_ids', false)
+  let autoUnav = getSetting('auto_unavailable_menu_ids', false)
+  let forceAvail = getSetting('force_available_menu_ids', false)
 
   const unavailableIds: string[] = parseIds(unav)
   const autoUnavailableIds: string[] = parseIds(autoUnav)

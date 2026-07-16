@@ -34,35 +34,43 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
   const supabase = createClient()
 
   try {
-    const [{ data: m, error: mErr }, { data: c, error: cErr }, { data: b }, { data: u }, { data: unav, error: unavErr }, { data: rec }] = await fetchWithTimeout(
+    const [{ data: m, error: mErr }, { data: c, error: cErr }, { data: settings, error: sErr }] = await fetchWithTimeout(
       Promise.all([
         supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
         supabase.from('categories').select('*').order('sort_order'),
-        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
-        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'upsell_ids').maybeSingle(),
-        supabase.from('kiosk_settings').select('key, value').eq('outlet_id', outletId).in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids']),
-        supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'recommendation_ids').maybeSingle(),
+        supabase.from('kiosk_settings').select('key, value, outlet_id').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).in('key', ['bestseller_ids', 'upsell_ids', 'unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids', 'recommendation_ids']),
       ])
     )
 
     if (mErr) throw mErr
     if (cErr) throw cErr
-    if (unavErr && unavErr.code !== 'PGRST116') throw unavErr
+    if (sErr && sErr.code !== 'PGRST116') throw sErr
 
     const parseIds = (raw: string | null | undefined) => {
       try { return raw ? JSON.parse(raw) : [] } catch { return [] }
     }
 
+    const sortedSettings = [...(settings || [])].sort((a, b) => {
+      if (a.outlet_id === null && b.outlet_id !== null) return -1
+      if (a.outlet_id !== null && b.outlet_id === null) return 1
+      return 0
+    })
+
     let manualIds: string[] = []
     let autoIds: string[] = []
     let forceIds: string[] = []
-    if (unav) {
-      unav.forEach(row => {
-        if (row.key === 'unavailable_menu_ids') manualIds = parseIds(row.value)
-        if (row.key === 'auto_unavailable_menu_ids') autoIds = parseIds(row.value)
-        if (row.key === 'force_available_menu_ids') forceIds = parseIds(row.value)
-      })
-    }
+    let bs: string[] = []
+    let up: string[] = []
+    let rec: string[] = []
+    
+    sortedSettings.forEach(row => {
+      if (row.key === 'unavailable_menu_ids') manualIds = parseIds(row.value)
+      if (row.key === 'auto_unavailable_menu_ids') autoIds = parseIds(row.value)
+      if (row.key === 'force_available_menu_ids') forceIds = parseIds(row.value)
+      if (row.key === 'bestseller_ids') bs = parseIds(row.value)
+      if (row.key === 'upsell_ids') up = parseIds(row.value)
+      if (row.key === 'recommendation_ids') rec = parseIds(row.value)
+    })
 
     // Update dexie cache
     const now = Date.now()
@@ -72,7 +80,7 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
     if (c) {
       await db.categories.bulkPut(c.map((cat: any) => ({ ...cat, synced_at: now })))
     }
-    if (unav) {
+    if (settings) {
       await db.kiosk_settings.put({ id: 'unavailable_menu_ids', settings_data: manualIds, synced_at: now })
       await db.kiosk_settings.put({ id: 'auto_unavailable_menu_ids', settings_data: autoIds, synced_at: now })
       await db.kiosk_settings.put({ id: 'force_available_menu_ids', settings_data: forceIds, synced_at: now })
@@ -81,9 +89,9 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
     return {
       items: m ?? [],
       categories: c ?? [],
-      bestsellers: parseIds(b?.value),
-      upsells: parseIds(u?.value),
-      recommendations: parseIds(rec?.value),
+      bestsellers: bs,
+      upsells: up,
+      recommendations: rec,
       unavailableIds: manualIds,
       autoUnavailableIds: autoIds,
       forceAvailableIds: forceIds,
@@ -165,8 +173,14 @@ export default function KasirMenuClient({
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'kiosk_settings', filter: `outlet_id=eq.${outletId}` },
-        () => queryClient.invalidateQueries({ queryKey: ['menu', outletId] })
+        { event: '*', schema: 'public', table: 'kiosk_settings' },
+        (payload: any) => {
+          if (payload.new && (payload.new.outlet_id === outletId || payload.new.outlet_id === null)) {
+            queryClient.invalidateQueries({ queryKey: ['menu', outletId] })
+          } else if (payload.old && (payload.old.outlet_id === outletId || payload.old.outlet_id === null)) {
+            queryClient.invalidateQueries({ queryKey: ['menu', outletId] })
+          }
+        }
       )
       .subscribe()
 

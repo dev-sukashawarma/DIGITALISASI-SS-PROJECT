@@ -19,7 +19,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const [{ data: mainItem }, { data: settings }] = await Promise.all([
     supabase.from('menu_items').select('*, categories(id,name,sort_order)').eq('id', id).single(),
-    supabase.from('kiosk_settings').select('key, value').eq('outlet_id', outletId).in('key', ['upsell_ids', 'unavailable_menu_ids']),
+    supabase.from('kiosk_settings').select('key, value, outlet_id').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).in('key', ['upsell_ids', 'unavailable_menu_ids']),
   ])
 
   if (!mainItem) {
@@ -37,7 +37,14 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   let unavIds: string[] = []
   let upIds: string[] = []
-  settings?.forEach(s => {
+  
+  const sortedSettings = [...(settings || [])].sort((a, b) => {
+    if (a.outlet_id === null && b.outlet_id !== null) return -1
+    if (a.outlet_id !== null && b.outlet_id === null) return 1
+    return 0
+  })
+
+  sortedSettings.forEach(s => {
     if (s.key === 'unavailable_menu_ids') unavIds = parseIds(s.value)
     if (s.key === 'upsell_ids') upIds = parseIds(s.value)
   })

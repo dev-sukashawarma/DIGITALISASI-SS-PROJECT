@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePrinterStore } from '@/lib/printerStore'
 import { connectBluetoothPrinter, autoConnectBluetoothPrinter } from '@/lib/bluetooth-printer'
-import { Printer, Bluetooth, CheckCircle2, Loader2, MousePointerClick, Check } from 'lucide-react'
+import { Printer, Bluetooth, CheckCircle2, Loader2, MousePointerClick, Check, X } from 'lucide-react'
 
 export default function PrinterBlockerMount() {
   const { device, isConnecting } = usePrinterStore()
@@ -13,6 +13,7 @@ export default function PrinterBlockerMount() {
   // State for success animation before unmounting
   const [shouldRender, setShouldRender] = useState(!device)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [isDismissed, setIsDismissed] = useState(false)
 
   // Auto-connect attempt on first interaction
   useEffect(() => {
@@ -57,11 +58,20 @@ export default function PrinterBlockerMount() {
     }
   }, [device])
 
-  if (!shouldRender) return null
+  if (!shouldRender || isDismissed) return null
 
   return (
     <div className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 transition-opacity duration-500 ${showSuccess ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-      <div className={`bg-white/95 backdrop-blur-xl border border-white/20 rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden flex flex-col transition-all duration-500 transform ${showSuccess ? 'scale-95' : 'scale-100 animate-in fade-in zoom-in-95'}`}>
+      <div className={`relative bg-white/95 backdrop-blur-xl border border-white/20 rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden flex flex-col transition-all duration-500 transform ${showSuccess ? 'scale-95' : 'scale-100 animate-in fade-in zoom-in-95'}`}>
+        
+        {/* Temporary Close Button for Development */}
+        <button 
+          onClick={() => setIsDismissed(true)}
+          className="absolute top-4 right-4 p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors z-10"
+          title="Tutup (Hanya untuk Development)"
+        >
+          <X className="w-5 h-5" />
+        </button>
         
         {showSuccess ? (
           <div className="p-12 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-300">

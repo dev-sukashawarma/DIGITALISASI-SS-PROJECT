@@ -87,11 +87,11 @@ export async function fetchEstimasiRecipes(outletId: string): Promise<EstimasiRe
       let requiredQtyMainUnit = qtyResep;
       
       // Jika satuan resep berbeda dengan satuan utama, dan faktor_konversi valid, kita konversi.
-      // Asumsi: jika satuan_resep === satuan_kecil, maka kita bagi dengan faktor konversi
-      // Contoh: resep butuh 40 gram, satuan_kecil = gram, satuan = kg, faktor = 1000. required = 40 / 1000 = 0.04
+      // Asumsi: jika satuan resep BUKAN satuan utama, maka itu diasumsikan sebagai satuan kecil 
+      // (termasuk variasi penamaan seperti gram vs ml).
       if (
-        satuanResep && bb.satuan_kecil && 
-        satuanResep.toLowerCase() === bb.satuan_kecil.toLowerCase() && 
+        satuanResep && bb.satuan && 
+        satuanResep.toLowerCase() !== bb.satuan.toLowerCase() && 
         bb.faktor_konversi > 0
       ) {
         requiredQtyMainUnit = qtyResep / bb.faktor_konversi;

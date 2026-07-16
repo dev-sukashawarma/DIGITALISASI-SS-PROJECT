@@ -535,7 +535,7 @@ export function buildBarcodeHtml(
   docNumber: string,
   dataUrl: string,
   layout: QrLayout = DEFAULT_PRINT_LAYOUT.qr_surat_jalan,
-  extra?: { tanggal?: string; tujuanOutlet?: string }
+  extra?: { tanggal?: string; tujuanOutlet?: string; verificationCode?: string }
 ): string {
   const footer = layout.footerText.split('\n').join('<br/>')
   const logo = layout.showLogo
@@ -596,6 +596,12 @@ export function buildBarcodeHtml(
             display: block;
             margin: 4px auto 0 auto;
           }
+          .verification-code {
+            font-size: ${fs(14)}px;
+            font-weight: 900;
+            margin-top: 4px;
+            text-transform: uppercase;
+          }
           .footer {
             margin-top: 10px;
             font-size: ${fs(10)}px;
@@ -611,6 +617,7 @@ export function buildBarcodeHtml(
         <div class="subtitle">${docNumber}</div>
         ${extraHtml}
         <img class="qr" src="${dataUrl}" alt="QR Code" />
+        ${extra?.verificationCode ? `<div class="verification-code">KODE: ${extra.verificationCode}</div>` : ''}
         <div class="footer">${footer}</div>
       </body>
     </html>
@@ -621,7 +628,7 @@ export function printBarcode(
   docNumber: string,
   dataUrl: string,
   layout: QrLayout = DEFAULT_PRINT_LAYOUT.qr_surat_jalan,
-  extra?: { tanggal?: string; tujuanOutlet?: string }
+  extra?: { tanggal?: string; tujuanOutlet?: string; verificationCode?: string }
 ) {
   const PAPER_WIDTH_MM = layout.paperWidth;
   const html = buildBarcodeHtml(docNumber, dataUrl, layout, extra);

@@ -119,7 +119,7 @@ export async function printQRViaBluetooth(
   docNumber: string,
   dataUrl: string,
   layout: QrLayout = DEFAULT_PRINT_LAYOUT.qr_surat_jalan,
-  extra?: { tanggal?: string; tujuanOutlet?: string }
+  extra?: { tanggal?: string; tujuanOutlet?: string; verificationCode?: string }
 ) {
   const store = usePrinterStore.getState();
   if (!store.characteristic) {
@@ -167,6 +167,10 @@ export async function printQRViaBluetooth(
   } catch (err) {
     console.warn('Failed to load QR image for bluetooth printing', err);
     encoder.line('[ ERROR LOAD QR ]').newline();
+  }
+
+  if (extra?.verificationCode) {
+    encoder.alignCenter().bold(true).size(false, false).line(`KODE: ${extra.verificationCode}`).bold(false);
   }
 
   encoder.newline();

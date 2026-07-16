@@ -143,6 +143,9 @@ export default function KasirNav() {
             <p className="text-[#1e1b15] font-bold text-sm tracking-tight truncate max-w-[120px]">
               {cashierName ? cashierName : brandName}
             </p>
+            <p className="text-[#904d00] text-[10px] font-bold uppercase tracking-widest leading-none truncate max-w-[120px]">
+              {outletName}
+            </p>
           </div>
         </Link>
         <div className="flex items-center gap-2">
@@ -197,12 +200,12 @@ export default function KasirNav() {
             )}
             {!isCollapsed && (
               <div className="min-w-0 flex flex-col items-center justify-center animate-fade-in">
-                <p className="text-[#1e1b15] font-bold text-[15px] tracking-tight leading-snug truncate mb-1">
+                <p className="text-[#1e1b15] font-bold text-[15px] tracking-tight leading-snug text-center mb-1 break-words max-w-full">
                   {cashierName ? `Hai, ${cashierName}` : brandName}
                 </p>
-                <div className="flex items-center justify-center gap-1.5 bg-[#e9e1d8] px-2.5 py-1 rounded-full shadow-inner">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse shadow-sm`} />
-                  <p className="text-[#904d00] text-[10px] font-bold uppercase tracking-widest leading-none truncate">
+                <div className="flex items-center justify-center gap-1.5 bg-[#e9e1d8] px-2.5 py-1.5 rounded-2xl shadow-inner w-full max-w-[160px]">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse shadow-sm`} />
+                  <p className="text-[#904d00] text-[10px] font-bold uppercase tracking-widest leading-tight text-center break-words">
                     {isOnline ? outletName : `OFFLINE ${offlineQueueCount > 0 ? `(${offlineQueueCount})` : ''}`}
                   </p>
                 </div>

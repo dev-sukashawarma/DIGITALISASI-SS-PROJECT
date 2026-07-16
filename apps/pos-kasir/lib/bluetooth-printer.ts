@@ -1,5 +1,6 @@
 import { usePrinterStore, WebBluetoothDevice } from './printerStore';
 import { EscPosEncoder } from './escpos-encoder';
+import { loadImageRaster } from './escpos-image';
 import { type ReceiptData } from './printReceipt';
 import { DEFAULT_PRINT_LAYOUT, type CustomerLayout, type KitchenLayout } from './printLayout';
 import { formatRupiah } from './validations';
@@ -128,6 +129,10 @@ export async function printViaBluetooth(
   const showCashier = !isKitchen && (layout as CustomerLayout).showCashier;
   const showCustomer = layout.showCustomer;
   const showItemNotes = isKitchen || (layout as CustomerLayout).showItemNotes;
+  const showLogo = layout.showLogo;
+  // Thermal cuma bisa ukuran kasar: >= ambang → dobel tinggi. Default (14/22) = normal.
+  const bigText = (layout.fontSizePx ?? 0) >= (isKitchen ? 26 : 18);
+  const boldText = layout.bold !== false;
   const footerText = 'footerText' in layout ? layout.footerText : 'Terima kasih & selamat menikmati!';
   const dateStr = new Date(data.dateISO).toLocaleString('id-ID', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -135,7 +140,21 @@ export async function printViaBluetooth(
   });
 
   // --- BEGIN RECEIPT GENERATION ---
-  encoder.initialize().alignCenter().bold(true);
+  encoder.initialize();
+
+  // Logo (raster bitmap) — opsional; guard agar kegagalan muat/CORS tak membatalkan cetak.
+  if (showLogo) {
+    try {
+      const logoUrl = data.logoUrl || (typeof window !== 'undefined' ? `${window.location.origin}/logo.png` : '');
+      const maxDots = layout.paperWidth === 80 ? 384 : 240;
+      const raster = logoUrl ? await loadImageRaster(logoUrl, maxDots) : null;
+      if (raster) {
+        encoder.alignCenter().raster(raster.bytes, raster.widthBytes, raster.height).newline();
+      }
+    } catch { /* lewati logo, lanjut cetak teks */ }
+  }
+
+  encoder.alignCenter().bold(true);
 
   if (isKitchen) {
     const kitchenTitle = layout.headerText || 'STRUK DAPUR';
@@ -158,6 +177,9 @@ export async function printViaBluetooth(
 
   encoder.alignCenter().newline().size(true, true).line(`No. ${data.orderNumber}`).size(false, false).newline();
   encoder.alignLeft().hr('-', width);
+
+  // Ukuran & tebal item mengikuti setelan (dobel tinggi bila font besar; bold sesuai toggle).
+  encoder.size(false, bigText).bold(boldText);
 
   // Items
   data.items.forEach(it => {
@@ -183,6 +205,7 @@ export async function printViaBluetooth(
     }
   });
 
+  encoder.size(false, false).bold(false);
   encoder.hr('-', width);
 
   if (!isKitchen) {

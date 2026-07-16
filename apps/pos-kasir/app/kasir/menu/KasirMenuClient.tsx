@@ -260,7 +260,7 @@ export default function KasirMenuClient({
     try {
       const supabase = createClient()
       const { error } = await supabase.from('kiosk_settings').upsert({
-        outlet_id: outletId === PUSAT_OUTLET_ID ? null : outletId,
+        outlet_id: outletId,
         key: 'bestseller_ids',
         value: JSON.stringify(newBs)
       })
@@ -285,7 +285,7 @@ export default function KasirMenuClient({
     try {
       const supabase = createClient()
       const { error } = await supabase.from('kiosk_settings').upsert({
-        outlet_id: outletId === PUSAT_OUTLET_ID ? null : outletId,
+        outlet_id: outletId,
         key: 'upsell_ids',
         value: JSON.stringify(newUp)
       })
@@ -308,7 +308,7 @@ export default function KasirMenuClient({
     try {
       const supabase = createClient()
       const { error } = await supabase.from('kiosk_settings').upsert({
-        outlet_id: outletId === PUSAT_OUTLET_ID ? null : outletId,
+        outlet_id: outletId,
         key: 'recommendation_ids',
         value: JSON.stringify(newRec)
       })

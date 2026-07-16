@@ -36,6 +36,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
 
   const candidatesRef = useRef<Candidate[]>([]);
   const watchIdRef = useRef<number | null>(null);
+  const locationLockedRef = useRef(false);
+  const livenessWarningStartRef = useRef<number | null>(null);
   const [phase, setPhase] = useState<KioskPhase>("locating");
   const [outletCoords, setOutletCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -76,6 +78,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
 
         // Jika lat/lng di DB bernilai null (misalnya HQ), bypass validasi geofence
         if (data.lat === null || data.lng === null) {
+          locationLockedRef.current = true;
           setPhase("idle");
           setResult(null);
           return;
@@ -121,6 +124,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         }
 
         if (!coords) {
+          locationLockedRef.current = true;
           setPhase("idle");
           setResult(null);
           if (watchIdRef.current !== null) {
@@ -139,6 +143,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         if (adjustedDist <= GEOFENCE_RADIUS_M) {
 
 
+          locationLockedRef.current = true;
           setPhase("idle");
           setResult(null);
           if (watchIdRef.current !== null) {
@@ -295,16 +300,41 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         }
         return;
       }
-      // Identitas TIDAK dicek per-frame saat menoleh (descriptor melenceng di sudut
-      // → salah tolak "wajah berubah"). Tantangan baru lolos ketika wajah kembali ke
-      // posisi TENGAH/frontal — di frame itulah descriptor andal, jadi verifikasi
-      // identitas dilakukan tepat saat lolos. Ini mencegah celah "ganti orang di
-      // tengah liveness" tanpa memunculkan false-reject saat menoleh.
+      // Evaluasi identitas per-frame dengan toleransi 3 detik.
+      // Jika wajah menoleh, descriptor bisa melenceng dan dianggap "unknown". 
+      // Jeda 3 detik memberi waktu untuk menyelesaikan gerakan tanpa langsung gagal.
+      let isFaceMatch = false;
+      if (res.face[0].embedding) {
+        const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
+        isFaceMatch = (found.id === who.id);
+      }
+
+      if (!isFaceMatch) {
+        if (!livenessWarningStartRef.current) {
+          livenessWarningStartRef.current = Date.now();
+        }
+        if (Date.now() - livenessWarningStartRef.current > 3000) {
+          setResult({ ok: false, message: "Wajah harus orang yang sama. Proses dibatalkan." });
+          setPhase("result");
+          scheduleReset(3000);
+          return;
+        } else {
+          // Hanya tampilkan warning jika belum ada result gagal sebelumnya
+          setResult((prev) => prev?.ok === false && prev.message.includes("dibatalkan") 
+            ? prev 
+            : { ok: false, message: "Wajah tidak cocok, silakan paskan wajah Anda kembali" });
+        }
+      } else {
+        livenessWarningStartRef.current = null;
+        setResult((prev) => prev?.message === "Wajah tidak cocok, silakan paskan wajah Anda kembali" ? null : prev);
+      }
+
+      // Tetap feed detector agar gerakan (menengok dll) diproses selama masa toleransi.
       const passed = detector.feed(res.gesture);
       if (passed) {
         livenessRef.current = null;
+        // Pengecekan final saat lolos liveness (harus frontal dan cocok)
         if (!res.face[0].embedding) return;
-        
         const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
         if (found.id === "unknown" || found.id !== who.id) {
           setResult({ ok: false, message: `Wajah harus orang yang sama. Silakan ulangi. (Skor: ${found.bestSimilarity.toFixed(4)})` });
@@ -431,8 +461,10 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       watchIdRef.current = null;
     }
     setTimeout(() => {
-      setPhase("locating"); setWho(null); setChallenge(null); setResult(null);
+      setPhase(locationLockedRef.current ? "idle" : "locating");
+      setWho(null); setChallenge(null); setResult(null);
       livenessRef.current = null;
+      livenessWarningStartRef.current = null;
     }, delay);
   }
 

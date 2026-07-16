@@ -74,7 +74,7 @@ export function VerifikasiForm({ id }: { id: string }) {
       }
       return {
         ...item,
-        qty_dikirim_dist: Math.round((item.qty_dikirim * factor) * 100) / 100,
+        qty_dikirim_dist: Math.round(item.qty_dikirim * factor),
         satuan_dist: b?.satuan_distribusi || b?.satuan,
         factor,
       }
@@ -285,6 +285,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     try {
       const updatePromises = items.map((item: any) => {
         const v = verifications[item.id] ?? { qty_terima: item.qty_dikirim_dist, kondisi: 'baik' as const, catatan: '', foto_path: null, foto_preview: null }
+        const qty_terima_base = typeof v.qty_terima === 'number' ? (v.qty_terima / item.factor) : item.qty_dikirim
         return supabase
           .from('surat_jalan_item')
           .update({

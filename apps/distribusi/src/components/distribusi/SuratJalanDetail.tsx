@@ -89,8 +89,8 @@ export function SuratJalanDetail({ id }: { id: string }) {
         ...item,
         nama: b?.nama,
         satuan: distUnit,
-        qty_dikirim: Math.round((item.qty_dikirim * factor) * 100) / 100,
-        qty_terima: item.qty_terima != null ? Math.round((item.qty_terima * factor) * 100) / 100 : null,
+        qty_dikirim: Math.round(item.qty_dikirim * factor),
+        qty_terima: item.qty_terima != null ? Math.round(item.qty_terima * factor) : null,
         foto_base64,
       }
     }))

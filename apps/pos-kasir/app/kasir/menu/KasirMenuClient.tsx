@@ -263,7 +263,7 @@ export default function KasirMenuClient({
         outlet_id: outletId,
         key: 'bestseller_ids',
         value: JSON.stringify(newBs)
-      })
+      }, { onConflict: 'outlet_id, key' })
       if (error) throw error
       invalidateMenu()
       showToast({ type: 'success', message: isBs ? `${item.name} dihapus dari Best Seller${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` : `${item.name} ditandai sebagai Best Seller${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` })
@@ -288,7 +288,7 @@ export default function KasirMenuClient({
         outlet_id: outletId,
         key: 'upsell_ids',
         value: JSON.stringify(newUp)
-      })
+      }, { onConflict: 'outlet_id, key' })
       if (error) throw error
       invalidateMenu()
       showToast({ type: 'success', message: isUp ? `${item.name} dihapus dari Menu Ekstra${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` : `${item.name} dijadikan Menu Ekstra${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` })
@@ -311,7 +311,7 @@ export default function KasirMenuClient({
         outlet_id: outletId,
         key: 'recommendation_ids',
         value: JSON.stringify(newRec)
-      })
+      }, { onConflict: 'outlet_id, key' })
       if (error) throw error
       invalidateMenu()
       showToast({ type: 'success', message: isRec ? `${item.name} dihapus dari Menu Rekomendasi${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` : `${item.name} dijadikan Menu Rekomendasi${outletId === PUSAT_OUTLET_ID ? ' (Global)' : ''}` })
@@ -334,7 +334,7 @@ export default function KasirMenuClient({
         outlet_id: outletId,
         key: 'force_available_menu_ids',
         value: JSON.stringify(newForce)
-      })
+      }, { onConflict: 'outlet_id, key' })
       if (error) throw error
       invalidateMenu()
       showToast({ type: 'success', message: isForce ? `Batal Paksa Aktif untuk ${item.name}` : `${item.name} Dipaksa Aktif` })

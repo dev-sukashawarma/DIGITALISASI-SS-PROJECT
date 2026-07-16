@@ -4,6 +4,7 @@ import { useSystemHealth } from '@/hooks/useSystemHealth'
 import { AppHealthCard } from '@/components/AppHealthCard'
 import { InfraHealthCard } from '@/components/InfraHealthCard'
 import { IncidentTimeline } from '@/components/IncidentTimeline'
+import { HardResetOutletCard } from '@/components/HardResetOutletCard'
 
 const APP_ORDER = ['stok', 'absensi', 'pos-kasir', 'distribusi']
 const INFRA_ORDER = ['supabase-db']
@@ -42,6 +43,11 @@ export default function SystemHealthPage() {
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-gray-500">Riwayat Insiden (24 jam terakhir)</h3>
         <IncidentTimeline events={transitions} />
+      </section>
+
+      <section className="space-y-2 pt-8">
+        <h3 className="text-sm font-semibold text-gray-500">Manajemen Data</h3>
+        <HardResetOutletCard />
       </section>
     </div>
   )

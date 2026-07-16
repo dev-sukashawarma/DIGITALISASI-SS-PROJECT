@@ -23,6 +23,7 @@ const SERVICES = [
   '000018f0-0000-1000-8000-00805f9b34fb' // commonly used generic 16-bit UUID
 ];
 
+// @ts-ignore
 async function connectToDevice(device: BluetoothDevice, store: any) {
   if (!device.gatt) throw new Error('Perangkat tidak mendukung GATT Bluetooth.');
 
@@ -33,7 +34,8 @@ async function connectToDevice(device: BluetoothDevice, store: any) {
     try {
       const service = await server.getPrimaryService(serviceUuid.toLowerCase());
       const characteristics = await service.getCharacteristics();
-      targetCharacteristic = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
+      // @ts-ignore
+      targetCharacteristic = characteristics.find((c: any) => c.properties.write || c.properties.writeWithoutResponse);
       if (targetCharacteristic) break;
     } catch (err) {
       // Skip
@@ -59,10 +61,12 @@ export async function connectBluetoothPrinter() {
   store.setConnecting(true);
 
   try {
+    // @ts-ignore
     if (!navigator.bluetooth) {
       throw new Error('Browser ini tidak mendukung Web Bluetooth. Gunakan Google Chrome versi terbaru.');
     }
 
+    // @ts-ignore
     const device = await navigator.bluetooth.requestDevice({
       filters: [
         { services: [CUSTOM_SERVICE_UUID_1] },

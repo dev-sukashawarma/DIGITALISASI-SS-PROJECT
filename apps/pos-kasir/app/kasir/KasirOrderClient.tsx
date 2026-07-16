@@ -612,10 +612,9 @@ export default function KasirOrderClient({
     } catch (err: any) {
       console.error('Print error:', err)
       // Tampilkan error jika printer bermasalah
-      useDialogStore.getState().showAlert({
-        title: 'Gagal Mencetak',
-        message: err.message || 'Pastikan bluetooth menyala dan printer terhubung.',
-      })
+      useDialogStore.getState().showAlert(
+        `Gagal Mencetak: ${err.message || 'Pastikan bluetooth menyala dan printer terhubung.'}`
+      )
     }
   }
 
@@ -640,13 +639,17 @@ export default function KasirOrderClient({
       await printReceipt(receiptData)
     } catch (err: any) {
       console.error('Print error:', err)
-      useDialogStore.getState().showAlert({
-        title: 'Gagal Mencetak',
-        message: err.message || 'Pastikan bluetooth menyala dan printer terhubung.',
-      })
+      useDialogStore.getState().showAlert(
+        `Gagal Mencetak: ${err.message || 'Pastikan bluetooth menyala dan printer terhubung.'}`
+      )
     } finally {
       setReprintTargetOrder(null)
     }
+  }
+
+  async function handleCompleteAndPrint(order: ParsedOrder) {
+    await markAsCompleted(order.id)
+    await handleReprintReceipt(order, 'customer')
   }
 
   // Cancel order

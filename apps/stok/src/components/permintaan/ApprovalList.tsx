@@ -1,11 +1,14 @@
 'use client'
 import { useState } from 'react'
 import { useApprovalList } from '@/hooks/usePermintaan'
+import { useBahanBaku } from '@/hooks/useBahanBaku'
+import { convertToDistribusiUnit } from '@/lib/format/compositeUnit'
 import type { PermintaanWithItems } from '@/types/permintaan'
 import { ApprovalModal } from './ApprovalModal'
 
 export function ApprovalList() {
   const { permintaan, loading, error, refresh } = useApprovalList()
+  const { bahanBaku } = useBahanBaku()
   const [selected, setSelected] = useState<PermintaanWithItems | null>(null)
 
   if (loading) return <p className="text-xs text-[#544437]/60">Memuat…</p>
@@ -61,12 +64,17 @@ export function ApprovalList() {
                     {p.items.length} item bahan baku
                   </p>
                   <div className="mt-2 space-y-1">
-                    {p.items.slice(0, 3).map(it => (
+                    {p.items.slice(0, 3).map(it => {
+                      const b = bahanBaku.find(x => x.id === it.bahan_baku_id);
+                      const distUnit = b?.satuan_distribusi || it.satuan || '';
+                      const qtyDiminta = b ? Math.ceil(convertToDistribusiUnit(it.qty_diminta, b)) : it.qty_diminta;
+                      return (
                       <div key={it.bahan_baku_id} className="text-[11px] text-[#544437] flex justify-between items-center bg-[#faf2e9] px-2 py-1 rounded-md border border-[#d9c2b2]/20">
                         <span className="truncate pr-2 font-medium">{it.nama ?? it.bahan_baku_id}</span>
-                        <span className="font-bold whitespace-nowrap text-[#701604]">{it.qty_diminta} {it.satuan ?? ''}</span>
+                        <span className="font-bold whitespace-nowrap text-[#701604]">{qtyDiminta} {distUnit}</span>
                       </div>
-                    ))}
+                      )
+                    })}
                     {p.items.length > 3 && (
                       <p className="text-[10px] text-[#544437]/70 font-bold italic pt-1">+ {p.items.length - 3} item lainnya...</p>
                     )}

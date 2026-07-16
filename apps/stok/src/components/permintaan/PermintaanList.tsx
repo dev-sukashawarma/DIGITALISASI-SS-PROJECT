@@ -1,5 +1,7 @@
 'use client'
 import { usePermintaanList } from '@/hooks/usePermintaan'
+import { useBahanBaku } from '@/hooks/useBahanBaku'
+import { convertToDistribusiUnit } from '@/lib/format/compositeUnit'
 import type { PermintaanStatus } from '@/types/permintaan'
 
 const STATUS_STYLE: Record<PermintaanStatus, string> = {
@@ -13,6 +15,7 @@ const STATUS_LABEL: Record<PermintaanStatus, string> = {
 
 export function PermintaanList({ outletId }: { outletId: string }) {
   const { permintaan, loading, error } = usePermintaanList(outletId)
+  const { bahanBaku } = useBahanBaku()
 
   if (loading) return <p className="text-xs text-[#544437]/60">Memuat…</p>
   if (error) return <p className="text-xs text-[#ba1a1a]">{error}</p>
@@ -55,17 +58,24 @@ export function PermintaanList({ outletId }: { outletId: string }) {
               </p>
               
               <ul className="text-xs text-[#544437] space-y-1.5 bg-[#fff8f1] rounded-xl p-3 border border-[#d9c2b2]/20">
-                {p.items.map(it => (
+                {p.items.map(it => {
+                  const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
+                  const distUnit = b?.satuan_distribusi || b?.satuan || ''
+                  const qtyDiminta = b ? Math.ceil(convertToDistribusiUnit(it.qty_diminta || 0, b)) : (it.qty_diminta || 0)
+                  const qtyDisetujui = (b && it.qty_disetujui != null) ? Math.ceil(convertToDistribusiUnit(it.qty_disetujui, b)) : it.qty_disetujui
+
+                  return (
                   <li key={it.id} className="flex justify-between items-center">
                     <span className="font-medium text-[#1e1b15]">{it.nama ?? it.bahan_baku_id}</span>
                     <span className="font-semibold text-[#1e1b15]">
-                      {it.qty_diminta}
-                      {it.qty_disetujui != null && it.qty_disetujui !== it.qty_diminta && (
-                        <span className="text-[#f29744] font-bold"> → {it.qty_disetujui}</span>
+                      {qtyDiminta} {distUnit}
+                      {qtyDisetujui != null && qtyDisetujui !== qtyDiminta && (
+                        <span className="text-[#f29744] font-bold"> → {qtyDisetujui} {distUnit}</span>
                       )}
                     </span>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             </div>
 

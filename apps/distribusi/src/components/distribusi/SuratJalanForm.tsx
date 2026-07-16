@@ -13,6 +13,24 @@ interface FormItem {
   qty: number
 }
 
+function getDistribusiFactor(b: any): number {
+  if (!b.satuan_distribusi || b.satuan_distribusi === b.satuan) return 1;
+  const dist = b.satuan_distribusi.toLowerCase();
+  if (dist === b.satuan_tengah?.toLowerCase() && b.faktor_tengah) return b.faktor_tengah;
+  if (dist === b.satuan_kecil?.toLowerCase() && b.faktor_tampilan) return b.faktor_tampilan;
+  
+  // Implicit mapping: if dist is 'kg' and satuan_kecil is 'gram'
+  if (dist === 'kg' && b.satuan_kecil?.toLowerCase() === 'gram' && b.faktor_tampilan) {
+    return b.faktor_tampilan / 1000;
+  }
+  
+  return 1;
+}
+
+function convertToBaseUnit(qtyDistribusi: number, b: any): number {
+  return qtyDistribusi / getDistribusiFactor(b);
+}
+
 const normalizeKategori = (kategori: string | undefined): string => {
   const c = (kategori || '').toLowerCase();
   if (c === 'protein' || c === 'sayur') return 'item core';
@@ -88,11 +106,15 @@ export function SuratJalanForm() {
       if (!sj?.id) throw new Error('No ID returned from surat jalan insert')
 
       // Insert items
-      const itemsToInsert = items.map((item) => ({
-        surat_jalan_id: sj.id,
-        bahan_baku_id: item.bahanId,
-        qty_dikirim: item.qty,
-      }))
+      const itemsToInsert = items.map((item) => {
+        const bahan = bahanBaku.find((b) => b.id === item.bahanId)
+        const qty_dikirim_base = bahan ? convertToBaseUnit(item.qty, bahan) : item.qty
+        return {
+          surat_jalan_id: sj.id,
+          bahan_baku_id: item.bahanId,
+          qty_dikirim: qty_dikirim_base,
+        }
+      })
 
       const { error: itemsError } = await supabase
         .from('surat_jalan_item')
@@ -182,9 +204,10 @@ export function SuratJalanForm() {
                               const conv = bahan.faktor_konversi && bahan.satuan_kecil 
                                 ? ` (1 ${bahan.satuan} = ${bahan.faktor_konversi} ${bahan.satuan_kecil})`
                                 : '';
+                              const distUnit = bahan.satuan_distribusi || bahan.satuan;
                               return (
                                 <option key={bahan.id} value={bahan.id}>
-                                  {bahan.nama.toUpperCase()} - {bahan.satuan}{conv}
+                                  {bahan.nama.toUpperCase()} - {distUnit}{conv}
                                 </option>
                               );
                             })}
@@ -234,7 +257,7 @@ export function SuratJalanForm() {
                         className="flex justify-between items-center bg-[#fff8f1] border border-[#d9c2b2]/40 px-4 py-3 rounded-xl shadow-xs"
                       >
                         <span className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide">
-                          {bahan?.nama || 'Unknown'} - {item.qty} {bahan?.satuan}
+                          {bahan?.nama || 'Unknown'} - {item.qty} {bahan?.satuan_distribusi || bahan?.satuan}
                         </span>
                         <button
                           type="button"

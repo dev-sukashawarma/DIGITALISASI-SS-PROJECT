@@ -12,13 +12,17 @@ interface BahanBaku {
   kategori_core?: string
   satuan_kecil?: string | null
   faktor_konversi?: number | null
+  satuan_tengah?: string | null
+  faktor_tengah?: number | null
+  faktor_tampilan?: number | null
+  satuan_distribusi?: string | null
 }
 
 async function fetchBahanBaku(): Promise<BahanBaku[]> {
   const supabase = createSupabaseBrowserClient()
   const { data, error } = await supabase
     .from('bahan_baku')
-    .select('id, nama, satuan, kategori, kategori_core, satuan_kecil, faktor_konversi')
+    .select('id, nama, satuan, kategori, kategori_core, satuan_kecil, faktor_konversi, satuan_tengah, faktor_tengah, faktor_tampilan, satuan_distribusi')
     .eq('is_active', true)
     .order('nama')
   if (error) throw new Error(error.message)

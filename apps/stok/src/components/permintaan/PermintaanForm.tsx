@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useSaranItem, usePermintaanActions, usePermintaanList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { fetchActiveResep, calculateBahanBakuRequest, type ResepMenu, type CalculatedBahan } from '@/app/actions/permintaan_target'
-import { formatTriUnitSaldo } from '@/lib/format/compositeUnit'
+import { formatTriUnitSaldo, convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
 
 export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: { outletId: string; onSubmitSuccess?: () => void; onCartViewChange?: (isCart: boolean) => void }) {
   const { saran } = useSaranItem(outletId)
@@ -82,14 +82,17 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
     // Add Calculated
     calculatedResult.forEach(c => {
       if (pendingItemIds.has(c.bahan_baku_id)) return
+      const b = bahanBaku.find(x => x.id === c.bahan_baku_id)
+      const distUnit = b?.satuan_distribusi || c.satuan
+      const qtyDist = b ? convertToDistribusiUnit(c.kebutuhan, b) : c.kebutuhan
       map.set(c.bahan_baku_id, {
         id: c.bahan_baku_id,
         nama: c.nama_bahan,
-        satuan: c.satuan,
-        qty: Math.ceil(c.kebutuhan),
+        satuan: distUnit,
+        qty: Math.ceil(qtyDist),
         source: 'calc',
         current_qty: c.sisa_stok,
-        kebutuhan: c.kebutuhan
+        kebutuhan: c.kebutuhan // Keep original kebutuhan for display if needed
       })
     })
 
@@ -105,10 +108,11 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
         existing.source = 'both'
       } else {
         const saranItem = saran.find(s => s.bahan_baku_id === id)
+        const distUnit = b.satuan_distribusi || b.satuan
         map.set(id, {
           id,
           nama: b.nama,
-          satuan: b.satuan,
+          satuan: distUnit,
           qty,
           source: 'manual',
           current_qty: saranItem?.current_qty
@@ -181,9 +185,13 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
         }
       }).filter(m => m.qty > 0)
 
-      await buat(outletId, itemsToRequest.map(r => ({
-        bahan_baku_id: r.id, qty_diminta: r.qty,
-      })), targetMetadata)
+      await buat(outletId, itemsToRequest.map(r => {
+        const b = bahanBaku.find(x => x.id === r.id)
+        const qtyDimintaBase = b ? convertToBaseUnit(r.qty, b) : r.qty
+        return {
+          bahan_baku_id: r.id, qty_diminta: qtyDimintaBase,
+        }
+      }), targetMetadata)
       setMenuTargets({})
       setManualBahan({})
       setIsCartView(false)
@@ -456,7 +464,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
               >
                 <option value="">-- Pilih Bahan Baku --</option>
                 {filteredBahanManual.map(b => (
-                  <option key={b.id} value={b.id}>{b.nama} ({b.satuan})</option>
+                  <option key={b.id} value={b.id}>{b.nama} ({b.satuan_distribusi || b.satuan})</option>
                 ))}
               </select>
               <button 
@@ -482,7 +490,14 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
                           <p className="text-xs text-red-500 font-medium">Sisa {formatTriUnitSaldo(s.current_qty, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan)}</p>
                         </div>
                         <button 
-                          onClick={() => setManualBahan(p => ({...p, [s.bahan_baku_id]: Math.max(1, Math.ceil(s.threshold - s.current_qty))}))} 
+                          onClick={() => {
+                            // Hitung kekurangan dalam satuan dasar
+                            const kekuranganBase = Math.max(1, Math.ceil(s.threshold - s.current_qty));
+                            // Konversi ke satuan distribusi
+                            const b_info = bahanBaku.find(x => x.id === s.bahan_baku_id);
+                            const distQty = b_info ? convertToDistribusiUnit(kekuranganBase, b_info) : kekuranganBase;
+                            setManualBahan(p => ({...p, [s.bahan_baku_id]: Math.ceil(distQty)}));
+                          }} 
                           className="bg-red-50 hover:bg-red-100 transition-colors text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200"
                         >
                           + Tambah
@@ -507,7 +522,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
                       <div>
                         <p className="font-bold text-suka-ink text-sm">{b.nama}</p>
                         <p className="text-xs text-suka-gray-500">
-                          {b.satuan} {saranItem && <span className="text-red-500 ml-1">(Kritis: Sisa {formatTriUnitSaldo(saranItem.current_qty, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan)})</span>}
+                          {b.satuan_distribusi || b.satuan} {saranItem && <span className="text-red-500 ml-1">(Kritis: Sisa {formatTriUnitSaldo(saranItem.current_qty, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan)})</span>}
                         </p>
                       </div>
                       <div className="flex items-center bg-suka-gray-50 rounded p-1 border border-suka-gray-200">

@@ -133,3 +133,27 @@ export function combineOpnameInput(
 ): number {
   return containers + remainder / faktorTampilan
 }
+
+export function getDistribusiFactor(b: { satuan: string; satuan_tengah?: string | null; faktor_tengah?: number | null; satuan_kecil?: string | null; faktor_tampilan?: number | null; satuan_distribusi?: string | null }): number {
+  if (!b.satuan_distribusi || b.satuan_distribusi === b.satuan) return 1;
+  const dist = b.satuan_distribusi.toLowerCase();
+  if (dist === b.satuan_tengah?.toLowerCase() && b.faktor_tengah) return b.faktor_tengah;
+  if (dist === b.satuan_kecil?.toLowerCase() && b.faktor_tampilan) return b.faktor_tampilan;
+  
+  // Implicit mapping: if dist is 'kg' and satuan_kecil is 'gram'
+  if (dist === 'kg' && b.satuan_kecil?.toLowerCase() === 'gram' && b.faktor_tampilan) {
+    return b.faktor_tampilan / 1000;
+  }
+  
+  return 1;
+}
+
+export function convertToBaseUnit(qtyDistribusi: number, b: { satuan: string; satuan_tengah?: string | null; faktor_tengah?: number | null; satuan_kecil?: string | null; faktor_tampilan?: number | null; satuan_distribusi?: string | null }): number {
+  const factor = getDistribusiFactor(b);
+  return qtyDistribusi / factor;
+}
+
+export function convertToDistribusiUnit(qtyBase: number, b: { satuan: string; satuan_tengah?: string | null; faktor_tengah?: number | null; satuan_kecil?: string | null; faktor_tampilan?: number | null; satuan_distribusi?: string | null }): number {
+  const factor = getDistribusiFactor(b);
+  return qtyBase * factor;
+}

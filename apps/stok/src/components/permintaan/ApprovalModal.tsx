@@ -1,9 +1,11 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { usePermintaanActions } from '@/hooks/usePermintaan'
+import { useBahanBaku } from '@/hooks/useBahanBaku'
 import type { PermintaanWithItems } from '@/types/permintaan'
 import { fetchCrosscheckStok } from '@/app/actions/permintaan'
 import { calculateBahanBakuRequest } from '@/app/actions/permintaan_target'
+import { convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
 
 interface Props {
   permintaan: PermintaanWithItems
@@ -13,12 +15,20 @@ interface Props {
 
 export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
   const { approve, tolak } = usePermintaanActions()
+  const { bahanBaku } = useBahanBaku()
   const dialogRef = useRef<HTMLDivElement>(null)
 
-  // qty_disetujui state keyed by bahan_baku_id
-  const [qtys, setQtys] = useState<Record<string, number>>(() =>
-    Object.fromEntries(permintaan.items.map(it => [it.bahan_baku_id, it.qty_diminta]))
-  )
+  // qty_disetujui state keyed by bahan_baku_id (in distribusi unit)
+  const [qtys, setQtys] = useState<Record<string, number>>({})
+  
+  useEffect(() => {
+    if (bahanBaku.length > 0 && Object.keys(qtys).length === 0) {
+      setQtys(Object.fromEntries(permintaan.items.map(it => {
+        const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
+        return [it.bahan_baku_id, b ? Math.ceil(convertToDistribusiUnit(it.qty_diminta, b)) : it.qty_diminta]
+      })))
+    }
+  }, [permintaan.items, bahanBaku])
   const [crosscheckData, setCrosscheckData] = useState<Record<string, { outletStok: number; gudangStok: number }> | null>(null)
   const [isFetchingCrosscheck, setIsFetchingCrosscheck] = useState(true)
   const [calculatedMap, setCalculatedMap] = useState<Record<string, number>>({})
@@ -59,7 +69,12 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
   }, [permintaan.outlet_id, permintaan.items, permintaan.target_metadata])
 
   const hasOverStock = permintaan.items.some(
-    it => crosscheckData && crosscheckData[it.bahan_baku_id] && qtys[it.bahan_baku_id] > crosscheckData[it.bahan_baku_id].gudangStok
+    it => {
+      if (!crosscheckData || !crosscheckData[it.bahan_baku_id]) return false
+      const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
+      const qtyDisetujuiBase = b ? convertToBaseUnit(qtys[it.bahan_baku_id] ?? 0, b) : (qtys[it.bahan_baku_id] ?? 0)
+      return qtyDisetujuiBase > crosscheckData[it.bahan_baku_id].gudangStok
+    }
   )
   const [alasan, setAlasan] = useState('')
   const [loading, setLoading] = useState(false)
@@ -80,10 +95,14 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
     setLoading(true)
     setErrorMsg(null)
     try {
-      const items = permintaan.items.map(it => ({
-        bahan_baku_id: it.bahan_baku_id,
-        qty_disetujui: qtys[it.bahan_baku_id] ?? 0,
-      }))
+      const items = permintaan.items.map(it => {
+        const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
+        const qtyDisetujuiBase = b ? convertToBaseUnit(qtys[it.bahan_baku_id] ?? 0, b) : (qtys[it.bahan_baku_id] ?? 0)
+        return {
+          bahan_baku_id: it.bahan_baku_id,
+          qty_disetujui: qtyDisetujuiBase,
+        }
+      })
       await approve(permintaan.id, items)
       onDone()
     } catch (err: any) {
@@ -177,7 +196,15 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
         {/* Items */}
         <div className="space-y-3">
           <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-2">
-            {permintaan.items.map(it => (
+            {permintaan.items.map(it => {
+              const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
+              const distUnit = b?.satuan_distribusi || it.satuan || ''
+              const qtyDiminta = b ? Math.ceil(convertToDistribusiUnit(it.qty_diminta, b)) : it.qty_diminta
+              const qtyDisetujuiBase = b ? convertToBaseUnit(qtys[it.bahan_baku_id] ?? 0, b) : (qtys[it.bahan_baku_id] ?? 0)
+              const gudangStokBase = crosscheckData?.[it.bahan_baku_id]?.gudangStok ?? 0
+              const isOverStock = crosscheckData && crosscheckData[it.bahan_baku_id] && qtyDisetujuiBase > gudangStokBase
+
+              return (
               <div key={it.bahan_baku_id} className="flex items-center justify-between gap-4 border-b border-[#d9c2b2]/10 pb-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-[#1e1b15] truncate">{it.nama ?? it.bahan_baku_id}</p>
@@ -187,12 +214,12 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
                       Pembulatan: <span className="font-bold">{Math.ceil(calculatedMap[it.bahan_baku_id])}</span> {it.satuan ?? ''}
                     </p>
                   )}
-                  <p className="text-[11px] font-semibold text-[#544437] mt-0.5">Diminta: <span className="font-bold text-[#701604]">{it.qty_diminta} {it.satuan ?? ''}</span></p>
+                  <p className="text-[11px] font-semibold text-[#544437] mt-0.5">Diminta: <span className="font-bold text-[#701604]">{qtyDiminta} {distUnit}</span></p>
                   {isFetchingCrosscheck ? (
                     <p className="text-[10px] text-[#544437]/60 mt-0.5 animate-pulse">Memuat stok...</p>
                   ) : crosscheckData && crosscheckData[it.bahan_baku_id] ? (
                     <p className="text-[10px] text-[#544437] mt-0.5 font-medium">
-                      Stok Outlet: {crosscheckData[it.bahan_baku_id].outletStok} | Stok Gudang: {crosscheckData[it.bahan_baku_id].gudangStok}
+                      Stok Outlet: {crosscheckData[it.bahan_baku_id].outletStok} {it.satuan} | Stok Gudang: {crosscheckData[it.bahan_baku_id].gudangStok} {it.satuan}
                     </p>
                   ) : (
                     <p className="text-[10px] text-[#544437]/60 mt-0.5">(Stok tidak dapat dimuat)</p>
@@ -201,11 +228,11 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
                 
                 {/* Qty Stepper */}
                 <div className="flex items-center flex-shrink-0">
-                  {crosscheckData && crosscheckData[it.bahan_baku_id] && (qtys[it.bahan_baku_id] ?? 0) > crosscheckData[it.bahan_baku_id].gudangStok && (
+                  {isOverStock && (
                     <span className="text-xs mr-2" title="Melebihi stok gudang">⚠️</span>
                   )}
                   <div className={`flex items-center border rounded-xl px-1 py-0.5 ${
-                    crosscheckData && crosscheckData[it.bahan_baku_id] && (qtys[it.bahan_baku_id] ?? 0) > crosscheckData[it.bahan_baku_id].gudangStok
+                    isOverStock
                       ? 'bg-orange-50 border-orange-200'
                       : 'bg-[#faf2e9] border-[#d9c2b2]/30'
                   }`}>
@@ -227,14 +254,14 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
                         setErrorMsg(null)
                       }}
                       className={`w-12 bg-transparent border-none text-center font-bold focus:ring-0 p-0 text-sm ${
-                        crosscheckData && crosscheckData[it.bahan_baku_id] && (qtys[it.bahan_baku_id] ?? 0) > crosscheckData[it.bahan_baku_id].gudangStok
+                        isOverStock
                           ? 'text-orange-600'
                           : 'text-[#1e1b15]'
                       }`}
                       disabled={loading}
                       aria-label={`Jumlah disetujui ${it.nama ?? it.bahan_baku_id}`}
                     />
-                    <span className="text-[10px] font-bold text-[#904d00] mr-1">{it.satuan ?? ''}</span>
+                    <span className="text-[10px] font-bold text-[#904d00] mr-1">{distUnit}</span>
                     <button
                       type="button"
                       onClick={() => handlePlus(it.bahan_baku_id)}
@@ -247,7 +274,8 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
           <p className="text-[10px] text-[#544437]/50">Set qty 0 untuk menolak item tertentu</p>
         </div>

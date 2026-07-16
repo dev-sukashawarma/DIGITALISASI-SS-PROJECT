@@ -16,6 +16,7 @@ export interface BahanBaku {
   faktor_tengah: number | null
   satuan_kecil: SatuanKecil | null
   faktor_tampilan: number | null
+  satuan_distribusi?: string | null
 }
 export interface Opname {
   id: string; outlet_id: string; tanggal: string; tipe: OpnameTipe

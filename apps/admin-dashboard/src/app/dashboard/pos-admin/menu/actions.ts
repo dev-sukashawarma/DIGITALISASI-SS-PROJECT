@@ -75,11 +75,9 @@ export async function toggleGlobalSetting(key: string, newIds: string[]) {
     key,
     value: JSON.stringify(newIds)
   })
+  await supabase.from('kiosk_settings').delete().not('outlet_id', 'is', null).eq('key', key)
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
-export async function resetOutletSettings() {
-  const supabase = await getSupabase()
-  await supabase.from('kiosk_settings').delete().not('outlet_id', 'is', null).in('key', ['upsell_ids', 'bestseller_ids', 'recommendation_ids'])
-  revalidatePath('/dashboard/pos-admin/menu')
-}
+
+

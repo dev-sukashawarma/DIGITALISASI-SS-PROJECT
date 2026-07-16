@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, X, Loader2,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  FileArchive, Search, MoreVertical, Check, RefreshCw
+  FileArchive, Search, MoreVertical, Check
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput } from '@suka/design-system'
@@ -15,7 +15,7 @@ import type { MenuItem, Category } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
 import MenuSearch from './MenuSearch'
-import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting, resetOutletSettings } from './actions'
+import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
 
 const BUCKET = 'menu-images'
 
@@ -189,21 +189,6 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
     setDeletingAll(false)
   }
 
-  const [resettingOutlet, setResettingOutlet] = useState(false)
-  async function handleResetOutlet() {
-    const confirmed = await showConfirm('Yakin mereset semua Menu Ekstra, Bestseller, & Rekomendasi di semua outlet? Semua pengaturan lokal outlet akan dihapus dan mengikuti pengaturan global ini.');
-    if (!confirmed) return
-    
-    setResettingOutlet(true)
-    try {
-      await resetOutletSettings()
-      alert('Berhasil reset pilihan outlet')
-    } catch (e) {
-      alert('Gagal reset outlet')
-    }
-    setResettingOutlet(false)
-  }
-
   const displayImage = preview ?? form.image_url
 
   
@@ -220,18 +205,7 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Search Input */}
           <MenuSearch />
-          <button
-            onClick={handleResetOutlet}
-            disabled={resettingOutlet}
-            className="py-2.5 px-5 text-sm font-semibold rounded-2xl flex items-center gap-2
-              bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed
-              transition-all duration-200 active:scale-[.98]"
-          >
-            {resettingOutlet
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <RefreshCw className="w-4 h-4" />}
-            Reset Pilihan Outlet
-          </button>
+
           <button
             onClick={() => setShowZipModal(true)}
             className="py-2.5 px-5 text-sm font-semibold rounded-2xl flex items-center gap-2
@@ -588,3 +562,5 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
     </div>
   )
 }
+
+

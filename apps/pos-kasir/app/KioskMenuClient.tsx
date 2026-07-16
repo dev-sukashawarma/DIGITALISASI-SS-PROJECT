@@ -54,14 +54,6 @@ export default function KioskMenuClient({ initialData }: { initialData: KioskIni
                   try { return raw ? JSON.parse(raw) : [] } catch { return [] }
                 }
                 const getSetting = (key: string, preferGlobal: boolean = false) => {
-                  if (key === 'bestseller_ids') {
-                    const rows = data?.filter(s => s.key === key) || []
-                    const globalRows = rows.filter(s => s.outlet_id === null || s.outlet_id === PUSAT_OUTLET_ID)
-                    const localRows = rows.filter(s => s.outlet_id === outletId && outletId !== PUSAT_OUTLET_ID)
-                    const globalIds = globalRows.flatMap(r => parseIds(r.value || '[]'))
-                    const localIds = localRows.flatMap(r => parseIds(r.value || '[]'))
-                    return Array.from(new Set([...globalIds, ...localIds]))
-                  }
                   const rows = data?.filter(s => s.key === key) || []
                   const sortedRows = [...rows].sort((a, b) => {
                     const getWeight = (id: string | null) => {
@@ -127,3 +119,4 @@ export default function KioskMenuClient({ initialData }: { initialData: KioskIni
     />
   )
 }
+

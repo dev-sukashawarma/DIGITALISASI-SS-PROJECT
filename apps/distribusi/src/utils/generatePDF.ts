@@ -540,6 +540,17 @@ export function buildBarcodeHtml(
   const logo = layout.showLogo
     ? `<img src="${LOGO_BASE64}" alt="Logo" style="width:40px;height:40px;object-fit:contain;display:block;margin:0 auto 6px auto;" />`
     : ''
+  // Tipografi terpusat. Default (fontSizePx 13 → scale 1) = tampilan lama.
+  const FONT_STACK: Record<QrLayout['fontFamily'], string> = {
+    monospace: `'Courier New', Courier, monospace`,
+    sans: `Arial, Helvetica, sans-serif`,
+    serif: `'Times New Roman', Times, serif`,
+  }
+  const scale = (layout.fontSizePx || 13) / 13
+  const fs = (basePx: number) => Math.round(basePx * scale)
+  const weight = layout.bold ? 900 : 400
+  const fontFam = FONT_STACK[layout.fontFamily] ?? FONT_STACK.monospace
+  const marginMm = typeof layout.marginMm === 'number' ? layout.marginMm : 2
   return `
     <!DOCTYPE html>
     <html>
@@ -553,20 +564,20 @@ export function buildBarcodeHtml(
           html, body { background: #fff; margin: 0; padding: 0; }
           body {
             width: ${layout.paperWidth}mm;
-            padding: 8px 4px;
-            font-family: 'Courier New', Courier, monospace;
+            padding: ${marginMm}mm;
+            font-family: ${fontFam};
             color: #000;
             text-align: center;
           }
           .title {
-            font-size: 16px;
-            font-weight: 900;
+            font-size: ${fs(16)}px;
+            font-weight: ${weight};
             margin-bottom: 2px;
             text-transform: uppercase;
           }
           .subtitle {
-            font-size: 13px;
-            font-weight: 900;
+            font-size: ${fs(13)}px;
+            font-weight: ${weight};
             margin-bottom: 8px;
             text-decoration: underline;
           }
@@ -578,8 +589,8 @@ export function buildBarcodeHtml(
           }
           .footer {
             margin-top: 10px;
-            font-size: 10px;
-            font-weight: 900;
+            font-size: ${fs(10)}px;
+            font-weight: ${weight};
             border-top: 1px dashed #000;
             padding-top: 6px;
           }

@@ -2,15 +2,25 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type PaperWidth = 58 | 80
 export type FontScale = 'normal' | 'besar'
+export type FontFamily = 'monospace' | 'sans' | 'serif'
 
-export interface CustomerLayout {
+/** Kontrol tipografi & margin bersama (berlaku penuh di jalur cetak HTML/browser;
+ *  di thermal/ESC-POS hanya `bold` yang berefek). */
+export interface Typography {
+  fontFamily: FontFamily
+  fontSizePx: number
+  bold: boolean
+  marginMm: number
+}
+
+export interface CustomerLayout extends Typography {
   paperWidth: PaperWidth; showLogo: boolean; headerText: string; footerText: string
   fontScale: FontScale; showCashier: boolean; showCustomer: boolean; showItemNotes: boolean
 }
-export interface KitchenLayout {
+export interface KitchenLayout extends Typography {
   paperWidth: PaperWidth; showLogo: boolean; headerText: string; fontScale: FontScale; showCustomer: boolean
 }
-export interface QrLayout {
+export interface QrLayout extends Typography {
   paperWidth: PaperWidth; showLogo: boolean; title: string; footerText: string; qrSizeMm: number
 }
 export interface PrintLayout {
@@ -21,12 +31,15 @@ export const DEFAULT_PRINT_LAYOUT: PrintLayout = {
   struk_customer: {
     paperWidth: 58, showLogo: true, headerText: '', footerText: 'Terima kasih & selamat menikmati!',
     fontScale: 'normal', showCashier: true, showCustomer: true, showItemNotes: true,
+    fontFamily: 'monospace', fontSizePx: 14, bold: true, marginMm: 2,
   },
   struk_dapur: {
     paperWidth: 58, showLogo: true, headerText: 'STRUK DAPUR', fontScale: 'besar', showCustomer: true,
+    fontFamily: 'monospace', fontSizePx: 22, bold: true, marginMm: 2,
   },
   qr_surat_jalan: {
     paperWidth: 58, showLogo: false, title: 'VERIFIKASI SJ', footerText: 'Distribusi\nSuka Shawarma', qrSizeMm: 45,
+    fontFamily: 'monospace', fontSizePx: 13, bold: true, marginMm: 2,
   },
 }
 

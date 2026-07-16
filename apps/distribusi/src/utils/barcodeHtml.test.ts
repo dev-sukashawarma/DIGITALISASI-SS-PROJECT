@@ -25,4 +25,21 @@ describe('buildBarcodeHtml', () => {
     const html = buildBarcodeHtml('SJ-003', 'data:img', { ...DEFAULT_PRINT_LAYOUT.qr_surat_jalan, showLogo: true })
     expect(html).toContain('object-fit:contain')
   })
+
+  it('default tipografi = tampilan lama (Courier, weight 900, padding 2mm)', () => {
+    const html = buildBarcodeHtml('SJ-004', 'data:img', DEFAULT_PRINT_LAYOUT.qr_surat_jalan)
+    expect(html).toContain(`'Courier New', Courier, monospace`)
+    expect(html).toContain('font-weight: 900')
+    expect(html).toContain('padding: 2mm')
+  })
+
+  it('fontFamily/bold/fontSizePx/margin diterapkan', () => {
+    const html = buildBarcodeHtml('SJ-005', 'data:img', {
+      ...DEFAULT_PRINT_LAYOUT.qr_surat_jalan, fontFamily: 'serif', bold: false, fontSizePx: 26, marginMm: 5,
+    })
+    expect(html).toContain(`'Times New Roman', Times, serif`)
+    expect(html).toContain('font-weight: 400')
+    expect(html).toContain('padding: 5mm')
+    expect(html).toContain('font-size: 32px') // .title 16 * (26/13)=2
+  })
 })

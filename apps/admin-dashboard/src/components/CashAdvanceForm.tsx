@@ -96,7 +96,7 @@ export function CashAdvanceForm({
                   required
                 >
                   <option value="">Pilih staf…</option>
-                  {staffList.map((s) => (
+                  {staffList.filter(s => s.role !== 'kiosk').map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} — {s.role}
                     </option>

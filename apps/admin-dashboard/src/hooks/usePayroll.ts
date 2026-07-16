@@ -39,7 +39,8 @@ export function usePayroll(month: number, year: number) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data as unknown as PayrollRow[]) ?? [];
+      const rawData = (data as unknown as PayrollRow[]) ?? [];
+      return rawData.filter((r) => r.outlet_staff?.role !== 'kiosk');
     },
     enabled: !!month && !!year,
   });

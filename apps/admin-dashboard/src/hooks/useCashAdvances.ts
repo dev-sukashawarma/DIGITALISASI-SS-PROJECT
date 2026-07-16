@@ -7,6 +7,7 @@ import type { CashAdvance, CashAdvancePayment } from '@/lib/types';
 interface CashAdvanceRow extends CashAdvance {
   outlet_staff: {
     name: string;
+    role: string;
   };
   cash_advance_payments: CashAdvancePayment[];
 }
@@ -22,7 +23,7 @@ export function useCashAdvances() {
         .select(
           `
           *,
-          outlet_staff!cash_advances_staff_id_fkey(name),
+          outlet_staff!cash_advances_staff_id_fkey(name, role),
           cash_advance_payments(
             id,
             amount,
@@ -35,7 +36,8 @@ export function useCashAdvances() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data as unknown as CashAdvanceRow[]) ?? [];
+      const rawData = (data as unknown as CashAdvanceRow[]) ?? [];
+      return rawData.filter((r) => r.outlet_staff?.role !== 'kiosk');
     },
   });
 }

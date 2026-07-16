@@ -26,7 +26,8 @@ export function usePayrollMutations() {
           )
         `
         )
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .neq('role', 'kiosk');
 
       if (staffErr) throw staffErr;
       if (!staff || staff.length === 0) throw new Error('Tidak ada staf aktif ditemukan.');

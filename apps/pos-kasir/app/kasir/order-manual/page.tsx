@@ -112,8 +112,8 @@ export default function OrderManualPage() {
               .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
               .order('sort_order'),
             supabase.from('categories').select('*').order('sort_order'),
-            supabase.from('kiosk_settings').select('key, value')
-              .eq('outlet_id', outletId)
+            supabase.from('kiosk_settings').select('key, value, outlet_id')
+              .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
               .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids', 'upsell_ids']),
           ])
         )
@@ -129,7 +129,13 @@ export default function OrderManualPage() {
         let fetchedForceAvail: string[] = []
         let fetchedUpsell: string[] = []
         try {
-          unavRes.data?.forEach(row => {
+          const sortedSettings = [...(unavRes.data || [])].sort((a, b) => {
+            if (a.outlet_id === null && b.outlet_id !== null) return -1
+            if (a.outlet_id !== null && b.outlet_id === null) return 1
+            return 0
+          })
+
+          sortedSettings.forEach(row => {
             if (row.key === 'unavailable_menu_ids') fetchedUnav = row.value ? JSON.parse(row.value) : []
             if (row.key === 'auto_unavailable_menu_ids') fetchedAutoUnav = row.value ? JSON.parse(row.value) : []
             if (row.key === 'force_available_menu_ids') fetchedForceAvail = row.value ? JSON.parse(row.value) : []
@@ -203,7 +209,13 @@ export default function OrderManualPage() {
     const channel = supabase
       .channel(`kasir-order-manual-${outletId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => fetchMenu())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'kiosk_settings', filter: `outlet_id=eq.${outletId}` }, () => fetchMenu())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kiosk_settings' }, (payload: any) => {
+        if (payload.new && (payload.new.outlet_id === outletId || payload.new.outlet_id === null)) {
+          fetchMenu()
+        } else if (payload.old && (payload.old.outlet_id === outletId || payload.old.outlet_id === null)) {
+          fetchMenu()
+        }
+      })
       .subscribe()
 
     return () => {

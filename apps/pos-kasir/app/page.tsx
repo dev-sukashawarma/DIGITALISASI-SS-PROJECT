@@ -20,24 +20,37 @@ export default async function KioskHomePage() {
   }
 
   // 2. Fetch data menu SSR — paralel, satu round-trip dari server ke Supabase
-  const [items_result, cats_result, cover_result, bs_result, outlet_result, unav_result, auto_unav_result, force_avail_result] = await Promise.all([
+  const [items_result, cats_result, outlet_result, settings_result] = await Promise.all([
     supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).order('sort_order'),
     supabase.from('categories').select('*').order('sort_order'),
-    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'cover_image_url').maybeSingle(),
-    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'bestseller_ids').maybeSingle(),
     supabase.from('outlets').select('name').eq('id', outletId).single(),
-    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle(),
-    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'auto_unavailable_menu_ids').maybeSingle(),
-    supabase.from('kiosk_settings').select('value').eq('outlet_id', outletId).eq('key', 'force_available_menu_ids').maybeSingle(),
+    supabase.from('kiosk_settings').select('key, value, outlet_id')
+      .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
+      .in('key', ['cover_image_url', 'bestseller_ids', 'unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids'])
   ])
 
   const parseIds = (raw: string | null | undefined) => {
     try { return raw ? JSON.parse(raw) : [] } catch { return [] }
   }
 
-  const unavailableIds: string[] = parseIds(unav_result?.data?.value)
-  const autoUnavailableIds: string[] = parseIds(auto_unav_result?.data?.value)
-  const forceAvailableIds: string[] = parseIds(force_avail_result?.data?.value)
+  const sortedSettings = [...(settings_result.data || [])].sort((a, b) => {
+    if (a.outlet_id === null && b.outlet_id !== null) return -1
+    if (a.outlet_id !== null && b.outlet_id === null) return 1
+    return 0
+  })
+
+  let cover, bs, unav, autoUnav, forceAvail
+  sortedSettings.forEach(row => {
+    if (row.key === 'cover_image_url') cover = row.value
+    if (row.key === 'bestseller_ids') bs = row.value
+    if (row.key === 'unavailable_menu_ids') unav = row.value
+    if (row.key === 'auto_unavailable_menu_ids') autoUnav = row.value
+    if (row.key === 'force_available_menu_ids') forceAvail = row.value
+  })
+
+  const unavailableIds: string[] = parseIds(unav)
+  const autoUnavailableIds: string[] = parseIds(autoUnav)
+  const forceAvailableIds: string[] = parseIds(forceAvail)
   
   const rawItems = (items_result.data as MenuItem[]) ?? []
   const menuItems = rawItems.map(item => {
@@ -53,8 +66,8 @@ export default async function KioskHomePage() {
   const initialData: KioskInitialData = {
     menuItems,
     categories: (cats_result.data as Category[]) ?? [],
-    bestsellerIds: parseIds(bs_result?.data?.value),
-    coverUrl: cover_result?.data?.value ?? null,
+    bestsellerIds: parseIds(bs),
+    coverUrl: cover ?? null,
     outletName: outlet_result?.data?.name ?? 'Pusat',
     outletId,
   }

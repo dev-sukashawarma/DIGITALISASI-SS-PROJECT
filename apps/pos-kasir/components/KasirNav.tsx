@@ -60,23 +60,6 @@ export default function KasirNav() {
     }
   }, [isCollapsed])
 
-  // Try auto-connecting to Bluetooth printer on first user interaction
-  useEffect(() => {
-    const handleFirstInteraction = () => {
-      autoConnectBluetoothPrinter();
-      window.removeEventListener('click', handleFirstInteraction, true);
-      window.removeEventListener('touchstart', handleFirstInteraction, true);
-    };
-
-    window.addEventListener('click', handleFirstInteraction, true);
-    window.addEventListener('touchstart', handleFirstInteraction, true);
-
-    return () => {
-      window.removeEventListener('click', handleFirstInteraction, true);
-      window.removeEventListener('touchstart', handleFirstInteraction, true);
-    }
-  }, [])
-
   useEffect(() => {
     // Polling for offline queue count
     const fetchQueueCount = async () => {

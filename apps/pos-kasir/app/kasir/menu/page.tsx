@@ -67,10 +67,10 @@ export default async function KasirMenuServerPage() {
     return best?.value
   }
 
-  let b = getSetting('bestseller_ids', true)
-  let u = getSetting('upsell_ids', true)
+  let b = getSetting('bestseller_ids', false)
+  let u = getSetting('upsell_ids', false)
   let unav = getSetting('unavailable_menu_ids', false)
-  let rec = getSetting('recommendation_ids', true)
+  let rec = getSetting('recommendation_ids', false)
   let autoUnav = getSetting('auto_unavailable_menu_ids', false)
   let forceAvail = getSetting('force_available_menu_ids', false)
 

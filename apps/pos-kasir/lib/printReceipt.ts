@@ -8,7 +8,13 @@ import { formatRupiah } from '@/lib/validations'
 import { usePrinterStore } from './printerStore'
 import { printViaBluetooth } from './bluetooth-printer'
 import { createClient } from '@/lib/supabase/client'
-import { fetchPrintLayout, DEFAULT_PRINT_LAYOUT, type CustomerLayout, type KitchenLayout } from './printLayout'
+import { fetchPrintLayout, DEFAULT_PRINT_LAYOUT, type CustomerLayout, type KitchenLayout, type FontFamily } from './printLayout'
+
+const FONT_STACK: Record<FontFamily, string> = {
+  monospace: `'Courier New', Courier, monospace`,
+  sans: `Arial, Helvetica, sans-serif`,
+  serif: `'Times New Roman', Times, serif`,
+}
 
 export interface ReceiptLine {
   name: string
@@ -68,11 +74,14 @@ export function buildReceiptHtml(
 
   // ── Layout terpusat (fallback = perilaku hardcoded lama) ──
   const paperWidth = layout.paperWidth
-  // Kitchen branch sudah memakai px besar bawaan; jangan kalikan lagi (default
-  // struk_dapur.fontScale='besar' akan menggandakan ukuran → regresi). fontScale
-  // hanya menskala jalur customer. Kitchen tetap identik dengan perilaku lama.
-  const scale = isKitchen ? 1 : (layout.fontScale === 'besar' ? 1.3 : 1)
+  // Ukuran font: fontSizePx adalah basis. Default (customer 14 / kitchen 22) → scale 1
+  // → identik dengan tampilan lama. Elemen lain menskala proporsional dari basis ini.
+  const defaultBase = isKitchen ? 22 : 14
+  const scale = (layout.fontSizePx || defaultBase) / defaultBase
   const fs = (basePx: number) => Math.round(basePx * scale)
+  const weight = layout.bold ? 900 : 400
+  const fontFam = FONT_STACK[layout.fontFamily] ?? FONT_STACK.monospace
+  const marginMm = typeof layout.marginMm === 'number' ? layout.marginMm : 2
   const headerText = layout.headerText // ada di Customer & Kitchen layout
   // Customer: header override nama outlet bila non-kosong. Kitchen: .lg tetap nama outlet.
   const bigTitle = isKitchen ? (d.outletName || 'SUKA SHAWARMA') : (headerText || d.outletName || 'SUKA SHAWARMA')
@@ -93,16 +102,16 @@ export function buildReceiptHtml(
   }
   * { box-sizing: border-box; }
   html, body { background: #fff; }
-  body { margin: 0mm; padding: 6px 8px; font-family: 'Courier New', Courier, monospace; color: #000;
-         width: ${paperWidth}mm; font-size: ${fs(isKitchen ? 22 : 14)}px; line-height: 1.3; font-weight: 900; }
+  body { margin: 0mm; padding: ${marginMm}mm; font-family: ${fontFam}; color: #000;
+         width: ${paperWidth}mm; font-size: ${fs(isKitchen ? 22 : 14)}px; line-height: 1.3; font-weight: ${weight}; }
   .center { text-align: center; }
-  .bold { font-weight: 900; }
+  .bold { font-weight: ${weight}; }
   .lg { font-size: ${fs(isKitchen ? 26 : 18)}px; }
-  .muted { font-size: ${fs(isKitchen ? 18 : 13)}px; font-weight: 900; }
+  .muted { font-size: ${fs(isKitchen ? 18 : 13)}px; font-weight: ${weight}; }
   .logo { display: block; margin: 0 auto 6px auto; width: 48px; height: 48px; object-fit: contain; filter: grayscale(100%) contrast(200%); }
   hr { border: none; border-top: 2px dashed #000; margin: 6px 0; }
   table { width: 100%; border-collapse: collapse; margin-top: 4px; margin-bottom: 4px; }
-  td { vertical-align: top; padding: 2px 0; font-weight: 900; }
+  td { vertical-align: top; padding: 2px 0; font-weight: ${weight}; }
   td.qty { width: ${isKitchen ? '40px' : '30px'}; font-size: ${fs(isKitchen ? 24 : 16)}px; }
   td.name { font-size: ${fs(isKitchen ? 22 : 15)}px; padding-right: 4px; }
   td.name.child-item { padding-left: 10px; border-left: 1.5px solid #000; position: relative; left: 6px; }
@@ -111,9 +120,9 @@ export function buildReceiptHtml(
   .child-amt-inner { padding-top: 2px; padding-bottom: 2px; }
   .note { font-size: ${fs(isKitchen ? 18 : 13)}px; font-style: italic; display: block; margin-top: 2px; }
   .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
-  .total { font-size: 18px; font-weight: 900; margin-top: 4px; margin-bottom: 4px; }
-  .queue { font-size: 32px; font-weight: 900; margin: 4px 0; }
-  .kitchen-title { font-size: 30px; font-weight: 900; margin-bottom: 8px; text-decoration: underline; }
+  .total { font-size: ${fs(18)}px; font-weight: 900; margin-top: 4px; margin-bottom: 4px; }
+  .queue { font-size: ${fs(32)}px; font-weight: 900; margin: 4px 0; }
+  .kitchen-title { font-size: ${fs(30)}px; font-weight: 900; margin-bottom: 8px; text-decoration: underline; }
 </style></head>
 <body>
   ${showLogo ? `<img src="${logoSrc}" class="logo" alt="Logo" />` : ''}

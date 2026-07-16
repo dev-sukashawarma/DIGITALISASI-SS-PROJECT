@@ -40,4 +40,32 @@ describe('buildReceiptHtml layout', () => {
     expect(html).toContain('font-size: 22px')
     expect(html).not.toContain('font-size: 29px')
   })
+
+  it('default tipografi = tampilan lama (Courier, weight 900, padding 2mm)', () => {
+    const html = buildReceiptHtml(base, '', DEFAULT_PRINT_LAYOUT.struk_customer)
+    expect(html).toContain(`font-family: 'Courier New', Courier, monospace`)
+    expect(html).toContain('font-weight: 900')
+    expect(html).toContain('padding: 2mm')
+    expect(html).toContain('font-size: 14px') // basis customer
+  })
+
+  it('fontFamily sans → font stack sans', () => {
+    const html = buildReceiptHtml(base, '', { ...DEFAULT_PRINT_LAYOUT.struk_customer, fontFamily: 'sans' })
+    expect(html).toContain('Arial, Helvetica, sans-serif')
+  })
+
+  it('bold:false → weight 400', () => {
+    const html = buildReceiptHtml(base, '', { ...DEFAULT_PRINT_LAYOUT.struk_customer, bold: false })
+    expect(html).toContain('font-weight: 400')
+  })
+
+  it('fontSizePx 28 → basis menskala (14→28)', () => {
+    const html = buildReceiptHtml(base, '', { ...DEFAULT_PRINT_LAYOUT.struk_customer, fontSizePx: 28 })
+    expect(html).toContain('font-size: 28px')
+  })
+
+  it('marginMm 5 → padding 5mm', () => {
+    const html = buildReceiptHtml(base, '', { ...DEFAULT_PRINT_LAYOUT.struk_customer, marginMm: 5 })
+    expect(html).toContain('padding: 5mm')
+  })
 })

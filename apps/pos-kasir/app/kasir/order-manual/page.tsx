@@ -102,8 +102,7 @@ export default function OrderManualPage() {
     if (!loaded) return
     if (!outletId) { setLoading(false); return }
 
-    async function fetchMenu() {
-      setLoading(true)
+    async function syncFromSupabase() {
       try {
         const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
         const [menuRes, catRes, unavRes] = await fetchWithTimeout(
@@ -131,7 +130,7 @@ export default function OrderManualPage() {
         }
 
         const getSetting = (key: string, preferGlobal: boolean = false) => {
-                const rows = settings?.filter(s => s.key === key) || []
+          const rows = settings?.filter(s => s.key === key) || []
           const sortedRows = [...rows].sort((a, b) => {
             const getWeight = (id: string | null) => {
               if (preferGlobal) {
@@ -157,9 +156,6 @@ export default function OrderManualPage() {
         let fetchedForceAvail = getSetting('force_available_menu_ids', false)
         let fetchedUpsell = getSetting('upsell_ids', false)
 
-        try {
-        } catch {}
-
         setItems(fetchedItems)
         setCategories(fetchedCategories)
         setUnavailableIds(new Set(fetchedUnav))
@@ -167,57 +163,73 @@ export default function OrderManualPage() {
         setForceAvailableIds(new Set(fetchedForceAvail))
         setUpsellIds(fetchedUpsell)
 
-        // Save to Dexie
+        // Save to Dexie in background
         const now = Date.now()
-        await db.menu_items.bulkPut(fetchedItems.map((it: any) => ({
+        db.menu_items.bulkPut(fetchedItems.map((it: any) => ({
           ...it,
           synced_at: now
-        })))
-        await db.categories.bulkPut(fetchedCategories.map((cat: any) => ({
+        }))).catch(console.error)
+        db.categories.bulkPut(fetchedCategories.map((cat: any) => ({
           ...cat,
           synced_at: now
-        })))
-        await db.kiosk_settings.put({
+        }))).catch(console.error)
+        db.kiosk_settings.put({
           id: 'unavailable_menu_ids',
           settings_data: fetchedUnav,
           synced_at: now
-        })
-        await db.kiosk_settings.put({
+        }).catch(console.error)
+        db.kiosk_settings.put({
           id: 'auto_unavailable_menu_ids',
           settings_data: fetchedAutoUnav,
           synced_at: now
-        })
-        await db.kiosk_settings.put({
+        }).catch(console.error)
+        db.kiosk_settings.put({
           id: 'force_available_menu_ids',
           settings_data: fetchedForceAvail,
           synced_at: now
-        })
-        await db.kiosk_settings.put({
+        }).catch(console.error)
+        db.kiosk_settings.put({
           id: 'upsell_ids',
           settings_data: fetchedUpsell,
           synced_at: now
-        })
+        }).catch(console.error)
       } catch (err) {
-        console.warn('Network error or fetch failed, falling back to Dexie', err)
-        const cachedItems = await db.menu_items.toArray()
-        const cachedCategories = await db.categories.toArray()
-        const cachedUnav = await db.kiosk_settings.get('unavailable_menu_ids')
-
-        setItems(cachedItems as any)
-        setCategories(cachedCategories as any)
-        if (cachedUnav?.settings_data) {
-          setUnavailableIds(new Set(cachedUnav.settings_data))
-        } else {
-          setUnavailableIds(new Set())
-        }
-        const cachedAutoUnav = await db.kiosk_settings.get('auto_unavailable_menu_ids')
-        setAutoUnavailableIds(new Set(cachedAutoUnav?.settings_data || []))
-        const cachedForceAvail = await db.kiosk_settings.get('force_available_menu_ids')
-        setForceAvailableIds(new Set(cachedForceAvail?.settings_data || []))
-        const cachedUpsell = await db.kiosk_settings.get('upsell_ids')
-        setUpsellIds(cachedUpsell?.settings_data || [])
+        console.warn('Network error or fetch failed during background sync', err)
       } finally {
         setLoading(false)
+      }
+    }
+
+    async function fetchMenu() {
+      try {
+        const cachedItems = await db.menu_items.toArray()
+        if (cachedItems && cachedItems.length > 0) {
+          const cachedCategories = await db.categories.toArray()
+          const cachedUnav = await db.kiosk_settings.get('unavailable_menu_ids')
+          const cachedAutoUnav = await db.kiosk_settings.get('auto_unavailable_menu_ids')
+          const cachedForceAvail = await db.kiosk_settings.get('force_available_menu_ids')
+          const cachedUpsell = await db.kiosk_settings.get('upsell_ids')
+
+          setItems(cachedItems as any)
+          setCategories(cachedCategories as any)
+          setUnavailableIds(new Set(cachedUnav?.settings_data || []))
+          setAutoUnavailableIds(new Set(cachedAutoUnav?.settings_data || []))
+          setForceAvailableIds(new Set(cachedForceAvail?.settings_data || []))
+          setUpsellIds(cachedUpsell?.settings_data || [])
+          
+          setLoading(false) // UI is ready immediately from cache
+          
+          // Trigger background sync without blocking UI
+          syncFromSupabase()
+        } else {
+          // No cache available, must load from network
+          setLoading(true)
+          await syncFromSupabase()
+        }
+      } catch (err) {
+        console.warn('Error reading from Dexie cache, falling back to network', err)
+        setLoading(true)
+        await syncFromSupabase()
       }
     }
 

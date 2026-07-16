@@ -131,7 +131,10 @@ export default function BriefingBanner() {
     const channel = supabase
       .channel('kasir-briefing-messages')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'owner_messages' }, () => {
-        fetchMessages()
+        setTimeout(fetchMessages, 500)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'owner_message_outlets' }, () => {
+        setTimeout(fetchMessages, 500)
       })
       .subscribe()
     const interval = setInterval(fetchMessages, 60000)

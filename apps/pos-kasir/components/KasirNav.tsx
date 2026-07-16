@@ -203,10 +203,15 @@ export default function KasirNav() {
                 <p className="text-[#1e1b15] font-bold text-[15px] tracking-tight leading-snug text-center mb-1 break-words max-w-full">
                   {cashierName ? `Hai, ${cashierName}` : brandName}
                 </p>
-                <div className="flex items-center justify-center gap-1.5 bg-[#e9e1d8] px-2.5 py-1.5 rounded-2xl shadow-inner w-full max-w-[160px]">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse shadow-sm`} />
-                  <p className="text-[#904d00] text-[10px] font-bold uppercase tracking-widest leading-tight text-center break-words">
-                    {isOnline ? outletName : `OFFLINE ${offlineQueueCount > 0 ? `(${offlineQueueCount})` : ''}`}
+                <div className="flex flex-col items-center justify-center gap-1 bg-[#e9e1d8] px-2.5 py-1.5 rounded-2xl shadow-inner w-full max-w-[160px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse shadow-sm`} />
+                    <span className="text-[#904d00] text-[9px] font-bold uppercase tracking-widest">
+                      {isOnline ? 'ONLINE' : 'OFFLINE'}
+                    </span>
+                  </div>
+                  <p className="text-[#904d00] text-[10px] font-bold uppercase tracking-widest leading-tight text-center break-words w-full">
+                    {isOnline ? outletName : (offlineQueueCount > 0 ? `Antrean: ${offlineQueueCount}` : 'Tidak ada antrean')}
                   </p>
                 </div>
               </div>

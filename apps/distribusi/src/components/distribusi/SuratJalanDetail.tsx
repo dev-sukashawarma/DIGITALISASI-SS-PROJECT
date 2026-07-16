@@ -73,10 +73,24 @@ export function SuratJalanDetail({ id }: { id: string }) {
   const buildItemsWithFoto = async (items: any[]) => {
     return Promise.all(items.map(async (item: any) => {
       const foto_base64 = item.foto_path ? await fetchFotoAsBase64(item.foto_path) : null
+      
+      const b = item.bahan_baku;
+      const distUnit = b?.satuan_distribusi || b?.satuan;
+      let factor = 1;
+      
+      if (b && b.satuan_distribusi && b.satuan_distribusi !== b.satuan) {
+        const dist = b.satuan_distribusi.toLowerCase();
+        if (dist === b.satuan_tengah?.toLowerCase() && b.faktor_tengah) factor = b.faktor_tengah;
+        else if (dist === b.satuan_kecil?.toLowerCase() && b.faktor_tampilan) factor = b.faktor_tampilan;
+        else if (dist === 'kg' && b.satuan_kecil?.toLowerCase() === 'gram' && b.faktor_tampilan) factor = b.faktor_tampilan / 1000;
+      }
+      
       return {
         ...item,
-        nama: item.bahan_baku?.nama,
-        satuan: item.bahan_baku?.satuan,
+        nama: b?.nama,
+        satuan: distUnit,
+        qty_dikirim: Math.round((item.qty_dikirim * factor) * 100) / 100,
+        qty_terima: item.qty_terima != null ? Math.round((item.qty_terima * factor) * 100) / 100 : null,
         foto_base64,
       }
     }))

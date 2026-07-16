@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseBrowserClient } from '@suka/auth'
@@ -60,6 +60,26 @@ export function VerifikasiForm({ id }: { id: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
   const [kondisiConfirmed, setKondisiConfirmed] = useState(false)
+
+  const items = useMemo(() => {
+    if (!data?.surat_jalan_item) return [];
+    return data.surat_jalan_item.map((item: any) => {
+      const b = item.bahan_baku;
+      let factor = 1;
+      if (b && b.satuan_distribusi && b.satuan_distribusi !== b.satuan) {
+        const dist = b.satuan_distribusi.toLowerCase();
+        if (dist === b.satuan_tengah?.toLowerCase() && b.faktor_tengah) factor = b.faktor_tengah;
+        else if (dist === b.satuan_kecil?.toLowerCase() && b.faktor_tampilan) factor = b.faktor_tampilan;
+        else if (dist === 'kg' && b.satuan_kecil?.toLowerCase() === 'gram' && b.faktor_tampilan) factor = b.faktor_tampilan / 1000;
+      }
+      return {
+        ...item,
+        qty_dikirim_dist: Math.round((item.qty_dikirim * factor) * 100) / 100,
+        satuan_dist: b?.satuan_distribusi || b?.satuan,
+        factor,
+      }
+    })
+  }, [data])
 
   // Initialize verifications when data is loaded
   useEffect(() => {
@@ -137,7 +157,6 @@ export function VerifikasiForm({ id }: { id: string }) {
     )
   }
 
-  const items = data.surat_jalan_item || []
   const currentItem = items[currentIndex]
   const currentVerif: ItemVerification = verifications[currentItem?.id] ?? {
     qty_terima: '', // Wajib input manual
@@ -165,7 +184,7 @@ export function VerifikasiForm({ id }: { id: string }) {
       alert('Qty terima tidak boleh kurang dari 0')
       return
     }
-    if (currentVerif.qty_terima > currentItem.qty_dikirim) {
+    if (currentVerif.qty_terima > currentItem.qty_dikirim_dist) {
       alert('Qty terima tidak boleh melebihi qty dikirim')
       return
     }
@@ -185,7 +204,7 @@ export function VerifikasiForm({ id }: { id: string }) {
       alert('Qty terima tidak boleh kurang dari 0')
       return
     }
-    if (currentVerif.qty_terima > currentItem.qty_dikirim) {
+    if (currentVerif.qty_terima > currentItem.qty_dikirim_dist) {
       alert('Qty terima tidak boleh melebihi qty dikirim')
       return
     }
@@ -265,14 +284,14 @@ export function VerifikasiForm({ id }: { id: string }) {
     const supabase = createSupabaseBrowserClient()
     try {
       const updatePromises = items.map((item: any) => {
-        const v = verifications[item.id] ?? { qty_terima: item.qty_dikirim, kondisi: 'baik' as const, catatan: '', foto_path: null, foto_preview: null }
+        const v = verifications[item.id] ?? { qty_terima: item.qty_dikirim_dist, kondisi: 'baik' as const, catatan: '', foto_path: null, foto_preview: null }
         return supabase
           .from('surat_jalan_item')
           .update({
-            qty_terima: Number(v.qty_terima),
+            qty_terima: qty_terima_base,
             kondisi: v.kondisi === 'jelek' ? 'rusak' : 'baik',
             catatan: v.catatan || null,
-            flagged: Number(v.qty_terima) !== item.qty_dikirim || v.kondisi === 'jelek',
+            flagged: qty_terima_base !== item.qty_dikirim || v.kondisi === 'jelek',
             foto_path: v.foto_path || null,
             verified_at: new Date().toISOString(),
           })
@@ -349,8 +368,8 @@ export function VerifikasiForm({ id }: { id: string }) {
                     isJelek ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/20' : 'bg-green-50 text-green-700 border-green-200'
                   }`}>
                     {isJelek
-                      ? `Jelek · ${v?.qty_terima}/${item.qty_dikirim} ${item.bahan_baku?.satuan}`
-                      : `Baik · ${v?.qty_terima} ${item.bahan_baku?.satuan}`}
+                      ? `Jelek · ${v?.qty_terima}/${item.qty_dikirim_dist} ${item.satuan_dist}`
+                      : `Baik · ${v?.qty_terima} ${item.satuan_dist}`}
                   </span>
                 </div>
               )
@@ -414,7 +433,7 @@ export function VerifikasiForm({ id }: { id: string }) {
             <div className="flex-1">
               <p className="text-[9px] text-[#544437]/60 font-bold uppercase tracking-wider mb-1">Qty Kirim</p>
               <p className="text-lg font-extrabold text-[#701604]">
-                {currentItem?.qty_dikirim} <span className="text-[10px] font-semibold text-[#544437]/75">{currentItem?.bahan_baku?.satuan}</span>
+                {currentItem?.qty_dikirim_dist} <span className="text-[10px] font-semibold text-[#544437]/75">{currentItem?.satuan_dist}</span>
               </p>
             </div>
             <span className="text-[#544437]/30 text-xl font-bold">→</span>
@@ -425,17 +444,17 @@ export function VerifikasiForm({ id }: { id: string }) {
                   type="number"
                   step="0.01"
                   min={0}
-                  max={currentItem?.qty_dikirim}
+                  max={currentItem?.qty_dikirim_dist}
                   value={currentVerif.qty_terima}
                   onChange={(e) => {
                     const val = e.target.value === '' ? '' : parseFloat(e.target.value) || 0
-                    setVerif({ qty_terima: val, kondisi: typeof val === 'number' && val < (currentItem?.qty_dikirim ?? 0) ? 'jelek' : currentVerif.kondisi })
+                    setVerif({ qty_terima: val, kondisi: typeof val === 'number' && val < (currentItem?.qty_dikirim_dist ?? 0) ? 'jelek' : currentVerif.kondisi })
                   }}
                   className={`border-2 rounded-xl px-2 py-1.5 text-lg font-extrabold text-center w-20 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] transition-all ${
-                    isJelekMode || (typeof currentVerif.qty_terima === 'number' && currentVerif.qty_terima < (currentItem?.qty_dikirim ?? 0)) ? 'border-[#ba1a1a]' : 'border-[#0a7d2c]'
+                    isJelekMode || (typeof currentVerif.qty_terima === 'number' && currentVerif.qty_terima < (currentItem?.qty_dikirim_dist ?? 0)) ? 'border-[#ba1a1a]' : 'border-[#0a7d2c]'
                   }`}
                 />
-                <span className="text-xs font-bold text-[#544437]/70">{currentItem?.bahan_baku?.satuan}</span>
+                <span className="text-xs font-bold text-[#544437]/70">{currentItem?.satuan_dist}</span>
               </div>
             </div>
           </div>
@@ -509,8 +528,8 @@ export function VerifikasiForm({ id }: { id: string }) {
             }`}>
               <span className="text-xs font-bold uppercase tracking-wide">
                 {currentVerif.kondisi === 'jelek'
-                  ? `✗ Jelek · ${currentVerif.qty_terima}/${currentItem?.qty_dikirim} ${currentItem?.bahan_baku?.satuan}`
-                  : `✓ Baik · ${currentVerif.qty_terima} ${currentItem?.bahan_baku?.satuan}`}
+                  ? `✗ Jelek · ${currentVerif.qty_terima}/${currentItem?.qty_dikirim_dist} ${currentItem?.satuan_dist}`
+                  : `✓ Baik · ${currentVerif.qty_terima} ${currentItem?.satuan_dist}`}
               </span>
               <button
                 onClick={() => setKondisiConfirmed(false)}

@@ -46,7 +46,7 @@ export function useSuratJalanDetail(id: string) {
         const { data: sj, error: sjError } = await supabase
           .from('surat_jalan')
           .select(
-            'id, outlet_id, status, created_at, signatures, receipt_signatures, document_number, verification_code, outlets(name), surat_jalan_item(*, bahan_baku(id, nama, satuan, kategori))'
+            'id, outlet_id, status, created_at, signatures, receipt_signatures, document_number, verification_code, outlets(name), surat_jalan_item(*, bahan_baku(id, nama, satuan, kategori, satuan_distribusi, satuan_tengah, satuan_kecil, faktor_tengah, faktor_tampilan))'
           )
           .eq('id', id)
           .single()

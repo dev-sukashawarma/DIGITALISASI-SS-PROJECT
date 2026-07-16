@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase'
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '@suka/auth'
-import { useRealtimeInvalidate } from '@/lib/realtime/useRealtimeInvalidate'
+import { useRealtimeInvalidate } from '@suka/realtime'
 
 export function useLeaveNotifications() {
   const { outletStaff } = useAuth()

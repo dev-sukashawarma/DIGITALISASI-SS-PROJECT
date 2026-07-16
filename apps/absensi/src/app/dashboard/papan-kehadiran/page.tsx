@@ -6,7 +6,7 @@ import { Avatar, StatusPill, EmptyState, Spinner } from "@suka/design-system";
 import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
-import { useRealtimeInvalidate } from "@/lib/realtime/useRealtimeInvalidate";
+import { useRealtimeInvalidate } from "@suka/realtime";
 import { computeBoard, type BoardStaff, type BoardRecord, type BoardRow } from "@/features/board/board";
 import { PageHeader, InfoPill } from "@/components/PageHeader";
 import { Select } from "@/components/Select";

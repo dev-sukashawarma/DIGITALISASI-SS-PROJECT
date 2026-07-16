@@ -12,7 +12,7 @@ import { loadFaceModels, getHuman } from "@/lib/face/recognizer";
 import { averageDescriptors } from "@/lib/face/match";
 import { OutletSwitcher } from "@/components/OutletSwitcher";
 import { splitByEnrollment } from "@/lib/enroll/splitByEnrollment";
-import { useRealtimeChannel } from "@/lib/realtime/useRealtimeChannel";
+import { useRealtimeChannel } from "@suka/realtime";
 
 type Staff = { id: string; name: string; role: string; enrolled_at: string | null };
 type EnrollPhase = "list" | "consent" | "center" | "left" | "right" | "saving" | "done";

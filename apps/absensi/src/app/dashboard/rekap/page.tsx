@@ -9,7 +9,7 @@ import { useAuth } from '@suka/auth';
 import { PageHeader } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
 import { attendanceToCsv, downloadCsv, type CsvRow } from "@/features/rekap/csv";
-import { useRealtimeInvalidate } from "@/lib/realtime/useRealtimeInvalidate";
+import { useRealtimeInvalidate } from "@suka/realtime";
 
 type Row = {
   id: string;

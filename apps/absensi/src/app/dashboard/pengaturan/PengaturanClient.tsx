@@ -9,7 +9,7 @@ import { Select } from "@/components/Select";
 import { saveGlobalConfig, saveOutletException, deleteOutletException, deleteAllExceptions } from "./actions";
 import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
-import { useRealtimeChannel } from "@/lib/realtime/useRealtimeChannel";
+import { useRealtimeChannel } from "@suka/realtime";
 
 type Config = {
   jam_masuk: string;

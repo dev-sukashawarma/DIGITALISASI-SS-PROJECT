@@ -208,13 +208,13 @@ export default function GlobalBlockerMount() {
       .subscribe()
 
     // Realtime listener untuk attendance — filter berdasarkan outlet_id
-    // Ketika ada INSERT baru di tabel attendance (masuk ATAU pulang),
+    // Ketika ada perubahan di tabel attendance (masuk ATAU pulang ATAU hapus manual),
     // langsung re-check status operasional outlet kasir ini
     const attendanceChannel = supabase.channel('attendance_outlet_changes')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'attendance',
           // Filter hanya event dari outlet kasir ini
@@ -259,7 +259,7 @@ export default function GlobalBlockerMount() {
           .on(
             'postgres_changes',
             {
-              event: 'INSERT',
+              event: '*',
               schema: 'public',
               table: 'attendance',
               filter: `outlet_id=eq.${outletIdRef.current}`

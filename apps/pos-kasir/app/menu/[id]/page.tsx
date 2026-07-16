@@ -19,7 +19,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const [{ data: mainItem }, { data: settings }] = await Promise.all([
     supabase.from('menu_items').select('*, categories(id,name,sort_order)').eq('id', id).single(),
-    supabase.from('kiosk_settings').select('key, value, outlet_id').or(`outlet_id.is.null,outlet_id.eq.${outletId}`).in('key', ['upsell_ids', 'unavailable_menu_ids']),
+    supabase.from('kiosk_settings').select('key, value, outlet_id').or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`).in('key', ['upsell_ids', 'unavailable_menu_ids']),
   ])
 
   if (!mainItem) {
@@ -35,19 +35,30 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     try { return raw ? JSON.parse(raw) : [] } catch { return [] }
   }
 
-  let unavIds: string[] = []
-  let upIds: string[] = []
-  
-  const sortedSettings = [...(settings || [])].sort((a, b) => {
-    if (a.outlet_id === null && b.outlet_id !== null) return -1
-    if (a.outlet_id !== null && b.outlet_id === null) return 1
-    return 0
-  })
+  const getSetting = (key: string, preferGlobal: boolean = false) => {
+    const rows = settings?.filter(s => s.key === key) || []
+    const sortedRows = [...rows].sort((a, b) => {
+      const getWeight = (id: string | null) => {
+        if (preferGlobal) {
+          if (id === null) return 3
+          if (id === PUSAT_OUTLET_ID) return 2
+          if (id === outletId) return 1
+          return 0
+        } else {
+          if (id === outletId) return 3
+          if (id === PUSAT_OUTLET_ID) return 2
+          if (id === null) return 1
+          return 0
+        }
+      }
+      return getWeight(a.outlet_id) - getWeight(b.outlet_id)
+    })
+    const best = sortedRows.pop()
+    return parseIds(best?.value)
+  }
 
-  sortedSettings.forEach(s => {
-    if (s.key === 'unavailable_menu_ids') unavIds = parseIds(s.value)
-    if (s.key === 'upsell_ids') upIds = parseIds(s.value)
-  })
+  let unavIds = getSetting('unavailable_menu_ids', false)
+  let upIds = getSetting('upsell_ids', true)
 
   // Apply availability override
   const isGlobal = mainItem.outlet_id === null

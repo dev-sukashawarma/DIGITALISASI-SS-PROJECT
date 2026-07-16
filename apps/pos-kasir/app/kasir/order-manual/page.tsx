@@ -105,15 +105,16 @@ export default function OrderManualPage() {
     async function fetchMenu() {
       setLoading(true)
       try {
+        const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
         const [menuRes, catRes, unavRes] = await fetchWithTimeout(
           Promise.all([
             supabase.from('menu_items')
               .select('*, categories(id,name,sort_order)')
-              .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
+              .or(`outlet_id.is.null,outlet_id.eq.${PUSAT_OUTLET_ID},outlet_id.eq.${outletId}`)
               .order('sort_order'),
             supabase.from('categories').select('*').order('sort_order'),
             supabase.from('kiosk_settings').select('key, value, outlet_id')
-              .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
+              .or(`outlet_id.is.null,outlet_id.eq.${PUSAT_OUTLET_ID},outlet_id.eq.${outletId}`)
               .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids', 'upsell_ids']),
           ])
         )
@@ -124,23 +125,38 @@ export default function OrderManualPage() {
 
         const fetchedItems = menuRes.data ?? []
         const fetchedCategories = catRes.data ?? []
-        let fetchedUnav: string[] = []
-        let fetchedAutoUnav: string[] = []
-        let fetchedForceAvail: string[] = []
-        let fetchedUpsell: string[] = []
-        try {
-          const sortedSettings = [...(unavRes.data || [])].sort((a, b) => {
-            if (a.outlet_id === null && b.outlet_id !== null) return -1
-            if (a.outlet_id !== null && b.outlet_id === null) return 1
-            return 0
-          })
+        const parseIds = (raw: string | null | undefined) => {
+          try { return raw ? JSON.parse(raw) : [] } catch { return [] }
+        }
 
-          sortedSettings.forEach(row => {
-            if (row.key === 'unavailable_menu_ids') fetchedUnav = row.value ? JSON.parse(row.value) : []
-            if (row.key === 'auto_unavailable_menu_ids') fetchedAutoUnav = row.value ? JSON.parse(row.value) : []
-            if (row.key === 'force_available_menu_ids') fetchedForceAvail = row.value ? JSON.parse(row.value) : []
-            if (row.key === 'upsell_ids') fetchedUpsell = row.value ? JSON.parse(row.value) : []
+        const getSetting = (key: string, preferGlobal: boolean = false) => {
+          const rows = unavRes.data?.filter(s => s.key === key) || []
+          const sortedRows = [...rows].sort((a, b) => {
+            const getWeight = (id: string | null) => {
+              if (preferGlobal) {
+                if (id === null) return 3
+                if (id === PUSAT_OUTLET_ID) return 2
+                if (id === outletId) return 1
+                return 0
+              } else {
+                if (id === outletId) return 3
+                if (id === PUSAT_OUTLET_ID) return 2
+                if (id === null) return 1
+                return 0
+              }
+            }
+            return getWeight(a.outlet_id) - getWeight(b.outlet_id)
           })
+          const best = sortedRows.pop()
+          return parseIds(best?.value)
+        }
+
+        let fetchedUnav = getSetting('unavailable_menu_ids', false)
+        let fetchedAutoUnav = getSetting('auto_unavailable_menu_ids', false)
+        let fetchedForceAvail = getSetting('force_available_menu_ids', false)
+        let fetchedUpsell = getSetting('upsell_ids', true)
+
+        try {
         } catch {}
 
         setItems(fetchedItems)

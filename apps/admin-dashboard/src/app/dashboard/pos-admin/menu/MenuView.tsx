@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, X, Loader2,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  FileArchive, Search,
+  FileArchive, Search, MoreVertical, Check
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput } from '@suka/design-system'
@@ -15,7 +15,7 @@ import type { MenuItem, Category } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
 import MenuSearch from './MenuSearch'
-import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems } from './actions'
+import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
 
 const BUCKET = 'menu-images'
 
@@ -48,9 +48,12 @@ async function deleteStorageImage(url: string) {
 interface MenuViewProps {
   initialItems: MenuItem[]
   initialCategories: Category[]
+  initialUpsells?: string[]
+  initialBestsellers?: string[]
+  initialRecommendations?: string[]
 }
 
-export default function MenuView({ initialItems, initialCategories }: MenuViewProps) {
+export default function MenuView({ initialItems, initialCategories, initialUpsells, initialBestsellers, initialRecommendations }: MenuViewProps) {
   const router = useRouter()
   const { showConfirm } = useDialogStore()
   const [form, setForm]           = useState<FormState>(EMPTY)
@@ -62,6 +65,10 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
   const [preview, setPreview]     = useState<string | null>(null)
   const [showZipModal, setShowZipModal] = useState(false)
   const [deletingAll, setDeletingAll]   = useState(false)
+  const [upsells, setUpsells] = useState<string[]>(initialUpsells || [])
+  const [bestsellers, setBestsellers] = useState<string[]>(initialBestsellers || [])
+  const [recommendations, setRecommendations] = useState<string[]>(initialRecommendations || [])
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function resetImage() {
@@ -148,6 +155,26 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
     const confirmed = await showConfirm(`Hapus "${item.name}"?`);
     if (!confirmed) return
     await deleteMenuItem(item.id, item.image_url)
+  }
+
+  async function toggleSetting(type: 'upsell' | 'bestseller' | 'recommendation', item: MenuItem) {
+    let current: string[] = []
+    let setter: any = null
+    let key = ''
+    if (type === 'upsell') { current = upsells; setter = setUpsells; key = 'upsell_ids' }
+    if (type === 'bestseller') { current = bestsellers; setter = setBestsellers; key = 'bestseller_ids' }
+    if (type === 'recommendation') { current = recommendations; setter = setRecommendations; key = 'recommendation_ids' }
+    
+    const isIncluded = current.includes(item.id)
+    const newIds = isIncluded ? current.filter(id => id !== item.id) : [...current, item.id]
+    
+    setter(newIds)
+    try {
+      await toggleGlobalSetting(key, newIds)
+    } catch (e) {
+      setter(current)
+      alert('Gagal menyimpan pengaturan')
+    }
   }
 
   async function deleteAllItems() {
@@ -445,10 +472,19 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
                     </td>
 
                     {/* Name */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 relative">
                       <p className="font-semibold text-gray-900 leading-none">{item.name}</p>
                       {item.description && (
                         <p className="text-gray-400 text-xs mt-1 truncate max-w-[200px]">{item.description}</p>
+                      )}
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {bestsellers.includes(item.id) && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">Best Seller</span>}
+                        {recommendations.includes(item.id) && <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-bold">Rekomendasi</span>}
+                        {upsells.includes(item.id) && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">Menu Ekstra</span>}
+                      </div>
+                      
+                      {openDropdownId === item.id && (
+                        <div className="fixed inset-0 z-40" onClick={() => setOpenDropdownId(null)} />
                       )}
                     </td>
 
@@ -491,6 +527,28 @@ export default function MenuView({ initialItems, initialCategories }: MenuViewPr
                           title="Hapus">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                        <div className="relative">
+                          <button onClick={() => setOpenDropdownId(openDropdownId === item.id ? null : item.id)}
+                            className="w-8 h-8 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-xl flex items-center justify-center transition-all">
+                            <MoreVertical className="w-3.5 h-3.5" />
+                          </button>
+                          {openDropdownId === item.id && (
+                            <div className="absolute right-0 top-10 z-50 w-52 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] border border-gray-100 p-2 text-left origin-top-right">
+                              <button onClick={() => { toggleSetting('upsell', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between transition-colors">
+                                <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Ekstra</span>
+                                {upsells.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                              </button>
+                              <button onClick={() => { toggleSetting('bestseller', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between mt-1 transition-colors">
+                                <span className={bestsellers.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Best Seller</span>
+                                {bestsellers.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                              </button>
+                              <button onClick={() => { toggleSetting('recommendation', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between mt-1 transition-colors">
+                                <span className={recommendations.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Rekomendasi</span>
+                                {recommendations.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>

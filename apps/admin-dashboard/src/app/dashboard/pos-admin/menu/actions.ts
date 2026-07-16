@@ -67,3 +67,13 @@ export async function deleteAllMenuItems(items: MenuItem[]) {
   await supabase.from('menu_items').delete().not('id', 'is', null)
   revalidatePath('/dashboard/pos-admin/menu')
 }
+
+export async function toggleGlobalSetting(key: string, newIds: string[]) {
+  const supabase = await getSupabase()
+  await supabase.from('kiosk_settings').upsert({
+    outlet_id: null,
+    key,
+    value: JSON.stringify(newIds)
+  })
+  revalidatePath('/dashboard/pos-admin/menu')
+}

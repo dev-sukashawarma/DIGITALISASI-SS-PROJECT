@@ -20,7 +20,7 @@ export default async function OwnerTargetsPage() {
     supabase.rpc('get_current_targets'),
     supabase
       .from('daily_sales_targets')
-      .select('target_amount, bonus_amount')
+      .select('target_amount, per_item_bonus')
       .is('outlet_id', null)
       .order('effective_from', { ascending: false })
       .order('created_at', { ascending: false })
@@ -31,7 +31,7 @@ export default async function OwnerTargetsPage() {
 
   const initialTargets = (targets || []) as any[]
   const initialGlobalDefault = globalRow?.target_amount ? Number(globalRow.target_amount) : 0
-  const initialGlobalDefaultBonus = globalRow?.bonus_amount ? Number(globalRow.bonus_amount) : 0
+  const initialGlobalDefaultBonus = globalRow?.per_item_bonus ? Number(globalRow.per_item_bonus) : 0
   const initialHistory = (historyData || []) as any[]
 
   return (

@@ -19,6 +19,7 @@ export function DailyTargetBoard() {
   const [modalOpen, setModalOpen] = useState(false)
   const [targetScope, setTargetScope] = useState<string>('global')
   const [currentTarget, setCurrentTarget] = useState<number>(0)
+  const [currentBonus, setCurrentBonus] = useState<number>(0)
   const [targetInput, setTargetInput] = useState<string>('')
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [savedKey, setSavedKey] = useState<string | null>(null)
@@ -31,7 +32,7 @@ export function DailyTargetBoard() {
   const loadTarget = async (scope: string) => {
     let query = supabase
       .from('daily_sales_targets')
-      .select('target_amount')
+      .select('target_amount, per_item_bonus')
       .order('effective_from', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(1)
@@ -44,7 +45,9 @@ export function DailyTargetBoard() {
     
     const { data } = await query.maybeSingle()
     const val = data?.target_amount ? Number(data.target_amount) : 0
+    const bonusVal = data?.per_item_bonus ? Number(data.per_item_bonus) : 0
     setCurrentTarget(val)
+    setCurrentBonus(bonusVal)
     setTargetInput(val ? val.toString() : '')
   }
 
@@ -63,7 +66,7 @@ export function DailyTargetBoard() {
     setSavingKey('save')
     setError(null)
     const outletId = targetScope === 'global' ? null : targetScope
-    const { error } = await supabase.rpc('set_daily_target', { p_outlet: outletId, p_amount: amount })
+    const { error } = await supabase.rpc('set_daily_target', { p_outlet: outletId, p_amount: amount, p_per_item_bonus: currentBonus })
     setSavingKey(null)
     if (error) return setError(error.message)
     flashSaved('save')
@@ -76,7 +79,7 @@ export function DailyTargetBoard() {
     setSavingKey('delete')
     setError(null)
     if (targetScope === 'global') {
-      const { error } = await supabase.rpc('set_daily_target', { p_outlet: null, p_amount: 0 })
+      const { error } = await supabase.rpc('set_daily_target', { p_outlet: null, p_amount: 0, p_per_item_bonus: 0 })
       setSavingKey(null)
       if (error) return setError(error.message)
     } else {

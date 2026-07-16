@@ -51,7 +51,7 @@ export default function BonusTab() {
 
   // Derive stats
   const totalDaysReached = dailyData?.filter((d: any) => d.is_reached)?.length || 0;
-  const totalBonusPool = dailyData?.filter((d: any) => d.is_reached)?.reduce((acc: number, d: any) => acc + Number(d.bonus_amount) + (Number(d.additional_items || 0) * 5000), 0) || 0;
+  const totalBonusPool = dailyData?.filter((d: any) => d.is_reached)?.reduce((acc: number, d: any) => acc + (Number(d.additional_items || 0) * Number(d.per_item_bonus || 0)), 0) || 0;
   const activeCrewCount = summaryData?.length || 0;
   
   useEffect(() => {
@@ -138,7 +138,7 @@ export default function BonusTab() {
       {dailyData && dailyData.length > 0 && (
         <BonusSimulationCard 
           targetAmount={Number(dailyData[dailyData.length - 1].target_amount) || 0}
-          bonusAmount={Number(dailyData[dailyData.length - 1].bonus_amount) || 0}
+          perItemBonus={Number(dailyData[dailyData.length - 1].per_item_bonus) || 0}
           crewCount={displayCrewCount}
           setCrewCount={setSimulatedCrewCount}
         />
@@ -201,7 +201,7 @@ export default function BonusTab() {
                       </td>
                       <td className="px-5 py-3.5">
                         <span className={`font-semibold ${row.is_reached ? 'text-green-600' : 'text-gray-400'}`}>
-                          {row.is_reached ? `+ ${formatRupiah(Number(row.bonus_amount) + (Number(row.additional_items || 0) * 5000))}` : '-'}
+                          {row.is_reached ? `+ ${formatRupiah(Number(row.additional_items || 0) * Number(row.per_item_bonus || 0))}` : '-'}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-center">

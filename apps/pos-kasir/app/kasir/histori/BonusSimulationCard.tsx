@@ -6,21 +6,19 @@ import { Calculator, Users, TrendingUp, Minus, Plus } from 'lucide-react'
 
 interface BonusSimulationCardProps {
   targetAmount: number;
-  bonusAmount: number;
+  perItemBonus: number;
   crewCount: number;
   setCrewCount: (val: number) => void;
 }
 
-export default function BonusSimulationCard({ targetAmount, bonusAmount, crewCount, setCrewCount }: BonusSimulationCardProps) {
+export default function BonusSimulationCard({ targetAmount, perItemBonus, crewCount, setCrewCount }: BonusSimulationCardProps) {
   const [isTargetReached, setIsTargetReached] = useState<boolean>(true)
   const [additionalItems, setAdditionalItems] = useState<number>(0)
 
   // Maximum slider value for additional items
   const maxItems = 50
-  const bonusPerItem = 5000
-
   // Hitung bonus
-  const totalBonus = isTargetReached ? bonusAmount + (additionalItems * bonusPerItem) : 0
+  const totalBonus = isTargetReached ? (additionalItems * perItemBonus) : 0
   const bonusPerPerson = crewCount > 0 ? Math.floor(totalBonus / crewCount) : 0
 
   return (
@@ -132,7 +130,7 @@ export default function BonusSimulationCard({ targetAmount, bonusAmount, crewCou
           </p>
           <p className="text-gray-400 text-xs mt-1">
             {isTargetReached 
-              ? `Bonus dasar + Ekstra ${additionalItems} item dibagi ${crewCount} orang` 
+              ? `Bonus ${formatRupiah(perItemBonus)} / item ekstra (${additionalItems} item) dibagi ${crewCount} orang` 
               : 'Target harian belum tercapai'}
           </p>
         </div>

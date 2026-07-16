@@ -17,7 +17,7 @@ export interface TargetRow {
   outlet_id: string
   outlet_name: string
   target_amount: number
-  bonus_amount: number
+  per_item_bonus: number
   is_override: boolean
 }
 
@@ -108,7 +108,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
       supabase.rpc('get_current_targets'),
       supabase
         .from('daily_sales_targets')
-        .select('target_amount, bonus_amount')
+        .select('target_amount, per_item_bonus')
         .is('outlet_id', null)
         .order('effective_from', { ascending: false })
         .order('created_at', { ascending: false })
@@ -121,7 +121,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     }
     setRows((targets ?? []) as TargetRow[])
     setGlobalDefault(globalRow?.target_amount ? Number(globalRow.target_amount) : 0)
-    setGlobalDefaultBonus(globalRow?.bonus_amount ? Number(globalRow.bonus_amount) : 0)
+    setGlobalDefaultBonus(globalRow?.per_item_bonus ? Number(globalRow.per_item_bonus) : 0)
   }, [supabase])
 
   const loadHistory = useCallback(async () => {
@@ -197,7 +197,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
           const { error } = await supabase.rpc('set_daily_target', {
             p_outlet: null,
             p_amount: targetAmount,
-            p_bonus: hasBonus ? bonusAmount : 0
+            p_per_item_bonus: hasBonus ? bonusAmount : 0
           })
           if (error) throw error
         } else {
@@ -205,7 +205,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
             const { error } = await supabase.rpc('set_daily_target', {
               p_outlet: id,
               p_amount: targetAmount,
-              p_bonus: hasBonus ? bonusAmount : 0
+              p_per_item_bonus: hasBonus ? bonusAmount : 0
             })
             if (error) throw error
           }
@@ -249,7 +249,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     if (!rawTarget.trim() && !rawBonus.trim()) return
 
     const amount = rawTarget.trim() !== '' ? Number(rawTarget.replace(/\D/g, '')) : row.target_amount
-    const bonus = rawBonus.trim() !== '' ? Number(rawBonus.replace(/\D/g, '')) : row.bonus_amount
+    const bonus = rawBonus.trim() !== '' ? Number(rawBonus.replace(/\D/g, '')) : row.per_item_bonus
 
     if (!Number.isFinite(amount) || amount < 0) return
     if (!Number.isFinite(bonus) || bonus < 0) return
@@ -258,7 +258,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     const { error } = await supabase.rpc('set_daily_target', {
       p_outlet: outletId,
       p_amount: amount,
-      p_bonus: bonus
+      p_per_item_bonus: bonus
     })
     setSavingKey(null)
     if (error) { toast.error(error.message); return; }
@@ -418,7 +418,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                 {/* Bonus Harian (opsional) */}
                 <div>
                   <label className="block text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider mb-2">
-                    <Sparkles className="w-3 h-3 inline mr-1" /> Nominal Bonus Harian (opsional)
+                    <Sparkles className="w-3 h-3 inline mr-1" /> Nominal Bonus Per Item (opsional)
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-sm font-bold">Rp</span>
@@ -432,7 +432,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                   </div>
                   <p className="text-[10px] text-suka-gray-400 font-semibold mt-1.5">
                     {audienceAll
-                      ? <>Jadi <b>default global</b> (kini {rupiah(globalDefaultBonus)}/hari). Outlet dengan override tidak berubah.</>
+                      ? <>Jadi <b>default global</b> (kini {rupiah(globalDefaultBonus)}/item). Outlet dengan override tidak berubah.</>
                       : <>Jadi <b>override</b> untuk {selectedOutlets.size || 0} outlet terpilih.</>}
                   </p>
                 </div>
@@ -599,7 +599,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                 <Store className="w-4 h-4 text-suka-brown" />
                 <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Target Per Outlet</h3>
                 {!isReadOnly && (
-                  <span className="text-[10px] font-bold text-suka-gray-400">· Default global: Target {rupiah(globalDefault)} & Bonus {rupiah(globalDefaultBonus)} / hari</span>
+                  <span className="text-[10px] font-bold text-suka-gray-400">· Default global: Target {rupiah(globalDefault)} & Bonus {rupiah(globalDefaultBonus)} / item</span>
                 )}
               </div>
               <div className="relative w-full sm:w-64">
@@ -631,7 +631,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                     </div>
                     <div className="text-xs font-bold text-suka-gray-500 sm:w-64 shrink-0 flex flex-col md:flex-row md:gap-3">
                       <div>Target: <span className="text-suka-brown">{rupiah(r.target_amount)}</span></div>
-                      <div>Bonus: <span className="text-suka-orange">{rupiah(r.bonus_amount)}</span></div>
+                      <div>Bonus/item: <span className="text-suka-orange">{rupiah(r.per_item_bonus)}</span></div>
                     </div>
                     {isReadOnly ? (
                       <div className="flex flex-1 items-center gap-4">
@@ -640,8 +640,8 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                           <span className="ml-1 text-[10px] font-bold text-suka-gray-400 uppercase">Target</span>
                         </div>
                         <div>
-                          <span className="text-sm font-extrabold text-suka-orange">{rupiah(r.bonus_amount)}</span>
-                          <span className="ml-1 text-[10px] font-bold text-suka-gray-400 uppercase">Bonus</span>
+                          <span className="text-sm font-extrabold text-suka-orange">{rupiah(r.per_item_bonus)}</span>
+                          <span className="ml-1 text-[10px] font-bold text-suka-gray-400 uppercase">Bonus/Item</span>
                         </div>
                       </div>
                     ) : (

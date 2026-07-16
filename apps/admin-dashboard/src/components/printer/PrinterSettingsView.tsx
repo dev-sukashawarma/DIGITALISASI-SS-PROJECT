@@ -8,11 +8,12 @@ import { createClient } from '@/lib/supabase'
 import { usePrinterState, printerStore } from '@/lib/printer/printerStore'
 import {
   connectBluetoothPrinter, autoConnectBluetoothPrinter, disconnectBluetoothPrinter,
-  printHtmlFallback,
+  printBytes, printHtmlFallback,
 } from '@/lib/printer/bluetooth-printer'
 import {
   DEFAULT_PRINT_LAYOUT, mergePrintLayout, PRINT_LAYOUT_KEY, type PrintLayout, type Typography,
 } from '@/lib/printer/printLayout'
+import { buildTemplateReceipt } from '@/lib/printer/buildTemplateReceipt'
 
 type TabKey = keyof PrintLayout
 const TABS: { key: TabKey; label: string }[] = [
@@ -184,9 +185,13 @@ export default function PrinterSettingsView() {
   const handleTestPrint = async () => {
     setTesting(true)
     try {
-      // Selalu cetak versi HTML agar hasil uji cetak PERSIS sama dengan preview.
-      // (Jalur ESC/POS thermal tak bisa mereproduksi font/ukuran/margin/logo.)
-      await printHtmlFallback(previewHtml(tab, layout, true, previewLogo))
+      if (printerStore.getState().characteristic) {
+        // Printer thermal terhubung → cetak LANGSUNG via ESC/POS (logo/ukuran/bold).
+        await printBytes(await buildTemplateReceipt(tab, layout, previewLogo ?? undefined))
+      } else {
+        // Tak ada printer thermal → fallback dialog cetak browser (persis preview).
+        await printHtmlFallback(previewHtml(tab, layout, true, previewLogo))
+      }
       showToast('success', 'Uji cetak dikirim')
     } catch (e: any) { showToast('error', e?.message || 'Uji cetak gagal') }
     finally { setTesting(false) }
@@ -327,7 +332,7 @@ export default function PrinterSettingsView() {
               <button onClick={handleTestPrint} disabled={testing}
                 className="w-full px-6 py-3 bg-suka-orange text-white rounded-xl font-bold hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
                 {testing ? <Loader2 className="animate-spin" size={18} /> : <Play size={18} />}
-                {testing ? 'Mengirim...' : 'Uji Cetak'}
+                {testing ? 'Mengirim...' : device ? 'Uji Cetak (Langsung)' : 'Uji Cetak (Browser)'}
               </button>
             </div>
           </div>

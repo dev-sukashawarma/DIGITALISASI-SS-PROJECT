@@ -78,6 +78,17 @@ export class EscPosEncoder {
     return this;
   }
 
+  /** Cetak bitmap monokrom via GS v 0 (raster bit image). */
+  public raster(bytes: Uint8Array, widthBytes: number, height: number) {
+    this.buffer.push(
+      0x1d, 0x76, 0x30, 0x00,
+      widthBytes & 0xff, (widthBytes >> 8) & 0xff,
+      height & 0xff, (height >> 8) & 0xff,
+    );
+    for (let i = 0; i < bytes.length; i++) this.buffer.push(bytes[i]);
+    return this;
+  }
+
   public cut(partial = false) {
     this.newline().newline().newline().newline();
     this.buffer.push(0x1d, 0x56, partial ? 0x01 : 0x00);

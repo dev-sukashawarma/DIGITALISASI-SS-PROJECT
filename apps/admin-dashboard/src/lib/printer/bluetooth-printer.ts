@@ -126,7 +126,10 @@ export function printHtmlFallback(html: string): Promise<void> {
     doc.write(html)
     doc.close()
 
-    setTimeout(() => {
+    let printed = false
+    const doPrint = () => {
+      if (printed) return
+      printed = true
       try {
         win.focus()
         win.print()
@@ -134,6 +137,20 @@ export function printHtmlFallback(html: string): Promise<void> {
         cleanup()
         resolve()
       }
-    }, 300)
+    }
+
+    // Tunggu semua gambar (mis. logo) selesai dimuat agar hasil cetak sama dengan preview.
+    const imgs = Array.from(doc.images || [])
+    if (imgs.length === 0) {
+      setTimeout(doPrint, 150)
+    } else {
+      const tryPrint = () => { if (imgs.every((im) => im.complete)) doPrint() }
+      imgs.forEach((im) => {
+        im.addEventListener('load', tryPrint)
+        im.addEventListener('error', tryPrint)
+      })
+      tryPrint()
+      setTimeout(doPrint, 1500) // fallback bila gambar tak kunjung selesai
+    }
   })
 }

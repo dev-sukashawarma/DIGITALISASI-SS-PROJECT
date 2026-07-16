@@ -34,13 +34,13 @@ export function SuratJalanList() {
     downloadBarcode(`Barcode-SJ-${docNumber}.png`, dataUrl)
   }
 
-  const handlePrintBarcode = async (sjId: string, docNumber: string) => {
+  const handlePrintBarcode = async (sjId: string, docNumber: string, tanggal: string, tujuanOutlet: string) => {
     const { generateQRDataUrl, printBarcode } = await import('@/utils/generatePDF')
     const { fetchPrintLayout, DEFAULT_PRINT_LAYOUT } = await import('@/utils/printLayout')
     const url = `${window.location.origin}/distribusi/terima/${sjId}`
     const dataUrl = await generateQRDataUrl(url, 400)
     const layout = await fetchPrintLayout(createSupabaseBrowserClient()).catch(() => DEFAULT_PRINT_LAYOUT)
-    printBarcode(docNumber, dataUrl, layout.qr_surat_jalan)
+    printBarcode(docNumber, dataUrl, layout.qr_surat_jalan, { tanggal, tujuanOutlet })
   }
 
   const handleDownloadPDF = async (sjId: string) => {
@@ -281,7 +281,8 @@ export function SuratJalanList() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePrintBarcode(sj.id, sj.document_number || sj.id.substring(0, 8));
+                            const tanggalStr = new Date(sj.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                            handlePrintBarcode(sj.id, sj.document_number || sj.id.substring(0, 8), tanggalStr, sj.outlet?.name || 'Unknown');
                           }}
                           className="flex-1 py-2.5 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
                         >

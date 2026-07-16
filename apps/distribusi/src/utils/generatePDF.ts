@@ -535,6 +535,7 @@ export function buildBarcodeHtml(
   docNumber: string,
   dataUrl: string,
   layout: QrLayout = DEFAULT_PRINT_LAYOUT.qr_surat_jalan,
+  extra?: { tanggal?: string; tujuanOutlet?: string }
 ): string {
   const footer = layout.footerText.split('\n').join('<br/>')
   const logo = layout.showLogo
@@ -551,6 +552,14 @@ export function buildBarcodeHtml(
   const weight = layout.bold ? 900 : 400
   const fontFam = FONT_STACK[layout.fontFamily] ?? FONT_STACK.monospace
   const marginMm = typeof layout.marginMm === 'number' ? layout.marginMm : 2
+  
+  const extraHtml = extra ? `
+    <div style="font-size: ${fs(11)}px; font-weight: ${weight}; margin-top: 4px; line-height: 1.2;">
+      ${extra.tujuanOutlet ? `<div>Tujuan: ${extra.tujuanOutlet}</div>` : ''}
+      ${extra.tanggal ? `<div>Tgl: ${extra.tanggal}</div>` : ''}
+    </div>
+  ` : '';
+
   return `
     <!DOCTYPE html>
     <html>
@@ -578,14 +587,14 @@ export function buildBarcodeHtml(
           .subtitle {
             font-size: ${fs(13)}px;
             font-weight: ${weight};
-            margin-bottom: 8px;
+            margin-bottom: 2px;
             text-decoration: underline;
           }
           img.qr {
             width: ${layout.qrSizeMm}mm;
             height: ${layout.qrSizeMm}mm;
             display: block;
-            margin: 0 auto;
+            margin: 4px auto 0 auto;
           }
           .footer {
             margin-top: 10px;
@@ -600,6 +609,7 @@ export function buildBarcodeHtml(
         ${logo}
         <div class="title">${layout.title}</div>
         <div class="subtitle">${docNumber}</div>
+        ${extraHtml}
         <img class="qr" src="${dataUrl}" alt="QR Code" />
         <div class="footer">${footer}</div>
       </body>
@@ -611,9 +621,10 @@ export function printBarcode(
   docNumber: string,
   dataUrl: string,
   layout: QrLayout = DEFAULT_PRINT_LAYOUT.qr_surat_jalan,
+  extra?: { tanggal?: string; tujuanOutlet?: string }
 ) {
   const PAPER_WIDTH_MM = layout.paperWidth;
-  const html = buildBarcodeHtml(docNumber, dataUrl, layout);
+  const html = buildBarcodeHtml(docNumber, dataUrl, layout, extra);
 
   const iframe = document.createElement('iframe')
   iframe.style.position = 'fixed'

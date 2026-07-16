@@ -1,8 +1,8 @@
 {
   "app/KioskMenuClient.tsx": {
-    "mtime": 1784000116.3330603,
-    "ast_hash": "37ebfc2c3153660da501a1e27e56df6c",
-    "semantic_hash": "37ebfc2c3153660da501a1e27e56df6c"
+    "mtime": 1784170359.738713,
+    "ast_hash": "3ef5e1731301a676d41a825eba359d57",
+    "semantic_hash": "3ef5e1731301a676d41a825eba359d57"
   },
   "app/api/admin/guides/route.ts": {
     "mtime": 1783306008.6372087,
@@ -25,9 +25,9 @@
     "semantic_hash": "2fd62313832192aa22ba28826c30df0e"
   },
   "app/api/cancellations/request/route.ts": {
-    "mtime": 1784082646.675119,
-    "ast_hash": "e3dbdad3b376d45fa798c7cffb6e3e8b",
-    "semantic_hash": "e3dbdad3b376d45fa798c7cffb6e3e8b"
+    "mtime": 1784084436.4754705,
+    "ast_hash": "4725fd2bda4316f4c669b1183f4938db",
+    "semantic_hash": "4725fd2bda4316f4c669b1183f4938db"
   },
   "app/api/checkout/route.ts": {
     "mtime": 1783503683.5953755,
@@ -75,9 +75,9 @@
     "semantic_hash": "5c75a7106700308c53ab9bc556dd3cc1"
   },
   "app/api/orders/manual/route.ts": {
-    "mtime": 1784020862.2035036,
-    "ast_hash": "6d775051c082e663b8b7cf20ccab6178",
-    "semantic_hash": "6d775051c082e663b8b7cf20ccab6178"
+    "mtime": 1784097136.3838813,
+    "ast_hash": "5c33f5e08521d08c1dfb7424939f05ae",
+    "semantic_hash": "5c33f5e08521d08c1dfb7424939f05ae"
   },
   "app/api/orders/notify-online-cancel/route.ts": {
     "mtime": 1782442644.576534,
@@ -115,9 +115,9 @@
     "semantic_hash": "f967c77799e8752685b623cdb8772376"
   },
   "app/api/orders/walk-in/route.ts": {
-    "mtime": 1784020872.9526126,
-    "ast_hash": "30e8e2ecd0ab8f2122e1f825defe8554",
-    "semantic_hash": "30e8e2ecd0ab8f2122e1f825defe8554"
+    "mtime": 1784096956.7134354,
+    "ast_hash": "d3779d3e16004aa8a89b8943ad145ee6",
+    "semantic_hash": "d3779d3e16004aa8a89b8943ad145ee6"
   },
   "app/api/push/subscribe/route.ts": {
     "mtime": 1783736119.538304,
@@ -165,9 +165,9 @@
     "semantic_hash": "720b7b9a8ea791219cf546d850dfd8c2"
   },
   "app/cancellations/approve/page.tsx": {
-    "mtime": 1784079357.4308312,
-    "ast_hash": "182ba2dbed4e20dad5995847fba31cd8",
-    "semantic_hash": "182ba2dbed4e20dad5995847fba31cd8"
+    "mtime": 1784084436.4774854,
+    "ast_hash": "c861a6c79492cb2ea62c2a9c4f925703",
+    "semantic_hash": "c861a6c79492cb2ea62c2a9c4f925703"
   },
   "app/checkout/page.tsx": {
     "mtime": 1783501806.3965764,
@@ -185,22 +185,22 @@
     "semantic_hash": "3b2407af5670eee71f99674bdd50b17f"
   },
   "app/kasir/KasirOrderClient.tsx": {
-    "mtime": 1784079727.2465353,
-    "ast_hash": "6a41076e0d09b834dcfbfcf0291b22a7",
-    "semantic_hash": "6a41076e0d09b834dcfbfcf0291b22a7"
+    "mtime": 1784103526.2447166,
+    "ast_hash": "8504b50ebf7ad785106200a93210d163",
+    "semantic_hash": "8504b50ebf7ad785106200a93210d163"
   },
   "app/kasir/histori/BonusTab.tsx": {
-    "mtime": 1784081440.1450906,
-    "ast_hash": "a2593a32ae4ccaab0a5b0e5be249d3ec",
-    "semantic_hash": "a2593a32ae4ccaab0a5b0e5be249d3ec"
+    "mtime": 1784107579.9162457,
+    "ast_hash": "e3c96b0f8efc7b04bbe341ed5537a908",
+    "semantic_hash": "e3c96b0f8efc7b04bbe341ed5537a908"
   },
   "app/kasir/histori/page.tsx": {
-    "mtime": 1784081729.5076606,
+    "mtime": 1784084436.4830196,
     "ast_hash": "75b76698d785989552be5cbc943ac7d0",
     "semantic_hash": "75b76698d785989552be5cbc943ac7d0"
   },
   "app/kasir/info-porsi/page.tsx": {
-    "mtime": 1784082170.4507022,
+    "mtime": 1784084436.4870563,
     "ast_hash": "48f4afec33590283b90c48327780a6ae",
     "semantic_hash": "48f4afec33590283b90c48327780a6ae"
   },
@@ -225,14 +225,14 @@
     "semantic_hash": "781386220b69675dd4b13c81d2e5c6f8"
   },
   "app/kasir/menu/KasirMenuClient.tsx": {
-    "mtime": 1784081968.3554847,
-    "ast_hash": "e05f48cf917a279f3cd5218e7d9699b1",
-    "semantic_hash": "e05f48cf917a279f3cd5218e7d9699b1"
+    "mtime": 1784170343.9883506,
+    "ast_hash": "623ca0a61cbb2b0d18d1bddd4d15252a",
+    "semantic_hash": "623ca0a61cbb2b0d18d1bddd4d15252a"
   },
   "app/kasir/menu/page.tsx": {
-    "mtime": 1784081979.3593793,
-    "ast_hash": "6cc411b5535349bdb4aff33c92cfd887",
-    "semantic_hash": "6cc411b5535349bdb4aff33c92cfd887"
+    "mtime": 1784170267.043955,
+    "ast_hash": "cd821a3aaa1604ab111275f2af304edf",
+    "semantic_hash": "cd821a3aaa1604ab111275f2af304edf"
   },
   "app/kasir/order-manual/loading.tsx": {
     "mtime": 1782959781.0944462,
@@ -240,9 +240,9 @@
     "semantic_hash": "99091473584dc6b6ea79071da22709d9"
   },
   "app/kasir/order-manual/page.tsx": {
-    "mtime": 1784081960.6482022,
-    "ast_hash": "2b10780a959317c2a504d03b2c851e8b",
-    "semantic_hash": "2b10780a959317c2a504d03b2c851e8b"
+    "mtime": 1784170335.0337262,
+    "ast_hash": "3e86ca2e3f6118a8424b4f6a5a05ba82",
+    "semantic_hash": "3e86ca2e3f6118a8424b4f6a5a05ba82"
   },
   "app/kasir/page.tsx": {
     "mtime": 1783915355.7086098,
@@ -280,9 +280,9 @@
     "semantic_hash": "028a0382160052d5b8a1389af215172a"
   },
   "app/menu/[id]/page.tsx": {
-    "mtime": 1783494562.662526,
-    "ast_hash": "aed82628d6a76e56520d48419aaf632e",
-    "semantic_hash": "aed82628d6a76e56520d48419aaf632e"
+    "mtime": 1784170318.1887348,
+    "ast_hash": "ff51246ae9d577874da77460d23c9cf4",
+    "semantic_hash": "ff51246ae9d577874da77460d23c9cf4"
   },
   "app/not-found.tsx": {
     "mtime": 1782960499.457052,
@@ -295,9 +295,9 @@
     "semantic_hash": "c76ec721b72ea21feaf55e259d4bee6a"
   },
   "app/page.tsx": {
-    "mtime": 1784000116.336056,
-    "ast_hash": "d659eb255e1b0796987952748560099d",
-    "semantic_hash": "d659eb255e1b0796987952748560099d"
+    "mtime": 1784170310.94124,
+    "ast_hash": "d2245c29ee244acec749952952e1dfa0",
+    "semantic_hash": "d2245c29ee244acec749952952e1dfa0"
   },
   "app/panduan/page.tsx": {
     "mtime": 1783406984.2387607,
@@ -475,9 +475,9 @@
     "semantic_hash": "feda267fb43bd65c106012b3c9951c7b"
   },
   "components/KasirNav.tsx": {
-    "mtime": 1784016862.931447,
-    "ast_hash": "59b228ad48f2b3a64774c898ea58ce1c",
-    "semantic_hash": "59b228ad48f2b3a64774c898ea58ce1c"
+    "mtime": 1784100586.8480048,
+    "ast_hash": "c2ff0c1ef62a5d3e38021fc0e72dd3e9",
+    "semantic_hash": "c2ff0c1ef62a5d3e38021fc0e72dd3e9"
   },
   "components/KioskControlPanel.tsx": {
     "mtime": 1783914398.0861034,
@@ -575,9 +575,9 @@
     "semantic_hash": "339f5fb233e506803c7c64aa14e405ae"
   },
   "components/kasir/WalkInCartPanel.tsx": {
-    "mtime": 1784020313.2724302,
-    "ast_hash": "c9ce7a0fa0a7ae52da5ccfa9e67d9d97",
-    "semantic_hash": "c9ce7a0fa0a7ae52da5ccfa9e67d9d97"
+    "mtime": 1784099182.5682285,
+    "ast_hash": "a3a62b2c3ed3d8ebde2cf4bc61c8f7fc",
+    "semantic_hash": "a3a62b2c3ed3d8ebde2cf4bc61c8f7fc"
   },
   "e2e/example.spec.ts": {
     "mtime": 1781838909.1811786,
@@ -650,9 +650,9 @@
     "semantic_hash": "6f7fc2369803e164c7d08d9376ccdaf9"
   },
   "lib/offline.ts": {
-    "mtime": 1783577679.3791792,
-    "ast_hash": "c64fe6dd88dbe05a559483a102ce30fe",
-    "semantic_hash": "c64fe6dd88dbe05a559483a102ce30fe"
+    "mtime": 1784096967.1020546,
+    "ast_hash": "08a86a8a5d5c7ae299ffebb4482462fb",
+    "semantic_hash": "08a86a8a5d5c7ae299ffebb4482462fb"
   },
   "lib/order-item-name.ts": {
     "mtime": 1781838909.1811786,
@@ -675,9 +675,9 @@
     "semantic_hash": "f7c4d75afba671252f7f83e2d0d40d54"
   },
   "lib/printReceipt.ts": {
-    "mtime": 1784015366.2873623,
-    "ast_hash": "1fd5b334b9db9000edddb639a085d1db",
-    "semantic_hash": "1fd5b334b9db9000edddb639a085d1db"
+    "mtime": 1784168071.251043,
+    "ast_hash": "58548d97344f1be5f9aac9761ae1b871",
+    "semantic_hash": "58548d97344f1be5f9aac9761ae1b871"
   },
   "lib/promo-calculator.ts": {
     "mtime": 1783503529.7201693,
@@ -735,14 +735,14 @@
     "semantic_hash": "a458794c898ca7468dfdf4143e44cc28"
   },
   "lib/validations.ts": {
-    "mtime": 1781838909.185649,
-    "ast_hash": "5c97df49d3b9ce7043c61496096c0def",
-    "semantic_hash": "5c97df49d3b9ce7043c61496096c0def"
+    "mtime": 1784100613.141169,
+    "ast_hash": "be11df3b3d94715c8912f849b803ba19",
+    "semantic_hash": "be11df3b3d94715c8912f849b803ba19"
   },
   "middleware.ts": {
-    "mtime": 1783652027.308673,
-    "ast_hash": "428ac2048095a8b543a63afb89b0181d",
-    "semantic_hash": "428ac2048095a8b543a63afb89b0181d"
+    "mtime": 1784084436.5441008,
+    "ast_hash": "f6cced661b2a07db20b050b1d1afdd26",
+    "semantic_hash": "f6cced661b2a07db20b050b1d1afdd26"
   },
   "migrate-promo.js": {
     "mtime": 1782872005.0492778,
@@ -1155,9 +1155,9 @@
     "semantic_hash": "b1b7e39d622a43890711fb854634bf42"
   },
   "types/index.ts": {
-    "mtime": 1783935307.5242634,
-    "ast_hash": "3fb23197588f77a29118cea90aa23139",
-    "semantic_hash": "3fb23197588f77a29118cea90aa23139"
+    "mtime": 1784103487.076754,
+    "ast_hash": "721641c325fbebdab1e4bfaed0cac21c",
+    "semantic_hash": "721641c325fbebdab1e4bfaed0cac21c"
   },
   "update_db.js": {
     "mtime": 1783408448.1358836,
@@ -1170,13 +1170,58 @@
     "semantic_hash": "285783f6be97f5d4ed6b543703bb70dd"
   },
   "vitest.config.ts": {
-    "mtime": 1781838909.227984,
-    "ast_hash": "bd7c838326dbb9a53a98bf34a991effd",
-    "semantic_hash": "bd7c838326dbb9a53a98bf34a991effd"
+    "mtime": 1784166024.3702586,
+    "ast_hash": "8641de1d7a9e42c6430d4b148796b89f",
+    "semantic_hash": "8641de1d7a9e42c6430d4b148796b89f"
   },
   "public/sound-pesanan.mp3": {
     "mtime": 1781838909.219921,
     "ast_hash": "0d5df499d6c425d3bfb37104868187da",
     "semantic_hash": "0d5df499d6c425d3bfb37104868187da"
+  },
+  "app/api/cancellations/details/route.ts": {
+    "mtime": 1784084436.473813,
+    "ast_hash": "c6820eec1d00d8f8745b3fc80f37210f",
+    "semantic_hash": "c6820eec1d00d8f8745b3fc80f37210f"
+  },
+  "app/kasir/histori/BonusSimulationCard.tsx": {
+    "mtime": 1784107589.520498,
+    "ast_hash": "0c7ef8221694da6652bbdbf3d9f83ac3",
+    "semantic_hash": "0c7ef8221694da6652bbdbf3d9f83ac3"
+  },
+  "lib/bluetooth-printer.ts": {
+    "mtime": 1784166297.0201807,
+    "ast_hash": "8cf6e75a85d6ca711ee8dd537b0df367",
+    "semantic_hash": "8cf6e75a85d6ca711ee8dd537b0df367"
+  },
+  "lib/escpos-encoder.ts": {
+    "mtime": 1784166024.3624585,
+    "ast_hash": "fd06bed73d35490462847a53a5613d01",
+    "semantic_hash": "fd06bed73d35490462847a53a5613d01"
+  },
+  "lib/printLayout.test.ts": {
+    "mtime": 1784166024.3624585,
+    "ast_hash": "063f11815e91d1f7f19a7f8c2665278e",
+    "semantic_hash": "063f11815e91d1f7f19a7f8c2665278e"
+  },
+  "lib/printLayout.ts": {
+    "mtime": 1784168776.2219212,
+    "ast_hash": "e9da9847ce64b166bc4765f5e153bc2d",
+    "semantic_hash": "e9da9847ce64b166bc4765f5e153bc2d"
+  },
+  "lib/printReceipt.test.ts": {
+    "mtime": 1784168071.2453403,
+    "ast_hash": "9ecd99e1258a921f895813f923508439",
+    "semantic_hash": "9ecd99e1258a921f895813f923508439"
+  },
+  "lib/printerStore.ts": {
+    "mtime": 1784097249.611467,
+    "ast_hash": "a6bde22f61065201e0b3f415a29aed62",
+    "semantic_hash": "a6bde22f61065201e0b3f415a29aed62"
+  },
+  "scripts/delete_pending_cancellations.mjs": {
+    "mtime": 1784084634.0317824,
+    "ast_hash": "5e2831f13cd2f95e7223159170647352",
+    "semantic_hash": "5e2831f13cd2f95e7223159170647352"
   }
 }

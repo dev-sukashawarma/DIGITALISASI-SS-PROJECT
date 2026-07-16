@@ -1,0 +1,707 @@
+{
+  "communities": {
+    "0": [
+      "src_app_api_submit_attendance_route",
+      "src_app_api_submit_attendance_route_post",
+      "src_app_dashboard_kru_page",
+      "src_app_dashboard_kru_page_krudashboardpage",
+      "src_app_kiosk_outlet_id_kioskclient",
+      "src_app_kiosk_outlet_id_kioskclient_kioskclient",
+      "src_app_kiosk_outlet_id_page",
+      "src_app_kiosk_outlet_id_page_generatestaticparams",
+      "src_app_kiosk_outlet_id_page_kioskpage",
+      "src_components_cameracapture",
+      "src_components_cameracapture_cameracapture",
+      "src_components_cameracapture_captureframe",
+      "src_components_cameracapture_props",
+      "src_components_modelpreloader",
+      "src_components_modelpreloader_modelpreloader",
+      "src_features_clock_attendancekioskpanel",
+      "src_features_clock_attendancekioskpanel_attendancekioskpanel",
+      "src_features_clock_attendancekioskpanel_attendancerecord",
+      "src_features_clock_attendancekioskpanel_calculatedelayminutes",
+      "src_features_clock_useclockkiosk",
+      "src_features_clock_useclockkiosk_gagaltext",
+      "src_features_clock_useclockkiosk_kioskphase",
+      "src_features_clock_useclockkiosk_kioskresult",
+      "src_features_clock_useclockkiosk_staffrow",
+      "src_features_clock_useclockkiosk_useclockkiosk",
+      "src_lib_attendance_submit",
+      "src_lib_attendance_submit_submitattendance",
+      "src_lib_attendance_submit_submitoptions",
+      "src_lib_attendance_submit_test",
+      "src_lib_attendance_submit_test_payload",
+      "src_lib_attendance_types",
+      "src_lib_attendance_types_attendancepayload",
+      "src_lib_attendance_types_attendancetype",
+      "src_lib_attendance_types_submitresult",
+      "src_lib_attendance_useattendancequeue",
+      "src_lib_attendance_useattendancequeue_queuedabsen",
+      "src_lib_attendance_useattendancequeue_rationale_16",
+      "src_lib_attendance_useattendancequeue_useattendancequeue",
+      "src_lib_face_liveness",
+      "src_lib_face_liveness_challenge",
+      "src_lib_face_liveness_challenge_label",
+      "src_lib_face_liveness_createlivenessdetector",
+      "src_lib_face_liveness_pickchallenge",
+      "src_lib_face_liveness_test",
+      "src_lib_face_recognizer",
+      "src_lib_face_recognizer_config",
+      "src_lib_face_recognizer_extractdescriptor",
+      "src_lib_face_recognizer_gethuman",
+      "src_lib_face_recognizer_loadfacemodels",
+      "src_lib_gps",
+      "src_lib_gps_formatdistancemeters",
+      "src_lib_gps_haversinemeters",
+      "src_lib_gps_isgpsaccuracyacceptable",
+      "src_lib_gps_iswithinradius",
+      "src_lib_gps_latlng",
+      "src_lib_gps_test",
+      "src_lib_gps_torad",
+      "src_utils_haptics",
+      "src_utils_haptics_playsyntheticbeep",
+      "src_utils_haptics_triggererrorfeedback",
+      "src_utils_haptics_triggersuccessfeedback",
+      "src_utils_haptics_triggerwarningfeedback"
+    ],
+    "1": [
+      "src_app_api_outlet_presence_route",
+      "src_app_api_outlet_presence_route_get",
+      "src_app_api_outlet_presence_route_options",
+      "src_app_dashboard_enroll_page",
+      "src_app_dashboard_enroll_page_enrollpage",
+      "src_app_dashboard_enroll_page_enrollphase",
+      "src_app_dashboard_enroll_page_staff",
+      "src_app_dashboard_kru_checklist_page",
+      "src_app_dashboard_kru_checklist_page_checklistcategory",
+      "src_app_dashboard_kru_checklist_page_checklistcategorycard",
+      "src_app_dashboard_kru_checklist_page_checklistitem",
+      "src_app_dashboard_kru_checklist_page_checklistitemrow",
+      "src_app_dashboard_kru_checklist_page_kruchecklistpage",
+      "src_app_dashboard_kru_checklist_page_tickrow",
+      "src_app_dashboard_panduan_page",
+      "src_app_dashboard_panduan_page_guide",
+      "src_app_dashboard_panduan_page_panduanpage",
+      "src_app_dashboard_panduan_page_parseimages",
+      "src_app_dashboard_panduan_page_splitcategory",
+      "src_app_dashboard_profil_page",
+      "src_app_dashboard_profil_page_profilkrupage",
+      "src_components_outletswitcher",
+      "src_components_outletswitcher_outlet",
+      "src_components_outletswitcher_outletswitcher",
+      "src_lib_enroll_splitbyenrollment",
+      "src_lib_enroll_splitbyenrollment_enrollstaff",
+      "src_lib_enroll_splitbyenrollment_splitbyenrollment",
+      "src_lib_enroll_splitbyenrollment_test",
+      "src_lib_enroll_splitbyenrollment_test_mk",
+      "src_lib_feedback_toast_usetoast",
+      "src_lib_realtime_signature",
+      "src_lib_realtime_signature_subssignature",
+      "src_lib_realtime_signature_test",
+      "src_lib_realtime_userealtimechannel",
+      "src_lib_realtime_userealtimechannel_realtimesub",
+      "src_lib_realtime_userealtimechannel_userealtimechannel",
+      "src_lib_supabase",
+      "src_lib_supabase_createclient",
+      "src_lib_supabase_createserversupabaseclient"
+    ],
+    "2": [
+      "src_app_dashboard_checklist_page",
+      "src_app_dashboard_checklist_page_checklist_key",
+      "src_app_dashboard_checklist_page_checklistcategory",
+      "src_app_dashboard_checklist_page_checklistitem",
+      "src_app_dashboard_checklist_page_checklistmanagementpage",
+      "src_app_dashboard_checklist_page_phase",
+      "src_app_dashboard_checklist_page_phase_label",
+      "src_app_dashboard_checklist_page_test",
+      "src_app_dashboard_checklist_page_test_mockdelete",
+      "src_app_dashboard_checklist_page_test_mockeq",
+      "src_app_dashboard_checklist_page_test_mockfrom",
+      "src_app_dashboard_checklist_page_test_mockinsert",
+      "src_app_dashboard_checklist_page_test_mockorder",
+      "src_app_dashboard_checklist_page_test_mockselect",
+      "src_app_dashboard_checklist_page_test_mocktoastshow",
+      "src_app_dashboard_checklist_page_test_mockupdate",
+      "src_app_dashboard_rekap_page",
+      "src_app_dashboard_rekap_page_calculatedelayminutes",
+      "src_app_dashboard_rekap_page_rekappage",
+      "src_app_dashboard_rekap_page_row",
+      "src_components_select",
+      "src_components_select_select",
+      "src_components_select_selectoption",
+      "src_components_select_selectprops",
+      "src_features_rekap_csv",
+      "src_features_rekap_csv_attendancetocsv",
+      "src_features_rekap_csv_csvrow",
+      "src_features_rekap_csv_downloadcsv",
+      "src_features_rekap_csv_esc",
+      "src_features_rekap_csv_test",
+      "src_features_rekap_csv_test_rows"
+    ],
+    "3": [
+      "dayjs",
+      "leaflet",
+      "lucide_react",
+      "next",
+      "package_dependencies",
+      "package_dependencies_dayjs",
+      "package_dependencies_leaflet",
+      "package_dependencies_lucide_react",
+      "package_dependencies_next",
+      "package_dependencies_react",
+      "package_dependencies_react_dom",
+      "package_dependencies_react_swipeable",
+      "package_dependencies_suka_auth",
+      "package_dependencies_suka_design_system",
+      "package_dependencies_suka_offline_queue",
+      "package_dependencies_supabase_ssr",
+      "package_dependencies_supabase_supabase_js",
+      "package_dependencies_tanstack_react_query",
+      "package_dependencies_vladmandic_human",
+      "react",
+      "react_dom",
+      "react_swipeable",
+      "suka_auth",
+      "suka_design_system",
+      "suka_offline_queue",
+      "supabase_ssr",
+      "supabase_supabase_js",
+      "tanstack_react_query",
+      "vladmandic_human"
+    ],
+    "4": [
+      "src_app_dashboard_checklist_monitor_page",
+      "src_app_dashboard_checklist_monitor_page_checklistcategory",
+      "src_app_dashboard_checklist_monitor_page_checklistitem",
+      "src_app_dashboard_checklist_monitor_page_checklistmonitorpage",
+      "src_app_dashboard_checklist_monitor_page_tickrow",
+      "src_app_dashboard_papan_kehadiran_page",
+      "src_app_dashboard_papan_kehadiran_page_legend",
+      "src_app_dashboard_papan_kehadiran_page_papankehadiranpage",
+      "src_app_dashboard_papan_kehadiran_page_pill",
+      "src_app_dashboard_pengaturan_loading",
+      "src_app_dashboard_pengaturan_loading_loadingpengaturan",
+      "src_components_pageheader",
+      "src_components_pageheader_infopill",
+      "src_components_pageheader_pageheader",
+      "src_components_pageheader_pageheaderprops",
+      "src_features_board_board",
+      "src_features_board_board_boardconfig",
+      "src_features_board_board_boardrecord",
+      "src_features_board_board_boardrow",
+      "src_features_board_board_boardstaff",
+      "src_features_board_board_boardstate",
+      "src_features_board_board_boardsummary",
+      "src_features_board_board_calculatedelayminutes",
+      "src_features_board_board_computeboard",
+      "src_features_board_board_jam",
+      "src_features_board_board_test",
+      "src_features_board_board_test_config",
+      "src_features_board_board_test_records",
+      "src_features_board_board_test_staff"
+    ],
+    "5": [
+      "fake_indexeddb",
+      "jsdom",
+      "package_devdependencies",
+      "package_devdependencies_fake_indexeddb",
+      "package_devdependencies_jsdom",
+      "package_devdependencies_playwright_test",
+      "package_devdependencies_postcss",
+      "package_devdependencies_tailwindcss",
+      "package_devdependencies_tailwindcss_postcss",
+      "package_devdependencies_testing_library_dom",
+      "package_devdependencies_testing_library_react",
+      "package_devdependencies_types_leaflet",
+      "package_devdependencies_types_node",
+      "package_devdependencies_types_react",
+      "package_devdependencies_types_react_dom",
+      "package_devdependencies_typescript",
+      "package_devdependencies_vitest",
+      "playwright_test",
+      "postcss",
+      "tailwindcss",
+      "tailwindcss_postcss",
+      "testing_library_dom",
+      "types_leaflet",
+      "types_node",
+      "types_react",
+      "types_react_dom",
+      "typescript",
+      "vitest"
+    ],
+    "6": [
+      "src_app_dashboard_kasbon_page",
+      "src_app_dashboard_kasbon_page_kasbonpage",
+      "src_app_dashboard_layout",
+      "src_app_dashboard_layout_dashboardlayout",
+      "src_app_dashboard_layout_getportalurl",
+      "src_app_dashboard_layout_navitem",
+      "src_components_layout_swipeablecontainer",
+      "src_components_layout_swipeablecontainer_navitem",
+      "src_components_layout_swipeablecontainer_swipeablecontainer",
+      "src_components_layout_swipeablecontainer_swipeablecontainerprops",
+      "src_features_cuti_useleavenotifications",
+      "src_features_cuti_useleavenotifications_useleavenotifications",
+      "src_features_kasbon_api",
+      "src_features_kasbon_api_cashadvance",
+      "src_features_kasbon_api_cashadvanceinstallment",
+      "src_features_kasbon_api_kasbondisbursementstatus",
+      "src_features_kasbon_api_kasbonstatus",
+      "src_features_kasbon_api_usekasbonhistory",
+      "src_features_kasbon_api_usesubmitkasbon",
+      "src_features_kasbon_kasbonview",
+      "src_features_kasbon_kasbonview_kasbonview",
+      "src_lib_realtime_debounce",
+      "src_lib_realtime_debounce_createdebouncer",
+      "src_lib_realtime_debounce_test",
+      "src_lib_realtime_userealtimeinvalidate",
+      "src_lib_realtime_userealtimeinvalidate_invalidatesub",
+      "src_lib_realtime_userealtimeinvalidate_userealtimeinvalidate"
+    ],
+    "7": [
+      "src_app_layout",
+      "src_app_layout_metadata",
+      "src_app_layout_rootlayout",
+      "src_app_layout_viewport",
+      "src_app_providers",
+      "src_app_providers_providers",
+      "src_app_providers_queryclient",
+      "src_components_common_errorboundary",
+      "src_components_common_errorboundary_errorboundary",
+      "src_components_common_errorboundary_errorboundary_componentdidcatch",
+      "src_components_common_errorboundary_errorboundary_constructor",
+      "src_components_common_errorboundary_errorboundary_getderivedstatefromerror",
+      "src_components_common_errorboundary_errorboundary_render",
+      "src_components_common_errorboundary_props",
+      "src_components_common_errorboundary_state",
+      "src_components_serviceworkerregister",
+      "src_components_serviceworkerregister_serviceworkerregister",
+      "src_lib_feedback_sound",
+      "src_lib_feedback_sound_beep",
+      "src_lib_feedback_toast",
+      "src_lib_feedback_toast_toast",
+      "src_lib_feedback_toast_toastctx",
+      "src_lib_feedback_toast_toastkind",
+      "src_lib_feedback_toast_toastprovider"
+    ],
+    "8": [
+      "docref_adr_0003",
+      "src_app_dashboard_face_debug_page",
+      "src_app_dashboard_face_debug_page_cand",
+      "src_app_dashboard_face_debug_page_cosine",
+      "src_app_dashboard_face_debug_page_facedebugpage",
+      "src_app_dashboard_face_debug_page_l2",
+      "src_app_dashboard_face_debug_page_row",
+      "src_lib_face_identify",
+      "src_lib_face_identify_candidate",
+      "src_lib_face_identify_identifyresult",
+      "src_lib_face_identify_identifystaff",
+      "src_lib_face_identify_test",
+      "src_lib_face_identify_test_a",
+      "src_lib_face_identify_test_b",
+      "src_lib_face_match",
+      "src_lib_face_match_assertsamelength",
+      "src_lib_face_match_averagedescriptors",
+      "src_lib_face_match_descriptor",
+      "src_lib_face_match_euclideandistance",
+      "src_lib_face_match_facesimilarity",
+      "src_lib_face_match_ismatch",
+      "src_lib_face_match_test"
+    ],
+    "9": [
+      "ref_next_env_d_ts",
+      "ref_next_types_ts",
+      "ref_node_modules",
+      "ref_src",
+      "ref_ts",
+      "ref_tsconfig_json",
+      "ref_tsx",
+      "tsconfig",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_baseurl",
+      "tsconfig_compileroptions_incremental",
+      "tsconfig_compileroptions_jsx",
+      "tsconfig_compileroptions_paths",
+      "tsconfig_compileroptions_plugins",
+      "tsconfig_exclude",
+      "tsconfig_extends",
+      "tsconfig_include",
+      "tsconfig_paths"
+    ],
+    "10": [
+      "package",
+      "package_description",
+      "package_name",
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_dev",
+      "package_scripts_lint",
+      "package_scripts_start",
+      "package_scripts_test",
+      "package_scripts_test_e2e",
+      "package_scripts_test_watch",
+      "package_scripts_type_check",
+      "package_type",
+      "package_version"
+    ],
+    "11": [
+      "src_app_dashboard_pengaturan_actions",
+      "src_app_dashboard_pengaturan_actions_deleteallexceptions",
+      "src_app_dashboard_pengaturan_actions_deleteoutletexception",
+      "src_app_dashboard_pengaturan_actions_saveglobalconfig",
+      "src_app_dashboard_pengaturan_actions_saveoutletexception",
+      "src_app_dashboard_pengaturan_actions_supabaseadmin",
+      "src_app_dashboard_pengaturan_page",
+      "src_app_dashboard_pengaturan_page_pengaturanabsensipage",
+      "src_app_dashboard_pengaturan_pengaturanclient",
+      "src_app_dashboard_pengaturan_pengaturanclient_config",
+      "src_app_dashboard_pengaturan_pengaturanclient_outlet",
+      "src_app_dashboard_pengaturan_pengaturanclient_outletconfig",
+      "src_app_dashboard_pengaturan_pengaturanclient_pengaturanclient",
+      "src_app_dashboard_pengaturan_pengaturanclient_props"
+    ],
+    "12": [
+      "src_app_dashboard_cuti_page",
+      "src_app_dashboard_cuti_page_cutipage",
+      "src_features_cuti_api",
+      "src_features_cuti_api_leave",
+      "src_features_cuti_api_leavebalance",
+      "src_features_cuti_api_leavestatus",
+      "src_features_cuti_api_leavetype",
+      "src_features_cuti_api_useleavebalance",
+      "src_features_cuti_api_useleavehistory",
+      "src_features_cuti_api_usesubmitleave",
+      "src_features_cuti_cutiview",
+      "src_features_cuti_cutiview_cutiview"
+    ],
+    "13": [
+      "src_app_api_checklist_authorizeoutlet",
+      "src_app_api_checklist_authorizeoutlet_authorizeoutletaccess",
+      "src_app_api_checklist_authorizeoutlet_privileged_roles",
+      "src_app_api_checklist_categories_route",
+      "src_app_api_checklist_categories_route_post",
+      "src_app_api_checklist_session_route",
+      "src_app_api_checklist_session_route_post",
+      "src_app_api_checklist_ticks_route",
+      "src_app_api_checklist_ticks_route_post",
+      "src_app_api_checklist_toggle_route",
+      "src_app_api_checklist_toggle_route_post"
+    ],
+    "14": [
+      "src_lib_globalcalibrationstore",
+      "src_lib_globalcalibrationstore_deleteglobalsubmission",
+      "src_lib_globalcalibrationstore_getallglobalsubmissions",
+      "src_lib_globalcalibrationstore_getglobalsubmission",
+      "src_lib_globalcalibrationstore_globalcalibrationsubmission",
+      "src_lib_globalcalibrationstore_saveglobalsubmission",
+      "src_lib_globalcalibrationstore_submissions"
+    ],
+    "15": [
+      "src_lib_image",
+      "src_lib_image_canvastocompressedjpeg",
+      "src_lib_image_estimatedataurlbytes",
+      "src_lib_image_iswithinsizelimit",
+      "src_lib_image_test"
+    ],
+    "16": [
+      "migrate_coords",
+      "migrate_coords_admin",
+      "migrate_coords_run",
+      "migrate_coords_updates"
+    ],
+    "17": [
+      "migrate_coords_2",
+      "migrate_coords_2_admin",
+      "migrate_coords_2_run",
+      "migrate_coords_2_updates"
+    ],
+    "18": [
+      "src_app_api_outlet_config_route",
+      "src_app_api_outlet_config_route_delete",
+      "src_app_api_outlet_config_route_post"
+    ],
+    "19": [
+      "src_app_dashboard_page",
+      "src_app_dashboard_page_attendancekioskpanel",
+      "src_app_dashboard_page_dashboardpage"
+    ],
+    "20": [
+      "src_app_kiosk_outlet_id_layout",
+      "src_app_kiosk_outlet_id_layout_generatestaticparams",
+      "src_app_kiosk_outlet_id_layout_layout"
+    ],
+    "21": [
+      "src_components_layout_sidebar",
+      "src_components_layout_sidebar_menu_items",
+      "src_components_layout_sidebar_sidebar"
+    ],
+    "22": [
+      "src_lib_utils_email_generator",
+      "src_lib_utils_email_generator_generatestaffemail",
+      "src_lib_utils_email_generator_test"
+    ],
+    "23": [
+      "src_middleware",
+      "src_middleware_config",
+      "src_middleware_middleware"
+    ],
+    "24": [
+      "next_config",
+      "next_config_nextconfig"
+    ],
+    "25": [
+      "next_env_d",
+      "next_env_d_rationale_5"
+    ],
+    "26": [
+      "public_sw",
+      "public_sw_isfacemodelrequest"
+    ],
+    "27": [
+      "src_app_api_debug_reset_route",
+      "src_app_api_debug_reset_route_post"
+    ],
+    "28": [
+      "src_app_api_health_route",
+      "src_app_api_health_route_get"
+    ],
+    "29": [
+      "src_app_dashboard_loading",
+      "src_app_dashboard_loading_loadingdashboard"
+    ],
+    "30": [
+      "src_app_dashboard_manajemen_kru_page",
+      "src_app_dashboard_manajemen_kru_page_manajemenkruredirect"
+    ],
+    "31": [
+      "src_app_error",
+      "src_app_error_error"
+    ],
+    "32": [
+      "src_app_global_error",
+      "src_app_global_error_globalerror"
+    ],
+    "33": [
+      "src_app_loading",
+      "src_app_loading_loading"
+    ],
+    "34": [
+      "src_app_login_page",
+      "src_app_login_page_loginpage"
+    ],
+    "35": [
+      "src_components_common_offlineindicator",
+      "src_components_common_offlineindicator_offlineindicator"
+    ],
+    "36": [
+      "src_components_layout_header",
+      "src_components_layout_header_header"
+    ],
+    "37": [
+      "src_components_navbar",
+      "src_components_navbar_navbar"
+    ],
+    "38": [
+      "playwright_config"
+    ],
+    "39": [
+      "postcss_config"
+    ],
+    "40": [
+      "src_env"
+    ],
+    "41": [
+      "tailwind_config"
+    ],
+    "42": [
+      "take_screenshots"
+    ],
+    "43": [
+      "tests_e2e_kiosk_spec"
+    ],
+    "44": [
+      "tests_e2e_realtime_spec"
+    ],
+    "45": [
+      "tests_e2e_setup_spec"
+    ],
+    "46": [
+      "tests_e2e_spv_spec"
+    ],
+    "47": [
+      "tests_e2e_workload_spec"
+    ],
+    "48": [
+      "vitest_config"
+    ],
+    "49": [
+      "vitest_setup"
+    ]
+  },
+  "cohesion": {
+    "0": 0.06821787414066631,
+    "1": 0.09581646423751687,
+    "2": 0.08602150537634409,
+    "3": 0.06896551724137931,
+    "4": 0.10591133004926108,
+    "5": 0.07407407407407407,
+    "6": 0.11965811965811966,
+    "7": 0.10507246376811594,
+    "8": 0.16017316017316016,
+    "9": 0.1111111111111111,
+    "10": 0.14285714285714285,
+    "11": 0.23076923076923078,
+    "12": 0.2878787878787879,
+    "13": 0.34545454545454546,
+    "14": 0.2857142857142857,
+    "15": 0.7,
+    "16": 0.5,
+    "17": 0.5,
+    "18": 0.6666666666666666,
+    "19": 0.6666666666666666,
+    "20": 0.6666666666666666,
+    "21": 0.6666666666666666,
+    "22": 1.0,
+    "23": 0.6666666666666666,
+    "24": 1.0,
+    "25": 1.0,
+    "26": 1.0,
+    "27": 1.0,
+    "28": 1.0,
+    "29": 1.0,
+    "30": 1.0,
+    "31": 1.0,
+    "32": 1.0,
+    "33": 1.0,
+    "34": 1.0,
+    "35": 1.0,
+    "36": 1.0,
+    "37": 1.0,
+    "38": 1.0,
+    "39": 1.0,
+    "40": 1.0,
+    "41": 1.0,
+    "42": 1.0,
+    "43": 1.0,
+    "44": 1.0,
+    "45": 1.0,
+    "46": 1.0,
+    "47": 1.0,
+    "48": 1.0,
+    "49": 1.0
+  },
+  "gods": [
+    {
+      "id": "src_lib_supabase_createclient",
+      "label": "createClient()",
+      "degree": 40
+    },
+    {
+      "id": "src_lib_feedback_toast_usetoast",
+      "label": "useToast()",
+      "degree": 15
+    },
+    {
+      "id": "src_features_clock_useclockkiosk_useclockkiosk",
+      "label": "useClockKiosk()",
+      "degree": 14
+    },
+    {
+      "id": "src_lib_face_recognizer_loadfacemodels",
+      "label": "loadFaceModels()",
+      "degree": 12
+    },
+    {
+      "id": "src_lib_realtime_userealtimeinvalidate_userealtimeinvalidate",
+      "label": "useRealtimeInvalidate()",
+      "degree": 11
+    },
+    {
+      "id": "src_app_api_checklist_authorizeoutlet_authorizeoutletaccess",
+      "label": "authorizeOutletAccess()",
+      "degree": 10
+    },
+    {
+      "id": "package_scripts",
+      "label": "scripts",
+      "degree": 9
+    },
+    {
+      "id": "src_components_pageheader_pageheader",
+      "label": "PageHeader()",
+      "degree": 9
+    },
+    {
+      "id": "src_features_clock_attendancekioskpanel_attendancekioskpanel",
+      "label": "AttendanceKioskPanel()",
+      "degree": 9
+    },
+    {
+      "id": "src_lib_realtime_userealtimechannel_userealtimechannel",
+      "label": "useRealtimeChannel()",
+      "degree": 9
+    }
+  ],
+  "surprises": [
+    {
+      "source": "DashboardLayout()",
+      "target": "react",
+      "source_files": [
+        "src/app/dashboard/layout.tsx",
+        "package.json"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "ChecklistMonitorPage()",
+      "target": "createClient()",
+      "source_files": [
+        "src/app/dashboard/checklist-monitor/page.tsx",
+        "src/lib/supabase.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities; peripheral node `ChecklistMonitorPage()` unexpectedly reaches hub `createClient()`"
+    },
+    {
+      "source": "POST()",
+      "target": "authorizeOutletAccess()",
+      "source_files": [
+        "src/app/api/checklist/categories/route.ts",
+        "src/app/api/checklist/_authorizeOutlet.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "peripheral node `POST()` unexpectedly reaches hub `authorizeOutletAccess()`"
+    },
+    {
+      "source": "POST()",
+      "target": "authorizeOutletAccess()",
+      "source_files": [
+        "src/app/api/checklist/session/route.ts",
+        "src/app/api/checklist/_authorizeOutlet.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "peripheral node `POST()` unexpectedly reaches hub `authorizeOutletAccess()`"
+    },
+    {
+      "source": "POST()",
+      "target": "authorizeOutletAccess()",
+      "source_files": [
+        "src/app/api/checklist/ticks/route.ts",
+        "src/app/api/checklist/_authorizeOutlet.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "peripheral node `POST()` unexpectedly reaches hub `authorizeOutletAccess()`"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

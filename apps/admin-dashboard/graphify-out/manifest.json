@@ -300,19 +300,19 @@
     "semantic_hash": "b723b61681e3538f782d8ffc1c48ecdd"
   },
   "src/app/dashboard/pos-admin/menu/MenuView.tsx": {
-    "mtime": 1783909499.6560626,
-    "ast_hash": "466bbe2990baf187b1d02a4f034801a3",
-    "semantic_hash": "466bbe2990baf187b1d02a4f034801a3"
+    "mtime": 1784168543.9317648,
+    "ast_hash": "d7386a15cdb9ea1c9b61230bdeefe5f5",
+    "semantic_hash": "d7386a15cdb9ea1c9b61230bdeefe5f5"
   },
   "src/app/dashboard/pos-admin/menu/actions.ts": {
-    "mtime": 1783483113.7091544,
-    "ast_hash": "cc6d7895e179ce533109fe207c7b7fa1",
-    "semantic_hash": "cc6d7895e179ce533109fe207c7b7fa1"
+    "mtime": 1784170391.903292,
+    "ast_hash": "0be13c754a0a57ec351a877a5b9fb392",
+    "semantic_hash": "0be13c754a0a57ec351a877a5b9fb392"
   },
   "src/app/dashboard/pos-admin/menu/page.tsx": {
-    "mtime": 1783483131.4992397,
-    "ast_hash": "c3a06c42f731ac84d619af6fe3d37b8a",
-    "semantic_hash": "c3a06c42f731ac84d619af6fe3d37b8a"
+    "mtime": 1784168497.5748243,
+    "ast_hash": "09dee8842e8744632ed77e7566d56bec",
+    "semantic_hash": "09dee8842e8744632ed77e7566d56bec"
   },
   "src/app/dashboard/pos-admin/outlets/OutletsView.tsx": {
     "mtime": 1783484448.1428175,
@@ -485,14 +485,14 @@
     "semantic_hash": "498f5bb84e6865b9728dea7db59cde2b"
   },
   "src/app/public/form-bahan-baku/actions.ts": {
-    "mtime": 1783998063.321385,
-    "ast_hash": "1acab5c4f19d917bf4c84aa1495ede22",
-    "semantic_hash": "1acab5c4f19d917bf4c84aa1495ede22"
+    "mtime": 1784084436.0769827,
+    "ast_hash": "afa87708d4f004a6af0a58d1fb2b8807",
+    "semantic_hash": "afa87708d4f004a6af0a58d1fb2b8807"
   },
   "src/app/public/form-bahan-baku/page.tsx": {
-    "mtime": 1783999424.2331595,
-    "ast_hash": "d7eb89efc5a3e53f701c1cbd5670c85f",
-    "semantic_hash": "d7eb89efc5a3e53f701c1cbd5670c85f"
+    "mtime": 1784084436.0779946,
+    "ast_hash": "efd68f6ede60a38e907467bf4bdc772c",
+    "semantic_hash": "efd68f6ede60a38e907467bf4bdc772c"
   },
   "src/components/AppHealthCard.tsx": {
     "mtime": 1782094819.7057302,
@@ -765,14 +765,14 @@
     "semantic_hash": "3c73a532bd8385499a161bde49cd73d9"
   },
   "src/components/layout/navConfig.test.ts": {
-    "mtime": 1784014476.4461243,
-    "ast_hash": "b8f360a2220534342913a245b3bb1f76",
-    "semantic_hash": "b8f360a2220534342913a245b3bb1f76"
+    "mtime": 1784100612.9445803,
+    "ast_hash": "ad5db4eafac63f9ea907541bde9a4f06",
+    "semantic_hash": "ad5db4eafac63f9ea907541bde9a4f06"
   },
   "src/components/layout/navConfig.ts": {
-    "mtime": 1784014476.447136,
-    "ast_hash": "6567f0edd47915e41472adcaa1c9b46f",
-    "semantic_hash": "6567f0edd47915e41472adcaa1c9b46f"
+    "mtime": 1784100612.945853,
+    "ast_hash": "097c080c0ba734519e4807d70a4b99be",
+    "semantic_hash": "097c080c0ba734519e4807d70a4b99be"
   },
   "src/components/ui/Card.tsx": {
     "mtime": 1783051617.1543593,
@@ -1273,5 +1273,50 @@
     "mtime": 1781925630.5585816,
     "ast_hash": "d747c67131f9e174cf1b84ad76902d04",
     "semantic_hash": "d747c67131f9e174cf1b84ad76902d04"
+  },
+  "src/app/dashboard/printer/page.tsx": {
+    "mtime": 1784100612.9434576,
+    "ast_hash": "dd72782ce2bb02cd33d347c7d95ab7ac",
+    "semantic_hash": "dd72782ce2bb02cd33d347c7d95ab7ac"
+  },
+  "src/components/printer/PrinterSettingsView.tsx": {
+    "mtime": 1784169423.1004343,
+    "ast_hash": "b10f5a8676eed00bd54164087446abe2",
+    "semantic_hash": "b10f5a8676eed00bd54164087446abe2"
+  },
+  "src/lib/printer/bluetooth-printer.ts": {
+    "mtime": 1784169423.1029341,
+    "ast_hash": "4659acb2957c45735e916cd0d5fa2b2a",
+    "semantic_hash": "4659acb2957c45735e916cd0d5fa2b2a"
+  },
+  "src/lib/printer/buildTemplateReceipt.test.ts": {
+    "mtime": 1784166024.347644,
+    "ast_hash": "6f1f6d5981441ceef2f4b82512b1648b",
+    "semantic_hash": "6f1f6d5981441ceef2f4b82512b1648b"
+  },
+  "src/lib/printer/buildTemplateReceipt.ts": {
+    "mtime": 1784167173.1106744,
+    "ast_hash": "e7305838310e9677d537b58efd65104b",
+    "semantic_hash": "e7305838310e9677d537b58efd65104b"
+  },
+  "src/lib/printer/escpos-encoder.ts": {
+    "mtime": 1784100612.9506435,
+    "ast_hash": "446812f665b02234901d6e4d70ea2e88",
+    "semantic_hash": "446812f665b02234901d6e4d70ea2e88"
+  },
+  "src/lib/printer/printLayout.test.ts": {
+    "mtime": 1784168776.2056,
+    "ast_hash": "a3fdf8c5c2c2aa5fe9a109fb417e3258",
+    "semantic_hash": "a3fdf8c5c2c2aa5fe9a109fb417e3258"
+  },
+  "src/lib/printer/printLayout.ts": {
+    "mtime": 1784168776.2067108,
+    "ast_hash": "e9da9847ce64b166bc4765f5e153bc2d",
+    "semantic_hash": "e9da9847ce64b166bc4765f5e153bc2d"
+  },
+  "src/lib/printer/printerStore.ts": {
+    "mtime": 1784100612.953453,
+    "ast_hash": "b32d9d5d6286a9d06947f5462909997a",
+    "semantic_hash": "b32d9d5d6286a9d06947f5462909997a"
   }
 }

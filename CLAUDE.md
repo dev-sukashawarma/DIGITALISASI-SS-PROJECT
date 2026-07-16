@@ -843,5 +843,48 @@ Hasil: **ketiga fungsi benar-benar ada di DB**, `prosecdef=true` — jadi ini mu
 
 ---
 
-**Last updated:** 2026-07-14  
+## Session 2026-07-16: Setelan Layout Cetak Terpusat (admin-dashboard, pos-kasir, distribusi)
+
+**Status:** ✅ COMPLETED & LIVE — merged & pushed ke `main` (banyak commit kecil beruntun, redeploy dilakukan bertahap oleh user). Fitur baru: `/dashboard/printer` di admin-dashboard.
+
+### Fitur
+Halaman terpusat untuk mengatur **koneksi printer Bluetooth thermal** + **layout cetak 3 template**: Struk Customer & Struk Dapur (pos-kasir), QR/Surat Jalan (distribusi). Admin atur sekali di hub → benar-benar mengubah struk asli yang tercetak di pos-kasir & distribusi.
+
+### Arsitektur
+- **Sumber kebenaran:** 1 baris `global_settings` (key `print_layout`, kolom `value` **TEXT** — bukan JSONB meski migration awal menyebut JSONB; app **wajib** `JSON.parse` bila value berupa string, lihat gotcha di bawah). Ditulis via API existing `/api/settings` (upsert generik, tak diubah).
+- **Reader terduplikasi di 3 app** (bukan shared `@suka/*` package, sengaja — hindari friksi build/deploy dist): `apps/admin-dashboard/src/lib/printer/printLayout.ts` (kanonik), `apps/pos-kasir/lib/printLayout.ts`, `apps/distribusi/src/utils/printLayout.ts`. Ketiganya harus identik: tipe `PrintLayout`/`CustomerLayout`/`KitchenLayout`/`QrLayout` + `Typography` (fontFamily/fontSizePx/bold/marginMm), `DEFAULT_PRINT_LAYOUT`, `mergePrintLayout`, `fetchPrintLayout` (never throws, fallback ke default).
+- **Fallback aman = perilaku sekarang.** Semua 3 app kalau row kosong/fetch gagal/JSON korup → pakai `DEFAULT_PRINT_LAYOUT` → cetak identik dengan sebelum fitur ini ada.
+- **Koneksi printer Bluetooth tetap device-local** (localStorage + `printerStore.ts`/`bluetooth-printer.ts`, di-port dari pos-kasir), terpisah dari layout yang DB-backed.
+
+### Hub admin-dashboard (`/dashboard/printer`, grup nav Sistem, ADMIN-only)
+3 tab (Struk Customer / Struk Dapur / QR Surat Jalan): editor knob + preview live (iframe `srcDoc`, meniru template asli — customer preview termasuk contoh menu + catatan + extra topping `EXTRA Keju/Kentang`) + Simpan (POST `/api/settings`) + **Uji Cetak** dengan logika: printer Bluetooth **terhubung** → cetak LANGSUNG via ESC/POS (`buildTemplateReceipt`, termasuk logo raster); **tak terhubung** → fallback dialog `window.print()` (persis preview, menunggu gambar logo termuat sebelum print).
+
+### Wiring ke cetak asli
+- **pos-kasir** — `buildReceiptHtml` (jalur HTML/`window.print`) & `printViaBluetooth` (jalur ESC/POS) sama-sama terapkan layout: paperWidth, showLogo, header/footer, fontFamily/fontSizePx/bold/marginMm, showCashier/showCustomer/showItemNotes. `printReceipt()` fetch layout sendiri secara internal → 7 call site existing **tak berubah**.
+- **distribusi** — `buildBarcodeHtml` (diekstrak jadi fungsi murni dari `printBarcode`) terapkan layout QR yang sama; `handlePrintBarcode` di `SuratJalanList.tsx` fetch layout sebelum print.
+- **Logo di thermal (ESC/POS raster):** `escpos-encoder.ts` `raster()` (perintah `GS v 0`) + `escpos-image.ts` (`loadImageRaster`/`packMonochrome` — canvas → bitmap monokrom, threshold luminance, guard CORS/gagal-muat agar sisa struk tetap tercetak). Di-port ke admin-dashboard juga (untuk Uji Cetak langsung).
+
+### Gotcha kritikal — kolom TEXT, bukan JSONB (root cause "setelan tak kepakai")
+Setelan sempat **tersimpan benar** ke DB tapi **tak pernah kepakai** di struk — root cause: `global_settings.value` bertipe **TEXT** (bukan JSONB seperti disangka), jadi `print_layout` tersimpan sebagai **string JSON berlapis** (`"{\"struk_customer\":...}"`). `mergePrintLayout` yang lama mengira itu objek → selalu jatuh ke default tanpa error. **Fix:** `mergePrintLayout` di ketiga app kini `JSON.parse` dulu bila `raw` bertipe string (dengan try/catch → default bila korup). **Tidak mengubah tipe kolom DB** (hindari risiko di DB shared + migration drift) — fix murni di sisi kode, aman untuk bentuk penyimpanan apa pun.
+
+### Iterasi UX/hasil cetak (berdasar smoke test manual & foto struk asli)
+1. **Uji Cetak vs preview beda saat printer Bluetooth terhubung** — dulu selalu lewat ESC/POS (`buildTemplateReceipt`) yang tak bisa mereproduksi font/ukuran/margin/logo dari preview HTML. Fix: Uji Cetak kini branch — terhubung → ESC/POS langsung (termasuk logo), tak terhubung → HTML (persis preview).
+2. **Logo kegedean di struk thermal asli** (foto real: logo ~62% lebar kertas) — default lebar raster diperkecil dari 240/384 dots → **120 dots (58mm) / 170 dots (80mm)**, ~1/3 lebar kertas.
+3. **Judul nama outlet selalu dipaksa dobel-lebar+dobel-tinggi** (`size(true,true)` hardcoded), tak ikut toggle "Ukuran font". Fix: `size(false, bigText)` — dobel tinggi saja bila `fontSizePx` di atas ambang, mengikuti setelan.
+4. **Baris statis "Suka Shawarma" di bawah nama outlet dihapus** di 4 jalur cetak sekaligus (HTML & thermal pos-kasir, Uji Cetak & preview admin) atas permintaan user.
+
+### Isolasi
+DB aditif (1 key baru di tabel existing, tanpa migration skema); tak sentuh `@suka/*`; setiap perubahan app konsumen backward-compatible via default param. Migration seed `20260715120000_seed_print_layout.sql` opsional (app tetap jalan tanpa row — hub yang pertama kali Simpan akan membuatnya).
+
+### Insiden migration drift (rutin di proyek ini, ditangani tanpa insiden besar)
+Selama sesi ini `supabase db push` gagal beberapa kali karena migration remote-only tanpa file lokal (`20260718000005`, dll.) dari developer lain yang aktif push migration ke DB shared secara paralel. **Tidak** dijalankan `migration repair` sepihak — dibiarkan, karena fitur print-layout tak butuh `db push` sama sekali (fallback aman). Beberapa `git push origin main` butuh `git merge origin/main` dulu karena commit paralel dari tim lain (guides fix, pos-kasir UI); semua clean merge kecuali 1 conflict di `bluetooth-printer.ts` (resolusi manual: pertahankan perbaikan thermal existing dari tim lain — dedup EXTRA, indentasi note, no-double-height TOTAL — sambil menambahkan parameter `width`/`showItemNotes` sendiri).
+
+### 📝 Next
+- Kalibrasi lanjut ukuran/posisi logo raster bila masih kurang pas di printer fisik tertentu (120/170 dots = tebakan awal berbasis 1 foto struk).
+- Pertimbangkan wire toggle logo & typography ke QR distribusi bila belum diuji cetak nyata di lapangan.
+- Redeploy 3 app (`admin-dashboard`, `pos-kasir`, `distribusi`) setiap kali ada perubahan lanjutan di atas — semua perubahan sesi ini baru berlaku setelah redeploy.
+
+---
+
+**Last updated:** 2026-07-16  
 **Owner:** Dev Suka Shawarma

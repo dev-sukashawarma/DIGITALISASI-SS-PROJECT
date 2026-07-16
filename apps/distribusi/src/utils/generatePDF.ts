@@ -1,6 +1,7 @@
 import QRCode from 'qrcode'
 import { LOGO_BASE64 } from './logoBase64'
 import { createSupabaseBrowserClient } from '@suka/auth'
+import { DEFAULT_PRINT_LAYOUT, type QrLayout } from './printLayout'
 
 export async function fetchFotoAsBase64(foto_path: string): Promise<string | null> {
   try {
@@ -524,9 +525,22 @@ export function downloadBarcode(filename: string, dataUrl: string) {
   document.body.removeChild(element)
 }
 
-export function printBarcode(docNumber: string, dataUrl: string) {
-  const PAPER_WIDTH_MM = 58;
-  const html = `
+/**
+ * Bangun HTML cetak QR/Surat Jalan. Fungsi murni (dapat diuji tanpa DOM).
+ * Dengan `DEFAULT_PRINT_LAYOUT.qr_surat_jalan`, output identik dengan template lama:
+ * judul "VERIFIKASI SJ", subtitle = nomor dokumen, QR 45mm, footer "Distribusi<br/>Suka Shawarma",
+ * kertas 58mm, tanpa logo.
+ */
+export function buildBarcodeHtml(
+  docNumber: string,
+  dataUrl: string,
+  layout: QrLayout = DEFAULT_PRINT_LAYOUT.qr_surat_jalan,
+): string {
+  const footer = layout.footerText.split('\n').join('<br/>')
+  const logo = layout.showLogo
+    ? `<img src="${LOGO_BASE64}" alt="Logo" style="width:40px;height:40px;object-fit:contain;display:block;margin:0 auto 6px auto;" />`
+    : ''
+  return `
     <!DOCTYPE html>
     <html>
       <head>
@@ -537,16 +551,16 @@ export function printBarcode(docNumber: string, dataUrl: string) {
           @media print { @page { margin: 0mm; } }
           * { box-sizing: border-box; }
           html, body { background: #fff; margin: 0; padding: 0; }
-          body { 
-            width: ${PAPER_WIDTH_MM}mm; 
-            padding: 8px 4px; 
-            font-family: 'Courier New', Courier, monospace; 
+          body {
+            width: ${layout.paperWidth}mm;
+            padding: 8px 4px;
+            font-family: 'Courier New', Courier, monospace;
             color: #000;
             text-align: center;
           }
-          .title { 
-            font-size: 16px; 
-            font-weight: 900; 
+          .title {
+            font-size: 16px;
+            font-weight: 900;
             margin-bottom: 2px;
             text-transform: uppercase;
           }
@@ -556,9 +570,9 @@ export function printBarcode(docNumber: string, dataUrl: string) {
             margin-bottom: 8px;
             text-decoration: underline;
           }
-          img { 
-            width: 45mm; 
-            height: 45mm; 
+          img.qr {
+            width: ${layout.qrSizeMm}mm;
+            height: ${layout.qrSizeMm}mm;
             display: block;
             margin: 0 auto;
           }
@@ -572,13 +586,23 @@ export function printBarcode(docNumber: string, dataUrl: string) {
         </style>
       </head>
       <body>
-        <div class="title">VERIFIKASI SJ</div>
+        ${logo}
+        <div class="title">${layout.title}</div>
         <div class="subtitle">${docNumber}</div>
-        <img src="${dataUrl}" alt="QR Code" />
-        <div class="footer">Distribusi<br/>Suka Shawarma</div>
+        <img class="qr" src="${dataUrl}" alt="QR Code" />
+        <div class="footer">${footer}</div>
       </body>
     </html>
   `;
+}
+
+export function printBarcode(
+  docNumber: string,
+  dataUrl: string,
+  layout: QrLayout = DEFAULT_PRINT_LAYOUT.qr_surat_jalan,
+) {
+  const PAPER_WIDTH_MM = layout.paperWidth;
+  const html = buildBarcodeHtml(docNumber, dataUrl, layout);
 
   const iframe = document.createElement('iframe')
   iframe.style.position = 'fixed'

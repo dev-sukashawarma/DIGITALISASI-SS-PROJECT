@@ -1,297 +1,325 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  Printer, Bluetooth, BluetoothConnected, Loader2, Save,
-  CheckCircle2, AlertCircle, Play,
+  Printer, Bluetooth, BluetoothConnected, Loader2, Save, CheckCircle2, AlertCircle, Play,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
+import { usePrinterState, printerStore } from '@/lib/printer/printerStore'
 import {
-  usePrinterState, printerStore,
-} from '@/lib/printer/printerStore'
-import {
-  connectBluetoothPrinter, autoConnectBluetoothPrinter,
-  disconnectBluetoothPrinter, printBytes, printHtmlFallback,
+  connectBluetoothPrinter, autoConnectBluetoothPrinter, disconnectBluetoothPrinter,
+  printBytes, printHtmlFallback,
 } from '@/lib/printer/bluetooth-printer'
 import {
-  DEFAULT_PRINTER_CONFIG, loadPrinterConfig, savePrinterConfig,
-  buildSampleReceipt, type PrinterConfig,
-} from '@/lib/printer/printerConfig'
+  DEFAULT_PRINT_LAYOUT, mergePrintLayout, PRINT_LAYOUT_KEY, type PrintLayout,
+} from '@/lib/printer/printLayout'
+import { buildTemplateReceipt } from '@/lib/printer/buildTemplateReceipt'
 
-function sampleHtml(config: PrinterConfig): string {
-  const widthMm = config.paperWidth
-  const align = config.align === 'center' ? 'center' : 'left'
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Uji Cetak</title>
-<style>
-  @page { size: ${widthMm}mm auto; margin: 0; }
-  body { width:${widthMm}mm; margin:0; padding:6px 8px; font-family:'Courier New',monospace;
-         color:#000; font-weight:900; font-size:14px; text-align:${align}; }
-  .hr { border-top:2px dashed #000; margin:6px 0; }
-  .row { display:flex; justify-content:space-between; text-align:left; }
-  .lg { font-size:18px; }
-</style></head><body>
-  <div class="lg">${config.headerText}</div>
-  <div>-- CONTOH STRUK / UJI CETAK --</div>
-  <div class="hr"></div>
-  <div class="row"><span>Item Contoh</span><span>Rp 10.000</span></div>
-  <div class="row"><span>Item Kedua</span><span>Rp 25.000</span></div>
-  <div class="hr"></div>
-  <div class="row"><strong>TOTAL</strong><strong>Rp 35.000</strong></div>
-  <div class="hr"></div>
-  <div>${config.footerText}</div>
-</body></html>`
+type TabKey = keyof PrintLayout
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'struk_customer', label: 'Struk Customer' },
+  { key: 'struk_dapur', label: 'Struk Dapur' },
+  { key: 'qr_surat_jalan', label: 'QR Surat Jalan' },
+]
+
+// ── HTML preview per template (untuk uji cetak browser fallback + preview di layar) ──
+function esc(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
+
+function customerPreviewHtml(c: PrintLayout['struk_customer'], forPrint: boolean): string {
+  const notes = c.showItemNotes ? `<div class="note">- pedas, tanpa bawang</div>` : ''
+  const cashier = c.showCashier ? `<div class="muted">Kasir: Contoh</div>` : ''
+  const cust = c.showCustomer ? `<div class="muted">Pelanggan: Contoh</div>` : ''
+  const logo = c.showLogo ? `<div class="logo">[LOGO]</div>` : ''
+  const scale = c.fontScale === 'besar' ? 1.25 : 1
+  const body = `
+    ${logo}
+    <div class="lg">${esc(c.headerText || 'SUKA SHAWARMA')}</div>
+    <div class="muted">Suka Shawarma</div>
+    <div class="hr"></div>
+    ${cashier}${cust}
+    <div class="hr"></div>
+    <div class="row"><span>1x Shawarma Ayam</span><span>Rp 25.000</span></div>${notes}
+    <div class="child"><span>EXTRA Keju</span><span>Rp 5.000</span></div>
+    <div class="child"><span>EXTRA Kentang</span><span>Rp 5.000</span></div>
+    <div class="row"><span>2x Kebab Daging</span><span>Rp 50.000</span></div>
+    <div class="hr"></div>
+    <div class="row total"><strong>TOTAL</strong><strong>Rp 85.000</strong></div>
+    <div class="hr"></div>
+    ${c.footerText.split('\n').map((l) => `<div>${esc(l)}</div>`).join('')}`
+  return wrapHtml(c.paperWidth, scale, body, forPrint)
+}
+
+function kitchenPreviewHtml(c: PrintLayout['struk_dapur'], forPrint: boolean): string {
+  const cust = c.showCustomer ? `<div class="muted">Pelanggan: Contoh</div>` : ''
+  const logo = c.showLogo ? `<div class="logo">[LOGO]</div>` : ''
+  const body = `
+    ${logo}
+    <div class="lg">${esc(c.headerText || 'STRUK DAPUR')}</div>
+    <div class="hr"></div>
+    ${cust}
+    <div>No. 123</div>
+    <div class="hr"></div>
+    <div>1x Shawarma Ayam</div>
+    <div class="child"><span>EXTRA Keju</span></div>
+    <div class="child"><span>EXTRA Kentang</span></div>
+    <div>2x Kebab Daging</div>`
+  return wrapHtml(c.paperWidth, c.fontScale === 'besar' ? 1.35 : 1.1, body, forPrint)
+}
+
+function qrPreviewHtml(c: PrintLayout['qr_surat_jalan'], forPrint: boolean): string {
+  const logo = c.showLogo ? `<div class="logo">[LOGO]</div>` : ''
+  const body = `
+    ${logo}
+    <div class="lg">${esc(c.title)}</div>
+    <div class="qr" style="width:${c.qrSizeMm}mm;height:${c.qrSizeMm}mm">QR</div>
+    <div class="hr"></div>
+    ${c.footerText.split('\n').map((l) => `<div>${esc(l)}</div>`).join('')}`
+  return wrapHtml(c.paperWidth, 1, body, forPrint)
+}
+
+function wrapHtml(paperWidth: number, scale: number, body: string, forPrint: boolean): string {
+  const page = forPrint ? `@page { size: ${paperWidth}mm auto; margin: 0; }` : ''
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview</title><style>
+    ${page}
+    body { width:${paperWidth}mm; margin:0; padding:6px 8px; font-family:'Courier New',monospace;
+           color:#000; font-weight:900; font-size:${Math.round(13 * scale)}px; text-align:center; }
+    .lg { font-size:${Math.round(17 * scale)}px; }
+    .muted { font-size:${Math.round(12 * scale)}px; }
+    .logo { font-size:11px; border:1px dashed #000; display:inline-block; padding:2px 6px; margin-bottom:4px; }
+    .hr { border-top:2px dashed #000; margin:5px 0; }
+    .row, .child, .total { display:flex; justify-content:space-between; text-align:left; }
+    .child { padding-left:10px; border-left:2px solid #000; margin-left:4px; }
+    .note { text-align:left; font-style:italic; font-size:${Math.round(11 * scale)}px; }
+    .qr { border:2px solid #000; margin:8px auto; display:flex; align-items:center; justify-content:center; }
+  </style></head><body>${body}</body></html>`
+}
+
+function previewHtml(tab: TabKey, layout: PrintLayout, forPrint: boolean): string {
+  if (tab === 'struk_customer') return customerPreviewHtml(layout.struk_customer, forPrint)
+  if (tab === 'struk_dapur') return kitchenPreviewHtml(layout.struk_dapur, forPrint)
+  return qrPreviewHtml(layout.qr_surat_jalan, forPrint)
 }
 
 export default function PrinterSettingsView() {
   const { device, isConnecting, error } = usePrinterState()
-  const [config, setConfig] = useState<PrinterConfig>(DEFAULT_PRINTER_CONFIG)
+  const [layout, setLayout] = useState<PrintLayout>(DEFAULT_PRINT_LAYOUT)
+  const [tab, setTab] = useState<TabKey>('struk_customer')
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [btSupported, setBtSupported] = useState(true)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
-    setConfig(loadPrinterConfig())
     setBtSupported(typeof navigator !== 'undefined' && !!(navigator as any).bluetooth)
     autoConnectBluetoothPrinter()
-  }, [])
+    ;(async () => {
+      try {
+        const { data } = await supabase.from('global_settings').select('value').eq('key', PRINT_LAYOUT_KEY).maybeSingle()
+        setLayout(mergePrintLayout((data as any)?.value))
+      } catch { setLayout(DEFAULT_PRINT_LAYOUT) }
+      finally { setLoading(false) }
+    })()
+  }, [supabase])
 
   const showToast = (type: 'success' | 'error', message: string) => {
-    setToast({ type, message })
-    setTimeout(() => setToast(null), 3000)
+    setToast({ type, message }); setTimeout(() => setToast(null), 3000)
   }
 
+  const setField = (t: TabKey, key: string, value: unknown) =>
+    setLayout((l) => ({ ...l, [t]: { ...(l[t] as any), [key]: value } }))
+
   const handleConnect = async () => {
-    if (device) {
-      disconnectBluetoothPrinter()
-      return
-    }
+    if (device) { disconnectBluetoothPrinter(); return }
     const ok = await connectBluetoothPrinter()
     if (!ok) showToast('error', printerStore.getState().error || 'Gagal menghubungkan printer')
     else showToast('success', 'Printer terhubung')
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true)
-    savePrinterConfig(config)
-    setTimeout(() => {
-      setSaving(false)
-      showToast('success', 'Preferensi cetak disimpan')
-    }, 200)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [PRINT_LAYOUT_KEY]: layout }),
+      })
+      if (!res.ok) throw new Error('Gagal menyimpan')
+      showToast('success', 'Layout cetak disimpan')
+    } catch (e: any) { showToast('error', e?.message || 'Gagal menyimpan') }
+    finally { setSaving(false) }
   }
 
   const handleTestPrint = async () => {
     setTesting(true)
     try {
       if (printerStore.getState().characteristic) {
-        await printBytes(buildSampleReceipt(config))
+        await printBytes(buildTemplateReceipt(tab, layout))
       } else {
-        await printHtmlFallback(sampleHtml(config))
+        await printHtmlFallback(previewHtml(tab, layout, true))
       }
       showToast('success', 'Uji cetak dikirim')
-    } catch (e: any) {
-      showToast('error', e?.message || 'Uji cetak gagal')
-    } finally {
-      setTesting(false)
-    }
+    } catch (e: any) { showToast('error', e?.message || 'Uji cetak gagal') }
+    finally { setTesting(false) }
   }
 
-  const set = <K extends keyof PrinterConfig>(key: K, value: PrinterConfig[K]) =>
-    setConfig((c) => ({ ...c, [key]: value }))
+  const numBtn = (active: boolean) =>
+    `px-4 py-2 rounded-xl font-bold text-sm border-2 transition-colors ${
+      active ? 'border-suka-orange bg-orange-50 text-suka-brown' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`
 
   return (
-    <div className="animate-fade-in space-y-6 max-w-2xl">
+    <div className="animate-fade-in space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight text-suka-brown flex items-center gap-2">
           <Printer className="text-suka-orange" /> Pengaturan Printer
         </h1>
         <p className="text-sm text-slate-500 font-medium mt-1">
-          Kelola koneksi printer thermal Bluetooth dan preferensi cetak. Setelan tersimpan di perangkat ini.
+          Atur layout cetak untuk semua aplikasi dari sini. Koneksi Bluetooth tersimpan di perangkat ini; layout tersimpan terpusat.
         </p>
       </div>
 
-      {/* KARTU 1: KONEKSI */}
+      {/* KONEKSI */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-          <Bluetooth className="text-blue-500" /> Koneksi Printer
-        </h2>
+        <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Bluetooth className="text-blue-500" /> Koneksi Printer</h2>
         {!btSupported ? (
           <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-semibold flex items-start gap-2">
-            <AlertCircle className="shrink-0" size={18} />
-            Browser ini tidak mendukung Web Bluetooth. Gunakan Google Chrome / Edge terbaru di HTTPS.
+            <AlertCircle className="shrink-0" size={18} /> Browser ini tidak mendukung Web Bluetooth. Gunakan Chrome/Edge terbaru (HTTPS).
           </div>
         ) : (
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold ${
-                device ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-              }`}>
-                {device ? <BluetoothConnected size={16} /> : <Bluetooth size={16} />}
-                {device ? (device.name || 'Printer terhubung') : 'Belum terhubung'}
-              </span>
-            </div>
-            <button
-              onClick={handleConnect}
-              disabled={isConnecting}
-              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-60 flex items-center gap-2 ${
-                device ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-suka-orange text-white hover:bg-orange-600'
-              }`}
-            >
+            <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold ${device ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+              {device ? <BluetoothConnected size={16} /> : <Bluetooth size={16} />}
+              {device ? (device.name || 'Printer terhubung') : 'Belum terhubung'}
+            </span>
+            <button onClick={handleConnect} disabled={isConnecting}
+              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-60 flex items-center gap-2 ${device ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-suka-orange text-white hover:bg-orange-600'}`}>
               {isConnecting ? <Loader2 className="animate-spin" size={16} /> : <Bluetooth size={16} />}
               {isConnecting ? 'Menghubungkan...' : device ? 'Putuskan' : 'Hubungkan Printer'}
             </button>
           </div>
         )}
-        {error && !device && (
-          <p className="text-xs text-red-600 font-semibold">{error}</p>
-        )}
+        {error && !device && <p className="text-xs text-red-600 font-semibold">{error}</p>}
       </div>
 
-      {/* KARTU 2: KONFIGURASI CETAK */}
+      {/* TABS + EDITOR + PREVIEW */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-        <h2 className="font-bold text-lg text-slate-800">Konfigurasi Cetak</h2>
+        <div className="flex gap-2 flex-wrap border-b border-slate-100 pb-4">
+          {TABS.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${tab === t.key ? 'bg-suka-orange text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-slate-700">Ukuran Kertas</label>
-          <div className="flex gap-3">
-            {([58, 80] as const).map((w) => (
-              <button
-                key={w}
-                type="button"
-                onClick={() => set('paperWidth', w)}
-                className={`px-4 py-2 rounded-xl font-bold text-sm border-2 transition-colors ${
-                  config.paperWidth === w
-                    ? 'border-suka-orange bg-orange-50 text-suka-brown'
-                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                }`}
-              >
-                {w}mm
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-slate-400" /></div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* EDITOR kiri */}
+            <div className="space-y-5">
+              {/* Ukuran kertas — semua template */}
+              <Field label="Ukuran Kertas">
+                <div className="flex gap-3">
+                  {([58, 80] as const).map((wv) => (
+                    <button key={wv} type="button" onClick={() => setField(tab, 'paperWidth', wv)}
+                      className={numBtn((layout[tab] as any).paperWidth === wv)}>{wv}mm</button>
+                  ))}
+                </div>
+              </Field>
+
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input type="checkbox" checked={(layout[tab] as any).showLogo}
+                  onChange={(e) => setField(tab, 'showLogo', e.target.checked)} className="w-5 h-5 rounded accent-suka-orange" />
+                <span className="text-sm font-bold text-slate-700">Tampilkan logo</span>
+              </label>
+
+              {tab === 'qr_surat_jalan' ? (
+                <>
+                  <TextField label="Judul" value={layout.qr_surat_jalan.title} onChange={(v) => setField(tab, 'title', v)} />
+                  <TextField label="Footer" value={layout.qr_surat_jalan.footerText} onChange={(v) => setField(tab, 'footerText', v)} />
+                  <Field label="Ukuran QR (mm)">
+                    <input type="number" min={20} max={80} value={layout.qr_surat_jalan.qrSizeMm}
+                      onChange={(e) => setField(tab, 'qrSizeMm', Number(e.target.value) || 45)}
+                      className="w-28 border border-slate-300 rounded-xl px-4 py-2.5" />
+                  </Field>
+                </>
+              ) : (
+                <>
+                  <TextField
+                    label={tab === 'struk_dapur' ? 'Judul' : 'Header (kosong = nama outlet)'}
+                    value={(layout[tab] as any).headerText} onChange={(v) => setField(tab, 'headerText', v)} />
+                  <Field label="Ukuran Font">
+                    <div className="flex gap-3">
+                      {(['normal', 'besar'] as const).map((f) => (
+                        <button key={f} type="button" onClick={() => setField(tab, 'fontScale', f)}
+                          className={numBtn((layout[tab] as any).fontScale === f) + ' capitalize'}>{f}</button>
+                      ))}
+                    </div>
+                  </Field>
+                  {tab === 'struk_customer' && (
+                    <>
+                      <TextField label="Footer" value={layout.struk_customer.footerText} onChange={(v) => setField(tab, 'footerText', v)} />
+                      <Toggle label="Tampilkan kasir" checked={layout.struk_customer.showCashier} onChange={(v) => setField(tab, 'showCashier', v)} />
+                      <Toggle label="Tampilkan catatan/deskripsi item" checked={layout.struk_customer.showItemNotes} onChange={(v) => setField(tab, 'showItemNotes', v)} />
+                    </>
+                  )}
+                  <Toggle label="Tampilkan pelanggan" checked={(layout[tab] as any).showCustomer} onChange={(v) => setField(tab, 'showCustomer', v)} />
+                </>
+              )}
+            </div>
+
+            {/* PREVIEW kanan */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Pratinjau</p>
+              <div className="flex justify-center bg-slate-50 rounded-xl p-4 border border-slate-100 overflow-auto">
+                <iframe title="preview" className="bg-white shadow-md border border-slate-200"
+                  style={{ width: (layout[tab] as any).paperWidth === 80 ? 320 : 230, height: 380, border: 0 }}
+                  srcDoc={previewHtml(tab, layout, false)} />
+              </div>
+              <button onClick={handleTestPrint} disabled={testing}
+                className="w-full px-6 py-3 bg-suka-orange text-white rounded-xl font-bold hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
+                {testing ? <Loader2 className="animate-spin" size={18} /> : <Play size={18} />}
+                {testing ? 'Mengirim...' : device ? 'Uji Cetak (Bluetooth)' : 'Uji Cetak (Browser)'}
               </button>
-            ))}
+            </div>
           </div>
+        )}
+
+        <div className="pt-4 border-t border-slate-100">
+          <button onClick={handleSave} disabled={saving || loading}
+            className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors flex items-center gap-2 disabled:opacity-70">
+            {saving ? <Loader2 className="animate-spin text-suka-orange" size={18} /> : <Save size={18} />}
+            {saving ? 'Menyimpan...' : 'Simpan Semua Layout'}
+          </button>
         </div>
-
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-slate-700">Perataan</label>
-          <div className="flex gap-3">
-            {(['center', 'left'] as const).map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => set('align', a)}
-                className={`px-4 py-2 rounded-xl font-bold text-sm border-2 transition-colors capitalize ${
-                  config.align === a
-                    ? 'border-suka-orange bg-orange-50 text-suka-brown'
-                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                }`}
-              >
-                {a === 'center' ? 'Tengah' : 'Kiri'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-slate-700">Kepadatan</label>
-          <div className="flex gap-3">
-            {(['normal', 'padat'] as const).map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => set('density', d)}
-                className={`px-4 py-2 rounded-xl font-bold text-sm border-2 transition-colors capitalize ${
-                  config.density === d
-                    ? 'border-suka-orange bg-orange-50 text-suka-brown'
-                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                }`}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <label className="flex items-center gap-3 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={config.showLogo}
-            onChange={(e) => set('showLogo', e.target.checked)}
-            className="w-5 h-5 rounded accent-suka-orange"
-          />
-          <span className="text-sm font-bold text-slate-700">Tampilkan logo di struk</span>
-        </label>
-
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-slate-700">Teks Header</label>
-          <input
-            type="text"
-            value={config.headerText}
-            onChange={(e) => set('headerText', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-suka-orange focus:border-suka-orange transition-all"
-            placeholder="SUKA SHAWARMA"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-slate-700">Teks Footer</label>
-          <input
-            type="text"
-            value={config.footerText}
-            onChange={(e) => set('footerText', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-suka-orange focus:border-suka-orange transition-all"
-            placeholder="Terima kasih"
-          />
-        </div>
-
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors flex items-center gap-2 disabled:opacity-70"
-        >
-          {saving ? <Loader2 className="animate-spin text-suka-orange" size={18} /> : <Save size={18} />}
-          {saving ? 'Menyimpan...' : 'Simpan Preferensi'}
-        </button>
-      </div>
-
-      {/* KARTU 3: LAYOUT & UJI CETAK */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <h2 className="font-bold text-lg text-slate-800">Layout & Uji Cetak</h2>
-        <p className="text-sm text-slate-500">Pratinjau struk memakai preferensi di atas.</p>
-
-        <div className="flex justify-center bg-slate-50 rounded-xl p-4 border border-slate-100">
-          <div
-            className="bg-white shadow-md border border-slate-200 p-3 font-mono text-[11px] text-black"
-            style={{ width: config.paperWidth === 80 ? '260px' : '190px', textAlign: config.align }}
-          >
-            <div className="font-black text-sm">{config.headerText}</div>
-            <div>-- CONTOH STRUK / UJI CETAK --</div>
-            <div className="border-t-2 border-dashed border-black my-1" />
-            <div className="flex justify-between text-left"><span>Item Contoh</span><span>Rp 10.000</span></div>
-            <div className="flex justify-between text-left"><span>Item Kedua</span><span>Rp 25.000</span></div>
-            <div className="border-t-2 border-dashed border-black my-1" />
-            <div className="flex justify-between text-left font-black"><span>TOTAL</span><span>Rp 35.000</span></div>
-            <div className="border-t-2 border-dashed border-black my-1" />
-            <div>{config.footerText}</div>
-          </div>
-        </div>
-
-        <button
-          onClick={handleTestPrint}
-          disabled={testing}
-          className="px-6 py-3 bg-suka-orange text-white rounded-xl font-bold hover:bg-orange-600 transition-colors flex items-center gap-2 disabled:opacity-70"
-        >
-          {testing ? <Loader2 className="animate-spin" size={18} /> : <Play size={18} />}
-          {testing ? 'Mengirim...' : device ? 'Uji Cetak (Bluetooth)' : 'Uji Cetak (Browser)'}
-        </button>
       </div>
 
       {toast && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[999] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg font-semibold text-sm ${
-          toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
-        }`}>
-          {toast.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-          {toast.message}
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[999] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg font-semibold text-sm ${toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
+          {toast.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}{toast.message}
         </div>
       )}
     </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="space-y-2"><label className="block text-sm font-bold text-slate-700">{label}</label>{children}</div>
+}
+function TextField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <Field label={label}>
+      <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-suka-orange focus:border-suka-orange transition-all" />
+    </Field>
+  )
+}
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-3 cursor-pointer select-none">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="w-5 h-5 rounded accent-suka-orange" />
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+    </label>
   )
 }

@@ -1,6 +1,7 @@
 import { usePrinterStore, WebBluetoothDevice } from './printerStore';
 import { EscPosEncoder } from './escpos-encoder';
 import { type ReceiptData } from './printReceipt';
+import { DEFAULT_PRINT_LAYOUT, type CustomerLayout, type KitchenLayout } from './printLayout';
 import { formatRupiah } from './validations';
 
 // Standard UUIDs for Bluetooth Printers (SPP or custom GATT)
@@ -111,7 +112,10 @@ export async function autoConnectBluetoothPrinter() {
   return false;
 }
 
-export async function printViaBluetooth(data: ReceiptData) {
+export async function printViaBluetooth(
+  data: ReceiptData,
+  layout: CustomerLayout | KitchenLayout = DEFAULT_PRINT_LAYOUT.struk_customer,
+) {
   const store = usePrinterStore.getState();
   if (!store.characteristic) {
     throw new Error('Printer belum terkoneksi');
@@ -119,6 +123,12 @@ export async function printViaBluetooth(data: ReceiptData) {
 
   const encoder = new EscPosEncoder();
   const isKitchen = data.receiptType === 'kitchen';
+  // Layout terpusat (fallback = default = perilaku lama). 58mm=32 char, 80mm=48 char.
+  const width = layout.paperWidth === 80 ? 48 : 32;
+  const showCashier = !isKitchen && (layout as CustomerLayout).showCashier;
+  const showCustomer = layout.showCustomer;
+  const showItemNotes = isKitchen || (layout as CustomerLayout).showItemNotes;
+  const footerText = 'footerText' in layout ? layout.footerText : 'Terima kasih & selamat menikmati!';
   const dateStr = new Date(data.dateISO).toLocaleString('id-ID', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
@@ -126,68 +136,73 @@ export async function printViaBluetooth(data: ReceiptData) {
 
   // --- BEGIN RECEIPT GENERATION ---
   encoder.initialize().alignCenter().bold(true);
-  
+
   if (isKitchen) {
-    encoder.size(true, true).line('STRUK DAPUR').size(false, false).newline();
+    const kitchenTitle = layout.headerText || 'STRUK DAPUR';
+    encoder.size(true, true).line(kitchenTitle).size(false, false).newline();
   } else {
-    encoder.size(true, true).line(data.outletName.toUpperCase()).size(false, false);
+    const custTitle = layout.headerText ? layout.headerText : data.outletName.toUpperCase();
+    encoder.size(true, true).line(custTitle).size(false, false);
     encoder.bold(false).line('Suka Shawarma').newline();
   }
 
-  encoder.alignLeft().hr();
-  encoder.row(dateStr, !isKitchen ? (data.paymentMethod === 'cash' ? 'TUNAI' : 'QRIS') : '');
-  
-  if (data.customerName) {
+  encoder.alignLeft().hr('-', width);
+  encoder.row(dateStr, !isKitchen ? (data.paymentMethod === 'cash' ? 'TUNAI' : 'QRIS') : '', ' ', width);
+
+  if (showCustomer && data.customerName) {
     encoder.line(`Pelanggan: ${data.customerName}`);
   }
-  if (data.cashierName && !isKitchen) {
+  if (showCashier && data.cashierName) {
     encoder.line(`Kasir: ${data.cashierName}`);
   }
 
   encoder.alignCenter().newline().size(true, true).line(`No. ${data.orderNumber}`).size(false, false).newline();
-  encoder.alignLeft().hr();
+  encoder.alignLeft().hr('-', width);
 
   // Items
   data.items.forEach(it => {
     if (it.isChild) {
       // Sembunyikan qty, indentasi 4 spasi, hilangkan duplikasi kata EXTRA
-      const cleanName = it.name.toUpperCase().startsWith('EXTRA') 
-        ? it.name.substring(5).trim() 
+      const cleanName = it.name.toUpperCase().startsWith('EXTRA')
+        ? it.name.substring(5).trim()
         : it.name;
       const name = `    |- EXTRA ${cleanName}`;
       const line1Right = !isKitchen ? formatRupiah(it.subtotal) : '';
-      encoder.row(name, line1Right);
+      encoder.row(name, line1Right, ' ', width);
     } else {
       // Menu utama
       const line1Left = `${it.quantity}x ${it.name}`;
       const line1Right = !isKitchen ? formatRupiah(it.subtotal) : '';
-      encoder.row(line1Left, line1Right);
+      encoder.row(line1Left, line1Right, ' ', width);
     }
-    
-    if (it.note) {
+
+    if (it.note && showItemNotes) {
       // Note di-indent 2 spasi, atau 6 spasi jika ini adalah note untuk menu ekstra
       const indent = it.isChild ? '      ' : '  ';
       encoder.line(`${indent}- ${it.note}`);
     }
   });
 
-  encoder.hr();
+  encoder.hr('-', width);
 
   if (!isKitchen) {
-    encoder.row('Subtotal', formatRupiah(data.subtotal));
+    encoder.row('Subtotal', formatRupiah(data.subtotal), ' ', width);
     if (data.discount > 0) {
-      encoder.row('Diskon', `-${formatRupiah(data.discount)}`);
+      encoder.row('Diskon', `-${formatRupiah(data.discount)}`, ' ', width);
     }
     // Hapus double height (size) untuk mencegah bug TOTALP pada printer thermal murah
-    encoder.bold(true).row('TOTAL', formatRupiah(data.total)).bold(false);
-    
+    encoder.bold(true).row('TOTAL', formatRupiah(data.total), ' ', width).bold(false);
+
+
     if (data.paymentMethod === 'cash') {
-      encoder.row('Tunai', formatRupiah(data.amountReceived ?? 0));
-      encoder.row('Kembalian', formatRupiah(data.changeAmount ?? 0));
+      encoder.row('Tunai', formatRupiah(data.amountReceived ?? 0), ' ', width);
+      encoder.row('Kembalian', formatRupiah(data.changeAmount ?? 0), ' ', width);
     }
-    
-    encoder.hr();
-    encoder.alignCenter().newline().line('Terima kasih & selamat menikmati!').newline();
+
+    encoder.hr('-', width);
+    encoder.alignCenter().newline();
+    for (const ln of footerText.split('\n')) encoder.line(ln);
+    encoder.newline();
   }
 
   encoder.cut();

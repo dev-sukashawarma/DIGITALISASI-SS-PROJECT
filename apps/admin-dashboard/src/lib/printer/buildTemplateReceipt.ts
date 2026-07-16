@@ -12,7 +12,8 @@ async function addLogo(
 ): Promise<void> {
   if (!showLogo || !logoUrl) return
   try {
-    const raster = await loadImageRaster(logoUrl, paperWidth === 80 ? 384 : 240)
+    // Lebar dibatasi ~1/3 lebar kertas (ikon kecil), bukan hampir sepenuh kertas.
+    const raster = await loadImageRaster(logoUrl, paperWidth === 80 ? 170 : 120)
     if (raster) enc.alignCenter().raster(raster.bytes, raster.widthBytes, raster.height).newline()
   } catch { /* lewati logo */ }
 }
@@ -68,8 +69,9 @@ export async function buildTemplateReceipt(
   const big = (c.fontSizePx ?? 0) >= 18
   const bold = c.bold !== false
   await addLogo(enc, c.showLogo, c.paperWidth, logoUrl)
-  enc.alignCenter().bold(true).size(false, true).line(c.headerText || 'SUKA SHAWARMA').size(false, false).bold(false)
-  enc.line('Suka Shawarma').alignLeft().hr('-', w)
+  // Judul mengikuti setelan ukuran (dobel tinggi saja bila "besar"), bukan dipaksa dobel lebar+tinggi.
+  enc.alignCenter().bold(true).size(false, big).line(c.headerText || 'SUKA SHAWARMA').size(false, false).bold(false)
+  enc.alignLeft().hr('-', w)
   if (c.showCashier) enc.line('Kasir: Contoh')
   if (c.showCustomer) enc.line('Pelanggan: Contoh')
   enc.alignCenter().bold(true).size(false, true).line('No. 123').size(false, false).bold(false).alignLeft()

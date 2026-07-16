@@ -40,7 +40,6 @@ function customerPreviewHtml(c: PrintLayout['struk_customer'], forPrint: boolean
   const body = `
     ${logo}
     <div class="lg">${esc(c.headerText || 'SUKA SHAWARMA')}</div>
-    <div class="muted">Suka Shawarma</div>
     <div class="hr"></div>
     ${cashier}${cust}
     <div class="queue">No. 123</div>

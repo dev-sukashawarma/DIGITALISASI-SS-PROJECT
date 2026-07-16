@@ -143,10 +143,11 @@ export async function printViaBluetooth(
   encoder.initialize();
 
   // Logo (raster bitmap) — opsional; guard agar kegagalan muat/CORS tak membatalkan cetak.
+  // Lebar dibatasi ~1/3 lebar kertas (ikon kecil), bukan hampir sepenuh kertas.
   if (showLogo) {
     try {
       const logoUrl = data.logoUrl || (typeof window !== 'undefined' ? `${window.location.origin}/logo.png` : '');
-      const maxDots = layout.paperWidth === 80 ? 384 : 240;
+      const maxDots = layout.paperWidth === 80 ? 170 : 120;
       const raster = logoUrl ? await loadImageRaster(logoUrl, maxDots) : null;
       if (raster) {
         encoder.alignCenter().raster(raster.bytes, raster.widthBytes, raster.height).newline();
@@ -158,11 +159,11 @@ export async function printViaBluetooth(
 
   if (isKitchen) {
     const kitchenTitle = layout.headerText || 'STRUK DAPUR';
-    encoder.size(true, true).line(kitchenTitle).size(false, false).newline();
+    encoder.size(false, true).line(kitchenTitle).size(false, false).newline();
   } else {
     const custTitle = layout.headerText ? layout.headerText : data.outletName.toUpperCase();
-    encoder.size(true, true).line(custTitle).size(false, false);
-    encoder.bold(false).line('Suka Shawarma').newline();
+    // Judul mengikuti setelan ukuran (dobel tinggi saja bila "besar"), bukan dipaksa dobel lebar+tinggi.
+    encoder.size(false, bigText).line(custTitle).size(false, false).newline();
   }
 
   encoder.alignLeft().hr('-', width);

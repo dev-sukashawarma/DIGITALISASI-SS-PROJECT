@@ -129,9 +129,7 @@ export function buildReceiptHtml(
   <div class="center bold lg">${esc(bigTitle)}</div>
   ${isKitchen ? `
   <div class="center kitchen-title" style="margin-top: 8px;">${esc(kitchenTitle)}</div>
-  ` : `
-  <div class="center muted">Suka Shawarma</div>
-  `}
+  ` : ''}
   <hr/>
   <div class="row muted"><span>${dateStr}</span><span>${!isKitchen ? payLabel : ''}</span></div>
   ${showCustomer && d.customerName ? `<div class="muted">Pelanggan: ${esc(d.customerName)}</div>` : ''}

@@ -886,5 +886,35 @@ Selama sesi ini `supabase db push` gagal beberapa kali karena migration remote-o
 
 ---
 
+## Session 2026-07-16: Konsolidasi Realtime + Isi Celah Distribusi (absensi, stok, distribusi, pos-kasir, admin-dashboard, finance)
+
+**Status:** ✅ COMPLETED — merged & pushed ke `origin/main`; migration `surat_jalan` replica identity applied & ground-truth verified. ⚠️ Sisa manual: 2-browser smoke test + redeploy 6 app.
+
+### Masalah
+Realtime tumbuh jadi **3 pola berdampingan & mulai busuk**: (1) **Firehose** `GlobalRealtimeProvider` (pos-kasir, admin-dashboard, finance) — subscribe seluruh schema `public` (`event:'*'`) lalu `invalidateQueries([payload.table])`; (2) **Scoped** `lib/realtime` (absensi & stok) — sudah **divergen diam-diam** (absensi pakai nama channel `Math.random()`, stok stabil); (3) channel ad-hoc per fitur. Firehose **tak reliabel**: hanya jalan bila queryKey kebetulan == nama tabel (mis. `['staff']` vs tabel `outlet_staff` → mati senyap; `['sales-hourly-raw']` vs `orders` → mati). Distribusi **nol realtime**.
+
+### Keputusan (brainstorm + grill-with-docs)
+1. **Abstraksi kanonik = paket bersama `@suka/realtime`** (`packages/realtime`, mirror `@suka/auth`: ekspor `src` + `transpilePackages`, **tanpa** gotcha `yarn build`). Client dari `@suka/auth` (`createSupabaseBrowserClient`), **nama channel stabil per-scope** (bukan random). Spec: `docs/superpowers/specs/2026-07-16-realtime-consolidation-distribusi-design.md`; Plan: `docs/superpowers/plans/2026-07-16-realtime-consolidation-distribusi.md`. **ADR-0014**.
+2. **Bunuh firehose total** — *replace-before-remove* per-app, urutan by-risiko: pos-kasir (🟢 redundan, dedicated channel sudah cover) → admin-dashboard (🟡 ganti `['expenses']`/`['payroll']`) → finance (🔴 firehose satu-satunya realtime, pasang set scoped lengkap dulu). **ADR-0015**.
+3. **Publication dibiarkan permisif** (`enable_realtime_all` tetap) — DB shared + dev lain aktif push, memangkas berisiko mematikan konsumen tak-teraudit. Biaya nyata ada di **subscription** wildcard (sudah dibunuh), bukan publication membership. `REPLICA IDENTITY FULL` ditambah selektif (aditif) pada `surat_jalan`.
+4. **Distribusi**: `useSuratJalanList`/`useTerimaList` → React Query, lalu scoped realtime `surat_jalan` (pusat: semua; outlet: filter `outlet_id`).
+
+### Temuan penting saat eksekusi
+- **`useSalesRealtime` (admin-dashboard) = dead code** — tak pernah di-mount di mana pun. Owner sales dashboard **tak pernah live** (firehose pun tak match key-nya). Di-mount di `RealtimeMount` (fix `905fd6bb`) → sekarang live.
+- **Realtime TAK menyala di VIEW.** Finance `['po_payable']` bersumber view `po_payable_spv` → subscribe **base table `purchase_order`** (yang ditulis `settle_purchase_order()` + trigger `sync_supplier_payment()`).
+- **Firehose `[table]` invalidation = prefix-match React Query** → hanya cocok bila queryKey diawali nama tabel persis; itu sebabnya sebagian besar invalidation-nya mati senyap.
+- **Dead invalidation dibersihkan**: finance `['payroll']` & distribusi sub `permintaan_bahan` (permintaan list/approval ada di app **stok**, bukan distribusi → realtime permintaan = follow-up di stok).
+
+### Isolasi & catatan drift
+- Repoint import saja (call site tak berubah); `lib/realtime` lokal absensi+stok dihapus. `@suka/auth` tak diubah.
+- **Auto-commit automation** repo ini men-*merge* branch ke `main` & push ke `origin/main` di tengah sesi (tanpa inisiasi), sekaligus menyapu masuk kerja paralel tak-terkait (`satuan_distribusi`, synonyms). Lalu **tabrakan timestamp migration**: dev lain push `20260719020000_fix_owner_messages_realtime_rls` — nama timestamp sama dgn migration kita → **di-rename ke `20260719030000_surat_jalan_replica_identity.sql`** (belum applied saat itu, aman). Verifikasi ground-truth `relreplident='f'` OK.
+
+### 📝 Next (manual)
+- **2-browser smoke test**: finance (setoran/petty-cash/payroll/PO settlement — paling kritis), distribusi (kirim → Terima; verifikasi → daftar pusat flip), owner sales dashboard (order selesai → KPI naik live).
+- **Redeploy** 6 app: absensi, stok, pos-kasir, admin-dashboard, finance, distribusi.
+- Follow-up opsional: realtime **permintaan_bahan di app stok** (tempat list/approval-nya berada).
+
+---
+
 **Last updated:** 2026-07-16  
 **Owner:** Dev Suka Shawarma

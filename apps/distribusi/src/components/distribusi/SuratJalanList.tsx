@@ -36,9 +36,11 @@ export function SuratJalanList() {
 
   const handlePrintBarcode = async (sjId: string, docNumber: string) => {
     const { generateQRDataUrl, printBarcode } = await import('@/utils/generatePDF')
+    const { fetchPrintLayout, DEFAULT_PRINT_LAYOUT } = await import('@/utils/printLayout')
     const url = `${window.location.origin}/distribusi/terima/${sjId}`
     const dataUrl = await generateQRDataUrl(url, 400)
-    printBarcode(docNumber, dataUrl)
+    const layout = await fetchPrintLayout(createSupabaseBrowserClient()).catch(() => DEFAULT_PRINT_LAYOUT)
+    printBarcode(docNumber, dataUrl, layout.qr_surat_jalan)
   }
 
   const handleDownloadPDF = async (sjId: string) => {

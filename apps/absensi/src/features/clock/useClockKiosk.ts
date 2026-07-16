@@ -186,7 +186,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     let query = supabase
       .from("outlet_staff")
       .select("id,name,face_descriptor")
-      .eq("outlet_id", outletId)
+      .or(`outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr)`)
       .not("face_descriptor", "is", null);
     // Mode 1:1 — batasi kandidat ke akun yang login saja (verifikasi, bukan identifikasi).
     if (lockToStaffId) query = query.eq("id", lockToStaffId);

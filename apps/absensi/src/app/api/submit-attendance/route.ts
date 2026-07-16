@@ -12,11 +12,12 @@ export async function POST(req: Request) {
 
     const { data: target } = await admin
       .from("outlet_staff")
-      .select("outlet_id, face_descriptor")
+      .select("outlet_id, face_descriptor, role")
       .eq("id", body.outlet_staff_id).single();
       
     if (!target) return NextResponse.json({ ok: false, reason: "staff_not_found" }, { status: 404 });
-    if (target.outlet_id !== body.outlet_id) return NextResponse.json({ ok: false, reason: "cross_outlet" }, { status: 403 });
+    const isGlobalRole = ["spv", "owner", "admin", "admin_hr"].includes(target.role);
+    if (!isGlobalRole && target.outlet_id !== body.outlet_id) return NextResponse.json({ ok: false, reason: "cross_outlet" }, { status: 403 });
     if (!target.face_descriptor) return NextResponse.json({ ok: false, reason: "not_enrolled" }, { status: 422 });
 
     // Validasi radius GPS server-side = GEOFENCE_RADIUS_M (konsisten dgn client) + toleransi akurasi

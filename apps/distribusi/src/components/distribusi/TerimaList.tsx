@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@suka/auth'
 import { useTerimaList } from '@/hooks/useTerimaList'
 import { useFormattedDate } from '@/hooks/useFormattedDate'
+import { useDistribusiRealtime } from '@/hooks/useDistribusiRealtime'
 import { BottomNav } from './BottomNav'
 
 function FormattedDate({ iso }: { iso: string | null | undefined }) {
@@ -21,6 +22,7 @@ export function TerimaList() {
   const router = useRouter()
   const { outletStaff } = useAuth()
   const { data, loading } = useTerimaList()
+  useDistribusiRealtime(outletStaff?.outlet_id)
 
   if (loading) {
     return (

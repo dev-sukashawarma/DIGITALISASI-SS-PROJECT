@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
 import { useFormattedDate } from '@/hooks/useFormattedDate'
+import { useDistribusiRealtime } from '@/hooks/useDistribusiRealtime'
 import { BottomNav } from './BottomNav'
 import { PrinterStatus } from './PrinterStatus'
 import { ArrowLeft, Plus, Calendar, AlertCircle, FileDown, Eye, Check, QrCode, Printer } from 'lucide-react'
@@ -27,6 +28,7 @@ export function SuratJalanList() {
   const { outletStaff } = useAuth()
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const { data, loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter)
+  useDistribusiRealtime()
 
   const handleDownloadBarcode = async (sjId: string, docNumber: string) => {
     const { generateQRDataUrl, downloadBarcode } = await import('@/utils/generatePDF')

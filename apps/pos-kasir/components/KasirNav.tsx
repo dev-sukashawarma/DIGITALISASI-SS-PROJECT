@@ -188,21 +188,21 @@ export default function KasirNav() {
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
 
-        <div className={`flex items-center justify-between h-[5.5rem] border-b border-[#d9c2b2] shrink-0 ${isCollapsed ? 'px-4 justify-center' : 'px-6'}`}>
-          <Link href="/kasir" className={`flex items-center min-w-0 ${isCollapsed ? 'gap-0 justify-center' : 'gap-3'}`} onClick={() => setOpen(false)}>
+        <div className={`flex flex-col relative justify-center border-b border-[#d9c2b2] shrink-0 ${isCollapsed ? 'h-[5.5rem] px-4 items-center' : 'py-6 px-6 items-center'}`}>
+          <Link href="/kasir" className={`flex min-w-0 ${isCollapsed ? 'flex-col gap-0 justify-center items-center' : 'flex-col gap-3 items-center text-center'}`} onClick={() => setOpen(false)}>
             {brandLogo ? (
-              <img src={brandLogo} alt="Logo" className="w-10 h-10 object-contain rounded-2xl shrink-0" />
+              <img src={brandLogo} alt="Logo" className="w-12 h-12 object-contain rounded-2xl shrink-0 shadow-sm" />
             ) : (
-              <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain rounded-2xl shrink-0" />
+              <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain rounded-2xl shrink-0 shadow-sm" />
             )}
             {!isCollapsed && (
-              <div className="min-w-0 flex flex-col justify-center animate-fade-in">
-                <p className="text-[#1e1b15] font-bold text-[15px] tracking-tight leading-none truncate mb-1">
+              <div className="min-w-0 flex flex-col items-center justify-center animate-fade-in">
+                <p className="text-[#1e1b15] font-bold text-[15px] tracking-tight leading-snug truncate mb-1">
                   {cashierName ? `Hai, ${cashierName}` : brandName}
                 </p>
-                <div className="flex items-center gap-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
-                  <p className="text-[#904d00] text-[11px] font-bold uppercase tracking-widest leading-none truncate">
+                <div className="flex items-center justify-center gap-1.5 bg-[#e9e1d8] px-2.5 py-1 rounded-full shadow-inner">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse shadow-sm`} />
+                  <p className="text-[#904d00] text-[10px] font-bold uppercase tracking-widest leading-none truncate">
                     {isOnline ? outletName : `OFFLINE ${offlineQueueCount > 0 ? `(${offlineQueueCount})` : ''}`}
                   </p>
                 </div>
@@ -211,7 +211,7 @@ export default function KasirNav() {
           </Link>
           <button
             onClick={() => setOpen(false)}
-            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl text-[#877365] hover:bg-[#e9e1d8]"
+            className="absolute top-2 right-2 lg:hidden w-8 h-8 flex items-center justify-center rounded-xl text-[#877365] hover:bg-[#e9e1d8]"
           >
             <X className="w-5 h-5" />
           </button>

@@ -75,10 +75,33 @@ export default function GlobalBlockerMount() {
     // Lihat CONTEXT.md bagian "Operasional Harian Outlet & Gate Kasir"
     async function checkKasirGate(outletId: string) {
       try {
-        const { data: dayStatus, error } = await supabase
-          .rpc('get_outlet_day_status', { p_outlet_id: outletId })
+        const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+        const start = new Date(`${todayStr}T00:00:00+07:00`).toISOString()
+        const end = new Date(`${todayStr}T23:59:59+07:00`).toISOString()
 
-        if (error) throw error
+        const { data: attendances, error: attErr } = await supabase
+          .from('attendance')
+          .select('outlet_staff_id, type')
+          .eq('outlet_id', outletId)
+          .gte('ts_server', start)
+          .lte('ts_server', end)
+          .order('ts_server', { ascending: true })
+
+        if (attErr) throw attErr
+
+        let dayStatus = 'belum_mulai'
+        if (attendances && attendances.length > 0) {
+          const staffStatus = new Map<string, string>()
+          for (const att of attendances) {
+             staffStatus.set(att.outlet_staff_id, att.type)
+          }
+          const hasAnyoneIn = Array.from(staffStatus.values()).some(t => t === 'in')
+          if (hasAnyoneIn) {
+            dayStatus = 'buka'
+          } else {
+            dayStatus = 'tutup'
+          }
+        }
 
         if (dayStatus === 'belum_mulai') {
           setIsBlocked(true)
@@ -97,14 +120,38 @@ export default function GlobalBlockerMount() {
         }
 
         // dayStatus === 'buka' -> cek progress checklist buka toko
-        const { data: progressRows, error: progressError } = await supabase
-          .rpc('get_outlet_checklist_progress', { p_outlet_id: outletId, p_phase: 'buka' })
+        const { data: cats } = await supabase
+          .from("checklist_categories")
+          .select("id, checklist_items(id, is_required)")
+          .eq("outlet_id", outletId)
+          .eq("phase", "buka")
+        
+        const requiredIds = ((cats as any[]) ?? [])
+          .flatMap((c) => c.checklist_items ?? [])
+          .filter((i: any) => i.is_required)
+          .map((i: any) => i.id as string)
 
-        if (progressError) throw progressError
+        const total = requiredIds.length
+        let done = 0
 
-        const progress = Array.isArray(progressRows) ? progressRows[0] : progressRows
-        const total = progress?.total_items ?? 0
-        const done = progress?.done_items ?? 0
+        if (total > 0) {
+          const { data: rec } = await supabase
+            .from("daily_checklist_records")
+            .select("id")
+            .eq("outlet_id", outletId)
+            .eq("date", todayStr)
+            .maybeSingle()
+
+          if (rec) {
+             const { data: ticks } = await supabase
+               .from("daily_checklist_ticks")
+               .select("item_id")
+               .eq("record_id", rec.id)
+             
+             const ticked = new Set(((ticks as any[]) ?? []).map(t => t.item_id as string))
+             done = requiredIds.filter(id => ticked.has(id)).length
+          }
+        }
 
         if (total > 0 && done < total) {
           setIsBlocked(true)
@@ -117,7 +164,7 @@ export default function GlobalBlockerMount() {
         }
       } catch (err) {
         console.error('[POS-Blocker] Failed to check status:', err)
-        // Jika RPC belum ada di database, jangan block — biarkan terbuka
+        // Jika error, jangan block — biarkan terbuka
         // agar tidak mengganggu operasional
         setIsBlocked(false)
         setChecklistProgress(undefined)

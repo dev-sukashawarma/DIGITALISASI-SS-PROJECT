@@ -244,8 +244,6 @@ export default function OrderManualPage() {
   // ── Menu terfilter (tersedia + kategori + pencarian) ──────────────────────
   const visibleItems = useMemo(() => {
     return items.filter((it) => {
-      if (it.is_available === false) return false
-      // We don't filter out unavailableIds here anymore, so they can be rendered as disabled
       if (activeCat !== 'all' && it.category_id !== activeCat) return false
       if (search.trim() && !it.name.toLowerCase().includes(search.trim().toLowerCase())) return false
       return true
@@ -253,7 +251,7 @@ export default function OrderManualPage() {
       const isManualUnav = unavailableIds.has(it.id)
       const isAutoUnav = autoUnavailableIds.has(it.id)
       const isForceAvail = forceAvailableIds.has(it.id)
-      const isDisabled = isManualUnav || (isAutoUnav && !isForceAvail)
+      const isDisabled = isManualUnav || (isAutoUnav && !isForceAvail) || it.is_available === false
       return { ...it, isDisabled }
     })
   }, [items, unavailableIds, autoUnavailableIds, forceAvailableIds, activeCat, search])

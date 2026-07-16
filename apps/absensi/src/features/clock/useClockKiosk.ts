@@ -286,9 +286,15 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       const human = await getHuman();
       const res = await human.detect(video);
       
-      // Bila wajah hilang atau sesi sudah di-reset selama deteksi, berhenti diam-diam.
-      if (!res.face || res.face.length === 0 || livenessRef.current !== detector) return;
-
+      // Bila wajah hilang atau terdeteksi lebih dari satu wajah, batalkan liveness untuk mencegah pergantian orang
+      if (!res.face || res.face.length !== 1 || livenessRef.current !== detector) {
+        if (livenessRef.current === detector) {
+          setResult({ ok: false, message: res.face && res.face.length > 1 ? "Terdeteksi lebih dari satu wajah. Proses dibatalkan." : "Wajah keluar dari frame. Proses dibatalkan." });
+          setPhase("result");
+          scheduleReset(2500);
+        }
+        return;
+      }
       // Identitas TIDAK dicek per-frame saat menoleh (descriptor melenceng di sudut
       // → salah tolak "wajah berubah"). Tantangan baru lolos ketika wajah kembali ke
       // posisi TENGAH/frontal — di frame itulah descriptor andal, jadi verifikasi

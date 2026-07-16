@@ -14,6 +14,7 @@ import type { PeriodFilterValue, Outlet, SalesSummaryRow } from '@/lib/types'
 import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
 import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import dynamic from 'next/dynamic'
+import { useTransition } from 'react'
 
 const RevenueTrendChart = dynamic(
   () => import('@/components/RevenueTrendChart').then((m) => m.RevenueTrendChart),
@@ -73,6 +74,7 @@ export default function OwnerDashboardView({
   leaderboard
 }: OwnerDashboardViewProps) {
   const router = useRouter()
+  const [isPending, startTransition] = useTransition()
   const isOneDay = filter.from === filter.to
 
   const handleFilterChange = (newFilter: PeriodFilterValue) => {
@@ -81,7 +83,9 @@ export default function OwnerDashboardView({
     if (newFilter.to) params.set('to', newFilter.to)
     if (newFilter.outletId !== 'all') params.set('outletId', newFilter.outletId)
     if (newFilter.source !== 'all') params.set('source', newFilter.source)
-    router.push(`?${params.toString()}`, { scroll: false })
+    startTransition(() => {
+      router.push(`?${params.toString()}`, { scroll: false })
+    })
   }
 
   return (
@@ -101,16 +105,31 @@ export default function OwnerDashboardView({
           </div>
         </PageHeader>
 
-        <KpiCards
-          rows={curKpiRows}
-          prevRows={prevKpiRows}
-          hourlyRows={hourlyRows}
-        />
+        {isPending && (
+          <div className="flex justify-center items-center py-10 bg-white/50 rounded-2xl animate-pulse border border-suka-orange/20">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-4 border-suka-orange border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-suka-brown font-bold text-sm">Memuat data dashboard...</p>
+            </div>
+          </div>
+        )}
+
+        <div className={isPending ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
+          <KpiCards
+            rows={curKpiRows}
+            prevRows={prevKpiRows}
+            hourlyRows={hourlyRows}
+          />
+        </div>
 
         {/* Indikator target harian realtime (semua outlet) */}
-        {role !== 'MITRA' && <DailyTargetBoard />}
+        {role !== 'MITRA' && (
+          <div className={isPending ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
+            <DailyTargetBoard />
+          </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 ${isPending ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}`}>
           <div className="lg:col-span-2 space-y-6">
             <RevenueTrendChart 
               rows={isOneDay ? hourlyRows : curKpiRows} 
@@ -123,7 +142,11 @@ export default function OwnerDashboardView({
             <BottomMenus rows={menuRows} />
           </div>
         </div>
-        {!isReadOnly && <OutletLeaderboard entries={leaderboard} allOutlets={outlets} />}
+        {!isReadOnly && (
+          <div className={isPending ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
+            <OutletLeaderboard entries={leaderboard} allOutlets={outlets} />
+          </div>
+        )}
       </div>
 
       {/* Tampilan Khusus Cetak PDF */}

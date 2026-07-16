@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
@@ -168,6 +168,211 @@ const renderOrderNotes = (notes: string | null) => {
   );
 };
 
+  const ActiveOrderCard = React.memo(({ order, isLocal, isEstimatedFuture, handlersRef }: any) => {
+    // Determine status simply from the current context when mapping, 
+    // but the object itself has order.status
+    const isPending = order.status === 'pending';
+    const isPreparing = order.status === 'preparing';
+
+    const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50 border-blue-200/60';
+    const badgeBg = isPending ? 'bg-amber-100 text-amber-700 ring-amber-200/50' : 'bg-blue-100 text-blue-700 ring-blue-200/50';
+    const iconColor = isPending ? 'text-amber-500' : 'text-blue-500';
+    const accentColor = isPending ? 'text-amber-600' : 'text-blue-600';
+    const lineBg = isPending ? 'bg-amber-200' : 'bg-blue-200';
+    const noteBg = isPending ? 'bg-amber-100/50 border-amber-200 text-amber-900' : 'bg-blue-100/50 border-blue-200 text-blue-900';
+
+    const { rootItems, childrenMap } = order._parsedItems;
+    const { cancelOrder, markAsPreparing, handlePrintCustomerOnly, markAsCompleted, setReprintTargetOrder } = handlersRef.current;
+
+    return (
+      <div 
+        key={order.id} 
+        className={`relative flex flex-col justify-between group bg-white border ${cardBg} rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden`}
+      >
+        <div className="p-5 flex-1 flex flex-col">
+          {/* Header Card */}
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Nomor Antrian</span>
+              <span className={`text-4xl font-black tracking-tighter ${accentColor} drop-shadow-sm leading-none`}>
+                #{order.order_number || order.id.slice(0,4).toUpperCase()}
+              </span>
+              <div className="text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1">
+                <Clock size={10} /> dipesan <TimeAgo date={order.created_at} />
+              </div>
+              {isLocal && (
+                <span className="mt-1.5 inline-flex items-center gap-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-max">
+                  OFFLINE — belum sinkron
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col items-end gap-1.5">
+              <div className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 ring-1 shadow-sm ${badgeBg}`}>
+                {isPending ? <Clock size={14} className="animate-pulse" /> : <ChefHat size={14} />}
+                {isPending ? 'MENUNGGU' : 'DIPROSES'}
+              </div>
+              {isEstimatedFuture && (
+                <div className="px-2 py-1 bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-bold flex items-center gap-1">
+                  <Clock size={12} />
+                  Estimasi Masak: {order._estimatedCookingTime} Menit
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="h-px bg-slate-100 w-full my-3"></div>
+
+          {/* Customer / Source */}
+          <div className="flex items-center gap-3 mb-4 bg-white/60 p-2.5 rounded-xl border border-slate-100/50">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPending ? 'bg-amber-100' : 'bg-blue-100'}`}>
+              <User size={16} className={iconColor} />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 font-medium leading-tight">{order.source === 'online' ? 'Online' : 'Offline'}</p>
+              <p className="font-bold text-slate-800 text-sm truncate max-w-[140px] leading-tight">
+                {order.payment_method?.toUpperCase()}
+              </p>
+            </div>
+          </div>
+
+          {/* Items List (Full Details with Tree Pattern) */}
+          <div className="flex-1">
+            <div className="space-y-1.5">
+              {rootItems.map((oi: any) => (
+                <div key={oi.id} className="py-1.5 relative border-b border-slate-100/70 last:border-0 last:pb-0">
+                  {(oi.parsedNote || (childrenMap[oi.parsedId] && childrenMap[oi.parsedId].length > 0)) && (
+                    <div className={`absolute left-[11px] top-6 bottom-3 w-[2px] ${lineBg}`} />
+                  )}
+
+                  <div className="flex items-start gap-2 relative z-10">
+                    <span className={`font-bold ${accentColor} text-sm w-6 shrink-0 text-center bg-white`}>{oi.quantity}x</span>
+                    <div className="min-w-0 flex-1 mt-0.5">
+                      <span className="text-sm font-semibold text-slate-800 leading-snug break-words">{oi.parsedName}</span>
+                    </div>
+                  </div>
+
+                  {oi.parsedNote && (
+                    <div className="relative pl-[1.6rem] mt-2 mb-1.5 flex items-start">
+                      <div className={`absolute left-[11px] top-2.5 w-3 h-[2px] ${lineBg}`} />
+                      <div className={`${noteBg} border text-[11px] px-2.5 py-1.5 rounded-md font-semibold leading-snug break-words whitespace-pre-wrap min-w-0 flex-1`}>
+                        {oi.parsedNote}
+                      </div>
+                    </div>
+                  )}
+
+                  {childrenMap[oi.parsedId] && childrenMap[oi.parsedId].map((child: any) => (
+                    <div key={child.id} className="relative pl-[1.6rem] py-1.5 flex items-start gap-2">
+                      <div className={`absolute left-[11px] top-3.5 w-3 h-[2px] ${lineBg}`} />
+                      <span className="font-bold text-slate-500 text-xs w-5 shrink-0 text-right mt-0.5">{child.quantity}x</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-slate-600 leading-snug flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-[9px] font-bold uppercase ${isPending ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'} px-1 rounded-sm`}>Extra</span>
+                          <span className="break-words min-w-0 text-slate-700 font-semibold">{child.parsedName}</span>
+                        </div>
+                        {child.parsedNote && (
+                          <div className={`mt-1.5 ${noteBg} border text-[11px] px-2.5 py-1.5 rounded-md font-semibold leading-snug break-words whitespace-pre-wrap`}>
+                            {child.parsedNote}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Catatan Keseluruhan */}
+            {renderOrderNotes(order.notes)}
+          </div>
+        </div>
+        
+        {/* Actions - BIG and CLEAR */}
+        <div className="p-3 pt-0 mt-auto flex gap-2">
+          {isPending && order.payment_method === 'qris' ? (
+            <div className="flex-1 bg-blue-50/70 text-blue-600 font-bold py-3.5 rounded-xl border border-blue-100 flex items-center justify-center gap-2 cursor-wait text-xs">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Tunggu QRIS
+            </div>
+          ) : (order as any).cancellation_status === 'pending_approval' ? (
+            <div className="flex-1 bg-yellow-50 text-yellow-600 font-bold py-3.5 rounded-xl border border-yellow-200 flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Menunggu Persetujuan Batal
+            </div>
+          ) : isPending ? (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
+                className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
+              >
+                <XCircle size={18} />
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
+                className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
+              >
+                <ChefHat size={18} />
+                Mulai Masak
+              </button>
+            </>
+          ) : order.status === 'preparing' ? (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
+                className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
+              >
+                <XCircle size={18} />
+                Batal
+              </button>
+              {!order.kitchen_receipt_printed ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
+                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
+                >
+                  <ChefHat size={18} />
+                  Mulai Masak
+                </button>
+              ) : !order.customer_receipt_printed ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrintCustomerOnly(order) }}
+                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+                >
+                  <Printer size={18} />
+                  Cetak Struk
+                </button>
+              ) : (
+                <div className="w-2/3 flex gap-2 relative z-50">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsCompleted(order.id) }}
+                    className="cursor-pointer flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+                  >
+                    <CheckCircle2 size={18} />
+                    Selesai
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setReprintTargetOrder(order) }}
+                    className="cursor-pointer px-4 flex items-center justify-center bg-white border-2 border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-500 py-3.5 rounded-xl transition-all shadow-sm active:scale-95"
+                    title="Cetak Ulang Struk"
+                  >
+                    <Printer size={18} />
+                  </button>
+                </div>
+              )}
+            </>
+          ) : null}
+
+        </div>
+      </div>
+    );
+}, (prev, next) => prev.order === next.order && prev.isLocal === next.isLocal && prev.isEstimatedFuture === next.isEstimatedFuture);
+
 export default function KasirOrderClient({ 
   initialOrders,
   serverOutletId
@@ -225,6 +430,10 @@ export default function KasirOrderClient({
 
   const supabase = createClient()
   const queryClient = useQueryClient()
+  const handlersRef = useRef<any>({})
+  useEffect(() => {
+    handlersRef.current = { cancelOrder, markAsPreparing, handlePrintCustomerOnly, markAsCompleted, setReprintTargetOrder }
+  })
   const { outletId: clientOutletId, outletName } = useMyOutlet()
   const { brandLogo } = useBrand()
   const outletId = clientOutletId || serverOutletId // Fallback to SSR outletId to prevent flash
@@ -767,209 +976,6 @@ export default function KasirOrderClient({
   const todayRevenue = completedOrders.reduce((sum, o) => sum + o.total_amount, 0)
 
   // Helper untuk merender card pesanan aktif (Pending & Preparing)
-  const renderActiveCard = (order: ParsedOrder) => {
-    // Determine status simply from the current context when mapping, 
-    // but the object itself has order.status
-    const isPending = order.status === 'pending';
-    const isPreparing = order.status === 'preparing';
-
-    const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50 border-blue-200/60';
-    const badgeBg = isPending ? 'bg-amber-100 text-amber-700 ring-amber-200/50' : 'bg-blue-100 text-blue-700 ring-blue-200/50';
-    const iconColor = isPending ? 'text-amber-500' : 'text-blue-500';
-    const accentColor = isPending ? 'text-amber-600' : 'text-blue-600';
-    const lineBg = isPending ? 'bg-amber-200' : 'bg-blue-200';
-    const noteBg = isPending ? 'bg-amber-100/50 border-amber-200 text-amber-900' : 'bg-blue-100/50 border-blue-200 text-blue-900';
-
-    const { rootItems, childrenMap } = order._parsedItems;
-
-    return (
-      <div 
-        key={order.id} 
-        className={`relative flex flex-col justify-between group bg-white border ${cardBg} rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden`}
-      >
-        <div className="p-5 flex-1 flex flex-col">
-          {/* Header Card */}
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Nomor Antrian</span>
-              <span className={`text-4xl font-black tracking-tighter ${accentColor} drop-shadow-sm leading-none`}>
-                #{order.order_number || order.id.slice(0,4).toUpperCase()}
-              </span>
-              <div className="text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1">
-                <Clock size={10} /> dipesan <TimeAgo date={order.created_at} />
-              </div>
-              {localOrderIds.has(order.id) && (
-                <span className="mt-1.5 inline-flex items-center gap-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-max">
-                  OFFLINE — belum sinkron
-                </span>
-              )}
-            </div>
-            <div className="flex flex-col items-end gap-1.5">
-              <div className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 ring-1 shadow-sm ${badgeBg}`}>
-                {isPending ? <Clock size={14} className="animate-pulse" /> : <ChefHat size={14} />}
-                {isPending ? 'MENUNGGU' : 'DIPROSES'}
-              </div>
-              {order._effectiveReleaseTime > now && (
-                <div className="px-2 py-1 bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-bold flex items-center gap-1">
-                  <Clock size={12} />
-                  Estimasi Masak: {order._estimatedCookingTime} Menit
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="h-px bg-slate-100 w-full my-3"></div>
-
-          {/* Customer / Source */}
-          <div className="flex items-center gap-3 mb-4 bg-white/60 p-2.5 rounded-xl border border-slate-100/50">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPending ? 'bg-amber-100' : 'bg-blue-100'}`}>
-              <User size={16} className={iconColor} />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 font-medium leading-tight">{order.source === 'online' ? 'Online' : 'Offline'}</p>
-              <p className="font-bold text-slate-800 text-sm truncate max-w-[140px] leading-tight">
-                {order.payment_method?.toUpperCase()}
-              </p>
-            </div>
-          </div>
-
-          {/* Items List (Full Details with Tree Pattern) */}
-          <div className="flex-1">
-            <div className="space-y-1.5">
-              {rootItems.map((oi: any) => (
-                <div key={oi.id} className="py-1.5 relative border-b border-slate-100/70 last:border-0 last:pb-0">
-                  {(oi.parsedNote || (childrenMap[oi.parsedId] && childrenMap[oi.parsedId].length > 0)) && (
-                    <div className={`absolute left-[11px] top-6 bottom-3 w-[2px] ${lineBg}`} />
-                  )}
-
-                  <div className="flex items-start gap-2 relative z-10">
-                    <span className={`font-bold ${accentColor} text-sm w-6 shrink-0 text-center bg-white`}>{oi.quantity}x</span>
-                    <div className="min-w-0 flex-1 mt-0.5">
-                      <span className="text-sm font-semibold text-slate-800 leading-snug break-words">{oi.parsedName}</span>
-                    </div>
-                  </div>
-
-                  {oi.parsedNote && (
-                    <div className="relative pl-[1.6rem] mt-2 mb-1.5 flex items-start">
-                      <div className={`absolute left-[11px] top-2.5 w-3 h-[2px] ${lineBg}`} />
-                      <div className={`${noteBg} border text-[11px] px-2.5 py-1.5 rounded-md font-semibold leading-snug break-words whitespace-pre-wrap min-w-0 flex-1`}>
-                        {oi.parsedNote}
-                      </div>
-                    </div>
-                  )}
-
-                  {childrenMap[oi.parsedId] && childrenMap[oi.parsedId].map((child: any) => (
-                    <div key={child.id} className="relative pl-[1.6rem] py-1.5 flex items-start gap-2">
-                      <div className={`absolute left-[11px] top-3.5 w-3 h-[2px] ${lineBg}`} />
-                      <span className="font-bold text-slate-500 text-xs w-5 shrink-0 text-right mt-0.5">{child.quantity}x</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium text-slate-600 leading-snug flex items-center gap-1.5 flex-wrap">
-                          <span className={`text-[9px] font-bold uppercase ${isPending ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'} px-1 rounded-sm`}>Extra</span>
-                          <span className="break-words min-w-0 text-slate-700 font-semibold">{child.parsedName}</span>
-                        </div>
-                        {child.parsedNote && (
-                          <div className={`mt-1.5 ${noteBg} border text-[11px] px-2.5 py-1.5 rounded-md font-semibold leading-snug break-words whitespace-pre-wrap`}>
-                            {child.parsedNote}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-
-            {/* Catatan Keseluruhan */}
-            {renderOrderNotes(order.notes)}
-          </div>
-        </div>
-        
-        {/* Actions - BIG and CLEAR */}
-        <div className="p-3 pt-0 mt-auto flex gap-2">
-          {isPending && order.payment_method === 'qris' ? (
-            <div className="flex-1 bg-blue-50/70 text-blue-600 font-bold py-3.5 rounded-xl border border-blue-100 flex items-center justify-center gap-2 cursor-wait text-xs">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Tunggu QRIS
-            </div>
-          ) : (order as any).cancellation_status === 'pending_approval' ? (
-            <div className="flex-1 bg-yellow-50 text-yellow-600 font-bold py-3.5 rounded-xl border border-yellow-200 flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Menunggu Persetujuan Batal
-            </div>
-          ) : isPending ? (
-            <>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
-                className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
-              >
-                <XCircle size={18} />
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
-                className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
-              >
-                <ChefHat size={18} />
-                Mulai Masak
-              </button>
-            </>
-          ) : order.status === 'preparing' ? (
-            <>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
-                className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
-              >
-                <XCircle size={18} />
-                Batal
-              </button>
-              {!order.kitchen_receipt_printed ? (
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
-                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
-                >
-                  <ChefHat size={18} />
-                  Mulai Masak
-                </button>
-              ) : !order.customer_receipt_printed ? (
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrintCustomerOnly(order) }}
-                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
-                >
-                  <Printer size={18} />
-                  Cetak Struk
-                </button>
-              ) : (
-                <div className="w-2/3 flex gap-2 relative z-50">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsCompleted(order.id) }}
-                    className="cursor-pointer flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
-                  >
-                    <CheckCircle2 size={18} />
-                    Selesai
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setReprintTargetOrder(order) }}
-                    className="cursor-pointer px-4 flex items-center justify-center bg-white border-2 border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-500 py-3.5 rounded-xl transition-all shadow-sm active:scale-95"
-                    title="Cetak Ulang Struk"
-                  >
-                    <Printer size={18} />
-                  </button>
-                </div>
-              )}
-            </>
-          ) : null}
-
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-6 relative min-h-screen">
@@ -1108,7 +1114,7 @@ export default function KasirOrderClient({
                 <p className="text-xs text-slate-500/40 mt-1">Pesanan baru akan muncul otomatis di sini.</p>
               </div>
             ) : (
-              pendingOrders.map((order) => renderActiveCard(order))
+              pendingOrders.map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)
             )}
           </div>
         </div>
@@ -1204,7 +1210,7 @@ export default function KasirOrderClient({
                   <p className="text-xs text-slate-500/40 mt-1">Dapur sedang santai, pesanan aktif akan muncul di sini.</p>
                 </div>
               ) : (
-                antreanMasak.map((order) => renderActiveCard(order))
+                antreanMasak.map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)
               )
             ) : (
               terjadwalMasak.length === 0 ? (
@@ -1214,7 +1220,7 @@ export default function KasirOrderClient({
                   <p className="text-xs text-slate-500/40 mt-1">Pesanan pre-order akan ditahan di sini sebelum masuk antrean.</p>
                 </div>
               ) : (
-                terjadwalMasak.map((order) => renderActiveCard(order))
+                terjadwalMasak.map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)
               )
             )}
           </div>

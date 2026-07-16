@@ -182,6 +182,7 @@ export default function KasirOrderClient({
   const [preparingTab, setPreparingTab] = useState<'antrean' | 'terjadwal'>('antrean')
   const [now, setNow] = useState(() => Date.now())
   const [isDevTesting, setIsDevTesting] = useState(false)
+  const [reprintTargetOrder, setReprintTargetOrder] = useState<ParsedOrder | null>(null)
 
   const createTestOrder = async () => {
     if (!outletId) return;
@@ -618,7 +619,7 @@ export default function KasirOrderClient({
     }
   }
 
-  async function handleReprintCustomer(order: ParsedOrder) {
+  async function handleReprintReceipt(order: ParsedOrder, type: 'customer' | 'kitchen') {
     const receiptData: ReceiptData = {
       outletName: outletName || 'SUKA SHAWARMA',
       orderNumber: order.order_number,
@@ -632,7 +633,7 @@ export default function KasirOrderClient({
       amountReceived: order.amount_received,
       changeAmount: order.change_amount,
       logoUrl: brandLogo || undefined,
-      receiptType: 'customer'
+      receiptType: type
     }
 
     try {
@@ -643,6 +644,8 @@ export default function KasirOrderClient({
         title: 'Gagal Mencetak',
         message: err.message || 'Pastikan bluetooth menyala dan printer terhubung.',
       })
+    } finally {
+      setReprintTargetOrder(null)
     }
   }
 
@@ -949,7 +952,7 @@ export default function KasirOrderClient({
                   </button>
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleReprintCustomer(order) }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setReprintTargetOrder(order) }}
                     className="cursor-pointer px-4 flex items-center justify-center bg-white border-2 border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-500 py-3.5 rounded-xl transition-all shadow-sm active:scale-95"
                     title="Cetak Ulang Struk"
                   >
@@ -1700,6 +1703,68 @@ export default function KasirOrderClient({
                 1 of {scheduledAlerts.length}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cetak Ulang Struk */}
+      {reprintTargetOrder && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setReprintTargetOrder(null)}></div>
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in duration-200">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                <Printer className="w-5 h-5 text-slate-500" />
+                Cetak Ulang Struk
+              </h3>
+              <button 
+                onClick={() => setReprintTargetOrder(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 hover:text-slate-700 transition-colors"
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+            
+            <div className="p-5 flex flex-col gap-3">
+              <p className="text-sm text-slate-600 font-medium mb-1 text-center">
+                Pilih jenis struk yang ingin dicetak untuk pesanan <strong className="text-slate-800">#{reprintTargetOrder.order_number}</strong>:
+              </p>
+              
+              <button
+                onClick={() => handleReprintReceipt(reprintTargetOrder, 'customer')}
+                className="flex items-center gap-3 w-full p-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors text-left group"
+              >
+                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-emerald-100 group-hover:scale-105 transition-transform">
+                  <User className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-emerald-800 text-base">Struk Pelanggan</h4>
+                  <p className="text-xs text-emerald-600/80 font-medium">Cetak struk untuk diberikan ke pelanggan</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleReprintReceipt(reprintTargetOrder, 'kitchen')}
+                className="flex items-center gap-3 w-full p-4 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl transition-colors text-left group"
+              >
+                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-orange-100 group-hover:scale-105 transition-transform">
+                  <ChefHat className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-orange-800 text-base">Struk Dapur</h4>
+                  <p className="text-xs text-orange-600/80 font-medium">Cetak ulang struk pesanan untuk dapur</p>
+                </div>
+              </button>
+            </div>
+            
+            <div className="p-4 bg-slate-50 border-t border-slate-100">
+              <button
+                onClick={() => setReprintTargetOrder(null)}
+                className="w-full py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 active:scale-95 transition-all"
+              >
+                Batal
+              </button>
+            </div>
           </div>
         </div>
       )}

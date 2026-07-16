@@ -113,6 +113,11 @@ function previewHtml(tab: TabKey, layout: PrintLayout, forPrint: boolean, logoUr
 export default function PrinterSettingsView() {
   const { device, isConnecting, error } = usePrinterState()
   const [brandLogo, setBrandLogo] = useState<string | null>(null)
+  // Logo untuk preview: brand_logo tersimpan → pakai itu; jika belum ada, fallback ke
+  // aset statis /logo.png (sama seperti yang dicetak struk asli). URL harus absolut
+  // karena iframe srcDoc tak me-resolve path relatif.
+  const previewLogo =
+    brandLogo || (typeof window !== 'undefined' ? `${window.location.origin}/logo.png` : null)
   const [layout, setLayout] = useState<PrintLayout>(DEFAULT_PRINT_LAYOUT)
   const [tab, setTab] = useState<TabKey>('struk_customer')
   const [loading, setLoading] = useState(true)
@@ -174,7 +179,7 @@ export default function PrinterSettingsView() {
       if (printerStore.getState().characteristic) {
         await printBytes(buildTemplateReceipt(tab, layout))
       } else {
-        await printHtmlFallback(previewHtml(tab, layout, true, brandLogo))
+        await printHtmlFallback(previewHtml(tab, layout, true, previewLogo))
       }
       showToast('success', 'Uji cetak dikirim')
     } catch (e: any) { showToast('error', e?.message || 'Uji cetak gagal') }
@@ -293,7 +298,7 @@ export default function PrinterSettingsView() {
               <div className="flex justify-center bg-slate-50 rounded-xl p-4 border border-slate-100 overflow-auto">
                 <iframe title="preview" className="bg-white shadow-md border border-slate-200"
                   style={{ width: (layout[tab] as any).paperWidth === 80 ? 320 : 230, height: 380, border: 0 }}
-                  srcDoc={previewHtml(tab, layout, false, brandLogo)} />
+                  srcDoc={previewHtml(tab, layout, false, previewLogo)} />
               </div>
               <button onClick={handleTestPrint} disabled={testing}
                 className="w-full px-6 py-3 bg-suka-orange text-white rounded-xl font-bold hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">

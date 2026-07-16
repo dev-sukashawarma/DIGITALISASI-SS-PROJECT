@@ -13,11 +13,12 @@ export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId:
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
     async function load() {
       // 1. Get accessible IDs
       const { data: rpcData, error } = await supabase.rpc("accessible_outlet_ids");
       if (error) {
-        setLoading(false);
+        if (mounted) setLoading(false);
         return;
       }
       
@@ -30,12 +31,18 @@ export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId:
           .select("id, name")
           .in("id", ids)
           .order("name");
-        if (data) setOutlets(data);
+        if (data && mounted) {
+          setOutlets(data);
+          if (!currentOutletId && data.length > 0) {
+            onChange(data[0].id);
+          }
+        }
       }
-      setLoading(false);
+      if (mounted) setLoading(false);
     }
     load();
-  }, [supabase]);
+    return () => { mounted = false; };
+  }, [supabase, currentOutletId, onChange]);
 
   if (loading || outlets.length <= 1) return null;
 

@@ -250,16 +250,14 @@ export default function EnrollPage() {
         subtitle="Daftarkan data biometrik wajah crew yang baru bergabung"
       />
 
-      {selectedOutletId && (
-        <OutletSwitcher 
-          currentOutletId={selectedOutletId} 
-          onChange={(id) => {
-            setSelectedOutletId(id);
-            setPhase("list");
-            setTargetStaff(null);
-          }} 
-        />
-      )}
+      <OutletSwitcher 
+        currentOutletId={selectedOutletId} 
+        onChange={(id) => {
+          setSelectedOutletId(id);
+          setPhase("list");
+          setTargetStaff(null);
+        }} 
+      />
 
       {modelError && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-semibold flex items-start gap-2 mb-4">

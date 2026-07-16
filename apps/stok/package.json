@@ -21,6 +21,7 @@
     "@suka/auth": "*",
     "@suka/design-system": "*",
     "@suka/offline-queue": "*",
+    "@suka/realtime": "*",
     "@tanstack/react-query": "^5.101.0",
     "sonner": "^1.4.0"
   },

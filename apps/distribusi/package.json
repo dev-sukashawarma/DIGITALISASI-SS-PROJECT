@@ -21,6 +21,7 @@
     "@suka/auth": "*",
     "@suka/design-system": "*",
     "@suka/offline-queue": "*",
+    "@suka/realtime": "*",
     "jsqr": "^1.4.0",
     "qrcode": "^1.5.3"
   },

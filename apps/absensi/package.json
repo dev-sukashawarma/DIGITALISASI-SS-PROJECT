@@ -17,6 +17,7 @@
     "@suka/auth": "*",
     "@suka/design-system": "*",
     "@suka/offline-queue": "*",
+    "@suka/realtime": "*",
     "@supabase/ssr": "^0.2.0",
     "@supabase/supabase-js": "^2.38.0",
     "@tanstack/react-query": "^5.101.0",

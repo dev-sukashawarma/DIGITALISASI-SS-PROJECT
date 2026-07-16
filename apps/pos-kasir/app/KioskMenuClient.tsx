@@ -41,19 +41,23 @@ export default function KioskMenuClient({ initialData }: { initialData: KioskIni
         { event: '*', schema: 'public', table: 'kiosk_settings' },
         (payload) => {
           const updated = payload.new as any
-          if (updated.key === 'unavailable_menu_ids' || updated.key === 'auto_unavailable_menu_ids' || updated.key === 'force_available_menu_ids') {
+          if (updated.key === 'unavailable_menu_ids' || updated.key === 'auto_unavailable_menu_ids' || updated.key === 'force_available_menu_ids' || updated.key === 'bestseller_ids') {
             // Fetch both settings to combine them
             supabase
               .from('kiosk_settings')
               .select('key, value, outlet_id')
               .or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`)
-              .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids'])
+              .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids', 'bestseller_ids'])
               .then(({ data }) => {
                 const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
                 const parseIds = (raw: string | null | undefined) => {
                   try { return raw ? JSON.parse(raw) : [] } catch { return [] }
                 }
                 const getSetting = (key: string, preferGlobal: boolean = false) => {
+                  if (key === 'bestseller_ids') {
+                    const globalRow = data?.find(s => s.key === key && (s.outlet_id === null || s.outlet_id === PUSAT_OUTLET_ID))
+                    return parseIds(globalRow?.value || '[]')
+                  }
                   const rows = data?.filter(s => s.key === key) || []
                   const sortedRows = [...rows].sort((a, b) => {
                     const getWeight = (id: string | null) => {
@@ -78,6 +82,7 @@ export default function KioskMenuClient({ initialData }: { initialData: KioskIni
                 let manualIds = getSetting('unavailable_menu_ids', false)
                 let autoIds = getSetting('auto_unavailable_menu_ids', false)
                 let forceIds = getSetting('force_available_menu_ids', false)
+                let bestsellers = getSetting('bestseller_ids', false)
 
                 const manualSet = new Set(manualIds)
                 const autoSet = new Set(autoIds)
@@ -90,9 +95,9 @@ export default function KioskMenuClient({ initialData }: { initialData: KioskIni
                   const isAvailable = !(isManualUnav || (isAutoUnav && !isForceAvail))
                   return { ...item, is_available: isAvailable }
                 }))
+                
+                setBestsellerIds(bestsellers)
               })
-          } else if (updated.key === 'bestseller_ids') {
-            try { setBestsellerIds(JSON.parse(updated.value || '[]')) } catch (e) {}
           } else if (updated.key === 'cover_image_url') {
             setCoverUrl(updated.value || null)
           }

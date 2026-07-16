@@ -16,6 +16,13 @@ describe('mergePrintLayout', () => {
     const custom = { qr_surat_jalan: { ...DEFAULT_PRINT_LAYOUT.qr_surat_jalan, qrSizeMm: 60 } }
     expect(mergePrintLayout(custom).qr_surat_jalan.qrSizeMm).toBe(60)
   })
+  it('nilai berupa string JSON (kolom TEXT) tetap ter-parse', () => {
+    const raw = JSON.stringify({ struk_customer: { footerText: 'jangan lupa makan' } })
+    expect(mergePrintLayout(raw).struk_customer.footerText).toBe('jangan lupa makan')
+  })
+  it('string JSON korup → default (tak throw)', () => {
+    expect(mergePrintLayout('{bukan json')).toEqual(DEFAULT_PRINT_LAYOUT)
+  })
 })
 
 describe('fetchPrintLayout', () => {

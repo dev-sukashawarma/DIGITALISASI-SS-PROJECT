@@ -46,7 +46,13 @@ export const DEFAULT_PRINT_LAYOUT: PrintLayout = {
 export const PRINT_LAYOUT_KEY = 'print_layout'
 
 export function mergePrintLayout(raw: unknown): PrintLayout {
-  const r = (raw ?? {}) as Partial<PrintLayout>
+  // Kolom global_settings.value bertipe TEXT → nilai bisa datang sebagai string JSON
+  // (bukan objek). Parse dulu bila string, agar setelan tersimpan benar-benar terpakai.
+  let obj: unknown = raw
+  if (typeof obj === 'string') {
+    try { obj = JSON.parse(obj) } catch { obj = {} }
+  }
+  const r = (obj ?? {}) as Partial<PrintLayout>
   return {
     struk_customer: { ...DEFAULT_PRINT_LAYOUT.struk_customer, ...(r.struk_customer ?? {}) },
     struk_dapur: { ...DEFAULT_PRINT_LAYOUT.struk_dapur, ...(r.struk_dapur ?? {}) },

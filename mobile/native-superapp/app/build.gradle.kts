@@ -79,6 +79,7 @@ dependencies {
 
     // Coroutines & Serialization
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.play.services)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     // Google ML Kit Face Detection

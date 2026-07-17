@@ -78,8 +78,8 @@ export async function savePromosAction(
     for (const p of promos) {
       const appliesTo = p.scope === 'global' ? 'all' : 'item'
       
-      // Try to find an existing promo that matches the scope
-      let existingOOId = crypto.randomUUID()
+      // Check if it exists in OO
+      let existingOOId = null
       if (existingOOPromos) {
          const match = existingOOPromos.find((oop: any) => {
            if (appliesTo === 'all' && oop.applies_to === 'all') return true
@@ -88,9 +88,17 @@ export async function savePromosAction(
          })
          if (match) existingOOId = match.id
       }
+
+      if (p.sync_to_order_online === false) {
+        // If they toggle it off, we remove it from Order Online
+        if (existingOOId) {
+          await orderOnline.from('promos').delete().eq('id', existingOOId)
+        }
+        continue
+      }
       
       ooUpserts.push({
-        id: existingOOId,
+        id: existingOOId || crypto.randomUUID(),
         name: p.scope === 'global' ? 'Global Discount' : 'Menu Discount',
         discount_type: p.discount_type === 'percentage' ? 'percent' : 'fixed',
         discount_value: Math.max(0.01, Number(p.discount_value) || 0),

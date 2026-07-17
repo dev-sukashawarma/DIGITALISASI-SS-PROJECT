@@ -25,6 +25,7 @@ type OutletPromo = {
   current_usage?: number
   end_date?: string | null
   apply_to_food_apps?: boolean
+  sync_to_order_online?: boolean
 }
 
 type Outlet = {
@@ -68,7 +69,8 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     usage_limit: null,
     current_usage: 0,
     end_date: null,
-    apply_to_food_apps: false
+    apply_to_food_apps: false,
+    sync_to_order_online: false
   } as OutletPromo
 
   const isGlobalActive = globalPromo.is_active
@@ -109,6 +111,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
         current_usage: 0,
         end_date: null,
         apply_to_food_apps: false,
+        sync_to_order_online: false,
         [field]: value
       })
     }
@@ -248,7 +251,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
               </div>
               
               <div className="space-y-2 col-span-1 md:col-span-2">
-                <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl border border-amber-100">
+                <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl border border-amber-100 mb-4">
                   <div>
                     <label className="block text-sm font-bold text-gray-700">
                       Berlaku untuk Food Apps
@@ -265,6 +268,26 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                       onChange={(e) => handleGlobalPromoChange('apply_to_food_apps', e.target.checked)} 
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-orange-50 rounded-xl border border-orange-100">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700">
+                      Terapkan ke Order Website (Order Online)
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Jika diaktifkan, promo ini akan otomatis sinkron dan berlaku di platform Order Online.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={globalPromo.sync_to_order_online || false} 
+                      onChange={(e) => handleGlobalPromoChange('sync_to_order_online', e.target.checked)} 
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                   </label>
                 </div>
               </div>
@@ -306,7 +329,8 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                   discount_value: 0,
                   is_active: false,
                   min_purchase: null,
-                  end_date: null
+                  end_date: null,
+                  sync_to_order_online: false
                 } as OutletPromo
 
                 let discountedPrice = menu.price || 0;
@@ -405,7 +429,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                           />
                         </div>
                         <div className="space-y-2 col-span-1 sm:col-span-2">
-                          <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+                          <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-xl border border-blue-100 mb-3">
                             <div>
                               <label className="block text-sm font-bold text-blue-900">
                                 Berlaku untuk Food Apps
@@ -422,6 +446,26 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                                 onChange={(e) => handleItemPromoChange(menu.id, 'apply_to_food_apps', e.target.checked)} 
                               />
                               <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+                            </label>
+                          </div>
+                          
+                          <div className="flex items-center justify-between p-3 bg-orange-50/50 rounded-xl border border-orange-100">
+                            <div>
+                              <label className="block text-sm font-bold text-orange-900">
+                                Terapkan ke Order Website
+                              </label>
+                              <p className="text-xs text-orange-600 mt-0.5">
+                                Sinkronkan ke platform Order Online.
+                              </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                              <input 
+                                type="checkbox" 
+                                className="sr-only peer" 
+                                checked={promo.sync_to_order_online || false} 
+                                onChange={(e) => handleItemPromoChange(menu.id, 'sync_to_order_online', e.target.checked)} 
+                              />
+                              <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
                             </label>
                           </div>
                         </div>

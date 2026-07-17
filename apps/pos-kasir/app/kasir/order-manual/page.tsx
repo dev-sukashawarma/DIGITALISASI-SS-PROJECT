@@ -59,6 +59,7 @@ export default function OrderManualPage() {
   const [channel, setChannel] = useState<string | null>(null)
   const [payment, setPayment] = useState<Payment | null>(null)
   const [customerName, setCustomerName] = useState('')
+  const [promoSubsidy, setPromoSubsidy] = useState<string>('')
 
   const [cartOpen, setCartOpen] = useState(false) // bottom sheet di mobile
   const [submitting, setSubmitting] = useState(false)
@@ -89,6 +90,7 @@ export default function OrderManualPage() {
       setChannel(null)
       setPayment(null)
       setCustomerName('')
+      setPromoSubsidy('')
       setSearch('')
       setActiveCat('all')
       setSuccess(null)
@@ -328,7 +330,8 @@ export default function OrderManualPage() {
 
   const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity, 0)
   const globalDiscount = calculateGlobalDiscount(subtotalAmount)
-  const totalPrice = subtotalAmount - globalDiscount
+  const parsedPromoSubsidy = channel === 'shopeefood' ? (Number(promoSubsidy) || 0) : 0
+  const totalPrice = Math.max(0, subtotalAmount - globalDiscount - parsedPromoSubsidy)
 
   const isGlobalPromoActive = globalPromo && globalPromo.is_active && (!globalPromo.end_date || new Date(globalPromo.end_date).getTime() > Date.now());
   const needsMoreForPromo = isGlobalPromoActive && globalPromo.min_purchase && subtotalAmount > 0 && subtotalAmount < globalPromo.min_purchase;
@@ -342,11 +345,18 @@ export default function OrderManualPage() {
     setSubmitting(true)
     setError(null)
 
+    if (channel === 'shopeefood' && promoSubsidy === '') {
+      setError('Subsidi Promo wajib diisi untuk ShopeeFood (bisa isi 0)')
+      setSubmitting(false)
+      return
+    }
+
     const payload = {
       channel,
       payment_method: payment,
       customer_name: customerName,
       amount_received: payment === 'cash' ? amountReceived : undefined,
+      promo_subsidy: channel === 'shopeefood' ? Number(promoSubsidy) : 0,
       items: lineList.map((l) => ({
         menu_item_id: l.item.id,
         quantity: l.quantity,
@@ -412,6 +422,7 @@ export default function OrderManualPage() {
       setChannel(null)
       setPayment(null)
       setCustomerName('')
+      setPromoSubsidy('')
       setCartOpen(false)
     } catch (err) {
       console.warn('Network error during handleSubmit, simpan sebagai order offline (IndexedDB):', err)
@@ -431,6 +442,7 @@ export default function OrderManualPage() {
         discount_amount: globalDiscount > 0 ? globalDiscount : null,
         source: 'manual',
         channel,
+        promo_subsidy: channel === 'shopeefood' ? Number(promoSubsidy) : 0,
         apiUrl: '/api/orders/manual',
         apiPayload: payload,
       })
@@ -473,6 +485,7 @@ export default function OrderManualPage() {
       setChannel(null)
       setPayment(null)
       setCustomerName('')
+      setPromoSubsidy('')
       setCartOpen(false)
     } finally {
       setSubmitting(false)
@@ -703,7 +716,10 @@ export default function OrderManualPage() {
                 return (
                   <button
                     key={c.id}
-                    onClick={() => setChannel(c.id)}
+                    onClick={() => {
+                      setChannel(c.id)
+                      setPromoSubsidy('')
+                    }}
                     className={`relative flex items-center gap-2 px-2.5 py-2 xl:py-2.5 rounded-lg xl:rounded-xl border font-bold text-xs xl:text-sm transition-all duration-200 active:scale-95 hover:shadow-sm ${
                       selected ? 'shadow-md ring-2 ring-offset-1' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                     }`}
@@ -859,6 +875,8 @@ export default function OrderManualPage() {
               setPayment={setPayment}
               customerName={customerName}
               setCustomerName={setCustomerName}
+              promoSubsidy={promoSubsidy}
+              setPromoSubsidy={setPromoSubsidy}
               setQty={setQty}
               setNote={setNote}
               canSubmit={canSubmit}
@@ -932,6 +950,8 @@ export default function OrderManualPage() {
                 setPayment={setPayment}
                 customerName={customerName}
                 setCustomerName={setCustomerName}
+                promoSubsidy={promoSubsidy}
+                setPromoSubsidy={setPromoSubsidy}
                 setQty={setQty}
                 setNote={setNote}
                 canSubmit={canSubmit}
@@ -1154,6 +1174,8 @@ function CartPanel(props: {
   setPayment: (p: Payment) => void
   customerName: string
   setCustomerName: (v: string) => void
+  promoSubsidy: string
+  setPromoSubsidy: (v: string) => void
   setQty: (id: string, qty: number) => void
   setNote: (id: string, note: string) => void
   canSubmit: boolean
@@ -1171,7 +1193,7 @@ function CartPanel(props: {
 }) {
   const {
     lineList, totalItems, totalPrice, channel, payment, setPayment,
-    customerName, setCustomerName, setQty, setNote, canSubmit, submitting, error, onSubmit,
+    customerName, setCustomerName, promoSubsidy, setPromoSubsidy, setQty, setNote, canSubmit, submitting, error, onSubmit,
     calculateItemPrice, globalDiscount, globalPromo, needsMoreForPromo, missingAmount, embedded,
     onlineQrisOpen, setOnlineQrisOpen
   } = props
@@ -1304,6 +1326,20 @@ function CartPanel(props: {
               className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors text-sm"
             />
           </div>
+
+          {/* Subsidi Promo untuk ShopeeFood */}
+          {channel === 'shopeefood' && (
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Subsidi Promo (Wajib)</label>
+              <input
+                type="number"
+                value={promoSubsidy}
+                onChange={(e) => setPromoSubsidy(e.target.value)}
+                placeholder="Misal: 10000 (bisa 0)"
+                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors text-sm"
+              />
+            </div>
+          )}
 
           {/* Metode bayar */}
           <div>

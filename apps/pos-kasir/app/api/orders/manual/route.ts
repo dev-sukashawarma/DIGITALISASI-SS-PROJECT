@@ -24,6 +24,7 @@ interface ManualPayload {
   payment_method: 'cash' | 'qris' | 'card'
   customer_name?: string
   amount_received?: number // added for cash logic
+  promo_subsidy?: number
   items: ManualItem[]
 }
 
@@ -46,6 +47,12 @@ export async function POST(request: Request) {
   }
   if (!Array.isArray(body.items) || body.items.length === 0) {
     return NextResponse.json({ error: 'Pesanan kosong, pilih minimal 1 menu' }, { status: 400 })
+  }
+
+  if (body.channel === 'shopeefood') {
+    if (typeof body.promo_subsidy !== 'number' || isNaN(body.promo_subsidy)) {
+      return NextResponse.json({ error: 'Subsidi Promo wajib diisi untuk ShopeeFood (bisa isi 0)' }, { status: 400 })
+    }
   }
 
   // ── Autentikasi kasir & ambil outlet ────────────────────────────────────
@@ -160,7 +167,8 @@ export async function POST(request: Request) {
   // Hitung Global Promo
   let globalDiscount = calculateGlobalDiscount(total, activePromos as BasePromo[])
 
-  const finalTotal = total - globalDiscount
+  const promoSubsidy = body.promo_subsidy || 0
+  const finalTotal = total - globalDiscount - promoSubsidy
 
   // Track applied promos to increment usage limits
   const appliedPromoIds = new Set<string>()
@@ -216,6 +224,7 @@ export async function POST(request: Request) {
     channel: body.channel,
     sales_source: validSalesSource,
     kitchen_receipt_printed: true,
+    promo_subsidy: promoSubsidy,
   }
 
   let order: { id: string; order_number: number } | null = null

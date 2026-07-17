@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { revalidatePath } from 'next/cache'
 import type { MenuItem } from '@/pos-types'
+import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
 
 async function getSupabase() {
   const cookieStore = await cookies()
@@ -15,12 +16,22 @@ async function getSupabase() {
 
 export async function toggleMenuAvailability(id: string, currentStatus: boolean) {
   const supabase = await getSupabase()
+  const orderOnline = createOrderOnlineAdminClient()
+  
   await supabase.from('menu_items').update({ is_available: !currentStatus }).eq('id', id)
+  
+  try {
+    await orderOnline.from('menu_items').update({ is_available: !currentStatus }).eq('id', id)
+  } catch (err) {
+    console.error('Failed to sync toggle menu to order online', err)
+  }
+  
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
 export async function deleteMenuItem(id: string, imageUrl: string | null) {
   const supabase = await getSupabase()
+  const orderOnline = createOrderOnlineAdminClient()
   
   if (imageUrl) {
     const fileName = imageUrl.split('/').pop()
@@ -30,11 +41,19 @@ export async function deleteMenuItem(id: string, imageUrl: string | null) {
   }
   
   await supabase.from('menu_items').delete().eq('id', id)
+  
+  try {
+    await orderOnline.from('menu_items').delete().eq('id', id)
+  } catch (err) {
+    console.error('Failed to sync delete menu to order online', err)
+  }
+  
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
 export async function saveMenuItem(form: Partial<MenuItem>) {
   const supabase = await getSupabase()
+  const orderOnline = createOrderOnlineAdminClient()
   
   const payload = {
     name: form.name,
@@ -46,10 +65,21 @@ export async function saveMenuItem(form: Partial<MenuItem>) {
     sort_order: form.sort_order || 0,
   }
 
+  let finalId = form.id;
+
   if (form.id) {
     await supabase.from('menu_items').update(payload).eq('id', form.id)
   } else {
-    await supabase.from('menu_items').insert([payload])
+    const { data } = await supabase.from('menu_items').insert([payload]).select().single()
+    if (data) finalId = data.id
+  }
+  
+  try {
+    if (finalId) {
+       await orderOnline.from('menu_items').upsert([{ id: finalId, ...payload }])
+    }
+  } catch (err) {
+    console.error('Failed to sync save menu to order online', err)
   }
   
   revalidatePath('/dashboard/pos-admin/menu')
@@ -57,6 +87,7 @@ export async function saveMenuItem(form: Partial<MenuItem>) {
 
 export async function deleteAllMenuItems(items: MenuItem[]) {
   const supabase = await getSupabase()
+  const orderOnline = createOrderOnlineAdminClient()
   
   const fileNames = items.map(item => item.image_url?.split('/').pop()).filter(Boolean) as string[]
   
@@ -64,7 +95,17 @@ export async function deleteAllMenuItems(items: MenuItem[]) {
     await supabase.storage.from('menu_images').remove(fileNames)
   }
   
-  await supabase.from('menu_items').delete().not('id', 'is', null)
+  const ids = items.map(i => i.id)
+  await supabase.from('menu_items').delete().in('id', ids)
+  
+  try {
+    if (ids.length > 0) {
+      await orderOnline.from('menu_items').delete().in('id', ids)
+    }
+  } catch (err) {
+    console.error('Failed to sync delete all menu to order online', err)
+  }
+  
   revalidatePath('/dashboard/pos-admin/menu')
 }
 

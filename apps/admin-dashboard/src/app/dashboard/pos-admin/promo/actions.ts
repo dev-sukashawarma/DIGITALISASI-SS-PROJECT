@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
 import crypto from 'crypto'
 
 export async function savePromosAction(
@@ -8,6 +9,7 @@ export async function savePromosAction(
   promos: any[]
 ) {
   const supabase = await createClient()
+  const orderOnline = createOrderOnlineAdminClient()
 
   if (!outlets || outlets.length === 0) {
     return { success: false, error: 'Tidak ada outlet aktif untuk diterapkan promo.' }
@@ -65,6 +67,47 @@ export async function savePromosAction(
       console.error('Upsert Error:', upsertError)
       return { success: false, error: upsertError.message || JSON.stringify(upsertError) }
     }
+  }
+
+  // Sync to Order Online
+  try {
+    const { data: existingOOPromos } = await orderOnline.from('promos').select('id, applies_to, item_ids')
+    
+    const ooUpserts = []
+    
+    for (const p of promos) {
+      const appliesTo = p.scope === 'global' ? 'all' : 'item'
+      
+      // Try to find an existing promo that matches the scope
+      let existingOOId = crypto.randomUUID()
+      if (existingOOPromos) {
+         const match = existingOOPromos.find((oop: any) => {
+           if (appliesTo === 'all' && oop.applies_to === 'all') return true
+           if (appliesTo === 'item' && oop.applies_to === 'item' && oop.item_ids?.includes(p.menu_item_id)) return true
+           return false
+         })
+         if (match) existingOOId = match.id
+      }
+      
+      ooUpserts.push({
+        id: existingOOId,
+        name: p.scope === 'global' ? 'Global Discount' : 'Menu Discount',
+        discount_type: p.discount_type === 'percentage' ? 'percent' : 'fixed',
+        discount_value: Math.max(0.01, Number(p.discount_value) || 0),
+        min_purchase: p.min_purchase || 0,
+        end_at: p.end_date || null,
+        is_active: p.is_active,
+        applies_to: appliesTo,
+        outlet_ids: outletIds,
+        item_ids: p.scope === 'item' ? [p.menu_item_id] : null,
+      })
+    }
+    
+    if (ooUpserts.length > 0) {
+       await orderOnline.from('promos').upsert(ooUpserts)
+    }
+  } catch (err) {
+    console.error('Order Online Promo Sync Error:', err)
   }
 
   return { success: true }

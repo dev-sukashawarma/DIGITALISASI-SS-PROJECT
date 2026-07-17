@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { OutletFormValues } from '@/lib/types'
+import { createOutlet, updateOutlet, softDeleteOutlet, hardDeleteOutlet } from '@/app/dashboard/outlets/actions'
 
 function friendly(error: { code?: string; message: string }): never {
   if (error.code === '23505') throw new Error('Slug sudah dipakai outlet lain.')
@@ -15,18 +16,11 @@ export function useOutletMutations() {
 
   const create = useMutation({
     mutationFn: async (values: OutletFormValues) => {
-      const { error } = await supabase.from('outlets').insert({
-        id: crypto.randomUUID(),
-        name: values.name,
-        slug: values.slug,
-        address: values.address || null,
-        lat: values.lat,
-        lng: values.lng,
-        type: values.type,
-        is_active: values.is_active,
-        marquee_warning_threshold: values.marquee_warning_threshold,
-      })
-      if (error) friendly(error)
+      try {
+        await createOutlet(values)
+      } catch (error: any) {
+        friendly(error)
+      }
     },
     onSuccess: invalidate,
   })
@@ -34,40 +28,33 @@ export function useOutletMutations() {
   const update = useMutation({
     mutationFn: async (vars: { id: string } & OutletFormValues) => {
       const { id, ...values } = vars
-      const { error } = await supabase
-        .from('outlets')
-        .update({
-          name: values.name,
-          slug: values.slug,
-          address: values.address || null,
-          lat: values.lat,
-          lng: values.lng,
-          type: values.type,
-          is_active: values.is_active,
-          marquee_warning_threshold: values.marquee_warning_threshold,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-      if (error) friendly(error)
+      try {
+        await updateOutlet(id, values)
+      } catch (error: any) {
+        friendly(error)
+      }
     },
     onSuccess: invalidate,
   })
 
   const softDelete = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('outlets')
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .eq('id', id)
-      if (error) friendly(error)
+      try {
+        await softDeleteOutlet(id)
+      } catch (error: any) {
+        friendly(error)
+      }
     },
     onSuccess: invalidate,
   })
 
   const hardDelete = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('outlets').delete().eq('id', id)
-      if (error) friendly(error)
+      try {
+        await hardDeleteOutlet(id)
+      } catch (error: any) {
+        friendly(error)
+      }
     },
     onSuccess: invalidate,
   })

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@suka/auth'
 import { adminApi } from '@/lib/adminApi'
 import type { StaffFormValues } from '@/lib/types'
+import { createStaffSync } from '@/app/actions/users'
 
 export function useStaffMutations() {
   const { session } = useAuth()
@@ -14,7 +15,7 @@ export function useStaffMutations() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['staff'] })
 
   const create = useMutation({
-    mutationFn: (values: StaffFormValues) => adminApi.createStaff(token(), values),
+    mutationFn: (values: StaffFormValues) => createStaffSync(values),
     onSuccess: invalidate,
   })
   const update = useMutation({

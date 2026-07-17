@@ -1,14 +1,20 @@
 package com.sukashawarma.superapp.ui.features.facedebug
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
@@ -37,12 +43,40 @@ fun FaceDebugScreen(onBackClick: () -> Unit) {
     var captureTarget by remember { mutableStateOf<Char?>(null) }
     var status by remember { mutableStateOf(if (faceRecognizer.isModelLoaded) "Model OK" else "MODEL GAGAL: ${faceRecognizer.loadError}") }
 
+    // Izin kamera runtime — pola sama dengan AttendanceScreen (hasCameraPermission + launcher).
+    // Tanpa ini, SPV yang belum pernah buka Absensi cuma dapat preview hitam.
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasCameraPermission = isGranted
+    }
+
     val similarity = if (slotA != null && slotB != null)
         FaceRecognizer.cosineSimilarity(slotA!!, slotB!!) else null
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
-            CameraPreview(
+            if (!hasCameraPermission) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text("Izin kamera diperlukan", textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
+                        Text("Beri Izin")
+                    }
+                }
+            } else CameraPreview(
                 onFaceDetected = {},
                 onImageCaptureReady = { imageProxy ->
                     val target = captureTarget
@@ -81,7 +115,7 @@ fun FaceDebugScreen(onBackClick: () -> Unit) {
             )
         }
         Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(status, fontSize = 13.sp)
+            Text(captureTarget?.let { "Memproses slot $it... ($status)" } ?: status, fontSize = 13.sp)
             Text(
                 "A: ${slotA?.size?.let { "${it}d" } ?: "-"}  |  B: ${slotB?.size?.let { "${it}d" } ?: "-"}  |  Sim: ${similarity?.let { String.format("%.4f", it) } ?: "-"}",
                 fontSize = 16.sp
@@ -89,8 +123,8 @@ fun FaceDebugScreen(onBackClick: () -> Unit) {
             Text("Threshold aktif: ${FaceRecognizer.MOBILE_MATCH_THRESHOLD}", fontSize = 13.sp)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { captureTarget = 'A' }, enabled = faceRecognizer.isModelLoaded) { Text("Capture A") }
-                Button(onClick = { captureTarget = 'B' }, enabled = faceRecognizer.isModelLoaded) { Text("Capture B") }
+                Button(onClick = { captureTarget = 'A' }, enabled = faceRecognizer.isModelLoaded && captureTarget == null) { Text("Capture A") }
+                Button(onClick = { captureTarget = 'B' }, enabled = faceRecognizer.isModelLoaded && captureTarget == null) { Text("Capture B") }
                 OutlinedButton(onClick = onBackClick) { Text("Tutup") }
             }
         }

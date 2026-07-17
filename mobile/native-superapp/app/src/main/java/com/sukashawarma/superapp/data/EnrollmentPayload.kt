@@ -20,17 +20,20 @@ object EnrollmentPayload {
         isReEnroll: Boolean,
         reason: String?,
         hasExistingConsent: Boolean
-    ): JsonObject = buildJsonObject {
-        putJsonArray("face_descriptor_mobile") { descriptor.forEach { add(it) } }
-        put("ref_photo_url_mobile", photoUrl)
-        put("mobile_enrolled_at", now)
-        put("mobile_enrolled_by", adminId)
-        if (isReEnroll && !reason.isNullOrBlank()) {
-            put("mobile_re_enroll_reason", reason)
-        }
-        if (!hasExistingConsent) {
-            put("consent_at", now)
-            put("consent_by", adminId)
+    ): JsonObject {
+        require(descriptor.isNotEmpty()) { "descriptor kosong" }
+        return buildJsonObject {
+            putJsonArray("face_descriptor_mobile") { descriptor.forEach { add(it) } }
+            put("ref_photo_url_mobile", photoUrl)
+            put("mobile_enrolled_at", now)
+            put("mobile_enrolled_by", adminId)
+            if (isReEnroll && !reason.isNullOrBlank()) {
+                put("mobile_re_enroll_reason", reason)
+            }
+            if (!hasExistingConsent) {
+                put("consent_at", now)
+                put("consent_by", adminId)
+            }
         }
     }
 }

@@ -301,21 +301,17 @@ export default function ReportsPage() {
     // Hitung total selisih laci (variance) dari tutup shift
     const totalCashVariance = shifts.reduce((s, shift) => s + (shift.variance || 0), 0)
 
-    const paymentBreakdown = { ...base.paymentBreakdown }
-    // Koreksi pendapatan tunai dengan selisih fisik laci (Opsi B: Source of truth = Fisik Kasir)
-    if (paymentBreakdown['cash']) {
-      paymentBreakdown['cash'] = { ...paymentBreakdown['cash'] }
-      paymentBreakdown['cash'].revenue += totalCashVariance
-    }
-    
-    let totalRevenue = base.totalRevenue + totalCashVariance
+    // We keep payment breakdown as actual orders, or we can choose to add variance ONLY to a separate display.
+    // For now, let's keep totalRevenue strictly as base.totalRevenue so it matches total orders.
+    let totalRevenue = base.totalRevenue
     let avgOrderValue = base.totalOrders > 0 ? Math.round(totalRevenue / base.totalOrders) : 0
 
     return {
       ...base,
       totalRevenue,
-      paymentBreakdown,
-      avgOrderValue
+      paymentBreakdown: base.paymentBreakdown,
+      avgOrderValue,
+      totalCashVariance // keep it in the object if needed elsewhere
     }
   }, [analyticsData, shifts])
 

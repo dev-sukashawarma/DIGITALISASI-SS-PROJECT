@@ -110,6 +110,16 @@ class NavigationFlowTest {
         assertTrue(navManager.navigateTo(Screen.Enroll, spv))
     }
 
+    @Test
+    fun testRoleGating_RoleNonOperasionalDitolakDariAbsensiDanEnroll() {
+        loginUser()
+        for (role in listOf("mitra", "staff_pusat", "kiosk")) {
+            val staff = Staff("x-$role", "Test $role", role, "outlet_1")
+            assertFalse("role=$role attendance", navManager.navigateTo(Screen.Attendance, staff))
+            assertFalse("role=$role enroll", navManager.navigateTo(Screen.Enroll, staff))
+        }
+    }
+
     // --- TIER 3: Cross-Feature Combinations (1 test) ---
 
     @Test

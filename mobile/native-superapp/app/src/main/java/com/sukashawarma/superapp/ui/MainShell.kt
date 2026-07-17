@@ -98,10 +98,13 @@ fun MainShell(
             }
             composable(Screen.Dashboard.route) { 
                 DashboardScreen(currentStaff) { appName ->
-                    if (appName == "Absensi") {
-                        navController.navigate(Screen.Attendance.route)
-                    } else if (appName == "Enrollment") {
-                        navController.navigate(Screen.Enroll.route)
+                    val target = when (appName) {
+                        "Absensi" -> Screen.Attendance
+                        "Enrollment" -> Screen.Enroll
+                        else -> null
+                    }
+                    if (target != null && navigationManager.navigateTo(target, currentStaff)) {
+                        navController.navigate(target.route)
                     }
                 }
             }

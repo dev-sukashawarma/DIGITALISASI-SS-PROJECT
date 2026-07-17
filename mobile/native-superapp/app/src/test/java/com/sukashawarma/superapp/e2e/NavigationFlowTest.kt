@@ -19,8 +19,8 @@ class NavigationFlowTest {
     private lateinit var client: SupabaseClient
     private lateinit var navManager: NavigationManager
     private val defaultAdmin = Staff("1", "Admin User", "admin", "outlet_1")
-    private val defaultCashier = Staff("2", "Cashier Joe", "cashier", "outlet_1")
-    private val defaultKitchen = Staff("3", "Chef Bob", "kitchen_staff", "outlet_1")
+    private val defaultKasir = Staff("2", "Kasir Joe", "kasir", "outlet_1")
+    private val defaultKitchen = Staff("3", "Chef Bob", "kitchen", "outlet_1")
 
     @Before
     fun setUp() {
@@ -82,17 +82,32 @@ class NavigationFlowTest {
     }
 
     @Test
-    fun testTier2_RoleGatingCashierGatedFromInventoryAndFulfillment() {
+    fun testTier2_RoleGatingKasirGatedFromInventoryAndFulfillment() {
         loginUser()
-        assertFalse(navManager.navigateTo(Screen.Inventory, defaultCashier))
-        assertFalse(navManager.navigateTo(Screen.Fulfillment, defaultCashier))
+        assertFalse(navManager.navigateTo(Screen.Inventory, defaultKasir))
+        assertFalse(navManager.navigateTo(Screen.Fulfillment, defaultKasir))
     }
 
     @Test
     fun testTier2_RoleGatingKitchenGatedFromInventory() {
         loginUser()
         assertFalse(navManager.navigateTo(Screen.Inventory, defaultKitchen))
-        assertTrue(navManager.navigateTo(Screen.Fulfillment, defaultKitchen))
+        assertFalse(navManager.navigateTo(Screen.Fulfillment, defaultKitchen)) // dulu true; stub kini admin/owner only
+    }
+
+    @Test
+    fun testRoleGating_CrewBolehAbsensiTapiTidakEnroll() {
+        loginUser()
+        val crew = Staff("4", "Crew Andi", "crew", "outlet_1")
+        assertTrue(navManager.navigateTo(Screen.Attendance, crew))
+        assertFalse(navManager.navigateTo(Screen.Enroll, crew))
+    }
+
+    @Test
+    fun testRoleGating_SpvBolehEnroll() {
+        loginUser()
+        val spv = Staff("5", "SPV Budi", "spv", "outlet_1")
+        assertTrue(navManager.navigateTo(Screen.Enroll, spv))
     }
 
     // --- TIER 3: Cross-Feature Combinations (1 test) ---
@@ -114,21 +129,21 @@ class NavigationFlowTest {
 
     @Test
     fun testTier4_MultiRoleSessionNavigationFlow() {
-        // 1. Unauthenticated cashier tries to open Inventory screen -> gets redirected to login
-        var success = navManager.navigateTo(Screen.Inventory, defaultCashier)
+        // 1. Unauthenticated kasir tries to open Inventory screen -> gets redirected to login
+        var success = navManager.navigateTo(Screen.Inventory, defaultKasir)
         assertFalse(success)
         assertEquals(Screen.Login, navManager.getCurrentScreen())
 
-        // 2. Cashier logs in, opens Dashboard
+        // 2. Kasir logs in, opens Dashboard
         loginUser()
-        assertTrue(navManager.navigateTo(Screen.Dashboard, defaultCashier))
+        assertTrue(navManager.navigateTo(Screen.Dashboard, defaultKasir))
 
-        // 3. Cashier tries to open Admin Inventory -> Rejected (Gated)
-        success = navManager.navigateTo(Screen.Inventory, defaultCashier)
+        // 3. Kasir tries to open Admin Inventory -> Rejected (Gated)
+        success = navManager.navigateTo(Screen.Inventory, defaultKasir)
         assertFalse(success)
         assertEquals(Screen.Dashboard, navManager.getCurrentScreen()) // remains on Dashboard
 
-        // 4. Cashier logs out -> gets redirected
+        // 4. Kasir logs out -> gets redirected
         navManager.logout()
         assertEquals(Screen.Login, navManager.getCurrentScreen())
 

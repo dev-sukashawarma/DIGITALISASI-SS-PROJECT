@@ -326,7 +326,7 @@ private class ProductionDelegate : SupabaseClientDelegate {
     override fun getUserRole(identifier: String): String {
         val user = realClient?.auth?.currentUserOrNull()
         val metadataRole = user?.userMetadata?.get("role")?.toString()?.removeSurrounding("\"")
-        return metadataRole ?: "cashier"
+        return metadataRole ?: "crew"
     }
 
     override suspend fun getStaffProfile(identifier: String): Staff? {
@@ -665,9 +665,9 @@ private class MockDelegate : SupabaseClientDelegate {
     override fun getUserRole(identifier: String): String {
         return when {
             identifier.contains("admin") -> "admin"
-            identifier.contains("cashier") -> "cashier"
-            identifier.contains("kitchen") -> "kitchen_staff"
-            identifier.contains("manager") -> "manager"
+            identifier.contains("kasir") -> "kasir"
+            identifier.contains("kitchen") -> "kitchen"
+            identifier.contains("spv") -> "spv"
             else -> "admin"
         }
     }
@@ -675,10 +675,10 @@ private class MockDelegate : SupabaseClientDelegate {
     override suspend fun getStaffProfile(identifier: String): Staff? {
         if (shouldTimeout) throw TimeoutException("Connection timed out")
         if (isOffline) throw IOException("No network connection")
-        
+
         val username = identifier.substringBefore("@")
         return when {
-            username == "valid" || username == "admin" || username == "cashier" || username == "kitchen" || username == "manager" -> Staff(
+            username == "valid" || username == "admin" || username == "kasir" || username == "kitchen" || username == "spv" -> Staff(
                 id = "mock-id-$username",
                 name = username,
                 role = getUserRole(identifier),
@@ -690,8 +690,8 @@ private class MockDelegate : SupabaseClientDelegate {
 
     override suspend fun getStaffList(outletId: String): List<Staff> {
         return listOf(
-            Staff(id = "mock-1", name = "Budi (Belum)", role = "cashier", assignedOutletId = outletId, enrolledAt = null),
-            Staff(id = "mock-2", name = "Andi (Sudah)", role = "kitchen_staff", assignedOutletId = outletId, enrolledAt = "2026-06-20T10:00:00Z")
+            Staff(id = "mock-1", name = "Budi (Belum)", role = "kasir", assignedOutletId = outletId, enrolledAt = null),
+            Staff(id = "mock-2", name = "Andi (Sudah)", role = "kitchen", assignedOutletId = outletId, enrolledAt = "2026-06-20T10:00:00Z")
         )
     }
 

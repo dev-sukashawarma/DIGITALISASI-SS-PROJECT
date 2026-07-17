@@ -81,19 +81,14 @@ fun DashboardScreen(staff: Staff?, onAppClick: (String) -> Unit = {}) {
                 modifier = Modifier.padding(start = 4.dp, bottom = 16.dp)
             )
             
-            val apps = mutableListOf(
-                PortalApp("Absensi", Icons.Default.Fingerprint, PortalTheme.Primary, PortalTheme.PrimaryContainer),
-                PortalApp("Stok", Icons.Default.Inventory2, PortalTheme.Tertiary, PortalTheme.TertiaryContainer),
-                PortalApp("Distribusi", Icons.Default.LocalShipping, PortalTheme.Secondary, PortalTheme.SecondaryContainer),
-                PortalApp("POS Kasir", Icons.Default.PointOfSale, PortalTheme.Primary, PortalTheme.PrimaryContainer),
-                PortalApp("Kiosk", Icons.Default.TouchApp, PortalTheme.Tertiary, PortalTheme.TertiaryContainer),
-                PortalApp("Dashboard", Icons.Default.Dashboard, PortalTheme.Secondary, PortalTheme.SecondaryContainer)
+            val appMeta = mapOf(
+                "Enrollment" to PortalApp("Enrollment", Icons.Default.Face, PortalTheme.Tertiary, PortalTheme.TertiaryContainer),
+                "Absensi" to PortalApp("Absensi", Icons.Default.Fingerprint, PortalTheme.Primary, PortalTheme.PrimaryContainer)
             )
-            
-            if (staff?.role == "spv" || staff?.role == "leader" || staff?.role == "admin" || staff?.role == "manager") {
-                apps.add(0, PortalApp("Enrollment", Icons.Default.Face, PortalTheme.Tertiary, PortalTheme.TertiaryContainer))
-            }
-            
+            // Fase 1: hanya fitur fungsional. Tile Stok/Distribusi/POS/Kiosk/Dashboard menyusul
+            // saat modulnya nyata (fase 3) — jangan tampilkan tombol mati.
+            val apps = DashboardMenu.menuFor(staff?.role).mapNotNull { appMeta[it] }
+
             apps.chunked(2).forEach { rowApps ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),

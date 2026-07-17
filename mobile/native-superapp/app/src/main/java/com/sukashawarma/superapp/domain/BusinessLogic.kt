@@ -228,10 +228,11 @@ object DashboardService {
 
     fun getRoleBasedViews(role: String): List<String> {
         return when (role) {
-            "admin" -> listOf("DASHBOARD", "INVENTORY", "HR", "FULFILLMENT", "POS", "SETTINGS")
-            "manager" -> listOf("DASHBOARD", "INVENTORY", "HR", "FULFILLMENT", "POS")
-            "cashier" -> listOf("DASHBOARD", "POS")
-            "kitchen_staff" -> listOf("DASHBOARD", "FULFILLMENT")
+            "admin", "owner" -> listOf("DASHBOARD", "INVENTORY", "HR", "FULFILLMENT", "POS")
+            "spv", "leader", "korlap" -> listOf("DASHBOARD", "HR")
+            "kasir" -> listOf("DASHBOARD", "POS")
+            "kitchen" -> listOf("DASHBOARD", "FULFILLMENT")
+            "crew" -> listOf("DASHBOARD")
             else -> listOf("DASHBOARD")
         }
     }

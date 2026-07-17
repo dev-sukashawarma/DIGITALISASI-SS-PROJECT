@@ -1,6 +1,7 @@
 package com.sukashawarma.superapp.ui.navigation
 
 import com.sukashawarma.superapp.data.AuthRepository
+import com.sukashawarma.superapp.data.Roles
 import com.sukashawarma.superapp.data.Staff
 
 class NavigationManager(private val authRepository: AuthRepository) {
@@ -14,14 +15,13 @@ class NavigationManager(private val authRepository: AuthRepository) {
             return false
         }
 
-        // Role-based gating
+        // Role-based gating (role kanonik — lihat Roles.kt)
         if (staff != null && screen != Screen.Login) {
-            val allowed = when (staff.role) {
-                "admin" -> true
-                "manager" -> screen != Screen.Login
-                "cashier" -> screen == Screen.Dashboard
-                "kitchen_staff" -> screen == Screen.Dashboard || screen == Screen.Fulfillment
-                else -> screen == Screen.Dashboard
+            val allowed = when (screen) {
+                Screen.Login, Screen.Dashboard -> true
+                Screen.Attendance -> staff.role in Roles.ATTENDANCE
+                Screen.Enroll -> staff.role in Roles.ENROLLMENT
+                Screen.Inventory, Screen.Fulfillment -> staff.role in Roles.STUB_MODULES
             }
             if (!allowed) {
                 return false // Navigation Gated

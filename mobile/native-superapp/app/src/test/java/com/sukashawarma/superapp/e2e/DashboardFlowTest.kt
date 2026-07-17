@@ -23,10 +23,10 @@ class DashboardFlowTest {
     // --- TIER 1: Feature Coverage (5 tests) ---
 
     @Test
-    fun testTier1_ActiveCashierNameDisplayed() {
-        val cashier = Staff("c1", "Amir Nasution", "cashier", "outlet_1")
-        val dashboardTitle = "Welcome, ${cashier.name} (${cashier.role.uppercase()})"
-        assertEquals("Welcome, Amir Nasution (CASHIER)", dashboardTitle)
+    fun testTier1_ActiveKasirNameDisplayed() {
+        val kasir = Staff("c1", "Amir Nasution", "kasir", "outlet_1")
+        val dashboardTitle = "Welcome, ${kasir.name} (${kasir.role.uppercase()})"
+        assertEquals("Welcome, Amir Nasution (KASIR)", dashboardTitle)
     }
 
     @Test
@@ -40,20 +40,20 @@ class DashboardFlowTest {
     @Test
     fun testTier1_AdminLayoutElements() {
         val views = DashboardService.getRoleBasedViews("admin")
-        assertTrue(views.containsAll(listOf("DASHBOARD", "INVENTORY", "HR", "FULFILLMENT", "POS", "SETTINGS")))
+        assertTrue(views.containsAll(listOf("DASHBOARD", "INVENTORY", "HR", "FULFILLMENT", "POS")))
     }
 
     @Test
-    fun testTier1_CashierLayoutElements() {
-        val views = DashboardService.getRoleBasedViews("cashier")
+    fun testTier1_KasirLayoutElements() {
+        val views = DashboardService.getRoleBasedViews("kasir")
         assertTrue(views.contains("POS"))
         assertFalse(views.contains("HR"))
-        assertFalse(views.contains("SETTINGS"))
+        assertFalse(views.contains("INVENTORY"))
     }
 
     @Test
     fun testTier1_KitchenLayoutElements() {
-        val views = DashboardService.getRoleBasedViews("kitchen_staff")
+        val views = DashboardService.getRoleBasedViews("kitchen")
         assertTrue(views.contains("FULFILLMENT"))
         assertFalse(views.contains("POS"))
     }
@@ -110,10 +110,10 @@ class DashboardFlowTest {
 
     @Test
     fun testTier4_DashboardWorkloadSimulation() {
-        var activeUser = Staff("s1", "Budi", "cashier", "outlet_1")
+        var activeUser = Staff("s1", "Budi", "kasir", "outlet_1")
         var currentStock = sampleStock.toMutableList()
 
-        // 1. Cashier logs in and checks dashboard
+        // 1. Kasir logs in and checks dashboard
         var header = "Welcome, ${activeUser.name}"
         var alertCount = DashboardService.filterCriticalStock(currentStock).size
         var roleViews = DashboardService.getRoleBasedViews(activeUser.role)
@@ -130,7 +130,7 @@ class DashboardFlowTest {
 
         assertEquals("Welcome, Siti (Admin)", header)
         assertTrue(roleViews.contains("INVENTORY"))
-        assertTrue(roleViews.contains("SETTINGS"))
+        assertTrue(roleViews.contains("HR"))
 
         // 3. Stock Opname executes, updating current stock levels
         currentStock[1] = currentStock[1].copy(quantity = 25) // Saj Bread quantity resolved to 25

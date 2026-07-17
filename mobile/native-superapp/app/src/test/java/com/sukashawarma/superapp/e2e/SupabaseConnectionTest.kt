@@ -332,9 +332,9 @@ class SupabaseConnectionTest {
     @Test
     fun testGetUserRole_TestingMode() {
         assertEquals("admin", client.getUserRole("admin@sukashawarma.com"))
-        assertEquals("cashier", client.getUserRole("cashier@sukashawarma.com"))
-        assertEquals("kitchen_staff", client.getUserRole("kitchen@sukashawarma.com"))
-        assertEquals("manager", client.getUserRole("manager@sukashawarma.com"))
+        assertEquals("kasir", client.getUserRole("kasir@sukashawarma.com"))
+        assertEquals("kitchen", client.getUserRole("kitchen@sukashawarma.com"))
+        assertEquals("spv", client.getUserRole("spv@sukashawarma.com"))
         assertEquals("admin", client.getUserRole("other@sukashawarma.com"))
     }
 

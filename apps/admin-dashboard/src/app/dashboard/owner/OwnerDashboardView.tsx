@@ -48,7 +48,7 @@ function RealtimeRefresher() {
     }
 
     const channel = supabase
-      .channel('owner-sales-realtime')
+      .channel('owner-sales-realtime-view')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
       .subscribe()
 

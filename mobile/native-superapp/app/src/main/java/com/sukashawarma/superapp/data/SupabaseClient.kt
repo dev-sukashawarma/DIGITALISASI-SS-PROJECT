@@ -336,7 +336,8 @@ private class ProductionDelegate : SupabaseClientDelegate {
         val username = identifier.substringBefore("@")
         
         // Hanya ambil kolom utama, HINDARI JOIN (outlets(name)) karena sering menyebabkan PostgREST error
-        val cols = io.github.jan.supabase.postgrest.query.Columns.raw("id, outlet_id, name, role, face_descriptor, enrolled_at, re_enrolled_at, re_enrolled_by, re_enroll_reason, ref_photo_url, consent_at, consent_by")
+        // Kolom MOBILE (bukan kolom web face_descriptor/enrolled_at/ref_photo_url yang dipakai app absensi web produksi)
+        val cols = io.github.jan.supabase.postgrest.query.Columns.raw("id, outlet_id, name, role, face_descriptor_mobile, mobile_enrolled_at, ref_photo_url_mobile, consent_at, consent_by")
         
         // 1. Coba cari berdasarkan ID (Metode paling benar)
         var result = clientObj.postgrest["outlet_staff"].select(columns = cols) {
@@ -379,12 +380,9 @@ private class ProductionDelegate : SupabaseClientDelegate {
             name = result.name,
             role = result.role,
             assignedOutletId = outletName,
-            faceDescriptor = result.faceDescriptor?.toFloatArray(),
-            enrolledAt = result.enrolledAt,
-            reEnrolledAt = result.reEnrolledAt,
-            reEnrolledBy = result.reEnrolledBy,
-            reEnrollReason = result.reEnrollReason,
-            refPhotoUrl = result.refPhotoUrl,
+            faceDescriptor = result.faceDescriptorMobile?.toFloatArray(),
+            enrolledAt = result.mobileEnrolledAt,
+            refPhotoUrl = result.refPhotoUrlMobile,
             consentAt = result.consentAt,
             consentBy = result.consentBy
         )
@@ -392,7 +390,8 @@ private class ProductionDelegate : SupabaseClientDelegate {
 
     override suspend fun getStaffList(outletId: String): List<Staff> {
         val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
-        val cols = io.github.jan.supabase.postgrest.query.Columns.raw("id, outlet_id, name, role, face_descriptor, enrolled_at, re_enrolled_at, re_enrolled_by, re_enroll_reason, ref_photo_url, consent_at, consent_by")
+        // Kolom MOBILE (bukan kolom web face_descriptor/enrolled_at/ref_photo_url yang dipakai app absensi web produksi)
+        val cols = io.github.jan.supabase.postgrest.query.Columns.raw("id, outlet_id, name, role, face_descriptor_mobile, mobile_enrolled_at, ref_photo_url_mobile, consent_at, consent_by")
         val results = clientObj.postgrest["outlet_staff"].select(columns = cols) {
             filter {
                 if (outletId != "Pusat (Semua Outlet)") {
@@ -400,19 +399,16 @@ private class ProductionDelegate : SupabaseClientDelegate {
                 }
             }
         }.decodeList<OutletStaffDto>()
-        
+
         return results.map { result ->
             Staff(
                 id = result.id,
                 name = result.name,
                 role = result.role,
                 assignedOutletId = result.outletId ?: "Pusat (Semua Outlet)",
-                faceDescriptor = result.faceDescriptor?.toFloatArray(),
-                enrolledAt = result.enrolledAt,
-                reEnrolledAt = result.reEnrolledAt,
-                reEnrolledBy = result.reEnrolledBy,
-                reEnrollReason = result.reEnrollReason,
-                refPhotoUrl = result.refPhotoUrl,
+                faceDescriptor = result.faceDescriptorMobile?.toFloatArray(),
+                enrolledAt = result.mobileEnrolledAt,
+                refPhotoUrl = result.refPhotoUrlMobile,
                 consentAt = result.consentAt,
                 consentBy = result.consentBy
             )

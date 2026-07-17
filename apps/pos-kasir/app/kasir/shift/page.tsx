@@ -614,6 +614,7 @@ export default function ShiftPage() {
                   Awal {formatRupiah(activeShift.starting_cash)} 
                   {shiftSalesTotal > 0 && <span className="text-emerald-600 font-semibold"> &middot; Jual Tunai +{formatRupiah(shiftSalesTotal)}</span>}
                 </p>
+                <p className="text-xs text-emerald-600/70 mt-1 font-medium">* Hanya transaksi dengan metode Tunai (Cash)</p>
               </div>
             </div>
 

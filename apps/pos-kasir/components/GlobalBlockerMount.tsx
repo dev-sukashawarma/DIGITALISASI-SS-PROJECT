@@ -45,12 +45,22 @@ export default function GlobalBlockerMount() {
       }
 
       const { data: profile } = await supabase.from('outlet_staff')
-        .select('role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(is_active, inactive_reason)')
+        .select('role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, is_active, inactive_reason)')
         .eq('id', currentUid).single()
 
       if (profile && profile.role !== 'admin') {
         // Simpan outlet_id untuk filtering realtime
         outletIdRef.current = profile.outlet_id || null
+
+        const outletName = (profile.outlets as any)?.name || ''
+        const isDramaga = outletName.toLowerCase().includes('dramaga')
+        
+        // Bypass khusus Dramaga HANYA untuk hari ini (17 Juli 2026) di local
+        const currentDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+        if (process.env.NODE_ENV === 'development' && isDramaga && currentDateStr === '2026-07-17') {
+          setIsBlocked(false)
+          return
+        }
 
         if (profile.is_active === false) {
           setIsBlocked(true)

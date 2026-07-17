@@ -309,7 +309,22 @@ const renderOrderNotes = (notes: string | null) => {
                   )}
 
                   <div className="flex items-start gap-2 relative z-10">
-                    <span className={`font-bold ${accentColor} text-sm w-6 shrink-0 text-center bg-white`}>{oi.quantity}x</span>
+                    <span className={`font-bold ${accentColor} text-sm w-6 shrink-0 text-center bg-white pt-1`}>{oi.quantity}x</span>
+                    
+                    {oi.menu_items?.image_url && (
+                      <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0 bg-slate-50 border border-slate-100 shadow-sm relative">
+                        <img 
+                          src={oi.menu_items.image_url} 
+                          alt={oi.parsedName}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                          width={36}
+                          height={36}
+                        />
+                      </div>
+                    )}
+
                     <div className="min-w-0 flex-1 mt-0.5">
                       <span className="text-sm font-semibold text-slate-800 leading-snug break-words">{oi.parsedName}</span>
                     </div>
@@ -1408,8 +1423,23 @@ export default function KasirOrderClient({
                           )}
 
                           <div className="flex items-start gap-2 relative z-10">
-                            <span className="font-bold text-slate-800 text-sm w-6 shrink-0 text-center bg-white">{oi.quantity}x</span>
-                            <div className="min-w-0 flex-1">
+                            <span className="font-bold text-slate-800 text-sm w-6 shrink-0 text-center bg-white pt-1">{oi.quantity}x</span>
+                            
+                            {oi.menu_items?.image_url && (
+                              <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0 bg-slate-50 border border-slate-100 shadow-sm relative">
+                                <img 
+                                  src={oi.menu_items.image_url} 
+                                  alt={oi.parsedName}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                  width={36}
+                                  height={36}
+                                />
+                              </div>
+                            )}
+
+                            <div className="min-w-0 flex-1 mt-0.5">
                               <span className="text-sm font-semibold text-slate-800/80 leading-snug break-words">{oi.parsedName}</span>
                             </div>
                           </div>

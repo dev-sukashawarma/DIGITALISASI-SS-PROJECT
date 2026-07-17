@@ -259,7 +259,15 @@ export default function KasirNav() {
             }
 
             // Dropdown logic for subItems
-            const anySubActive = link.subItems!.some(sub => sub.href === '/kasir' ? pathname === '/kasir' : (pathname === sub.href || pathname.startsWith(sub.href + '/')));
+            const bestMatchSub = link.subItems!.reduce((best: any, current) => {
+              const matches = current.href === '/kasir' ? pathname === '/kasir' : (pathname === current.href || pathname.startsWith(current.href + '/'));
+              if (matches) {
+                if (!best || current.href.length > best.href.length) return current;
+              }
+              return best;
+            }, null);
+
+            const anySubActive = !!bestMatchSub;
             const isThisDropdownOpen = openDropdown === link.label;
 
             return (
@@ -286,7 +294,7 @@ export default function KasirNav() {
                 {!isCollapsed && isThisDropdownOpen && (
                   <div className="mt-1 flex flex-col space-y-1 pl-11 pr-2 animate-fade-in">
                     {link.subItems!.map(sub => {
-                      const subActive = sub.href === '/kasir' ? pathname === '/kasir' : (pathname === sub.href || pathname.startsWith(sub.href + '/'))
+                      const subActive = bestMatchSub?.href === sub.href;
                       return (
                         <Link 
                           key={sub.href} 
@@ -310,7 +318,7 @@ export default function KasirNav() {
                     <div className="text-xs font-bold text-[#a48e7f] mb-2 px-3 uppercase tracking-wider">{link.label}</div>
                     <div className="flex flex-col gap-1">
                       {link.subItems!.map(sub => {
-                        const subActive = sub.href === '/kasir' ? pathname === '/kasir' : (pathname === sub.href || pathname.startsWith(sub.href + '/'))
+                        const subActive = bestMatchSub?.href === sub.href;
                         return (
                           <Link 
                             key={sub.href} 

@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import {
   RefreshCw, ClipboardList, ChevronDown, ChevronUp,
-  Clock, CheckCircle2, ChefHat, Banknote, XCircle, Store
+  Clock, CheckCircle2, ChefHat, Banknote, XCircle, Store,
+  QrCode, CreditCard, Activity
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
@@ -169,10 +170,17 @@ export default function AdminOrdersPage() {
     .filter((o) => o.status !== 'cancelled')
     .reduce((s, o) => s + o.total_amount, 0)
 
-  const statCards = [
-    { status: 'pending' as OrderStatus,   label: 'Menunggu',   icon: Clock },
-    { status: 'completed' as OrderStatus, label: 'Selesai',    icon: CheckCircle2 },
-  ]
+  const revenueCash = filteredOrders
+    .filter((o) => o.status !== 'cancelled' && o.payment_method === 'cash')
+    .reduce((s, o) => s + o.total_amount, 0)
+
+  const revenueQris = filteredOrders
+    .filter((o) => o.status !== 'cancelled' && o.payment_method === 'qris')
+    .reduce((s, o) => s + o.total_amount, 0)
+
+  const revenueDebit = filteredOrders
+    .filter((o) => o.status !== 'cancelled' && o.payment_method === 'card')
+    .reduce((s, o) => s + o.total_amount, 0)
 
   return (
     <div className="space-y-6" suppressHydrationWarning>
@@ -228,31 +236,34 @@ export default function AdminOrdersPage() {
 
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {statCards.map(({ status, label, icon: Icon }) => {
-          const count = filteredOrders.filter((o) => o.status === status).length
-          const active = filter === status
-          const conf = STATUS_CONF[status]!
-          return (
-            <button
-              key={status}
-              onClick={() => setFilter(active ? 'all' : status)}
-              className={`card p-5 text-left transition-all hover:shadow-card-hover hover:-translate-y-0.5
-                ${active ? 'ring-2 ring-amber-400' : ''}`}
-            >
-              <div className={`w-9 h-9 rounded-2xl flex items-center justify-center mb-3
-                ${active ? 'bg-amber-500' : 'bg-gray-100'}`}>
-                <Icon className={`w-4.5 h-4.5 ${active ? 'text-white' : 'text-gray-400'}`} strokeWidth={1.5} />
-              </div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{label}</p>
-              <p className={`text-3xl font-bold mt-0.5 ${conf.color}`}>{count}</p>
-            </button>
-          )
-        })}
+        <div className="card p-5 bg-white text-gray-900 border border-gray-100">
+          <div className="w-9 h-9 bg-emerald-100 rounded-2xl flex items-center justify-center mb-3">
+            <Banknote className="w-4.5 h-4.5 text-emerald-600" strokeWidth={1.5} />
+          </div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Tunai / Cash</p>
+          <p className="text-xl font-bold mt-0.5 leading-tight text-emerald-600">{formatRupiah(revenueCash)}</p>
+        </div>
+
+        <div className="card p-5 bg-white text-gray-900 border border-gray-100">
+          <div className="w-9 h-9 bg-blue-100 rounded-2xl flex items-center justify-center mb-3">
+            <QrCode className="w-4.5 h-4.5 text-blue-600" strokeWidth={1.5} />
+          </div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">QRIS</p>
+          <p className="text-xl font-bold mt-0.5 leading-tight text-blue-600">{formatRupiah(revenueQris)}</p>
+        </div>
+
+        <div className="card p-5 bg-white text-gray-900 border border-gray-100">
+          <div className="w-9 h-9 bg-purple-100 rounded-2xl flex items-center justify-center mb-3">
+            <CreditCard className="w-4.5 h-4.5 text-purple-600" strokeWidth={1.5} />
+          </div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Debit / Card</p>
+          <p className="text-xl font-bold mt-0.5 leading-tight text-purple-600">{formatRupiah(revenueDebit)}</p>
+        </div>
 
         {/* Revenue card */}
-        <div className="card p-5 bg-amber-500 text-white col-span-2 md:col-span-1">
+        <div className="card p-5 bg-amber-500 text-white">
           <div className="w-9 h-9 bg-white/20 rounded-2xl flex items-center justify-center mb-3">
-            <Banknote className="w-4.5 h-4.5 text-white" strokeWidth={1.5} />
+            <Activity className="w-4.5 h-4.5 text-white" strokeWidth={1.5} />
           </div>
           <p className="text-xs font-semibold text-amber-100/80 uppercase tracking-widest">Total Revenue</p>
           <p className="text-xl font-bold mt-0.5 leading-tight">{formatRupiah(totalRevenue)}</p>

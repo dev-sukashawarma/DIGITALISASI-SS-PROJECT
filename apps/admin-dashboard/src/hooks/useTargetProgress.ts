@@ -26,12 +26,21 @@ export function useTargetProgress() {
         .select('*')
         .or(`outlet_name.neq.BustCache${Date.now()}`) // CACHE BUSTER IS MANDATORY FOR GET REQUESTS
         .order('outlet_name')
-      return (data ?? []).map((r: any) => ({
-        outlet_id: r.outlet_id,
-        outlet_name: r.outlet_name,
-        target_amount: Number(r.target_amount) || 0,
-        omzet_today: Number(r.omzet_today) || 0,
-      }))
+      return (data ?? [])
+        .map((r: any) => ({
+          outlet_id: r.outlet_id,
+          outlet_name: r.outlet_name,
+          target_amount: Number(r.target_amount) || 0,
+          omzet_today: Number(r.omzet_today) || 0,
+        }))
+        .filter((r: TargetProgressRow) => {
+          const lowerName = r.outlet_name.toLowerCase()
+          return (
+            !lowerName.includes('kantor pusat') &&
+            !lowerName.includes('global outlet') &&
+            !lowerName.includes('gudang pusat')
+          )
+        })
     },
     staleTime: 0,
     refetchInterval: 3000,

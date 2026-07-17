@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Plus, Minus, Trash2, ShoppingBag, Loader2,
-  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer,
+  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, Camera,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -62,6 +62,8 @@ export default function OrderManualPage() {
   const [cartOpen, setCartOpen] = useState(false) // bottom sheet di mobile
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aiEnabled, setAiEnabled] = useState(false)
+  const [isScanning, setIsScanning] = useState(false)
   const [showInfo, setShowInfo] = useState(true)
   const [success, setSuccess] = useState<{ orderNumber: number; method: Payment | null; change: number | null } | null>(null)
 
@@ -79,6 +81,62 @@ export default function OrderManualPage() {
   >(null)
   // Bumped setelah transaksi sukses untuk me-remount panel (reset input tunai).
   const [walkInPanelKey, setWalkInPanelKey] = useState(0)
+
+  useEffect(() => {
+    supabase.from('global_settings').select('value').eq('key', 'enable_ai_receipt_parser').single().then(({ data }) => {
+      if (data?.value === 'true') setAiEnabled(true)
+    })
+  }, [supabase])
+
+  const handleScanImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsScanning(true)
+    
+    try {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1]
+        const menuText = items.map(i => `${i.id} - ${i.name} - Rp${i.price}`).join('\n')
+        
+        const res = await fetch('/api/parse-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: base64, menuText })
+        })
+        const data = await res.json()
+        if (data.error) throw new Error(data.error)
+        
+        const newLines = data.items.map((i: any) => {
+          const matchedMenu = items.find(m => m.name.toLowerCase() === i.name.toLowerCase())
+          return {
+            item: matchedMenu || { id: 'unmatched', name: i.name, price: i.price || 0, is_available: true, category_id: '' },
+            quantity: i.qty,
+            note: i.matched ? '' : 'UNMATCHED: PILIH MANUAL',
+            cartItemId: Math.random().toString(36).substring(2, 9)
+          }
+        })
+        
+        if (data.subsidies) {
+          data.subsidies.forEach((s: any) => {
+            newLines.push({
+              item: { id: 'subsidy', name: s.name, price: s.amount, is_available: true, category_id: '' },
+              quantity: 1,
+              note: '',
+              cartItemId: Math.random().toString(36).substring(2, 9)
+            })
+          })
+        }
+        
+        setLines(prev => [...prev, ...newLines])
+      }
+    } catch (err) {
+      alert('Gagal scan gambar')
+    } finally {
+      setIsScanning(false)
+    }
+  }
 
   const handleSwitchMode = (newMode: Mode) => {
     if (newMode !== mode) {
@@ -693,7 +751,14 @@ export default function OrderManualPage() {
         <div className="space-y-4 xl:space-y-5 min-w-0">
           {/* Channel selector (hanya mode online) */}
           {mode === 'online' && (
-          <div className="bg-white rounded-xl xl:rounded-2xl border border-gray-200 p-3.5 xl:p-4 shadow-sm">
+          <div className="bg-white rounded-xl xl:rounded-2xl border border-gray-200 p-3.5 xl:p-4 shadow-sm relative">
+            {aiEnabled && (
+              <label className="absolute right-3.5 top-3.5 flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm">
+                {isScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                {isScanning ? 'Membaca...' : 'Scan Struk AI'}
+                <input type="file" accept="image/*" className="hidden" onChange={handleScanImage} disabled={isScanning} />
+              </label>
+            )}
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">1. Pilih Channel</p>
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
               {CHANNELS.map((c) => {
@@ -1201,7 +1266,7 @@ function CartPanel(props: {
               const children = lineList.filter(l => l.parentId === root.cartItemId)
               const discountedPrice = calculateItemPrice(root.item.price, root.item.id)
               return (
-                <div key={root.cartItemId} className="py-2 flex flex-col gap-2 relative">
+                <div key={root.cartItemId} className={`py-2 flex flex-col gap-2 relative ${root.item.id === 'unmatched' ? 'border-2 border-red-400 bg-red-50 p-2 rounded-lg' : ''}`}>
                   {/* Vertical Line for Cart */}
                   {children.length > 0 && (
                     <div className="absolute left-[20px] top-10 bottom-4 w-[2px] bg-gray-200 z-0" />

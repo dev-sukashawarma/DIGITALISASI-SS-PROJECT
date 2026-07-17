@@ -36,26 +36,28 @@ export async function createOutlet(values: OutletFormValues) {
   if (primaryError) throw new Error(primaryError.message)
   
   // 2. Insert into Order Online (Secondary)
-  try {
-    const { error: secondaryError } = await orderOnline.from('outlets').insert({
-      id: outletId,
-      name: values.name,
-      slug: values.slug,
-      address: values.address || '-',
-      lat: values.lat || null,
-      lng: values.lng || null,
-      type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned', // match order online schema
-      is_active: values.is_active,
-    })
-    
-    if (secondaryError) {
-      // Rollback primary if secondary fails
+  if (orderOnline) {
+    try {
+      const { error: secondaryError } = await orderOnline.from('outlets').insert({
+        id: outletId,
+        name: values.name,
+        slug: values.slug,
+        address: values.address || '-',
+        lat: values.lat || null,
+        lng: values.lng || null,
+        type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned', // match order online schema
+        is_active: values.is_active,
+      })
+      
+      if (secondaryError) {
+        // Rollback primary if secondary fails
+        await supabase.from('outlets').delete().eq('id', outletId)
+        throw new Error(`Order Online Sync Error: ${secondaryError.message}`)
+      }
+    } catch (error: any) {
       await supabase.from('outlets').delete().eq('id', outletId)
-      throw new Error(`Order Online Sync Error: ${secondaryError.message}`)
+      throw new Error(error.message)
     }
-  } catch (error: any) {
-    await supabase.from('outlets').delete().eq('id', outletId)
-    throw new Error(error.message)
   }
 }
 
@@ -81,29 +83,31 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
   if (primaryError) throw new Error(primaryError.message)
   
   // 2. Update secondary (Order Online might not have this outlet yet if it's an old one)
-  try {
-    // Try to update first
-    const { error: secondaryError, count } = await orderOnline.from('outlets')
-      .update({
-        name: values.name,
-        slug: values.slug,
-        address: values.address || '-',
-        lat: values.lat || null,
-        lng: values.lng || null,
-        type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned',
-        is_active: values.is_active,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      
-    // If we use upsert, we might need all required fields, but update is safer.
-    // If it doesn't exist, we just ignore it since it's an old outlet not synced? 
-    // Actually, let's upsert it so it becomes available in Order Online!
-    if (secondaryError) {
-       console.error("Failed to sync outlet update to order online", secondaryError)
+  if (orderOnline) {
+    try {
+      // Try to update first
+      const { error: secondaryError, count } = await orderOnline.from('outlets')
+        .update({
+          name: values.name,
+          slug: values.slug,
+          address: values.address || '-',
+          lat: values.lat || null,
+          lng: values.lng || null,
+          type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned',
+          is_active: values.is_active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        
+      // If we use upsert, we might need all required fields, but update is safer.
+      // If it doesn't exist, we just ignore it since it's an old outlet not synced? 
+      // Actually, let's upsert it so it becomes available in Order Online!
+      if (secondaryError) {
+         console.error("Failed to sync outlet update to order online", secondaryError)
+      }
+    } catch (err) {
+      console.error("Order Online connection failed", err)
     }
-  } catch (err) {
-    console.error("Order Online connection failed", err)
   }
 }
 
@@ -115,7 +119,11 @@ export async function softDeleteOutlet(id: string) {
   const { error } = await supabase.from('outlets').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', id)
   if (error) throw new Error(error.message)
   
-  await orderOnline.from('outlets').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', id)
+  if (orderOnline) {
+    try {
+      await orderOnline.from('outlets').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', id)
+    } catch(err) { console.warn(err) }
+  }
 }
 
 export async function hardDeleteOutlet(id: string) {
@@ -126,5 +134,9 @@ export async function hardDeleteOutlet(id: string) {
   const { error } = await supabase.from('outlets').delete().eq('id', id)
   if (error) throw new Error(error.message)
   
-  await orderOnline.from('outlets').delete().eq('id', id)
+  if (orderOnline) {
+    try {
+      await orderOnline.from('outlets').delete().eq('id', id)
+    } catch(err) { console.warn(err) }
+  }
 }

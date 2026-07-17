@@ -73,38 +73,40 @@ export async function createStaffSync(values: StaffFormValues) {
   
   // 3. Create auth user in Order Online
   // For Order Online to have the exact same User credentials
-  try {
-    const { error: ooCreateError } = await orderOnline.auth.admin.createUser({
-      id: staffId, // USE SAME ID
-      email, 
-      password, 
-      email_confirm: true,
-      user_metadata: { role: 'outlet_staff', full_name: name, outlet_id },
-    });
-    
-    if (ooCreateError && !ooCreateError.message.includes('already exists')) {
-      throw new Error(`Order Online Auth Error: ${ooCreateError.message}`);
+  if (orderOnline) {
+    try {
+      const { error: ooCreateError } = await orderOnline.auth.admin.createUser({
+        id: staffId, // USE SAME ID
+        email, 
+        password, 
+        email_confirm: true,
+        user_metadata: { role: 'outlet_staff', full_name: name, outlet_id },
+      });
+      
+      if (ooCreateError && !ooCreateError.message.includes('already exists')) {
+        throw new Error(`Order Online Auth Error: ${ooCreateError.message}`);
+      }
+      
+      // 4. Insert into Order Online admin_users
+      const { error: ooAdminError } = await orderOnline.from("admin_users").upsert({
+        id: staffId,
+        email,
+        full_name: name,
+        role: 'outlet_staff',
+        outlet_id,
+        is_active: true
+      });
+      
+      if (ooAdminError) {
+        throw new Error(`Order Online Admin Users Error: ${ooAdminError.message}`);
+      }
+      
+    } catch (syncError: any) {
+      // Rollback Digitalisasi
+      await admin.from("outlet_staff").delete().eq("id", staffId);
+      await admin.auth.admin.deleteUser(staffId);
+      throw new Error(syncError.message);
     }
-    
-    // 4. Insert into Order Online admin_users
-    const { error: ooAdminError } = await orderOnline.from("admin_users").upsert({
-      id: staffId,
-      email,
-      full_name: name,
-      role: 'outlet_staff',
-      outlet_id,
-      is_active: true
-    });
-    
-    if (ooAdminError) {
-      throw new Error(`Order Online Admin Users Error: ${ooAdminError.message}`);
-    }
-    
-  } catch (syncError: any) {
-    // Rollback Digitalisasi
-    await admin.from("outlet_staff").delete().eq("id", staffId);
-    await admin.auth.admin.deleteUser(staffId);
-    throw new Error(syncError.message);
   }
 
   // Financials and staff_outlets omitted for brevity but should be here if needed 

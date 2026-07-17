@@ -21,10 +21,12 @@ export async function toggleMenuAvailability(id: string, currentStatus: boolean)
   
   await supabase.from('menu_items').update({ is_available: !currentStatus }).eq('id', id)
   
-  try {
-    await orderOnline.from('menu_items').update({ is_available: !currentStatus }).eq('id', id)
-  } catch (err) {
-    console.error('Failed to sync toggle menu to order online', err)
+  if (orderOnline) {
+    try {
+      await orderOnline.from('menu_items').update({ is_available: !currentStatus }).eq('id', id)
+    } catch (err) {
+      console.error('Failed to sync toggle menu to order online', err)
+    }
   }
   
   revalidatePath('/dashboard/pos-admin/menu')
@@ -44,10 +46,12 @@ export async function deleteMenuItem(id: string, imageUrl: string | null) {
   
   await supabase.from('menu_items').delete().eq('id', id)
   
-  try {
-    await orderOnline.from('menu_items').delete().eq('id', id)
-  } catch (err) {
-    console.error('Failed to sync delete menu to order online', err)
+  if (orderOnline) {
+    try {
+      await orderOnline.from('menu_items').delete().eq('id', id)
+    } catch (err) {
+      console.error('Failed to sync delete menu to order online', err)
+    }
   }
   
   revalidatePath('/dashboard/pos-admin/menu')
@@ -77,12 +81,14 @@ export async function saveMenuItem(form: Partial<MenuItem>) {
     if (data) finalId = data.id
   }
   
-  try {
-    if (finalId) {
-       await orderOnline.from('menu_items').upsert([{ id: finalId, ...payload }])
+  if (orderOnline) {
+    try {
+      if (finalId) {
+         await orderOnline.from('menu_items').upsert([{ id: finalId, ...payload }])
+      }
+    } catch (err) {
+      console.error('Failed to sync save menu to order online', err)
     }
-  } catch (err) {
-    console.error('Failed to sync save menu to order online', err)
   }
   
   revalidatePath('/dashboard/pos-admin/menu')
@@ -102,12 +108,14 @@ export async function deleteAllMenuItems(items: MenuItem[]) {
   const ids = items.map(i => i.id)
   await supabase.from('menu_items').delete().in('id', ids)
   
-  try {
-    if (ids.length > 0) {
-      await orderOnline.from('menu_items').delete().in('id', ids)
+  if (orderOnline) {
+    try {
+      if (ids.length > 0) {
+        await orderOnline.from('menu_items').delete().in('id', ids)
+      }
+    } catch (err) {
+      console.error('Failed to sync delete all menu to order online', err)
     }
-  } catch (err) {
-    console.error('Failed to sync delete all menu to order online', err)
   }
   
   revalidatePath('/dashboard/pos-admin/menu')

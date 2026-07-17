@@ -75,52 +75,54 @@ export async function savePromosAction(
   }
 
   // Sync to Order Online
-  try {
-    const { data: existingOOPromos } = await orderOnline.from('promos').select('id, applies_to, item_ids')
-    
-    const ooUpserts = []
-    
-    for (const p of promos) {
-      const appliesTo = p.scope === 'global' ? 'all' : 'item'
+  if (orderOnline) {
+    try {
+      const { data: existingOOPromos } = await orderOnline.from('promos').select('id, applies_to, item_ids')
       
-      // Check if it exists in OO
-      let existingOOId = null
-      if (existingOOPromos) {
-         const match = existingOOPromos.find((oop: any) => {
-           if (appliesTo === 'all' && oop.applies_to === 'all') return true
-           if (appliesTo === 'item' && oop.applies_to === 'item' && oop.item_ids?.includes(p.menu_item_id)) return true
-           return false
-         })
-         if (match) existingOOId = match.id
-      }
-
-      if (p.sync_to_order_online === false) {
-        // If they toggle it off, we remove it from Order Online
-        if (existingOOId) {
-          await orderOnline.from('promos').delete().eq('id', existingOOId)
+      const ooUpserts = []
+      
+      for (const p of promos) {
+        const appliesTo = p.scope === 'global' ? 'all' : 'item'
+        
+        // Check if it exists in OO
+        let existingOOId = null
+        if (existingOOPromos) {
+           const match = existingOOPromos.find((oop: any) => {
+             if (appliesTo === 'all' && oop.applies_to === 'all') return true
+             if (appliesTo === 'item' && oop.applies_to === 'item' && oop.item_ids?.includes(p.menu_item_id)) return true
+             return false
+           })
+           if (match) existingOOId = match.id
         }
-        continue
+
+        if (p.sync_to_order_online === false) {
+          // If they toggle it off, we remove it from Order Online
+          if (existingOOId) {
+            await orderOnline.from('promos').delete().eq('id', existingOOId)
+          }
+          continue
+        }
+        
+        ooUpserts.push({
+          id: existingOOId || crypto.randomUUID(),
+          name: p.scope === 'global' ? 'Global Discount' : 'Menu Discount',
+          discount_type: p.discount_type === 'percentage' ? 'percent' : 'fixed',
+          discount_value: Math.max(0.01, Number(p.discount_value) || 0),
+          min_purchase: p.min_purchase || 0,
+          end_at: p.end_date || null,
+          is_active: p.is_active,
+          applies_to: appliesTo,
+          outlet_ids: outletIds,
+          item_ids: p.scope === 'item' ? [p.menu_item_id] : null,
+        })
       }
       
-      ooUpserts.push({
-        id: existingOOId || crypto.randomUUID(),
-        name: p.scope === 'global' ? 'Global Discount' : 'Menu Discount',
-        discount_type: p.discount_type === 'percentage' ? 'percent' : 'fixed',
-        discount_value: Math.max(0.01, Number(p.discount_value) || 0),
-        min_purchase: p.min_purchase || 0,
-        end_at: p.end_date || null,
-        is_active: p.is_active,
-        applies_to: appliesTo,
-        outlet_ids: outletIds,
-        item_ids: p.scope === 'item' ? [p.menu_item_id] : null,
-      })
+      if (ooUpserts.length > 0) {
+         await orderOnline.from('promos').upsert(ooUpserts)
+      }
+    } catch (err) {
+      console.error('Order Online Promo Sync Error:', err)
     }
-    
-    if (ooUpserts.length > 0) {
-       await orderOnline.from('promos').upsert(ooUpserts)
-    }
-  } catch (err) {
-    console.error('Order Online Promo Sync Error:', err)
   }
 
   return { success: true }

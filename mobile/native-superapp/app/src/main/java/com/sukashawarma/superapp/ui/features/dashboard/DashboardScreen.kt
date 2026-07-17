@@ -83,7 +83,8 @@ fun DashboardScreen(staff: Staff?, onAppClick: (String) -> Unit = {}) {
             
             val appMeta = mapOf(
                 "Enrollment" to PortalApp("Enrollment", Icons.Default.Face, PortalTheme.Tertiary, PortalTheme.TertiaryContainer),
-                "Absensi" to PortalApp("Absensi", Icons.Default.Fingerprint, PortalTheme.Primary, PortalTheme.PrimaryContainer)
+                "Absensi" to PortalApp("Absensi", Icons.Default.Fingerprint, PortalTheme.Primary, PortalTheme.PrimaryContainer),
+                "Kalibrasi Wajah" to PortalApp("Kalibrasi Wajah", Icons.Default.Tune, PortalTheme.Secondary, PortalTheme.SecondaryContainer)
             )
             // Fase 1: hanya fitur fungsional. Tile Stok/Distribusi/POS/Kiosk/Dashboard menyusul
             // saat modulnya nyata (fase 3) — jangan tampilkan tombol mati.

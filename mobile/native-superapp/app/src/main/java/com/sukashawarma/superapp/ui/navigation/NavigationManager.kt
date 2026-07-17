@@ -20,7 +20,7 @@ class NavigationManager(private val authRepository: AuthRepository) {
             val allowed = when (screen) {
                 Screen.Login, Screen.Dashboard -> true
                 Screen.Attendance -> staff.role in Roles.ATTENDANCE
-                Screen.Enroll -> staff.role in Roles.ENROLLMENT
+                Screen.Enroll, Screen.FaceDebug -> staff.role in Roles.ENROLLMENT
                 Screen.Inventory, Screen.Fulfillment -> staff.role in Roles.STUB_MODULES
             }
             if (!allowed) {

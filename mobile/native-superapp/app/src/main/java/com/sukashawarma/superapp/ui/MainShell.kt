@@ -101,6 +101,7 @@ fun MainShell(
                     val target = when (appName) {
                         "Absensi" -> Screen.Attendance
                         "Enrollment" -> Screen.Enroll
+                        "Kalibrasi Wajah" -> Screen.FaceDebug
                         else -> null
                     }
                     if (target != null && navigationManager.navigateTo(target, currentStaff)) {
@@ -134,6 +135,9 @@ fun MainShell(
                         navController.popBackStack()
                     }
                 }
+            }
+            composable(Screen.FaceDebug.route) {
+                com.sukashawarma.superapp.ui.features.facedebug.FaceDebugScreen(onBackClick = { navController.popBackStack() })
             }
         }
     }

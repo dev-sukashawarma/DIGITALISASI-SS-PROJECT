@@ -15,7 +15,7 @@ class DashboardMenuTest {
     @Test
     fun spvDapatEnrollmentDanAbsensi() {
         for (role in listOf("spv", "leader", "korlap", "admin", "owner")) {
-            assertEquals("role=$role", listOf("Enrollment", "Absensi"), DashboardMenu.menuFor(role))
+            assertEquals("role=$role", listOf("Enrollment", "Kalibrasi Wajah", "Absensi"), DashboardMenu.menuFor(role))
         }
     }
 

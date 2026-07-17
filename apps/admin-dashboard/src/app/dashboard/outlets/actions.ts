@@ -15,7 +15,8 @@ async function getSupabase() {
 
 export async function createOutlet(values: OutletFormValues) {
   const supabase = await getSupabase()
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   const outletId = crypto.randomUUID()
   
@@ -60,7 +61,8 @@ export async function createOutlet(values: OutletFormValues) {
 
 export async function updateOutlet(id: string, values: OutletFormValues) {
   const supabase = await getSupabase()
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   const payload = {
     name: values.name,
@@ -107,7 +109,8 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
 
 export async function softDeleteOutlet(id: string) {
   const supabase = await getSupabase()
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   const { error } = await supabase.from('outlets').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', id)
   if (error) throw new Error(error.message)
@@ -117,7 +120,8 @@ export async function softDeleteOutlet(id: string) {
 
 export async function hardDeleteOutlet(id: string) {
   const supabase = await getSupabase()
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   const { error } = await supabase.from('outlets').delete().eq('id', id)
   if (error) throw new Error(error.message)

@@ -14,7 +14,8 @@ function getAdminSupabase() {
 
 export async function createStaffSync(values: StaffFormValues) {
   const admin = getAdminSupabase()
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   const {
     name, username, password, role, outlet_id, outlet_ids,

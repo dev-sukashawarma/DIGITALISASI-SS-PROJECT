@@ -9,7 +9,12 @@ export async function savePromosAction(
   promos: any[]
 ) {
   const supabase = await createClient()
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try {
+    orderOnline = createOrderOnlineAdminClient()
+  } catch (err) {
+    console.warn('Order Online client not configured, skipping sync.')
+  }
 
   if (!outlets || outlets.length === 0) {
     return { success: false, error: 'Tidak ada outlet aktif untuk diterapkan promo.' }

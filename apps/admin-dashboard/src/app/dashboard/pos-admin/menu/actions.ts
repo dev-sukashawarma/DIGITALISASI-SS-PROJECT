@@ -16,7 +16,8 @@ async function getSupabase() {
 
 export async function toggleMenuAvailability(id: string, currentStatus: boolean) {
   const supabase = await getSupabase()
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   await supabase.from('menu_items').update({ is_available: !currentStatus }).eq('id', id)
   
@@ -31,7 +32,8 @@ export async function toggleMenuAvailability(id: string, currentStatus: boolean)
 
 export async function deleteMenuItem(id: string, imageUrl: string | null) {
   const supabase = await getSupabase()
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   if (imageUrl) {
     const fileName = imageUrl.split('/').pop()
@@ -53,7 +55,8 @@ export async function deleteMenuItem(id: string, imageUrl: string | null) {
 
 export async function saveMenuItem(form: Partial<MenuItem>) {
   const supabase = await getSupabase()
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   const payload = {
     name: form.name,
@@ -87,7 +90,8 @@ export async function saveMenuItem(form: Partial<MenuItem>) {
 
 export async function deleteAllMenuItems(items: MenuItem[]) {
   const supabase = await getSupabase()
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   const fileNames = items.map(item => item.image_url?.split('/').pop()).filter(Boolean) as string[]
   

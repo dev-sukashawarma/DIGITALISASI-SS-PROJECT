@@ -12,13 +12,18 @@ export default async function AdminPromoPage() {
     setAll: () => {},
   })
   
-  const orderOnline = createOrderOnlineAdminClient()
+  let orderOnline: any = null
+  try {
+    orderOnline = createOrderOnlineAdminClient()
+  } catch (err) {
+    console.warn('Order Online client not configured, skipping sync checks.')
+  }
 
   // Fetch data in parallel
   const [menuRes, outletsRes, ooPromosRes] = await Promise.all([
     supabase.from('menu_items').select('id, name, price').eq('is_available', true).order('sort_order'),
     supabase.from('outlets').select('id, name').eq('is_active', true),
-    orderOnline.from('promos').select('applies_to, item_ids').catch(() => ({ data: [] }))
+    orderOnline ? orderOnline.from('promos').select('applies_to, item_ids').catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
   ])
   
   const initialMenuItems = menuRes.data || []

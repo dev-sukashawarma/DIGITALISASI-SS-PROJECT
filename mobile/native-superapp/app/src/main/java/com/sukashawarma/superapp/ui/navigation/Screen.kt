@@ -7,4 +7,5 @@ sealed class Screen(val route: String) {
     object Fulfillment : Screen("fulfillment")
     object Login : Screen("login")
     object Enroll : Screen("enroll")
+    object FaceDebug : Screen("face_debug")
 }

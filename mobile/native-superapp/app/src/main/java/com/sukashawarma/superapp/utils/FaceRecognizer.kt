@@ -51,16 +51,14 @@ class FaceRecognizer(context: Context) {
             e.printStackTrace()
             isModelLoaded = false
             loadError = e.message ?: "Unknown Error"
-            // Jika model belum diunduh dengan benar, fallback ke mode MOCK
+            // Jika model gagal dimuat, isModelLoaded=false → extractEmbedding gagal eksplisit (FloatArray kosong)
         }
     }
 
     fun extractEmbedding(bitmap: Bitmap): FloatArray {
-        val interp = interpreter
-        if (interp == null) {
-            // MOCK MODE: Return dummy embedding jika model belum ada
-            return FloatArray(outputSize) { 0.5f }
-        }
+        // Model tidak ter-load = kegagalan nyata. FloatArray kosong → semua jalur pemanggil
+        // (cek embedding.isNotEmpty() + guard cosineSimilarity) gagal eksplisit. TIDAK ADA mock.
+        val interp = interpreter ?: return FloatArray(0)
 
         val resizedBitmap = Bitmap.createScaledBitmap(bitmap, inputImageSize, inputImageSize, false)
         val byteBuffer = convertBitmapToByteBuffer(resizedBitmap)
@@ -123,7 +121,16 @@ class FaceRecognizer(context: Context) {
     }
 
     companion object {
+        /**
+         * Threshold cosine similarity verifikasi 1:1.
+         * Nilai awal 0.80 — WAJIB dikalibrasi ulang via FaceDebugScreen setiap ganti model
+         * (lihat Task 9 plan fase 1). Pola kalibrasi web dulu: titik tengah skor orang-sama vs orang-beda.
+         */
+        const val MOBILE_MATCH_THRESHOLD = 0.80f
+
         fun cosineSimilarity(vectorA: FloatArray, vectorB: FloatArray): Float {
+            // Guard dimensi: descriptor lama/korup vs model baru → gagal eksplisit, bukan crash
+            if (vectorA.isEmpty() || vectorA.size != vectorB.size) return -1f
             var dotProduct = 0.0
             var normA = 0.0
             var normB = 0.0

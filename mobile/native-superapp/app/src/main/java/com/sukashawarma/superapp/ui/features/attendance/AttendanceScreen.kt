@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
@@ -74,6 +75,12 @@ fun AttendanceScreen(
     staffFaceDescriptor: FloatArray? = null,
     onBackClick: () -> Unit = {}
 ) {
+    if (staffFaceDescriptor == null || staffFaceDescriptor.isEmpty()) {
+        NotEnrolledScreen(staffName = staffName, onBackClick = onBackClick)
+        return
+    }
+    val enrolledDescriptor = staffFaceDescriptor
+
     val coroutineScope = rememberCoroutineScope()
     var currentTime by remember { mutableStateOf("") }
     var currentDate by remember { mutableStateOf("") }
@@ -332,7 +339,7 @@ fun AttendanceScreen(
                     // Action Area (Fingerprint Scanner Button)
                     ActionArea(
                         staffName = staffName,
-                        staffFaceDescriptor = staffFaceDescriptor,
+                        staffFaceDescriptor = enrolledDescriptor,
                         isClockedIn = isClockedIn,
                         isDayCompleted = isDayCompleted,
                         isScanning = isScanning,
@@ -411,31 +418,6 @@ fun AttendanceScreen(
                     )
                 }
 
-                // Tombol sementara untuk Bypass Scan Wajah di Emulator tanpa Webcam
-                Button(
-                    onClick = {
-                        val dummyBitmap = android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
-                        coroutineScope.launch {
-                            isScanning = false
-                            if (!isClockedIn) {
-                                isClockedIn = true
-                                clockInTime = currentTime
-                                clockInSelfie = dummyBitmap
-                                attendanceCount += 1
-                            } else {
-                                isClockedIn = false
-                                isDayCompleted = true
-                                clockOutTime = currentTime
-                                clockOutSelfie = dummyBitmap
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
-                ) {
-                    Text("Bypass Scan Wajah (Debug)")
-                }
-                
                 // Lokasi Card
                 LocationInfoCard()
 
@@ -451,6 +433,31 @@ fun AttendanceScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun NotEnrolledScreen(staffName: String?, onBackClick: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.Default.Face,
+            contentDescription = null,
+            modifier = Modifier.size(72.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Wajah Belum Terdaftar", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Halo${staffName?.let { ", $it" } ?: ""}. Kamu belum punya data wajah untuk absensi di aplikasi ini. Hubungi SPV/Leader untuk pendaftaran wajah (menu Enrollment).",
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(24.dp))
+        Button(onClick = onBackClick) { Text("Kembali") }
     }
 }
 
@@ -554,7 +561,7 @@ enum class LivenessState { INIT, STRAIGHT, RIGHT, LEFT, MATCHING, VERIFIED }
 @Composable
 private fun ActionArea(
     staffName: String?,
-    staffFaceDescriptor: FloatArray? = null,
+    staffFaceDescriptor: FloatArray,
     isClockedIn: Boolean,
     isDayCompleted: Boolean,
     isScanning: Boolean,
@@ -726,23 +733,19 @@ private fun ActionArea(
                                                                     val embedding = faceRecognizer.extractEmbedding(faceBitmap)
                                                                     
                                                                     if (embedding.isNotEmpty()) {
-                                                                        if (staffFaceDescriptor != null) {
-                                                                            val dbFirst3 = staffFaceDescriptor.take(3).joinToString { String.format("%.3f", it) }
-                                                                            val liveFirst3 = embedding.take(3).joinToString { String.format("%.3f", it) }
+                                                                        if (staffFaceDescriptor.size != embedding.size) {
+                                                                            livenessState = LivenessState.INIT
+                                                                            debugMessage = "Data wajah tidak cocok dengan model (${staffFaceDescriptor.size}d vs ${embedding.size}d). Hubungi SPV untuk enroll ulang."
+                                                                        } else {
                                                                             val similarity = FaceRecognizer.cosineSimilarity(embedding, staffFaceDescriptor)
-                                                                            android.util.Log.d("FACE_MATCH", "DB[${staffFaceDescriptor.size}]: $dbFirst3 | Live[${embedding.size}]: $liveFirst3 | Sim=$similarity")
-                                                                            // Threshold dinaikkan ke 0.85 untuk mencegah orang lain/teman lolos
-                                                                            if (similarity >= 0.85f) {
+                                                                            android.util.Log.d("FACE_MATCH", "Sim=$similarity (dims ${embedding.size})")
+                                                                            if (similarity >= FaceRecognizer.MOBILE_MATCH_THRESHOLD) {
                                                                                 livenessState = LivenessState.STRAIGHT
                                                                                 debugMessage = "Cocok! (Sim: ${String.format("%.4f", similarity)})"
                                                                             } else {
                                                                                 livenessState = LivenessState.INIT
-                                                                                debugMessage = "Sim: ${String.format("%.4f", similarity)} DB[$dbFirst3] Live[$liveFirst3]"
+                                                                                debugMessage = "Wajah tidak cocok (Sim: ${String.format("%.4f", similarity)})"
                                                                             }
-                                                                        } else {
-                                                                            // Jika belum terdaftar di DB
-                                                                            livenessState = LivenessState.STRAIGHT
-                                                                            debugMessage = "FaceDesc NULL! Bypass"
                                                                         }
                                                                     } else {
                                                                         livenessState = LivenessState.INIT
@@ -781,9 +784,9 @@ private fun ActionArea(
                                                                 val faceBitmap = android.graphics.Bitmap.createBitmap(finalBitmap, cropLeft, cropTop, cropRight - cropLeft, cropBottom - cropTop)
                                                                 val finalEmbedding = faceRecognizer.extractEmbedding(faceBitmap)
                                                                 
-                                                                if (finalEmbedding.isNotEmpty() && staffFaceDescriptor != null) {
+                                                                if (finalEmbedding.isNotEmpty()) {
                                                                     val similarity = FaceRecognizer.cosineSimilarity(finalEmbedding, staffFaceDescriptor)
-                                                                    if (similarity >= 0.80f) {
+                                                                    if (similarity >= FaceRecognizer.MOBILE_MATCH_THRESHOLD) {
                                                                         livenessState = LivenessState.VERIFIED
                                                                         failedVerifyCount = 0
                                                                     } else {
@@ -800,8 +803,8 @@ private fun ActionArea(
                                                                         }
                                                                     }
                                                                 } else {
-                                                                    // Bypass
-                                                                    livenessState = LivenessState.VERIFIED
+                                                                    livenessState = LivenessState.INIT
+                                                                    debugMessage = "Gagal verifikasi final — ulangi dari awal"
                                                                 }
                                                             }
                                                         } catch (e: Exception) {

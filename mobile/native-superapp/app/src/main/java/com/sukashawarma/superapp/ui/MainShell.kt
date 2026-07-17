@@ -98,10 +98,14 @@ fun MainShell(
             }
             composable(Screen.Dashboard.route) { 
                 DashboardScreen(currentStaff) { appName ->
-                    if (appName == "Absensi") {
-                        navController.navigate(Screen.Attendance.route)
-                    } else if (appName == "Enrollment") {
-                        navController.navigate(Screen.Enroll.route)
+                    val target = when (appName) {
+                        "Absensi" -> Screen.Attendance
+                        "Enrollment" -> Screen.Enroll
+                        "Kalibrasi Wajah" -> Screen.FaceDebug
+                        else -> null
+                    }
+                    if (target != null && navigationManager.navigateTo(target, currentStaff)) {
+                        navController.navigate(target.route)
                     }
                 }
             }
@@ -132,6 +136,9 @@ fun MainShell(
                     }
                 }
             }
+            composable(Screen.FaceDebug.route) {
+                com.sukashawarma.superapp.ui.features.facedebug.FaceDebugScreen(onBackClick = { navController.popBackStack() })
+            }
         }
     }
 
@@ -143,7 +150,7 @@ fun MainShell(
                     title = {
                         Column {
                             Text("SUKA Portal", fontWeight = FontWeight.Bold, color = stitchPrimary, fontSize = 18.sp)
-                            Text("Halo, ${currentStaff?.name ?: "Andi"}", fontSize = 13.sp, color = Color.Gray)
+                            currentStaff?.name?.let { Text("Halo, $it", fontSize = 13.sp, color = Color.Gray) }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = stitchBackground),
@@ -160,26 +167,9 @@ fun MainShell(
                         }
                     }
                 )
-            },
-            bottomBar = {
-                NavigationBar(containerColor = Color.White.copy(alpha = 0.9f), tonalElevation = 8.dp, modifier = Modifier.height(72.dp)) {
-                    val items = listOf("Beranda" to Icons.Default.Home, "Aktivitas" to Icons.Default.History, "Notifikasi" to Icons.Default.Notifications, "Profil" to Icons.Default.Person)
-                    items.forEach { (label, icon) ->
-                        val isSelected = label == "Beranda"
-                        NavigationBarItem(
-                            selected = isSelected,
-                            onClick = { },
-                            icon = { Icon(icon, null, modifier = Modifier.size(24.dp)) },
-                            label = { Text(label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = stitchPrimary,
-                                unselectedIconColor = Color.Gray,
-                                indicatorColor = Color(0xFFFFDCC2)
-                            )
-                        )
-                    }
-                }
             }
+            // Bottom nav fungsional = fase 3. Tombol dekoratif (onClick kosong) dihapus —
+            // jangan tampilkan navigasi yang tidak benar-benar berfungsi.
         ) { padding -> contentBlock(padding) }
     } else {
         contentBlock(PaddingValues(0.dp))

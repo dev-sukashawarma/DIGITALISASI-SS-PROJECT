@@ -39,7 +39,7 @@ private interface SupabaseClientDelegate : AuthRepository, SyncRepository, Realt
     suspend fun getStaffList(outletId: String): List<Staff>
     suspend fun getOutlet(outletId: String): Outlet?
     suspend fun uploadFaceReference(outletId: String, staffId: String, photoData: ByteArray): String
-    suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String)
+    suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String, hasExistingConsent: Boolean)
     
     // Attendance Methods
     suspend fun getConfig(outletId: String): OutletAttendanceConfigDto?
@@ -104,7 +104,8 @@ class SupabaseClient(val isTesting: Boolean = true) : AuthRepository, SyncReposi
     suspend fun getStaffList(outletId: String): List<Staff> = delegate.getStaffList(outletId)
     suspend fun getOutlet(outletId: String): Outlet? = delegate.getOutlet(outletId)
     suspend fun uploadFaceReference(outletId: String, staffId: String, photoData: ByteArray): String = delegate.uploadFaceReference(outletId, staffId, photoData)
-    suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String) = delegate.saveEnrollment(staffId, descriptor, photoUrl, isReEnroll, reason, adminId)
+    suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String, hasExistingConsent: Boolean) =
+        delegate.saveEnrollment(staffId, descriptor, photoUrl, isReEnroll, reason, adminId, hasExistingConsent)
 
     suspend fun getConfig(outletId: String): OutletAttendanceConfigDto? = delegate.getConfig(outletId)
     suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRecordDto? = delegate.getTodayAttendance(staffId, type)
@@ -325,7 +326,7 @@ private class ProductionDelegate : SupabaseClientDelegate {
     override fun getUserRole(identifier: String): String {
         val user = realClient?.auth?.currentUserOrNull()
         val metadataRole = user?.userMetadata?.get("role")?.toString()?.removeSurrounding("\"")
-        return metadataRole ?: "cashier"
+        return metadataRole ?: "crew"
     }
 
     override suspend fun getStaffProfile(identifier: String): Staff? {
@@ -335,7 +336,8 @@ private class ProductionDelegate : SupabaseClientDelegate {
         val username = identifier.substringBefore("@")
         
         // Hanya ambil kolom utama, HINDARI JOIN (outlets(name)) karena sering menyebabkan PostgREST error
-        val cols = io.github.jan.supabase.postgrest.query.Columns.raw("id, outlet_id, name, role, face_descriptor, enrolled_at, re_enrolled_at, re_enrolled_by, re_enroll_reason, ref_photo_url, consent_at, consent_by")
+        // Kolom MOBILE (bukan kolom web face_descriptor/enrolled_at/ref_photo_url yang dipakai app absensi web produksi)
+        val cols = io.github.jan.supabase.postgrest.query.Columns.raw("id, outlet_id, name, role, face_descriptor_mobile, mobile_enrolled_at, ref_photo_url_mobile, consent_at, consent_by")
         
         // 1. Coba cari berdasarkan ID (Metode paling benar)
         var result = clientObj.postgrest["outlet_staff"].select(columns = cols) {
@@ -378,12 +380,9 @@ private class ProductionDelegate : SupabaseClientDelegate {
             name = result.name,
             role = result.role,
             assignedOutletId = outletName,
-            faceDescriptor = result.faceDescriptor?.toFloatArray(),
-            enrolledAt = result.enrolledAt,
-            reEnrolledAt = result.reEnrolledAt,
-            reEnrolledBy = result.reEnrolledBy,
-            reEnrollReason = result.reEnrollReason,
-            refPhotoUrl = result.refPhotoUrl,
+            faceDescriptor = result.faceDescriptorMobile?.toFloatArray(),
+            enrolledAt = result.mobileEnrolledAt,
+            refPhotoUrl = result.refPhotoUrlMobile,
             consentAt = result.consentAt,
             consentBy = result.consentBy
         )
@@ -391,7 +390,8 @@ private class ProductionDelegate : SupabaseClientDelegate {
 
     override suspend fun getStaffList(outletId: String): List<Staff> {
         val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
-        val cols = io.github.jan.supabase.postgrest.query.Columns.raw("id, outlet_id, name, role, face_descriptor, enrolled_at, re_enrolled_at, re_enrolled_by, re_enroll_reason, ref_photo_url, consent_at, consent_by")
+        // Kolom MOBILE (bukan kolom web face_descriptor/enrolled_at/ref_photo_url yang dipakai app absensi web produksi)
+        val cols = io.github.jan.supabase.postgrest.query.Columns.raw("id, outlet_id, name, role, face_descriptor_mobile, mobile_enrolled_at, ref_photo_url_mobile, consent_at, consent_by")
         val results = clientObj.postgrest["outlet_staff"].select(columns = cols) {
             filter {
                 if (outletId != "Pusat (Semua Outlet)") {
@@ -399,19 +399,16 @@ private class ProductionDelegate : SupabaseClientDelegate {
                 }
             }
         }.decodeList<OutletStaffDto>()
-        
+
         return results.map { result ->
             Staff(
                 id = result.id,
                 name = result.name,
                 role = result.role,
                 assignedOutletId = result.outletId ?: "Pusat (Semua Outlet)",
-                faceDescriptor = result.faceDescriptor?.toFloatArray(),
-                enrolledAt = result.enrolledAt,
-                reEnrolledAt = result.reEnrolledAt,
-                reEnrolledBy = result.reEnrolledBy,
-                reEnrollReason = result.reEnrollReason,
-                refPhotoUrl = result.refPhotoUrl,
+                faceDescriptor = result.faceDescriptorMobile?.toFloatArray(),
+                enrolledAt = result.mobileEnrolledAt,
+                refPhotoUrl = result.refPhotoUrlMobile,
                 consentAt = result.consentAt,
                 consentBy = result.consentBy
             )
@@ -451,7 +448,7 @@ private class ProductionDelegate : SupabaseClientDelegate {
 
     override suspend fun uploadFaceReference(outletId: String, staffId: String, photoData: ByteArray): String {
         val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
-        val refPath = "$outletId/$staffId.jpg"
+        val refPath = "$outletId/${staffId}_mobile.jpg"
         clientObj.storage.from("face-refs").upload(
             path = refPath,
             data = photoData
@@ -461,41 +458,18 @@ private class ProductionDelegate : SupabaseClientDelegate {
         return refPath
     }
 
-    @kotlinx.serialization.Serializable
-    private data class EnrollmentUpdateDto(
-        @kotlinx.serialization.SerialName("face_descriptor") val faceDescriptor: List<Float>,
-        @kotlinx.serialization.SerialName("ref_photo_url") val refPhotoUrl: String,
-        @kotlinx.serialization.SerialName("consent_at") val consentAt: String,
-        @kotlinx.serialization.SerialName("consent_by") val consentBy: String,
-        @kotlinx.serialization.SerialName("enrolled_at") val enrolledAt: String,
-        @kotlinx.serialization.SerialName("re_enrolled_at") val reEnrolledAt: String? = null,
-        @kotlinx.serialization.SerialName("re_enrolled_by") val reEnrolledBy: String? = null,
-        @kotlinx.serialization.SerialName("re_enroll_reason") val reEnrollReason: String? = null
-    )
-
-    override suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String) {
+    override suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String, hasExistingConsent: Boolean) {
         val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
-        val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply { 
-            timeZone = java.util.TimeZone.getTimeZone("UTC") 
+        val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
         }.format(java.util.Date())
-        
-        android.util.Log.d("ENROLL", "Saving descriptor with ${descriptor.size} floats for $staffId")
-        
-        val updateDto = EnrollmentUpdateDto(
-            faceDescriptor = descriptor.toList(),
-            refPhotoUrl = photoUrl,
-            consentAt = now,
-            consentBy = adminId,
-            enrolledAt = now,
-            reEnrolledAt = if (isReEnroll) now else null,
-            reEnrolledBy = if (isReEnroll) adminId else null,
-            reEnrollReason = if (isReEnroll) reason else null
-        )
-        
-        clientObj.postgrest["outlet_staff"].update(updateDto) {
+
+        android.util.Log.d("ENROLL", "Saving MOBILE descriptor ${descriptor.size}d for $staffId")
+
+        val payload = EnrollmentPayload.build(descriptor, photoUrl, now, adminId, isReEnroll, reason, hasExistingConsent)
+        clientObj.postgrest["outlet_staff"].update(payload) {
             filter { eq("id", staffId) }
         }
-        android.util.Log.d("ENROLL", "Successfully saved to database")
     }
 
     override suspend fun getConfig(outletId: String): OutletAttendanceConfigDto? {
@@ -691,9 +665,9 @@ private class MockDelegate : SupabaseClientDelegate {
     override fun getUserRole(identifier: String): String {
         return when {
             identifier.contains("admin") -> "admin"
-            identifier.contains("cashier") -> "cashier"
-            identifier.contains("kitchen") -> "kitchen_staff"
-            identifier.contains("manager") -> "manager"
+            identifier.contains("kasir") -> "kasir"
+            identifier.contains("kitchen") -> "kitchen"
+            identifier.contains("spv") -> "spv"
             else -> "admin"
         }
     }
@@ -701,10 +675,10 @@ private class MockDelegate : SupabaseClientDelegate {
     override suspend fun getStaffProfile(identifier: String): Staff? {
         if (shouldTimeout) throw TimeoutException("Connection timed out")
         if (isOffline) throw IOException("No network connection")
-        
+
         val username = identifier.substringBefore("@")
         return when {
-            username == "valid" || username == "admin" || username == "cashier" || username == "kitchen" || username == "manager" -> Staff(
+            username == "valid" || username == "admin" || username == "kasir" || username == "kitchen" || username == "spv" -> Staff(
                 id = "mock-id-$username",
                 name = username,
                 role = getUserRole(identifier),
@@ -716,8 +690,8 @@ private class MockDelegate : SupabaseClientDelegate {
 
     override suspend fun getStaffList(outletId: String): List<Staff> {
         return listOf(
-            Staff(id = "mock-1", name = "Budi (Belum)", role = "cashier", assignedOutletId = outletId, enrolledAt = null),
-            Staff(id = "mock-2", name = "Andi (Sudah)", role = "kitchen_staff", assignedOutletId = outletId, enrolledAt = "2026-06-20T10:00:00Z")
+            Staff(id = "mock-1", name = "Budi (Belum)", role = "kasir", assignedOutletId = outletId, enrolledAt = null),
+            Staff(id = "mock-2", name = "Andi (Sudah)", role = "kitchen", assignedOutletId = outletId, enrolledAt = "2026-06-20T10:00:00Z")
         )
     }
 
@@ -732,10 +706,10 @@ private class MockDelegate : SupabaseClientDelegate {
     }
 
     override suspend fun uploadFaceReference(outletId: String, staffId: String, photoData: ByteArray): String {
-        return "$outletId/$staffId.jpg"
+        return "$outletId/${staffId}_mobile.jpg"
     }
 
-    override suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String) {
+    override suspend fun saveEnrollment(staffId: String, descriptor: FloatArray, photoUrl: String, isReEnroll: Boolean, reason: String?, adminId: String, hasExistingConsent: Boolean) {
         // no-op in mock
     }
 

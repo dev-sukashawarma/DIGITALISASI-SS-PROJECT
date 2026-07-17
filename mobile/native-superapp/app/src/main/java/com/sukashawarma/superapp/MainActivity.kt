@@ -25,12 +25,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        val authRepository = if (SupabaseClient.isInitialized()) {
-            SupabaseClient.getInstance()
-        } else {
-            SupabaseClient(isTesting = true)
-        }
-        
+        // Fail-fast: SuperAppApplication.onCreate SELALU initialize. Kalau sampai throw di sini,
+        // itu bug wiring yang harus ketahuan di dev — bukan diam-diam jalan pakai mock.
+        val authRepository = SupabaseClient.getInstance()
+
         val viewModel = ViewModelProvider(this)[MainViewModel::class.java]
         val navigationManager = viewModel.getNavigationManager(authRepository)
         

@@ -16,18 +16,13 @@ data class OutletStaffDto(
     val outletId: String? = null,
     val name: String,
     val role: String,
-    @SerialName("face_descriptor")
-    val faceDescriptor: List<Float>? = null,
-    @SerialName("enrolled_at")
-    val enrolledAt: String? = null,
-    @SerialName("re_enrolled_at")
-    val reEnrolledAt: String? = null,
-    @SerialName("re_enrolled_by")
-    val reEnrolledBy: String? = null,
-    @SerialName("re_enroll_reason")
-    val reEnrollReason: String? = null,
-    @SerialName("ref_photo_url")
-    val refPhotoUrl: String? = null,
+    // Kolom MOBILE — descriptor TFLite Android. Kolom web (face_descriptor dkk) sengaja tidak di-select.
+    @SerialName("face_descriptor_mobile")
+    val faceDescriptorMobile: List<Float>? = null,
+    @SerialName("mobile_enrolled_at")
+    val mobileEnrolledAt: String? = null,
+    @SerialName("ref_photo_url_mobile")
+    val refPhotoUrlMobile: String? = null,
     @SerialName("consent_at")
     val consentAt: String? = null,
     @SerialName("consent_by")
@@ -46,9 +41,9 @@ data class Outlet(
 data class Staff(
     val id: String,
     val name: String,
-    val role: String, // "admin", "cashier", "kitchen_staff", "manager"
+    val role: String, // role kanonik: admin, owner, spv, leader, korlap, kasir, crew, kiosk, kitchen, mitra, staff_pusat
     val assignedOutletId: String,
-    val faceDescriptor: FloatArray? = null,
+    val faceDescriptor: FloatArray? = null, // MOBILE descriptor (kolom face_descriptor_mobile)
     val enrolledAt: String? = null,
     val reEnrolledAt: String? = null,
     val reEnrolledBy: String? = null,

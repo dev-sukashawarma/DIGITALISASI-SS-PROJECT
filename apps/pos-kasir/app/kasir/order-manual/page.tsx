@@ -1406,24 +1406,28 @@ function CartPanel(props: {
           <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
         )}
 
-        {/* Konfirmasi */}
-        <button
-          onClick={() => {
-            if (payment === 'qris') {
-              setOnlineQrisOpen(true)
-            } else {
-              onSubmit(amountReceived)
-            }
-          }}
-          disabled={payment === 'cash' ? !canPayCash : !canSubmit}
-          className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm shadow-amber-200 flex items-center justify-center gap-2 transition-all active:scale-95"
-        >
-          {submitting ? (
-            <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
-          ) : (
-            <><CheckCircle2 className="w-5 h-5" /> Konfirmasi (Diproses)</>
-          )}
-        </button>
+        {/* Konfirmasi / Tampilkan QRIS */}
+        {payment === 'qris' ? (
+          <button
+            onClick={() => setOnlineQrisOpen(true)}
+            disabled={!canSubmit}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <QrCode className="w-5 h-5" /> Tampilkan QRIS
+          </button>
+        ) : (
+          <button
+            onClick={() => onSubmit(amountReceived)}
+            disabled={payment === 'cash' ? !canPayCash : !canSubmit}
+            className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm shadow-amber-200 flex items-center justify-center gap-2 transition-all active:scale-95"
+          >
+            {submitting ? (
+              <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
+            ) : (
+              <><CheckCircle2 className="w-5 h-5" /> Konfirmasi (Diproses)</>
+            )}
+          </button>
+        )}
         {!canSubmit && !submitting && (
           <p className="text-xs text-gray-400 text-center -mt-1">
             {lineList.length === 0 ? 'Pilih minimal 1 menu' : !channel ? 'Pilih channel dulu' : !payment ? 'Pilih metode pembayaran' : ''}

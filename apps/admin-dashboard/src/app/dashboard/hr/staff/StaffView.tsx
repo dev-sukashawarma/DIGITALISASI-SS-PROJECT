@@ -150,7 +150,12 @@ export default function StaffPage() {
 
       <StaffTable
         rows={rows}
-        onEdit={(s) => { setShowForm(false); setShowImport(false); setEditing(s) }}
+        onEdit={(s) => { 
+          setShowForm(false); 
+          setShowImport(false); 
+          setEditing(s);
+          setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
+        }}
         onResetPassword={(s) => setResetting(s)}
         onToggleStatus={handleToggleStatus}
         onDelete={handleDelete}

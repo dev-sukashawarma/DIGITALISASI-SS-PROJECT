@@ -34,7 +34,7 @@ export interface ReceiptData {
   subtotal: number
   discount: number
   total: number
-  paymentMethod: 'cash' | 'qris'
+  paymentMethod: 'cash' | 'qris' | 'card'
   amountReceived?: number | null
   changeAmount?: number | null
   cashierName?: string | null
@@ -58,7 +58,7 @@ export function buildReceiptHtml(
     hour: '2-digit', minute: '2-digit',
   })
 
-  const payLabel = d.paymentMethod === 'cash' ? 'TUNAI' : 'QRIS'
+  const payLabel = d.paymentMethod === 'cash' ? 'TUNAI' : d.paymentMethod === 'card' ? 'DEBIT/KREDIT' : 'QRIS'
   const cashRows = d.paymentMethod === 'cash'
     ? `
       <div class="row"><span>Tunai</span><span>${formatRupiah(d.amountReceived ?? 0)}</span></div>

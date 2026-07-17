@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import {
   ShoppingBag, Trash2, Minus, Plus, StickyNote, Loader2, CheckCircle2,
-  Banknote, QrCode, X,
+  Banknote, QrCode, X, CreditCard,
 } from 'lucide-react'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem } from '@/types'
@@ -16,7 +16,7 @@ export interface Line {
   parentId?: string
 }
 
-export type Payment = 'cash' | 'qris'
+export type Payment = 'cash' | 'qris' | 'card'
 
 // Nominal cepat yang umum di kasir (di luar "uang pas")
 const QUICK_CASH = [20000, 50000, 100000, 150000, 200000]
@@ -59,6 +59,7 @@ export function WalkInCartPanel(props: {
 
   const canPayCash = lineList.length > 0 && cashEnough && !submitting && customerName.trim() !== ''
   const canOpenQris = lineList.length > 0 && !submitting && customerName.trim() !== ''
+  const canPayCard = lineList.length > 0 && !submitting && customerName.trim() !== ''
 
   const qrData = useMemo(
     () => `shawarma-kasir://pay?amount=${totalPrice}`,
@@ -196,7 +197,7 @@ export function WalkInCartPanel(props: {
           {/* Metode bayar */}
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Metode Pembayaran</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => setPayment('cash')}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
@@ -208,6 +209,12 @@ export function WalkInCartPanel(props: {
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
               >
                 <QrCode className="w-4 h-4" /> QRIS
+              </button>
+              <button
+                onClick={() => setPayment('card')}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'card' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+              >
+                <CreditCard className="w-4 h-4" /> Debit
               </button>
             </div>
           </div>
@@ -298,25 +305,25 @@ export function WalkInCartPanel(props: {
         )}
 
         {/* Tombol bayar */}
-        {payment === 'cash' ? (
-          <button
-            onClick={() => onPay('cash', amountReceived)}
-            disabled={!canPayCash}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm shadow-emerald-200 flex items-center justify-center gap-2 transition-all active:scale-95"
-          >
-            {submitting ? (
-              <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
-            ) : (
-              <><CheckCircle2 className="w-5 h-5" /> Bayar & Cetak Struk</>
-            )}
-          </button>
-        ) : (
+        {payment === 'qris' ? (
           <button
             onClick={() => setQrisOpen(true)}
             disabled={!canOpenQris}
             className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm shadow-blue-200 flex items-center justify-center gap-2 transition-all active:scale-95"
           >
             <QrCode className="w-5 h-5" /> Tampilkan QRIS
+          </button>
+        ) : (
+          <button
+            onClick={() => onPay(payment, payment === 'cash' ? amountReceived : null)}
+            disabled={payment === 'cash' ? !canPayCash : !canPayCard}
+            className={`w-full ${payment === 'card' ? 'bg-purple-500 hover:bg-purple-600 shadow-purple-200' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200'} disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95`}
+          >
+            {submitting ? (
+              <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
+            ) : (
+              <><CheckCircle2 className="w-5 h-5" /> Bayar & Cetak Struk</>
+            )}
           </button>
         )}
         {lineList.length === 0 ? (

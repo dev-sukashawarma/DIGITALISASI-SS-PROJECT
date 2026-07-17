@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/Skeleton'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { fetchWithTimeout } from '@/lib/offline-utils'
+import CustomDatePicker from '@/components/CustomDatePicker'
 
 import BonusTab from './BonusTab'
 
@@ -36,17 +37,70 @@ const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
   pending:   'Tandai Selesai',
 }
 
-async function fetchHistoriOrders(outletId: string, filter: OrderStatus | 'all'): Promise<OrderWithItems[]> {
+async function fetchHistoriOrders(
+  outletId: string, 
+  filter: OrderStatus | 'all',
+  dateFilter: string,
+  customStart: string,
+  customEnd: string,
+  paymentFilter: string,
+  channelFilter: string
+): Promise<OrderWithItems[]> {
   const supabase = createClient()
+  
+  let startIso: string | null = null
+  let endIso: string | null = null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  if (dateFilter === 'today') {
+    startIso = today.toISOString()
+  } else if (dateFilter === 'yesterday') {
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayEnd = new Date(today)
+    startIso = yesterday.toISOString()
+    endIso = yesterdayEnd.toISOString()
+  } else if (dateFilter === '7d') {
+    const d7 = new Date(today)
+    d7.setDate(d7.getDate() - 7)
+    startIso = d7.toISOString()
+  } else if (dateFilter === '30d') {
+    const d30 = new Date(today)
+    d30.setDate(d30.getDate() - 30)
+    startIso = d30.toISOString()
+  } else if (dateFilter === 'custom' && customStart && customEnd) {
+    const start = new Date(customStart)
+    start.setHours(0,0,0,0)
+    const end = new Date(customEnd)
+    end.setHours(23,59,59,999)
+    startIso = start.toISOString()
+    endIso = end.toISOString()
+  }
+
   try {
-    const q = supabase.from('orders').select('*, order_items(*)')
+    let q = supabase.from('orders').select('*, order_items(id, menu_item_name, quantity, subtotal)')
       .eq('outlet_id', outletId)
-      .order('created_at', { ascending: false }).limit(100)
-    if (filter !== 'all') q.eq('status', filter)
+      .order('created_at', { ascending: false })
+      
+    if (filter !== 'all') q = q.eq('status', filter)
+    
+    if (paymentFilter !== 'all') q = q.eq('payment_method', paymentFilter)
+    if (channelFilter !== 'all') {
+      if (channelFilter === 'offline') q = q.is('channel', null)
+      else q = q.eq('channel', channelFilter)
+    }
+    
+    if (startIso) q = q.gte('created_at', startIso)
+    if (endIso) q = q.lte('created_at', endIso)
+    
+    if (dateFilter === 'all') {
+       q = q.limit(1000)
+    }
+
     const { data, error } = await fetchWithTimeout(q.then(res => res))
     if (error) throw new Error(error.message)
-    if (filter === 'all') {
-      // Simpan snapshot ke IndexedDB agar histori tetap terbaca saat offline
+    if (filter === 'all' && dateFilter === 'today') {
       await cacheOrders(outletId, data ?? []).catch(() => {})
     }
     return data ?? []
@@ -59,7 +113,18 @@ async function fetchHistoriOrders(outletId: string, filter: OrderStatus | 'all')
     const localList = localOrderRowsToOrders(localRows)
     const localIds = new Set(localList.map(o => o.id))
     const merged = [...localList, ...cached.filter(o => !localIds.has(o.id))]
-    return (filter === 'all' ? merged : merged.filter(o => o.status === filter)).slice(0, 100)
+    let result = filter === 'all' ? merged : merged.filter(o => o.status === filter)
+    
+    if (startIso) result = result.filter(o => o.created_at >= startIso!)
+    if (endIso) result = result.filter(o => o.created_at <= endIso!)
+    
+    if (paymentFilter !== 'all') result = result.filter(o => o.payment_method === paymentFilter)
+    if (channelFilter !== 'all') {
+      if (channelFilter === 'offline') result = result.filter(o => !o.channel)
+      else result = result.filter(o => o.channel === channelFilter)
+    }
+    
+    return result
   }
 }
 
@@ -67,6 +132,9 @@ export default function AdminOrdersPage() {
   const { showConfirm } = useDialogStore()
   const [activeTab, setActiveTab] = useState<'histori' | 'bonus'>('histori')
   const [filter, setFilter]     = useState<OrderStatus | 'all'>('all')
+  const [dateFilter, setDateFilter] = useState<string>('today')
+  const [customStart, setCustomStart] = useState<string>('')
+  const [customEnd, setCustomEnd] = useState<string>('')
   const [paymentFilter, setPaymentFilter] = useState<string>('all')
   const [channelFilter, setChannelFilter] = useState<string>('all')
   const [expandedId, setExpand] = useState<string | null>(null)
@@ -74,10 +142,10 @@ export default function AdminOrdersPage() {
   const queryClient = useQueryClient()
 
   const { data: orders = [], isLoading: loading, refetch } = useQuery({
-    queryKey: ['histori', outletId, filter],
-    queryFn: () => fetchHistoriOrders(outletId as string, filter),
+    queryKey: ['histori', outletId, filter, dateFilter, customStart, customEnd, paymentFilter, channelFilter],
+    queryFn: () => fetchHistoriOrders(outletId as string, filter, dateFilter, customStart, customEnd, paymentFilter, channelFilter),
     enabled: !!outletId && activeTab === 'histori',
-    refetchInterval: 15000,
+    refetchInterval: dateFilter === 'today' ? 15000 : false,
     staleTime: 15000,
     retry: false,
   })
@@ -88,10 +156,6 @@ export default function AdminOrdersPage() {
     queryClient.invalidateQueries({ queryKey: ['histori', outletId] })
   }
 
-  const todayRevenue = orders
-    .filter((o) => o.status !== 'cancelled')
-    .reduce((s, o) => s + o.total_amount, 0)
-
   const filteredOrders = orders.filter((order) => {
     if (paymentFilter !== 'all' && order.payment_method !== paymentFilter) return false;
     if (channelFilter !== 'all') {
@@ -100,6 +164,10 @@ export default function AdminOrdersPage() {
     }
     return true;
   });
+
+  const totalRevenue = filteredOrders
+    .filter((o) => o.status !== 'cancelled')
+    .reduce((s, o) => s + o.total_amount, 0)
 
   const statCards = [
     { status: 'pending' as OrderStatus,   label: 'Menunggu',   icon: Clock },
@@ -161,7 +229,7 @@ export default function AdminOrdersPage() {
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {statCards.map(({ status, label, icon: Icon }) => {
-          const count = orders.filter((o) => o.status === status).length
+          const count = filteredOrders.filter((o) => o.status === status).length
           const active = filter === status
           const conf = STATUS_CONF[status]!
           return (
@@ -186,51 +254,79 @@ export default function AdminOrdersPage() {
           <div className="w-9 h-9 bg-white/20 rounded-2xl flex items-center justify-center mb-3">
             <Banknote className="w-4.5 h-4.5 text-white" strokeWidth={1.5} />
           </div>
-          <p className="text-xs font-semibold text-amber-100/80 uppercase tracking-widest">Revenue Hari Ini</p>
-          <p className="text-xl font-bold mt-0.5 leading-tight">{formatRupiah(todayRevenue)}</p>
+          <p className="text-xs font-semibold text-amber-100/80 uppercase tracking-widest">Total Revenue</p>
+          <p className="text-xl font-bold mt-0.5 leading-tight">{formatRupiah(totalRevenue)}</p>
         </div>
       </div>
 
       {/* ── Filter tabs ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex gap-2 flex-wrap items-center">
-          {(['all', ...Object.keys(STATUS_CONF)] as (OrderStatus | 'all')[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={`px-4 py-2 rounded-2xl text-sm font-semibold transition-all
-                ${filter === s
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300'}`}
-            >
-              {s === 'all' ? 'Semua Pesanan' : STATUS_CONF[s as keyof typeof STATUS_CONF]?.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <select 
-            value={channelFilter} 
-            onChange={(e) => setChannelFilter(e.target.value)}
-            className="input-base text-sm py-2 px-3 bg-white flex-1 sm:flex-none border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
-          >
-            <option value="all">Semua Channel</option>
-            <option value="offline">Offline / Dine-in</option>
-            {CHANNELS.map(c => (
-              <option key={c.id} value={c.id}>{c.label}</option>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4">
+          <div className="flex gap-2 flex-wrap items-center">
+            {(['all', ...Object.keys(STATUS_CONF)] as (OrderStatus | 'all')[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                className={`px-4 py-2 rounded-2xl text-sm font-semibold transition-all
+                  ${filter === s
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300'}`}
+              >
+                {s === 'all' ? 'Semua Pesanan' : STATUS_CONF[s as keyof typeof STATUS_CONF]?.label}
+              </button>
             ))}
-          </select>
-          <select 
-            value={paymentFilter} 
-            onChange={(e) => setPaymentFilter(e.target.value)}
-            className="input-base text-sm py-2 px-3 bg-white flex-1 sm:flex-none border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
-          >
-            <option value="all">Semua Pembayaran</option>
-            <option value="cash">Tunai (Cash)</option>
-            <option value="qris">QRIS</option>
-            <option value="debit">Debit Card/Kartu Debit</option>
-          </select>
+          </div>
+
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full xl:w-auto">
+            <select 
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value)
+                if (e.target.value !== 'custom') {
+                  setCustomStart('')
+                  setCustomEnd('')
+                }
+              }}
+              className="input-base text-sm py-2 px-3 bg-white flex-1 sm:flex-none border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
+            >
+              <option value="today">Hari Ini</option>
+              <option value="yesterday">Kemarin</option>
+              <option value="7d">7 Hari Terakhir</option>
+              <option value="30d">30 Hari Terakhir</option>
+              <option value="all">Semua Waktu</option>
+              <option value="custom">Custom Tanggal</option>
+            </select>
+            <select 
+              value={channelFilter} 
+              onChange={(e) => setChannelFilter(e.target.value)}
+              className="input-base text-sm py-2 px-3 bg-white flex-1 sm:flex-none border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
+            >
+              <option value="all">Semua Channel</option>
+              <option value="offline">Offline / Dine-in</option>
+              {CHANNELS.map(c => (
+                <option key={c.id} value={c.id}>{c.label}</option>
+              ))}
+            </select>
+            <select 
+              value={paymentFilter} 
+              onChange={(e) => setPaymentFilter(e.target.value)}
+              className="input-base text-sm py-2 px-3 bg-white flex-1 sm:flex-none border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
+            >
+              <option value="all">Semua Pembayaran</option>
+              <option value="cash">Tunai (Cash)</option>
+              <option value="qris">QRIS</option>
+              <option value="card">Debit Card/Kartu Debit</option>
+            </select>
+          </div>
         </div>
+        
+        {dateFilter === 'custom' && (
+          <div className="flex gap-4 items-center bg-gray-50 p-4 rounded-xl border border-gray-200 xl:self-end">
+            <CustomDatePicker label="Mulai Tanggal" value={customStart} onChange={setCustomStart} />
+            <span className="text-gray-400 mt-5">-</span>
+            <CustomDatePicker label="Sampai Tanggal" value={customEnd} onChange={setCustomEnd} />
+          </div>
+        )}
       </div>
 
       {/* ── Order list ── */}

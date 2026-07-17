@@ -327,11 +327,11 @@ export default function CloseShiftPage() {
               </div>
               <div className="p-6 md:p-8 text-center">
                 <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-                  Hitung seluruh uang fisik secara manual. Masukkan angka untuk <b>Uang Laci</b> (sales) dan <b>Dana Operasional</b> secara terpisah.
+                  Hitung seluruh uang fisik secara manual. Masukkan angka untuk <b>Penjualan Cash</b> (sales) dan <b>Petty Cash</b> secara terpisah.
                 </p>
                 <form onSubmit={handleCloseShift} className="space-y-4">
                   <div className="text-left">
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Uang Laci (Hitungan Manual)</label>
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Penjualan Cash (Hitungan Manual)</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <span className="text-gray-500 font-semibold">Rp</span>
@@ -345,7 +345,7 @@ export default function CloseShiftPage() {
                     )}
                   </div>
                   <div className="text-left mt-4">
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Hitung sisa dana operasional</label>
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Hitung sisa petty cash</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <span className="text-gray-500 font-semibold">Rp</span>
@@ -382,7 +382,7 @@ export default function CloseShiftPage() {
 
                 <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-gray-700">Uang Laci Seharusnya</span>
+                    <span className="text-sm font-bold text-gray-700">Penjualan Cash Seharusnya</span>
                     <span className="text-lg font-black text-emerald-700">{formatRupiah(currentDrawerBalance)}</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1.5">
@@ -392,7 +392,7 @@ export default function CloseShiftPage() {
 
                 <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-gray-700">Dana Operasional Seharusnya</span>
+                    <span className="text-sm font-bold text-gray-700">Petty Cash Seharusnya</span>
                     <span className="text-lg font-black text-blue-700">{formatRupiah(pettyCashBalance)}</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1.5">

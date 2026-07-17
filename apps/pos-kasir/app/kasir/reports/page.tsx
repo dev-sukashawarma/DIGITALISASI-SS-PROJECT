@@ -60,64 +60,104 @@ const RANGE_LABELS: Record<DateRange, string> = {
   custom: 'Kustom Tanggal',
 }
 
-async function fetchReportOrders(outletId: string, range: DateRange, customStart: string, customEnd: string): Promise<OrderRow[]> {
+async function fetchOutletAnalytics(outletId: string, range: DateRange, customStart: string, customEnd: string): Promise<any> {
   try {
     const supabase = createClient()
 
-    let q = supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .eq('outlet_id', outletId)
-      .order('created_at', { ascending: false })
+    let p_start = new Date()
+    let p_end = new Date()
 
     if (range === 'today') {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', today.toISOString())
+      p_start.setHours(0, 0, 0, 0)
     } else if (range === 'yesterday') {
-      const yest = new Date()
-      yest.setDate(yest.getDate() - 1)
-      yest.setHours(0, 0, 0, 0)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', yest.toISOString()).lt('created_at', today.toISOString())
+      p_start.setDate(p_start.getDate() - 1)
+      p_start.setHours(0, 0, 0, 0)
+      p_end.setHours(0, 0, 0, 0)
     } else if (range === '7days') {
-      const d = new Date()
-      d.setDate(d.getDate() - 7)
-      d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      p_start.setDate(p_start.getDate() - 7)
+      p_start.setHours(0, 0, 0, 0)
     } else if (range === '30days') {
-      const d = new Date()
-      d.setDate(d.getDate() - 30)
-      d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      p_start.setDate(p_start.getDate() - 30)
+      p_start.setHours(0, 0, 0, 0)
+    } else if (range === 'all') {
+      p_start = new Date(0)
     } else if (range === 'custom' && customStart && customEnd) {
-      const s = new Date(customStart)
-      s.setHours(0, 0, 0, 0)
-      const e = new Date(customEnd)
-      e.setHours(23, 59, 59, 999)
-      q = q.gte('created_at', s.toISOString()).lte('created_at', e.toISOString())
+      p_start = new Date(customStart)
+      p_start.setHours(0, 0, 0, 0)
+      p_end = new Date(customEnd)
+      p_end.setHours(23, 59, 59, 999)
     }
 
-    const { data, error } = await fetchWithTimeout(q.then(res => res))
+    const { data, error } = await fetchWithTimeout(
+      supabase.rpc('get_outlet_analytics', {
+        p_outlet_id: outletId,
+        p_start: p_start.toISOString(),
+        p_end: p_end.toISOString()
+      }).then(res => res)
+    )
     if (error) throw error
 
-    // Simpan snapshot laporan di app_state (BUKAN orders_cache — bentuk row
-    // orders_cache dipakai papan order dan berisi OrderWithItems lengkap).
     if (data) {
       await db.app_state.put({
-        key: `reports_orders:${outletId}`,
+        key: `reports_analytics:${outletId}:${range}`,
         value: data,
         synced_at: Date.now()
       }).catch(() => {})
     }
-    return data ?? []
+    return data
   } catch (err) {
-    console.warn('Network error fetching report orders, falling back to Dexie cache', err)
-    const cached = await db.app_state.get(`reports_orders:${outletId}`).catch(() => undefined)
-    let results = (cached?.value ?? []) as OrderRow[]
-    results = [...results].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    return results
+    console.warn('Network error fetching report analytics, falling back to Dexie cache', err)
+    const cached = await db.app_state.get(`reports_analytics:${outletId}:${range}`).catch(() => undefined)
+    return cached?.value ?? {
+      totalRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
+      paymentBreakdown: {}, hourly: Array(24).fill(0), dailyEntries: [], bestSellers: [], categoryData: []
+    }
+  }
+}
+
+async function fetchPaginatedOrders(outletId: string, range: DateRange, customStart: string, customEnd: string, search: string, page: number, limit: number) {
+  try {
+    const supabase = createClient()
+    
+    let p_start = new Date()
+    let p_end = new Date()
+    
+    if (range === 'today') {
+      p_start.setHours(0, 0, 0, 0)
+    } else if (range === 'yesterday') {
+      p_start.setDate(p_start.getDate() - 1)
+      p_start.setHours(0, 0, 0, 0)
+      p_end.setHours(0, 0, 0, 0)
+    } else if (range === '7days') {
+      p_start.setDate(p_start.getDate() - 7)
+      p_start.setHours(0, 0, 0, 0)
+    } else if (range === '30days') {
+      p_start.setDate(p_start.getDate() - 30)
+      p_start.setHours(0, 0, 0, 0)
+    } else if (range === 'all') {
+      p_start = new Date(0)
+    } else if (range === 'custom' && customStart && customEnd) {
+      p_start = new Date(customStart)
+      p_start.setHours(0, 0, 0, 0)
+      p_end = new Date(customEnd)
+      p_end.setHours(23, 59, 59, 999)
+    }
+
+    const offset = (page - 1) * limit
+    const { data, error } = await fetchWithTimeout(
+      supabase.rpc('search_outlet_orders', {
+        p_outlet_id: outletId,
+        p_start: p_start.toISOString(),
+        p_end: p_end.toISOString(),
+        p_search: search,
+        p_limit: limit,
+        p_offset: offset
+      }).then(res => res)
+    )
+    if (error) throw error
+    return { data: data || [], total: data && data.length > 0 ? data[0].total_count : 0 }
+  } catch(err) {
+    return { data: [], total: 0 }
   }
 }
 
@@ -217,9 +257,17 @@ export default function ReportsPage() {
 
   const isCustomReady = range !== 'custom' || (!!customStart && !!customEnd)
 
-  const { data: orders = [], isLoading: loading } = useQuery({
+  const { data: analyticsData, isLoading: loading } = useQuery({
     queryKey: ['reports', outletId, range, customStart, customEnd],
-    queryFn: () => fetchReportOrders(outletId as string, range, customStart, customEnd),
+    queryFn: () => fetchOutletAnalytics(outletId as string, range, customStart, customEnd),
+    enabled: !!outletId && isCustomReady,
+    staleTime: 30000,
+    retry: false,
+  })
+
+  const { data: searchResults, isLoading: loadingSearch } = useQuery({
+    queryKey: ['reportSearch', outletId, range, customStart, customEnd, searchQuery, currentPage],
+    queryFn: () => fetchPaginatedOrders(outletId as string, range, customStart, customEnd, searchQuery, currentPage, itemsPerPage),
     enabled: !!outletId && isCustomReady,
     staleTime: 30000,
     retry: false,
@@ -245,101 +293,33 @@ export default function ReportsPage() {
 
   // ─── Derived Analytics ───
   const analytics = useMemo(() => {
-    const completedOrders = orders.filter(o => o.status === 'completed')
-    const canceledOrders = orders.filter(o => o.status === 'cancelled' || o.status === 'expired')
-    const pendingCount = orders.filter(o => o.status === 'pending').length
-
-    let totalRevenue = completedOrders.reduce((s, o) => s + o.total_amount, 0)
-    const totalOrders = completedOrders.length
+    const base = analyticsData || {
+      totalRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
+      paymentBreakdown: {}, hourly: Array(24).fill(0), dailyEntries: [], bestSellers: [], categoryData: []
+    }
     
     // Hitung total selisih laci (variance) dari tutup shift
     const totalCashVariance = shifts.reduce((s, shift) => s + (shift.variance || 0), 0)
 
-    // Payment method breakdown
-    const paymentBreakdown: Record<string, { count: number; revenue: number }> = {}
-    completedOrders.forEach(o => {
-      const method = o.payment_method || 'unknown'
-      if (!paymentBreakdown[method]) paymentBreakdown[method] = { count: 0, revenue: 0 }
-      paymentBreakdown[method].count++
-      paymentBreakdown[method].revenue += o.total_amount
-    })
-
+    const paymentBreakdown = { ...base.paymentBreakdown }
     // Koreksi pendapatan tunai dengan selisih fisik laci (Opsi B: Source of truth = Fisik Kasir)
     if (paymentBreakdown['cash']) {
+      paymentBreakdown['cash'] = { ...paymentBreakdown['cash'] }
       paymentBreakdown['cash'].revenue += totalCashVariance
     }
     
-    // Sesuaikan juga Total Pendapatan
-    totalRevenue += totalCashVariance
-
-    const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
-
-    // Category breakdown
-    let totalMain = 0
-    let totalExtras = 0
-    completedOrders.forEach(o => {
-      o.order_items.forEach(oi => {
-        const lowerName = oi.menu_item_name.toLowerCase()
-        const isExtra = lowerName.includes('ekstra') || lowerName.includes('topping') || lowerName.includes('keju') || lowerName.includes('daging') || lowerName.includes('pedas')
-        if (isExtra) {
-          totalExtras += oi.quantity
-        } else {
-          totalMain += oi.quantity
-        }
-      })
-    })
-
-    const categoryData = []
-    if (totalMain > 0) categoryData.push({ name: 'Menu Utama', value: totalMain, color: '#f59e0b' }) // amber-500
-    if (totalExtras > 0) categoryData.push({ name: 'Ekstra / Topping', value: totalExtras, color: '#10b981' }) // emerald-500
-
-    // Best sellers
-    const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {}
-    completedOrders.forEach(o => {
-      o.order_items.forEach(oi => {
-        const key = cleanItemName(oi.menu_item_name)
-        if (!itemMap[key]) itemMap[key] = { name: key, qty: 0, revenue: 0 }
-        itemMap[key].qty += oi.quantity
-        itemMap[key].revenue += oi.subtotal
-      })
-    })
-    const bestSellers = Object.values(itemMap).sort((a, b) => b.qty - a.qty)
-
-    // Hourly distribution (0-23)
-    const hourly = Array(24).fill(0)
-    completedOrders.forEach(o => {
-      const hour = new Date(o.created_at).getHours()
-      hourly[hour]++
-    })
-    const peakHour = hourly.indexOf(Math.max(...hourly))
-
-    // Daily revenue (for trend chart)
-    const dailyMap: Record<string, number> = {}
-    completedOrders.forEach(o => {
-      const dateKey = new Date(o.created_at).toISOString().split('T')[0]
-      dailyMap[dateKey] = (dailyMap[dateKey] || 0) + o.total_amount
-    })
-    const dailyEntries = Object.entries(dailyMap).sort((a, b) => a[0].localeCompare(b[0]))
+    let totalRevenue = base.totalRevenue + totalCashVariance
 
     return {
-      completedOrders,
-      canceledOrders,
-      pendingCount,
+      ...base,
       totalRevenue,
-      totalOrders,
-      avgOrderValue,
       paymentBreakdown,
-      categoryData,
-      bestSellers,
-      hourly,
-      peakHour,
-      dailyEntries,
     }
-  }, [orders])
+  }, [analyticsData, shifts])
 
   const maxHourly = Math.max(...analytics.hourly, 1)
   const maxDaily = analytics.dailyEntries.length > 0
-    ? Math.max(...analytics.dailyEntries.map(e => e[1]), 1)
+    ? Math.max(...analytics.dailyEntries.map((e: [string, number]) => e[1]), 1)
     : 1
 
   const PAYMENT_META: Record<string, { label: string; color: string; bg: string; icon: any }> = {
@@ -349,23 +329,14 @@ export default function ReportsPage() {
     unknown: { label: 'Lainnya', color: '#6b7280', bg: 'bg-gray-50', icon: Package },
   }
 
-  const successRate = analytics.totalOrders + analytics.canceledOrders.length > 0 
-    ? Math.round((analytics.totalOrders / (analytics.totalOrders + analytics.canceledOrders.length)) * 100)
+  const successRate = analytics.totalOrders + analytics.canceledCount > 0 
+    ? Math.round((analytics.totalOrders / (analytics.totalOrders + analytics.canceledCount)) * 100)
     : 0
   const failureRate = 100 - successRate
 
-  // Pagination for table
-  const filteredTableData = useMemo(() => {
-    return analytics.completedOrders.filter(o => {
-      const searchStr = searchQuery.toLowerCase()
-      const matchesId = String(o.order_number).includes(searchStr)
-      const matchesItem = o.order_items.some(i => i.menu_item_name.toLowerCase().includes(searchStr))
-      return matchesId || matchesItem
-    })
-  }, [analytics.completedOrders, searchQuery])
-
-  const totalPages = Math.ceil(filteredTableData.length / itemsPerPage)
-  const paginatedData = filteredTableData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const paginatedData = searchResults?.data || []
+  const totalItems = searchResults?.total || 0
+  const totalPages = Math.ceil(totalItems / itemsPerPage)
 
 
   const downloadPDF = () => {
@@ -554,7 +525,7 @@ export default function ReportsPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-black text-red-700">{analytics.canceledOrders.length}</p>
+                    <p className="text-lg font-black text-red-700">{analytics.canceledCount}</p>
                     <p className="text-[10px] font-bold text-red-500">{failureRate}%</p>
                   </div>
                 </div>
@@ -573,8 +544,8 @@ export default function ReportsPage() {
               ) : (
                 <div className="space-y-4">
                   {Object.entries(analytics.paymentBreakdown)
-                    .sort((a, b) => b[1].count - a[1].count)
-                    .map(([method, data]) => {
+                    .sort((a, b) => (b[1] as any).count - (a[1] as any).count)
+                    .map(([method, data]: [string, any]) => {
                       const meta = PAYMENT_META[method] || PAYMENT_META.unknown
                       const Icon = meta.icon
                       const pct = analytics.totalOrders > 0 ? Math.round((data.count / analytics.totalOrders) * 100) : 0
@@ -631,7 +602,7 @@ export default function ReportsPage() {
                           paddingAngle={5}
                           dataKey="value"
                         >
-                          {analytics.categoryData.map((entry, index) => (
+                          {analytics.categoryData.map((entry: any, index: number) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
@@ -640,7 +611,7 @@ export default function ReportsPage() {
                     </ResponsiveContainer>
                   </div>
                   <div className="space-y-3 px-2">
-                    {analytics.categoryData.map((entry, index) => (
+                    {analytics.categoryData.map((entry: any, index: number) => (
                       <div key={index} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></span>
@@ -679,7 +650,7 @@ export default function ReportsPage() {
               ) : (
                 <div className="space-y-3">
                   <div className="flex items-end justify-center gap-2 h-48">
-                    {analytics.dailyEntries.map(([date, rev]) => {
+                    {analytics.dailyEntries.map(([date, rev]: [string, number]) => {
                       const pct = (rev / maxDaily) * 100
                       const dayLabel = new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
                       return (
@@ -710,7 +681,7 @@ export default function ReportsPage() {
               </div>
 
               <div className="flex items-end gap-[3px] h-40">
-                {analytics.hourly.map((count, hour) => {
+                {analytics.hourly.map((count: number, hour: number) => {
                   const pct = (count / maxHourly) * 100
                   const isActive = hour >= 8 && hour <= 22
                   const isPeak = hour === analytics.peakHour && count > 0
@@ -734,7 +705,7 @@ export default function ReportsPage() {
               </div>
 
               <div className="flex gap-[3px] mt-1">
-                {analytics.hourly.map((_, hour) => (
+                {analytics.hourly.map((_: any, hour: number) => (
                   <div key={hour} className="flex-1 text-center">
                     <span className="text-[7px] text-gray-400 print-dark-text font-medium">
                       {hour % 3 === 0 ? `${String(hour).padStart(2, '0')}` : ''}
@@ -757,7 +728,7 @@ export default function ReportsPage() {
                 <div className="py-8 text-center text-gray-400 print-dark-text text-sm">Belum ada data penjualan</div>
               ) : (
                 <div className="space-y-3">
-                  {analytics.bestSellers.slice(0, 10).map((item, idx) => {
+                  {analytics.bestSellers.slice(0, 10).map((item: any, idx: number) => {
                     const maxQty = analytics.bestSellers[0].qty
                     const pct = (item.qty / maxQty) * 100
                     const medals = ['🥇', '🥈', '🥉']
@@ -795,7 +766,7 @@ export default function ReportsPage() {
 
             <button
               onClick={downloadPDF}
-              disabled={analytics.completedOrders.length === 0}
+              disabled={analytics.totalOrders === 0}
               className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-bold transition-all shadow-sm shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Printer className="w-5 h-5" />
@@ -845,7 +816,7 @@ export default function ReportsPage() {
                       <td colSpan={5} className="px-5 py-10 text-center text-gray-400 font-medium">Data tidak ditemukan</td>
                     </tr>
                   ) : (
-                    paginatedData.map((order) => (
+                    paginatedData.map((order: any) => (
                       <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
                         <td className="px-5 py-4 font-bold text-gray-900">
                           <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number}</span>
@@ -856,8 +827,8 @@ export default function ReportsPage() {
                             hour: '2-digit', minute: '2-digit'
                           })}
                         </td>
-                        <td className="px-5 py-4 text-gray-600 truncate max-w-[250px] font-medium" title={order.order_items.map(i => cleanItemName(i.menu_item_name)).join(', ')}>
-                          {order.order_items.map(i => cleanItemName(i.menu_item_name)).join(', ')}
+                        <td className="px-5 py-4 text-gray-600 truncate max-w-[250px] font-medium" title={(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}>
+                          {(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}
                         </td>
                         <td className="px-5 py-4">
                           {order.channel ? (
@@ -883,7 +854,7 @@ export default function ReportsPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4">
                 <p className="text-xs font-medium text-gray-400">
-                  Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredTableData.length)} dari {filteredTableData.length}
+                  Menampilkan {totalItems === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} dari {totalItems}
                 </p>
                 <div className="flex gap-2">
                   <button 

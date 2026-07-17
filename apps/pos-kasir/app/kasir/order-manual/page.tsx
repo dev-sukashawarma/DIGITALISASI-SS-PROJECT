@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Plus, Minus, Trash2, ShoppingBag, Loader2,
-  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer,
+  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, CreditCard,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -31,7 +31,7 @@ interface Line {
   parentId?: string
 }
 
-type Payment = 'cash' | 'qris'
+type Payment = 'cash' | 'qris' | 'card'
 
 export default function OrderManualPage() {
   const supabase = createClient()
@@ -1308,7 +1308,7 @@ function CartPanel(props: {
           {/* Metode bayar */}
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">3. Metode Pembayaran</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => setPayment('qris')}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
@@ -1320,6 +1320,12 @@ function CartPanel(props: {
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
               >
                 <Banknote className="w-4 h-4" /> Tunai
+              </button>
+              <button
+                onClick={() => setPayment('card')}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'card' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+              >
+                <CreditCard className="w-4 h-4" /> Debit
               </button>
             </div>
           </div>

@@ -2,11 +2,12 @@
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Spinner } from "@suka/design-system";
-import { ListChecks, CheckCircle2, Circle, ChevronDown, ChevronUp, User, Lock, Sunrise, Sunset } from "lucide-react";
+import { Spinner, EmptyState } from "@suka/design-system";
+import { ListChecks, CheckCircle2, Circle, ChevronDown, ChevronUp, User, Lock, Sunrise, Sunset, Store } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
+import { OutletSwitcher } from "@/components/OutletSwitcher";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 
@@ -213,6 +214,14 @@ export default function KruChecklistPage() {
   const [activeTab, setActiveTab] = useState<"buka" | "tutup">("buka");
   const hasSetInitialTab = useRef(false);
 
+  const [selectedOutletId, setSelectedOutletId] = useState<string>("");
+
+  useEffect(() => {
+    if (outletStaff?.outlet_id && !selectedOutletId) {
+      setSelectedOutletId(outletStaff.outlet_id);
+    }
+  }, [outletStaff]);
+
   const today = dayjs().format("YYYY-MM-DD");
 
   const { data: hasClockedIn = false, isLoading: loadingClockIn } = useQuery({
@@ -232,13 +241,13 @@ export default function KruChecklistPage() {
   });
 
   const { data: categories = [], isLoading: loadingCategories } = useQuery({
-    queryKey: ["checklist-categories", outletStaff?.outlet_id],
-    enabled: !!outletStaff?.outlet_id,
+    queryKey: ["checklist-categories", selectedOutletId],
+    enabled: !!selectedOutletId,
     queryFn: async () => {
       const res = await fetch('/api/checklist/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ outlet_id: outletStaff!.outlet_id })
+        body: JSON.stringify({ outlet_id: selectedOutletId })
       });
       if (!res.ok) throw new Error("Failed to load categories");
       const json = await res.json();
@@ -247,13 +256,13 @@ export default function KruChecklistPage() {
   });
 
   const { data: recordId, isLoading: loadingRecord } = useQuery({
-    queryKey: ["checklist-record", outletStaff?.outlet_id, today],
-    enabled: !!outletStaff?.outlet_id,
+    queryKey: ["checklist-record", selectedOutletId, today],
+    enabled: !!selectedOutletId,
     queryFn: async () => {
       const res = await fetch('/api/checklist/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ outlet_id: outletStaff!.outlet_id, date: today })
+        body: JSON.stringify({ outlet_id: selectedOutletId, date: today })
       });
       if (!res.ok) throw new Error("Failed to load session");
       const data = await res.json();
@@ -421,6 +430,32 @@ export default function KruChecklistPage() {
     }
   }
 
+  if (!selectedOutletId) {
+    return (
+      <div className="space-y-5 max-w-2xl mx-auto">
+        <div className="rounded-2xl border border-suka-gray-200 bg-white p-4 sm:p-5">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-suka-cream text-suka-brown">
+              <ListChecks size={20} />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-suka-ink leading-tight">Checklist Operasional</h1>
+              <p className="text-sm text-gray-500">{dayjs().format("dddd, D MMMM YYYY")}</p>
+            </div>
+          </div>
+        </div>
+        <OutletSwitcher currentOutletId={selectedOutletId} onChange={setSelectedOutletId} />
+        <div className="p-6 mt-10">
+          <EmptyState 
+            icon={<Store size={48} className="text-gray-400" />} 
+            title="Cabang Belum Ditentukan" 
+            description="Akun Anda belum terhubung dengan cabang manapun. Silakan hubungi admin untuk pengaturan penempatan." 
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 max-w-2xl mx-auto">
       {/* Header + Progress */}
@@ -449,6 +484,7 @@ export default function KruChecklistPage() {
           />
         </div>
       </div>
+      <OutletSwitcher currentOutletId={selectedOutletId} onChange={setSelectedOutletId} />
 
       {/* Tabs */}
       {categories.length > 0 && (
@@ -581,7 +617,7 @@ export default function KruChecklistPage() {
                 if (!outletStaff || !confirm("Yakin mereset semua wajah staff?")) return;
                 const { error } = await supabase.from("outlet_staff")
                   .update({ face_descriptor: null, ref_photo_url: null, enrolled_at: null })
-                  .eq("outlet_id", outletStaff.outlet_id);
+                  .eq("outlet_id", selectedOutletId);
                 if (error) toast.show("err", "Gagal reset wajah");
                 else toast.show("ok", "Semua wajah berhasil direset (belum terdaftar)");
               }} className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 transition-colors">
@@ -592,7 +628,7 @@ export default function KruChecklistPage() {
                 const todayStr = new Date().toISOString().slice(0, 10);
                 const { error } = await supabase.from("attendance")
                   .delete()
-                  .eq("outlet_id", outletStaff.outlet_id)
+                  .eq("outlet_id", selectedOutletId)
                   .gte("ts_server", `${todayStr}T00:00:00`)
                   .lte("ts_server", `${todayStr}T23:59:59`);
                 if (error) toast.show("err", "Gagal reset log absensi. " + error.message);

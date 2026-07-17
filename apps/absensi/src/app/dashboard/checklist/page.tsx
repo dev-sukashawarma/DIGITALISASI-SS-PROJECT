@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Spinner } from "@suka/design-system";
-import { ListChecks, Plus, Edit, Trash2, X as XIcon } from "lucide-react";
+import { Button, Spinner, EmptyState } from "@suka/design-system";
+import { ListChecks, Plus, Edit, Trash2, X as XIcon, Store } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
 import { PageHeader } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
+import { OutletSwitcher } from "@/components/OutletSwitcher";
 
 type ChecklistItem = {
   id: string;
@@ -32,6 +33,7 @@ const PHASE_LABEL: Record<Phase, string> = {
   tutup: "Sebelum Pulang",
 };
 
+const GLOBAL_OUTLET_ID = '00000000-0000-0000-0000-000000000000';
 const CHECKLIST_KEY = (outletId: string) => ["checklist-management", outletId];
 
 export default function ChecklistManagementPage() {
@@ -42,10 +44,10 @@ export default function ChecklistManagementPage() {
 
   const [activeTab, setActiveTab] = useState<Phase>("buka");
 
-  // Modal state
   const [showCatModal, setShowCatModal] = useState(false);
   const [catName, setCatName] = useState("");
   const [catPhase, setCatPhase] = useState<Phase>("buka");
+  const [catOutletId, setCatOutletId] = useState<string>("");
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
 
   const [showItemModal, setShowItemModal] = useState(false);
@@ -54,22 +56,52 @@ export default function ChecklistManagementPage() {
   const [itemRequired, setItemRequired] = useState(true);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
+  const [selectedOutletId, setSelectedOutletId] = useState<string>("");
+
+  useEffect(() => {
+    if (outletStaff?.outlet_id && !selectedOutletId) {
+      setSelectedOutletId(outletStaff.outlet_id);
+    }
+  }, [outletStaff]);
+
   const { data: categories = [], isLoading } = useQuery({
-    queryKey: CHECKLIST_KEY(outletStaff?.outlet_id ?? ""),
-    enabled: !!outletStaff?.outlet_id,
+    queryKey: CHECKLIST_KEY(selectedOutletId),
+    enabled: !!selectedOutletId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("checklist_categories")
         .select("*, checklist_items(*)")
-        .eq("outlet_id", outletStaff!.outlet_id)
+        .in("outlet_id", [selectedOutletId, GLOBAL_OUTLET_ID])
         .order("created_at", { ascending: true });
       if (error) { toast.show("err", "Gagal memuat checklist"); return []; }
       return (data || []) as ChecklistCategory[];
     },
   });
 
+  const { data: outlets = [] } = useQuery({
+    queryKey: ["all-outlets"],
+    queryFn: async () => {
+      const isSpv = outletStaff?.role === 'spv' || outletStaff?.role === 'admin';
+      let ids: string[] = [];
+      if (!isSpv) {
+        const { data: rpcData } = await supabase.rpc("accessible_outlet_ids");
+        ids = rpcData?.map((r: any) => typeof r === 'string' ? r : r.accessible_outlet_ids) || [];
+      }
+      
+      let query = supabase.from("outlets").select("id, name").neq("id", GLOBAL_OUTLET_ID).order("name");
+      if (!isSpv && ids.length > 0) {
+        query = query.in("id", ids);
+      } else if (!isSpv) {
+        return [];
+      }
+      
+      const { data } = await query;
+      return data || [];
+    }
+  });
+
   function refresh() {
-    if (outletStaff?.outlet_id) qc.invalidateQueries({ queryKey: CHECKLIST_KEY(outletStaff.outlet_id) });
+    if (selectedOutletId) qc.invalidateQueries({ queryKey: CHECKLIST_KEY(selectedOutletId) });
   }
 
   // CATEGORY ACTIONS
@@ -77,17 +109,19 @@ export default function ChecklistManagementPage() {
     e.preventDefault();
     if (!catName.trim()) return;
 
+    const targetOutletId = catOutletId === "global" ? GLOBAL_OUTLET_ID : catOutletId;
+
     if (editingCatId) {
-      const { error } = await supabase.from("checklist_categories").update({ name: catName, phase: catPhase }).eq("id", editingCatId);
+      const { error } = await supabase.from("checklist_categories").update({ name: catName, phase: catPhase, outlet_id: targetOutletId }).eq("id", editingCatId);
       if (error) toast.show("err", "Gagal mengupdate kategori");
       else toast.show("ok", "Kategori diupdate");
     } else {
-      const { error } = await supabase.from("checklist_categories").insert({ name: catName, phase: catPhase, outlet_id: outletStaff!.outlet_id });
+      const { error } = await supabase.from("checklist_categories").insert({ name: catName, phase: catPhase, outlet_id: targetOutletId });
       if (error) toast.show("err", "Gagal membuat kategori");
       else toast.show("ok", "Kategori dibuat");
     }
 
-    setShowCatModal(false); setCatName(""); setCatPhase("buka"); setEditingCatId(null);
+    setShowCatModal(false); setCatName(""); setCatPhase("buka"); setCatOutletId(selectedOutletId); setEditingCatId(null);
     refresh();
   }
 
@@ -124,23 +158,45 @@ export default function ChecklistManagementPage() {
     else { toast.show("ok", "Tugas dihapus"); refresh(); }
   }
 
-  if (isLoading) return <div className="p-8 flex justify-center"><Spinner /></div>;
-
-  return (
-    <div className="space-y-5">
+  const headerAndSwitcher = (
+    <>
       <PageHeader
         icon={<ListChecks size={20} />}
         title="Manajemen Checklist"
         subtitle="Kelola kategori dan tugas operasional harian"
         action={
           <Button
-            onClick={() => { setCatName(""); setCatPhase("buka"); setEditingCatId(null); setShowCatModal(true); }}
+            onClick={() => { setCatName(""); setCatPhase("buka"); setEditingCatId(null); setCatOutletId(selectedOutletId); setShowCatModal(true); }}
             className="flex w-full items-center justify-center gap-2 rounded-xl sm:w-auto"
           >
             <Plus size={18} /> Tambah Kategori
           </Button>
         }
       />
+      <OutletSwitcher currentOutletId={selectedOutletId} onChange={setSelectedOutletId} />
+    </>
+  );
+
+  if (!selectedOutletId) {
+    return (
+      <div className="space-y-5">
+        {headerAndSwitcher}
+        <div className="p-6 mt-10">
+          <EmptyState 
+            icon={<Store size={48} className="text-gray-400" />} 
+            title="Cabang Belum Ditentukan" 
+            description="Akun Anda belum terhubung dengan cabang manapun. Silakan hubungi admin untuk pengaturan penempatan." 
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) return <div className="p-8 flex justify-center"><Spinner /></div>;
+
+  return (
+    <div className="space-y-5">
+      {headerAndSwitcher}
 
       {/* Tabs */}
       <div className="flex p-1 space-x-1 bg-gray-100/80 rounded-xl border border-gray-200 w-full sm:max-w-md">
@@ -182,6 +238,11 @@ export default function ChecklistManagementPage() {
                 <h2 className="flex min-w-0 items-center gap-2 text-base font-bold text-suka-ink">
                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${cat.phase === "tutup" ? "bg-indigo-500" : "bg-suka-orange"}`} />
                   <span className="truncate">{cat.name}</span>
+                  {cat.outlet_id === GLOBAL_OUTLET_ID && (
+                    <span className="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600">
+                      GLOBAL
+                    </span>
+                  )}
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${cat.phase === "tutup" ? "bg-indigo-50 text-indigo-600" : "bg-orange-50 text-suka-orange"}`}>
                     {PHASE_LABEL[cat.phase === "tutup" ? "tutup" : "buka"]}
                   </span>
@@ -204,7 +265,7 @@ export default function ChecklistManagementPage() {
                   </button>
                   <div className="mx-1 h-5 w-px bg-gray-200" />
                   <button
-                    onClick={() => { setCatName(cat.name); setCatPhase(cat.phase === "tutup" ? "tutup" : "buka"); setEditingCatId(cat.id); setShowCatModal(true); }}
+                    onClick={() => { setCatName(cat.name); setCatPhase(cat.phase === "tutup" ? "tutup" : "buka"); setCatOutletId(cat.outlet_id === GLOBAL_OUTLET_ID ? "global" : cat.outlet_id); setEditingCatId(cat.id); setShowCatModal(true); }}
                     className="rounded-lg p-2 text-blue-500 transition-colors hover:bg-blue-50"
                     title="Edit Kategori"
                   >
@@ -299,6 +360,19 @@ export default function ChecklistManagementPage() {
                   className="w-full"
                 />
                 <p className="mt-1 text-xs text-gray-400">Menentukan checklist ini muncul di seksi mana untuk kru.</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Terapkan Ke</label>
+                <Select
+                  value={catOutletId} onChange={val => setCatOutletId(val)}
+                  options={[
+                    { label: "Seluruh Cabang (Global)", value: "global" },
+                    ...outlets.map((o: any) => ({ label: o.name, value: o.id }))
+                  ]}
+                  className="w-full"
+                  searchable
+                />
+                <p className="mt-1 text-xs text-gray-400">Pilih apakah checklist ini hanya berlaku untuk satu outlet tertentu, atau untuk semua outlet.</p>
               </div>
               <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
                 <Button type="button" variant="ghost" onClick={() => setShowCatModal(false)} className="rounded-xl">Batal</Button>

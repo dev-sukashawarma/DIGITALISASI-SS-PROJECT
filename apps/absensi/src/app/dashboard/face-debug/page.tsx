@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase";
 import { CameraCapture } from "@/components/CameraCapture";
 import { loadFaceModels, getHuman } from "@/lib/face/recognizer";
 import { faceSimilarity, euclideanDistance, DEFAULT_MATCH_THRESHOLD } from "@/lib/face/match";
+import { OutletSwitcher } from "@/components/OutletSwitcher";
 
 type Cand = { id: string; name: string; descriptor: number[] };
 type Row = { name: string; dim: number; appSim: number | null; eucl: number | null; cos: number | null };
@@ -37,6 +38,14 @@ export default function FaceDebugPage() {
   const candidatesRef = useRef<Cand[]>([]);
   const [candCount, setCandCount] = useState(0);
 
+  const [selectedOutletId, setSelectedOutletId] = useState<string>("");
+
+  useEffect(() => {
+    if (outletStaff?.outlet_id && !selectedOutletId) {
+      setSelectedOutletId(outletStaff.outlet_id);
+    }
+  }, [outletStaff, selectedOutletId]);
+
   const [liveInfo, setLiveInfo] = useState<{ dim: number; norm: number } | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
@@ -50,11 +59,11 @@ export default function FaceDebugPage() {
   }, []);
 
   useEffect(() => {
-    if (!outletStaff?.outlet_id) return;
+    if (!selectedOutletId) return;
     supabase
       .from("outlet_staff")
       .select("id,name,face_descriptor")
-      .eq("outlet_id", outletStaff.outlet_id)
+      .eq("outlet_id", selectedOutletId)
       .not("face_descriptor", "is", null)
       .then(({ data }) => {
         candidatesRef.current = ((data as any[]) ?? [])
@@ -62,7 +71,7 @@ export default function FaceDebugPage() {
           .map((s) => ({ id: s.id, name: s.name, descriptor: s.face_descriptor as number[] }));
         setCandCount(candidatesRef.current.length);
       });
-  }, [outletStaff?.outlet_id, supabase]);
+  }, [selectedOutletId, supabase]);
 
   async function detectLive(): Promise<number[] | null> {
     const v = videoRef.current;
@@ -112,10 +121,18 @@ export default function FaceDebugPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-12">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold text-suka-ink">Diagnostik Wajah</h1>
+        <OutletSwitcher 
+          selectedOutletId={selectedOutletId} 
+          onOutletChange={setSelectedOutletId} 
+        />
+      </div>
+
       <Card className="p-4 rounded-2xl border-2 border-amber-200 bg-amber-50">
         <h1 className="text-lg font-bold text-amber-800">🔬 Diagnostik Wajah (sementara)</h1>
         <p className="text-sm text-amber-700 mt-1">
-          Threshold app = <b>{DEFAULT_MATCH_THRESHOLD}</b> · Enrollment ter-muat: <b>{candCount}</b> · Outlet: {outletStaff?.outlet_id?.slice(0, 8) ?? "-"}
+          Threshold app = <b>{DEFAULT_MATCH_THRESHOLD}</b> · Enrollment ter-muat: <b>{candCount}</b> · Outlet: {selectedOutletId?.slice(0, 8) ?? "-"}
         </p>
       </Card>
 

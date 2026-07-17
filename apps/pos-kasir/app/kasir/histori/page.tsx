@@ -11,6 +11,7 @@ import { db } from '@/lib/db'
 import { cacheOrders, readCachedOrders, localOrderRowsToOrders } from '@/lib/offline'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import ChannelBadge from '@/components/ChannelBadge'
+import { CHANNELS } from '@/lib/channels'
 import { formatRupiah } from '@/lib/validations'
 import { Skeleton } from '@/components/Skeleton'
 import type { OrderWithItems, OrderStatus } from '@/types'
@@ -66,6 +67,8 @@ export default function AdminOrdersPage() {
   const { showConfirm } = useDialogStore()
   const [activeTab, setActiveTab] = useState<'histori' | 'bonus'>('histori')
   const [filter, setFilter]     = useState<OrderStatus | 'all'>('all')
+  const [paymentFilter, setPaymentFilter] = useState<string>('all')
+  const [channelFilter, setChannelFilter] = useState<string>('all')
   const [expandedId, setExpand] = useState<string | null>(null)
   const { outletId, outletName } = useMyOutlet()
   const queryClient = useQueryClient()
@@ -88,6 +91,15 @@ export default function AdminOrdersPage() {
   const todayRevenue = orders
     .filter((o) => o.status !== 'cancelled')
     .reduce((s, o) => s + o.total_amount, 0)
+
+  const filteredOrders = orders.filter((order) => {
+    if (paymentFilter !== 'all' && order.payment_method !== paymentFilter) return false;
+    if (channelFilter !== 'all') {
+      if (channelFilter === 'offline' && order.channel) return false;
+      if (channelFilter !== 'offline' && order.channel !== channelFilter) return false;
+    }
+    return true;
+  });
 
   const statCards = [
     { status: 'pending' as OrderStatus,   label: 'Menunggu',   icon: Clock },
@@ -180,19 +192,45 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* ── Filter tabs ── */}
-      <div className="flex gap-2 flex-wrap items-center">
-        {(['all', ...Object.keys(STATUS_CONF)] as (OrderStatus | 'all')[]).map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`px-4 py-2 rounded-2xl text-sm font-semibold transition-all
-              ${filter === s
-                ? 'bg-gray-900 text-white'
-                : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300'}`}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex gap-2 flex-wrap items-center">
+          {(['all', ...Object.keys(STATUS_CONF)] as (OrderStatus | 'all')[]).map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              className={`px-4 py-2 rounded-2xl text-sm font-semibold transition-all
+                ${filter === s
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300'}`}
+            >
+              {s === 'all' ? 'Semua Pesanan' : STATUS_CONF[s as keyof typeof STATUS_CONF]?.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <select 
+            value={channelFilter} 
+            onChange={(e) => setChannelFilter(e.target.value)}
+            className="input-base text-sm py-2 px-3 bg-white flex-1 sm:flex-none border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
           >
-            {s === 'all' ? 'Semua Pesanan' : STATUS_CONF[s as keyof typeof STATUS_CONF]?.label}
-          </button>
-        ))}
+            <option value="all">Semua Channel</option>
+            <option value="offline">Offline / Dine-in</option>
+            {CHANNELS.map(c => (
+              <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+          <select 
+            value={paymentFilter} 
+            onChange={(e) => setPaymentFilter(e.target.value)}
+            className="input-base text-sm py-2 px-3 bg-white flex-1 sm:flex-none border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
+          >
+            <option value="all">Semua Pembayaran</option>
+            <option value="cash">Tunai (Cash)</option>
+            <option value="qris">QRIS</option>
+            <option value="debit">Debit Card/Kartu Debit</option>
+          </select>
+        </div>
       </div>
 
       {/* ── Order list ── */}
@@ -211,7 +249,7 @@ export default function AdminOrdersPage() {
             </div>
           ))}
         </div>
-      ) : orders.length === 0 ? (
+      ) : filteredOrders.length === 0 ? (
         <div className="card p-14 flex flex-col items-center text-center text-gray-400">
           <ClipboardList className="w-12 h-12 text-gray-200 mb-3" strokeWidth={1} />
           <p className="font-semibold text-gray-500">Belum ada pesanan</p>
@@ -221,7 +259,7 @@ export default function AdminOrdersPage() {
         </div>
       ) : (
         <div className="space-y-2.5">
-          {orders.map((order) => {
+          {filteredOrders.map((order) => {
             const conf = STATUS_CONF[order.status as OrderStatus] || { label: order.status, color: 'text-gray-500', badge: 'badge-gray', icon: Clock }
             const Icon = conf.icon
             const expanded = expandedId === order.id

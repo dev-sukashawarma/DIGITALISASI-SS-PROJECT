@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState, Spinner } from "@suka/design-system";
-import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays } from "lucide-react";
+import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays, Store } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { useRealtimeInvalidate } from "@suka/realtime";
 import { computeBoard, type BoardStaff, type BoardRecord, type BoardRow } from "@/features/board/board";
 import { PageHeader, InfoPill } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
+import { OutletSwitcher } from "@/components/OutletSwitcher";
 
 const PILL: Record<BoardRow["state"], { icon: React.ReactNode; label: (t: string | null, d: number | null) => string }> = {
   masuk:  { icon: <LogIn size={13} />,  label: (t) => `Masuk ${t}` },
@@ -37,20 +38,28 @@ export default function PapanKehadiranPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("semua");
 
+  const [selectedOutletId, setSelectedOutletId] = useState<string>("");
+
+  useEffect(() => {
+    if (outletStaff?.outlet_id && !selectedOutletId) {
+      setSelectedOutletId(outletStaff.outlet_id);
+    }
+  }, [outletStaff]);
+
   function selfieUrl(path: string) {
     return supabase.storage.from(SELFIE_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
   const today = new Date().toISOString().slice(0, 10);
   const { data, isLoading } = useQuery({
-    queryKey: ["papan-kehadiran", outletStaff?.outlet_id, today],
-    enabled: !!outletStaff?.outlet_id,
+    queryKey: ["papan-kehadiran", selectedOutletId, today],
+    enabled: !!selectedOutletId,
     queryFn: async () => {
       const [{ data: staff }, { data: recs }, { data: localCfg }, { data: globalCfg }] = await Promise.all([
-        supabase.from("outlet_staff").select("id,name,role").eq("outlet_id", outletStaff!.outlet_id).eq("status", "active"),
+        supabase.from("outlet_staff").select("id,name,role").eq("outlet_id", selectedOutletId).eq("status", "active"),
         supabase.from("attendance").select("outlet_staff_id,type,status,ts_server,selfie_url,telat_menit")
-          .eq("outlet_id", outletStaff!.outlet_id).gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
-        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", outletStaff!.outlet_id).maybeSingle(),
+          .eq("outlet_id", selectedOutletId).gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
+        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", selectedOutletId).maybeSingle(),
         supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
       ]);
       let cfg = localCfg;
@@ -65,16 +74,53 @@ export default function PapanKehadiranPage() {
   });
 
   useRealtimeInvalidate({
-    channelName: `absensi-papan-${outletStaff?.outlet_id ?? "none"}`,
-    enabled: !!outletStaff?.outlet_id,
+    channelName: `absensi-papan-${selectedOutletId || "none"}`,
+    enabled: !!selectedOutletId,
     subs: [
-      { table: "attendance", filter: `outlet_id=eq.${outletStaff?.outlet_id}`, queryKeys: [["papan-kehadiran", outletStaff?.outlet_id, today]] },
-      { table: "outlet_attendance_config", filter: `outlet_id=eq.${outletStaff?.outlet_id}`, queryKeys: [["papan-kehadiran", outletStaff?.outlet_id, today]] },
-      { table: "global_settings", queryKeys: [["papan-kehadiran", outletStaff?.outlet_id, today]] },
+      { table: "attendance", filter: `outlet_id=eq.${selectedOutletId}`, queryKeys: [["papan-kehadiran", selectedOutletId, today]] },
+      { table: "outlet_attendance_config", filter: `outlet_id=eq.${selectedOutletId}`, queryKeys: [["papan-kehadiran", selectedOutletId, today]] },
+      { table: "global_settings", queryKeys: [["papan-kehadiran", selectedOutletId, today]] },
     ],
   });
 
-  if (isLoading || !data) return <div className="p-6 flex justify-center"><Spinner /></div>;
+  const headerAndSwitcher = (
+    <>
+      <PageHeader
+        title="Papan kehadiran"
+        subtitle="Pantau kehadiran tim hari ini"
+        action={
+          <InfoPill icon={<CalendarDays size={14} />}>
+            {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long" })}
+          </InfoPill>
+        }
+      />
+      <OutletSwitcher currentOutletId={selectedOutletId} onChange={setSelectedOutletId} />
+    </>
+  );
+
+  if (!selectedOutletId) {
+    return (
+      <div className="space-y-5">
+        {headerAndSwitcher}
+        <div className="p-6 mt-10">
+          <EmptyState 
+            icon={<Store size={48} className="text-gray-400" />} 
+            title="Cabang Belum Ditentukan" 
+            description="Akun Anda belum terhubung dengan cabang manapun. Silakan hubungi admin untuk pengaturan penempatan." 
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading || !data) {
+    return (
+      <div className="space-y-5">
+        {headerAndSwitcher}
+        <div className="p-6 flex justify-center"><Spinner /></div>
+      </div>
+    );
+  }
 
   const { summary } = data;
   const present = summary.hadir + summary.telat;
@@ -87,15 +133,7 @@ export default function PapanKehadiranPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Papan kehadiran"
-        subtitle="Pantau kehadiran tim hari ini"
-        action={
-          <InfoPill icon={<CalendarDays size={14} />}>
-            {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long" })}
-          </InfoPill>
-        }
-      />
+      {headerAndSwitcher}
 
       <div className="rounded-2xl border border-suka-gray-200 bg-white p-4 sm:p-5">
         <div className="flex items-baseline justify-between mb-3">

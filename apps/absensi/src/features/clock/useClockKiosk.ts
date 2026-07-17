@@ -356,10 +356,11 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
    */
   async function isClosingChecklistDone(): Promise<boolean> {
     if (!outletId) return true;
+    const GLOBAL_OUTLET_ID = '00000000-0000-0000-0000-000000000000';
     const { data: cats } = await supabase
       .from("checklist_categories")
       .select("id, checklist_items(id, is_required)")
-      .eq("outlet_id", outletId)
+      .in("outlet_id", [outletId, GLOBAL_OUTLET_ID])
       .eq("phase", "tutup");
     const requiredIds = ((cats as any[]) ?? [])
       .flatMap((c) => c.checklist_items ?? [])

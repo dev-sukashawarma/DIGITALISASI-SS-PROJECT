@@ -228,7 +228,10 @@ const renderOrderNotes = (notes: string | null) => {
               <User size={16} className={iconColor} />
             </div>
             <div>
-              <p className="text-xs text-slate-400 font-medium leading-tight">{order.source === 'online' ? 'Online' : 'Offline'}</p>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <p className="text-xs text-slate-400 font-medium leading-tight">{order.source === 'online' ? 'Online' : 'Offline'}</p>
+                {order.channel && <ChannelBadge channel={order.channel} />}
+              </div>
               <p className="font-bold text-slate-800 text-sm truncate max-w-[140px] leading-tight">
                 {order.payment_method?.toUpperCase()}
               </p>

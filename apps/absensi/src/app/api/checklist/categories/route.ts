@@ -20,10 +20,12 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
+    const GLOBAL_OUTLET_ID = '00000000-0000-0000-0000-000000000000';
+
     const { data, error } = await supabaseAdmin
       .from('checklist_categories')
       .select('*, checklist_items(*)')
-      .eq('outlet_id', outlet_id)
+      .in('outlet_id', [outlet_id, GLOBAL_OUTLET_ID])
       .order('created_at', { ascending: true });
 
     if (error) {

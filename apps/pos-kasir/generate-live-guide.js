@@ -89,7 +89,7 @@ async function main() {
         
         // Fill form
         const emailInput = await page.$('input[name="email"], input[type="email"], #identifier');
-        if (emailInput) await emailInput.fill('kasir_tes@outlet.local');
+        if (emailInput) await emailInput.fill('kasir_tes@ss.com');
         
         const pwdInput = await page.$('input[name="password"], input[type="password"], #password');
         if (pwdInput) await pwdInput.fill('password123');

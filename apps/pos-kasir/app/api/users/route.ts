@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   }
 
   // Karena ini email-based auth di supabase, kita buat "pseudo-email"
-  const email = `${username}@outlet.local`
+  const email = `${username}@ss.com`
 
   // Buat user di auth.users menggunakan service role
   const { data: authData, error: authError } = await supabaseService.auth.admin.createUser({

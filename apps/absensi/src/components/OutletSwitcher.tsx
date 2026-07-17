@@ -17,7 +17,7 @@ export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId:
   useEffect(() => {
     let mounted = true;
     async function load() {
-      const isSpv = outletStaff?.role === 'spv';
+      const isSpv = outletStaff?.role === 'spv' || outletStaff?.role === 'admin';
       let ids: string[] = [];
       
       if (!isSpv) {
@@ -32,7 +32,7 @@ export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId:
 
       // 2. Fetch outlet details
       if (isSpv || ids.length > 0) {
-        let query = supabase.from("outlets").select("id, name").order("name");
+        let query = supabase.from("outlets").select("id, name").neq("id", "00000000-0000-0000-0000-000000000000").order("name");
         if (!isSpv && ids.length > 0) {
           query = query.in("id", ids);
         }
@@ -65,6 +65,7 @@ export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId:
           onChange={val => onChange(val)}
           options={outlets.map(o => ({ label: o.name, value: o.id }))}
           className="w-full"
+          searchable
         />
       </div>
     </div>

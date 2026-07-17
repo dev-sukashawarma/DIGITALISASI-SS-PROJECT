@@ -1809,6 +1809,12 @@
     react "^19.0.0"
     react-dom "^19.0.0"
 
+"@suka/realtime@*", "@suka/realtime@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\packages\\realtime":
+  version "0.0.1"
+  resolved "file:packages/realtime"
+  dependencies:
+    "@suka/auth" "*"
+
 "@suka/stok@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\apps\\stok":
   version "0.0.1"
   resolved "file:apps/stok"
@@ -1822,6 +1828,7 @@
     next "^16.1.6"
     react "^19.0.0-rc.0"
     react-dom "^19.0.0-rc.0"
+    sonner "^1.4.0"
 
 "@supabase/auth-js@2.110.1":
   version "2.110.1"

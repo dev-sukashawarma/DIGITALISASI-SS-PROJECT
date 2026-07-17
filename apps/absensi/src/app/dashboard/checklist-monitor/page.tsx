@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Spinner } from "@suka/design-system";
-import { ClipboardCheck, CheckCircle2, Circle, ChevronDown, ChevronUp, User, RefreshCw, AlertTriangle, Sunrise, Sunset } from "lucide-react";
+import { Spinner, EmptyState } from "@suka/design-system";
+import { ClipboardCheck, CheckCircle2, Circle, ChevronDown, ChevronUp, User, RefreshCw, AlertTriangle, Sunrise, Sunset, Store } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import { PageHeader } from "@/components/PageHeader";
+import { OutletSwitcher } from "@/components/OutletSwitcher";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 
@@ -45,10 +46,18 @@ export default function ChecklistMonitorPage() {
   const channelRef = useRef<any>(null);
   const hasSetInitialTab = useRef(false);
 
+  const [selectedOutletId, setSelectedOutletId] = useState<string>("");
+
+  useEffect(() => {
+    if (outletStaff?.outlet_id && !selectedOutletId) {
+      setSelectedOutletId(outletStaff.outlet_id);
+    }
+  }, [outletStaff]);
+
   const today = dayjs().format("YYYY-MM-DD");
 
   useEffect(() => {
-    if (!outletStaff?.outlet_id) return;
+    if (!selectedOutletId) return;
     init();
     return () => {
       const supabase = supabaseRef.current;
@@ -57,7 +66,7 @@ export default function ChecklistMonitorPage() {
         channelRef.current = null;
       }
     };
-  }, [outletStaff?.outlet_id]);
+  }, [selectedOutletId]);
 
   async function init() {
     setLoading(true);
@@ -69,11 +78,13 @@ export default function ChecklistMonitorPage() {
     setLoading(false);
   }
 
+  const GLOBAL_OUTLET_ID = '00000000-0000-0000-0000-000000000000';
+
   async function loadCategories(supabase: ReturnType<typeof createClient>) {
     const { data } = await supabase
       .from("checklist_categories")
       .select("*, checklist_items(*)")
-      .eq("outlet_id", outletStaff!.outlet_id)
+      .in("outlet_id", [selectedOutletId, GLOBAL_OUTLET_ID])
       .order("created_at", { ascending: true });
     if (data) setCategories(data);
   }
@@ -82,7 +93,7 @@ export default function ChecklistMonitorPage() {
     const { data } = await supabase
       .from("outlet_staff")
       .select("id, name")
-      .eq("outlet_id", outletStaff!.outlet_id);
+      .eq("outlet_id", selectedOutletId);
     if (data) {
       const map: Record<string, string> = {};
       data.forEach((s: { id: string; name: string }) => { map[s.id] = s.name; });
@@ -95,7 +106,7 @@ export default function ChecklistMonitorPage() {
     const { data: record } = await supabase
       .from("daily_checklist_records")
       .select("id")
-      .eq("outlet_id", outletStaff!.outlet_id)
+      .eq("outlet_id", selectedOutletId)
       .eq("date", today)
       .maybeSingle();
 
@@ -113,7 +124,7 @@ export default function ChecklistMonitorPage() {
       supabase.removeChannel(channelRef.current);
     }
     const ch = supabase
-      .channel(`absensi-checklist-monitor-${outletStaff!.outlet_id}`)
+      .channel(`absensi-checklist-monitor-${selectedOutletId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_checklist_ticks" },
@@ -157,18 +168,8 @@ export default function ChecklistMonitorPage() {
     }
   }, [loading, categories.length, bukaTotalItems, bukaTickedItems]);
 
-  if (loading) return <div className="p-10 flex justify-center"><Spinner /></div>;
-
-  const activeTotalItems = activeTab === "buka" ? bukaTotalItems : tutupTotalItems;
-  const activeTotalRequired = activeTab === "buka" ? bukaTotalRequired : tutupTotalRequired;
-  const activeTickedItems = activeTab === "buka" ? bukaTickedItems : tutupTickedItems;
-  const activeTickedRequired = activeTab === "buka" ? bukaTickedRequired : tutupTickedRequired;
-  
-  const activeProgress = activeTotalItems > 0 ? Math.round((activeTickedItems / activeTotalItems) * 100) : 0;
-  const activeAllRequiredDone = activeTotalRequired > 0 ? activeTickedRequired === activeTotalRequired : true;
-
-  return (
-    <div className="space-y-5">
+  const headerAndSwitcher = (
+    <>
       <PageHeader
         icon={<ClipboardCheck size={20} />}
         title="Monitor Checklist"
@@ -183,6 +184,38 @@ export default function ChecklistMonitorPage() {
           </button>
         }
       />
+      <OutletSwitcher currentOutletId={selectedOutletId} onChange={setSelectedOutletId} />
+    </>
+  );
+
+  if (!selectedOutletId) {
+    return (
+      <div className="space-y-5">
+        {headerAndSwitcher}
+        <div className="p-6 mt-10">
+          <EmptyState 
+            icon={<Store size={48} className="text-gray-400" />} 
+            title="Cabang Belum Ditentukan" 
+            description="Akun Anda belum terhubung dengan cabang manapun. Silakan hubungi admin untuk pengaturan penempatan." 
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) return <div className="p-10 flex justify-center"><Spinner /></div>;
+
+  const activeTotalItems = activeTab === "buka" ? bukaTotalItems : tutupTotalItems;
+  const activeTotalRequired = activeTab === "buka" ? bukaTotalRequired : tutupTotalRequired;
+  const activeTickedItems = activeTab === "buka" ? bukaTickedItems : tutupTickedItems;
+  const activeTickedRequired = activeTab === "buka" ? bukaTickedRequired : tutupTickedRequired;
+  
+  const activeProgress = activeTotalItems > 0 ? Math.round((activeTickedItems / activeTotalItems) * 100) : 0;
+  const activeAllRequiredDone = activeTotalRequired > 0 ? activeTickedRequired === activeTotalRequired : true;
+
+  return (
+    <div className="space-y-5">
+      {headerAndSwitcher}
 
       {/* Ringkasan: progress + angka kunci dalam satu kartu */}
       <div className="rounded-2xl border border-suka-gray-200 bg-white p-4 sm:p-5">

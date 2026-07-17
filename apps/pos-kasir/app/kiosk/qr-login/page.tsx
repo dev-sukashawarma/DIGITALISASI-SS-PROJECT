@@ -34,7 +34,7 @@ function QRLoginContent() {
     
     // Auto login using the provided credentials
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: `${u}@outlet.local`,
+      email: `${u}@ss.com`,
       password: p
     })
 

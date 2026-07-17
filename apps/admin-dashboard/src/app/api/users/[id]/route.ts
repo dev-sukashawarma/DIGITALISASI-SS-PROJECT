@@ -61,7 +61,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 
   // Update Auth User if password is provided or username changed (email changed)
-  const email = `${username}@outlet.local`
+  const email = `${username}@ss.com`
   const updateData: any = { email }
   if (password && password.trim() !== '') {
     updateData.password = password

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator, Lock, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -55,6 +56,8 @@ interface CashOrder {
   order_number: string
   total_amount: number
   created_at: string
+  payment_method: string
+  channel: string | null
 }
 
 type LedgerItem = 
@@ -101,8 +104,6 @@ export default function ShiftPage() {
   // Forms
   const [startingPettyCash, setStartingPettyCash] = useState<string>('')
   const [pettyCashLocked, setPettyCashLocked] = useState(false)
-  const [actualEndingCash, setActualEndingCash] = useState<string>('')
-  const [actualEndingPettyCash, setActualEndingPettyCash] = useState<string>('')
   
   // Expense Form
   const [expCategory, setExpCategory] = useState<string>('operasional')
@@ -140,17 +141,6 @@ export default function ShiftPage() {
     () => expenses.reduce((s, e) => s + Number(e.amount), 0),
     [expenses],
   )
-
-  // Selisih live antara hitungan manual kasir vs perhitungan sistem
-  const cashDiff = useMemo(() => {
-    const v = parseFloat(actualEndingCash)
-    return isNaN(v) ? null : v - currentDrawerBalance
-  }, [actualEndingCash, currentDrawerBalance])
-
-  const pettyCashDiff = useMemo(() => {
-    const v = parseFloat(actualEndingPettyCash)
-    return isNaN(v) ? null : v - pettyCashBalance
-  }, [actualEndingPettyCash, pettyCashBalance])
 
   const ledgerItems = useMemo<LedgerItem[]>(() => {
     const items: LedgerItem[] = []
@@ -223,12 +213,12 @@ export default function ShiftPage() {
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
           supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('orders').select('id, order_number, total_amount, created_at').eq('outlet_id', outletId).eq('payment_method', 'cash').eq('status', 'completed').gte('created_at', shiftData.start_time)
+          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('updated_at', shiftData.start_time)
         ])
 
         snapExpenses = await fetchCreators(expRes.data || [])
         snapTopups = await fetchCreators(topRes.data || [])
-        snapCashOrders = ordRes.data || []
+        snapCashOrders = (ordRes.data || []).filter(o => o.payment_method === 'cash' || o.channel != null)
         setExpenses(snapExpenses)
         setTopups(snapTopups)
         setCashOrders(snapCashOrders)
@@ -422,38 +412,6 @@ export default function ShiftPage() {
     }
   }
 
-
-  async function handleCloseShift(e: React.FormEvent) {
-    e.preventDefault()
-    if (!activeShift) return
-    if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
-    const confirmed = await showConfirm('Tutup shift sekarang? Setelah ditutup Anda tidak bisa melakukan transaksi tunai.')
-    if (!confirmed) return
-    setErrorMsg('')
-    setSuccessMsg('')
-    setIsSubmitting(true)
-    try {
-      const cash = parseFloat(actualEndingCash)
-      const pc = parseFloat(actualEndingPettyCash)
-      if (isNaN(cash) || cash < 0) throw new Error('Hitungan kas laci tidak valid')
-      if (isNaN(pc) || pc < 0) throw new Error('Hitungan asli dana operasional tidak valid')
-
-      const { error } = await supabase.rpc('close_shift_blind', {
-        p_shift_id: activeShift.id,
-        p_actual_cash: cash,
-        p_actual_petty_cash: pc
-      })
-
-      if (error) throw error
-
-      // Langsung ke halaman laporan agar kasir melihat hasil rekonsiliasi shift
-      router.push('/kasir/reports?shift=closed')
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal menutup shift')
-      setIsSubmitting(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto pb-12 animate-in fade-in">
@@ -548,13 +506,22 @@ export default function ShiftPage() {
           <p className="text-gray-500 text-sm mt-1">Kelola pergerakan uang laci harian dan Dana Operasional</p>
         </div>
         {activeShift && (
-          <button
-            onClick={() => setShowTopupModal(true)}
-            className="flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-blue-200"
-          >
-            <ArrowDownToLine className="w-4 h-4" />
-            Ajukan Top Up Dana Operasional
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <button
+              onClick={() => setShowTopupModal(true)}
+              className="flex items-center justify-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2.5 sm:py-2 rounded-lg font-bold text-sm transition-colors border border-blue-200 w-full sm:w-auto"
+            >
+              <ArrowDownToLine className="w-4 h-4" />
+              Ajukan Top Up Dana Operasional
+            </button>
+            <Link
+              href="/kasir/shift/close"
+              className="flex items-center justify-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 sm:py-2 rounded-lg font-bold text-sm transition-colors border border-red-200 w-full sm:w-auto"
+            >
+              <LogOut className="w-4 h-4" />
+              Tutup Shift
+            </Link>
+          </div>
         )}
       </div>
 
@@ -640,7 +607,7 @@ export default function ShiftPage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
-                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Laci Kasir (Sales)</span>
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Penjualan</span>
                 </div>
                 <h2 className="text-2xl font-black text-gray-900">{formatRupiah(currentDrawerBalance)}</h2>
                 <p className="text-gray-500 text-sm mt-1">
@@ -657,7 +624,7 @@ export default function ShiftPage() {
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Dana Operasional</span>
+                  <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Petty Cash</span>
                 </div>
                 <h2 className="text-2xl font-black text-gray-900">{formatRupiah(pettyCashBalance)}</h2>
                 <p className="text-gray-500 text-sm mt-1">
@@ -803,7 +770,7 @@ export default function ShiftPage() {
                               </div>
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-gray-900 truncate">Pesanan #{sale.order_number}</p>
-                                <p className="text-[11px] font-semibold text-gray-400 uppercase mt-0.5">Penjualan Laci (Tunai)</p>
+                                <p className="text-[11px] font-semibold text-gray-400 uppercase mt-0.5">Penjualan {sale.channel ? `(Food Apps - ${sale.channel})` : '(Tunai)'}</p>
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
                                   <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(sale.created_at)}</span>
                                 </div>
@@ -820,99 +787,6 @@ export default function ShiftPage() {
                 </div>
               </div>
 
-            </div>
-          </div>
-
-          {/* Grid Bawah untuk Card Rekap & Penutupan */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-            <div className="space-y-6">
-              {/* Perhitungan Sistem (Otomatis) */}
-              <div className="bg-white rounded-2xl shadow-sm border border-amber-200 overflow-hidden h-fit">
-                <div className="bg-amber-50 border-b border-amber-100 px-6 py-4 flex items-center gap-3">
-                  <Calculator className="w-5 h-5 text-amber-600" />
-                  <h2 className="text-lg font-bold text-amber-900">Perhitungan Sistem (Otomatis)</h2>
-                </div>
-                <div className="p-6 space-y-4">
-                  <p className="text-gray-500 text-sm leading-relaxed">
-                    Sistem menghitung otomatis berapa uang yang <b>seharusnya</b> ada saat ini. Bandingkan dengan hitungan manual Anda di bawah.
-                  </p>
-
-                  <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-gray-700">Uang Laci Seharusnya</span>
-                      <span className="text-lg font-black text-emerald-700">{formatRupiah(currentDrawerBalance)}</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1.5">
-                      Modal awal {formatRupiah(activeShift.starting_cash)} + Penjualan tunai {formatRupiah(shiftSalesTotal)}
-                    </p>
-                  </div>
-
-                  <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-gray-700">Dana Operasional Seharusnya</span>
-                      <span className="text-lg font-black text-blue-700">{formatRupiah(pettyCashBalance)}</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1.5">
-                      Awal {formatRupiah(activeShift.starting_petty_cash || 0)} + Top up {formatRupiah(approvedTopupsTotal)} − Pengeluaran {formatRupiah(expensesTotal)}
-                    </p>
-                  </div>
-
-                  <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
-                    <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">Total Seharusnya</span>
-                    <span className="text-xl font-black text-gray-900">{formatRupiah(currentDrawerBalance + pettyCashBalance)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              {/* Hitungan Manual Kasir + Tutup Shift */}
-              <div className="bg-white rounded-2xl shadow-sm border border-red-200 overflow-hidden h-fit">
-                <div className="bg-red-50 border-b border-red-100 px-6 py-4 flex items-center gap-3">
-                  <LogOut className="w-5 h-5 text-red-600" />
-                  <h2 className="text-lg font-bold text-red-900">Hitungan Manual Kasir & Tutup Shift</h2>
-                </div>
-                <div className="p-6 md:p-8 text-center">
-                  <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-                    Hitung seluruh uang fisik secara manual. Masukkan angka untuk <b>Uang Laci</b> (sales) dan <b>Dana Operasional</b> secara terpisah.
-                  </p>
-                  <form onSubmit={handleCloseShift} className="space-y-4">
-                    <div className="text-left">
-                      <label className="block text-sm font-bold text-gray-700 mb-1.5">Uang Laci (Hitungan Manual)</label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <span className="text-gray-500 font-semibold">Rp</span>
-                        </div>
-                        <input inputMode="numeric" required placeholder="Contoh: 850.000" value={actualEndingCash ? Number(actualEndingCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting} className="w-full pl-12 pr-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900" />
-                      </div>
-                      {cashDiff !== null && (
-                        <p className={`text-xs font-bold mt-1.5 ${cashDiff === 0 ? 'text-emerald-600' : cashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                          {cashDiff === 0 ? '✓ Pas dengan sistem' : cashDiff > 0 ? `Lebih ${formatRupiah(cashDiff)} dari sistem` : `Kurang ${formatRupiah(Math.abs(cashDiff))} dari sistem`}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-left mt-4">
-                      <label className="block text-sm font-bold text-gray-700 mb-1.5">Hitung sisa dana oprasional</label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <span className="text-gray-500 font-semibold">Rp</span>
-                        </div>
-                        <input inputMode="numeric" required placeholder="Contoh: 250.000" value={actualEndingPettyCash ? Number(actualEndingPettyCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingPettyCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting} className="w-full pl-12 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900" />
-                      </div>
-                      {pettyCashDiff !== null && (
-                        <p className={`text-xs font-bold mt-1.5 ${pettyCashDiff === 0 ? 'text-emerald-600' : pettyCashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                          {pettyCashDiff === 0 ? '✓ Pas dengan sistem' : pettyCashDiff > 0 ? `Lebih ${formatRupiah(pettyCashDiff)} dari sistem` : `Kurang ${formatRupiah(Math.abs(pettyCashDiff))} dari sistem`}
-                        </p>
-                      )}
-                    </div>
-                    <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 mt-2 rounded-xl font-bold transition-all disabled:opacity-50">
-                      {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogOut className="w-5 h-5" />}
-                      Kunci & Tutup Shift
-                    </button>
-                    <p className="text-[11px] text-gray-400 mt-1">Setelah shift ditutup, Anda akan diarahkan ke halaman Laporan.</p>
-                  </form>
-                </div>
-              </div>
             </div>
           </div>
         </div>

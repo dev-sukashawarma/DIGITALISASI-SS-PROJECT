@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState } from "@suka/design-system";
-import { LogIn, LogOut, CalendarDays, ClipboardList, Download } from "lucide-react";
+import { LogIn, LogOut, CalendarDays, ClipboardList, Download, Store } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { PageHeader } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
 import { attendanceToCsv, downloadCsv, type CsvRow } from "@/features/rekap/csv";
 import { useRealtimeInvalidate } from "@suka/realtime";
+import { OutletSwitcher } from "@/components/OutletSwitcher";
 
 type Row = {
   id: string;
@@ -44,27 +45,35 @@ export default function RekapPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("semua");
 
+  const [selectedOutletId, setSelectedOutletId] = useState<string>("");
+
+  useEffect(() => {
+    if (outletStaff?.outlet_id && !selectedOutletId) {
+      setSelectedOutletId(outletStaff.outlet_id);
+    }
+  }, [outletStaff]);
+
   const { data: rows = [] } = useQuery({
-    queryKey: ["rekap", outletStaff?.outlet_id, date],
-    enabled: !!outletStaff?.outlet_id,
+    queryKey: ["rekap", selectedOutletId, date],
+    enabled: !!selectedOutletId,
     queryFn: async () => {
       const [attRes, staffRes, localCfgRes, globalCfgRes] = await Promise.all([
         supabase
           .from("attendance")
           .select("id,type,ts_server,ts_client,status,selfie_url,outlet_staff_id,telat_menit")
-          .eq("outlet_id", outletStaff!.outlet_id)
+          .eq("outlet_id", selectedOutletId)
           .gte("ts_server", `${date}T00:00:00`)
           .lte("ts_server", `${date}T23:59:59`)
           .order("ts_server", { ascending: false }),
         supabase
           .from("outlet_staff")
           .select("id,name")
-          .eq("outlet_id", outletStaff!.outlet_id)
+          .eq("outlet_id", selectedOutletId)
           .eq("status", "active"),
         supabase
           .from("outlet_attendance_config")
           .select("jam_masuk,jam_keluar")
-          .eq("outlet_id", outletStaff!.outlet_id)
+          .eq("outlet_id", selectedOutletId)
           .maybeSingle(),
         supabase
           .from("global_settings")
@@ -117,12 +126,12 @@ export default function RekapPage() {
   });
 
   useRealtimeInvalidate({
-    channelName: `absensi-rekap-${outletStaff?.outlet_id ?? "none"}`,
-    enabled: !!outletStaff?.outlet_id,
+    channelName: `absensi-rekap-${selectedOutletId || "none"}`,
+    enabled: !!selectedOutletId,
     subs: [
-      { table: "attendance", filter: `outlet_id=eq.${outletStaff?.outlet_id}`, queryKeys: [["rekap", outletStaff?.outlet_id, date]] },
-      { table: "outlet_attendance_config", filter: `outlet_id=eq.${outletStaff?.outlet_id}`, queryKeys: [["rekap", outletStaff?.outlet_id, date]] },
-      { table: "global_settings", queryKeys: [["rekap", outletStaff?.outlet_id, date]] },
+      { table: "attendance", filter: `outlet_id=eq.${selectedOutletId}`, queryKeys: [["rekap", selectedOutletId, date]] },
+      { table: "outlet_attendance_config", filter: `outlet_id=eq.${selectedOutletId}`, queryKeys: [["rekap", selectedOutletId, date]] },
+      { table: "global_settings", queryKeys: [["rekap", selectedOutletId, date]] },
     ],
   });
 
@@ -132,6 +141,53 @@ export default function RekapPage() {
     alpha: rows.filter((r) => r.status === "alpha").length,
     lebih_awal: rows.filter((r) => r.status === "lebih_awal").length,
   }), [rows]);
+
+  const STAT = [
+    { label: "Tepat", value: summary.tepat, cls: "text-suka-green" },
+    { label: "Telat", value: summary.telat, cls: "text-[#854f0b]" },
+    { label: "Alpha", value: summary.alpha, cls: "text-red-600" },
+    { label: "Cepat", value: summary.lebih_awal, cls: "text-[#0369a1]" },
+  ];
+
+  const headerAndSwitcher = (
+    <>
+      <PageHeader
+        icon={<ClipboardList size={20} />}
+        title="Rekap & Riwayat"
+        subtitle="Riwayat absensi per tanggal"
+        action={
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <label className="flex flex-1 items-center gap-1.5 rounded-xl border border-suka-gray-300 bg-white px-3 py-2 text-sm text-gray-600 sm:flex-none">
+              <CalendarDays size={15} className="shrink-0 text-gray-400" />
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-transparent outline-none" />
+            </label>
+            <button
+              onClick={exportCsv}
+              className="flex items-center gap-1.5 rounded-xl bg-suka-brown px-3 py-2 text-sm font-semibold text-white hover:bg-suka-brown/90 transition-colors shadow-sm cursor-pointer"
+            >
+              <Download size={15} /> Export CSV
+            </button>
+          </div>
+        }
+      />
+      <OutletSwitcher currentOutletId={selectedOutletId} onChange={setSelectedOutletId} />
+    </>
+  );
+
+  if (!selectedOutletId) {
+    return (
+      <div className="space-y-5">
+        {headerAndSwitcher}
+        <div className="p-6 mt-10">
+          <EmptyState 
+            icon={<Store size={48} className="text-gray-400" />} 
+            title="Cabang Belum Ditentukan" 
+            description="Akun Anda belum terhubung dengan cabang manapun. Silakan hubungi admin untuk pengaturan penempatan." 
+          />
+        </div>
+      </div>
+    );
+  }
 
   const filteredRows = rows.filter(r => filterStatus === "semua" || r.status === filterStatus);
 
@@ -164,34 +220,9 @@ export default function RekapPage() {
     downloadCsv(`rekap-${date}.csv`, attendanceToCsv(data));
   }
 
-  const STAT = [
-    { label: "Tepat", value: summary.tepat, cls: "text-suka-green" },
-    { label: "Telat", value: summary.telat, cls: "text-[#854f0b]" },
-    { label: "Alpha", value: summary.alpha, cls: "text-red-600" },
-    { label: "Cepat", value: summary.lebih_awal, cls: "text-[#0369a1]" },
-  ];
-
   return (
     <div className="space-y-5">
-      <PageHeader
-        icon={<ClipboardList size={20} />}
-        title="Rekap & Riwayat"
-        subtitle="Riwayat absensi per tanggal"
-        action={
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            <label className="flex flex-1 items-center gap-1.5 rounded-xl border border-suka-gray-300 bg-white px-3 py-2 text-sm text-gray-600 sm:flex-none">
-              <CalendarDays size={15} className="shrink-0 text-gray-400" />
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-transparent outline-none" />
-            </label>
-            <button
-              onClick={exportCsv}
-              className="flex items-center gap-1.5 rounded-xl bg-suka-brown px-3 py-2 text-sm font-semibold text-white hover:bg-suka-brown/90 transition-colors shadow-sm cursor-pointer"
-            >
-              <Download size={15} /> Export CSV
-            </button>
-          </div>
-        }
-      />
+      {headerAndSwitcher}
 
       <div className="grid grid-cols-3 gap-2.5">
         {STAT.map((s) => (

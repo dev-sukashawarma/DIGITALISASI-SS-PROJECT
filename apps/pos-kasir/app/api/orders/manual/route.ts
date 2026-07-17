@@ -49,9 +49,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Pesanan kosong, pilih minimal 1 menu' }, { status: 400 })
   }
 
-  if (body.channel === 'shopeefood') {
+  if (['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(body.channel || '')) {
     if (typeof body.promo_subsidy !== 'number' || isNaN(body.promo_subsidy)) {
-      return NextResponse.json({ error: 'Subsidi Promo wajib diisi untuk ShopeeFood (bisa isi 0)' }, { status: 400 })
+      return NextResponse.json({ error: 'Promo Apps wajib diisi untuk Food Apps (bisa isi 0)' }, { status: 400 })
     }
   }
 

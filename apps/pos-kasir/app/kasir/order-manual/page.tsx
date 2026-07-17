@@ -330,7 +330,7 @@ export default function OrderManualPage() {
 
   const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity, 0)
   const globalDiscount = calculateGlobalDiscount(subtotalAmount)
-  const parsedPromoSubsidy = channel === 'shopeefood' ? (Number(promoSubsidy) || 0) : 0
+  const parsedPromoSubsidy = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? (Number(promoSubsidy) || 0) : 0
   const totalPrice = Math.max(0, subtotalAmount - globalDiscount - parsedPromoSubsidy)
 
   const isGlobalPromoActive = globalPromo && globalPromo.is_active && (!globalPromo.end_date || new Date(globalPromo.end_date).getTime() > Date.now());
@@ -345,8 +345,8 @@ export default function OrderManualPage() {
     setSubmitting(true)
     setError(null)
 
-    if (channel === 'shopeefood' && promoSubsidy === '') {
-      setError('Subsidi Promo wajib diisi untuk ShopeeFood (bisa isi 0)')
+    if (['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') && promoSubsidy === '') {
+      setError('Promo Apps wajib diisi untuk Food Apps (bisa isi 0)')
       setSubmitting(false)
       return
     }
@@ -356,7 +356,7 @@ export default function OrderManualPage() {
       payment_method: payment,
       customer_name: customerName,
       amount_received: payment === 'cash' ? amountReceived : undefined,
-      promo_subsidy: channel === 'shopeefood' ? Number(promoSubsidy) : 0,
+      promo_subsidy: ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? Number(promoSubsidy) : 0,
       items: lineList.map((l) => ({
         menu_item_id: l.item.id,
         quantity: l.quantity,
@@ -442,7 +442,7 @@ export default function OrderManualPage() {
         discount_amount: globalDiscount > 0 ? globalDiscount : null,
         source: 'manual',
         channel,
-        promo_subsidy: channel === 'shopeefood' ? Number(promoSubsidy) : 0,
+        promo_subsidy: ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? Number(promoSubsidy) : 0,
         apiUrl: '/api/orders/manual',
         apiPayload: payload,
       })
@@ -1327,10 +1327,10 @@ function CartPanel(props: {
             />
           </div>
 
-          {/* Subsidi Promo untuk ShopeeFood */}
-          {channel === 'shopeefood' && (
+          {/* Promo Apps untuk Food Apps */}
+          {['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') && (
             <div>
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Subsidi Promo (Wajib)</label>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Promo Apps (Wajib)</label>
               <input
                 type="number"
                 value={promoSubsidy}

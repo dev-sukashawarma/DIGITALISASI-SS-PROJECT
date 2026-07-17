@@ -32,7 +32,8 @@ ALTER TABLE outlet_staff
   ADD COLUMN IF NOT EXISTS face_descriptor_mobile real[],
   ADD COLUMN IF NOT EXISTS mobile_enrolled_at timestamptz,
   ADD COLUMN IF NOT EXISTS mobile_enrolled_by uuid,
-  ADD COLUMN IF NOT EXISTS mobile_re_enroll_reason text;
+  ADD COLUMN IF NOT EXISTS mobile_re_enroll_reason text,
+  ADD COLUMN IF NOT EXISTS ref_photo_url_mobile text;
 ```
 
 - Kolom web (`face_descriptor`, `enrolled_at`, `re_enrolled_*`, `ref_photo_url`) **tidak disentuh**.

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo } from 'react'
+import Link from 'next/link'
 import type { MonitoringItem } from '@/lib/types/monitoring'
 import {
   computeTransferSuggestions,
@@ -55,12 +56,12 @@ export function TransferSuggestionPanel({
               <span className="font-bold">{s.recipientOutletName}</span>
             </p>
           </div>
-          <button
-            onClick={() => onTransfer(s)}
-            className="shrink-0 px-4 py-2 text-sm font-semibold rounded-xl bg-suka-orange text-white hover:opacity-90 transition-opacity"
+          <Link
+            href={`/stok/mutasi/new?tujuan=${s.recipientOutletId}&bahan=${s.bahan_baku_id}&qty=${s.qty}`}
+            className="shrink-0 px-4 py-2 text-sm font-semibold rounded-xl bg-suka-orange text-white hover:opacity-90 transition-opacity block text-center"
           >
-            Transfer
-          </button>
+            Ajukan Mutasi
+          </Link>
         </div>
       ))}
     </div>

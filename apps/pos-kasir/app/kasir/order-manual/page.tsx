@@ -19,6 +19,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/db'
 import { fetchWithTimeout } from '@/lib/offline-utils'
 import { createLocalOrder } from '@/lib/offline'
+import { QRCodeSVG } from 'qrcode.react'
 
 type Mode = 'walkin' | 'online'
 
@@ -64,6 +65,7 @@ export default function OrderManualPage() {
   const [error, setError] = useState<string | null>(null)
   const [showInfo, setShowInfo] = useState(true)
   const [success, setSuccess] = useState<{ orderNumber: number; method: Payment | null; change: number | null } | null>(null)
+  const [onlineQrisOpen, setOnlineQrisOpen] = useState(false)
 
   // ── Modal State ─────────────────────────────────────────────────────────
   const [selectedMenu, setSelectedMenu] = useState<MenuItem | null>(null)
@@ -868,6 +870,8 @@ export default function OrderManualPage() {
               globalPromo={globalPromo}
               needsMoreForPromo={!!needsMoreForPromo}
               missingAmount={missingAmount}
+              onlineQrisOpen={onlineQrisOpen}
+              setOnlineQrisOpen={setOnlineQrisOpen}
             />
           )}
         </div>
@@ -940,6 +944,8 @@ export default function OrderManualPage() {
                 needsMoreForPromo={!!needsMoreForPromo}
                 missingAmount={missingAmount}
                 embedded
+                onlineQrisOpen={onlineQrisOpen}
+                setOnlineQrisOpen={setOnlineQrisOpen}
               />
             )}
           </div>
@@ -1160,11 +1166,14 @@ function CartPanel(props: {
   needsMoreForPromo?: boolean
   missingAmount?: number
   embedded?: boolean
+  onlineQrisOpen: boolean
+  setOnlineQrisOpen: (v: boolean) => void
 }) {
   const {
     lineList, totalItems, totalPrice, channel, payment, setPayment,
     customerName, setCustomerName, setQty, setNote, canSubmit, submitting, error, onSubmit,
     calculateItemPrice, globalDiscount, globalPromo, needsMoreForPromo, missingAmount, embedded,
+    onlineQrisOpen, setOnlineQrisOpen
   } = props
 
   const ch = getChannel(channel)
@@ -1399,7 +1408,13 @@ function CartPanel(props: {
 
         {/* Konfirmasi */}
         <button
-          onClick={() => onSubmit(payment === 'cash' ? amountReceived : null)}
+          onClick={() => {
+            if (payment === 'qris') {
+              setOnlineQrisOpen(true)
+            } else {
+              onSubmit(amountReceived)
+            }
+          }}
           disabled={payment === 'cash' ? !canPayCash : !canSubmit}
           className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm shadow-amber-200 flex items-center justify-center gap-2 transition-all active:scale-95"
         >
@@ -1420,6 +1435,56 @@ function CartPanel(props: {
           </p>
         )}
       </div>
+
+      {/* ── Modal QRIS Online ── */}
+      {onlineQrisOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl animate-[slideUp_0.3s_ease-out]">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-bold text-gray-900 text-lg">Pembayaran QRIS</h2>
+                <button onClick={() => setOnlineQrisOpen(false)} className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col items-center">
+                <div className="bg-white p-4 rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.05)] border border-gray-100 mb-6">
+                  {/* Dynamic QRIS URL using qris.my.id (Statis mock for now if no url available) */}
+                  {/* Using standard template or just a placeholder for now */}
+                  <div className="w-[220px] h-[220px] flex items-center justify-center bg-gray-50 rounded-xl relative overflow-hidden">
+                    <QRCodeSVG
+                      value={`https://qris.my.id/q/dummy?amount=${totalPrice}`}
+                      size={200}
+                      level="H"
+                      includeMargin={false}
+                    />
+                  </div>
+                </div>
+                
+                <div className="text-center w-full mb-6">
+                  <p className="text-sm font-bold text-gray-600 mb-1">TOTAL BAYAR</p>
+                  <p className="text-3xl font-black text-amber-500">{formatRupiah(totalPrice)}</p>
+                  <p className="text-[10px] text-gray-400 mt-2">Tunjukkan QRIS ini di layar kasir kepada pelanggan.</p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setOnlineQrisOpen(false)
+                    onSubmit(null)
+                  }}
+                  disabled={submitting}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                  Konfirmasi Pembayaran Selesai
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

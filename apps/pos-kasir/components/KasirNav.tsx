@@ -259,7 +259,7 @@ export default function KasirNav() {
             }
 
             // Dropdown logic for subItems
-            const anySubActive = link.subItems!.some(sub => sub.href === '/kasir' ? pathname === '/kasir' : pathname.startsWith(sub.href));
+            const anySubActive = link.subItems!.some(sub => sub.href === '/kasir' ? pathname === '/kasir' : (pathname === sub.href || pathname.startsWith(sub.href + '/')));
             const isThisDropdownOpen = openDropdown === link.label;
 
             return (
@@ -286,7 +286,7 @@ export default function KasirNav() {
                 {!isCollapsed && isThisDropdownOpen && (
                   <div className="mt-1 flex flex-col space-y-1 pl-11 pr-2 animate-fade-in">
                     {link.subItems!.map(sub => {
-                      const subActive = sub.href === '/kasir' ? pathname === '/kasir' : pathname.startsWith(sub.href)
+                      const subActive = sub.href === '/kasir' ? pathname === '/kasir' : (pathname === sub.href || pathname.startsWith(sub.href + '/'))
                       return (
                         <Link 
                           key={sub.href} 
@@ -310,7 +310,7 @@ export default function KasirNav() {
                     <div className="text-xs font-bold text-[#a48e7f] mb-2 px-3 uppercase tracking-wider">{link.label}</div>
                     <div className="flex flex-col gap-1">
                       {link.subItems!.map(sub => {
-                        const subActive = sub.href === '/kasir' ? pathname === '/kasir' : pathname.startsWith(sub.href)
+                        const subActive = sub.href === '/kasir' ? pathname === '/kasir' : (pathname === sub.href || pathname.startsWith(sub.href + '/'))
                         return (
                           <Link 
                             key={sub.href} 

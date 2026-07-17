@@ -1141,7 +1141,7 @@ export default function KasirOrderClient({
               }`}
             >
               Antrean 
-              <span className={`px-2 py-0.5 rounded-full text-[10px] ${preparingTab === 'antrean' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'}`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${preparingTab === 'antrean' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-500'}`}>
                 {antreanMasak.length}
               </span>
             </button>
@@ -1154,7 +1154,11 @@ export default function KasirOrderClient({
               }`}
             >
               Terjadwal
-              <span className={`px-2 py-0.5 rounded-full text-[10px] ${preparingTab === 'terjadwal' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500'}`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                terjadwalMasak.length > 0 
+                  ? 'bg-red-500 text-white' 
+                  : preparingTab === 'terjadwal' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500'
+              }`}>
                 {terjadwalMasak.length}
               </span>
             </button>

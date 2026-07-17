@@ -31,6 +31,67 @@ import { cleanItemName } from '@/lib/order-item-name'
 
 const DING_SOUND = '/sound-pesanan.mp3'
 
+const FormattedNotes = ({ notes }: { notes: string }) => {
+  if (!notes) return null;
+
+  const hasOnlineInfo = notes.includes('-- INFO PEMESAN ONLINE --');
+  const hasCustomerNote = notes.includes('-- CATATAN PELANGGAN --');
+
+  if (hasOnlineInfo || hasCustomerNote) {
+    let onlineInfoStr = '';
+    let customerNoteStr = '';
+
+    const parts = notes.split('-- CATATAN PELANGGAN --');
+    if (parts.length === 2) {
+      onlineInfoStr = parts[0].replace('-- INFO PEMESAN ONLINE --', '').trim();
+      customerNoteStr = parts[1].trim();
+    } else if (hasOnlineInfo) {
+      onlineInfoStr = notes.replace('-- INFO PEMESAN ONLINE --', '').trim();
+    } else if (hasCustomerNote) {
+      customerNoteStr = notes.replace('-- CATATAN PELANGGAN --', '').trim();
+    }
+
+    return (
+      <div className="flex flex-col gap-3 mt-1">
+        {onlineInfoStr && (
+          <div className="bg-white/60 rounded border border-orange-200/60 p-2">
+            <div className="text-[10px] font-bold text-orange-800/60 uppercase mb-1 tracking-wider">Info Pemesan Online</div>
+            <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-sm">
+              {onlineInfoStr.split('\n').map((line, i) => {
+                if (!line.trim()) return null;
+                const splitIndex = line.indexOf(':');
+                if (splitIndex !== -1) {
+                  const key = line.substring(0, splitIndex).trim();
+                  const value = line.substring(splitIndex + 1).trim();
+                  return (
+                    <React.Fragment key={i}>
+                      <div className="text-orange-900/70 font-medium">{key}</div>
+                      <div className="text-orange-950 font-bold">{value}</div>
+                    </React.Fragment>
+                  );
+                }
+                return <div key={i} className="col-span-2 font-bold text-orange-950">{line.trim()}</div>;
+              })}
+            </div>
+          </div>
+        )}
+        {customerNoteStr && (
+          <div className="bg-white/60 rounded border border-orange-200/60 p-2">
+            <div className="text-[10px] font-bold text-orange-800/60 uppercase mb-1 tracking-wider">Catatan Tambahan</div>
+            <div className="text-sm font-semibold text-orange-950 whitespace-pre-wrap">{customerNoteStr}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-sm font-semibold text-orange-950 whitespace-pre-wrap leading-tight mt-1">
+      {notes}
+    </div>
+  );
+};
+
 function buildReceiptItems(order: ParsedOrder): ReceiptLine[] {
   if (!order._parsedItems) {
     return order.order_items.map(item => {
@@ -1434,9 +1495,7 @@ export default function KasirOrderClient({
                   <div className="text-xs font-bold text-orange-800 mb-1 flex items-center gap-1">
                     <User size={12} /> Catatan / Info Pengambilan
                   </div>
-                  <div className="text-sm font-semibold text-orange-950 whitespace-pre-wrap leading-tight">
-                    {urgentAlerts[0].notes}
-                  </div>
+                  <FormattedNotes notes={urgentAlerts[0].notes} />
                 </div>
               )}
 
@@ -1604,9 +1663,7 @@ export default function KasirOrderClient({
                   <div className="text-xs font-bold text-orange-800 mb-1 flex items-center gap-1">
                     <User size={12} /> Catatan / Info Pengambilan
                   </div>
-                  <div className="text-sm font-semibold text-orange-950 whitespace-pre-wrap leading-tight">
-                    {scheduledAlerts[0].notes}
-                  </div>
+                  <FormattedNotes notes={scheduledAlerts[0].notes} />
                 </div>
               )}
 

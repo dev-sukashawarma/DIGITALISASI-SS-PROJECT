@@ -31,4 +31,18 @@ class FaceRecognizerTest {
         // Satu konstanta untuk SEMUA jalur verifikasi (ganti 0.85/0.80 inline yang dulu beda-beda)
         assertTrue(FaceRecognizer.MOBILE_MATCH_THRESHOLD in 0.5f..0.95f)
     }
+
+    @Test
+    fun cosineSimilarity_vektorOrtogonal_nol() {
+        val a = floatArrayOf(1f, 0f)
+        val b = floatArrayOf(0f, 1f)
+        assertEquals(0f, FaceRecognizer.cosineSimilarity(a, b), 0.001f)
+    }
+
+    @Test
+    fun cosineSimilarity_vektorNol_kembalikanNol() {
+        val zero = floatArrayOf(0f, 0f)
+        val v = floatArrayOf(1f, 0f)
+        assertEquals(0f, FaceRecognizer.cosineSimilarity(zero, v), 0.0f)
+    }
 }

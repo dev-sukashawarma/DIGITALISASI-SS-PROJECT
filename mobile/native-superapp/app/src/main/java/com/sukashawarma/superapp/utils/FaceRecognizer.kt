@@ -51,16 +51,14 @@ class FaceRecognizer(context: Context) {
             e.printStackTrace()
             isModelLoaded = false
             loadError = e.message ?: "Unknown Error"
-            // Jika model belum diunduh dengan benar, fallback ke mode MOCK
+            // Jika model gagal dimuat, isModelLoaded=false → extractEmbedding gagal eksplisit (FloatArray kosong)
         }
     }
 
     fun extractEmbedding(bitmap: Bitmap): FloatArray {
-        val interp = interpreter
-        if (interp == null) {
-            // MOCK MODE: Return dummy embedding jika model belum ada
-            return FloatArray(outputSize) { 0.5f }
-        }
+        // Model tidak ter-load = kegagalan nyata. FloatArray kosong → semua jalur pemanggil
+        // (cek embedding.isNotEmpty() + guard cosineSimilarity) gagal eksplisit. TIDAK ADA mock.
+        val interp = interpreter ?: return FloatArray(0)
 
         val resizedBitmap = Bitmap.createScaledBitmap(bitmap, inputImageSize, inputImageSize, false)
         val byteBuffer = convertBitmapToByteBuffer(resizedBitmap)

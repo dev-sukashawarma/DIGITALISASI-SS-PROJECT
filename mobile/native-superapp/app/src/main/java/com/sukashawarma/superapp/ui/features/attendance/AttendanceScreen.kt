@@ -418,31 +418,6 @@ fun AttendanceScreen(
                     )
                 }
 
-                // Tombol sementara untuk Bypass Scan Wajah di Emulator tanpa Webcam
-                Button(
-                    onClick = {
-                        val dummyBitmap = android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
-                        coroutineScope.launch {
-                            isScanning = false
-                            if (!isClockedIn) {
-                                isClockedIn = true
-                                clockInTime = currentTime
-                                clockInSelfie = dummyBitmap
-                                attendanceCount += 1
-                            } else {
-                                isClockedIn = false
-                                isDayCompleted = true
-                                clockOutTime = currentTime
-                                clockOutSelfie = dummyBitmap
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
-                ) {
-                    Text("Bypass Scan Wajah (Debug)")
-                }
-                
                 // Lokasi Card
                 LocationInfoCard()
 

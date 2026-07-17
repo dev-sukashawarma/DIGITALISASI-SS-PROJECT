@@ -23,7 +23,16 @@ export default async function AdminPromoPage() {
   const [menuRes, outletsRes, ooPromosRes] = await Promise.all([
     supabase.from('menu_items').select('id, name, price').eq('is_available', true).order('sort_order'),
     supabase.from('outlets').select('id, name').eq('is_active', true),
-    orderOnline ? orderOnline.from('promos').select('applies_to, item_ids').catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
+    orderOnline 
+      ? (async () => {
+          try {
+            const res = await orderOnline.from('promos').select('applies_to, item_ids')
+            return res
+          } catch (e) {
+            return { data: [] }
+          }
+        })()
+      : Promise.resolve({ data: [] })
   ])
   
   const initialMenuItems = menuRes.data || []

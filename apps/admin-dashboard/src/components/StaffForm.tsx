@@ -13,7 +13,9 @@ const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader',
 
 const getStaffFormSchema = (isEditing: boolean) => z.object({
   name: z.string().min(1, 'Nama Lengkap wajib diisi'),
-  username: z.string().min(1, 'Username wajib diisi').regex(/^[a-z0-9_]*$/, 'Username hanya boleh huruf kecil, angka, dan underscore'),
+  username: isEditing 
+    ? z.string().optional().or(z.literal('')) 
+    : z.string().min(1, 'Username wajib diisi').regex(/^[a-z0-9_]*$/, 'Username hanya boleh huruf kecil, angka, dan underscore'),
   password: isEditing ? z.string().optional() : z.string().min(1, 'Password Sementara wajib diisi'),
   role: z.enum(['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance', 'korlap']),
   outlet_id: z.string().min(1, 'Outlet Home wajib diisi'),
@@ -137,12 +139,12 @@ export function StaffForm({
     const fields = stepFields[stepId]
     const isValid = await trigger(fields as any)
     if (!isValid) {
-      // Find first error message and alert it
-      const stepErrors = Object.entries(errors)
-        .filter(([key]) => fields.includes(key as any))
-        .map(([_, err]) => (err as any).message)
-      if (stepErrors.length > 0) {
-        alert(stepErrors[0])
+      for (const field of fields) {
+        const { error } = control.getFieldState(field)
+        if (error?.message) {
+          alert(error.message)
+          break
+        }
       }
     }
     return isValid
@@ -155,11 +157,12 @@ export function StaffForm({
       const isValid = await trigger(fields as any)
       if (!isValid) {
         setActiveTab(stepId as any)
-        const stepErrors = Object.entries(errors)
-          .filter(([key]) => fields.includes(key as any))
-          .map(([_, err]) => (err as any).message)
-        if (stepErrors.length > 0) {
-          alert(stepErrors[0])
+        for (const field of fields) {
+          const { error } = control.getFieldState(field)
+          if (error?.message) {
+            alert(error.message)
+            break
+          }
         }
         return false
       }

@@ -259,7 +259,8 @@ fun EnrollmentScreen(
                                                 url,
                                                 isReEnroll,
                                                 reEnrollReason,
-                                                adminStaff.id
+                                                adminStaff.id,
+                                                hasExistingConsent = selectedStaff!!.consentAt != null
                                             )
                                             phase = EnrollPhase.DONE
                                             // Update local list

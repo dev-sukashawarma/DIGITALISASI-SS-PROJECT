@@ -19,7 +19,7 @@ interface WalkInItem {
 }
 
 interface WalkInPayload {
-  payment_method: 'cash' | 'qris'
+  payment_method: 'cash' | 'qris' | 'card'
   customer_name?: string
   amount_received?: number // wajib untuk cash
   items: WalkInItem[]
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   // ── Validasi dasar ──────────────────────────────────────────────────────
-  if (body.payment_method !== 'cash' && body.payment_method !== 'qris') {
+  if (body.payment_method !== 'cash' && body.payment_method !== 'qris' && body.payment_method !== 'card') {
     return NextResponse.json({ error: 'Metode pembayaran tidak valid' }, { status: 400 })
   }
   if (!Array.isArray(body.items) || body.items.length === 0) {

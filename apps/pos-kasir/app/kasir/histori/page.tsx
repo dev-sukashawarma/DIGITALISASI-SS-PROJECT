@@ -527,18 +527,7 @@ export default function AdminOrdersPage() {
                           {STATUS_NEXT_LABEL[order.status as OrderStatus]}
                         </button>
                       )}
-                      {order.status !== 'completed' && order.status !== 'cancelled' && (
-                        <button
-                          onClick={async () => { 
-                            const confirmed = await showConfirm('Batalkan pesanan ini?'); 
-                            if (confirmed) updateStatus(order.id, 'cancelled') 
-                          }}
-                          className="btn-danger py-2 px-4 text-sm"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          Batalkan
-                        </button>
-                      )}
+
                     </div>
                   </div>
                 )}

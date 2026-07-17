@@ -19,6 +19,7 @@ import type { OrderWithItems, OrderStatus } from '@/types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { fetchWithTimeout } from '@/lib/offline-utils'
 import CustomDatePicker from '@/components/CustomDatePicker'
+import CustomSelect from '@/components/CustomSelect'
 
 import BonusTab from './BonusTab'
 
@@ -289,45 +290,48 @@ export default function AdminOrdersPage() {
           </div>
 
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full xl:w-auto">
-            <select 
+            <CustomSelect
+              className="flex-1 sm:flex-none"
               value={dateFilter}
-              onChange={(e) => {
-                setDateFilter(e.target.value)
-                if (e.target.value !== 'custom') {
+              onChange={(val) => {
+                setDateFilter(val)
+                if (val !== 'custom') {
                   setCustomStart('')
                   setCustomEnd('')
                 }
               }}
-              className="input-base text-sm py-2 px-3 bg-white flex-1 sm:flex-none border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
-            >
-              <option value="today">Hari Ini</option>
-              <option value="yesterday">Kemarin</option>
-              <option value="7d">7 Hari Terakhir</option>
-              <option value="30d">30 Hari Terakhir</option>
-              <option value="all">Semua Waktu</option>
-              <option value="custom">Custom Tanggal</option>
-            </select>
-            <select 
-              value={channelFilter} 
-              onChange={(e) => setChannelFilter(e.target.value)}
-              className="input-base text-sm py-2 px-3 bg-white flex-1 sm:flex-none border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
-            >
-              <option value="all">Semua Channel</option>
-              <option value="offline">Offline / Dine-in</option>
-              {CHANNELS.map(c => (
-                <option key={c.id} value={c.id}>{c.label}</option>
-              ))}
-            </select>
-            <select 
-              value={paymentFilter} 
-              onChange={(e) => setPaymentFilter(e.target.value)}
-              className="input-base text-sm py-2 px-3 bg-white flex-1 sm:flex-none border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
-            >
-              <option value="all">Semua Pembayaran</option>
-              <option value="cash">Tunai (Cash)</option>
-              <option value="qris">QRIS</option>
-              <option value="card">Debit Card/Kartu Debit</option>
-            </select>
+              options={[
+                { value: 'today', label: 'Hari Ini' },
+                { value: 'yesterday', label: 'Kemarin' },
+                { value: '7d', label: '7 Hari Terakhir' },
+                { value: '30d', label: '30 Hari Terakhir' },
+                { value: 'all', label: 'Semua Waktu' },
+                { value: 'custom', label: 'Custom Tanggal' },
+              ]}
+            />
+
+            <CustomSelect
+              className="flex-1 sm:flex-none"
+              value={channelFilter}
+              onChange={setChannelFilter}
+              options={[
+                { value: 'all', label: 'Semua Channel' },
+                { value: 'offline', label: 'Offline / Dine-in' },
+                ...CHANNELS.map(c => ({ value: c.id, label: c.label }))
+              ]}
+            />
+
+            <CustomSelect
+              className="flex-1 sm:flex-none"
+              value={paymentFilter}
+              onChange={setPaymentFilter}
+              options={[
+                { value: 'all', label: 'Semua Pembayaran' },
+                { value: 'cash', label: 'Tunai (Cash)' },
+                { value: 'qris', label: 'QRIS' },
+                { value: 'card', label: 'Debit Card/Kartu Debit' },
+              ]}
+            />
           </div>
         </div>
         

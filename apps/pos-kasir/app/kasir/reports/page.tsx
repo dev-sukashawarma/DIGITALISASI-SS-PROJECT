@@ -309,11 +309,13 @@ export default function ReportsPage() {
     }
     
     let totalRevenue = base.totalRevenue + totalCashVariance
+    let avgOrderValue = base.totalOrders > 0 ? Math.round(totalRevenue / base.totalOrders) : 0
 
     return {
       ...base,
       totalRevenue,
       paymentBreakdown,
+      avgOrderValue
     }
   }, [analyticsData, shifts])
 
@@ -329,10 +331,13 @@ export default function ReportsPage() {
     unknown: { label: 'Lainnya', color: '#6b7280', bg: 'bg-gray-50', icon: Package },
   }
 
-  const successRate = analytics.totalOrders + analytics.canceledCount > 0 
-    ? Math.round((analytics.totalOrders / (analytics.totalOrders + analytics.canceledCount)) * 100)
-    : 0
-  const failureRate = 100 - successRate
+  const totalProcessed = analytics.totalOrders + analytics.canceledCount;
+  const successRate = totalProcessed > 0 
+    ? Math.round((analytics.totalOrders / totalProcessed) * 100)
+    : 0;
+  const failureRate = totalProcessed > 0 
+    ? 100 - successRate
+    : 0;
 
   const paginatedData = searchResults?.data || []
   const totalItems = searchResults?.total || 0

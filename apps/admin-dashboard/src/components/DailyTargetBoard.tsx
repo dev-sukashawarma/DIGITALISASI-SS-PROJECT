@@ -7,9 +7,7 @@ import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
 import type { PeriodFilterValue, SalesSummaryRow } from '@/lib/types'
 
-function cleanName(name: string) {
-  return name.replace('SUKA SHAWARMA ', '').replace('MITRA SUKA ', 'MITRA ')
-}
+import { User } from '@/lib/types'
 
 interface DailyTargetBoardProps {
   filter?: PeriodFilterValue;
@@ -188,7 +186,7 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                 <option value="all">Semua Outlet</option>
                 {Array.from(new Set(rows.map(r => r.outlet_id))).map(id => {
                    const name = rows.find(r => r.outlet_id === id)?.outlet_name;
-                   return <option key={id} value={id}>{name ? cleanName(name) : 'Outlet'}</option>
+                   return <option key={id} value={id}>{name ? name : 'Outlet'}</option>
                 })}
               </select>
             )}
@@ -253,7 +251,7 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                           <div className={`relative w-2 h-2 rounded-full ${colorBg} shadow-sm ${isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
                         </div>
                         <span className="text-xs font-extrabold text-suka-ink truncate">
-                          {cleanName(r.outlet_name)}
+                          {r.outlet_name}
                           {isMoreThanOneDay && r.date_value && (
                             <span className="ml-1 text-[10px] font-medium text-suka-gray-500 whitespace-nowrap">
                               ({new Date(r.date_value).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })})
@@ -329,7 +327,7 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
               >
                 <option value="global">Semua Outlet (Default)</option>
                 {rows.map(r => (
-                  <option key={r.outlet_id} value={r.outlet_id}>{cleanName(r.outlet_name)}</option>
+                  <option key={r.outlet_id} value={r.outlet_id}>{r.outlet_name}</option>
                 ))}
               </select>
             </div>

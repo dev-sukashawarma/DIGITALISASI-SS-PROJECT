@@ -11,13 +11,63 @@ import {
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput } from '@suka/design-system'
 import { formatRupiah } from '@/lib/validations'
-import type { MenuItem, Category } from '@/pos-types'
+import type { MenuItem, Category, SalesChannel } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
 import MenuSearch from './MenuSearch'
-import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
+import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting, updateMenuChannelPrices } from './actions'
 
 const BUCKET = 'menu-images'
+
+function InlinePriceInput({ 
+  initialPrice, 
+  basePrice,
+  onSave 
+}: { 
+  initialPrice?: number, 
+  basePrice: number,
+  onSave: (val: number | null) => void 
+}) {
+  const [val, setVal] = useState(initialPrice ? String(initialPrice) : '')
+  const [isFocused, setIsFocused] = useState(false)
+
+  function handleBlur() {
+    setIsFocused(false)
+    const num = parseFloat(val)
+    if (!val || isNaN(num) || num <= 0) {
+      if (initialPrice) onSave(null)
+    } else {
+      if (num !== initialPrice) onSave(num)
+    }
+  }
+
+  if (!isFocused) {
+    return (
+      <div 
+        className="cursor-pointer group flex flex-col items-end justify-center rounded-lg hover:bg-amber-50 px-2 py-1 -mr-2"
+        onClick={() => setIsFocused(true)}
+        title="Klik untuk ubah harga"
+      >
+        <span className="font-bold text-amber-600 leading-none mb-1 border-b border-dashed border-amber-300">
+          {initialPrice ? formatRupiah(initialPrice) : <span className="text-gray-300 font-normal border-none">Sama dgn dasar</span>}
+        </span>
+        <span className="text-[10px] text-gray-400 line-through leading-none">{formatRupiah(basePrice)}</span>
+      </div>
+    )
+  }
+
+  return (
+    <input 
+      autoFocus
+      type="number"
+      className="w-24 px-2 py-1 text-right text-sm border-2 border-amber-400 rounded-lg outline-none focus:ring-0"
+      value={val}
+      onChange={e => setVal(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+    />
+  )
+}
 
 interface FormState {
   id: string | null
@@ -48,12 +98,13 @@ async function deleteStorageImage(url: string) {
 interface MenuViewProps {
   initialItems: MenuItem[]
   initialCategories: Category[]
+  initialChannels: SalesChannel[]
   initialUpsells?: string[]
   initialBestsellers?: string[]
   initialRecommendations?: string[]
 }
 
-export default function MenuView({ initialItems, initialCategories, initialUpsells, initialBestsellers, initialRecommendations }: MenuViewProps) {
+export default function MenuView({ initialItems, initialCategories, initialChannels, initialUpsells, initialBestsellers, initialRecommendations }: MenuViewProps) {
   const router = useRouter()
   const { showConfirm } = useDialogStore()
   const [form, setForm]           = useState<FormState>(EMPTY)
@@ -69,6 +120,7 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
   const [bestsellers, setBestsellers] = useState<string[]>(initialBestsellers || [])
   const [recommendations, setRecommendations] = useState<string[]>(initialRecommendations || [])
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+  const [activeChannelFilter, setActiveChannelFilter] = useState<string>('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   function resetImage() {
@@ -85,7 +137,8 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
   function openEdit(item: MenuItem) {
     setForm({
       id: item.id, name: item.name, description: item.description ?? '',
-      price: String(item.price), category_id: item.category_id ?? '',
+      price: String(item.price), 
+      category_id: item.category_id ?? '',
       is_available: item.is_available, image_url: item.image_url,
     })
     resetImage(); setError(''); setShowForm(true)
@@ -203,6 +256,20 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
           <p className="text-gray-400 text-sm mt-0.5">{initialItems.length} item ditemukan</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Channel Filter */}
+          {initialChannels.length > 0 && (
+            <select
+              value={activeChannelFilter}
+              onChange={(e) => setActiveChannelFilter(e.target.value)}
+              className="py-2.5 px-4 text-sm font-medium rounded-2xl border border-gray-200 bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all cursor-pointer text-gray-700"
+            >
+              <option value="">Harga Dasar</option>
+              {initialChannels.map(ch => (
+                <option key={ch.id} value={ch.id}>Harga {ch.name}</option>
+              ))}
+            </select>
+          )}
+
           {/* Search Input */}
           <MenuSearch />
 
@@ -357,6 +424,8 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
                   </div>
                 </div>
 
+
+
                 {/* Availability toggle */}
                 <button type="button"
                   onClick={() => setForm({ ...form, is_available: !form.is_available })}
@@ -499,7 +568,20 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
 
                     {/* Price */}
                     <td className="py-3.5 px-4 text-right">
-                      <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
+                      {activeChannelFilter ? (
+                        <InlinePriceInput 
+                          initialPrice={item.channel_prices?.[activeChannelFilter]} 
+                          basePrice={item.price} 
+                          onSave={async (val) => {
+                            const newPrices = { ...(item.channel_prices || {}) }
+                            if (val === null) delete newPrices[activeChannelFilter]
+                            else newPrices[activeChannelFilter] = val
+                            await updateMenuChannelPrices(item.id, newPrices)
+                          }} 
+                        />
+                      ) : (
+                        <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
+                      )}
                     </td>
 
                     {/* Status toggle */}

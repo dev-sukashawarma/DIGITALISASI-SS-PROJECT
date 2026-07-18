@@ -18,7 +18,7 @@ A new experimental feature for the Kasir POS to automate reading food app orders
 
 3. **Backend Processing (OpenRouter API)**
    - The API uses an OpenRouter Vision model.
-   - Recommended Model: `google/gemini-flash-1.5` (extremely cheap, fast, great OCR) or `openai/gpt-4o-mini`.
+   - Recommended Model: `google/gemini-1.5-flash` (atau varian terbaru di Juli 2026) karena sangat murah, cepat, dan OCR-nya sangat akurat, atau `openai/gpt-4o-mini` / `anthropic/claude-3.5-sonnet` via OpenRouter.
    - The prompt will include the raw image and a list of the outlet's current active menus (names and IDs).
    - Expected Output: A structured JSON containing:
      - `items`: Array of objects (menuId, name from image, qty, matched boolean).

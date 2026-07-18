@@ -532,6 +532,23 @@ export default function AdminOrdersPage() {
                       </div>
                     )}
 
+                    {order.payment_method === 'qris' && order.payment_proof_url && (
+                      <div className="bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 text-sm flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-blue-700">
+                          <QrCode className="w-4 h-4" />
+                          <span className="font-semibold">Bukti Transfer QRIS</span>
+                        </div>
+                        <a 
+                          href={order.payment_proof_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold text-xs shadow-sm transition-colors"
+                        >
+                          Lihat Foto
+                        </a>
+                      </div>
+                    )}
+
                     {/* Action buttons */}
                     <div className="flex gap-2 flex-wrap">
                       {STATUS_NEXT[order.status as OrderStatus] && (

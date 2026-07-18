@@ -40,7 +40,7 @@ export function WalkInCartPanel(props: {
   calculateItemPrice: (price: number, id: string, channelPrices?: Record<string, number> | null) => number
   submitting: boolean
   error: string | null
-  onPay: (method: Payment, amountReceived: number | null, proofUrl?: string | null) => void
+  onPay: (method: Payment, amountReceived: number | null, proofFile?: File | null) => void
   embedded?: boolean
 }) {
   const {
@@ -329,11 +329,9 @@ export function WalkInCartPanel(props: {
         totalPrice={totalPrice}
         isOnline={isOnline}
         submitting={submitting}
-        onSubmit={(proofUrl) => {
+        onSubmit={(proofFile) => {
           setQrisOpen(false)
-          // walkin currently only accepts amount, so we might need to change it if we want to pass proof
-          // wait, let's just pass proof via onPay later. We'll modify onPay signature.
-          onPay('qris', null, proofUrl)
+          onPay('qris', null, proofFile)
         }}
       />
     </div>

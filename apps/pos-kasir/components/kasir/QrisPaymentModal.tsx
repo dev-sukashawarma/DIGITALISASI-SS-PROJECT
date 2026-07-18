@@ -19,14 +19,13 @@ export function QrisPaymentModal({
   onClose: () => void
   totalPrice: number
   isOnline?: boolean
-  onSubmit: (paymentProofUrl?: string | null) => void
+  onSubmit: (paymentProofFile?: File | null) => void
   submitting: boolean
 }) {
   const [qrisMode, setQrisMode] = useState<'static' | 'transfer'>('static')
-  const [uploading, setUploading] = useState(false)
-  const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const supabase = createClient()
 
   const qrData = `shawarma-kasir://pay?amount=${totalPrice}`
   const qrImageUrl = isOnline
@@ -37,29 +36,9 @@ export function QrisPaymentModal({
     const file = e.target.files?.[0]
     if (!file) return
 
-    setUploading(true)
-    try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-      const filePath = `${fileName}`
-
-      const { error: uploadError, data } = await supabase.storage
-        .from('payment_proofs')
-        .upload(filePath, file, { upsert: true })
-
-      if (uploadError) {
-        throw uploadError
-      }
-
-      setPaymentProofUrl(data.path)
-      postToNative({ type: 'haptic', style: 'success' })
-    } catch (err) {
-      console.error('Failed to upload proof:', err)
-      alert('Gagal mengunggah bukti transfer.')
-      postToNative({ type: 'haptic', style: 'error' })
-    } finally {
-      setUploading(false)
-    }
+    setSelectedFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
+    postToNative({ type: 'haptic', style: 'success' })
   }
 
   if (!isOpen) return null
@@ -123,10 +102,10 @@ export function QrisPaymentModal({
                   onChange={handleFileUpload}
                 />
                 
-                {paymentProofUrl ? (
+                {previewUrl ? (
                   <div className="relative border border-gray-200 rounded-xl overflow-hidden mb-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={supabase.storage.from('payment_proofs').getPublicUrl(paymentProofUrl).data.publicUrl} alt="Bukti Transfer" className="w-full h-48 object-cover" />
+                    <img src={previewUrl} alt="Bukti Transfer" className="w-full h-48 object-cover" />
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                       <button onClick={() => fileInputRef.current?.click()} className="bg-white text-gray-900 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2">
                         <Camera className="w-4 h-4" /> Ganti Foto
@@ -136,22 +115,14 @@ export function QrisPaymentModal({
                 ) : (
                   <button 
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
                     className="w-full h-40 border-2 border-dashed border-blue-200 bg-blue-50/50 hover:bg-blue-50 rounded-2xl flex flex-col items-center justify-center gap-3 transition-colors text-blue-600"
                   >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="w-8 h-8 animate-spin" />
-                        <span className="text-sm font-bold">Mengunggah...</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Upload className="w-6 h-6" />
-                        </div>
-                        <span className="text-sm font-bold">Ambil / Unggah Foto Bukti</span>
-                      </>
-                    )}
+                    <>
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <span className="text-sm font-bold">Ambil / Unggah Foto Bukti</span>
+                    </>
                   </button>
                 )}
               </div>
@@ -163,14 +134,15 @@ export function QrisPaymentModal({
             </div>
 
             <button
-              onClick={() => {
-                onSubmit(paymentProofUrl)
-              }}
-              disabled={submitting || (qrisMode === 'transfer' && !paymentProofUrl)}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+              onClick={() => onSubmit(selectedFile)}
+              disabled={submitting || (qrisMode === 'transfer' && !selectedFile)}
+              className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95"
             >
-              {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-              {qrisMode === 'transfer' && !paymentProofUrl ? 'Menunggu Bukti Transfer...' : 'Konfirmasi Pembayaran Selesai'}
+              {submitting ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
+              ) : (
+                <><CheckCircle2 className="w-5 h-5" /> Proses Pembayaran</>
+              )}
             </button>
           </div>
         </div>

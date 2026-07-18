@@ -555,7 +555,7 @@ export default function OrderManualPage() {
   }
 
   // ── Submit walk-in (kasir langsung) ───────────────────────────────────────
-  async function handleWalkInPay(method: WalkInPayment, amountReceived: number | null, proofUrl?: string | null) {
+  async function handleWalkInPay(method: WalkInPayment, amountReceived: number | null, proofFile?: File | null | string) {
     if (lineList.length === 0 || walkInSubmitting) return
     setWalkInSubmitting(true)
     setWalkInError(null)
@@ -580,7 +580,7 @@ export default function OrderManualPage() {
       payment_method: method,
       customer_name: customerName,
       amount_received: method === 'cash' ? amountReceived : undefined,
-      payment_proof_url: proofUrl,
+      payment_proof_url: typeof proofFile === 'string' ? proofFile : null,
       items: lineList.map((l) => ({
         menu_item_id: l.item.id,
         quantity: l.quantity,
@@ -605,6 +605,34 @@ export default function OrderManualPage() {
         setWalkInError(data.error ?? 'Gagal membuat pesanan')
         setWalkInSubmitting(false)
         return
+      }
+      
+      // Upload QRIS proof if it's a file
+      if (proofFile instanceof File && data.order_id) {
+        try {
+          const ext = proofFile.name.split('.').pop() || 'jpg';
+          const d = new Date();
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          const dateStr = `${y}-${m}-${day}`;
+          
+          const cleanOutlet = (outletName || 'OUTLET').replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
+          const fileName = `${cleanOutlet}_${data.order_number}_${dateStr}.${ext}`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('payment_proofs')
+            .upload(fileName, proofFile, { upsert: true });
+            
+          if (!uploadError && uploadData) {
+            const { data: publicUrlData } = supabase.storage.from('payment_proofs').getPublicUrl(uploadData.path);
+            await supabase.from('orders').update({ payment_proof_url: publicUrlData.publicUrl }).eq('id', data.order_id);
+          } else {
+            console.error('Failed to upload proof:', uploadError);
+          }
+        } catch (err) {
+          console.error('Error uploading proof:', err);
+        }
       }
 
       postToNative({ type: 'haptic', style: 'success' })
@@ -663,7 +691,7 @@ export default function OrderManualPage() {
         discount_amount: snapDiscount > 0 ? snapDiscount : null,
         source: 'pos',
         channel: null,
-        payment_proof_url: proofUrl,
+        payment_proof_url: typeof proofFile === 'string' ? proofFile : null,
         apiUrl: '/api/orders/walk-in',
         apiPayload: payload,
       })

@@ -43,15 +43,33 @@ serve(async (req) => {
     }
 
     // Upsert into Suite project
+    let mappedPaymentMethod = record.payment_method || 'qris';
+    if (!['cash', 'qris', 'card'].includes(mappedPaymentMethod)) {
+      mappedPaymentMethod = 'qris';
+    }
+
+    let mappedStatus = record.status;
+    if (mappedStatus === 'paid' || mappedStatus === 'done') {
+      mappedStatus = 'completed';
+    }
+
+    const outletMap = {
+      '0a952b3e-3d12-46ce-b325-8244a0709765': '550e8400-e29b-41d4-a716-446655440004', // Cimanggu
+      '6e10168e-4cb6-492b-8412-eee4fef1bd20': '550e8400-e29b-41d4-a716-446655440013', // Dramaga
+      'f03b9742-f19f-431d-b278-6885c12434ac': '550e8400-e29b-41d4-a716-446655440014', // Cibinong
+      '8d79e331-9cea-41aa-8b08-6a4781ae6cd3': '00000000-0000-0000-0000-000000000000', // Tebet -> Global Outlet
+    };
+    const finalOutletId = outletMap[record.outlet_id] || record.outlet_id;
+
     const { error: upsertError, data: upserted } = await suiteClient
       .from('orders')
       .upsert({
         id: record.id,
-        outlet_id: record.outlet_id,
+        outlet_id: finalOutletId,
         customer_name: record.customer_name || 'Online Customer',
-        status: record.status,
-        payment_method: record.payment_method || 'qris',
-        total_amount: record.total_amount,
+        status: mappedStatus,
+        payment_method: mappedPaymentMethod,
+        total_amount: record.total_amount !== undefined ? record.total_amount : record.total,
         notes: record.notes,
         created_at: record.created_at,
         updated_at: record.updated_at,

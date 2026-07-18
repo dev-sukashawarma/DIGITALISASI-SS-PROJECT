@@ -20,6 +20,42 @@ const CATEGORY_LABELS: Record<string, string> = {
   lainnya: 'Lainnya',
 };
 
+// Map of Kitchen-specific unit overrides
+const KITCHEN_UNIT_OVERRIDES: Record<string, { largeLabel: string, smallLabel: string, factor: number, toBaseUnit: (large: number, small: number) => number }> = {
+  'SAOS CABE': { largeLabel: 'Dus', smallLabel: 'kg', factor: 16.5, toBaseUnit: (l, s) => l + s / 16.5 },
+  'SAOS TOMAT': { largeLabel: 'Dus', smallLabel: 'kg', factor: 16.5, toBaseUnit: (l, s) => l + s / 16.5 },
+  'SAOS SAMYANG': { largeLabel: 'Dus', smallLabel: 'gram', factor: 20000, toBaseUnit: (l, s) => l + s / 20000 },
+  'MAYONES': { largeLabel: 'Dus', smallLabel: 'kg', factor: 12, toBaseUnit: (l, s) => l + s / 12 },
+  'KULIT 25': { largeLabel: 'pack', smallLabel: 'lembar', factor: 20, toBaseUnit: (l, s) => l + s / 20 },
+  'KULIT 28': { largeLabel: 'pack', smallLabel: 'lembar', factor: 20, toBaseUnit: (l, s) => l + s / 20 },
+  'KULIT 32': { largeLabel: 'pack', smallLabel: 'lembar', factor: 20, toBaseUnit: (l, s) => l + s / 20 },
+  'AYAM': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'SAPI': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l * 1000 + s) / 2000 }, 
+  'KENTANG': { largeLabel: 'dus', smallLabel: 'kg', factor: 4, toBaseUnit: (l, s) => l + s / 4 }, 
+  'KEJU': { largeLabel: 'dus', smallLabel: 'pack', factor: 24, toBaseUnit: (l, s) => l + s / 24 },
+  'MIE': { largeLabel: 'dus', smallLabel: 'bungkus', factor: 40, toBaseUnit: (l, s) => l + s / 40 },
+  'TUM': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'BAWANG': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l * 1000 + s) / 20000 }, 
+  'TEPUNG': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'MINYAK SAYUR': { largeLabel: 'kompan', smallLabel: 'liter', factor: 18, toBaseUnit: (l, s) => l + s / 18 },
+  'PAPER WRAP': { largeLabel: 'pack', smallLabel: 'lembar', factor: 500, toBaseUnit: (l, s) => l + s / 500 },
+  'FOIL': { largeLabel: 'roll', smallLabel: 'cm', factor: 760, toBaseUnit: (l, s) => (l * 760 + s) / 18240 }, 
+  'SARUNG TANGAN BENING': { largeLabel: 'box', smallLabel: 'lembar', factor: 100, toBaseUnit: (l, s) => l + s / 100 },
+  'KERTAS STRUK': { largeLabel: 'pack', smallLabel: 'roll', factor: 10, toBaseUnit: (l, s) => l + s / 10 },
+  'PLASTIK BESAR': { largeLabel: 'ikat', smallLabel: 'pack', factor: 5, toBaseUnit: (l, s) => l + s / 5 },
+  'PLASTIK KECIL': { largeLabel: 'ikat', smallLabel: 'pack', factor: 5, toBaseUnit: (l, s) => l + s / 5 },
+  'PLASTIK MERAH': { largeLabel: 'bal', smallLabel: 'pack', factor: 5, toBaseUnit: (l, s) => l + s / 5 },
+  'POLYBAG': { largeLabel: 'bal', smallLabel: 'pack', factor: 5, toBaseUnit: (l, s) => l + s / 5 },
+  'POWDER TEH': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'POWDER JERUK': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'CUP + TUTUP': { largeLabel: 'pack', smallLabel: 'pcs', factor: 25, toBaseUnit: (l, s) => l + s / 25 }, 
+  'JINTEN': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l * 1000 + s) / 1000 }, 
+  'CENGKEH': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'KETUMBAR': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l * 1000 + s) / 1000 }, 
+  'KUNYIT': { largeLabel: 'dus', smallLabel: 'sachet', factor: 216, toBaseUnit: (l, s) => l + s / 216 },
+  'GARAM': { largeLabel: 'bal', smallLabel: 'pack', factor: 20, toBaseUnit: (l, s) => l + s / 20 }
+};
+
 export function OpnameForm({ outletId, createdBy, role }: { outletId: string; createdBy: string; role?: string }) {
   const router = useRouter();
   const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
@@ -85,7 +121,8 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     bahanId: string,
     containers: string,
     remainder: string,
-    faktorTampilan: number
+    faktorTampilan: number,
+    customToBaseUnit?: (l: number, s: number) => number
   ) => {
     setContainerInput((prev) => ({ ...prev, [bahanId]: containers }));
     setRemainderInput((prev) => ({ ...prev, [bahanId]: remainder }));
@@ -125,7 +162,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       });
       return;
     }
-    const combined = combineOpnameInput(containersNum, remainderNum, faktorTampilan);
+    const combined = customToBaseUnit ? customToBaseUnit(containersNum, remainderNum) : combineOpnameInput(containersNum, remainderNum, faktorTampilan);
     setFisik((prev) => ({ ...prev, [bahanId]: combined.toString() }));
   };
 
@@ -301,11 +338,20 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
 
           let useComposite = false;
           let compLabel = '';
+          let compLargeLabel = b.satuan;
           let compFactor = 1;
+          let toBaseUnit: ((l: number, s: number) => number) | undefined = undefined;
 
           if (!['gram', 'ml'].includes(b.satuan.toLowerCase())) {
             if (role === 'kitchen') {
-              if (b.satuan_tengah && b.faktor_tengah) {
+              const override = KITCHEN_UNIT_OVERRIDES[b.nama];
+              if (override) {
+                useComposite = true;
+                compLargeLabel = override.largeLabel;
+                compLabel = override.smallLabel;
+                compFactor = override.factor;
+                toBaseUnit = override.toBaseUnit;
+              } else if (b.satuan_tengah && b.faktor_tengah) {
                 useComposite = true;
                 compLabel = b.satuan_tengah;
                 compFactor = b.faktor_tengah;
@@ -338,7 +384,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                     {b.nama}
                   </h3>
                   <p className="text-[10px] text-[#544437]/60 font-semibold mt-1">
-                    Satuan: <span className="text-gray-700 font-bold">{b.satuan}</span>
+                    Satuan: <span className="text-gray-700 font-bold">{compLargeLabel}</span>
                   </p>
                   {['gram', 'ml', 'kg', 'liter'].includes(b.satuan.toLowerCase()) && (
                     <div className="mt-2 flex items-center gap-1.5 bg-[#fff8f1] border border-[#f29744]/40 px-2 py-1.5 rounded-lg">
@@ -374,10 +420,10 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                       placeholder="0"
                       value={containerInput[b.id] ?? ''}
                       onChange={(e) =>
-                        handleCompositeChange(b.id, e.target.value, remainderInput[b.id] ?? '', compFactor)
+                        handleCompositeChange(b.id, e.target.value, remainderInput[b.id] ?? '', compFactor, toBaseUnit)
                       }
                     />
-                    <span className="text-[10px] font-bold text-[#544437]/60">{b.satuan} +</span>
+                    <span className="text-[10px] font-bold text-[#544437]/60">{compLargeLabel} +</span>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -386,7 +432,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                       placeholder="0"
                       value={remainderInput[b.id] ?? ''}
                       onChange={(e) =>
-                        handleCompositeChange(b.id, containerInput[b.id] ?? '', e.target.value, compFactor)
+                        handleCompositeChange(b.id, containerInput[b.id] ?? '', e.target.value, compFactor, toBaseUnit)
                       }
                     />
                     <span className="text-[10px] font-bold text-[#544437]/60">{compLabel}</span>

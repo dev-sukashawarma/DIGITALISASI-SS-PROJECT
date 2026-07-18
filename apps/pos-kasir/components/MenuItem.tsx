@@ -90,9 +90,16 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo }: 
 
       {/* Content */}
       <div className="p-3.5 sm:p-4 flex flex-col flex-1">
-        <h3 className="font-semibold text-gray-900 text-sm sm:text-[15px] leading-snug line-clamp-2">
-          {item.name}
-        </h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-semibold text-gray-900 text-sm sm:text-[15px] leading-snug line-clamp-2">
+            {item.name}
+          </h3>
+          {item.is_package && (
+            <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded flex-shrink-0">
+              PAKET
+            </span>
+          )}
+        </div>
         {item.description && (
           <p className="text-gray-400 text-xs mt-1 line-clamp-2 leading-relaxed flex-1">
             {item.description}

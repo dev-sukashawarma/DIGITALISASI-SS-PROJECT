@@ -104,7 +104,7 @@ export default function BlockedOverlay({
       const appUrl = window.location.origin
       const approveLink = `${appUrl}/api/bypass/approve?id=${insertedRequest.id}`
       const waText = encodeURIComponent(`Halo SPV, saya mengajukan *Bypass Darurat* untuk sistem POS.\n\nKasir: ${staff.name}\nAlasan: ${bypassReason.trim()}\n\nKlik link berikut untuk menyetujui atau menolak:\n${approveLink}`)
-      const generatedWaLink = `https://wa.me/6285885497377?text=${waText}`
+      const generatedWaLink = `https://wa.me/6285218446637?text=${waText}`
       
       setBypassWaLink(generatedWaLink)
 

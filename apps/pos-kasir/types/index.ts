@@ -30,6 +30,13 @@ export interface Category {
   name: string
   sort_order: number
 }
+export interface PackageItem {
+  id: string
+  package_id: string
+  menu_item_id: string
+  quantity: number
+  menu_item?: MenuItem
+}
 
 export interface MenuItem {
   id: string
@@ -42,6 +49,8 @@ export interface MenuItem {
   image_url: string | null
   is_available: boolean
   sort_order: number
+  is_package?: boolean
+  package_items?: PackageItem[]
   categories?: Category
 }
 

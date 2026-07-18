@@ -29,12 +29,15 @@ interface FormState {
   category_id: string
   is_available: boolean
   image_url: string | null
+  is_package: boolean
+  package_items: { menu_item_id: string, quantity: number, temp_id: string }[]
 }
 
 const EMPTY: FormState = {
   id: null, name: '', description: '', price: '', base_price: '',
   channel_prices: {},
   category_id: '', is_available: true, image_url: null,
+  is_package: false, package_items: []
 }
 
 async function deleteStorageImage(url: string) {
@@ -174,6 +177,8 @@ export default function MenuView({
       channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
       is_available: item.is_available, image_url: item.image_url,
+      is_package: item.is_package ?? false,
+      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
     })
     resetImage(); setError(''); setShowForm(true)
   }
@@ -245,6 +250,8 @@ export default function MenuView({
       price: finalBasePrice, category_id: form.category_id || null,
       is_available: form.is_available, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
+      is_package: form.is_package,
+      package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, quantity: pi.quantity })) : []
     }
 
     try {
@@ -458,6 +465,89 @@ export default function MenuView({
                     maxLength={300} rows={2} className="input resize-none"
                     placeholder="Deskripsi singkat menu..." />
                 </div>
+
+                {/* Menu Type Toggle */}
+                <div>
+                  <label className="input-label mb-2 block">Tipe Menu</label>
+                  <div className="flex bg-gray-100 p-1 rounded-xl">
+                    <button type="button" 
+                      onClick={() => setForm({ ...form, is_package: false })}
+                      className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors ${!form.is_package ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+                      Satuan
+                    </button>
+                    <button type="button" 
+                      onClick={() => setForm({ ...form, is_package: true })}
+                      className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors ${form.is_package ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+                      Paket (Combo)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Package Builder */}
+                {form.is_package && (
+                  <div className="space-y-3 p-4 bg-amber-50/50 rounded-2xl border border-amber-100">
+                    <label className="input-label">Isi Paket</label>
+                    {form.package_items.map((pi, idx) => (
+                      <div key={pi.temp_id} className="flex gap-2 items-center">
+                        <select 
+                          className="input flex-1"
+                          value={pi.menu_item_id}
+                          onChange={(e) => {
+                             const newItems = [...form.package_items];
+                             newItems[idx].menu_item_id = e.target.value;
+                             
+                             let newBasePrice = 0;
+                             newItems.forEach(item => {
+                               const m = initialItems.find(x => x.id === item.menu_item_id);
+                               if (m) newBasePrice += (m.price * item.quantity);
+                             });
+                             
+                             setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
+                          }}
+                        >
+                          <option value="">-- Pilih Menu --</option>
+                          {initialItems.filter(i => !i.is_package && i.id !== form.id).map(i => (
+                            <option key={i.id} value={i.id}>{i.name} ({formatRupiah(i.price)})</option>
+                          ))}
+                        </select>
+                        <input type="number" min="1" className="input w-20 text-center" 
+                          value={pi.quantity}
+                          onChange={(e) => {
+                             const qty = parseInt(e.target.value) || 1;
+                             const newItems = [...form.package_items];
+                             newItems[idx].quantity = qty;
+
+                             let newBasePrice = 0;
+                             newItems.forEach(item => {
+                               const m = initialItems.find(x => x.id === item.menu_item_id);
+                               if (m) newBasePrice += (m.price * item.quantity);
+                             });
+
+                             setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
+                          }}
+                        />
+                        <button type="button" onClick={() => {
+                          const newItems = form.package_items.filter((_, i) => i !== idx);
+                          
+                          let newBasePrice = 0;
+                          newItems.forEach(item => {
+                            const m = initialItems.find(x => x.id === item.menu_item_id);
+                            if (m) newBasePrice += (m.price * item.quantity);
+                          });
+
+                          setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
+                        }} className="w-10 h-10 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-red-500 hover:bg-red-50">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => {
+                      setForm({ ...form, package_items: [...form.package_items, { menu_item_id: '', quantity: 1, temp_id: Math.random().toString() }] })
+                    }} className="text-sm font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1 mt-2">
+                      <Plus className="w-4 h-4" /> Tambah Item
+                    </button>
+                  </div>
+                )}
 
                 {/* Price & Category */}
                 <div className="grid grid-cols-2 gap-3">

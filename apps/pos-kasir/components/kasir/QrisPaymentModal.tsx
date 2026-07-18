@@ -22,7 +22,7 @@ export function QrisPaymentModal({
   onSubmit: (paymentProofFile?: File | null) => void
   submitting: boolean
 }) {
-  const [qrisMode, setQrisMode] = useState<'static' | 'transfer'>('static')
+  const [qrisMode, setQrisMode] = useState<'static' | 'transfer'>('transfer')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -57,10 +57,11 @@ export function QrisPaymentModal({
           
           <div className="flex bg-gray-100 p-1 rounded-xl mb-5">
             <button
-              onClick={() => setQrisMode('static')}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${qrisMode === 'static' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => {}}
+              disabled={true}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all opacity-50 cursor-not-allowed bg-gray-100 text-gray-500`}
             >
-              Scan (Statis)
+              Scan (Statis) - Sedang Diperbaiki
             </button>
             <button
               onClick={() => setQrisMode('transfer')}
@@ -91,7 +92,7 @@ export function QrisPaymentModal({
               </>
             ) : (
               <div className="w-full mb-6">
-                <p className="text-sm text-gray-600 mb-3 text-center">Silakan unggah bukti transfer dari pelanggan.</p>
+                <p className="text-sm text-gray-600 mb-3 text-center">Silakan ambil foto bukti transfer pelanggan menggunakan kamera.</p>
                 
                 <input 
                   type="file"
@@ -119,9 +120,9 @@ export function QrisPaymentModal({
                   >
                     <>
                       <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Upload className="w-6 h-6" />
+                        <Camera className="w-6 h-6" />
                       </div>
-                      <span className="text-sm font-bold">Ambil / Unggah Foto Bukti</span>
+                      <span className="text-sm font-bold">Ambil Foto via Kamera</span>
                     </>
                   </button>
                 )}

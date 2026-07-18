@@ -518,78 +518,66 @@ export function BahanBakuDetailModal({
                     </div>
                   </div>
               
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-left text-[11px] uppercase text-gray-500 font-semibold border-b">
-                    <tr>
-                      <th className="px-4 py-3">Nama Kemasan</th>
-                      <th className="px-4 py-3">Tingkatan</th>
-                      <th className="px-4 py-3 text-center">Gambar</th>
-                      <th className="px-4 py-3 text-center">Isi ({bahanBaku.satuan_kecil || bahanBaku.satuan})</th>
-                      <th className="px-4 py-3 text-right">Harga Beli</th>
-                      <th className="px-4 py-3 text-right">Harga / Satuan</th>
-                      <th className="px-4 py-3 text-center">Status</th>
-                      <th className="px-4 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {bahanBaku.skus && bahanBaku.skus.length > 0 ? (
-                      bahanBaku.skus.map((sku) => {
-                        const hargaSatuan = sku.qty_isi > 0 ? sku.harga_beli / sku.qty_isi : 0
-                        const isCheapest = Math.min(...(bahanBaku.skus?.filter(s => s.qty_isi > 0).map(s => s.harga_beli / s.qty_isi) || [0])) === hargaSatuan
+              <div className="flex flex-col gap-3">
+                {bahanBaku.skus && bahanBaku.skus.length > 0 ? (
+                  bahanBaku.skus.map((sku) => {
+                    const hargaSatuan = sku.qty_isi > 0 ? sku.harga_beli / sku.qty_isi : 0
+                    const isCheapest = Math.min(...(bahanBaku.skus?.filter(s => s.qty_isi > 0).map(s => s.harga_beli / s.qty_isi) || [0])) === hargaSatuan
+                    
+                    return (
+                      <div key={sku.id} className="flex flex-col bg-white p-3 rounded-lg border border-gray-200 gap-3 hover:border-gray-300 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex gap-3">
+                            <div 
+                              className="w-12 h-12 rounded-lg border border-gray-200 overflow-hidden relative group bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer flex-shrink-0 flex items-center justify-center"
+                              onClick={() => { setActiveSkuUploadId(sku.id); skuFileInputRef.current?.click() }}
+                              title="Klik untuk ubah gambar"
+                            >
+                              {sku.image_url ? (
+                                <img src={sku.image_url} alt={sku.nama_kemasan} className="w-full h-full object-cover" />
+                              ) : (
+                                <Camera size={16} className="text-gray-400" />
+                              )}
+                            </div>
+                            <div className="flex flex-col justify-center">
+                              <span className="text-sm font-bold text-suka-ink">{sku.nama_kemasan}</span>
+                              <span className="text-xs font-semibold text-gray-500 mt-0.5">
+                                {sku.tingkatan_satuan && (
+                                  <span className={`inline-block mr-1.5 font-bold ${sku.tingkatan_satuan === 'Besar' ? 'text-blue-600' : sku.tingkatan_satuan === 'Tengah' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                    {sku.tingkatan_satuan}
+                                  </span>
+                                )}
+                                {sku.tingkatan_satuan && <span className="mr-1.5">•</span>} 
+                                Isi: {sku.qty_isi} {bahanBaku.satuan_kecil || bahanBaku.satuan} 
+                                <span className="mx-1.5">•</span> 
+                                Harga Beli: {rupiah(sku.harga_beli)}
+                              </span>
+                              <div className="flex gap-1.5 mt-1.5">
+                                {sku.is_default && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md font-bold">DEFAULT HPP</span>}
+                                {isCheapest && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md font-bold">TERMURAH</span>}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2 text-xs pt-1">
+                            {!sku.is_default && (
+                              <button onClick={() => onSetDefaultSku({ bahan_baku_id: bahanBaku.id, sku_id: sku.id })} disabled={skuSaving} className="font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-md">Default</button>
+                            )}
+                            <button onClick={() => onDeleteSku(sku.id)} disabled={skuSaving} className="font-bold text-red-500 hover:text-red-700 transition-colors bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-md">Hapus</button>
+                          </div>
+                        </div>
                         
-                        return (
-                          <tr key={sku.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-3 font-medium text-gray-900">{sku.nama_kemasan}</td>
-                            <td className="px-4 py-3 text-gray-600">
-                              {sku.tingkatan_satuan ? (
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${sku.tingkatan_satuan === 'Besar' ? 'bg-blue-50 text-blue-700 border border-blue-200' : sku.tingkatan_satuan === 'Tengah' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                                  {sku.tingkatan_satuan}
-                                </span>
-                              ) : '-'}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <div 
-                                className="w-10 h-10 mx-auto rounded-lg border border-gray-200 overflow-hidden relative group bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer flex items-center justify-center"
-                                onClick={() => { setActiveSkuUploadId(sku.id); skuFileInputRef.current?.click() }}
-                                title="Klik untuk ubah gambar"
-                              >
-                                {sku.image_url ? (
-                                  <img src={sku.image_url} alt={sku.nama_kemasan} className="w-full h-full object-cover" />
-                                ) : (
-                                  <Camera size={14} className="text-gray-400" />
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center text-gray-600">{sku.qty_isi}</td>
-                            <td className="px-4 py-3 text-right font-medium text-suka-orange">{rupiah(sku.harga_beli)}</td>
-                            <td className="px-4 py-3 text-right text-gray-500">{rupiah(hargaSatuan)}</td>
-                            <td className="px-4 py-3 text-center">
-                              <div className="flex flex-col gap-1 items-center">
-                                {sku.is_default && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">DEFAULT HPP</span>}
-                                {isCheapest && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">TERMURAH</span>}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="flex justify-end gap-2">
-                                {!sku.is_default && (
-                                  <button onClick={() => onSetDefaultSku({ bahan_baku_id: bahanBaku.id, sku_id: sku.id })} disabled={skuSaving} className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded" title="Jadikan Default HPP">Jadikan Default</button>
-                                )}
-                                <button onClick={() => onDeleteSku(sku.id)} disabled={skuSaving} className="text-xs text-red-500 hover:bg-red-50 px-2 py-1 rounded">Hapus</button>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={8} className="px-4 py-6 text-center text-sm text-gray-400 border-dashed">
-                          Belum ada variasi kemasan. Data akan otomatis terbuat saat pertama kali menambah bahan.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                        <div className="text-sm font-bold text-gray-700 bg-gray-50 px-2 py-1 rounded-md self-start border border-gray-200">
+                          {rupiah(hargaSatuan)} / {bahanBaku.satuan_kecil || bahanBaku.satuan}
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="p-6 text-center text-sm text-gray-400 border border-dashed border-gray-200 rounded-lg bg-gray-50">
+                    Belum ada variasi kemasan. Data akan otomatis terbuat saat pertama kali menambah bahan.
+                  </div>
+                )}
                 <input type="file" accept="image/*" className="hidden" ref={skuFileInputRef} onChange={handleSkuFileChange} />
               </div>
 

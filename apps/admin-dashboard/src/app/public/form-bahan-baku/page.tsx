@@ -457,107 +457,94 @@ function FormBahanBakuContent() {
                       </div>
                     </div>
                 
-                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-left text-[11px] uppercase text-gray-500 font-semibold border-b">
-                      <tr>
-                        <th className="px-4 py-3">Nama Kemasan</th>
-                        <th className="px-4 py-3 text-center">Isi ({selectedItem.satuan_kecil || selectedItem.satuan})</th>
-                        <th className="px-4 py-3 text-right">Harga Beli</th>
-                        <th className="px-4 py-3 text-right">Harga / Satuan</th>
-                        <th className="px-4 py-3 text-center">Status</th>
-                        <th className="px-4 py-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
-                      {selectedItem.bahan_baku_sku && selectedItem.bahan_baku_sku.length > 0 ? (
-                        selectedItem.bahan_baku_sku.map((sku) => {
-                          const hargaSatuan = sku.qty_isi > 0 ? sku.harga_beli / sku.qty_isi : 0
-                          const isCheapest = Math.min(...(selectedItem.bahan_baku_sku?.filter(s => s.qty_isi > 0).map(s => s.harga_beli / s.qty_isi) || [0])) === hargaSatuan
-                          
-                          return (
-                            <tr key={sku.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-4 py-3 font-medium text-gray-900">{sku.nama_kemasan}</td>
-                              <td className="px-4 py-3 text-center text-gray-600">{sku.qty_isi}</td>
-                              <td className="px-4 py-3 text-right font-medium text-suka-orange">
-                                Rp {sku.harga_beli.toLocaleString('id-ID')}
-                              </td>
-                              <td className="px-4 py-3 text-right text-gray-500">
-                                Rp {hargaSatuan.toLocaleString('id-ID')}
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                <div className="flex flex-col gap-1 items-center">
-                                  {sku.is_default && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">DEFAULT HPP</span>}
-                                  {isCheapest && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">TERMURAH</span>}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <div className="flex justify-end gap-2">
-                                  {!sku.is_default && (
-                                    <button 
-                                      type="button"
-                                      onClick={async () => {
-                                        if (!token) return
-                                        setIsSubmitting(true)
-                                        const res = await setDefaultBahanBakuSku(token, selectedItem.id, sku.id)
-                                        if (res.success) {
-                                          const refreshed = await getBahanBakuList(token)
-                                          if (refreshed.success && refreshed.data) {
-                                            setBahanBakuList(refreshed.data)
-                                            const updatedItem = refreshed.data.find(b => b.id === selectedItem.id)
-                                            if (updatedItem) setSelectedItem(updatedItem)
-                                          }
-                                        } else {
-                                          setErrorMsg(res.error || 'Gagal jadikan default')
-                                        }
-                                        setIsSubmitting(false)
-                                      }}
-                                      disabled={isSubmitting} 
-                                      className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded" 
-                                      title="Jadikan Default HPP"
-                                    >
-                                      Jadikan Default
-                                    </button>
-                                  )}
-                                  <button 
-                                    type="button"
-                                    onClick={async () => {
-                                      if (!token) return
-                                      if (confirm('Hapus kemasan ini?')) {
-                                        setIsSubmitting(true)
-                                        const res = await deleteBahanBakuSku(token, sku.id)
-                                        if (res.success) {
-                                          const refreshed = await getBahanBakuList(token)
-                                          if (refreshed.success && refreshed.data) {
-                                            setBahanBakuList(refreshed.data)
-                                            const updatedItem = refreshed.data.find(b => b.id === selectedItem.id)
-                                            if (updatedItem) setSelectedItem(updatedItem)
-                                          }
-                                        } else {
-                                          setErrorMsg(res.error || 'Gagal hapus SKU')
-                                        }
-                                        setIsSubmitting(false)
+                <div className="flex flex-col gap-3">
+                  {selectedItem.bahan_baku_sku && selectedItem.bahan_baku_sku.length > 0 ? (
+                    selectedItem.bahan_baku_sku.map((sku) => {
+                      const hargaSatuan = sku.qty_isi > 0 ? sku.harga_beli / sku.qty_isi : 0
+                      const isCheapest = Math.min(...(selectedItem.bahan_baku_sku?.filter(s => s.qty_isi > 0).map(s => s.harga_beli / s.qty_isi) || [0])) === hargaSatuan
+                      
+                      return (
+                        <div key={sku.id} className="flex flex-col bg-white p-3 rounded-lg border border-gray-200 gap-3 hover:border-gray-300 transition-colors">
+                          <div className="flex items-start justify-between">
+                            <div className="flex flex-col justify-center">
+                              <span className="text-sm font-bold text-suka-ink">{sku.nama_kemasan}</span>
+                              <span className="text-xs font-semibold text-gray-500 mt-0.5">
+                                Isi: {sku.qty_isi} {selectedItem.satuan_kecil || selectedItem.satuan} 
+                                <span className="mx-1.5">•</span> 
+                                Harga Beli: Rp {sku.harga_beli.toLocaleString('id-ID')}
+                              </span>
+                              <div className="flex gap-1.5 mt-1.5">
+                                {sku.is_default && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md font-bold">DEFAULT HPP</span>}
+                                {isCheapest && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md font-bold">TERMURAH</span>}
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-2 text-xs pt-1">
+                              {!sku.is_default && (
+                                <button 
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!token) return
+                                    setIsSubmitting(true)
+                                    const res = await setDefaultBahanBakuSku(token, selectedItem.id, sku.id)
+                                    if (res.success) {
+                                      const refreshed = await getBahanBakuList(token)
+                                      if (refreshed.success && refreshed.data) {
+                                        setBahanBakuList(refreshed.data)
+                                        const updatedItem = refreshed.data.find(b => b.id === selectedItem.id)
+                                        if (updatedItem) setSelectedItem(updatedItem)
                                       }
-                                    }}
-                                    disabled={isSubmitting} 
-                                    className="text-xs text-red-500 hover:bg-red-50 px-2 py-1 rounded"
-                                  >
-                                    Hapus
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400 border-dashed">
-                            Belum ada variasi kemasan. Silakan tambahkan kemasan baru di bawah.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                                    } else {
+                                      setErrorMsg(res.error || 'Gagal jadikan default')
+                                    }
+                                    setIsSubmitting(false)
+                                  }}
+                                  disabled={isSubmitting} 
+                                  className="font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-md" 
+                                  title="Jadikan Default HPP"
+                                >
+                                  Default
+                                </button>
+                              )}
+                              <button 
+                                type="button"
+                                onClick={async () => {
+                                  if (!token) return
+                                  if (confirm('Hapus kemasan ini?')) {
+                                    setIsSubmitting(true)
+                                    const res = await deleteBahanBakuSku(token, sku.id)
+                                    if (res.success) {
+                                      const refreshed = await getBahanBakuList(token)
+                                      if (refreshed.success && refreshed.data) {
+                                        setBahanBakuList(refreshed.data)
+                                        const updatedItem = refreshed.data.find(b => b.id === selectedItem.id)
+                                        if (updatedItem) setSelectedItem(updatedItem)
+                                      }
+                                    } else {
+                                      setErrorMsg(res.error || 'Gagal hapus SKU')
+                                    }
+                                    setIsSubmitting(false)
+                                  }
+                                }}
+                                disabled={isSubmitting} 
+                                className="font-bold text-red-500 hover:text-red-700 transition-colors bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-md"
+                              >
+                                Hapus
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="text-sm font-bold text-gray-700 bg-gray-50 px-2 py-1 rounded-md self-start border border-gray-200">
+                            Rp {hargaSatuan.toLocaleString('id-ID')} / {selectedItem.satuan_kecil || selectedItem.satuan}
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="p-6 text-center text-sm text-gray-400 border border-dashed border-gray-200 rounded-lg bg-gray-50">
+                      Belum ada variasi kemasan. Silakan tambahkan kemasan baru di bawah.
+                    </div>
+                  )}
                 </div>
 
                 {/* Form Tambah SKU */}

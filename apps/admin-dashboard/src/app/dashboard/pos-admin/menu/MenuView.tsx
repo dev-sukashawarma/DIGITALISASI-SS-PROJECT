@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, X, Loader2,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  FileArchive, Search, MoreVertical, Check
+  FileArchive, Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput } from '@suka/design-system'
@@ -19,68 +19,21 @@ import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItem
 
 const BUCKET = 'menu-images'
 
-function InlinePriceInput({ 
-  initialPrice, 
-  basePrice,
-  onSave 
-}: { 
-  initialPrice?: number, 
-  basePrice: number,
-  onSave: (val: number | null) => void 
-}) {
-  const [val, setVal] = useState(initialPrice ? String(initialPrice) : '')
-  const [isFocused, setIsFocused] = useState(false)
-
-  function handleBlur() {
-    setIsFocused(false)
-    const num = parseFloat(val)
-    if (!val || isNaN(num) || num <= 0) {
-      if (initialPrice) onSave(null)
-    } else {
-      if (num !== initialPrice) onSave(num)
-    }
-  }
-
-  if (!isFocused) {
-    return (
-      <div 
-        className="cursor-pointer group flex flex-col items-end justify-center rounded-lg hover:bg-amber-50 px-2 py-1 -mr-2"
-        onClick={() => setIsFocused(true)}
-        title="Klik untuk ubah harga"
-      >
-        <span className="font-bold text-amber-600 leading-none mb-1 border-b border-dashed border-amber-300">
-          {initialPrice ? formatRupiah(initialPrice) : <span className="text-gray-300 font-normal border-none">Sama dgn dasar</span>}
-        </span>
-        <span className="text-[10px] text-gray-400 line-through leading-none">{formatRupiah(basePrice)}</span>
-      </div>
-    )
-  }
-
-  return (
-    <input 
-      autoFocus
-      type="number"
-      className="w-24 px-2 py-1 text-right text-sm border-2 border-amber-400 rounded-lg outline-none focus:ring-0"
-      value={val}
-      onChange={e => setVal(e.target.value)}
-      onBlur={handleBlur}
-      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-    />
-  )
-}
-
 interface FormState {
   id: string | null
   name: string
   description: string
   price: string
+  base_price: string
+  channel_prices: Record<string, string>
   category_id: string
   is_available: boolean
   image_url: string | null
 }
 
 const EMPTY: FormState = {
-  id: null, name: '', description: '', price: '',
+  id: null, name: '', description: '', price: '', base_price: '',
+  channel_prices: {},
   category_id: '', is_available: true, image_url: null,
 }
 
@@ -104,7 +57,14 @@ interface MenuViewProps {
   initialRecommendations?: string[]
 }
 
-export default function MenuView({ initialItems, initialCategories, initialChannels, initialUpsells, initialBestsellers, initialRecommendations }: MenuViewProps) {
+export default function MenuView({ 
+  initialItems = [], 
+  initialCategories = [], 
+  initialChannels = [], 
+  initialUpsells = [], 
+  initialBestsellers = [], 
+  initialRecommendations = [] 
+}: MenuViewProps) {
   const router = useRouter()
   const { showConfirm } = useDialogStore()
   const [form, setForm]           = useState<FormState>(EMPTY)
@@ -121,7 +81,60 @@ export default function MenuView({ initialItems, initialCategories, initialChann
   const [recommendations, setRecommendations] = useState<string[]>(initialRecommendations || [])
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [activeChannelFilter, setActiveChannelFilter] = useState<string>('')
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const sortedItems = useMemo(() => {
+    let sortableItems = [...initialItems];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        if (sortConfig.key === 'name') {
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+        } else if (sortConfig.key === 'category') {
+          aValue = a.categories?.name?.toLowerCase() || '';
+          bValue = b.categories?.name?.toLowerCase() || '';
+        } else if (sortConfig.key === 'price') {
+          if (activeChannelFilter) {
+            aValue = a.channel_prices?.[activeChannelFilter] || a.price;
+            bValue = b.channel_prices?.[activeChannelFilter] || b.price;
+          } else {
+            aValue = a.price;
+            bValue = b.price;
+          }
+        } else if (sortConfig.key === 'status') {
+          aValue = a.is_available ? 1 : 0;
+          bValue = b.is_available ? 1 : 0;
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [initialItems, sortConfig, activeChannelFilter]);
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (columnName: string) => {
+    if (!sortConfig || sortConfig.key !== columnName) {
+      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-300 ml-1.5 inline-block opacity-0 group-hover:opacity-100 transition-opacity" />;
+    }
+    if (sortConfig.direction === 'asc') {
+      return <ChevronUp className="w-3.5 h-3.5 text-amber-500 ml-1.5 inline-block" />;
+    }
+    return <ChevronDown className="w-3.5 h-3.5 text-amber-500 ml-1.5 inline-block" />;
+  };
 
   function resetImage() {
     setImageFile(null)
@@ -135,9 +148,23 @@ export default function MenuView({ initialItems, initialCategories, initialChann
   }
 
   function openEdit(item: MenuItem) {
+    const formattedChannelPrices: Record<string, string> = {}
+    if (item.channel_prices) {
+      Object.entries(item.channel_prices).forEach(([k, v]) => {
+        formattedChannelPrices[k] = String(v)
+      })
+    }
+    
+    let displayPrice = String(item.price)
+    if (activeChannelFilter) {
+      displayPrice = formattedChannelPrices[activeChannelFilter] || String(item.price)
+    }
+    
     setForm({
       id: item.id, name: item.name, description: item.description ?? '',
-      price: String(item.price), 
+      price: displayPrice, 
+      base_price: String(item.price),
+      channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
       is_available: item.is_available, image_url: item.image_url,
     })
@@ -184,11 +211,32 @@ export default function MenuView({ initialItems, initialCategories, initialChann
       if (!imgUrl) { setSaving(false); return }
     }
 
+    let finalBasePrice = parseFloat(form.base_price) || price
+    const parsedChannelPrices: Record<string, number> = {}
+    
+    Object.entries(form.channel_prices).forEach(([k, v]) => {
+      if (v) {
+        const p = parseFloat(v)
+        if (!isNaN(p) && p > 0) parsedChannelPrices[k] = p
+      }
+    })
+
+    if (activeChannelFilter) {
+      if (price === finalBasePrice || price <= 0) {
+        delete parsedChannelPrices[activeChannelFilter]
+      } else {
+        parsedChannelPrices[activeChannelFilter] = price
+      }
+    } else {
+      finalBasePrice = price
+    }
+
     const payload = {
       id: form.id ?? undefined,
       name: form.name.trim(), description: form.description.trim() || null,
-      price: price, category_id: form.category_id || null,
+      price: finalBasePrice, category_id: form.category_id || null,
       is_available: form.is_available, image_url: imgUrl,
+      channel_prices: parsedChannelPrices,
     }
 
     try {
@@ -406,7 +454,12 @@ export default function MenuView({ initialItems, initialCategories, initialChann
                 {/* Price & Category */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="input-label">Harga (Rp) <span className="text-red-400 font-normal">*</span></label>
+                    <label className="input-label">
+                      {activeChannelFilter 
+                        ? `Harga ${initialChannels.find(c => c.id === activeChannelFilter)?.name || ''} (Rp)` 
+                        : 'Harga Dasar (Rp)'}
+                      <span className="text-red-400 font-normal ml-1">*</span>
+                    </label>
                     <CurrencyInput value={form.price}
                       onChange={(v) => setForm({ ...form, price: String(v) })}
                       required className="input" />
@@ -514,19 +567,37 @@ export default function MenuView({ initialItems, initialCategories, initialChann
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left py-3.5 px-5 font-semibold text-gray-500 w-16">Foto</th>
-                  <th className="text-left py-3.5 px-4 font-semibold text-gray-500">Nama Menu</th>
-                  <th className="text-left py-3.5 px-4 font-semibold text-gray-500 hidden sm:table-cell">Kategori</th>
-                  <th className="text-right py-3.5 px-4 font-semibold text-gray-500">Harga</th>
-                  <th className="text-center py-3.5 px-4 font-semibold text-gray-500">Status</th>
+                  <th className="text-left py-3.5 px-4 font-semibold text-gray-500 cursor-pointer group" onClick={() => requestSort('name')}>
+                    <div className="flex items-center">Nama Menu {getSortIcon('name')}</div>
+                  </th>
+                  <th className="text-left py-3.5 px-4 font-semibold text-gray-500 hidden sm:table-cell cursor-pointer group" onClick={() => requestSort('category')}>
+                    <div className="flex items-center">Kategori {getSortIcon('category')}</div>
+                  </th>
+                  <th className={`text-right py-3.5 px-4 font-semibold transition-colors cursor-pointer group
+                    ${activeChannelFilter 
+                      ? 'bg-amber-100/50 text-amber-700 border-b-2 border-amber-500 rounded-t-lg' 
+                      : 'text-gray-500'}`}
+                      onClick={() => requestSort('price')}
+                  >
+                    <div className="flex items-center justify-end">
+                      {activeChannelFilter 
+                        ? `Harga ${initialChannels.find(c => c.id === activeChannelFilter)?.name || ''}`
+                        : 'Harga Dasar'}
+                      {getSortIcon('price')}
+                    </div>
+                  </th>
+                  <th className="text-center py-3.5 px-4 font-semibold text-gray-500 cursor-pointer group" onClick={() => requestSort('status')}>
+                    <div className="flex items-center justify-center">Status {getSortIcon('status')}</div>
+                  </th>
                   <th className="text-center py-3.5 px-5 font-semibold text-gray-500">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {initialItems.map((item, idx) => (
+                {sortedItems.map((item, idx) => (
                   <tr
                     key={item.id}
                     className={`border-b border-gray-50 hover:bg-gray-50/60 transition-colors
-                      ${idx === initialItems.length - 1 ? 'border-0' : ''}`}
+                      ${idx === sortedItems.length - 1 ? 'border-0' : ''}`}
                   >
                     {/* Thumbnail */}
                     <td className="py-3.5 px-5">
@@ -568,17 +639,11 @@ export default function MenuView({ initialItems, initialCategories, initialChann
 
                     {/* Price */}
                     <td className="py-3.5 px-4 text-right">
-                      {activeChannelFilter ? (
-                        <InlinePriceInput 
-                          initialPrice={item.channel_prices?.[activeChannelFilter]} 
-                          basePrice={item.price} 
-                          onSave={async (val) => {
-                            const newPrices = { ...(item.channel_prices || {}) }
-                            if (val === null) delete newPrices[activeChannelFilter]
-                            else newPrices[activeChannelFilter] = val
-                            await updateMenuChannelPrices(item.id, newPrices)
-                          }} 
-                        />
+                      {activeChannelFilter && item.channel_prices?.[activeChannelFilter] ? (
+                        <div className="flex flex-col items-end justify-center">
+                          <span className="font-bold text-amber-600 leading-none mb-1">{formatRupiah(item.channel_prices[activeChannelFilter])}</span>
+                          <span className="text-[10px] text-gray-400 line-through leading-none">{formatRupiah(item.price)}</span>
+                        </div>
                       ) : (
                         <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
                       )}

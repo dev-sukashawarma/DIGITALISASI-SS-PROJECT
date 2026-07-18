@@ -84,6 +84,11 @@ export default function MenuView({
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const getSlug = (channelId: string) => {
+    const ch = initialChannels.find(c => c.id === channelId)
+    return ch ? ch.name.toLowerCase().replace(/\s+/g, '') : ''
+  }
+
   const sortedItems = useMemo(() => {
     let sortableItems = [...initialItems];
     if (sortConfig !== null) {
@@ -99,8 +104,9 @@ export default function MenuView({
           bValue = b.categories?.name?.toLowerCase() || '';
         } else if (sortConfig.key === 'price') {
           if (activeChannelFilter) {
-            aValue = a.channel_prices?.[activeChannelFilter] || a.price;
-            bValue = b.channel_prices?.[activeChannelFilter] || b.price;
+            const slug = getSlug(activeChannelFilter);
+            aValue = a.channel_prices?.[slug] || a.price;
+            bValue = b.channel_prices?.[slug] || b.price;
           } else {
             aValue = a.price;
             bValue = b.price;
@@ -157,7 +163,8 @@ export default function MenuView({
     
     let displayPrice = String(item.price)
     if (activeChannelFilter) {
-      displayPrice = formattedChannelPrices[activeChannelFilter] || String(item.price)
+      const slug = getSlug(activeChannelFilter)
+      displayPrice = formattedChannelPrices[slug] || String(item.price)
     }
     
     setForm({
@@ -222,10 +229,11 @@ export default function MenuView({
     })
 
     if (activeChannelFilter) {
+      const slug = getSlug(activeChannelFilter)
       if (price === finalBasePrice || price <= 0) {
-        delete parsedChannelPrices[activeChannelFilter]
+        delete parsedChannelPrices[slug]
       } else {
-        parsedChannelPrices[activeChannelFilter] = price
+        parsedChannelPrices[slug] = price
       }
     } else {
       finalBasePrice = price
@@ -639,9 +647,9 @@ export default function MenuView({
 
                     {/* Price */}
                     <td className="py-3.5 px-4 text-right">
-                      {activeChannelFilter && item.channel_prices?.[activeChannelFilter] ? (
+                      {activeChannelFilter && item.channel_prices?.[getSlug(activeChannelFilter)] ? (
                         <div className="flex flex-col items-end justify-center">
-                          <span className="font-bold text-amber-600 leading-none mb-1">{formatRupiah(item.channel_prices[activeChannelFilter])}</span>
+                          <span className="font-bold text-amber-600 leading-none mb-1">{formatRupiah(item.channel_prices[getSlug(activeChannelFilter)])}</span>
                           <span className="text-[10px] text-gray-400 line-through leading-none">{formatRupiah(item.price)}</span>
                         </div>
                       ) : (

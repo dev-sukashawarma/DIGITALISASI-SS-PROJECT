@@ -558,6 +558,15 @@ function FormBahanBakuContent() {
                         <input type="text" id="newSkuNama" placeholder="Contoh: Botol 600ml" className="w-full text-sm p-2 border border-gray-300 rounded-md bg-white focus:border-suka-orange outline-none" />
                       </div>
                       <div>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Tingkatan</label>
+                        <select id="newSkuTingkatan" className="w-full text-sm p-2 border border-gray-300 rounded-md bg-white focus:border-suka-orange outline-none">
+                          <option value="">(Pilih)</option>
+                          {!selectedItem.bahan_baku_sku?.some(s => s.tingkatan_satuan === 'Besar') && <option value="Besar">Besar</option>}
+                          {!selectedItem.bahan_baku_sku?.some(s => s.tingkatan_satuan === 'Tengah') && <option value="Tengah">Tengah</option>}
+                          {!selectedItem.bahan_baku_sku?.some(s => s.tingkatan_satuan === 'Kecil') && <option value="Kecil">Kecil</option>}
+                        </select>
+                      </div>
+                      <div>
                         <label className="text-xs font-semibold text-gray-500 mb-1 block">Total Isi ({selectedItem.satuan_kecil || selectedItem.satuan})</label>
                         <input type="number" id="newSkuQty" placeholder="600" className="w-full text-sm p-2 border border-gray-300 rounded-md bg-white focus:border-suka-orange outline-none" />
                       </div>
@@ -580,6 +589,7 @@ function FormBahanBakuContent() {
                           onClick={async () => {
                             if (!token) return
                             const nama = (document.getElementById('newSkuNama') as HTMLInputElement).value
+                            const tingkatan = (document.getElementById('newSkuTingkatan') as HTMLSelectElement).value
                             const qty = Number((document.getElementById('newSkuQty') as HTMLInputElement).value)
                             const harga = Number((document.getElementById('newSkuHarga') as HTMLInputElement).value)
                             
@@ -594,7 +604,8 @@ function FormBahanBakuContent() {
                               nama_kemasan: nama,
                               qty_isi: qty,
                               harga_beli: harga,
-                              is_default: !selectedItem.bahan_baku_sku || selectedItem.bahan_baku_sku.length === 0
+                              is_default: !selectedItem.bahan_baku_sku || selectedItem.bahan_baku_sku.length === 0,
+                              tingkatan_satuan: tingkatan || null
                             })
                             
                             if (res.success) {
@@ -607,6 +618,7 @@ function FormBahanBakuContent() {
                               
                               // reset form
                               ;(document.getElementById('newSkuNama') as HTMLInputElement).value = '';
+                              ;(document.getElementById('newSkuTingkatan') as HTMLSelectElement).value = '';
                               ;(document.getElementById('newSkuQty') as HTMLInputElement).value = '';
                               ;(document.getElementById('newSkuHarga') as HTMLInputElement).value = '';
                               setShowSkuSection(false);

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Card } from '@/components/ui'
 import { formatRupiah } from '@/lib/validations'
-import { Loader2, ExternalLink, Search, ImageIcon } from 'lucide-react'
+import { Loader2, ExternalLink, Search, ImageIcon, X } from 'lucide-react'
 import { PageHeader } from '@/components/ui'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
@@ -14,6 +14,7 @@ export default function BuktiQrisPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
   
   const supabase = createClient()
   const { data: outlets = [] } = useOutlets()
@@ -170,15 +171,13 @@ export default function BuktiQrisPage() {
                         hour: '2-digit', minute: '2-digit' 
                       })}
                     </div>
-                    <a 
-                      href={supabase.storage.from('payment_proofs').getPublicUrl(order.payment_proof_url).data.publicUrl} 
-                      target="_blank" 
-                      rel="noreferrer"
+                    <button 
+                      onClick={() => setSelectedImage(supabase.storage.from('payment_proofs').getPublicUrl(order.payment_proof_url).data.publicUrl)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors font-semibold text-xs border border-blue-100"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       Lihat Foto
-                    </a>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -186,6 +185,25 @@ export default function BuktiQrisPage() {
           )}
         </div>
       </Card>
+
+      {/* Lightbox Modal */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setSelectedImage(null)}>
+          <div className="relative max-w-4xl w-full h-full flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img 
+              src={selectedImage} 
+              alt="Bukti QRIS" 
+              className="max-h-[85vh] max-w-full object-contain rounded-xl shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

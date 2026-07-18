@@ -17,7 +17,7 @@ export default async function AdminMenuPage(props: {
     setAll: () => {},
   })
 
-  let itemsQuery = supabase.from('menu_items').select('*, categories(id,name,sort_order), package_items:menu_packages(id, menu_item_id, quantity)').order('sort_order')
+  let itemsQuery = supabase.from('menu_items').select('*, categories(id,name,sort_order), package_items:menu_packages!package_id(id, menu_item_id, quantity)').order('sort_order')
   if (q) {
     itemsQuery = itemsQuery.ilike('name', `%${q}%`)
   }

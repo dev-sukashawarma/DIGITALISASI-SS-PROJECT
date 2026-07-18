@@ -78,6 +78,27 @@ export default function CloseShiftPage() {
   const [actualEndingCash, setActualEndingCash] = useState<string>('')
   const [actualEndingPettyCash, setActualEndingPettyCash] = useState<string>('')
   
+  // Time Validation
+  const [isClosingAllowed, setIsClosingAllowed] = useState(true)
+
+  useEffect(() => {
+    const checkTime = () => {
+      try {
+        const now = new Date()
+        const jktTimeStr = now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
+        const jktTime = new Date(jktTimeStr)
+        const hour = jktTime.getHours()
+        setIsClosingAllowed(hour >= 22 || hour < 6)
+      } catch (e) {
+        const hour = new Date().getHours()
+        setIsClosingAllowed(hour >= 22 || hour < 6)
+      }
+    }
+    checkTime()
+    const interval = setInterval(checkTime, 60000)
+    return () => clearInterval(interval)
+  }, [])
+  
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -201,6 +222,7 @@ export default function CloseShiftPage() {
     e.preventDefault()
     if (!activeShift) return
     if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
+    if (!isClosingAllowed) { setErrorMsg('Penutupan shift hanya dapat dilakukan antara jam 22:00 hingga 06:00.'); return }
     const confirmed = await showConfirm('Tutup shift sekarang? Setelah ditutup Anda tidak bisa melakukan transaksi tunai.')
     if (!confirmed) return
     setErrorMsg('')
@@ -271,6 +293,16 @@ export default function CloseShiftPage() {
           </span>
         </div>
       )}
+      
+      {!isClosingAllowed && (
+        <div className="mb-4 flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-sm">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+          <span>
+            <b>Belum Waktunya Tutup Shift.</b> Sesuai aturan, penutupan petty cash (shift) hanya dapat dilakukan mulai jam <b>22:00 malam hingga 06:00 pagi</b>. Silakan kembali lagi nanti.
+          </span>
+        </div>
+      )}
+
       <div className="mb-6 flex items-center gap-4">
         <Link href="/kasir/shift" className="p-2 -ml-2 rounded-xl text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors shrink-0">
           <ArrowLeft className="w-6 h-6" />
@@ -336,7 +368,7 @@ export default function CloseShiftPage() {
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <span className="text-gray-500 font-semibold">Rp</span>
                       </div>
-                      <input inputMode="numeric" required placeholder="Contoh: 850.000" value={actualEndingCash ? Number(actualEndingCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting} className="w-full pl-12 pr-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900" />
+                      <input inputMode="numeric" required placeholder="Contoh: 850.000" value={actualEndingCash ? Number(actualEndingCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting || !isClosingAllowed} className="w-full pl-12 pr-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed" />
                     </div>
                     {cashDiff !== null && (
                       <p className={`text-xs font-bold mt-1.5 ${cashDiff === 0 ? 'text-emerald-600' : cashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
@@ -350,7 +382,7 @@ export default function CloseShiftPage() {
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <span className="text-gray-500 font-semibold">Rp</span>
                       </div>
-                      <input inputMode="numeric" required placeholder="Contoh: 250.000" value={actualEndingPettyCash ? Number(actualEndingPettyCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingPettyCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting} className="w-full pl-12 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900" />
+                      <input inputMode="numeric" required placeholder="Contoh: 250.000" value={actualEndingPettyCash ? Number(actualEndingPettyCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingPettyCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting || !isClosingAllowed} className="w-full pl-12 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed" />
                     </div>
                     {pettyCashDiff !== null && (
                       <p className={`text-xs font-bold mt-1.5 ${pettyCashDiff === 0 ? 'text-emerald-600' : pettyCashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
@@ -358,7 +390,7 @@ export default function CloseShiftPage() {
                       </p>
                     )}
                   </div>
-                  <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 mt-2 rounded-xl font-bold transition-all disabled:opacity-50">
+                  <button type="submit" disabled={isSubmitting || !isClosingAllowed} className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 mt-2 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                     {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogOut className="w-5 h-5" />}
                     Kunci & Tutup Shift
                   </button>

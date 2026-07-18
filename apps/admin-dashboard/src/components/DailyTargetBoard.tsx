@@ -2,10 +2,9 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useTargetProgress } from '@/hooks/useTargetProgress'
 import { rupiahCompact } from '@/lib/format'
-import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, ChevronLeft, ChevronRight, FileText } from 'lucide-react'
+import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
-import Link from 'next/link'
 import type { PeriodFilterValue, SalesSummaryRow } from '@/lib/types'
 
 function cleanName(name: string) {
@@ -18,7 +17,7 @@ interface DailyTargetBoardProps {
 }
 
 export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}) {
-  const { rows, loading, refetch } = useTargetProgress()
+  const { rows, loading, refetch } = useTargetProgress(filter?.from, filter?.to)
   const supabase = createSupabaseBrowserClient()
   const { isReadOnly } = useRole()
 
@@ -34,7 +33,10 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 6
+  const itemsPerPage = 9
+
+  // Local Filter
+  const [localOutletFilter, setLocalOutletFilter] = useState<string>('all')
 
   const loadTarget = async (scope: string) => {
     let query = supabase
@@ -100,16 +102,20 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
     setTimeout(() => setModalOpen(false), 1000)
   }
 
+  const isMoreThanOneDay = filter && filter.from !== filter.to;
+
   const withTarget = useMemo(() => {
     let baseRows = rows;
     
     if (filter && filter.outletId !== 'all') {
       baseRows = baseRows.filter(r => r.outlet_id === filter.outletId);
+    } else if (isMoreThanOneDay && localOutletFilter !== 'all') {
+      baseRows = baseRows.filter(r => r.outlet_id === localOutletFilter);
     }
 
     const mergedRows = baseRows.map(r => {
       let currentOmzet = r.omzet_today;
-      if (kpiRows) {
+      if (!isMoreThanOneDay && kpiRows) {
         const outletKpiRows = kpiRows.filter(k => k.outlet_id === r.outlet_id);
         if (outletKpiRows.length > 0) {
           currentOmzet = outletKpiRows.reduce((sum, k) => sum + k.omzet, 0);
@@ -126,8 +132,14 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
     return mergedRows
       .filter((r) => r.target_amount > 0)
       .map((r) => ({ ...r, pct: r.target_amount > 0 ? (r.omzet_today / r.target_amount) * 100 : 0 }))
-      .sort((a, b) => b.pct - a.pct);
-  }, [rows, filter, kpiRows])
+      .sort((a, b) => {
+        if (isMoreThanOneDay && a.date_value && b.date_value) {
+          const dateDiff = new Date(b.date_value).getTime() - new Date(a.date_value).getTime();
+          if (dateDiff !== 0) return dateDiff;
+        }
+        return b.pct - a.pct;
+      });
+  }, [rows, filter, kpiRows, isMoreThanOneDay, localOutletFilter])
 
   const achieved = withTarget.filter((r) => r.pct >= 100).length
   
@@ -140,28 +152,6 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
     }
   }, [totalPages, currentPage])
 
-  const isMoreThanOneDay = filter && filter.from !== filter.to;
-
-  if (isMoreThanOneDay) {
-    return (
-      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col items-center justify-center text-center gap-3">
-        <div className="p-3 bg-suka-cream rounded-full">
-          <Target className="w-6 h-6 text-suka-orange" />
-        </div>
-        <div>
-          <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase mb-1">Target Penjualan Harian</h3>
-          <p className="text-xs font-medium text-suka-gray-500 mb-4 max-w-sm mx-auto">
-            Target harian tidak ditampilkan untuk rentang tanggal lebih dari 1 hari. 
-            Silakan akses Pusat Laporan untuk melihat rekapitulasi target.
-          </p>
-          <Link href="/dashboard/reports/target-harian" className="inline-flex items-center gap-1.5 px-4 py-2 bg-suka-orange hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition-colors">
-            <FileText className="w-3.5 h-3.5" />
-            Lihat Laporan Target Harian
-          </Link>
-        </div>
-      </div>
-    )
-  }
 
   if (loading) {
     return (
@@ -180,11 +170,27 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2">
             <Target className="w-4 h-4 text-suka-orange" />
-            <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Target Penjualan Hari Ini</h3>
-            {withTarget.length > 0 && (
+            <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Target Penjualan {isMoreThanOneDay ? 'Harian' : 'Hari Ini'}</h3>
+            {withTarget.length > 0 && !isMoreThanOneDay && (
               <span className="flex items-center gap-1 text-[9px] font-bold text-suka-green bg-suka-green/10 px-2 py-0.5 rounded-full uppercase">
                 <Radio className="w-2.5 h-2.5" /> Live
               </span>
+            )}
+            {isMoreThanOneDay && filter?.outletId === 'all' && (
+              <select
+                value={localOutletFilter}
+                onChange={(e) => {
+                   setLocalOutletFilter(e.target.value);
+                   setCurrentPage(1);
+                }}
+                className="ml-2 px-2 py-1 rounded-lg text-[10px] font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange"
+              >
+                <option value="all">Semua Outlet</option>
+                {Array.from(new Set(rows.map(r => r.outlet_id))).map(id => {
+                   const name = rows.find(r => r.outlet_id === id)?.outlet_name;
+                   return <option key={id} value={id}>{name ? cleanName(name) : 'Outlet'}</option>
+                })}
+              </select>
             )}
           </div>
           
@@ -246,7 +252,14 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                           <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 ${colorBg} ${isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
                           <div className={`relative w-2 h-2 rounded-full ${colorBg} shadow-sm ${isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
                         </div>
-                        <span className="text-xs font-extrabold text-suka-ink truncate">{cleanName(r.outlet_name)}</span>
+                        <span className="text-xs font-extrabold text-suka-ink truncate">
+                          {cleanName(r.outlet_name)}
+                          {isMoreThanOneDay && r.date_value && (
+                            <span className="ml-1 text-[10px] font-medium text-suka-gray-500 whitespace-nowrap">
+                              ({new Date(r.date_value).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })})
+                            </span>
+                          )}
+                        </span>
                       </div>
                       <span className={`text-xs font-extrabold shrink-0 ${colorText}`}>
                         {Math.round(r.pct)}%

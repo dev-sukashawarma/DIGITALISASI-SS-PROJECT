@@ -40,7 +40,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   // 3. Fetch Outlets
   const { data: outlets = [] } = await supabase
     .from('outlets')
-    .select('id, slug, name, address, lat, lng, type, is_active')
+    .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
     .order('name')
     
   const scopedOutlets = lockedOutletId 

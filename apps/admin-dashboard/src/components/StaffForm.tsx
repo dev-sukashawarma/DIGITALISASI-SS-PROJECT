@@ -186,7 +186,7 @@ export function StaffForm({
 
     const payload: StaffFormValues = {
       name: data.name,
-      username: data.username,
+      username: data.username || '',
       role: data.role,
       outlet_id: data.outlet_id,
       outlet_ids: data.role === 'leader' ? data.outlet_ids : [],
@@ -241,7 +241,8 @@ export function StaffForm({
       lat: 0,
       lng: 0,
       type: 'hq',
-      is_active: true
+      is_active: true,
+      marquee_warning_threshold: 0
     })
   }
 

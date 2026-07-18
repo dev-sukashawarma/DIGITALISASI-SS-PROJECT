@@ -135,12 +135,47 @@ export default function OfflineSyncManager() {
       return hasSuccess;
     };
 
+    const cleanupStaleOrders = async () => {
+      try {
+        const twelveHoursAgo = Date.now() - (12 * 60 * 60 * 1000);
+        
+        // 1. Hapus antrean order yang nyangkut > 12 jam
+        const staleOrders = await db.sync_queue_orders
+          .where('created_at').below(twelveHoursAgo)
+          .toArray();
+          
+        for (const entry of staleOrders) {
+          if (entry.local_order_id) {
+            await db.local_orders.delete(entry.local_order_id);
+            // Hapus mutasi yatim
+            const mutations = await db.sync_queue_mutations
+              .where('order_id').equals(entry.local_order_id).toArray();
+            for (const m of mutations) await db.sync_queue_mutations.delete(m.id);
+          }
+          await db.sync_queue_orders.delete(entry.id);
+          console.log(`[SyncManager] Auto-deleted stale offline order: ${entry.id}`);
+        }
+
+        // 2. Hapus mutasi lokal yang nyangkut > 12 jam tanpa parent order
+        const staleMutations = await db.sync_queue_mutations
+          .where('created_at').below(twelveHoursAgo)
+          .toArray();
+        for (const m of staleMutations) {
+          await db.sync_queue_mutations.delete(m.id);
+        }
+      } catch (err) {
+        console.error('[SyncManager] Error cleaning up stale orders:', err);
+      }
+    };
+
     const runSync = async () => {
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
       if (isSyncingRef.current) return;
       isSyncingRef.current = true;
 
       try {
+        await cleanupStaleOrders();
+        
         const createdAny = await syncOrderCreations();
         const mutatedAny = await syncStatusMutations();
 

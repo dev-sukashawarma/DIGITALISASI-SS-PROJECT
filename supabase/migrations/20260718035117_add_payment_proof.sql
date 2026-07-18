@@ -3,8 +3,8 @@ ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_proof_url TEXT;
 
 -- Create storage bucket for payment proofs
 INSERT INTO storage.buckets (id, name, public) 
-VALUES ('payment_proofs', 'payment_proofs', false)
-ON CONFLICT (id) DO NOTHING;
+VALUES ('payment_proofs', 'payment_proofs', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- Storage RLS
 CREATE POLICY "Allow Kasir and Admin to insert payment proofs"

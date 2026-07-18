@@ -504,7 +504,7 @@ export default function OrderManualPage() {
         source: 'manual',
         channel,
         promo_subsidy: ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? Number(promoSubsidy) : 0,
-        payment_proof_url: proofUrl,
+        payment_proof_url: (typeof proofUrl === 'string' ? proofUrl : undefined) as string | undefined,
         apiUrl: '/api/orders/manual',
         apiPayload: payload,
       })
@@ -691,7 +691,7 @@ export default function OrderManualPage() {
         discount_amount: snapDiscount > 0 ? snapDiscount : null,
         source: 'pos',
         channel: null,
-        payment_proof_url: typeof proofFile === 'string' ? proofFile : null,
+        payment_proof_url: (typeof proofFile === 'string' ? proofFile : undefined) as string | undefined,
         apiUrl: '/api/orders/walk-in',
         apiPayload: payload,
       })
@@ -1573,9 +1573,9 @@ function CartPanel(props: {
         totalPrice={totalPrice}
         isOnline={true}
         submitting={submitting}
-        onSubmit={(proofUrl) => {
+        onSubmit={(proofUrl: any) => {
           setOnlineQrisOpen(false)
-          onSubmit(null, proofUrl)
+          onSubmit(null, typeof proofUrl === 'string' ? proofUrl : null)
         }}
       />
 

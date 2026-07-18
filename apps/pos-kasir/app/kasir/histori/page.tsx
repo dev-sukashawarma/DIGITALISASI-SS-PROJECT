@@ -140,6 +140,7 @@ export default function AdminOrdersPage() {
   const [paymentFilter, setPaymentFilter] = useState<string>('all')
   const [channelFilter, setChannelFilter] = useState<string>('all')
   const [expandedId, setExpand] = useState<string | null>(null)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
   const { outletId, outletName } = useMyOutlet()
   const queryClient = useQueryClient()
 
@@ -538,14 +539,12 @@ export default function AdminOrdersPage() {
                           <QrCode className="w-4 h-4" />
                           <span className="font-semibold">Bukti Transfer QRIS</span>
                         </div>
-                        <a 
-                          href={order.payment_proof_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setPreviewImage(order.payment_proof_url ?? null); }}
                           className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold text-xs shadow-sm transition-colors"
                         >
                           Lihat Foto
-                        </a>
+                        </button>
                       </div>
                     )}
 
@@ -569,6 +568,22 @@ export default function AdminOrdersPage() {
         </div>
       )}
         </>
+      )}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-3xl w-full max-h-[90vh] flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-12 right-0 md:-right-12 text-white hover:text-gray-300 p-2"
+            >
+              <XCircle className="w-8 h-8" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewImage} alt="Bukti Pembayaran" className="max-w-full max-h-[85vh] object-contain rounded-xl" />
+          </div>
+        </div>
       )}
     </div>
   )

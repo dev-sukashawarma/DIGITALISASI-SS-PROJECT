@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, QrCode, Loader2, CheckCircle2, Upload, Camera } from 'lucide-react'
+import { X, QrCode, Loader2, CheckCircle2, Upload, Camera, RefreshCw, AlertCircle, FileImage } from 'lucide-react'
 import { formatRupiah } from '@/lib/validations'
 import { QRCodeSVG } from 'qrcode.react'
 import { createClient } from '@/lib/supabase/client'
@@ -26,6 +26,8 @@ export function QrisPaymentModal({
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isCameraActive, setIsCameraActive] = useState(false)
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
+  const [cameraError, setCameraError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -44,26 +46,38 @@ export function QrisPaymentModal({
     postToNative({ type: 'haptic', style: 'success' })
   }
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play()
-        setIsCameraActive(true)
-      }
-    } catch (err) {
-      console.error('Failed to access camera:', err)
-      fileInputRef.current?.click() // fallback
-    }
-  }
-
   const stopCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream
       stream.getTracks().forEach(track => track.stop())
     }
     setIsCameraActive(false)
+  }
+
+  const startCamera = async (overrideFacingMode?: 'environment' | 'user') => {
+    setCameraError(false)
+    setIsCameraActive(false)
+    
+    stopCamera()
+    
+    const mode = overrideFacingMode || facingMode
+    setFacingMode(mode)
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+        setIsCameraActive(true)
+      }
+    } catch (err) {
+      console.error(`Failed to access camera with facingMode ${mode}:`, err)
+      if (mode === 'environment') {
+        startCamera('user')
+      } else {
+        setCameraError(true)
+      }
+    }
   }
 
   const capturePhoto = () => {
@@ -162,36 +176,61 @@ export function QrisPaymentModal({
                 />
                 
                 {previewUrl ? (
-                  <div className="relative border border-gray-200 rounded-xl overflow-hidden mb-3 bg-gray-50">
+                  <div className="relative border border-gray-200 rounded-xl overflow-hidden mb-3 bg-gray-50 w-full aspect-[4/3]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={previewUrl} alt="Bukti Transfer" className="w-full h-48 object-contain" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <button onClick={startCamera} className="bg-white text-gray-900 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2">
+                    <img src={previewUrl} alt="Bukti Transfer" className="w-full h-full object-contain" />
+                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 hover:opacity-100 transition-opacity gap-3">
+                      <button onClick={() => startCamera()} className="bg-white text-gray-900 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2">
                         <Camera className="w-4 h-4" /> Ulangi Foto
+                      </button>
+                      <button onClick={() => fileInputRef.current?.click()} className="bg-white/80 text-gray-900 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2 hover:bg-white transition-colors">
+                        <FileImage className="w-4 h-4" /> Pilih dari Galeri
                       </button>
                     </div>
                   </div>
+                ) : cameraError ? (
+                  <div className="w-full aspect-[4/3] border-2 border-dashed border-red-200 bg-red-50 rounded-2xl flex flex-col items-center justify-center gap-3 p-4 text-center text-red-500 mb-3">
+                    <AlertCircle className="w-8 h-8" />
+                    <span className="text-sm font-medium">Gagal mengakses kamera.<br/>Silakan pilih file secara manual.</span>
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="mt-2 bg-white text-red-600 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2 border border-red-100 hover:bg-red-50 transition-colors"
+                    >
+                      <FileImage className="w-4 h-4" /> Pilih File
+                    </button>
+                  </div>
                 ) : isCameraActive ? (
-                  <div className="relative border border-gray-200 rounded-xl overflow-hidden mb-3 bg-black flex flex-col">
+                  <div className="relative border border-gray-200 rounded-xl overflow-hidden mb-3 bg-black flex flex-col w-full aspect-[4/3]">
                     <video 
                       ref={videoRef} 
-                      className="w-full h-48 object-cover" 
+                      className="w-full h-full object-cover" 
                       playsInline 
                       autoPlay 
                       muted 
                     />
                     <canvas ref={canvasRef} className="hidden" />
-                    <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+                    
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault()
+                        startCamera(facingMode === 'environment' ? 'user' : 'environment')
+                      }}
+                      className="absolute top-4 right-4 bg-black/40 text-white rounded-full p-2.5 backdrop-blur-md hover:bg-black/60 transition-all z-10"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                    </button>
+
+                    <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10">
                       <button 
                         onClick={capturePhoto} 
-                        className="bg-white text-blue-600 rounded-full p-3 shadow-lg flex items-center justify-center border-4 border-gray-200 hover:scale-105 transition-transform"
+                        className="bg-white text-blue-600 rounded-full p-4 shadow-lg flex items-center justify-center border-4 border-gray-200 hover:scale-105 transition-transform"
                       >
-                        <Camera className="w-6 h-6" />
+                        <Camera className="w-7 h-7" />
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full h-40 border-2 border-dashed border-gray-200 bg-gray-50 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400">
+                  <div className="w-full aspect-[4/3] border-2 border-dashed border-gray-200 bg-gray-50 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400 mb-3">
                     <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
                     <span className="text-sm font-medium">Membuka kamera...</span>
                   </div>

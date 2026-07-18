@@ -380,9 +380,9 @@ export default function OrderManualPage() {
   const totalItems = lineList.reduce((s, l) => s + l.quantity, 0)
   
   const baseSubtotal = lineList.reduce((s, l) => s + l.item.price * l.quantity, 0)
-  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, baseSubtotal, channel || (mode === 'online' ? 'gofood' : undefined))
+  const wrappedCalculateItemPrice = (price: number, id: string, channelPrices?: Record<string, number> | null) => calculateItemPrice(price, id, baseSubtotal, channel || (mode === 'online' ? 'gofood' : undefined), channelPrices)
 
-  const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity, 0)
+  const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity, 0)
   const globalDiscount = calculateGlobalDiscount(subtotalAmount)
   const totalPrice = subtotalAmount - globalDiscount
 
@@ -436,7 +436,7 @@ export default function OrderManualPage() {
         dateISO: new Date().toISOString(),
         customerName: customerName.trim() || null,
         items: lineList.map((l) => {
-          const unit = wrappedCalculateItemPrice(l.item.price, l.item.id)
+          const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices)
           return {
             name: l.item.name,
             note: l.note?.trim() || undefined,
@@ -478,8 +478,8 @@ export default function OrderManualPage() {
           name: l.item.name,
           note: l.note,
           quantity: l.quantity,
-          unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id),
-          subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity,
+          unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices),
+          subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity,
         })),
         payment_method: payment as string,
         customer_name: customerName.trim() || null,
@@ -499,7 +499,7 @@ export default function OrderManualPage() {
         dateISO: new Date().toISOString(),
         customerName: customerName.trim() || null,
         items: lineList.map((l) => {
-          const unit = wrappedCalculateItemPrice(l.item.price, l.item.id)
+          const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices)
           return {
             name: l.item.name,
             note: l.note?.trim() || undefined,
@@ -543,7 +543,7 @@ export default function OrderManualPage() {
 
     // Snapshot rincian untuk struk SEBELUM keranjang direset
     const receiptItems = lineList.map((l) => {
-      const unit = wrappedCalculateItemPrice(l.item.price, l.item.id)
+      const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices)
       return {
         name: l.item.name,
         note: l.note?.trim() || undefined,
@@ -632,8 +632,8 @@ export default function OrderManualPage() {
           name: l.item.name,
           note: l.note,
           quantity: l.quantity,
-          unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id),
-          subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id) * l.quantity,
+          unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices),
+          subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity,
           parent_id: l.parentId,
           cartItemId: l.cartItemId
         })),
@@ -872,10 +872,10 @@ export default function OrderManualPage() {
                       <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem]">{it.name}</p>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex flex-col">
-                          {wrappedCalculateItemPrice(it.price, it.id) < it.price ? (
+                          {wrappedCalculateItemPrice(it.price, it.id, it.channel_prices) < it.price ? (
                             <>
                               <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(it.price)}</span>
-                              <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(wrappedCalculateItemPrice(it.price, it.id))}</span>
+                              <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(wrappedCalculateItemPrice(it.price, it.id, it.channel_prices))}</span>
                             </>
                           ) : (
                             <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(it.price)}</span>
@@ -1066,7 +1066,7 @@ export default function OrderManualPage() {
                             )}
                             <div className="flex-1 min-w-0">
                               <p className="font-bold text-sm text-gray-800 line-clamp-1">{ex.name}</p>
-                              <p className="text-amber-600 font-bold text-xs mt-0.5">+{formatRupiah(wrappedCalculateItemPrice(ex.price, ex.id))}</p>
+                              <p className="text-amber-600 font-bold text-xs mt-0.5">+{formatRupiah(wrappedCalculateItemPrice(ex.price, ex.id, ex.channel_prices))}</p>
                             </div>
                           </div>
                           {qty > 0 ? (
@@ -1219,7 +1219,7 @@ function CartPanel(props: {
   submitting: boolean
   error: string | null
   onSubmit: (amount: number | null) => void
-  calculateItemPrice: (price: number, id: string) => number
+  calculateItemPrice: (price: number, id: string, channelPrices?: Record<string, number> | null) => number
   globalDiscount: number
   globalPromo: any
   needsMoreForPromo?: boolean
@@ -1264,7 +1264,7 @@ function CartPanel(props: {
           <div className="space-y-3 max-h-[40dvh] lg:max-h-[38dvh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
             {lineList.filter(l => !l.parentId).map((root) => {
               const children = lineList.filter(l => l.parentId === root.cartItemId)
-              const discountedPrice = calculateItemPrice(root.item.price, root.item.id)
+              const discountedPrice = calculateItemPrice(root.item.price, root.item.id, root.item.channel_prices)
               return (
                 <div key={root.cartItemId} className={`py-2 flex flex-col gap-2 relative ${root.item.id === 'unmatched' ? 'border-2 border-red-400 bg-red-50 p-2 rounded-lg' : ''}`}>
                   {/* Vertical Line for Cart */}
@@ -1308,7 +1308,7 @@ function CartPanel(props: {
                   {children.length > 0 && (
                     <div className="mt-1 space-y-2 relative z-10">
                       {children.map(child => {
-                        const childDiscountedPrice = calculateItemPrice(child.item.price, child.item.id)
+                        const childDiscountedPrice = calculateItemPrice(child.item.price, child.item.id, child.item.channel_prices)
                         return (
                           <div key={child.cartItemId} className="relative pl-[3rem]">
                             {/* L-Shape branch indicator */}

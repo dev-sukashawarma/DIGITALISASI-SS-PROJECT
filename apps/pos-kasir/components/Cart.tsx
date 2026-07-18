@@ -21,11 +21,11 @@ export default function Cart({ outletId: propOutletId }: { outletId?: string } =
   let baseSubtotal = 0
   items.forEach(i => baseSubtotal += i.item.price * i.quantity)
   
-  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, baseSubtotal)
+  const wrappedCalculateItemPrice = (price: number, id: string, channelPrices?: Record<string, number> | null) => calculateItemPrice(price, id, baseSubtotal, undefined, channelPrices)
 
   let subtotal = 0
   items.forEach(i => {
-    const price = wrappedCalculateItemPrice(i.item.price, i.item.id)
+    const price = wrappedCalculateItemPrice(i.item.price, i.item.id, i.item.channel_prices)
     subtotal += price * i.quantity
   })
   
@@ -157,11 +157,11 @@ function CartItemRow({
   itemData: CartItemType, 
   updateQuantity: (id: string, q: number) => void, 
   removeItem: (id: string) => void,
-  calculateItemPrice: (originalPrice: number, menuId: string) => number,
+  calculateItemPrice: (originalPrice: number, menuId: string, channelPrices?: Record<string, number> | null) => number,
   isChild?: boolean 
 }) {
   const { cartItemId, item, quantity, note } = itemData
-  const discountedPrice = calculateItemPrice(item.price, item.id)
+  const discountedPrice = calculateItemPrice(item.price, item.id, item.channel_prices)
   const isDiscounted = discountedPrice < item.price
   
   return (

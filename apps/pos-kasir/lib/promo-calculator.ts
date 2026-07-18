@@ -21,9 +21,15 @@ export function calculateItemPrice(
   menuId: string,
   promos: BasePromo[],
   cartBaseSubtotal?: number,
-  salesSource?: string
+  salesSource?: string,
+  channelPrices?: Record<string, number> | null
 ): number {
   const isFoodApp = salesSource ? FOOD_APP_CHANNELS.includes(salesSource.toLowerCase()) : false;
+  
+  let basePrice = originalPrice;
+  if (salesSource && channelPrices && channelPrices[salesSource.toLowerCase()] !== undefined) {
+    basePrice = channelPrices[salesSource.toLowerCase()];
+  }
 
   const globalPromo = promos.find(p => p.scope === 'global' && p.is_active);
   const itemPromos = promos.filter(p => p.scope === 'item' && p.is_active);
@@ -44,36 +50,36 @@ export function calculateItemPrice(
       
       if (apply) {
         if (globalPromo.discount_type === 'nominal') {
-          return Math.max(0, originalPrice - globalPromo.discount_value);
+          return Math.max(0, basePrice - globalPromo.discount_value);
         } else {
-          return Math.max(0, originalPrice * (1 - globalPromo.discount_value / 100));
+          return Math.max(0, basePrice * (1 - globalPromo.discount_value / 100));
         }
       }
     }
   }
 
   const promo = itemPromos.find(p => p.menu_item_id === menuId);
-  if (!promo) return originalPrice;
-  if (isFoodApp && !promo.apply_to_food_apps) return originalPrice;
+  if (!promo) return basePrice;
+  if (isFoodApp && !promo.apply_to_food_apps) return basePrice;
 
   if (promo.end_date && new Date(promo.end_date).getTime() < Date.now()) {
-    return originalPrice; // Expired
+    return basePrice; // Expired
   }
 
   if (promo.usage_limit && (promo.current_usage || 0) >= promo.usage_limit) {
-    return originalPrice; // Usage limit reached
+    return basePrice; // Usage limit reached
   }
 
   if (promo.min_purchase && promo.min_purchase > 0) {
     if (cartBaseSubtotal !== undefined && cartBaseSubtotal < promo.min_purchase) {
-      return originalPrice; // Not reached min purchase
+      return basePrice; // Not reached min purchase
     }
   }
 
   if (promo.discount_type === 'nominal') {
-    return Math.max(0, originalPrice - promo.discount_value);
+    return Math.max(0, basePrice - promo.discount_value);
   } else {
-    return Math.max(0, originalPrice * (1 - promo.discount_value / 100));
+    return Math.max(0, basePrice * (1 - promo.discount_value / 100));
   }
 }
 

@@ -43,6 +43,7 @@ data class Staff(
     val name: String,
     val role: String, // role kanonik: admin, owner, spv, leader, korlap, kasir, crew, kiosk, kitchen, mitra, staff_pusat
     val assignedOutletId: String,
+    val outletId: String? = null, // UUID outlet mentah (outlet_staff.outlet_id) — assignedOutletId tetap nama display
     val faceDescriptor: FloatArray? = null, // MOBILE descriptor (kolom face_descriptor_mobile)
     val enrolledAt: String? = null,
     val reEnrolledAt: String? = null,
@@ -60,6 +61,7 @@ data class Staff(
         if (name != other.name) return false
         if (role != other.role) return false
         if (assignedOutletId != other.assignedOutletId) return false
+        if (outletId != other.outletId) return false
         if (enrolledAt != other.enrolledAt) return false
         if (reEnrolledAt != other.reEnrolledAt) return false
         if (reEnrolledBy != other.reEnrolledBy) return false
@@ -79,6 +81,7 @@ data class Staff(
         result = 31 * result + name.hashCode()
         result = 31 * result + role.hashCode()
         result = 31 * result + assignedOutletId.hashCode()
+        result = 31 * result + (outletId?.hashCode() ?: 0)
         result = 31 * result + (enrolledAt?.hashCode() ?: 0)
         result = 31 * result + (reEnrolledAt?.hashCode() ?: 0)
         result = 31 * result + (reEnrolledBy?.hashCode() ?: 0)
@@ -122,36 +125,32 @@ data class OutletAttendanceConfigDto(
     @SerialName("absen_window_mode") val absenWindowMode: String
 )
 
+/** Body request POST /api/submit-attendance (endpoint web absensi — kontrak server). */
 @Serializable
-data class AttendanceRecordDto(
-    val id: String? = null,
-    @SerialName("staff_id") val staffId: String,
+data class AttendanceSubmitRequest(
+    val id: String,
+    @SerialName("outlet_staff_id") val outletStaffId: String,
     @SerialName("outlet_id") val outletId: String,
-    val type: String, // 'in' atau 'out'
+    val type: String, // "in" / "out"
     @SerialName("ts_client") val tsClient: String,
-    @SerialName("ts_server") val tsServer: String? = null,
-    val status: String,
-    val latitude: Double? = null,
-    val longitude: Double? = null,
-    val accuracy: Double? = null,
-    @SerialName("photo_url") val photoUrl: String? = null,
+    @SerialName("gps_lat") val gpsLat: Double? = null,
+    @SerialName("gps_lng") val gpsLng: Double? = null,
+    @SerialName("gps_accuracy") val gpsAccuracy: Double? = null,
+    @SerialName("match_distance") val matchDistance: Double? = null,
+    @SerialName("selfie_path") val selfiePath: String? = null,
     @SerialName("from_queue") val fromQueue: Boolean = false
 )
 
+/** Row tabel attendance (untuk BACA via postgrest — kolom sesuai skema nyata). */
 @Serializable
-data class DailyChecklistDto(
-    val id: String,
-    @SerialName("outlet_id") val outletId: String,
-    val phase: String, // "tutup"
-    @SerialName("is_required") val isRequired: Boolean,
-    @SerialName("is_done") val isDone: Boolean
-)
-
-@Serializable
-data class PettyCashDto(
-    val id: String,
-    @SerialName("outlet_id") val outletId: String,
-    val status: String // "open", "closed"
+data class AttendanceRowDto(
+    val id: String? = null,
+    @SerialName("outlet_staff_id") val outletStaffId: String,
+    @SerialName("outlet_id") val outletId: String? = null,
+    val type: String,
+    @SerialName("ts_client") val tsClient: String? = null,
+    @SerialName("ts_server") val tsServer: String? = null,
+    val status: String? = null
 )
 
 data class Shipment(

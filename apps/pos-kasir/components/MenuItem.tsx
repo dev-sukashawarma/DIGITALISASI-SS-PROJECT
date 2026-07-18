@@ -12,7 +12,7 @@ import type { OutletPromo } from '@/lib/usePromos'
 
 interface Props {
   item: MenuItemType
-  calculateItemPrice?: (price: number, id: string) => number
+  calculateItemPrice?: (price: number, id: string, channelPrices?: Record<string, number> | null) => number
   applicablePromo?: OutletPromo | null
 }
 
@@ -25,13 +25,16 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo }: 
   const totalQuantity = itemCartItems.reduce((acc, curr) => acc + curr.quantity, 0)
 
   const showPlaceholder = !item.image_url || imgError
-  const finalPrice = calculateItemPrice ? calculateItemPrice(item.price, item.id) : item.price
-  const isDiscountActiveNow = finalPrice < item.price
+  const finalPrice = calculateItemPrice ? calculateItemPrice(item.price, item.id, item.channel_prices) : item.price
   
+  // Assume if it's not a promo, finalPrice is the channel price. We will just display finalPrice.
+  // To detect if a promo is active, we check if applicablePromo is valid.
   const hasPotentialPromo = applicablePromo != null
   const needsMinPurchase = hasPotentialPromo && (applicablePromo!.min_purchase || 0) > 0
   const hasUsageLimit = hasPotentialPromo && (applicablePromo!.usage_limit || 0) > 0
   const remainingUsage = hasUsageLimit ? (applicablePromo!.usage_limit || 0) - (applicablePromo!.current_usage || 0) : null
+  
+  const isDiscountActiveNow = hasPotentialPromo && !needsMinPurchase && (!hasUsageLimit || (remainingUsage !== null && remainingUsage > 0)) && finalPrice < item.price; // approximation
 
   return (
     <div
@@ -110,7 +113,7 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo }: 
           ) : (
             <>
               <span className="font-bold text-amber-600 text-base tracking-tight leading-none">
-                {formatRupiah(item.price)}
+                {formatRupiah(finalPrice)}
               </span>
               {needsMinPurchase && (
                 <span className="text-[9.5px] text-amber-700 font-bold bg-amber-50 inline-block px-1.5 py-0.5 rounded mt-1 leading-none w-fit border border-amber-100">

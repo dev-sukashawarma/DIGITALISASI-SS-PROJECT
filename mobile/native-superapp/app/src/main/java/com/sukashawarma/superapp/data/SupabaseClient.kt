@@ -14,6 +14,10 @@ import io.github.jan.supabase.realtime.broadcast
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,9 +47,10 @@ private interface SupabaseClientDelegate : AuthRepository, SyncRepository, Realt
     
     // Attendance Methods
     suspend fun getConfig(outletId: String): OutletAttendanceConfigDto?
-    suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRecordDto?
-    suspend fun checkClockOutGates(outletId: String): Pair<Boolean, String?>
-    suspend fun submitAttendance(dto: AttendanceRecordDto)
+    suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRowDto?
+    // Submit lewat endpoint web absensi (bukan insert langsung — RLS attendance hanya izinkan service_role).
+    // Gate clock-out (shift kasir, dll.) dievaluasi server, dibalas sebagai reason (mis. "shift_not_closed").
+    suspend fun submitAttendance(request: AttendanceSubmitRequest): SubmitAttendanceResponse
 }
 
 class SupabaseClient(val isTesting: Boolean = true) : AuthRepository, SyncRepository, RealtimeRepository {
@@ -108,9 +113,8 @@ class SupabaseClient(val isTesting: Boolean = true) : AuthRepository, SyncReposi
         delegate.saveEnrollment(staffId, descriptor, photoUrl, isReEnroll, reason, adminId, hasExistingConsent)
 
     suspend fun getConfig(outletId: String): OutletAttendanceConfigDto? = delegate.getConfig(outletId)
-    suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRecordDto? = delegate.getTodayAttendance(staffId, type)
-    suspend fun checkClockOutGates(outletId: String): Pair<Boolean, String?> = delegate.checkClockOutGates(outletId)
-    suspend fun submitAttendance(dto: AttendanceRecordDto) = delegate.submitAttendance(dto)
+    suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRowDto? = delegate.getTodayAttendance(staffId, type)
+    suspend fun submitAttendance(request: AttendanceSubmitRequest): SubmitAttendanceResponse = delegate.submitAttendance(request)
 
     companion object {
         private val isUnderTest = try {
@@ -317,7 +321,13 @@ private class ProductionDelegate : SupabaseClientDelegate {
         val actions = ArrayList(offlineQueue)
         offlineQueue.clear()
         for (action in actions) {
-            action.invoke()
+            try {
+                action.invoke()
+            } catch (e: Exception) {
+                // Gagal (jaringan masih putus / server error) → kembalikan ke queue, jangan hilang.
+                android.util.Log.w("OfflineQueue", "Sync gagal, action dikembalikan ke queue: ${e.message}")
+                offlineQueue.add(action)
+            }
         }
     }
 
@@ -380,6 +390,7 @@ private class ProductionDelegate : SupabaseClientDelegate {
             name = result.name,
             role = result.role,
             assignedOutletId = outletName,
+            outletId = result.outletId,
             faceDescriptor = result.faceDescriptorMobile?.toFloatArray(),
             enrolledAt = result.mobileEnrolledAt,
             refPhotoUrl = result.refPhotoUrlMobile,
@@ -406,6 +417,7 @@ private class ProductionDelegate : SupabaseClientDelegate {
                 name = result.name,
                 role = result.role,
                 assignedOutletId = result.outletId ?: "Pusat (Semua Outlet)",
+                outletId = result.outletId,
                 faceDescriptor = result.faceDescriptorMobile?.toFloatArray(),
                 enrolledAt = result.mobileEnrolledAt,
                 refPhotoUrl = result.refPhotoUrlMobile,
@@ -484,76 +496,60 @@ private class ProductionDelegate : SupabaseClientDelegate {
         }
     }
 
-    override suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRecordDto? {
+    override suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRowDto? {
         val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
         return try {
             // Kita cari dari awal hari berdasarkan timezone (ideal di query, tapi sementara ambil limit 1 descending)
             val todayDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).apply {
                 timeZone = java.util.TimeZone.getTimeZone("Asia/Jakarta")
             }.format(java.util.Date())
-            
+
+            val cols = io.github.jan.supabase.postgrest.query.Columns.raw("id, outlet_staff_id, outlet_id, type, ts_client, ts_server, status")
             clientObj.postgrest["attendance"]
-                .select {
-                    filter { 
-                        eq("staff_id", staffId)
+                .select(columns = cols) {
+                    filter {
+                        eq("outlet_staff_id", staffId)
                         eq("type", type)
                         gte("ts_client", "${todayDateStr}T00:00:00+07:00")
                     }
                     order("ts_client", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
                     limit(1)
                 }
-                .decodeSingleOrNull<AttendanceRecordDto>()
+                .decodeSingleOrNull<AttendanceRowDto>()
         } catch (e: Exception) {
             android.util.Log.e("SupabaseClient", "Failed to fetch today attendance", e)
             null
         }
     }
 
-    override suspend fun checkClockOutGates(outletId: String): Pair<Boolean, String?> {
-        val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
-        try {
-            // Cek Checklist
-            val checklists = clientObj.postgrest["daily_checklists"]
-                .select {
-                    filter {
-                        eq("outlet_id", outletId)
-                        eq("phase", "tutup")
-                        eq("is_required", true)
-                        eq("is_done", false)
-                    }
-                }.decodeList<DailyChecklistDto>()
-            
-            if (checklists.isNotEmpty()) {
-                return Pair(false, "Checklist penutupan harian belum diselesaikan.")
-            }
-
-            // Cek Petty Cash
-            val pettyCash = clientObj.postgrest["petty_cash"]
-                .select {
-                    filter {
-                        eq("outlet_id", outletId)
-                        eq("status", "open")
-                    }
-                }.decodeList<PettyCashDto>()
-
-            if (pettyCash.isNotEmpty()) {
-                return Pair(false, "Shift kasir / petty cash masih berstatus open (belum ditutup).")
-            }
-
-            return Pair(true, null)
-        } catch (e: Exception) {
-            android.util.Log.e("SupabaseClient", "Failed to check clock out gates", e)
-            return Pair(false, "Gagal memverifikasi syarat clock-out: ${e.message}")
+    // HttpClient khusus untuk endpoint web absensi (bukan postgrest). Lazy sekali pakai selamanya.
+    private val attendanceHttpClient by lazy {
+        io.ktor.client.HttpClient(io.ktor.client.engine.okhttp.OkHttp) {
+            expectSuccess = false // server pakai 4xx untuk beberapa reason — body tetap harus dibaca
+            install(HttpTimeout) { requestTimeoutMillis = 15000 }
         }
     }
+    private val attendanceJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 
-    override suspend fun submitAttendance(dto: AttendanceRecordDto) {
-        val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
-        try {
-            clientObj.postgrest["attendance"].insert(dto)
+    override suspend fun submitAttendance(request: AttendanceSubmitRequest): SubmitAttendanceResponse {
+        val url = com.sukashawarma.superapp.BuildConfig.ABSENSI_API_BASE + "/api/submit-attendance"
+        val response = attendanceHttpClient.post(url) {
+            setBody(
+                io.ktor.http.content.TextContent(
+                    attendanceJson.encodeToString(AttendanceSubmitRequest.serializer(), request),
+                    io.ktor.http.ContentType.Application.Json
+                )
+            )
+        }
+        val bodyText = response.bodyAsText()
+        return try {
+            // Non-2xx dengan body JSON reason tetap di-parse & dikembalikan apa adanya
+            attendanceJson.decodeFromString(SubmitAttendanceResponse.serializer(), bodyText)
         } catch (e: Exception) {
-            android.util.Log.e("SupabaseClient", "Failed to submit attendance", e)
-            throw e
+            // Server MERESPONS tapi bukan JSON kontrak (HTML 502/maintenance/captive-portal) —
+            // BUKAN offline: jangan sampai di-queue oleh caller. Transport error ktor propagate apa adanya di atas.
+            android.util.Log.e("SupabaseClient", "submit-attendance non-JSON response (HTTP ${response.status.value})", e)
+            throw AttendanceServerException("Respons server tidak dikenali (HTTP ${response.status.value}): ${bodyText.take(120)}")
         }
     }
 }
@@ -656,7 +652,13 @@ private class MockDelegate : SupabaseClientDelegate {
         val actions = ArrayList(offlineQueue)
         offlineQueue.clear()
         for (action in actions) {
-            action.invoke()
+            try {
+                action.invoke()
+            } catch (e: Exception) {
+                // Gagal (jaringan masih putus / server error) → kembalikan ke queue, jangan hilang.
+                android.util.Log.w("OfflineQueue", "Sync gagal, action dikembalikan ke queue: ${e.message}")
+                offlineQueue.add(action)
+            }
         }
     }
 
@@ -682,7 +684,8 @@ private class MockDelegate : SupabaseClientDelegate {
                 id = "mock-id-$username",
                 name = username,
                 role = getUserRole(identifier),
-                assignedOutletId = "outlet-1"
+                assignedOutletId = "outlet-1",
+                outletId = "outlet-1"
             )
             else -> null
         }
@@ -723,15 +726,12 @@ private class MockDelegate : SupabaseClientDelegate {
         )
     }
 
-    override suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRecordDto? {
+    override suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRowDto? {
         return null // Return null to simulate they haven't clocked in yet
     }
 
-    override suspend fun checkClockOutGates(outletId: String): Pair<Boolean, String?> {
-        return Pair(true, null) // Allow by default
-    }
-
-    override suspend fun submitAttendance(dto: AttendanceRecordDto) {
-        // no-op
+    override suspend fun submitAttendance(request: AttendanceSubmitRequest): SubmitAttendanceResponse {
+        if (isOffline) throw IOException("No network connection")
+        return SubmitAttendanceResponse(ok = true, status = "tepat")
     }
 }

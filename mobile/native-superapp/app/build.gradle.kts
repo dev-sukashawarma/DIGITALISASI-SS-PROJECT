@@ -30,6 +30,10 @@ android {
             "\"${localProps.getProperty("SUPABASE_URL") ?: "https://khpkoreaaucvyqfhynfq.supabase.co"}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY",
             "\"${localProps.getProperty("SUPABASE_ANON_KEY") ?: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NjMyOTIsImV4cCI6MjA5NjUzOTI5Mn0.RdsvP6OKs6aiRnqqd02BYiv5gzbh4uGqO88dapo0Gso"}\"")
+        // Base URL app web absensi — semua penulisan attendance lewat POST /api/submit-attendance
+        // (RLS tabel attendance: INSERT hanya service_role; insert langsung dari device mustahil by design).
+        buildConfigField("String", "ABSENSI_API_BASE",
+            "\"${localProps.getProperty("ABSENSI_API_BASE") ?: "https://absensi.sukashawarma.com"}\"")
     }
 
     buildTypes {

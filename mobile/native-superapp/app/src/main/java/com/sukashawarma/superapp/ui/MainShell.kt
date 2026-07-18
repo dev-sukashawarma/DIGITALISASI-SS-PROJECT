@@ -46,10 +46,11 @@ val StaffSaver = Saver<Staff?, Any>(
     save = { staff ->
         if (staff == null) null
         else mapOf(
-            "id" to staff.id, 
-            "name" to staff.name, 
-            "role" to staff.role, 
+            "id" to staff.id,
+            "name" to staff.name,
+            "role" to staff.role,
             "assignedOutletId" to staff.assignedOutletId,
+            "outletId" to staff.outletId,
             "faceDescriptor" to staff.faceDescriptor?.toList()
         )
     },
@@ -58,11 +59,12 @@ val StaffSaver = Saver<Staff?, Any>(
         val faceDescList = map["faceDescriptor"] as? List<*>
         val faceDescriptor = faceDescList?.mapNotNull { (it as? Number)?.toFloat() }?.toFloatArray()
         Staff(
-            map["id"] as String, 
-            map["name"] as String, 
-            map["role"] as String, 
-            map["assignedOutletId"] as String,
-            faceDescriptor
+            id = map["id"] as String,
+            name = map["name"] as String,
+            role = map["role"] as String,
+            assignedOutletId = map["assignedOutletId"] as String,
+            outletId = map["outletId"] as? String,
+            faceDescriptor = faceDescriptor
         )
     }
 )
@@ -126,7 +128,13 @@ fun MainShell(
                         // Jika gagal fetch, pakai data yang sudah ada
                     }
                 }
-                AttendanceScreen(staffName = currentStaff?.name, staffFaceDescriptor = liveFaceDescriptor, onBackClick = { navController.popBackStack() })
+                AttendanceScreen(
+                    staffName = currentStaff?.name,
+                    staffFaceDescriptor = liveFaceDescriptor,
+                    staffId = currentStaff?.id,
+                    outletId = currentStaff?.outletId,
+                    onBackClick = { navController.popBackStack() }
+                )
             }
             composable(Screen.Fulfillment.route) { FulfillmentScreen() }
             composable(Screen.Enroll.route) {

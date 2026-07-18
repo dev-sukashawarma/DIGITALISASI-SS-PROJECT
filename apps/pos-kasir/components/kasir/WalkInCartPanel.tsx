@@ -36,7 +36,7 @@ export function WalkInCartPanel(props: {
   setCustomerName: (v: string) => void
   setQty: (cartItemId: string, qty: number) => void
   setNote: (cartItemId: string, note: string) => void
-  calculateItemPrice: (price: number, id: string) => number
+  calculateItemPrice: (price: number, id: string, channelPrices?: Record<string, number> | null) => number
   submitting: boolean
   error: string | null
   onPay: (method: Payment, amountReceived: number | null) => void
@@ -92,7 +92,7 @@ export function WalkInCartPanel(props: {
           <div className="space-y-3 max-h-[36dvh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
             {lineList.filter(l => !l.parentId).map((root) => {
               const children = lineList.filter(l => l.parentId === root.cartItemId)
-              const discountedPrice = calculateItemPrice(root.item.price, root.item.id)
+              const discountedPrice = calculateItemPrice(root.item.price, root.item.id, root.item.channel_prices)
               return (
                 <div key={root.cartItemId} className="py-2 flex flex-col gap-2 relative">
                   {/* Vertical Line for Cart */}
@@ -138,7 +138,7 @@ export function WalkInCartPanel(props: {
                   {children.length > 0 && (
                     <div className="mt-1 space-y-2 relative z-10">
                       {children.map(child => {
-                        const childDiscountedPrice = calculateItemPrice(child.item.price, child.item.id)
+                        const childDiscountedPrice = calculateItemPrice(child.item.price, child.item.id, child.item.channel_prices)
                         return (
                           <div key={child.cartItemId} className="relative pl-[3rem]">
                             {/* L-Shape branch indicator */}

@@ -12,6 +12,14 @@ export interface Outlet {
   updated_at: string
 }
 
+export interface SalesChannel {
+  id: string
+  name: string
+  is_active: boolean
+  created_at?: string
+}
+
+
 export type UserRole = 'admin' | 'crew' | 'leader' | 'kiosk'
 
 export interface UserProfile {
@@ -38,11 +46,13 @@ export interface MenuItem {
   name: string
   description: string | null
   price: number
+  channel_prices?: Record<string, number>
   image_url: string | null
   is_available: boolean
   sort_order: number
   categories?: Category
 }
+
 
 export interface CartItem {
   cartItemId: string

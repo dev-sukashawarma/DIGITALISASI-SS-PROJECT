@@ -1,21 +1,21 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, X, Loader2,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  FileArchive, Search, MoreVertical, Check
+  FileArchive, Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput } from '@suka/design-system'
 import { formatRupiah } from '@/lib/validations'
-import type { MenuItem, Category } from '@/pos-types'
+import type { MenuItem, Category, SalesChannel } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
 import MenuSearch from './MenuSearch'
-import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
+import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting, updateMenuChannelPrices } from './actions'
 
 const BUCKET = 'menu-images'
 
@@ -24,13 +24,16 @@ interface FormState {
   name: string
   description: string
   price: string
+  base_price: string
+  channel_prices: Record<string, string>
   category_id: string
   is_available: boolean
   image_url: string | null
 }
 
 const EMPTY: FormState = {
-  id: null, name: '', description: '', price: '',
+  id: null, name: '', description: '', price: '', base_price: '',
+  channel_prices: {},
   category_id: '', is_available: true, image_url: null,
 }
 
@@ -48,12 +51,20 @@ async function deleteStorageImage(url: string) {
 interface MenuViewProps {
   initialItems: MenuItem[]
   initialCategories: Category[]
+  initialChannels: SalesChannel[]
   initialUpsells?: string[]
   initialBestsellers?: string[]
   initialRecommendations?: string[]
 }
 
-export default function MenuView({ initialItems, initialCategories, initialUpsells, initialBestsellers, initialRecommendations }: MenuViewProps) {
+export default function MenuView({ 
+  initialItems = [], 
+  initialCategories = [], 
+  initialChannels = [], 
+  initialUpsells = [], 
+  initialBestsellers = [], 
+  initialRecommendations = [] 
+}: MenuViewProps) {
   const router = useRouter()
   const { showConfirm } = useDialogStore()
   const [form, setForm]           = useState<FormState>(EMPTY)
@@ -69,7 +80,61 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
   const [bestsellers, setBestsellers] = useState<string[]>(initialBestsellers || [])
   const [recommendations, setRecommendations] = useState<string[]>(initialRecommendations || [])
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+  const [activeChannelFilter, setActiveChannelFilter] = useState<string>('')
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const sortedItems = useMemo(() => {
+    let sortableItems = [...initialItems];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        if (sortConfig.key === 'name') {
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+        } else if (sortConfig.key === 'category') {
+          aValue = a.categories?.name?.toLowerCase() || '';
+          bValue = b.categories?.name?.toLowerCase() || '';
+        } else if (sortConfig.key === 'price') {
+          if (activeChannelFilter) {
+            aValue = a.channel_prices?.[activeChannelFilter] || a.price;
+            bValue = b.channel_prices?.[activeChannelFilter] || b.price;
+          } else {
+            aValue = a.price;
+            bValue = b.price;
+          }
+        } else if (sortConfig.key === 'status') {
+          aValue = a.is_available ? 1 : 0;
+          bValue = b.is_available ? 1 : 0;
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [initialItems, sortConfig, activeChannelFilter]);
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (columnName: string) => {
+    if (!sortConfig || sortConfig.key !== columnName) {
+      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-300 ml-1.5 inline-block opacity-0 group-hover:opacity-100 transition-opacity" />;
+    }
+    if (sortConfig.direction === 'asc') {
+      return <ChevronUp className="w-3.5 h-3.5 text-amber-500 ml-1.5 inline-block" />;
+    }
+    return <ChevronDown className="w-3.5 h-3.5 text-amber-500 ml-1.5 inline-block" />;
+  };
 
   function resetImage() {
     setImageFile(null)
@@ -83,9 +148,24 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
   }
 
   function openEdit(item: MenuItem) {
+    const formattedChannelPrices: Record<string, string> = {}
+    if (item.channel_prices) {
+      Object.entries(item.channel_prices).forEach(([k, v]) => {
+        formattedChannelPrices[k] = String(v)
+      })
+    }
+    
+    let displayPrice = String(item.price)
+    if (activeChannelFilter) {
+      displayPrice = formattedChannelPrices[activeChannelFilter] || String(item.price)
+    }
+    
     setForm({
       id: item.id, name: item.name, description: item.description ?? '',
-      price: String(item.price), category_id: item.category_id ?? '',
+      price: displayPrice, 
+      base_price: String(item.price),
+      channel_prices: formattedChannelPrices,
+      category_id: item.category_id ?? '',
       is_available: item.is_available, image_url: item.image_url,
     })
     resetImage(); setError(''); setShowForm(true)
@@ -131,11 +211,32 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
       if (!imgUrl) { setSaving(false); return }
     }
 
+    let finalBasePrice = parseFloat(form.base_price) || price
+    const parsedChannelPrices: Record<string, number> = {}
+    
+    Object.entries(form.channel_prices).forEach(([k, v]) => {
+      if (v) {
+        const p = parseFloat(v)
+        if (!isNaN(p) && p > 0) parsedChannelPrices[k] = p
+      }
+    })
+
+    if (activeChannelFilter) {
+      if (price === finalBasePrice || price <= 0) {
+        delete parsedChannelPrices[activeChannelFilter]
+      } else {
+        parsedChannelPrices[activeChannelFilter] = price
+      }
+    } else {
+      finalBasePrice = price
+    }
+
     const payload = {
       id: form.id ?? undefined,
       name: form.name.trim(), description: form.description.trim() || null,
-      price: price, category_id: form.category_id || null,
+      price: finalBasePrice, category_id: form.category_id || null,
       is_available: form.is_available, image_url: imgUrl,
+      channel_prices: parsedChannelPrices,
     }
 
     try {
@@ -203,6 +304,20 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
           <p className="text-gray-400 text-sm mt-0.5">{initialItems.length} item ditemukan</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Channel Filter */}
+          {initialChannels.length > 0 && (
+            <select
+              value={activeChannelFilter}
+              onChange={(e) => setActiveChannelFilter(e.target.value)}
+              className="py-2.5 px-4 text-sm font-medium rounded-2xl border border-gray-200 bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all cursor-pointer text-gray-700"
+            >
+              <option value="">Harga Dasar</option>
+              {initialChannels.map(ch => (
+                <option key={ch.id} value={ch.id}>Harga {ch.name}</option>
+              ))}
+            </select>
+          )}
+
           {/* Search Input */}
           <MenuSearch />
 
@@ -339,7 +454,12 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
                 {/* Price & Category */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="input-label">Harga (Rp) <span className="text-red-400 font-normal">*</span></label>
+                    <label className="input-label">
+                      {activeChannelFilter 
+                        ? `Harga ${initialChannels.find(c => c.id === activeChannelFilter)?.name || ''} (Rp)` 
+                        : 'Harga Dasar (Rp)'}
+                      <span className="text-red-400 font-normal ml-1">*</span>
+                    </label>
                     <CurrencyInput value={form.price}
                       onChange={(v) => setForm({ ...form, price: String(v) })}
                       required className="input" />
@@ -356,6 +476,8 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
                     </select>
                   </div>
                 </div>
+
+
 
                 {/* Availability toggle */}
                 <button type="button"
@@ -445,19 +567,37 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left py-3.5 px-5 font-semibold text-gray-500 w-16">Foto</th>
-                  <th className="text-left py-3.5 px-4 font-semibold text-gray-500">Nama Menu</th>
-                  <th className="text-left py-3.5 px-4 font-semibold text-gray-500 hidden sm:table-cell">Kategori</th>
-                  <th className="text-right py-3.5 px-4 font-semibold text-gray-500">Harga</th>
-                  <th className="text-center py-3.5 px-4 font-semibold text-gray-500">Status</th>
+                  <th className="text-left py-3.5 px-4 font-semibold text-gray-500 cursor-pointer group" onClick={() => requestSort('name')}>
+                    <div className="flex items-center">Nama Menu {getSortIcon('name')}</div>
+                  </th>
+                  <th className="text-left py-3.5 px-4 font-semibold text-gray-500 hidden sm:table-cell cursor-pointer group" onClick={() => requestSort('category')}>
+                    <div className="flex items-center">Kategori {getSortIcon('category')}</div>
+                  </th>
+                  <th className={`text-right py-3.5 px-4 font-semibold transition-colors cursor-pointer group
+                    ${activeChannelFilter 
+                      ? 'bg-amber-100/50 text-amber-700 border-b-2 border-amber-500 rounded-t-lg' 
+                      : 'text-gray-500'}`}
+                      onClick={() => requestSort('price')}
+                  >
+                    <div className="flex items-center justify-end">
+                      {activeChannelFilter 
+                        ? `Harga ${initialChannels.find(c => c.id === activeChannelFilter)?.name || ''}`
+                        : 'Harga Dasar'}
+                      {getSortIcon('price')}
+                    </div>
+                  </th>
+                  <th className="text-center py-3.5 px-4 font-semibold text-gray-500 cursor-pointer group" onClick={() => requestSort('status')}>
+                    <div className="flex items-center justify-center">Status {getSortIcon('status')}</div>
+                  </th>
                   <th className="text-center py-3.5 px-5 font-semibold text-gray-500">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {initialItems.map((item, idx) => (
+                {sortedItems.map((item, idx) => (
                   <tr
                     key={item.id}
                     className={`border-b border-gray-50 hover:bg-gray-50/60 transition-colors
-                      ${idx === initialItems.length - 1 ? 'border-0' : ''}`}
+                      ${idx === sortedItems.length - 1 ? 'border-0' : ''}`}
                   >
                     {/* Thumbnail */}
                     <td className="py-3.5 px-5">
@@ -499,7 +639,14 @@ export default function MenuView({ initialItems, initialCategories, initialUpsel
 
                     {/* Price */}
                     <td className="py-3.5 px-4 text-right">
-                      <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
+                      {activeChannelFilter && item.channel_prices?.[activeChannelFilter] ? (
+                        <div className="flex flex-col items-end justify-center">
+                          <span className="font-bold text-amber-600 leading-none mb-1">{formatRupiah(item.channel_prices[activeChannelFilter])}</span>
+                          <span className="text-[10px] text-gray-400 line-through leading-none">{formatRupiah(item.price)}</span>
+                        </div>
+                      ) : (
+                        <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
+                      )}
                     </td>
 
                     {/* Status toggle */}

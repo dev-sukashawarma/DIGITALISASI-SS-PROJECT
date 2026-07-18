@@ -35,7 +35,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
   const { calculateItemPrice, calculateGlobalDiscount, getPromoForMenu } = usePromos(outletId)
   
   const cartBaseSubtotal = items.reduce((acc, curr) => acc + curr.item.price * curr.quantity, 0)
-  const wrappedCalculateItemPrice = (price: number, id: string) => calculateItemPrice(price, id, cartBaseSubtotal)
+  const wrappedCalculateItemPrice = (price: number, id: string, channelPrices?: Record<string, number> | null) => calculateItemPrice(price, id, cartBaseSubtotal, undefined, channelPrices)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -84,7 +84,7 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
   // Hitung ulang total yang benar dengan Promo (karena Zustand store belum handle promo database)
   let calculatedSubtotal = 0
   items.forEach(i => {
-    const price = wrappedCalculateItemPrice(i.item.price, i.item.id)
+    const price = wrappedCalculateItemPrice(i.item.price, i.item.id, i.item.channel_prices)
     calculatedSubtotal += price * i.quantity
   })
   const total = calculatedSubtotal

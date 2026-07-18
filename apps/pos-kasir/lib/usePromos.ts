@@ -79,8 +79,8 @@ export function usePromos(outletId: string | undefined) {
   const globalPromo = promos.find(p => p.scope === 'global')
   const itemPromos = promos.filter(p => p.scope === 'item')
 
-  const calcItemPrice = (originalPrice: number, menuId: string, cartBaseSubtotal?: number, salesSource?: string): number => {
-    return calculateItemPrice(originalPrice, menuId, promos, cartBaseSubtotal, salesSource)
+  const calcItemPrice = (originalPrice: number, menuId: string, cartBaseSubtotal?: number, salesSource?: string, channelPrices?: Record<string, number> | null): number => {
+    return calculateItemPrice(originalPrice, menuId, promos, cartBaseSubtotal, salesSource, channelPrices)
   }
 
   const calcGlobalDiscount = (subtotal: number): number => {

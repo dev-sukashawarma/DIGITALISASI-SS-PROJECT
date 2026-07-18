@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   const menuItemIds = body.items.map((i) => i.menu_item_id)
   const { data: menuItems, error: menuError } = await supabaseService
     .from('menu_items')
-    .select('id, name, price, is_available')
+    .select('id, name, price, is_available, channel_prices')
     .in('id', menuItemIds)
 
   if (menuError) {
@@ -137,7 +137,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Jumlah untuk "${menuItem.name}" harus 1-10` }, { status: 400 })
     }
 
-    let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal, body.channel)
+    let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal, body.channel, menuItem.channel_prices)
 
     const subtotal = unitPrice * quantity
     total += subtotal

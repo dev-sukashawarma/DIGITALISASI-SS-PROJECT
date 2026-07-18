@@ -70,6 +70,7 @@ export async function saveMenuItem(form: Partial<MenuItem>) {
     image_url: form.image_url,
     is_available: form.is_available,
     sort_order: form.sort_order || 0,
+    channel_prices: form.channel_prices || {},
   }
 
   let finalId = form.id;
@@ -132,6 +133,11 @@ export async function toggleGlobalSetting(key: string, newIds: string[]) {
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
+export async function updateMenuChannelPrices(menuId: string, channelPrices: Record<string, number>) {
+  const supabase = await getSupabase()
+  await supabase.from('menu_items').update({ channel_prices: channelPrices }).eq('id', menuId)
+  revalidatePath('/dashboard/pos-admin/menu')
+}
 
 
 

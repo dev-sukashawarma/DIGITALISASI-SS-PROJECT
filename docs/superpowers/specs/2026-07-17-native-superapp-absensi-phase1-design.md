@@ -1,7 +1,7 @@
 # Native Superapp (Android Kotlin) — Fase 1: Absensi Production-Ready
 
 **Tanggal:** 2026-07-17
-**Status:** Approved (brainstorming session)
+**Status:** Implemented (Fase 1, 2026-07-18) — kecuali Task 9 (kalibrasi model manual di HP) & smoke test lapangan. Lihat "Addendum Task 11" di bawah untuk temuan jalur submit.
 **Workspace:** `mobile/native-superapp` (Android native — Kotlin + Jetpack Compose)
 
 ## Konteks & Keputusan Strategis

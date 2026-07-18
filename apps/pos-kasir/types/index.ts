@@ -38,6 +38,7 @@ export interface MenuItem {
   name: string
   description: string | null
   price: number
+  channel_prices?: Record<string, number> | null
   image_url: string | null
   is_available: boolean
   sort_order: number

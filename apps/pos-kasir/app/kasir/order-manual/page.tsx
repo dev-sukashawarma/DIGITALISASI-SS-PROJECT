@@ -319,9 +319,12 @@ export default function OrderManualPage() {
 
   // ── Menu terfilter (tersedia + kategori + pencarian) ──────────────────────
   const visibleItems = useMemo(() => {
+    const isOnlineChannel = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '')
+
     return items.filter((it) => {
       if (activeCat !== 'all' && it.category_id !== activeCat) return false
       if (search.trim() && !it.name.toLowerCase().includes(search.trim().toLowerCase())) return false
+      if (isOnlineChannel && it.is_available_online === false) return false
       return true
     }).map(it => {
       const isManualUnav = unavailableIds.has(it.id)
@@ -330,7 +333,7 @@ export default function OrderManualPage() {
       const isDisabled = isManualUnav || (isAutoUnav && !isForceAvail) || it.is_available === false
       return { ...it, isDisabled }
     })
-  }, [items, unavailableIds, autoUnavailableIds, forceAvailableIds, activeCat, search])
+  }, [items, unavailableIds, autoUnavailableIds, forceAvailableIds, activeCat, search, channel])
 
   const upsellItems = useMemo(() => {
     return items.filter(it => upsellIds.includes(it.id) && it.is_available !== false)

@@ -56,6 +56,7 @@ export interface MenuItem {
   channel_prices?: Record<string, number>
   image_url: string | null
   is_available: boolean
+  is_available_online: boolean
   sort_order: number
   is_package?: boolean
   package_items?: PackageItem[]

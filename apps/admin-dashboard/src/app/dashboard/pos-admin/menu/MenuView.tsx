@@ -29,6 +29,7 @@ interface FormState {
   channel_prices: Record<string, string>
   category_id: string
   is_available: boolean
+  is_available_online: boolean
   image_url: string | null
   is_package: boolean
   package_items: { menu_item_id: string, quantity: number, temp_id: string }[]
@@ -37,7 +38,7 @@ interface FormState {
 const EMPTY: FormState = {
   id: null, name: '', description: '', price: '', base_price: '',
   channel_prices: {},
-  category_id: '', is_available: true, image_url: null,
+  category_id: '', is_available: true, is_available_online: true, image_url: null,
   is_package: false, package_items: []
 }
 
@@ -178,7 +179,9 @@ export default function MenuView({
       base_price: String(item.price),
       channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
-      is_available: item.is_available, image_url: item.image_url,
+      is_available: item.is_available, 
+      is_available_online: item.is_available_online ?? true,
+      image_url: item.image_url,
       is_package: item.is_package ?? false,
       package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
     })
@@ -250,7 +253,7 @@ export default function MenuView({
       id: form.id ?? undefined,
       name: form.name.trim(), description: form.description.trim() || null,
       price: finalBasePrice, category_id: form.category_id || null,
-      is_available: form.is_available, image_url: imgUrl,
+      is_available: form.is_available, is_available_online: form.is_available_online, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
       is_package: form.is_package,
       package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, quantity: pi.quantity })) : []
@@ -601,6 +604,36 @@ export default function MenuView({
                     ${form.is_available ? 'bg-amber-500' : 'bg-gray-200'}`}>
                     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm
                       transition-transform duration-200 ${form.is_available ? 'translate-x-5' : ''}`} />
+                  </div>
+                </button>
+
+                {/* Online Availability toggle */}
+                <button type="button"
+                  onClick={() => setForm({ ...form, is_available_online: !form.is_available_online })}
+                  className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all
+                    ${form.is_available_online
+                      ? 'border-indigo-200 bg-indigo-50/60 hover:bg-indigo-50'
+                      : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors
+                      ${form.is_available_online ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                      {form.is_available_online
+                        ? <ToggleRight className="w-5 h-5 text-indigo-500" />
+                        : <ToggleLeft  className="w-5 h-5 text-gray-300" />}
+                    </div>
+                    <div className="text-left">
+                      <p className={`text-sm font-semibold leading-none ${form.is_available_online ? 'text-indigo-700' : 'text-gray-500'}`}>
+                        {form.is_available_online ? 'Tersedia di Food Apps' : 'Hanya POS (Offline)'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {form.is_available_online ? 'Menu dapat dipesan via GoFood/GrabFood dll' : 'Disembunyikan dari aplikasi online'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0
+                    ${form.is_available_online ? 'bg-indigo-500' : 'bg-gray-200'}`}>
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm
+                      transition-transform duration-200 ${form.is_available_online ? 'translate-x-5' : ''}`} />
                   </div>
                 </button>
 

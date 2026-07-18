@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Store, Search, Check, ChevronDown } from 'lucide-react'
 
 export function cleanOutletName(name: string) {
-  return name.replace('SUKA SHAWARMA ', '').replace('MITRA SUKA ', 'MITRA ')
+  const upper = (name || '').toUpperCase()
+  return upper.replace('SUKA SHAWARMA ', '').replace('MITRA SUKA ', 'MITRA ')
 }
 
 export function OutletCombobox({

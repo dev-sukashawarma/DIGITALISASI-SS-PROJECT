@@ -102,6 +102,7 @@ export interface CreateLocalOrderInput {
   source: 'pos' | 'manual';
   channel: string | null;
   promo_subsidy?: number;
+  payment_proof_url?: string;
   apiUrl: string; // endpoint yang akan dipanggil ulang saat online
   apiPayload: any; // body yang dikirim ke endpoint tersebut
 }
@@ -141,6 +142,7 @@ export async function createLocalOrder(input: CreateLocalOrderInput): Promise<{ 
     source: input.source,
     channel: input.channel,
     promo_subsidy: input.promo_subsidy ?? 0,
+    payment_proof_url: input.payment_proof_url ?? null,
     external_order_id: null,
     created_at: nowISO,
     updated_at: nowISO,

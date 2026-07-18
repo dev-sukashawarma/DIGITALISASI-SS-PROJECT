@@ -78,6 +78,7 @@ export interface Order {
   kitchen_receipt_printed?: boolean
   customer_receipt_printed?: boolean
   promo_subsidy?: number | null
+  payment_proof_url?: string | null
   created_at: string
   updated_at: string
 }

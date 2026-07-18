@@ -95,6 +95,7 @@ export async function POST(request: Request) {
       total_amount,
       status: 'preparing', // Langsung diproses karena dari website sudah dibayar
       source: 'online',
+      sales_source: 'online',
       external_order_id,
     })
     .select('id, order_number')

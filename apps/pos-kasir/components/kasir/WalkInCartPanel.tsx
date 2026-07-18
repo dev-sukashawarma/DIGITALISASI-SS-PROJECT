@@ -22,6 +22,7 @@ export type Payment = 'cash' | 'qris' | 'card'
 const QUICK_CASH = [20000, 50000, 100000, 150000, 200000]
 
 import { useNetworkStatus } from '@/lib/useNetworkStatus'
+import { QrisPaymentModal } from './QrisPaymentModal'
 
 export function WalkInCartPanel(props: {
   lineList: Line[]
@@ -39,7 +40,7 @@ export function WalkInCartPanel(props: {
   calculateItemPrice: (price: number, id: string, channelPrices?: Record<string, number> | null) => number
   submitting: boolean
   error: string | null
-  onPay: (method: Payment, amountReceived: number | null) => void
+  onPay: (method: Payment, amountReceived: number | null, proofUrl?: string | null) => void
   embedded?: boolean
 }) {
   const {
@@ -60,14 +61,6 @@ export function WalkInCartPanel(props: {
   const canPayCash = lineList.length > 0 && cashEnough && !submitting && customerName.trim() !== ''
   const canOpenQris = lineList.length > 0 && !submitting && customerName.trim() !== ''
   const canPayCard = lineList.length > 0 && !submitting && customerName.trim() !== ''
-
-  const qrData = useMemo(
-    () => `shawarma-kasir://pay?amount=${totalPrice}`,
-    [totalPrice],
-  )
-  const qrImageUrl = isOnline 
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrData)}&bgcolor=ffffff&color=1e293b&margin=10`
-    : '/qris-static.png'
 
   return (
     <div className={embedded ? '' : 'bg-white rounded-2xl border border-gray-200 overflow-hidden'}>
@@ -330,52 +323,19 @@ export function WalkInCartPanel(props: {
       </div>
 
       {/* ── Modal QRIS ── */}
-      {qrisOpen && (
-        <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl animate-[popIn_.2s_ease-out]">
-            <div className="h-1 bg-blue-500" />
-            <div className="p-6 text-center">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-gray-900 text-lg">Pembayaran QRIS</h2>
-                <button onClick={() => setQrisOpen(false)} className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 px-5 py-2.5 rounded-2xl mb-4">
-                <span className="text-xs font-bold text-blue-500 uppercase tracking-wider">Total</span>
-                <span className="text-lg font-bold text-blue-700">{formatRupiah(totalPrice)}</span>
-              </div>
-              <div className="bg-white p-3 rounded-2xl border-2 border-gray-100 inline-block">
-                {isOnline ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={qrImageUrl} alt="QRIS" width={220} height={220} className="rounded-xl" />
-                ) : (
-                  <div className="w-[220px] h-[220px] rounded-xl bg-gray-50 border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-center p-4">
-                    <QrCode className="w-12 h-12 text-gray-400 mb-2" />
-                    <p className="text-sm font-bold text-gray-600">QRIS STATIS</p>
-                    <p className="text-xs text-gray-500 mt-1">Mode Offline</p>
-                    <p className="text-[10px] text-gray-400 mt-2">Tunjukkan QRIS cetak di meja kasir kepada pelanggan.</p>
-                  </div>
-                )}
-              </div>
-              <p className="text-sm text-gray-500 mt-4">
-                {isOnline ? 'Minta pelanggan scan QR di atas, lalu konfirmasi setelah pembayaran masuk.' : 'Pastikan pelanggan transfer sesuai nominal, lalu konfirmasi.'}
-              </p>
-              <button
-                onClick={() => { setQrisOpen(false); onPay('qris', null) }}
-                disabled={submitting}
-                className="w-full mt-5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-200 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
-              >
-                {submitting ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
-                ) : (
-                  <><CheckCircle2 className="w-5 h-5" /> Pembayaran Diterima</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <QrisPaymentModal
+        isOpen={qrisOpen}
+        onClose={() => setQrisOpen(false)}
+        totalPrice={totalPrice}
+        isOnline={isOnline}
+        submitting={submitting}
+        onSubmit={(proofUrl) => {
+          setQrisOpen(false)
+          // walkin currently only accepts amount, so we might need to change it if we want to pass proof
+          // wait, let's just pass proof via onPay later. We'll modify onPay signature.
+          onPay('qris', null, proofUrl)
+        }}
+      />
     </div>
   )
 }

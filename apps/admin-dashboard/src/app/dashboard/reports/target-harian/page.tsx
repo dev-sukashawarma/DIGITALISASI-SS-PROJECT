@@ -8,7 +8,8 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { PageHeader } from '@/components/ui'
-import { Target, FileText, ChevronUp, ChevronDown, AlertCircle, RefreshCw } from 'lucide-react'
+import { Target, FileText, AlertCircle, RefreshCw } from 'lucide-react'
+import { cleanOutletName } from '@/components/OutletCombobox'
 
 const formatRupiah = (num: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -38,32 +39,7 @@ export default function TargetHarianPage() {
     }
   }, [filter.from, filter.to])
 
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
-  const toggleGroup = (date: string) => {
-    setCollapsedGroups(prev => ({
-      ...prev,
-      [date]: !(prev[date] ?? true)
-    }))
-  }
 
-  // Group by date
-  const groupedData = useMemo(() => {
-    const groups: Record<string, typeof rows> = {}
-    rows.forEach(row => {
-      if (!groups[row.record_date]) {
-        groups[row.record_date] = []
-      }
-      groups[row.record_date].push(row)
-    })
-    
-    // Sort dates descending
-    return Object.keys(groups)
-      .sort((a, b) => b.localeCompare(a))
-      .map(date => ({
-        date,
-        records: groups[date]
-      }))
-  }, [rows])
 
   const dateRangeLabel = useMemo(() => {
     try {
@@ -126,87 +102,65 @@ export default function TargetHarianPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {groupedData.map((group) => {
-            const formattedDate = format(parseISO(group.date), 'EEEE, dd MMMM yyyy', { locale: id })
-            const isCollapsed = collapsedGroups[group.date] ?? true
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {rows.map((record) => {
+            const isAchieved = record.achieved_pct >= 100
+            const formattedDate = format(parseISO(record.record_date), 'dd MMM yyyy', { locale: id })
             
             return (
-              <div key={group.date} className="bg-white rounded-3xl shadow-sm border border-suka-brown/10 overflow-hidden">
-                <div 
-                  className="px-6 py-4 bg-gradient-to-r from-suka-cream/30 to-transparent border-b border-suka-brown/10 flex items-center justify-between cursor-pointer hover:bg-suka-cream/40 transition-colors"
-                  onClick={() => toggleGroup(group.date)}
-                >
-                  <h3 className="font-bold text-suka-brown flex items-center gap-2">
-                    <Target className="w-4 h-4 text-suka-orange" />
-                    {formattedDate}
-                  </h3>
-                  <button className="text-suka-brown/50 hover:text-suka-brown transition-colors">
-                    {isCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
-                  </button>
-                </div>
+              <div 
+                key={record.id}
+                className="p-4 rounded-2xl border border-suka-gray-200 bg-white hover:border-suka-orange/30 hover:shadow-md transition-all duration-300 relative overflow-hidden group"
+              >
+                <div className={`absolute top-0 left-0 w-1 h-full ${
+                  isAchieved ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'
+                }`} />
                 
-                {!isCollapsed && (
-                  <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {group.records.map((record) => {
-                      const isAchieved = record.achieved_pct >= 100
-                      
-                      return (
-                        <div 
-                          key={record.id}
-                          className="p-4 rounded-2xl border border-suka-gray-200 bg-white hover:border-suka-orange/30 hover:shadow-md transition-all duration-300 relative overflow-hidden group"
-                        >
-                          <div className={`absolute top-0 left-0 w-1 h-full ${
-                            isAchieved ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'
-                          }`} />
-                          
-                          <div className="pl-3">
-                            <h4 className="font-bold text-suka-brown text-sm mb-3">
-                              {record.outlet_name}
-                            </h4>
-                            
-                            <div className="space-y-3">
-                              <div>
-                                <div className="text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider mb-0.5">Omzet Dicapai</div>
-                                <div className="font-extrabold text-suka-brown text-lg">
-                                  {formatRupiah(record.omzet_achieved)}
-                                </div>
-                              </div>
-                              
-                              <div>
-                                <div className="flex justify-between items-end mb-1">
-                                  <div className="text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider">Target</div>
-                                  <div className="font-bold text-suka-gray-600 text-xs">
-                                    {formatRupiah(record.target_amount)}
-                                  </div>
-                                </div>
-                                <div className="h-1.5 w-full bg-suka-gray-100 rounded-full overflow-hidden">
-                                  <div 
-                                    className={`h-1.5 rounded-full transition-all duration-500
-                                      ${isAchieved ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'}
-                                    `}
-                                    style={{ width: `${Math.min(record.achieved_pct, 100)}%` }}
-                                  ></div>
-                                </div>
-                                <div className="mt-1.5 text-right">
-                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                                    isAchieved ? 'bg-emerald-50 text-emerald-600' : 
-                                    record.achieved_pct >= 80 ? 'bg-amber-50 text-amber-600' : 
-                                    'bg-rose-50 text-rose-600'
-                                  }`}>
-                                    {record.achieved_pct.toFixed(1)}%
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                <div className="pl-3">
+                  <div className="flex justify-between items-start mb-3 gap-2">
+                    <h4 className="font-bold text-suka-brown text-sm leading-tight">
+                      {cleanOutletName(record.outlet_name)}
+                    </h4>
+                    <span className="text-[10px] font-bold text-suka-gray-400 whitespace-nowrap bg-suka-gray-50 px-2 py-0.5 rounded-md">
+                      {formattedDate}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider mb-0.5">Omzet Dicapai</div>
+                      <div className="font-extrabold text-suka-brown text-lg">
+                        {formatRupiah(record.omzet_achieved)}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between items-end mb-1">
+                        <div className="text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider">Target</div>
+                        <div className="font-bold text-suka-gray-600 text-xs">
+                          {formatRupiah(record.target_amount)}
                         </div>
-                      )
-                    })}
+                      </div>
+                      <div className="h-1.5 w-full bg-suka-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-1.5 rounded-full transition-all duration-500
+                            ${isAchieved ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'}
+                          `}
+                          style={{ width: `${Math.min(record.achieved_pct, 100)}%` }}
+                        ></div>
+                      </div>
+                      <div className="mt-1.5 text-right">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                          isAchieved ? 'bg-emerald-50 text-emerald-600' : 
+                          record.achieved_pct >= 80 ? 'bg-amber-50 text-amber-600' : 
+                          'bg-rose-50 text-rose-600'
+                        }`}>
+                          {record.achieved_pct.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                )}
               </div>
             )
           })}

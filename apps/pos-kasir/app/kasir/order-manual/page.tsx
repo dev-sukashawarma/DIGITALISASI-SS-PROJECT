@@ -14,6 +14,7 @@ import { usePromos } from '@/lib/usePromos'
 import type { MenuItem, Category } from '@/types'
 import { postToNative } from '@suka/design-system'
 import { WalkInCartPanel, type Payment as WalkInPayment } from '@/components/kasir/WalkInCartPanel'
+import { QrisPaymentModal } from '@/components/kasir/QrisPaymentModal'
 import { printReceipt, type ReceiptData } from '@/lib/printReceipt'
 import { useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/db'
@@ -68,7 +69,9 @@ export default function OrderManualPage() {
   const [isScanning, setIsScanning] = useState(false)
   const [showInfo, setShowInfo] = useState(true)
   const [success, setSuccess] = useState<{ orderNumber: number; method: Payment | null; change: number | null } | null>(null)
+  const [missingAmount, setMissingAmount] = useState<number>(0)
   const [onlineQrisOpen, setOnlineQrisOpen] = useState(false)
+  const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null)
 
   // ── Modal State ─────────────────────────────────────────────────────────
   const [selectedMenu, setSelectedMenu] = useState<MenuItem | null>(null)
@@ -398,7 +401,7 @@ export default function OrderManualPage() {
   const canSubmit = lineList.length > 0 && !!channel && !!payment && !!customerName.trim() && !submitting
 
   // ── Submit ────────────────────────────────────────────────────────────────
-  async function handleSubmit(amountReceived: number | null) {
+  async function handleSubmit(amountReceived: number | null, proofUrl?: string | null) {
     if (!canSubmit) return
     setSubmitting(true)
     setError(null)
@@ -414,6 +417,7 @@ export default function OrderManualPage() {
       payment_method: payment,
       customer_name: customerName,
       amount_received: payment === 'cash' ? amountReceived : undefined,
+      payment_proof_url: proofUrl,
       promo_subsidy: ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? Number(promoSubsidy) : 0,
       items: lineList.map((l) => ({
         menu_item_id: l.item.id,
@@ -501,6 +505,7 @@ export default function OrderManualPage() {
         source: 'manual',
         channel,
         promo_subsidy: ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? Number(promoSubsidy) : 0,
+        payment_proof_url: proofUrl,
         apiUrl: '/api/orders/manual',
         apiPayload: payload,
       })
@@ -551,7 +556,7 @@ export default function OrderManualPage() {
   }
 
   // ── Submit walk-in (kasir langsung) ───────────────────────────────────────
-  async function handleWalkInPay(method: WalkInPayment, amountReceived: number | null) {
+  async function handleWalkInPay(method: WalkInPayment, amountReceived: number | null, proofUrl?: string | null) {
     if (lineList.length === 0 || walkInSubmitting) return
     setWalkInSubmitting(true)
     setWalkInError(null)
@@ -576,6 +581,7 @@ export default function OrderManualPage() {
       payment_method: method,
       customer_name: customerName,
       amount_received: method === 'cash' ? amountReceived : undefined,
+      payment_proof_url: proofUrl,
       items: lineList.map((l) => ({
         menu_item_id: l.item.id,
         quantity: l.quantity,
@@ -658,6 +664,7 @@ export default function OrderManualPage() {
         discount_amount: snapDiscount > 0 ? snapDiscount : null,
         source: 'pos',
         channel: null,
+        payment_proof_url: proofUrl,
         apiUrl: '/api/orders/walk-in',
         apiPayload: payload,
       })
@@ -1239,7 +1246,7 @@ function CartPanel(props: {
   canSubmit: boolean
   submitting: boolean
   error: string | null
-  onSubmit: (amount: number | null) => void
+  onSubmit: (amount: number | null, proofUrl?: string | null) => void
   calculateItemPrice: (price: number, id: string, channelPrices?: Record<string, number> | null) => number
   globalDiscount: number
   globalPromo: any
@@ -1533,53 +1540,17 @@ function CartPanel(props: {
       </div>
 
       {/* ── Modal QRIS Online ── */}
-      {onlineQrisOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl animate-[slideUp_0.3s_ease-out]">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bold text-gray-900 text-lg">Pembayaran QRIS</h2>
-                <button onClick={() => setOnlineQrisOpen(false)} className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex flex-col items-center">
-                <div className="bg-white p-4 rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.05)] border border-gray-100 mb-6">
-                  {/* Dynamic QRIS URL using qris.my.id (Statis mock for now if no url available) */}
-                  {/* Using standard template or just a placeholder for now */}
-                  <div className="w-[220px] h-[220px] flex items-center justify-center bg-gray-50 rounded-xl relative overflow-hidden">
-                    <QRCodeSVG
-                      value={`https://qris.my.id/q/dummy?amount=${totalPrice}`}
-                      size={200}
-                      level="H"
-                      includeMargin={false}
-                    />
-                  </div>
-                </div>
-                
-                <div className="text-center w-full mb-6">
-                  <p className="text-sm font-bold text-gray-600 mb-1">TOTAL BAYAR</p>
-                  <p className="text-3xl font-black text-amber-500">{formatRupiah(totalPrice)}</p>
-                  <p className="text-[10px] text-gray-400 mt-2">Tunjukkan QRIS ini di layar kasir kepada pelanggan.</p>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setOnlineQrisOpen(false)
-                    onSubmit(null)
-                  }}
-                  disabled={submitting}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                  {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-                  Konfirmasi Pembayaran Selesai
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <QrisPaymentModal
+        isOpen={onlineQrisOpen}
+        onClose={() => setOnlineQrisOpen(false)}
+        totalPrice={totalPrice}
+        isOnline={true}
+        submitting={submitting}
+        onSubmit={(proofUrl) => {
+          setOnlineQrisOpen(false)
+          onSubmit(null, proofUrl)
+        }}
+      />
 
     </div>
   )

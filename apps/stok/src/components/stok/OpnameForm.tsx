@@ -20,7 +20,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   lainnya: 'Lainnya',
 };
 
-export function OpnameForm({ outletId, createdBy }: { outletId: string; createdBy: string }) {
+export function OpnameForm({ outletId, createdBy, role }: { outletId: string; createdBy: string; role?: string }) {
   const router = useRouter();
   const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);
@@ -291,12 +291,34 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
         {filteredBahan.map((b) => {
           const val = fisik[b.id] ?? '';
 
-          // Customize step size based on unit
+          // Custom step size
           let step = 1;
           if (b.satuan === 'gram' || b.satuan === 'ml') {
             step = 100;
           } else if (b.satuan === 'kg' || b.satuan === 'liter') {
-            step = 0.5; // Fine-grained step for liquids and heavy items
+            step = 0.5;
+          }
+
+          let useComposite = false;
+          let compLabel = '';
+          let compFactor = 1;
+
+          if (!['gram', 'ml'].includes(b.satuan.toLowerCase())) {
+            if (role === 'kitchen') {
+              if (b.satuan_tengah && b.faktor_tengah) {
+                useComposite = true;
+                compLabel = b.satuan_tengah;
+                compFactor = b.faktor_tengah;
+              } else {
+                useComposite = false;
+              }
+            } else {
+              if (b.satuan_kecil && b.faktor_tampilan) {
+                useComposite = true;
+                compLabel = b.satuan_kecil;
+                compFactor = b.faktor_tampilan;
+              }
+            }
           }
 
           return (
@@ -341,7 +363,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
               </div>
 
               {/* Card Bottom: Input Actions */}
-              {b.satuan_kecil && b.faktor_tampilan && !['gram', 'ml'].includes(b.satuan.toLowerCase()) ? (
+              {useComposite ? (
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <input
@@ -352,7 +374,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
                       placeholder="0"
                       value={containerInput[b.id] ?? ''}
                       onChange={(e) =>
-                        handleCompositeChange(b.id, e.target.value, remainderInput[b.id] ?? '', b.faktor_tampilan!)
+                        handleCompositeChange(b.id, e.target.value, remainderInput[b.id] ?? '', compFactor)
                       }
                     />
                     <span className="text-[10px] font-bold text-[#544437]/60">{b.satuan} +</span>
@@ -364,10 +386,10 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
                       placeholder="0"
                       value={remainderInput[b.id] ?? ''}
                       onChange={(e) =>
-                        handleCompositeChange(b.id, containerInput[b.id] ?? '', e.target.value, b.faktor_tampilan!)
+                        handleCompositeChange(b.id, containerInput[b.id] ?? '', e.target.value, compFactor)
                       }
                     />
-                    <span className="text-[10px] font-bold text-[#544437]/60">{b.satuan_kecil}</span>
+                    <span className="text-[10px] font-bold text-[#544437]/60">{compLabel}</span>
                   </div>
                   {remainderError[b.id] && (
                     <p className="text-[10px] font-bold text-[#ba1a1a]">{remainderError[b.id]}</p>

@@ -43,7 +43,7 @@ export default function NewOpnamePage() {
 
       {/* Main Form Container */}
       <main className="max-w-3xl mx-auto px-4 mt-6">
-        <OpnameForm outletId={outletStaff.outlet_id} createdBy={outletStaff.id} />
+        <OpnameForm outletId={outletStaff.outlet_id} createdBy={outletStaff.id} role={outletStaff.role} />
       </main>
     </div>
   );

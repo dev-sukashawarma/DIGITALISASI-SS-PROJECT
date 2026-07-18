@@ -28,8 +28,9 @@ export default function EnrollPage() {
   const [targetStaff, setTargetStaff] = useState<Staff | null>(null);
   
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null); // selalu up-to-date untuk saveAuto
   const [shots, setShots] = useState<number[][]>([]);
-  const shotsRef = useRef<number[][]>([]); 
+  const shotsRef = useRef<number[][]>([]);
   
   const [consent, setConsent] = useState(false);
   const [isReEnroll, setIsReEnroll] = useState(false);
@@ -91,6 +92,7 @@ export default function EnrollPage() {
   // Sync state & ref
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { shotsRef.current = shots; }, [shots]);
+  useEffect(() => { videoRef.current = video; }, [video]); // pastikan saveAuto selalu dapat video terbaru
 
   // Auto capture loop
   useEffect(() => {
@@ -134,7 +136,7 @@ export default function EnrollPage() {
               setPhase("right");
             } else if (currentPhase === "right") {
               setPhase("saving");
-              await saveAuto(newShots);
+              await saveAuto(newShots, videoRef.current);
             }
             
             await new Promise(r => setTimeout(r, 800));
@@ -154,11 +156,11 @@ export default function EnrollPage() {
     return () => { if (loopRef.current) clearTimeout(loopRef.current); };
   }, [phase, video]);
 
-  async function saveAuto(finalShots: number[][]) {
-    if (!targetStaff || finalShots.length !== 3 || !outletStaff || !video) return;
+  async function saveAuto(finalShots: number[][], currentVideo: HTMLVideoElement | null = videoRef.current) {
+    if (!targetStaff || finalShots.length !== 3 || !outletStaff || !currentVideo) return;
     try {
       const descriptor = averageDescriptors(finalShots);
-      const { dataUrl } = captureFrame(video);
+      const { dataUrl } = captureFrame(currentVideo);
       const refPath = `${selectedOutletId}/${targetStaff.id}.jpg`;
       const blob = await (await fetch(dataUrl)).blob();
       

@@ -21,9 +21,10 @@ interface ManualItem {
 
 interface ManualPayload {
   channel: string
-  payment_method: 'cash' | 'qris'
+  payment_method: 'cash' | 'qris' | 'debit'
   customer_name?: string
   amount_received?: number // added for cash logic
+  promo_apps?: number
   items: ManualItem[]
 }
 
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   if (!body.channel || !VALID_CHANNELS.has(body.channel)) {
     return NextResponse.json({ error: 'Channel tidak valid' }, { status: 400 })
   }
-  if (body.payment_method !== 'cash' && body.payment_method !== 'qris') {
+  if (body.payment_method !== 'cash' && body.payment_method !== 'qris' && body.payment_method !== 'debit') {
     return NextResponse.json({ error: 'Metode pembayaran tidak valid' }, { status: 400 })
   }
   if (!Array.isArray(body.items) || body.items.length === 0) {

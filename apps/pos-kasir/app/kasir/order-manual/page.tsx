@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Plus, Minus, Trash2, ShoppingBag, Loader2,
-  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, Camera,
+  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, Camera, CreditCard
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -30,7 +30,7 @@ interface Line {
   parentId?: string
 }
 
-type Payment = 'cash' | 'qris'
+type Payment = 'cash' | 'qris' | 'debit'
 
 export default function OrderManualPage() {
   const supabase = createClient()
@@ -58,6 +58,7 @@ export default function OrderManualPage() {
   const [channel, setChannel] = useState<string | null>(null)
   const [payment, setPayment] = useState<Payment | null>(null)
   const [customerName, setCustomerName] = useState('')
+  const [promoApps, setPromoApps] = useState('')
 
   const [cartOpen, setCartOpen] = useState(false) // bottom sheet di mobile
   const [submitting, setSubmitting] = useState(false)
@@ -390,7 +391,7 @@ export default function OrderManualPage() {
   const needsMoreForPromo = isGlobalPromoActive && globalPromo.min_purchase && subtotalAmount > 0 && subtotalAmount < globalPromo.min_purchase;
   const missingAmount = needsMoreForPromo ? (globalPromo.min_purchase || 0) - subtotalAmount : 0;
 
-  const canSubmit = lineList.length > 0 && !!channel && !!payment && !submitting
+  const canSubmit = lineList.length > 0 && !!channel && !!payment && !!customerName.trim() && !!promoApps.trim() && !submitting
 
   // ── Submit ────────────────────────────────────────────────────────────────
   async function handleSubmit(amountReceived: number | null) {
@@ -402,6 +403,7 @@ export default function OrderManualPage() {
       channel,
       payment_method: payment,
       customer_name: customerName,
+      promo_apps: promoApps ? parseInt(promoApps, 10) || 0 : undefined,
       amount_received: payment === 'cash' ? amountReceived : undefined,
       items: lineList.map((l) => ({
         menu_item_id: l.item.id,
@@ -448,7 +450,7 @@ export default function OrderManualPage() {
         subtotal: subtotalAmount,
         discount: globalDiscount,
         total: totalPrice,
-        paymentMethod: payment as 'cash' | 'qris',
+        paymentMethod: payment as 'cash' | 'qris' | 'debit',
         amountReceived: payment === 'cash' ? amountReceived : null,
         changeAmount: data.change_amount ?? null,
         receiptType: 'kitchen'
@@ -468,6 +470,7 @@ export default function OrderManualPage() {
       setChannel(null)
       setPayment(null)
       setCustomerName('')
+      setPromoApps('')
       setCartOpen(false)
     } catch (err) {
       console.warn('Network error during handleSubmit, simpan sebagai order offline (IndexedDB):', err)
@@ -512,7 +515,7 @@ export default function OrderManualPage() {
         subtotal: subtotalAmount,
         discount: globalDiscount,
         total: totalPrice,
-        paymentMethod: payment as 'cash' | 'qris',
+        paymentMethod: payment as 'cash' | 'qris' | 'debit',
         amountReceived: payment === 'cash' ? amountReceived : null,
         changeAmount: payment === 'cash' ? (amountReceived !== null ? amountReceived - totalPrice : 0) : null,
         receiptType: 'kitchen'
@@ -529,6 +532,7 @@ export default function OrderManualPage() {
       setChannel(null)
       setPayment(null)
       setCustomerName('')
+      setPromoApps('')
       setCartOpen(false)
     } finally {
       setSubmitting(false)
@@ -915,6 +919,8 @@ export default function OrderManualPage() {
               setPayment={setPayment}
               customerName={customerName}
               setCustomerName={setCustomerName}
+              promoApps={promoApps}
+              setPromoApps={setPromoApps}
               setQty={setQty}
               setNote={setNote}
               canSubmit={canSubmit}
@@ -986,6 +992,8 @@ export default function OrderManualPage() {
                 setPayment={setPayment}
                 customerName={customerName}
                 setCustomerName={setCustomerName}
+                promoApps={promoApps}
+                setPromoApps={setPromoApps}
                 setQty={setQty}
                 setNote={setNote}
                 canSubmit={canSubmit}
@@ -1206,6 +1214,8 @@ function CartPanel(props: {
   setPayment: (p: Payment) => void
   customerName: string
   setCustomerName: (v: string) => void
+  promoApps: string
+  setPromoApps: (v: string) => void
   setQty: (id: string, qty: number) => void
   setNote: (id: string, note: string) => void
   canSubmit: boolean
@@ -1221,7 +1231,7 @@ function CartPanel(props: {
 }) {
   const {
     lineList, totalItems, totalPrice, channel, payment, setPayment,
-    customerName, setCustomerName, setQty, setNote, canSubmit, submitting, error, onSubmit,
+    customerName, setCustomerName, promoApps, setPromoApps, setQty, setNote, canSubmit, submitting, error, onSubmit,
     calculateItemPrice, globalDiscount, globalPromo, needsMoreForPromo, missingAmount, embedded,
   } = props
 
@@ -1341,11 +1351,25 @@ function CartPanel(props: {
         <div className="bg-gray-50 -mx-4 p-4 border-t border-gray-200 space-y-4">
           {/* Nama customer */}
           <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Nama Customer (opsional)</label>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Nama Customer (wajib)</label>
             <input
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="Misal: Budi"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors text-sm"
+            />
+          </div>
+
+          {/* Promo apps */}
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Promo Apps (wajib)</label>
+            <input
+              type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={promoApps}
+              onChange={(e) => setPromoApps(e.target.value)}
+              placeholder="Misal: 10000 (bisa 0)"
               className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors text-sm"
             />
           </div>
@@ -1465,7 +1489,7 @@ function CartPanel(props: {
         </button>
         {!canSubmit && !submitting && (
           <p className="text-xs text-gray-400 text-center -mt-1">
-            {lineList.length === 0 ? 'Pilih minimal 1 menu' : !channel ? 'Pilih channel dulu' : !payment ? 'Pilih metode pembayaran' : ''}
+            {lineList.length === 0 ? 'Pilih minimal 1 menu' : !channel ? 'Pilih channel dulu' : !customerName.trim() ? 'Nama customer wajib diisi' : !promoApps.trim() ? 'Promo apps wajib diisi' : !payment ? 'Pilih metode pembayaran' : ''}
           </p>
         )}
         {ch && lineList.length > 0 && (

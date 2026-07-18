@@ -15,6 +15,7 @@ import type { MenuItem, Category, SalesChannel } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
 import MenuSearch from './MenuSearch'
+import { MenuPicker } from './MenuPicker'
 import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting, updateMenuChannelPrices } from './actions'
 
 const BUCKET = 'menu-images'
@@ -489,12 +490,13 @@ export default function MenuView({
                     <label className="input-label">Isi Paket</label>
                     {form.package_items.map((pi, idx) => (
                       <div key={pi.temp_id} className="flex gap-2 items-center">
-                        <select 
-                          className="input flex-1"
+                        <MenuPicker 
                           value={pi.menu_item_id}
-                          onChange={(e) => {
+                          items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
+                          getImageUrl={(url) => supabase.storage.from(BUCKET).getPublicUrl(url).data.publicUrl}
+                          onChange={(val) => {
                              const newItems = [...form.package_items];
-                             newItems[idx].menu_item_id = e.target.value;
+                             newItems[idx].menu_item_id = val;
                              
                              let newBasePrice = 0;
                              newItems.forEach(item => {
@@ -504,12 +506,7 @@ export default function MenuView({
                              
                              setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
                           }}
-                        >
-                          <option value="">-- Pilih Menu --</option>
-                          {initialItems.filter(i => !i.is_package && i.id !== form.id).map(i => (
-                            <option key={i.id} value={i.id}>{i.name} ({formatRupiah(i.price)})</option>
-                          ))}
-                        </select>
+                        />
                         <input type="number" min="1" className="input w-20 text-center" 
                           value={pi.quantity}
                           onChange={(e) => {

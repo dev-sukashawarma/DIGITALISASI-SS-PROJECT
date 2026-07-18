@@ -8,17 +8,17 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 async function findOrder() {
   const { data: orders, error } = await supabase
     .from('orders')
-    .select('*')
-    .eq('queue_number', 2)
-    .gte('created_at', '2026-07-16T00:00:00Z')
-    .lte('created_at', '2026-07-18T00:00:00Z');
+    .select('id, order_number, status, cancellation_status, created_at, customer_name, total_amount')
+    .eq('order_number', '4')
+    .gte('created_at', '2026-07-17T17:00:00Z') // July 18 WIB
+    .lte('created_at', '2026-07-18T17:00:00Z');
 
   if (error) {
     console.error('Error fetching orders:', error);
   } else {
     console.log('Found orders:', orders.length);
     orders.forEach(o => {
-      console.log(`ID: ${o.id}, Status: ${o.status}, Queue: ${o.queue_number}, CreatedAt: ${o.created_at}`);
+      console.log(`ID: ${o.id}, Status: ${o.status}, CancStatus: ${o.cancellation_status}, Order#: ${o.order_number}, CreatedAt: ${o.created_at}`);
     });
   }
 }

@@ -494,7 +494,6 @@ export default function MenuView({
                         <MenuPicker 
                           value={pi.menu_item_id}
                           items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
-                          getImageUrl={(url) => supabase.storage.from(BUCKET).getPublicUrl(url).data.publicUrl}
                           onChange={(val) => {
                              const newItems = [...form.package_items];
                              newItems[idx].menu_item_id = val;

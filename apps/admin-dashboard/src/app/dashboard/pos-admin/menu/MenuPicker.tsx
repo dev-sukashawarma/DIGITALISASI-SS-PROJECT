@@ -9,10 +9,9 @@ interface MenuPickerProps {
   value: string
   onChange: (id: string) => void
   items: MenuItem[]
-  getImageUrl: (path: string) => string
 }
 
-export function MenuPicker({ value, onChange, items, getImageUrl }: MenuPickerProps) {
+export function MenuPicker({ value, onChange, items }: MenuPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -51,7 +50,7 @@ export function MenuPicker({ value, onChange, items, getImageUrl }: MenuPickerPr
               <div className="w-6 h-6 relative rounded-md overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
                 {selectedItem.image_url ? (
                   <img 
-                    src={getImageUrl(selectedItem.image_url)} 
+                    src={selectedItem.image_url} 
                     alt={selectedItem.name} 
                     className="w-full h-full object-cover" 
                   />
@@ -112,7 +111,7 @@ export function MenuPicker({ value, onChange, items, getImageUrl }: MenuPickerPr
                       <div className="w-10 h-10 relative rounded-lg overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
                         {item.image_url ? (
                           <img 
-                            src={getImageUrl(item.image_url)} 
+                            src={item.image_url} 
                             alt={item.name} 
                             className="w-full h-full object-cover" 
                           />

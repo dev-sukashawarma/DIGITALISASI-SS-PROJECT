@@ -648,10 +648,7 @@ export default function MenuView({
                     {/* Price */}
                     <td className="py-3.5 px-4 text-right">
                       {activeChannelFilter && item.channel_prices?.[getSlug(activeChannelFilter)] ? (
-                        <div className="flex flex-col items-end justify-center">
-                          <span className="font-bold text-amber-600 leading-none mb-1">{formatRupiah(item.channel_prices[getSlug(activeChannelFilter)])}</span>
-                          <span className="text-[10px] text-gray-400 line-through leading-none">{formatRupiah(item.price)}</span>
-                        </div>
+                        <span className="font-bold text-amber-600">{formatRupiah(item.channel_prices[getSlug(activeChannelFilter)])}</span>
                       ) : (
                         <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
                       )}

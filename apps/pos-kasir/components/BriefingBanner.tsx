@@ -53,7 +53,6 @@ function rupiahCompact(n: number): string {
 
 export default function BriefingBanner() {
   const { outletId, loaded } = useMyOutlet()
-  const queryClient = useQueryClient()
 
   // ── Target harian (live via React Query) ──────────────────────────────────
   const [celebrate, setCelebrate] = useState(false)

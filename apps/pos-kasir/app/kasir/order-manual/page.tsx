@@ -69,7 +69,6 @@ export default function OrderManualPage() {
   const [isScanning, setIsScanning] = useState(false)
   const [showInfo, setShowInfo] = useState(true)
   const [success, setSuccess] = useState<{ orderNumber: number; method: Payment | null; change: number | null } | null>(null)
-  const [missingAmount, setMissingAmount] = useState<number>(0)
   const [onlineQrisOpen, setOnlineQrisOpen] = useState(false)
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null)
 

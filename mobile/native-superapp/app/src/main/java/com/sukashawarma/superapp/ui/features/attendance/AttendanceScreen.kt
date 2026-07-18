@@ -73,10 +73,16 @@ fun AttendanceScreenPreview() {
 fun AttendanceScreen(
     staffName: String?,
     staffFaceDescriptor: FloatArray? = null,
+    staffId: String? = null,
+    outletId: String? = null,
     onBackClick: () -> Unit = {}
 ) {
     if (staffFaceDescriptor == null || staffFaceDescriptor.isEmpty()) {
         NotEnrolledScreen(staffName = staffName, onBackClick = onBackClick)
+        return
+    }
+    if (staffId.isNullOrBlank() || outletId.isNullOrBlank()) {
+        ProfileIncompleteScreen(onBackClick = onBackClick)
         return
     }
     val enrolledDescriptor = staffFaceDescriptor
@@ -108,6 +114,11 @@ fun AttendanceScreen(
     var locationError by remember { mutableStateOf<String?>(null) }
     var currentDistance by remember { mutableStateOf<Double?>(null) }
     var outletData by remember { mutableStateOf<Outlet?>(null) }
+
+    // Lokasi DEVICE nyata (bukan koordinat outlet) — dikirim ke server untuk validasi geofence
+    var deviceLat by remember { mutableStateOf<Double?>(null) }
+    var deviceLng by remember { mutableStateOf<Double?>(null) }
+    var deviceAccuracy by remember { mutableStateOf<Double?>(null) }
     
     // Permission Launchers
     val context = LocalContext.current
@@ -173,11 +184,14 @@ fun AttendanceScreen(
                 isLocating = false
                 return@LaunchedEffect
             }
-            
-            // Ambil data Outlet (mock / database)
+
+            // Simpan lokasi device nyata untuk dikirim saat submit
+            deviceLat = loc.latitude
+            deviceLng = loc.longitude
+            deviceAccuracy = loc.accuracy.toDouble()
+
+            // Ambil data Outlet milik staff yang login
             val client = SupabaseClient.getInstance()
-            // Untuk percobaan, kita tembak ke outlet-1 (karena staff dummy login sebagai outlet-1)
-            val outletId = "outlet-1" 
             val outlet = client.getOutlet(outletId)
             
             if (outlet == null) {
@@ -201,20 +215,14 @@ fun AttendanceScreen(
             }
             
             // Jika Geofence Lolos, Cek Status Absen Hari Ini
-            val todayIn = client.getTodayAttendance("dummy-staff", "in")
+            // Gate clock-out (shift kasir masih terbuka, dll.) dievaluasi SERVER saat submit —
+            // ditolak dengan reason (mis. "shift_not_closed") yang sudah di-map ke pesan Indonesia.
+            val todayIn = client.getTodayAttendance(staffId, "in")
             if (todayIn != null) {
                 isClockedIn = true
-                val todayOut = client.getTodayAttendance("dummy-staff", "out")
+                val todayOut = client.getTodayAttendance(staffId, "out")
                 if (todayOut != null) {
                     isDayCompleted = true
-                } else {
-                    // Ini Fase Clock-Out, Cek Gates!
-                    val gates = client.checkClockOutGates(outletId)
-                    if (!gates.first) {
-                        locationError = gates.second // Menampilkan error checklist/petty cash
-                        isLocating = false
-                        return@LaunchedEffect
-                    }
                 }
             } else {
                 isClockedIn = false
@@ -360,43 +368,55 @@ fun AttendanceScreen(
                                 try {
                                     val client = SupabaseClient.getInstance()
                                     val tsClient = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date())
-                                    
-                                    // Bikin record DTO (mock photoUrl)
+
+                                    // Request ke endpoint web absensi — status/telat dihitung SERVER,
+                                    // atribusi nyata: staff login + outlet miliknya + lokasi device
                                     val type = if (!isClockedIn) "in" else "out"
-                                    val dto = com.sukashawarma.superapp.data.AttendanceRecordDto(
-                                        staffId = "dummy-staff",
-                                        outletId = "outlet-1",
+                                    val req = com.sukashawarma.superapp.data.AttendanceSubmitRequest(
+                                        id = java.util.UUID.randomUUID().toString(),
+                                        outletStaffId = staffId,
+                                        outletId = outletId,
                                         type = type,
                                         tsClient = tsClient,
-                                        status = "tepat", // Secara aktual dihitung dengan jam_masuk / toleransi
-                                        latitude = outletData?.latitude,
-                                        longitude = outletData?.longitude,
-                                        accuracy = 10.0,
-                                        photoUrl = "attendance/dummy-photo.jpg",
+                                        gpsLat = deviceLat,
+                                        gpsLng = deviceLng,
+                                        gpsAccuracy = deviceAccuracy,
+                                        matchDistance = null,
+                                        selfiePath = null,
                                         fromQueue = false
                                     )
-                                    
+
+                                    var accepted = false
                                     try {
-                                        client.submitAttendance(dto)
+                                        val resp = client.submitAttendance(req)
+                                        if (resp.ok) {
+                                            accepted = true
+                                        } else {
+                                            // Server menolak (time window, geofence, shift gate, not_enrolled, dll.)
+                                            submitError = com.sukashawarma.superapp.data.SubmitFailureMessages.forReason(resp.reason)
+                                        }
                                     } catch (e: Exception) {
-                                        // Offline queue fallback
+                                        // Gagal jaringan → offline queue fallback (dikirim ulang saat online)
                                         client.queueOfflineAction {
-                                            client.submitAttendance(dto.copy(fromQueue = true))
+                                            client.submitAttendance(req.copy(fromQueue = true))
                                         }
                                         android.util.Log.w("Attendance", "Berhasil masuk ke queue lokal karena offline")
+                                        accepted = true
                                     }
-                                    
-                                    // Update UI
-                                    if (!isClockedIn) {
-                                        isClockedIn = true
-                                        clockInTime = currentTime
-                                        clockInSelfie = bitmap
-                                        attendanceCount += 1
-                                    } else {
-                                        isClockedIn = false
-                                        isDayCompleted = true
-                                        clockOutTime = currentTime
-                                        clockOutSelfie = bitmap
+
+                                    // Update UI hanya bila server menerima (atau masuk queue offline)
+                                    if (accepted) {
+                                        if (!isClockedIn) {
+                                            isClockedIn = true
+                                            clockInTime = currentTime
+                                            clockInSelfie = bitmap
+                                            attendanceCount += 1
+                                        } else {
+                                            isClockedIn = false
+                                            isDayCompleted = true
+                                            clockOutTime = currentTime
+                                            clockOutSelfie = bitmap
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     submitError = "Gagal memproses absensi: ${e.message}"
@@ -416,6 +436,25 @@ fun AttendanceScreen(
                             attendanceCount = 18
                         }
                     )
+                }
+
+                // Pesan penolakan submit dari server (reason ter-map ke Indonesia)
+                submitError?.let { message ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0x33FF0000), RoundedCornerShape(12.dp))
+                            .border(1.dp, Color.Red, RoundedCornerShape(12.dp))
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = message,
+                            color = Color(0xFF701604),
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
 
                 // Lokasi Card
@@ -454,6 +493,31 @@ private fun NotEnrolledScreen(staffName: String?, onBackClick: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Text(
             "Halo${staffName?.let { ", $it" } ?: ""}. Kamu belum punya data wajah untuk absensi di aplikasi ini. Hubungi SPV/Leader untuk pendaftaran wajah (menu Enrollment).",
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(24.dp))
+        Button(onClick = onBackClick) { Text("Kembali") }
+    }
+}
+
+@Composable
+private fun ProfileIncompleteScreen(onBackClick: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.Default.LocationOn,
+            contentDescription = null,
+            modifier = Modifier.size(72.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Profil Tidak Lengkap", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Profil tidak lengkap (outlet belum terikat). Hubungi admin.",
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(24.dp))

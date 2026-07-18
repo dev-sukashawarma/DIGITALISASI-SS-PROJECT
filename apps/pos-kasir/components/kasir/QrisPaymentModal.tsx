@@ -89,9 +89,15 @@ export function QrisPaymentModal({
   }
 
   useEffect(() => {
-    if (!isOpen) stopCamera()
+    if (isOpen && qrisMode === 'transfer' && !previewUrl) {
+      startCamera()
+    } else if (!isOpen || qrisMode !== 'transfer') {
+      stopCamera()
+    }
+    
     return () => stopCamera()
-  }, [isOpen])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, qrisMode, previewUrl])
 
   if (!isOpen) return null
 
@@ -185,17 +191,10 @@ export function QrisPaymentModal({
                     </div>
                   </div>
                 ) : (
-                  <button 
-                    onClick={startCamera}
-                    className="w-full h-40 border-2 border-dashed border-blue-200 bg-blue-50/50 hover:bg-blue-50 rounded-2xl flex flex-col items-center justify-center gap-3 transition-colors text-blue-600"
-                  >
-                    <>
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Camera className="w-6 h-6" />
-                      </div>
-                      <span className="text-sm font-bold">Buka Kamera</span>
-                    </>
-                  </button>
+                  <div className="w-full h-40 border-2 border-dashed border-gray-200 bg-gray-50 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                    <span className="text-sm font-medium">Membuka kamera...</span>
+                  </div>
                 )}
               </div>
             )}

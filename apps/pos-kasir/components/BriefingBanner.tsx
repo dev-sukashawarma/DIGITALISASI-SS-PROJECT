@@ -207,15 +207,18 @@ export default function BriefingBanner() {
               </div>
             </div>
           )}
-          
-          <div className="max-w-6xl mx-auto flex items-center mt-2">
-            <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${device ? 'bg-green-100/50 text-green-700 border-green-200/50' : 'bg-gray-100/50 text-gray-500 border-gray-200/50'}`}>
-              <Printer className="w-3 h-3" />
-              {device ? 'Printer Kasir Terhubung' : isConnecting ? 'Menghubungkan...' : 'Printer Kasir Belum Terhubung'}
-            </div>
-          </div>
         </div>
       )}
+
+      {/* ── Baris Printer (terpisah dari target) ── */}
+      <div className="px-4 sm:px-6 py-1.5 border-b bg-white">
+        <div className="max-w-6xl mx-auto flex items-center">
+          <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${device ? 'bg-green-100/50 text-green-700 border-green-200/50' : 'bg-gray-100/50 text-gray-500 border-gray-200/50'}`}>
+            <Printer className="w-3 h-3" />
+            {device ? 'Printer Kasir Terhubung' : isConnecting ? 'Menghubungkan...' : 'Printer Kasir Belum Terhubung'}
+          </div>
+        </div>
+      </div>
 
       {/* ── Baris pesan owner (dapat ditutup) ── */}
       {messages.map((m) => {

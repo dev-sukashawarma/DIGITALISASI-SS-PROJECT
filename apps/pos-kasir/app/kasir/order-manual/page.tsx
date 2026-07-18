@@ -88,7 +88,7 @@ export default function OrderManualPage() {
   const [walkInPanelKey, setWalkInPanelKey] = useState(0)
 
   useEffect(() => {
-    supabase.from('global_settings').select('value').eq('key', 'enable_ai_receipt_parser').single().then(({ data }) => {
+    supabase.from('global_settings').select('value').eq('key', 'enable_ai_receipt_parser').maybeSingle().then(({ data }) => {
       if (data?.value === 'true') setAiEnabled(true)
     })
   }, [supabase])

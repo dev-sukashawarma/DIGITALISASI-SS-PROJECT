@@ -172,7 +172,12 @@ export default function BuktiQrisPage() {
                       })}
                     </div>
                     <button 
-                      onClick={() => setSelectedImage(supabase.storage.from('payment_proofs').getPublicUrl(order.payment_proof_url).data.publicUrl)}
+                      onClick={() => {
+                        const url = order.payment_proof_url?.startsWith('http') 
+                          ? order.payment_proof_url 
+                          : supabase.storage.from('payment_proofs').getPublicUrl(order.payment_proof_url).data.publicUrl;
+                        setSelectedImage(url);
+                      }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors font-semibold text-xs border border-blue-100"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />

@@ -199,40 +199,44 @@ export function QrisPaymentModal({
                       <FileImage className="w-4 h-4" /> Pilih File
                     </button>
                   </div>
-                ) : isCameraActive ? (
+                ) : (
                   <div className="relative border border-gray-200 rounded-xl overflow-hidden mb-3 bg-black flex flex-col w-full aspect-[4/3]">
                     <video 
                       ref={videoRef} 
-                      className="w-full h-full object-cover" 
+                      className={`w-full h-full object-cover ${isCameraActive ? 'block' : 'hidden'}`}
                       playsInline 
                       autoPlay 
                       muted 
                     />
                     <canvas ref={canvasRef} className="hidden" />
                     
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault()
-                        startCamera(facingMode === 'environment' ? 'user' : 'environment')
-                      }}
-                      className="absolute top-4 right-4 bg-black/40 text-white rounded-full p-2.5 backdrop-blur-md hover:bg-black/60 transition-all z-10"
-                    >
-                      <RefreshCw className="w-5 h-5" />
-                    </button>
+                    {isCameraActive ? (
+                      <>
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault()
+                            startCamera(facingMode === 'environment' ? 'user' : 'environment')
+                          }}
+                          className="absolute top-4 right-4 bg-black/40 text-white rounded-full p-2.5 backdrop-blur-md hover:bg-black/60 transition-all z-10"
+                        >
+                          <RefreshCw className="w-5 h-5" />
+                        </button>
 
-                    <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10">
-                      <button 
-                        onClick={capturePhoto} 
-                        className="bg-white text-blue-600 rounded-full p-4 shadow-lg flex items-center justify-center border-4 border-gray-200 hover:scale-105 transition-transform"
-                      >
-                        <Camera className="w-7 h-7" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-full aspect-[4/3] border-2 border-dashed border-gray-200 bg-gray-50 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400 mb-3">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                    <span className="text-sm font-medium">Membuka kamera...</span>
+                        <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10">
+                          <button 
+                            onClick={capturePhoto} 
+                            className="bg-white text-blue-600 rounded-full p-4 shadow-lg flex items-center justify-center border-4 border-gray-200 hover:scale-105 transition-transform"
+                          >
+                            <Camera className="w-7 h-7" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-400 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl">
+                        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                        <span className="text-sm font-medium">Membuka kamera...</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

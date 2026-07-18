@@ -12,6 +12,7 @@ export function QrisPaymentModal({
   onClose,
   totalPrice,
   isOnline = true,
+  isFoodApp = false,
   onSubmit,
   submitting
 }: {

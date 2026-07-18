@@ -77,13 +77,13 @@ export function QrisPaymentModal({
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         canvas.toBlob((blob) => {
           if (blob) {
-            const file = new File([blob], `qris_proof_${Date.now()}.jpg`, { type: 'image/jpeg' })
+            const file = new File([blob], `qris_proof_${Date.now()}.webp`, { type: 'image/webp' })
             setSelectedFile(file)
             setPreviewUrl(URL.createObjectURL(file))
             stopCamera()
             postToNative({ type: 'haptic', style: 'success' })
           }
-        }, 'image/jpeg', 0.8)
+        }, 'image/webp', 0.7)
       }
     }
   }

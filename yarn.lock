@@ -1680,13 +1680,14 @@
   resolved "https://registry.npmjs.org/@standard-schema/utils/-/utils-0.3.0.tgz"
   integrity sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==
 
-"@suka/absensi@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\apps\\absensi":
+"@suka/absensi@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\absensi":
   version "0.0.1"
   resolved "file:apps/absensi"
   dependencies:
     "@suka/auth" "*"
     "@suka/design-system" "*"
     "@suka/offline-queue" "*"
+    "@suka/realtime" "*"
     "@supabase/ssr" "^0.2.0"
     "@supabase/supabase-js" "^2.38.0"
     "@tanstack/react-query" "^5.101.0"
@@ -1699,13 +1700,14 @@
     react-dom "^19.0.0-rc.0"
     react-swipeable "^7.0.2"
 
-"@suka/admin-dashboard@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\apps\\admin-dashboard":
+"@suka/admin-dashboard@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\admin-dashboard":
   version "0.0.1"
   resolved "file:apps/admin-dashboard"
   dependencies:
     "@hookform/resolvers" "^5.4.0"
     "@suka/auth" "*"
     "@suka/design-system" "*"
+    "@suka/realtime" "*"
     "@supabase/ssr" "^0.2.0"
     "@supabase/supabase-js" "^2.38.0"
     "@tailwindcss/typography" "^0.5.20"
@@ -1731,24 +1733,25 @@
     use-debounce "^10.1.1"
     zod "^4.4.3"
 
-"@suka/auth@*", "@suka/auth@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\packages\\auth":
+"@suka/auth@*", "@suka/auth@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\packages\\auth":
   version "0.0.1"
   resolved "file:packages/auth"
   dependencies:
     "@supabase/ssr" "^0.5.1"
     "@supabase/supabase-js" "^2.45.0"
 
-"@suka/design-system@*", "@suka/design-system@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\packages\\design-system":
+"@suka/design-system@*", "@suka/design-system@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\packages\\design-system":
   version "0.0.1"
   resolved "file:packages/design-system"
 
-"@suka/distribusi@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\apps\\distribusi":
+"@suka/distribusi@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\distribusi":
   version "0.0.1"
   resolved "file:apps/distribusi"
   dependencies:
     "@suka/auth" "*"
     "@suka/design-system" "*"
     "@suka/offline-queue" "*"
+    "@suka/realtime" "*"
     "@supabase/ssr" "^0.2.0"
     "@supabase/supabase-js" "^2.38.0"
     jsqr "^1.4.0"
@@ -1757,12 +1760,13 @@
     react "^19.0.0-rc.0"
     react-dom "^19.0.0-rc.0"
 
-"@suka/finance@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\apps\\finance":
+"@suka/finance@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\finance":
   version "0.0.1"
   resolved "file:apps/finance"
   dependencies:
     "@suka/auth" "*"
     "@suka/design-system" "*"
+    "@suka/realtime" "*"
     "@supabase/ssr" "^0.2.0"
     "@supabase/supabase-js" "^2.38.0"
     "@tanstack/react-query" "^5.101.0"
@@ -1772,13 +1776,13 @@
     react-dom "^19.0.0-rc.0"
     sonner "^1.4.0"
 
-"@suka/offline-queue@*", "@suka/offline-queue@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\packages\\offline-queue":
+"@suka/offline-queue@*", "@suka/offline-queue@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\packages\\offline-queue":
   version "0.0.1"
   resolved "file:packages/offline-queue"
   dependencies:
     idb-keyval "^6.2.1"
 
-"@suka/owner-dashboard@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\apps\\owner-dashboard":
+"@suka/owner-dashboard@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\owner-dashboard":
   version "0.0.1"
   resolved "file:apps/owner-dashboard"
   dependencies:
@@ -1798,7 +1802,7 @@
     sonner "^1.4.0"
     zustand "^4.5.4"
 
-"@suka/portal@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\apps\\portal":
+"@suka/portal@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\portal":
   version "0.1.0"
   resolved "file:apps/portal"
   dependencies:
@@ -1809,19 +1813,20 @@
     react "^19.0.0"
     react-dom "^19.0.0"
 
-"@suka/realtime@*", "@suka/realtime@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\packages\\realtime":
+"@suka/realtime@*", "@suka/realtime@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\packages\\realtime":
   version "0.0.1"
   resolved "file:packages/realtime"
   dependencies:
     "@suka/auth" "*"
 
-"@suka/stok@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\apps\\stok":
+"@suka/stok@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\stok":
   version "0.0.1"
   resolved "file:apps/stok"
   dependencies:
     "@suka/auth" "*"
     "@suka/design-system" "*"
     "@suka/offline-queue" "*"
+    "@suka/realtime" "*"
     "@supabase/ssr" "^0.2.0"
     "@supabase/supabase-js" "^2.38.0"
     "@tanstack/react-query" "^5.101.0"
@@ -3178,7 +3183,7 @@ braces@^3.0.3:
   dependencies:
     fill-range "^7.1.1"
 
-browserslist@^4.24.0:
+browserslist@^4.24.0, browserslist@4.28.2:
   version "4.28.2"
   resolved "https://registry.npmjs.org/browserslist/-/browserslist-4.28.2.tgz"
   integrity sha512-48xSriZYYg+8qXna9kwqjIVzuQxi+KYWp2+5nCYnYKPTr0LvD89Jqk2Or5ogxz0NUMfIjhh2lIUX/LyX9B4oIg==
@@ -3189,7 +3194,7 @@ browserslist@^4.24.0:
     node-releases "^2.0.36"
     update-browserslist-db "^1.2.3"
 
-browserslist@^4.25.0, browserslist@^4.28.1:
+browserslist@^4.25.0:
   version "4.28.4"
   resolved "https://registry.npmjs.org/browserslist/-/browserslist-4.28.4.tgz"
   integrity sha512-MTc8i/x9jBQd1iMw2CFGS+rwMa07eYjLR0CCTLDACl9xhxy+nIs3KeML/biicXtk9JrZ6dnnTatmc7ErPXIxqw==
@@ -3200,15 +3205,15 @@ browserslist@^4.25.0, browserslist@^4.28.1:
     node-releases "^2.0.48"
     update-browserslist-db "^1.2.3"
 
-browserslist@4.28.2:
-  version "4.28.2"
-  resolved "https://registry.npmjs.org/browserslist/-/browserslist-4.28.2.tgz"
-  integrity sha512-48xSriZYYg+8qXna9kwqjIVzuQxi+KYWp2+5nCYnYKPTr0LvD89Jqk2Or5ogxz0NUMfIjhh2lIUX/LyX9B4oIg==
+browserslist@^4.28.1:
+  version "4.28.4"
+  resolved "https://registry.npmjs.org/browserslist/-/browserslist-4.28.4.tgz"
+  integrity sha512-MTc8i/x9jBQd1iMw2CFGS+rwMa07eYjLR0CCTLDACl9xhxy+nIs3KeML/biicXtk9JrZ6dnnTatmc7ErPXIxqw==
   dependencies:
-    baseline-browser-mapping "^2.10.12"
-    caniuse-lite "^1.0.30001782"
-    electron-to-chromium "^1.5.328"
-    node-releases "^2.0.36"
+    baseline-browser-mapping "^2.10.38"
+    caniuse-lite "^1.0.30001799"
+    electron-to-chromium "^1.5.376"
+    node-releases "^2.0.48"
     update-browserslist-db "^1.2.3"
 
 bser@2.1.1:
@@ -5079,11 +5084,6 @@ immediate@~3.0.5:
   version "3.0.6"
   resolved "https://registry.npmjs.org/immediate/-/immediate-3.0.6.tgz"
   integrity sha512-XXOFtyqDjNDAQxVfYxuF7g9Il/IbWmmlQg2MYKOH8ExIT1qg6xc4zyS3HaEEATgs1btfzxq15ciUiY7gjSXRGQ==
-
-immer@^10.1.1:
-  version "10.2.0"
-  resolved "https://registry.npmjs.org/immer/-/immer-10.2.0.tgz"
-  integrity sha512-d/+XTN3zfODyjr89gM3mPq1WNX2B8pYsu7eORitdwyA2sBubnTl3laYlBk4sXY5FUa5qTZGBDPJICVbvqzjlbw==
 
 immer@^11.0.0:
   version "11.1.8"
@@ -7279,17 +7279,7 @@ require-main-filename@^2.0.0:
   resolved "https://registry.npmjs.org/require-main-filename/-/require-main-filename-2.0.0.tgz"
   integrity sha512-NKN5kMDylKuldxYLSUfrbo5Tuzh4hd+2E8NPPX02mZtn1VuREQToYe/ZdlJy+J3uCpfaiGF05e7B8W0iXbQHmg==
 
-reselect@^5.1.0:
-  version "5.2.0"
-  resolved "https://registry.npmjs.org/reselect/-/reselect-5.2.0.tgz"
-  integrity sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw==
-
-reselect@5.1.1:
-  version "5.1.1"
-  resolved "https://registry.npmjs.org/reselect/-/reselect-5.1.1.tgz"
-  integrity sha512-K/BG6eIky/SBpzfHZv/dd+9JBFiS4SWV7FIujVyJRux6e45+73RaUHXLmIR1f7WOMaQ0U1km6qwklRQxpJJY0w==
-
-reselect@5.2.0:
+reselect@^5.1.0, reselect@5.2.0:
   version "5.2.0"
   resolved "https://registry.npmjs.org/reselect/-/reselect-5.2.0.tgz"
   integrity sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw==
@@ -7634,12 +7624,13 @@ sharp@^0.34.3, sharp@^0.34.5:
     "@img/sharp-win32-ia32" "0.34.5"
     "@img/sharp-win32-x64" "0.34.5"
 
-"shawarma-kiosk@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\apps\\pos-kasir":
+"shawarma-kiosk@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\pos-kasir":
   version "1.0.0"
   resolved "file:apps/pos-kasir"
   dependencies:
     "@serwist/next" "^9.5.11"
     "@suka/auth" "*"
+    "@suka/realtime" "*"
     "@supabase/ssr" "^0.5.1"
     "@supabase/supabase-js" "^2.45.0"
     "@tanstack/react-query" "^5.101.0"
@@ -7978,7 +7969,7 @@ styled-jsx@5.1.6:
   dependencies:
     client-only "0.0.1"
 
-"superapp@file:C:\\Users\\Digital Marketing\\OneDrive\\Desktop\\project\\DIGITALISASI-SS-PROJECT\\mobile\\superapp":
+"superapp@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\mobile\\superapp":
   version "1.0.0"
   resolved "file:mobile/superapp"
   dependencies:
@@ -8325,11 +8316,6 @@ unbox-primitive@^1.1.0:
     has-bigints "^1.0.2"
     has-symbols "^1.1.0"
     which-boxed-primitive "^1.1.1"
-
-"undici-types@>=7.24.0 <7.24.7":
-  version "7.24.6"
-  resolved "https://registry.npmjs.org/undici-types/-/undici-types-7.24.6.tgz"
-  integrity sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==
 
 undici-types@~6.21.0:
   version "6.21.0"
@@ -8903,7 +8889,12 @@ zod@^3.23.8, zod@^3.25.76:
   resolved "https://registry.npmjs.org/zod/-/zod-3.25.76.tgz"
   integrity sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==
 
-"zod@^3.25.0 || ^4.0.0", zod@^4.4.3:
+"zod@^3.25.0 || ^4.0.0":
+  version "4.4.3"
+  resolved "https://registry.npmjs.org/zod/-/zod-4.4.3.tgz"
+  integrity sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==
+
+zod@^4.4.3:
   version "4.4.3"
   resolved "https://registry.npmjs.org/zod/-/zod-4.4.3.tgz"
   integrity sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==

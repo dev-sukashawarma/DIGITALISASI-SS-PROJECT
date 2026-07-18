@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { X, QrCode, Loader2, CheckCircle2, Upload, Camera } from 'lucide-react'
 import { formatRupiah } from '@/lib/validations'
 import { QRCodeSVG } from 'qrcode.react'
@@ -25,6 +25,9 @@ export function QrisPaymentModal({
   const [qrisMode, setQrisMode] = useState<'static' | 'transfer'>('transfer')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [isCameraActive, setIsCameraActive] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const qrData = `shawarma-kasir://pay?amount=${totalPrice}`
@@ -40,6 +43,55 @@ export function QrisPaymentModal({
     setPreviewUrl(URL.createObjectURL(file))
     postToNative({ type: 'haptic', style: 'success' })
   }
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+        setIsCameraActive(true)
+      }
+    } catch (err) {
+      console.error('Failed to access camera:', err)
+      fileInputRef.current?.click() // fallback
+    }
+  }
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach(track => track.stop())
+    }
+    setIsCameraActive(false)
+  }
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], `qris_proof_${Date.now()}.jpg`, { type: 'image/jpeg' })
+            setSelectedFile(file)
+            setPreviewUrl(URL.createObjectURL(file))
+            stopCamera()
+            postToNative({ type: 'haptic', style: 'success' })
+          }
+        }, 'image/jpeg', 0.8)
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!isOpen) stopCamera()
+    return () => stopCamera()
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -104,25 +156,44 @@ export function QrisPaymentModal({
                 />
                 
                 {previewUrl ? (
-                  <div className="relative border border-gray-200 rounded-xl overflow-hidden mb-3">
+                  <div className="relative border border-gray-200 rounded-xl overflow-hidden mb-3 bg-gray-50">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={previewUrl} alt="Bukti Transfer" className="w-full h-48 object-cover" />
+                    <img src={previewUrl} alt="Bukti Transfer" className="w-full h-48 object-contain" />
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <button onClick={() => fileInputRef.current?.click()} className="bg-white text-gray-900 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2">
-                        <Camera className="w-4 h-4" /> Ganti Foto
+                      <button onClick={startCamera} className="bg-white text-gray-900 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2">
+                        <Camera className="w-4 h-4" /> Ulangi Foto
+                      </button>
+                    </div>
+                  </div>
+                ) : isCameraActive ? (
+                  <div className="relative border border-gray-200 rounded-xl overflow-hidden mb-3 bg-black flex flex-col">
+                    <video 
+                      ref={videoRef} 
+                      className="w-full h-48 object-cover" 
+                      playsInline 
+                      autoPlay 
+                      muted 
+                    />
+                    <canvas ref={canvasRef} className="hidden" />
+                    <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+                      <button 
+                        onClick={capturePhoto} 
+                        className="bg-white text-blue-600 rounded-full p-3 shadow-lg flex items-center justify-center border-4 border-gray-200 hover:scale-105 transition-transform"
+                      >
+                        <Camera className="w-6 h-6" />
                       </button>
                     </div>
                   </div>
                 ) : (
                   <button 
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={startCamera}
                     className="w-full h-40 border-2 border-dashed border-blue-200 bg-blue-50/50 hover:bg-blue-50 rounded-2xl flex flex-col items-center justify-center gap-3 transition-colors text-blue-600"
                   >
                     <>
                       <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                         <Camera className="w-6 h-6" />
                       </div>
-                      <span className="text-sm font-bold">Ambil Foto via Kamera</span>
+                      <span className="text-sm font-bold">Buka Kamera</span>
                     </>
                   </button>
                 )}

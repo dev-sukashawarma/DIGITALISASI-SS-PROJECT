@@ -28,6 +28,7 @@ import { parseOrderData, ParsedOrder } from '@/lib/order-utils'
 import { printReceipt, type ReceiptData, type ReceiptLine } from '@/lib/printReceipt'
 import { useBrand } from '@/components/BrandContext'
 import { cleanItemName } from '@/lib/order-item-name'
+import { usePrinterStore } from '@/lib/printerStore'
 
 const DING_SOUND = '/sound-pesanan.mp3'
 
@@ -515,6 +516,7 @@ export default function KasirOrderClient({
   })
   const { outletId: clientOutletId, outletName } = useMyOutlet()
   const { brandLogo } = useBrand()
+  const { device, isConnecting } = usePrinterStore()
   const outletId = clientOutletId || serverOutletId // Fallback to SSR outletId to prevent flash
 
   const { criticalItems } = useStockAlerts(outletId)
@@ -1125,6 +1127,14 @@ export default function KasirOrderClient({
               <p className="text-xl font-bold text-slate-800 mt-1 leading-none">{formatRupiah(todayRevenue)}</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Printer Status Badge (Diletakkan di atas filter tabs sesuai permintaan) */}
+      <div className="flex items-center mb-2">
+        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${device ? 'bg-green-100/50 text-green-700 border-green-200/50' : 'bg-gray-100/50 text-gray-500 border-gray-200/50'}`}>
+          <Printer className="w-3 h-3" />
+          {device ? 'Printer Kasir Terhubung' : isConnecting ? 'Menghubungkan...' : 'Printer Kasir Belum Terhubung'}
         </div>
       </div>
 

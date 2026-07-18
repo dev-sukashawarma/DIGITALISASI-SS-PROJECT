@@ -93,7 +93,7 @@ const customCache: RuntimeCaching[] = [
   },
   // API requests
   {
-    matcher: ({ url }) => url.pathname.startsWith('/api/'),
+    matcher: ({ url, request }) => request.method === 'GET' && url.pathname.startsWith('/api/'),
     handler: new NetworkFirst({
       cacheName: 'apis',
       plugins: [

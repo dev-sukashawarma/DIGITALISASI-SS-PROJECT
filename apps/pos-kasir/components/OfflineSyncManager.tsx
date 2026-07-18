@@ -85,9 +85,9 @@ export default function OfflineSyncManager() {
             }
           }
         } catch (error) {
-          // Jaringan masih bermasalah → biarkan pending, coba lagi nanti
-          console.warn(`[SyncManager] Network error saat sinkron pesanan ${entry.id}, retry nanti.`, error);
-          break;
+          // Jaringan masih bermasalah / fetch error -> biarkan pending, lanjut ke entry berikutnya
+          console.warn(`[SyncManager] Network error saat sinkron pesanan ${entry.id}, lanjut...`, error);
+          continue;
         }
       }
 
@@ -117,7 +117,7 @@ export default function OfflineSyncManager() {
           if (error) {
             // Error dari server (bukan jaringan) → tandai error supaya tidak looping
             const netErr = /fetch|network|failed/i.test(error.message || '');
-            if (netErr) break;
+            if (netErr) continue;
             console.error(`[SyncManager] Gagal replay status ${m.order_id}:`, error);
             await db.sync_queue_mutations.update(m.id, { status: 'error', error_message: error.message });
             continue;
@@ -127,8 +127,8 @@ export default function OfflineSyncManager() {
           await db.sync_queue_mutations.delete(m.id);
           hasSuccess = true;
         } catch (err) {
-          console.warn('[SyncManager] Network error saat replay status, retry nanti.', err);
-          break;
+          console.warn('[SyncManager] Network error saat replay status, lanjut...', err);
+          continue;
         }
       }
 

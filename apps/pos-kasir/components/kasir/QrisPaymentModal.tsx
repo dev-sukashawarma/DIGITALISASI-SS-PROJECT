@@ -19,6 +19,7 @@ export function QrisPaymentModal({
   onClose: () => void
   totalPrice: number
   isOnline?: boolean
+  isFoodApp?: boolean
   onSubmit: (paymentProofFile?: File | null) => void
   submitting: boolean
 }) {
@@ -198,6 +199,15 @@ export function QrisPaymentModal({
                     >
                       <FileImage className="w-4 h-4" /> Pilih File
                     </button>
+                    {isFoodApp && (
+                      <button
+                        onClick={() => onSubmit(null)}
+                        disabled={submitting}
+                        className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center gap-2 mt-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Tandai Sudah Bayar
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="relative border border-gray-200 rounded-xl overflow-hidden mb-3 bg-black flex flex-col w-full aspect-[4/3]">
@@ -222,19 +232,37 @@ export function QrisPaymentModal({
                           <RefreshCw className="w-5 h-5" />
                         </button>
 
-                        <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10">
+                        <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center justify-center gap-3 z-10">
                           <button 
                             onClick={capturePhoto} 
                             className="bg-white text-blue-600 rounded-full p-4 shadow-lg flex items-center justify-center border-4 border-gray-200 hover:scale-105 transition-transform"
                           >
                             <Camera className="w-7 h-7" />
                           </button>
+                          {isFoodApp && (
+                            <button
+                              onClick={() => onSubmit(null)}
+                              disabled={submitting}
+                              className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center gap-2"
+                            >
+                              <CheckCircle2 className="w-4 h-4" /> Tandai Sudah Bayar
+                            </button>
+                          )}
                         </div>
                       </>
                     ) : (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-400 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl">
                         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
                         <span className="text-sm font-medium">Membuka kamera...</span>
+                        {isFoodApp && (
+                          <button
+                            onClick={() => onSubmit(null)}
+                            disabled={submitting}
+                            className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center gap-2 mt-2 relative z-20"
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Tandai Sudah Bayar
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

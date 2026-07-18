@@ -1575,6 +1575,7 @@ function CartPanel(props: {
         onClose={() => setOnlineQrisOpen(false)}
         totalPrice={totalPrice}
         isOnline={true}
+        isFoodApp={['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '')}
         submitting={submitting}
         onSubmit={(proofUrl: any) => {
           setOnlineQrisOpen(false)

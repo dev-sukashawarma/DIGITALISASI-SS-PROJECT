@@ -596,8 +596,8 @@ export function BahanBakuDetailModal({
                       <select id="newSkuTingkatan" className="w-full text-sm p-2 border border-gray-300 rounded-md bg-white focus:border-suka-orange outline-none">
                         <option value="">(Pilih)</option>
                         <option value="Besar">Besar</option>
-                        {bahanBaku.satuan_tengah && <option value="Tengah">Tengah</option>}
-                        {bahanBaku.satuan_kecil && <option value="Kecil">Kecil</option>}
+                        <option value="Tengah">Tengah</option>
+                        <option value="Kecil">Kecil</option>
                       </select>
                     </div>
                     <div>

@@ -594,10 +594,16 @@ export function BahanBakuDetailModal({
                     <div>
                       <label className="text-xs font-semibold text-gray-500 mb-1 block">Tingkatan</label>
                       <select id="newSkuTingkatan" className="w-full text-sm p-2 border border-gray-300 rounded-md bg-white focus:border-suka-orange outline-none">
-                        <option value="">(Pilih)</option>
-                        <option value="Besar">Besar</option>
-                        <option value="Tengah">Tengah</option>
-                        <option value="Kecil">Kecil</option>
+                        <option value="">(Pilih Tingkatan)</option>
+                        {!bahanBaku.skus?.some(s => s.tingkatan_satuan === 'Besar') && (
+                          <option value="Besar">Besar ({bahanBaku.satuan})</option>
+                        )}
+                        {bahanBaku.satuan_tengah && !bahanBaku.skus?.some(s => s.tingkatan_satuan === 'Tengah') && (
+                          <option value="Tengah">Tengah ({bahanBaku.satuan_tengah})</option>
+                        )}
+                        {bahanBaku.satuan_kecil && !bahanBaku.skus?.some(s => s.tingkatan_satuan === 'Kecil') && (
+                          <option value="Kecil">Kecil ({bahanBaku.satuan_kecil})</option>
+                        )}
                       </select>
                     </div>
                     <div>

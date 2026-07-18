@@ -14,6 +14,7 @@ import io.github.jan.supabase.realtime.broadcast
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -320,7 +321,13 @@ private class ProductionDelegate : SupabaseClientDelegate {
         val actions = ArrayList(offlineQueue)
         offlineQueue.clear()
         for (action in actions) {
-            action.invoke()
+            try {
+                action.invoke()
+            } catch (e: Exception) {
+                // Gagal (jaringan masih putus / server error) → kembalikan ke queue, jangan hilang.
+                android.util.Log.w("OfflineQueue", "Sync gagal, action dikembalikan ke queue: ${e.message}")
+                offlineQueue.add(action)
+            }
         }
     }
 
@@ -519,6 +526,7 @@ private class ProductionDelegate : SupabaseClientDelegate {
     private val attendanceHttpClient by lazy {
         io.ktor.client.HttpClient(io.ktor.client.engine.okhttp.OkHttp) {
             expectSuccess = false // server pakai 4xx untuk beberapa reason — body tetap harus dibaca
+            install(HttpTimeout) { requestTimeoutMillis = 15000 }
         }
     }
     private val attendanceJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
@@ -538,8 +546,10 @@ private class ProductionDelegate : SupabaseClientDelegate {
             // Non-2xx dengan body JSON reason tetap di-parse & dikembalikan apa adanya
             attendanceJson.decodeFromString(SubmitAttendanceResponse.serializer(), bodyText)
         } catch (e: Exception) {
+            // Server MERESPONS tapi bukan JSON kontrak (HTML 502/maintenance/captive-portal) —
+            // BUKAN offline: jangan sampai di-queue oleh caller. Transport error ktor propagate apa adanya di atas.
             android.util.Log.e("SupabaseClient", "submit-attendance non-JSON response (HTTP ${response.status.value})", e)
-            throw Exception("Respons server tidak dikenali (HTTP ${response.status.value}): ${bodyText.take(200)}")
+            throw AttendanceServerException("Respons server tidak dikenali (HTTP ${response.status.value}): ${bodyText.take(120)}")
         }
     }
 }
@@ -642,7 +652,13 @@ private class MockDelegate : SupabaseClientDelegate {
         val actions = ArrayList(offlineQueue)
         offlineQueue.clear()
         for (action in actions) {
-            action.invoke()
+            try {
+                action.invoke()
+            } catch (e: Exception) {
+                // Gagal (jaringan masih putus / server error) → kembalikan ke queue, jangan hilang.
+                android.util.Log.w("OfflineQueue", "Sync gagal, action dikembalikan ke queue: ${e.message}")
+                offlineQueue.add(action)
+            }
         }
     }
 

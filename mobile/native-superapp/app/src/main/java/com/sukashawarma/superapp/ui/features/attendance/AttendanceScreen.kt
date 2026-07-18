@@ -97,6 +97,7 @@ fun AttendanceScreen(
     var isScanning by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
     var submitError by remember { mutableStateOf<String?>(null) }
+    var offlineNotice by remember { mutableStateOf<String?>(null) }
     
     var clockInTime by remember { mutableStateOf<String?>(null) }
     var clockOutTime by remember { mutableStateOf<String?>(null) }
@@ -391,16 +392,27 @@ fun AttendanceScreen(
                                         val resp = client.submitAttendance(req)
                                         if (resp.ok) {
                                             accepted = true
+                                            offlineNotice = null
                                         } else {
                                             // Server menolak (time window, geofence, shift gate, not_enrolled, dll.)
                                             submitError = com.sukashawarma.superapp.data.SubmitFailureMessages.forReason(resp.reason)
                                         }
+                                    } catch (e: com.sukashawarma.superapp.data.AttendanceServerException) {
+                                        // Server merespons tapi bukan JSON kontrak (502/maintenance/captive-portal) —
+                                        // BUKAN offline: JANGAN queue, JANGAN update UI optimis.
+                                        submitError = e.message
                                     } catch (e: Exception) {
-                                        // Gagal jaringan → offline queue fallback (dikirim ulang saat online)
+                                        // Gagal jaringan murni → offline queue fallback (dikirim ulang saat online)
                                         client.queueOfflineAction {
-                                            client.submitAttendance(req.copy(fromQueue = true))
+                                            val resp = client.submitAttendance(req.copy(fromQueue = true))
+                                            if (!resp.ok) {
+                                                // Penolakan permanen saat sync (mis. too_early) — log saja, jangan lempar
+                                                // (lempar = retry selamanya di queue).
+                                                android.util.Log.w("OfflineQueue", "Absensi ditolak saat sync: ${resp.reason}")
+                                            }
                                         }
                                         android.util.Log.w("Attendance", "Berhasil masuk ke queue lokal karena offline")
+                                        offlineNotice = "Tersimpan offline — akan dikirim otomatis saat online."
                                         accepted = true
                                     }
 
@@ -436,6 +448,25 @@ fun AttendanceScreen(
                             attendanceCount = 18
                         }
                     )
+                }
+
+                // Status offline-queue: tersimpan lokal, bukan sukses penuh
+                offlineNotice?.let { message ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0x33FFA000), RoundedCornerShape(12.dp))
+                            .border(1.dp, Color(0xFFFFA000), RoundedCornerShape(12.dp))
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = message,
+                            color = Color(0xFF701604),
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
 
                 // Pesan penolakan submit dari server (reason ter-map ke Indonesia)

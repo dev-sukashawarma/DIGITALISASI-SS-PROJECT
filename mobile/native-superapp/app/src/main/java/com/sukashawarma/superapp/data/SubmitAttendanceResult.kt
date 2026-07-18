@@ -9,6 +9,13 @@ data class SubmitAttendanceResponse(
     val status: String? = null
 )
 
+/**
+ * Server MERESPONS tapi body tak dikenali (HTML 502/maintenance/captive-portal, dll.) —
+ * BUKAN kondisi offline. JANGAN masuk offline queue, JANGAN update UI optimis.
+ * Kegagalan transport murni (IOException/UnknownHostException) tetap exception biasa → jalur offline queue.
+ */
+class AttendanceServerException(message: String) : Exception(message)
+
 /** Map kode reason endpoint web → pesan user Indonesia. Pure function — unit-tested. */
 object SubmitFailureMessages {
     fun forReason(reason: String?): String = when {

@@ -41,4 +41,39 @@ class SubmitAttendanceTest {
         assertTrue(SubmitFailureMessages.forReason("too_far_from_outlet: Jarak 88m (Akurasi 10m)").contains("radius"))
         assertTrue(SubmitFailureMessages.forReason("kode_aneh").contains("kode_aneh"))
     }
+
+    @Test
+    fun mappingTooFarMenyertakanDetailJarakDariServer() {
+        val pesan = SubmitFailureMessages.forReason("too_far_from_outlet: Jarak 88m (Akurasi 10m)")
+        assertTrue(pesan.contains("88m"))
+    }
+
+    @Test
+    fun attendanceServerExceptionBisaDibedakanDariExceptionBiasa() {
+        // Respons server tak dikenali (HTML 502/maintenance) HARUS bisa ditangkap TERPISAH
+        // dari kegagalan jaringan biasa — agar tidak salah masuk offline queue.
+        val serverError: Exception = AttendanceServerException("Respons server tidak dikenali (HTTP 502): <html>")
+        var caughtAsServerError = false
+        try {
+            throw serverError
+        } catch (e: AttendanceServerException) {
+            caughtAsServerError = true
+            assertTrue(e.message!!.contains("HTTP 502"))
+        } catch (e: Exception) {
+            fail("Harus tertangkap sebagai AttendanceServerException, bukan Exception generik")
+        }
+        assertTrue(caughtAsServerError)
+
+        // Exception jaringan biasa TIDAK boleh tertangkap sebagai AttendanceServerException
+        val networkError: Exception = java.io.IOException("No network connection")
+        var caughtAsGeneric = false
+        try {
+            throw networkError
+        } catch (e: AttendanceServerException) {
+            fail("IOException tidak boleh tertangkap sebagai AttendanceServerException")
+        } catch (e: Exception) {
+            caughtAsGeneric = true
+        }
+        assertTrue(caughtAsGeneric)
+    }
 }

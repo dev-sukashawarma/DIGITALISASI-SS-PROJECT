@@ -256,6 +256,40 @@ class SupabaseConnectionTest {
         assertTrue(client.isAuthenticated())
     }
 
+    @Test
+    fun testTier3_SyncOfflineQueueRequeuesFailedActions() = runBlocking {
+        // Action yang gagal saat sync TIDAK boleh hilang diam-diam — harus kembali ke queue.
+        var attempts = 0
+        client.queueOfflineAction {
+            attempts++
+            if (attempts == 1) throw IOException("masih offline saat sync pertama")
+        }
+        assertEquals(1, client.getOfflineQueueSize())
+
+        // Sync pertama: action melempar → dikembalikan ke queue, tidak hilang
+        client.syncOfflineQueue()
+        assertEquals(1, attempts)
+        assertEquals(1, client.getOfflineQueueSize())
+
+        // Sync kedua: action sukses → queue kosong
+        client.syncOfflineQueue()
+        assertEquals(2, attempts)
+        assertEquals(0, client.getOfflineQueueSize())
+    }
+
+    @Test
+    fun testTier3_SyncOfflineQueueFailureDoesNotDropRemainingActions() = runBlocking {
+        // Satu action gagal di tengah batch TIDAK boleh menggugurkan action setelahnya.
+        var secondExecuted = false
+        client.queueOfflineAction { throw IOException("selalu gagal") }
+        client.queueOfflineAction { secondExecuted = true }
+        assertEquals(2, client.getOfflineQueueSize())
+
+        client.syncOfflineQueue()
+        assertTrue(secondExecuted) // action kedua tetap jalan
+        assertEquals(1, client.getOfflineQueueSize()) // hanya yang gagal yang tersisa
+    }
+
     // --- TIER 4: Real-World Workload ---
 
     @Test

@@ -70,6 +70,7 @@ export default function MenuView({
   initialRecommendations = [] 
 }: MenuViewProps) {
   const router = useRouter()
+  const supabase = createClient()
   const { showConfirm } = useDialogStore()
   const [form, setForm]           = useState<FormState>(EMPTY)
   const [showForm, setShowForm]   = useState(false)

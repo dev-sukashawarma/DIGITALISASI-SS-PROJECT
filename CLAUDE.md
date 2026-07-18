@@ -916,5 +916,36 @@ Realtime tumbuh jadi **3 pola berdampingan & mulai busuk**: (1) **Firehose** `Gl
 
 ---
 
-**Last updated:** 2026-07-16  
+## Session 2026-07-17/18: Native Superapp Fase 1 — Absensi Production-Ready (mobile/native-superapp)
+
+**Status:** ✅ Kode COMPLETED (11 task subagent-driven, semua review lolos, 103/103 test, assembleDebug+assembleRelease sukses) di branch `feat/native-superapp-absensi-phase1` (ter-push ke origin). ⏳ Sisa manual: Task 9 (kalibrasi model di HP) + smoke test + keputusan patch web.
+
+### Keputusan strategis
+- **`mobile/native-superapp` (Kotlin + Compose) = superapp mobile RESMI**; `pos-mobile` RN dkk tidak dilanjutkan (cleanup = Fase 2). Roadmap 4 fase di spec.
+- Absensi web tetap produksi selama transisi; jangka panjang semua pindah Android (Fase 4).
+
+### Inti perubahan
+1. **Kolom DB mobile terpisah** (migration `20260717120000`, applied+verified): `face_descriptor_mobile`, `mobile_enrolled_at/by`, `mobile_re_enroll_reason`, `ref_photo_url_mobile`. Android HANYA baca/tulis kolom ini (regression guard di `EnrollmentPayloadTest`); kolom web tak tersentuh. Foto mobile: `{staff_id}_mobile.jpg`. Consent dipakai bersama (isi bila kosong).
+2. **Role kanonik** (`data/Roles.kt` satu sumber kebenaran) + gating 2 lapis yang benar-benar enforced (tile DashboardMenu + `NavigationManager.navigateTo` di-wire ke MainShell — sebelumnya dekoratif). Catatan: role `kasir` sudah dihapus dari DB (migration 20260626102000) — entri di set inert.
+3. **Verifikasi wajah**: satu konstanta `FaceRecognizer.MOBILE_MATCH_THRESHOLD` (0.80 SEMENTARA, wajib kalibrasi), guard dimensi (`cosineSimilarity` → -1f), guard belum-enroll (`NotEnrolledScreen`), bypass null-descriptor & tombol "Bypass Scan Wajah (Debug)" DIHAPUS.
+4. **Hardening**: mock embedding 0.5f, fallback `SupabaseClient(isTesting=true)` di MainActivity, "Halo Andi", bottom-nav dekoratif — semua dihapus. Kredensial via BuildConfig (`SUPABASE_URL`/`ANON_KEY`/`ABSENSI_API_BASE`, override `local.properties`).
+5. **FaceDebugScreen** (`face_debug`, role ENROLLMENT): capture A/B → cosine similarity, untuk pemilihan model & kalibrasi threshold (+ izin kamera runtime).
+6. **Task 11 (temuan review): jalur submit absensi TIDAK PERNAH jalan** — DTO kolom fiktif + `dummy-staff`/`outlet-1` + RLS INSERT attendance = service_role only. Fix: `submitAttendance` → POST `/api/submit-attendance` web (kontrak persis, atribusi nyata, GPS device, UUID idempotent); `checkClockOutGates` client dihapus (query tabel tak eksis); offline queue tahan-gagal + `AttendanceServerException` (server-error ≠ offline) + banner "Tersimpan offline". **User memilih fix Android-only** (web tidak disentuh).
+
+### ⚠️ Keterbatasan diketahui / Next manual
+- **Crew yang hanya enroll via mobile DITOLAK absen (`not_enrolled`)** sampai route web submit-attendance dipatch aditif (cek `face_descriptor_mobile` juga) + redeploy absensi web. Sementara: crew tetap butuh enrollment web untuk absen HP.
+- **Task 9 (SEBELUM enrollment lapangan!):** evaluasi model (EdgeFace-S → GhostFaceNetV2 → MobileFaceNet existing) + kalibrasi threshold via menu "Kalibrasi Wajah" di HP nyata; update `MOBILE_MATCH_THRESHOLD`.
+- Smoke test HP fisik (enroll SPV → absen crew → cek row `attendance` + kolom web utuh) — checklist di plan Task 10.
+- Offline queue in-memory (hilang bila app di-kill); durable queue = Fase 2.
+
+### Gotcha build/env (mesin dev)
+JBR default rusak → `JAVA_HOME=C:\Program Files\Android\Android Studio1\jbr`; gradle butuh `TEMP/TMP=C:\t` (loopback NIO gagal di path panjang). Build module sempat rusak sejak `5e56a5e3` (LocationHelper tanpa dep `kotlinx-coroutines-play-services`) — sudah difix. **Otomasi paralel aktif memindah/me-reset branch git mid-session** (3x kejadian: commit nyasar ke main; branch di-reset ke origin membuang 4 commit — dipulihkan via reflog; edit CLAUDE.md di working tree tertimpa). Selalu cek `git branch --show-current` sebelum commit.
+
+### Artefak
+- Spec: `docs/superpowers/specs/2026-07-17-native-superapp-absensi-phase1-design.md` (+ Addendum Task 11)
+- Plan: `docs/superpowers/plans/2026-07-17-native-superapp-absensi-phase1.md`
+
+---
+
+**Last updated:** 2026-07-18  
 **Owner:** Dev Suka Shawarma

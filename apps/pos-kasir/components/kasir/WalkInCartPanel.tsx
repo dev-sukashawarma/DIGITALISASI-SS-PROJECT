@@ -107,9 +107,7 @@ export function WalkInCartPanel(props: {
                           {root.item.name}
                         </p>
                         <div className="flex items-center gap-1.5 mt-1">
-                          {discountedPrice < root.item.price && (
-                            <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(root.item.price * root.quantity)}</span>
-                          )}
+
                           <p className="text-amber-600 font-bold text-sm">{formatRupiah(discountedPrice * root.quantity)}</p>
                         </div>
                       </div>
@@ -151,9 +149,7 @@ export function WalkInCartPanel(props: {
                                     {child.item.name}
                                   </p>
                                   <div className="flex items-center gap-1.5 mt-1">
-                                    {childDiscountedPrice < child.item.price && (
-                                      <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(child.item.price * child.quantity)}</span>
-                                    )}
+
                                     <p className="text-amber-700 font-bold text-sm">{formatRupiah(childDiscountedPrice * child.quantity)}</p>
                                   </div>
                                 </div>

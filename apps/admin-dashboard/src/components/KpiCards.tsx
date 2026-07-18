@@ -92,7 +92,7 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
         return (
           <div 
             key={c.label} 
-            className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all duration-200 hover:shadow-md"
+            className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition duration-200 hover:shadow-md"
           >
             <div className="flex justify-between items-start">
               <div>
@@ -104,9 +104,9 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
               </div>
             </div>
 
-            <div className="mt-6 flex items-baseline justify-between">
-              <div>
-                <h3 className="text-2xl font-extrabold text-suka-brown tracking-tight">
+            <div className="mt-6 flex items-baseline justify-between gap-2">
+              <div className="truncate">
+                <h3 className="text-2xl font-extrabold text-suka-brown tracking-tight tabular-nums truncate">
                   {c.isString ? (
                     c.value
                   ) : (

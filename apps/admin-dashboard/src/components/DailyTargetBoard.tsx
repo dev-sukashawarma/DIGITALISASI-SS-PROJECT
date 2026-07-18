@@ -2,15 +2,22 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useTargetProgress } from '@/hooks/useTargetProgress'
 import { rupiahCompact } from '@/lib/format'
-import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
+import Link from 'next/link'
+import type { PeriodFilterValue, SalesSummaryRow } from '@/lib/types'
 
 function cleanName(name: string) {
   return name.replace('SUKA SHAWARMA ', '').replace('MITRA SUKA ', 'MITRA ')
 }
 
-export function DailyTargetBoard() {
+interface DailyTargetBoardProps {
+  filter?: PeriodFilterValue;
+  kpiRows?: SalesSummaryRow[];
+}
+
+export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}) {
   const { rows, loading, refetch } = useTargetProgress()
   const supabase = createSupabaseBrowserClient()
   const { isReadOnly } = useRole()
@@ -93,14 +100,34 @@ export function DailyTargetBoard() {
     setTimeout(() => setModalOpen(false), 1000)
   }
 
-  const withTarget = useMemo(
-    () =>
-      rows
-        .filter((r) => r.target_amount > 0)
-        .map((r) => ({ ...r, pct: r.target_amount > 0 ? (r.omzet_today / r.target_amount) * 100 : 0 }))
-        .sort((a, b) => b.pct - a.pct),
-    [rows]
-  )
+  const withTarget = useMemo(() => {
+    let baseRows = rows;
+    
+    if (filter && filter.outletId !== 'all') {
+      baseRows = baseRows.filter(r => r.outlet_id === filter.outletId);
+    }
+
+    const mergedRows = baseRows.map(r => {
+      let currentOmzet = r.omzet_today;
+      if (kpiRows) {
+        const outletKpiRows = kpiRows.filter(k => k.outlet_id === r.outlet_id);
+        if (outletKpiRows.length > 0) {
+          currentOmzet = outletKpiRows.reduce((sum, k) => sum + k.omzet, 0);
+        } else if (filter) {
+          currentOmzet = 0;
+        }
+      }
+      return {
+        ...r,
+        omzet_today: currentOmzet
+      };
+    });
+
+    return mergedRows
+      .filter((r) => r.target_amount > 0)
+      .map((r) => ({ ...r, pct: r.target_amount > 0 ? (r.omzet_today / r.target_amount) * 100 : 0 }))
+      .sort((a, b) => b.pct - a.pct);
+  }, [rows, filter, kpiRows])
 
   const achieved = withTarget.filter((r) => r.pct >= 100).length
   
@@ -112,6 +139,29 @@ export function DailyTargetBoard() {
       setCurrentPage(totalPages)
     }
   }, [totalPages, currentPage])
+
+  const isMoreThanOneDay = filter && filter.from !== filter.to;
+
+  if (isMoreThanOneDay) {
+    return (
+      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col items-center justify-center text-center gap-3">
+        <div className="p-3 bg-suka-cream rounded-full">
+          <Target className="w-6 h-6 text-suka-orange" />
+        </div>
+        <div>
+          <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase mb-1">Target Penjualan Harian</h3>
+          <p className="text-xs font-medium text-suka-gray-500 mb-4 max-w-sm mx-auto">
+            Target harian tidak ditampilkan untuk rentang tanggal lebih dari 1 hari. 
+            Silakan akses Pusat Laporan untuk melihat rekapitulasi target.
+          </p>
+          <Link href="/dashboard/reports/target-harian" className="inline-flex items-center gap-1.5 px-4 py-2 bg-suka-orange hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition-colors">
+            <FileText className="w-3.5 h-3.5" />
+            Lihat Laporan Target Harian
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

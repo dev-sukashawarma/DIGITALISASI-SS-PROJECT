@@ -125,7 +125,7 @@ export default function OwnerDashboardView({
         {/* Indikator target harian realtime (semua outlet) */}
         {role !== 'MITRA' && (
           <div className={isPending ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
-            <DailyTargetBoard />
+            <DailyTargetBoard filter={filter} kpiRows={curKpiRows} />
           </div>
         )}
 

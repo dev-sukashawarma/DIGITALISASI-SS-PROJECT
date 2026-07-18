@@ -324,7 +324,10 @@ export default function OrderManualPage() {
     return items.filter((it) => {
       if (activeCat !== 'all' && it.category_id !== activeCat) return false
       if (search.trim() && !it.name.toLowerCase().includes(search.trim().toLowerCase())) return false
-      if (isOnlineChannel && it.is_available_online === false) return false
+      if (isOnlineChannel) {
+        if (it.is_available_online === false) return false
+        if (it.available_online_channels && !it.available_online_channels.includes(channel || '')) return false
+      }
       return true
     }).map(it => {
       const isManualUnav = unavailableIds.has(it.id)

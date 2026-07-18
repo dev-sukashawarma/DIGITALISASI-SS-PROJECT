@@ -49,6 +49,7 @@ export interface MenuItem {
   image_url: string | null
   is_available: boolean
   is_available_online?: boolean
+  available_online_channels?: string[] | null
   sort_order: number
   is_package?: boolean
   package_items?: PackageItem[]

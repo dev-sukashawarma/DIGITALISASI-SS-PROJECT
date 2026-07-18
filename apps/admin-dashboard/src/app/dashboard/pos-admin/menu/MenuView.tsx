@@ -30,6 +30,7 @@ interface FormState {
   category_id: string
   is_available: boolean
   is_available_online: boolean
+  available_online_channels: string[] | null
   image_url: string | null
   is_package: boolean
   package_items: { menu_item_id: string, quantity: number, temp_id: string }[]
@@ -38,7 +39,7 @@ interface FormState {
 const EMPTY: FormState = {
   id: null, name: '', description: '', price: '', base_price: '',
   channel_prices: {},
-  category_id: '', is_available: true, is_available_online: true, image_url: null,
+  category_id: '', is_available: true, is_available_online: true, available_online_channels: null, image_url: null,
   is_package: false, package_items: []
 }
 
@@ -181,6 +182,7 @@ export default function MenuView({
       category_id: item.category_id ?? '',
       is_available: item.is_available, 
       is_available_online: item.is_available_online ?? true,
+      available_online_channels: item.available_online_channels ?? null,
       image_url: item.image_url,
       is_package: item.is_package ?? false,
       package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
@@ -253,7 +255,7 @@ export default function MenuView({
       id: form.id ?? undefined,
       name: form.name.trim(), description: form.description.trim() || null,
       price: finalBasePrice, category_id: form.category_id || null,
-      is_available: form.is_available, is_available_online: form.is_available_online, image_url: imgUrl,
+      is_available: form.is_available, is_available_online: form.is_available_online, available_online_channels: form.available_online_channels, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
       is_package: form.is_package,
       package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, quantity: pi.quantity })) : []
@@ -608,34 +610,86 @@ export default function MenuView({
                 </button>
 
                 {/* Online Availability toggle */}
-                <button type="button"
-                  onClick={() => setForm({ ...form, is_available_online: !form.is_available_online })}
-                  className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all
-                    ${form.is_available_online
-                      ? 'border-indigo-200 bg-indigo-50/60 hover:bg-indigo-50'
-                      : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors
-                      ${form.is_available_online ? 'bg-indigo-100' : 'bg-gray-100'}`}>
-                      {form.is_available_online
-                        ? <ToggleRight className="w-5 h-5 text-indigo-500" />
-                        : <ToggleLeft  className="w-5 h-5 text-gray-300" />}
+                <div className="space-y-2">
+                  <button type="button"
+                    onClick={() => {
+                      const willBeOnline = !form.is_available_online;
+                      setForm({ ...form, is_available_online: willBeOnline, available_online_channels: willBeOnline ? null : [] })
+                    }}
+                    className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all
+                      ${form.is_available_online
+                        ? 'border-indigo-200 bg-indigo-50/60 hover:bg-indigo-50'
+                        : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors
+                        ${form.is_available_online ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                        {form.is_available_online
+                          ? <ToggleRight className="w-5 h-5 text-indigo-500" />
+                          : <ToggleLeft  className="w-5 h-5 text-gray-300" />}
+                      </div>
+                      <div className="text-left">
+                        <p className={`text-sm font-semibold leading-none ${form.is_available_online ? 'text-indigo-700' : 'text-gray-500'}`}>
+                          {form.is_available_online ? 'Tersedia di Food Apps' : 'Hanya POS (Offline)'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {form.is_available_online ? 'Menu dapat dipesan via aplikasi online' : 'Disembunyikan dari aplikasi online'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-left">
-                      <p className={`text-sm font-semibold leading-none ${form.is_available_online ? 'text-indigo-700' : 'text-gray-500'}`}>
-                        {form.is_available_online ? 'Tersedia di Food Apps' : 'Hanya POS (Offline)'}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {form.is_available_online ? 'Menu dapat dipesan via GoFood/GrabFood dll' : 'Disembunyikan dari aplikasi online'}
-                      </p>
+                    <div className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0
+                      ${form.is_available_online ? 'bg-indigo-500' : 'bg-gray-200'}`}>
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm
+                        transition-transform duration-200 ${form.is_available_online ? 'translate-x-5' : ''}`} />
                     </div>
-                  </div>
-                  <div className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0
-                    ${form.is_available_online ? 'bg-indigo-500' : 'bg-gray-200'}`}>
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm
-                      transition-transform duration-200 ${form.is_available_online ? 'translate-x-5' : ''}`} />
-                  </div>
-                </button>
+                  </button>
+                  
+                  {form.is_available_online && initialChannels.length > 0 && (
+                    <div className="p-4 rounded-2xl border border-gray-100 bg-white ml-6">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Tersedia untuk:</p>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" 
+                            checked={form.available_online_channels === null} 
+                            onChange={() => setForm({ ...form, available_online_channels: null })}
+                            className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300" />
+                          <span className="text-sm text-gray-700 font-medium">Semua Channel Food Apps</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" 
+                            checked={form.available_online_channels !== null} 
+                            onChange={() => setForm({ ...form, available_online_channels: [] })}
+                            className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300" />
+                          <span className="text-sm text-gray-700 font-medium">Pilih Channel Spesifik (Custom)</span>
+                        </label>
+                      </div>
+                      
+                      {form.available_online_channels !== null && (
+                        <div className="mt-3 pl-6 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2">
+                          {initialChannels.map(ch => {
+                            const slug = getSlug(ch.id);
+                            const isChecked = form.available_online_channels!.includes(slug);
+                            return (
+                              <label key={ch.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
+                                <input type="checkbox" 
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    const curr = form.available_online_channels || [];
+                                    if (e.target.checked) {
+                                      setForm({ ...form, available_online_channels: [...curr, slug] });
+                                    } else {
+                                      setForm({ ...form, available_online_channels: curr.filter(c => c !== slug) });
+                                    }
+                                  }}
+                                  className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" />
+                                <span className="text-sm text-gray-700">{ch.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {/* Error */}
                 {error && (

@@ -1,14 +1,8 @@
 'use client'
 
-<<<<<<< Updated upstream
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Card } from '@/components/ui'
-=======
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase'
-import { Card } from '@/components/ui/Card'
->>>>>>> Stashed changes
 import { formatRupiah } from '@/lib/validations'
 import { Loader2, ExternalLink, Search, ImageIcon, X } from 'lucide-react'
 import { PageHeader } from '@/components/ui'
@@ -133,11 +127,7 @@ export default function BuktiQrisPage() {
       </div>
 
       <Card padded={false}>
-<<<<<<< Updated upstream
-        <div className="p-0">
-=======
-        <div className="w-full">
->>>>>>> Stashed changes
+        <div className="w-full p-0">
           {loading ? (
             <div className="flex flex-col justify-center items-center py-20 text-suka-gray-500">
               <Loader2 className="w-8 h-8 animate-spin text-suka-orange mb-3" />

@@ -395,7 +395,7 @@ export default function OrderManualPage() {
   const needsMoreForPromo = isGlobalPromoActive && globalPromo.min_purchase && subtotalAmount > 0 && subtotalAmount < globalPromo.min_purchase;
   const missingAmount = needsMoreForPromo ? (globalPromo.min_purchase || 0) - subtotalAmount : 0;
 
-  const canSubmit = lineList.length > 0 && !!channel && !!payment && !submitting
+  const canSubmit = lineList.length > 0 && !!channel && !!payment && !!customerName.trim() && !submitting
 
   // ── Submit ────────────────────────────────────────────────────────────────
   async function handleSubmit(amountReceived: number | null) {
@@ -1372,7 +1372,7 @@ function CartPanel(props: {
         <div className="bg-gray-50 -mx-4 p-4 border-t border-gray-200 space-y-4">
           {/* Nama customer */}
           <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Nama Customer (opsional)</label>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Nama Customer (Wajib)</label>
             <input
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
@@ -1387,6 +1387,8 @@ function CartPanel(props: {
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Promo Apps (Wajib)</label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={promoSubsidy}
                 onChange={(e) => setPromoSubsidy(e.target.value)}
                 placeholder="Misal: 10000 (bisa 0)"
@@ -1398,7 +1400,7 @@ function CartPanel(props: {
           {/* Metode bayar */}
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">3. Metode Pembayaran</label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setPayment('qris')}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
@@ -1410,12 +1412,6 @@ function CartPanel(props: {
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
               >
                 <Banknote className="w-4 h-4" /> Tunai
-              </button>
-              <button
-                onClick={() => setPayment('card')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'card' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-              >
-                <CreditCard className="w-4 h-4" /> Debit
               </button>
             </div>
           </div>
@@ -1526,7 +1522,7 @@ function CartPanel(props: {
         )}
         {!canSubmit && !submitting && (
           <p className="text-xs text-gray-400 text-center -mt-1">
-            {lineList.length === 0 ? 'Pilih minimal 1 menu' : !channel ? 'Pilih channel dulu' : !payment ? 'Pilih metode pembayaran' : ''}
+            {lineList.length === 0 ? 'Pilih minimal 1 menu' : !channel ? 'Pilih channel dulu' : !customerName.trim() ? 'Nama customer wajib diisi' : !payment ? 'Pilih metode pembayaran' : ''}
           </p>
         )}
         {ch && lineList.length > 0 && (

@@ -15,7 +15,7 @@ function formatUpdatedAt(iso: string | null): string {
 
 export function BahanBakuTable({
   rows, onSave, onSaveMerek, onSaveNama, onSaveSatuan, saving, onUploadImage, uploading,
-  onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving, priceAlerts = []
+  onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving, priceAlerts = [], setSkuImage
 }: {
   rows: BahanBakuWithHarga[]
   onSave: (bahanBakuId: string, harga: number) => void

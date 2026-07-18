@@ -3,8 +3,8 @@ import { rupiah, pct } from '@/lib/format'
 import { Store, Globe } from 'lucide-react'
 
 const LABELS: Record<SalesSource, string> = {
-  pos: 'POS Kasir Outlet', 
-  online: 'Order Online Website', 
+  pos: 'POS Kasir', 
+  online: 'Order Website', 
   gofood: 'GoFood Delivery',
   grabfood: 'GrabFood Delivery', 
   shopeefood: 'ShopeeFood Delivery', 

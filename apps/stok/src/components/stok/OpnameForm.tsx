@@ -56,6 +56,38 @@ const KITCHEN_UNIT_OVERRIDES: Record<string, { largeLabel: string, smallLabel: s
   'GARAM': { largeLabel: 'bal', smallLabel: 'pack', factor: 20, toBaseUnit: (l, s) => l + s / 20 }
 };
 
+// Map of Outlet-specific unit overrides
+const OUTLET_UNIT_OVERRIDES: Record<string, { largeLabel: string, smallLabel: string, factor: number, toBaseUnit: (large: number, small: number) => number }> = {
+  'SAOS CABE': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l + s / 1000) / 16.5 },
+  'SAOS TOMAT': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l + s / 1000) / 16.5 },
+  'SAOS SAMYANG': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l + s / 1000) / 20 },
+  'MAYONES': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l + s / 1000) / 12 },
+  'KULIT 25': { largeLabel: 'pack', smallLabel: 'lembar', factor: 20, toBaseUnit: (l, s) => l + s / 20 },
+  'KULIT 28': { largeLabel: 'pack', smallLabel: 'lembar', factor: 20, toBaseUnit: (l, s) => l + s / 20 },
+  'KULIT 32': { largeLabel: 'pack', smallLabel: 'lembar', factor: 20, toBaseUnit: (l, s) => l + s / 20 },
+  'AYAM': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'SAPI': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l * 1000 + s) / 2000 }, 
+  'KENTANG': { largeLabel: 'dus', smallLabel: 'kg', factor: 4, toBaseUnit: (l, s) => l + s / 4 }, 
+  'KEJU': { largeLabel: 'pack', smallLabel: 'lembar', factor: 10, toBaseUnit: (l, s) => (l * 10 + s) / 240 },
+  'MIE': { largeLabel: 'dus', smallLabel: 'bungkus', factor: 40, toBaseUnit: (l, s) => l + s / 40 },
+  'TUM': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'BAWANG': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l * 1000 + s) / 20000 }, 
+  'TEPUNG': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'MINYAK SAYUR': { largeLabel: 'kompan', smallLabel: 'liter', factor: 18, toBaseUnit: (l, s) => l + s / 18 },
+  'PAPER WRAP': { largeLabel: 'pack', smallLabel: 'lembar', factor: 500, toBaseUnit: (l, s) => l + s / 500 },
+  'FOIL': { largeLabel: 'roll', smallLabel: 'cm', factor: 760, toBaseUnit: (l, s) => (l * 760 + s) / 18240 }, 
+  'SARUNG TANGAN BENING': { largeLabel: 'box', smallLabel: 'lembar', factor: 100, toBaseUnit: (l, s) => l + s / 100 },
+  'KERTAS STRUK': { largeLabel: 'pack', smallLabel: 'roll', factor: 10, toBaseUnit: (l, s) => l + s / 10 },
+  'PLASTIK BESAR': { largeLabel: 'pack', smallLabel: 'lembar', factor: 25, toBaseUnit: (l, s) => (l * 25 + s) / 125 },
+  'PLASTIK KECIL': { largeLabel: 'pack', smallLabel: 'lembar', factor: 50, toBaseUnit: (l, s) => (l * 50 + s) / 250 },
+  'PLASTIK MERAH': { largeLabel: 'pack', smallLabel: 'lembar', factor: 20, toBaseUnit: (l, s) => (l * 20 + s) / 100 },
+  'POLYBAG': { largeLabel: 'pack', smallLabel: 'lembar', factor: 5, toBaseUnit: (l, s) => (l * 5 + s) / 25 },
+  'POWDER TEH': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'POWDER JERUK': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
+  'CUP + TUTUP': { largeLabel: 'pack', smallLabel: 'pcs', factor: 25, toBaseUnit: (l, s) => l + s / 25 }, 
+  'ES BATU': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l * 1000 + s) / 1000 }
+};
+
 export function OpnameForm({ outletId, createdBy, role }: { outletId: string; createdBy: string; role?: string }) {
   const router = useRouter();
   const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
@@ -359,7 +391,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                 useComposite = false;
               }
             } else {
-              if (b.satuan_kecil && b.faktor_tampilan) {
+              const override = OUTLET_UNIT_OVERRIDES[b.nama];
+              if (override) {
+                useComposite = true;
+                compLargeLabel = override.largeLabel;
+                compLabel = override.smallLabel;
+                compFactor = override.factor;
+                toBaseUnit = override.toBaseUnit;
+              } else if (b.satuan_kecil && b.faktor_tampilan) {
                 useComposite = true;
                 compLabel = b.satuan_kecil;
                 compFactor = b.faktor_tampilan;

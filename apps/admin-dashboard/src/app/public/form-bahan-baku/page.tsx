@@ -439,23 +439,22 @@ function FormBahanBakuContent() {
               </div>
 
                 {/* SKU / Variasi Kemasan */}
-              <div className="pt-6 border-t border-gray-100">
-                {!showSkuSection ? (
-                  <button 
-                    type="button"
-                    onClick={() => setShowSkuSection(true)}
-                    className="w-full py-3 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <span>+ Tambah Variasi Kemasan Baru</span>
-                  </button>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-sm font-bold text-suka-ink uppercase tracking-wider">Variasi Kemasan (SKU)</h3>
-                        <p className="text-xs text-gray-500 mt-1">Daftar kemasan untuk bahan ini. Harga HPP akan mengambil dari SKU yang paling efisien.</p>
-                      </div>
-                    </div>
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Variasi Kemasan (SKU)</label>
+                    <p className="text-[11px] text-gray-500 mt-0.5">Harga HPP otomatis dari SKU paling efisien (termurah per satuan kecil).</p>
+                  </div>
+                  {!showSkuSection && (
+                    <button 
+                      type="button"
+                      onClick={() => setShowSkuSection(true)}
+                      className="text-suka-orange flex items-center gap-1 text-xs font-semibold hover:bg-orange-50 px-2 py-1 rounded transition-colors whitespace-nowrap"
+                    >
+                      + Tambah
+                    </button>
+                  )}
+                </div>
                 
                 <div className="flex flex-col gap-3">
                   {selectedItem.bahan_baku_sku && selectedItem.bahan_baku_sku.length > 0 ? (
@@ -464,7 +463,7 @@ function FormBahanBakuContent() {
                       const isCheapest = Math.min(...(selectedItem.bahan_baku_sku?.filter(s => s.qty_isi > 0).map(s => s.harga_beli / s.qty_isi) || [0])) === hargaSatuan
                       
                       return (
-                        <div key={sku.id} className="flex flex-col bg-white p-3 rounded-lg border border-gray-200 gap-3 hover:border-gray-300 transition-colors">
+                        <div key={sku.id} className="flex flex-col bg-white p-3 rounded-lg border border-gray-200 gap-3 hover:border-gray-300 transition-colors shadow-sm">
                           <div className="flex items-start justify-between">
                             <div className="flex flex-col justify-center">
                               <span className="text-sm font-bold text-suka-ink">{sku.nama_kemasan}</span>
@@ -541,79 +540,89 @@ function FormBahanBakuContent() {
                       )
                     })
                   ) : (
-                    <div className="p-6 text-center text-sm text-gray-400 border border-dashed border-gray-200 rounded-lg bg-gray-50">
-                      Belum ada variasi kemasan. Silakan tambahkan kemasan baru di bawah.
+                    <div className="p-4 text-center text-xs font-medium text-gray-400 bg-white border border-gray-200 rounded-lg shadow-sm">
+                      Belum ada kemasan. Silakan tambah kemasan baru.
                     </div>
                   )}
                 </div>
 
                 {/* Form Tambah SKU */}
-                <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Tambah Kemasan Baru</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-500 block mb-1">Nama Kemasan</label>
-                      <input type="text" id="newSkuNama" placeholder="Contoh: Botol 600ml" className="w-full text-sm p-2 border border-gray-300 rounded-md outline-none focus:border-suka-orange" />
+                {showSkuSection && (
+                  <div className="space-y-4 bg-white p-4 rounded-lg border border-gray-200 shadow-sm mt-2">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
+                      <label className="text-xs font-semibold text-gray-500 block">Tambah Kemasan Baru</label>
                     </div>
-                    <div>
-                      <label className="text-xs text-gray-500 block mb-1">Total Isi ({selectedItem.satuan_kecil || selectedItem.satuan})</label>
-                      <input type="number" id="newSkuQty" placeholder="600" className="w-full text-sm p-2 border border-gray-300 rounded-md outline-none focus:border-suka-orange" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 block mb-1">Harga Beli</label>
-                      <input type="number" id="newSkuHarga" placeholder="15000" className="w-full text-sm p-2 border border-gray-300 rounded-md outline-none focus:border-suka-orange" />
-                    </div>
-                    <div className="flex items-end">
-                      <button 
-                        type="button"
-                        className="w-full py-2 bg-suka-orange text-white font-bold rounded-md hover:bg-orange-600 transition-colors disabled:opacity-50"
-                        disabled={isSubmitting}
-                        onClick={async () => {
-                          if (!token) return
-                          const nama = (document.getElementById('newSkuNama') as HTMLInputElement).value
-                          const qty = Number((document.getElementById('newSkuQty') as HTMLInputElement).value)
-                          const harga = Number((document.getElementById('newSkuHarga') as HTMLInputElement).value)
-                          
-                          if (!nama || qty <= 0 || harga <= 0) {
-                            alert('Mohon isi semua data kemasan dengan benar')
-                            return
-                          }
-                          
-                          setIsSubmitting(true)
-                          const res = await addBahanBakuSku(token, {
-                            bahan_baku_id: selectedItem.id,
-                            nama_kemasan: nama,
-                            qty_isi: qty,
-                            harga_beli: harga,
-                            is_default: !selectedItem.bahan_baku_sku || selectedItem.bahan_baku_sku.length === 0
-                          })
-                          
-                          if (res.success) {
-                            const refreshed = await getBahanBakuList(token)
-                            if (refreshed.success && refreshed.data) {
-                              setBahanBakuList(refreshed.data)
-                              const updatedItem = refreshed.data.find(b => b.id === selectedItem.id)
-                              if (updatedItem) setSelectedItem(updatedItem)
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Nama Kemasan</label>
+                        <input type="text" id="newSkuNama" placeholder="Contoh: Botol 600ml" className="w-full text-sm p-2 border border-gray-300 rounded-md bg-white focus:border-suka-orange outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Total Isi ({selectedItem.satuan_kecil || selectedItem.satuan})</label>
+                        <input type="number" id="newSkuQty" placeholder="600" className="w-full text-sm p-2 border border-gray-300 rounded-md bg-white focus:border-suka-orange outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Harga Beli</label>
+                        <input type="number" id="newSkuHarga" placeholder="15000" className="w-full text-sm p-2 border border-gray-300 rounded-md bg-white focus:border-suka-orange outline-none" />
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <button 
+                          type="button"
+                          onClick={() => setShowSkuSection(false)}
+                          className="w-full py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          Batal
+                        </button>
+                        <button 
+                          type="button"
+                          className="w-full py-2 bg-suka-orange text-white text-xs font-bold rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
+                          disabled={isSubmitting}
+                          onClick={async () => {
+                            if (!token) return
+                            const nama = (document.getElementById('newSkuNama') as HTMLInputElement).value
+                            const qty = Number((document.getElementById('newSkuQty') as HTMLInputElement).value)
+                            const harga = Number((document.getElementById('newSkuHarga') as HTMLInputElement).value)
+                            
+                            if (!nama || qty <= 0 || harga <= 0) {
+                              alert('Mohon isi semua data kemasan dengan benar')
+                              return
                             }
                             
-                            // reset form
-                            ;(document.getElementById('newSkuNama') as HTMLInputElement).value = '';
-                            ;(document.getElementById('newSkuQty') as HTMLInputElement).value = '';
-                            ;(document.getElementById('newSkuHarga') as HTMLInputElement).value = '';
-                          } else {
-                            setErrorMsg(res.error || 'Gagal tambah kemasan')
-                          }
-                          setIsSubmitting(false)
-                        }}
-                      >
-                        Tambah
-                      </button>
+                            setIsSubmitting(true)
+                            const res = await addBahanBakuSku(token, {
+                              bahan_baku_id: selectedItem.id,
+                              nama_kemasan: nama,
+                              qty_isi: qty,
+                              harga_beli: harga,
+                              is_default: !selectedItem.bahan_baku_sku || selectedItem.bahan_baku_sku.length === 0
+                            })
+                            
+                            if (res.success) {
+                              const refreshed = await getBahanBakuList(token)
+                              if (refreshed.success && refreshed.data) {
+                                setBahanBakuList(refreshed.data)
+                                const updatedItem = refreshed.data.find(b => b.id === selectedItem.id)
+                                if (updatedItem) setSelectedItem(updatedItem)
+                              }
+                              
+                              // reset form
+                              ;(document.getElementById('newSkuNama') as HTMLInputElement).value = '';
+                              ;(document.getElementById('newSkuQty') as HTMLInputElement).value = '';
+                              ;(document.getElementById('newSkuHarga') as HTMLInputElement).value = '';
+                              setShowSkuSection(false);
+                            } else {
+                              setErrorMsg(res.error || 'Gagal tambah kemasan')
+                            }
+                            setIsSubmitting(false)
+                          }}
+                        >
+                          Simpan Kemasan
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </>
-            )}
-          </div>
+                )}
+              </div>
 
               {/* Foto Masing-masing Kemasan */}
               <div className="space-y-4">

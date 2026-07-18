@@ -872,14 +872,7 @@ export default function OrderManualPage() {
                       <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem]">{it.name}</p>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex flex-col">
-                          {wrappedCalculateItemPrice(it.price, it.id, it.channel_prices) < it.price ? (
-                            <>
-                              <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(it.price)}</span>
-                              <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(wrappedCalculateItemPrice(it.price, it.id, it.channel_prices))}</span>
-                            </>
-                          ) : (
-                            <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(it.price)}</span>
-                          )}
+                          <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(wrappedCalculateItemPrice(it.price, it.id, it.channel_prices))}</span>
                         </div>
                       </div>
                     </div>
@@ -1277,9 +1270,7 @@ function CartPanel(props: {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-800 text-sm leading-snug">{root.item.name}</p>
                         <div className="flex items-center gap-1.5 mt-1">
-                          {discountedPrice < root.item.price && (
-                            <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(root.item.price * root.quantity)}</span>
-                          )}
+
                           <p className="text-amber-600 font-bold text-sm">{formatRupiah(discountedPrice * root.quantity)}</p>
                         </div>
                       </div>
@@ -1321,9 +1312,7 @@ function CartPanel(props: {
                                     {child.item.name}
                                   </p>
                                   <div className="flex items-center gap-1.5 mt-1">
-                                    {childDiscountedPrice < child.item.price && (
-                                      <span className="text-[10px] text-gray-400 line-through decoration-red-500">{formatRupiah(child.item.price * child.quantity)}</span>
-                                    )}
+
                                     <p className="text-amber-700 font-bold text-sm">{formatRupiah(childDiscountedPrice * child.quantity)}</p>
                                   </div>
                                 </div>

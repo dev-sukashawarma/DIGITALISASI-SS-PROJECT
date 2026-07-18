@@ -26,7 +26,7 @@ export default function BuktiQrisPage() {
 
   useEffect(() => {
     fetchProofs()
-  }, [filter.from, filter.to, filter.outletId])
+  }, [filter.from, filter.to, filter.outletId, filter.source])
 
   async function fetchProofs() {
     setLoading(true)
@@ -63,6 +63,16 @@ export default function BuktiQrisPage() {
         const end = new Date(filter.to)
         end.setHours(23, 59, 59, 999)
         q = q.lte('created_at', end.toISOString())
+      }
+
+      if (filter.source && filter.source !== 'all') {
+        if (filter.source === 'pos') {
+          q = q.eq('sales_source', 'pos').is('channel', null)
+        } else if (filter.source === 'online') {
+          q = q.eq('sales_source', 'online')
+        } else {
+          q = q.eq('channel', filter.source)
+        }
       }
 
       const { data, error } = await q

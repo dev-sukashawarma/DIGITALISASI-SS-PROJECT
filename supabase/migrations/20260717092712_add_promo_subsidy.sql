@@ -1,1 +1,1 @@
-ALTER TABLE orders ADD COLUMN promo_subsidy INT NOT NULL DEFAULT 0;
+-- ALTER TABLE orders ADD COLUMN promo_subsidy INT NOT NULL DEFAULT 0;

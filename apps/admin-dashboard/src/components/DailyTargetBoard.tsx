@@ -5,6 +5,7 @@ import { rupiahCompact } from '@/lib/format'
 import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
+import { OutletCombobox } from '@/components/OutletCombobox'
 import type { PeriodFilterValue, SalesSummaryRow } from '@/lib/types'
 
 import { User } from '@/lib/types'
@@ -175,20 +176,19 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
               </span>
             )}
             {isMoreThanOneDay && filter?.outletId === 'all' && (
-              <select
-                value={localOutletFilter}
-                onChange={(e) => {
-                   setLocalOutletFilter(e.target.value);
-                   setCurrentPage(1);
-                }}
-                className="ml-2 px-2 py-1 rounded-lg text-[10px] font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange"
-              >
-                <option value="all">Semua Outlet</option>
-                {Array.from(new Set(rows.map(r => r.outlet_id))).map(id => {
-                   const name = rows.find(r => r.outlet_id === id)?.outlet_name;
-                   return <option key={id} value={id}>{name ? name : 'Outlet'}</option>
-                })}
-              </select>
+              <div className="ml-2">
+                <OutletCombobox
+                  value={localOutletFilter}
+                  outlets={Array.from(new Set(rows.map(r => r.outlet_id))).map(id => ({
+                    id,
+                    name: rows.find(r => r.outlet_id === id)?.outlet_name || 'Outlet'
+                  }))}
+                  onChange={(id) => {
+                    setLocalOutletFilter(id);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
             )}
           </div>
           
@@ -220,7 +220,7 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {paginatedItems.map((r) => {
+              {paginatedItems.map((r, i) => {
                 const pct = r.pct
                 const pctClamped = Math.min(pct, 100)
                 const isGreen = pct >= 100
@@ -236,7 +236,7 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
 
                 return (
                   <div
-                    key={r.outlet_id}
+                    key={`${r.outlet_id}-${r.date_value || i}`}
                     onClick={() => {
                       if (isReadOnly) return
                       setTargetScope(r.outlet_id)
@@ -326,9 +326,12 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                 className="w-full px-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
               >
                 <option value="global">Semua Outlet (Default)</option>
-                {rows.map(r => (
-                  <option key={r.outlet_id} value={r.outlet_id}>{r.outlet_name}</option>
-                ))}
+                {Array.from(new Set(rows.map(r => r.outlet_id))).map(id => {
+                  const name = rows.find(r => r.outlet_id === id)?.outlet_name;
+                  return (
+                    <option key={id} value={id}>{name}</option>
+                  )
+                })}
               </select>
             </div>
 

@@ -13,6 +13,7 @@ import { db, type LocalOrderRow } from '@/lib/db'
 import {
   cacheOrders, readCachedTodayOrders, patchCachedOrder,
   patchLocalOrder, queueStatusMutation, isNetworkError, localOrderRowsToOrders,
+  deleteLocalOrder, retryLocalOrderSync
 } from '@/lib/offline'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
@@ -244,7 +245,7 @@ const renderOrderNotes = (notes: string | null) => {
     const noteBg = isPending ? 'bg-amber-100/50 border-amber-200 text-amber-900' : 'bg-blue-100/50 border-blue-200 text-blue-900';
 
     const { rootItems, childrenMap } = order._parsedItems;
-    const { cancelOrder, markAsPreparing, handlePrintCustomerOnly, markAsCompleted, setReprintTargetOrder } = handlersRef.current;
+    const { cancelOrder, markAsPreparing, handlePrintCustomerOnly, markAsCompleted, setReprintTargetOrder, deleteLocalOrder, retryLocalOrderSync } = handlersRef.current;
 
     return (
       <div 
@@ -262,9 +263,14 @@ const renderOrderNotes = (notes: string | null) => {
               <div className="text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1">
                 <Clock size={10} /> dipesan <TimeAgo date={order.created_at} />
               </div>
-              {isLocal && (
+              {isLocal && !order._sync_error && (
                 <span className="mt-1.5 inline-flex items-center gap-1 bg-orange-100 text-orange-700 border border-orange-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-max">
                   OFFLINE — belum sinkron
+                </span>
+              )}
+              {isLocal && order._sync_error && (
+                <span className="mt-1.5 inline-flex items-center gap-1 bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-max">
+                  <AlertTriangle size={10} /> Gagal Sinkron
                 </span>
               )}
             </div>
@@ -365,49 +371,55 @@ const renderOrderNotes = (notes: string | null) => {
             {renderOrderNotes(order.notes)}
           </div>
         </div>
-        
-        {/* Actions - BIG and CLEAR */}
-        <div className="p-3 pt-0 mt-auto flex gap-2">
-          {isPending && order.payment_method === 'qris' ? (
-            <div className="flex-1 bg-blue-50/70 text-blue-600 font-bold py-3.5 rounded-xl border border-blue-100 flex items-center justify-center gap-2 cursor-wait text-xs">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Tunggu QRIS
-            </div>
-          ) : (order as any).cancellation_status === 'pending_approval' ? (
-            <div className="flex-1 bg-yellow-50 text-yellow-600 font-bold py-3.5 rounded-xl border border-yellow-200 flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Menunggu Persetujuan Batal
-            </div>
-          ) : isPending ? (
-            <>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
-                className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
-              >
-                <XCircle size={18} />
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
-                className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
-              >
-                <ChefHat size={18} />
-                Mulai Masak
-              </button>
-            </>
-          ) : order.status === 'preparing' ? (
-            <>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
-                className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
-              >
-                <XCircle size={18} />
-                Batal
-              </button>
-              {!order.kitchen_receipt_printed ? (
+              {/* Actions - BIG and CLEAR */}
+        <div className="p-3 pt-0 mt-auto flex flex-col gap-2">
+          {isLocal && order._sync_error && (
+             <div className="mb-1 p-2 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-[10px] font-bold text-red-800 mb-1">Gagal Mengirim ke Server:</p>
+                <p className="text-[10px] font-medium text-red-600 break-words line-clamp-2">{order._sync_error}</p>
+             </div>
+          )}
+          
+          <div className="flex gap-2 w-full">
+            {isLocal && order._sync_error ? (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteLocalOrder(order.id) }}
+                  className="relative z-50 cursor-pointer w-1/3 flex flex-col items-center justify-center gap-1 bg-red-100 hover:bg-red-200 text-red-600 py-2 rounded-xl font-bold transition-all text-[11px]"
+                >
+                  <XCircle size={16} />
+                  Hapus
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); retryLocalOrderSync(order.id) }}
+                  className="relative z-50 cursor-pointer w-2/3 flex flex-col items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl font-bold shadow-md transition-all text-[11px]"
+                >
+                  <RefreshCw size={16} />
+                  Coba Ulang
+                </button>
+              </>
+            ) : isPending && order.payment_method === 'qris' ? (
+              <div className="flex-1 bg-blue-50/70 text-blue-600 font-bold py-3.5 rounded-xl border border-blue-100 flex items-center justify-center gap-2 cursor-wait text-xs">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Tunggu QRIS
+              </div>
+            ) : (order as any).cancellation_status === 'pending_approval' ? (
+              <div className="flex-1 bg-yellow-50 text-yellow-600 font-bold py-3.5 rounded-xl border border-yellow-200 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Menunggu Persetujuan Batal
+              </div>
+            ) : isPending ? (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
+                  className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
+                >
+                  <XCircle size={18} />
+                  Batal
+                </button>
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
@@ -416,38 +428,58 @@ const renderOrderNotes = (notes: string | null) => {
                   <ChefHat size={18} />
                   Mulai Masak
                 </button>
-              ) : !order.customer_receipt_printed ? (
+              </>
+            ) : order.status === 'preparing' ? (
+              <>
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrintCustomerOnly(order) }}
-                  className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
+                  className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
                 >
-                  <Printer size={18} />
-                  Cetak Struk
+                  <XCircle size={18} />
+                  Batal
                 </button>
-              ) : (
-                <div className="w-2/3 flex gap-2 relative z-50">
+                {!order.kitchen_receipt_printed ? (
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsCompleted(order.id) }}
-                    className="cursor-pointer flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
+                    className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
                   >
-                    <CheckCircle2 size={18} />
-                    Selesai
+                    <ChefHat size={18} />
+                    Mulai Masak
                   </button>
+                ) : !order.customer_receipt_printed ? (
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setReprintTargetOrder(order) }}
-                    className="cursor-pointer px-4 flex items-center justify-center bg-white border-2 border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-500 py-3.5 rounded-xl transition-all shadow-sm active:scale-95"
-                    title="Cetak Ulang Struk"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrintCustomerOnly(order) }}
+                    className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
                   >
                     <Printer size={18} />
+                    Cetak Struk
                   </button>
-                </div>
-              )}
-            </>
-          ) : null}
-
+                ) : (
+                  <div className="w-2/3 flex gap-2 relative z-50">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsCompleted(order.id) }}
+                      className="cursor-pointer flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
+                    >
+                      <CheckCircle2 size={18} />
+                      Selesai
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setReprintTargetOrder(order) }}
+                      className="cursor-pointer px-4 flex items-center justify-center bg-white border-2 border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-500 py-3.5 rounded-xl transition-all shadow-sm active:scale-95"
+                      title="Cetak Ulang Struk"
+                    >
+                      <Printer size={18} />
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
     );
@@ -512,7 +544,7 @@ export default function KasirOrderClient({
   const queryClient = useQueryClient()
   const handlersRef = useRef<any>({})
   useEffect(() => {
-    handlersRef.current = { cancelOrder, markAsPreparing, handlePrintCustomerOnly, markAsCompleted, setReprintTargetOrder }
+    handlersRef.current = { cancelOrder, markAsPreparing, handlePrintCustomerOnly, markAsCompleted, setReprintTargetOrder, deleteLocalOrder, retryLocalOrderSync }
   })
   const { outletId: clientOutletId, outletName } = useMyOutlet()
   const { brandLogo } = useBrand()

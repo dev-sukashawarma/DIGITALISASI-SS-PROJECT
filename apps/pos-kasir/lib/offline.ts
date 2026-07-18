@@ -200,5 +200,44 @@ export async function queueStatusMutation(orderId: string, patch: Record<string,
 export function localOrderRowsToOrders(rows: LocalOrderRow[]): OrderWithItems[] {
   return rows
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .map((r) => r.data);
+    .map((r) => ({ ...r.data, _sync_error: r.sync_error }));
+}
+
+/** Hapus order offline yang nyangkut (status error permanen). */
+export async function deleteLocalOrder(localId: string) {
+  await db.transaction('rw', db.local_orders, db.sync_queue_orders, db.sync_queue_mutations, async () => {
+    await db.local_orders.delete(localId);
+    
+    // Hapus dari antrean sinkronisasi order
+    const queueOrders = await db.sync_queue_orders.where('local_order_id').equals(localId).toArray();
+    for (const q of queueOrders) {
+      await db.sync_queue_orders.delete(q.id);
+    }
+    
+    // Hapus dari antrean mutasi (karena induknya dihapus)
+    const queueMutations = await db.sync_queue_mutations.where('order_id').equals(localId).toArray();
+    for (const m of queueMutations) {
+      await db.sync_queue_mutations.delete(m.id);
+    }
+  });
+}
+
+/** Coba ulang order offline yang nyangkut (reset status queue jadi pending). */
+export async function retryLocalOrderSync(localId: string) {
+  await db.transaction('rw', db.local_orders, db.sync_queue_orders, async () => {
+    // 1. Reset error di local_orders
+    const local = await db.local_orders.get(localId);
+    if (local) {
+      await db.local_orders.update(localId, { sync_error: undefined });
+    }
+    
+    // 2. Reset status di sync_queue_orders agar OfflineSyncManager menariknya lagi
+    const queueOrders = await db.sync_queue_orders.where('local_order_id').equals(localId).toArray();
+    for (const q of queueOrders) {
+      await db.sync_queue_orders.update(q.id, { 
+        status: 'pending', 
+        error_message: undefined 
+      });
+    }
+  });
 }

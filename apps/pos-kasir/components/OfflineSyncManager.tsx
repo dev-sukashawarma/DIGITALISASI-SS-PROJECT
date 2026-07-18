@@ -62,9 +62,9 @@ export default function OfflineSyncManager() {
 
             await db.sync_queue_orders.delete(entry.id);
             console.log(`[SyncManager] Pesanan offline ${entry.id} berhasil dikirim.`);
-          } else if (res.status >= 500 || res.status === 429) {
-            // Server error sementara → biarkan pending agar di-retry nanti
-            console.warn(`[SyncManager] Server error ${res.status} untuk pesanan ${entry.id}, akan di-retry.`);
+          } else if (res.status >= 500 || res.status === 429 || res.status === 401) {
+            // Server error sementara atau token expired (401) -> biarkan pending agar di-retry nanti
+            console.warn(`[SyncManager] Server error / auth expired ${res.status} untuk pesanan ${entry.id}, akan di-retry.`);
             await db.sync_queue_orders.update(entry.id, {
               error_message: `Menunggu retry (Server Error ${res.status})`,
             });

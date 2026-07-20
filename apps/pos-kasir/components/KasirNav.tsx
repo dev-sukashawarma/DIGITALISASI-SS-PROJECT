@@ -191,16 +191,17 @@ export default function KasirNav() {
           ${isCollapsed ? 'md:w-20' : 'md:w-64'} w-64
           ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}`}
       >
-        <div className={`absolute inset-y-0 left-0 ${isCollapsed ? 'md:w-[300px] w-64' : 'w-64'} overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden pointer-events-none`}>
-          <div className={`relative flex flex-col min-h-full bg-[#f5ede3] border-r border-[#d9c2b2] pointer-events-auto transition-all duration-300 ease-in-out ${isCollapsed ? 'md:w-20 w-64' : 'w-64'}`}>
         {/* Collapse toggle button for desktop */}
         <button
           onClick={toggleCollapse}
-          className="hidden md:flex absolute top-1/2 -translate-y-1/2 -right-3.5 z-[60] w-7 h-7 bg-[#f29744] hover:bg-[#e08632] text-white rounded-full border border-[#d9c2b2] shadow-sm items-center justify-center cursor-pointer transition-transform duration-200 active:scale-95"
+          className="hidden md:flex absolute top-1/2 -translate-y-1/2 -right-3.5 z-[150] w-7 h-7 bg-[#f29744] hover:bg-[#e08632] text-white rounded-full border border-[#d9c2b2] shadow-sm items-center justify-center cursor-pointer transition-transform duration-200 active:scale-95"
           title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
+
+        <div className={`absolute inset-y-0 left-0 ${isCollapsed ? 'md:w-[300px] w-64' : 'w-64'} overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden pointer-events-none`}>
+          <div className={`relative flex flex-col min-h-full bg-[#f5ede3] border-r border-[#d9c2b2] pointer-events-auto transition-all duration-300 ease-in-out ${isCollapsed ? 'md:w-20 w-64' : 'w-64'}`}>
 
         <div className={`flex flex-col relative justify-center border-b border-[#d9c2b2] shrink-0 ${isCollapsed ? 'h-[5.5rem] px-4 items-center' : 'py-6 px-6 items-center'}`}>
           <Link href="/kasir" className={`flex min-w-0 ${isCollapsed ? 'flex-col gap-0 justify-center items-center' : 'flex-col gap-3 items-center text-center'}`} onClick={() => setOpen(false)}>

@@ -6,7 +6,7 @@ import { useRole } from '@/components/layout/RoleContext'
 
 const ROLE_HOME: Record<string, string> = {
   OWNER: '/dashboard/owner',
-  MITRA: '/dashboard/owner',
+  MITRA: '/dashboard/mitra',
   ADMIN_HR: '/dashboard/hr',
   ADMIN: '/dashboard/system-health',
 }

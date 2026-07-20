@@ -7,7 +7,7 @@ import { ClientRedirect } from './ClientRedirect'
 // Mapping identik dengan RoleContext.tsx: outletStaff.role.toUpperCase().
 const ROLE_HOME: Record<string, string> = {
   OWNER: '/dashboard/owner',
-  MITRA: '/dashboard/owner',
+  MITRA: '/dashboard/mitra',
   ADMIN_HR: '/dashboard/hr',
   ADMIN: '/dashboard/system-health',
 }

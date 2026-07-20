@@ -65,14 +65,9 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   // Route-guard: MITRA may only see its 4 read-only pages.
   useEffect(() => {
     if (role !== 'MITRA') return
-    const allowed = [
-      '/dashboard/owner',
-      '/dashboard/owner/targets',
-      '/dashboard/owner/profit',
-      '/dashboard/owner/expenses',
-    ]
-    if (!allowed.includes(pathname)) {
-      router.replace('/dashboard/owner')
+    const allowed = ['/dashboard/mitra']
+    if (!allowed.some((a) => pathname === a || pathname.startsWith(a + '/'))) {
+      router.replace('/dashboard/mitra')
     }
   }, [role, pathname, router])
 

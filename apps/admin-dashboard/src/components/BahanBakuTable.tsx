@@ -26,8 +26,8 @@ export function BahanBakuTable({
   saving: boolean
   onUploadImage: (bahanBakuId: string, file: File, level: 'besar' | 'tengah' | 'kecil') => void
   uploading: boolean
-  onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean; tingkatan_satuan?: string | null }) => void
-  onUpdateSku: (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number }) => void
+  onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean; satuan_tengah?: string | null; faktor_tengah?: number | null }) => void
+  onUpdateSku: (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; satuan_tengah?: string | null; faktor_tengah?: number | null }) => void
   onDeleteSku: (sku_id: string) => void
   onSetDefaultSku: (vars: { bahan_baku_id: string; sku_id: string }) => void
   setSkuImage?: (sku_id: string, file: File) => void
@@ -124,8 +124,8 @@ export function BahanBakuTable({
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex flex-col gap-2 h-full">
+                    <div className="flex items-center gap-1.5 flex-wrap min-h-[24px]">
                       <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">{r.satuan}</span>
                       
                       {r.faktor_tengah && r.satuan_tengah && (
@@ -147,74 +147,80 @@ export function BahanBakuTable({
                       )}
                     </div>
 
-                    {/* Variasi SKU Chain */}
+                    {/* Variasi SKU */}
                     {r.skus && r.skus.length > 0 && (
-                      <div className="flex items-center flex-wrap gap-1.5 mt-1 pt-1 border-t border-gray-100 w-full">
-                        {/* Besar */}
-                        {r.skus.filter(s => s.tingkatan_satuan === 'Besar').map((sku) => (
-                          <span 
-                            key={sku.id} 
-                            className="inline-block px-2 py-1 text-xs font-medium rounded-full border bg-blue-50 text-blue-700 border-blue-200"
-                            title="Variasi (Besar)"
-                          >
-                            {sku.nama_kemasan}
-                          </span>
-                        ))}
-                        
-                        {r.skus.some(s => s.tingkatan_satuan === 'Besar') && r.skus.some(s => s.tingkatan_satuan === 'Tengah' || s.tingkatan_satuan === 'Kecil') && (
-                          <ArrowRight size={14} className="text-gray-400" />
-                        )}
-
-                        {/* Tengah */}
-                        {r.skus.filter(s => s.tingkatan_satuan === 'Tengah').map((sku) => (
-                          <span 
-                            key={sku.id} 
-                            className="inline-block px-2 py-1 text-xs font-medium rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200"
-                            title="Variasi (Tengah)"
-                          >
-                            {sku.nama_kemasan}
-                          </span>
-                        ))}
-
-                        {r.skus.some(s => s.tingkatan_satuan === 'Tengah') && r.skus.some(s => s.tingkatan_satuan === 'Kecil') && (
-                          <ArrowRight size={14} className="text-gray-400" />
-                        )}
-
-                        {/* Kecil */}
-                        {r.skus.filter(s => s.tingkatan_satuan === 'Kecil').map((sku) => (
-                          <span 
-                            key={sku.id} 
-                            className="inline-block px-2 py-1 text-xs font-medium rounded-full border bg-amber-50 text-amber-700 border-amber-200"
-                            title="Variasi (Kecil)"
-                          >
-                            {sku.nama_kemasan}
-                          </span>
+                      <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-gray-100 w-full">
+                        {r.skus.map((sku) => (
+                          <div key={sku.id} className="flex items-center gap-1.5 flex-wrap min-h-[24px]">
+                            <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                              {sku.nama_kemasan}
+                            </span>
+                            
+                            {sku.satuan_tengah && sku.faktor_tengah ? (
+                              <>
+                                <ArrowRight size={14} className="text-gray-400" />
+                                <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  {sku.qty_isi / sku.faktor_tengah} {sku.satuan_tengah}
+                                </span>
+                                <ArrowRight size={14} className="text-gray-400" />
+                                <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                  {sku.qty_isi} {r.satuan_kecil || r.satuan}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <ArrowRight size={14} className="text-gray-400" />
+                                <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                  {sku.qty_isi} {r.satuan_kecil || r.satuan}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         ))}
                       </div>
                     )}
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className={r.harga ? 'font-medium text-suka-ink' : 'text-gray-400'}>
-                      {r.harga ? rupiah(r.harga.harga_beli) : '—'}
-                    </span>
-                    {alertMap.has(r.id) && (() => {
-                      const alert = alertMap.get(r.id)!
-                      const naik = alert.selisih_pct > 0
-                      const pct = Math.abs(alert.selisih_pct * 100).toFixed(1)
-                      return (
-                        <span
-                          title={`Harga aktual di ${alert.nomor_po}: ${rupiah(alert.harga_terima)} (${naik ? '+' : '-'}${pct}%)`}
-                          className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full cursor-help ${
-                            naik ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-50 text-green-600 border border-green-200'
-                          }`}
-                        >
-                          <AlertTriangle size={9} />
-                          {naik ? '+' : '-'}{pct}%
-                        </span>
-                      )
-                    })()}
+                  <div className="flex flex-col gap-2 h-full">
+                    <div className="flex items-center gap-1.5 min-h-[24px]">
+                      <span className={r.harga ? 'font-medium text-suka-ink' : 'text-gray-400'}>
+                        {r.harga ? rupiah(r.harga.harga_beli) : '—'}
+                      </span>
+                      {alertMap.has(r.id) && (() => {
+                        const alert = alertMap.get(r.id)!
+                        const naik = alert.selisih_pct > 0
+                        const pct = Math.abs(alert.selisih_pct * 100).toFixed(1)
+                        return (
+                          <span
+                            title={`Harga aktual di ${alert.nomor_po}: ${rupiah(alert.harga_terima)} (${naik ? '+' : '-'}${pct}%)`}
+                            className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full cursor-help ${
+                              naik ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-50 text-green-600 border border-green-200'
+                            }`}
+                          >
+                            <AlertTriangle size={9} />
+                            {naik ? '+' : '-'}{pct}%
+                          </span>
+                        )
+                      })()}
+                    </div>
+
+                    {/* Harga Variasi SKU */}
+                    {r.skus && r.skus.length > 0 && (
+                      <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-gray-100 w-full">
+                        {r.skus.map((sku) => (
+                          <div key={sku.id} className="flex items-center min-h-[24px]">
+                            {sku.harga_beli ? (
+                              <span className="font-bold text-emerald-600 text-sm">
+                                {rupiah(sku.harga_beli)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">

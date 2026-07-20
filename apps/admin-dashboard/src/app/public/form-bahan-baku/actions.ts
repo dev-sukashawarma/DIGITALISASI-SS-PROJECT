@@ -32,7 +32,7 @@ export async function getBahanBakuList(token: string) {
     // Fetch active bahan baku, order by name
     const { data, error } = await supabase
       .from('bahan_baku')
-      .select('id, nama, kategori, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, image_url, image_url_tengah, image_url_kecil, is_fisik_checked, bahan_baku_sku(id, nama_kemasan, qty_isi, harga_beli, is_default, is_active, tingkatan_satuan, image_url, created_at)')
+      .select('id, nama, kategori, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, image_url, image_url_tengah, image_url_kecil, is_fisik_checked, bahan_baku_sku(id, nama_kemasan, qty_isi, harga_beli, is_default, is_active, tingkatan_satuan, satuan_tengah, faktor_tengah, image_url, created_at)')
       .eq('is_active', true)
       .order('nama')
 
@@ -44,7 +44,7 @@ export async function getBahanBakuList(token: string) {
   }
 }
 
-export async function addBahanBakuSku(token: string, vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default: boolean; tingkatan_satuan?: string | null }) {
+export async function addBahanBakuSku(token: string, vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default: boolean; satuan_tengah?: string | null; faktor_tengah?: number | null }) {
   if (token !== MAGIC_TOKEN) return { success: false, error: 'Akses ditolak' }
   const supabase = createServiceClient()
   if (vars.is_default) {
@@ -57,7 +57,8 @@ export async function addBahanBakuSku(token: string, vars: { bahan_baku_id: stri
     harga_beli: vars.harga_beli,
     is_default: vars.is_default,
     is_active: true,
-    tingkatan_satuan: vars.tingkatan_satuan || null
+    satuan_tengah: vars.satuan_tengah || null,
+    faktor_tengah: vars.faktor_tengah || null
   })
   if (error) return { success: false, error: error.message }
   revalidatePath('/public/form-bahan-baku')
@@ -147,6 +148,26 @@ export async function submitBahanBaku(formData: FormData) {
       .eq('id', id)
 
     if (updateError) throw new Error(`Gagal menyimpan data: ${updateError.message}`)
+
+    // Sync SKUs
+    if (satuan && faktor_tampilan) {
+      await supabase.from('bahan_baku_sku')
+        .update({ nama_kemasan: satuan, qty_isi: faktor_tampilan })
+        .eq('bahan_baku_id', id)
+        .eq('tingkatan_satuan', 'Besar')
+    }
+    if (satuan_tengah && faktor_tengah) {
+      await supabase.from('bahan_baku_sku')
+        .update({ nama_kemasan: satuan_tengah, qty_isi: faktor_tengah })
+        .eq('bahan_baku_id', id)
+        .eq('tingkatan_satuan', 'Tengah')
+    }
+    if (satuan_kecil) {
+      await supabase.from('bahan_baku_sku')
+        .update({ nama_kemasan: satuan_kecil, qty_isi: 1 })
+        .eq('bahan_baku_id', id)
+        .eq('tingkatan_satuan', 'Kecil')
+    }
 
     revalidatePath('/public/form-bahan-baku')
     return { success: true }

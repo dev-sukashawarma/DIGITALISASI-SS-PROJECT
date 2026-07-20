@@ -7,7 +7,7 @@ import type { MenuItem, CartItem } from '@/types'
 interface CartStore {
   items: CartItem[]
   isOpen: boolean
-  addItem: (item: MenuItem, quantity?: number, note?: string, parentId?: string) => string
+  addItem: (item: MenuItem, quantity?: number, note?: string, parentId?: string, package_choices?: Record<string, string>) => string
   removeItem: (cartItemId: string) => void
   updateQuantity: (cartItemId: string, quantity: number) => void
   clearCart: () => void
@@ -23,11 +23,11 @@ export const useCart = create<CartStore>()(
       items: [],
       isOpen: false,
 
-      addItem: (item, quantity = 1, note = '', parentId = undefined) => {
+      addItem: (item, quantity = 1, note = '', parentId = undefined, package_choices = undefined) => {
         let newCartItemId = ''
         set((state) => {
           const existingIndex = state.items.findIndex(
-            (i) => i.item.id === item.id && (i.note || '') === note && i.parentId === parentId
+            (i) => i.item.id === item.id && (i.note || '') === note && i.parentId === parentId && JSON.stringify(i.package_choices || {}) === JSON.stringify(package_choices || {})
           )
           if (existingIndex >= 0) {
             newCartItemId = state.items[existingIndex].cartItemId
@@ -42,7 +42,7 @@ export const useCart = create<CartStore>()(
           return {
             items: [
               ...state.items,
-              { cartItemId: newCartItemId, item, quantity, note, parentId },
+              { cartItemId: newCartItemId, item, quantity, note, parentId, package_choices },
             ],
           }
         })

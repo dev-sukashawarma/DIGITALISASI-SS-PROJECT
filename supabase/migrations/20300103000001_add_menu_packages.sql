@@ -20,7 +20,7 @@ ALTER TABLE public.menu_packages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "menu_packages_select_public" ON public.menu_packages FOR SELECT USING (true);
 CREATE POLICY "menu_packages_all_admin" ON public.menu_packages FOR ALL USING (
   EXISTS (
-    SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    SELECT 1 FROM public.outlet_staff WHERE outlet_staff.id = auth.uid() AND outlet_staff.role = 'admin'
   )
 );
 

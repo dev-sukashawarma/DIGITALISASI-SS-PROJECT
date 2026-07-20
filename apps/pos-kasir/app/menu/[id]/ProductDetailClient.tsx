@@ -13,10 +13,12 @@ import type { MenuItem } from '@/types'
 export default function ProductDetailClient({
   item,
   upsellItems,
+  packageOptionItems,
   outletId,
 }: {
   item: MenuItem
   upsellItems: MenuItem[]
+  packageOptionItems?: MenuItem[]
   outletId?: string
 }) {
   const router = useRouter()
@@ -25,10 +27,24 @@ export default function ProductDetailClient({
   const [qty, setQty] = useState(1)
   const [note, setNote] = useState('')
   const [selectedUpsells, setSelectedUpsells] = useState<Record<string, number>>({})
+  const [selectedPackageChoices, setSelectedPackageChoices] = useState<Record<string, string>>({})
 
   function handleAdd() {
-    // 1. Add main item
-    const parentId = addItem(item, qty, note.trim())
+    // 1. Prepare final note with package choices
+    let finalNote = note.trim()
+    if (item.is_package && item.package_items && packageOptionItems) {
+      const choicesText = Object.entries(selectedPackageChoices).map(([piId, itemId]) => {
+        const pItem = packageOptionItems.find(i => i.id === itemId)
+        return pItem ? pItem.name : ''
+      }).filter(Boolean).join(', ')
+      
+      if (choicesText) {
+        finalNote = finalNote ? `${finalNote} (Paket: ${choicesText})` : `Paket: ${choicesText}`
+      }
+    }
+
+    // 2. Add main item
+    const parentId = addItem(item, qty, finalNote, undefined, selectedPackageChoices)
 
     // 2. Add upsell items
     Object.entries(selectedUpsells).forEach(([uId, uQty]) => {
@@ -129,6 +145,44 @@ export default function ProductDetailClient({
             )}
           </div>
         </div>
+
+        {/* Package Choices */}
+        {item.is_package && item.package_items && item.package_items.length > 0 && item.package_items.some(pi => pi.or_menu_item_id) && packageOptionItems && (
+          <div className="space-y-4">
+            <h3 className="text-[15px] font-bold text-gray-900 px-1 flex items-center gap-2">
+              <Sandwich className="w-5 h-5 text-amber-500" /> Pilihan Item Paket
+            </h3>
+            <div className="space-y-3 bg-white p-5 rounded-2xl shadow-card border border-gray-100">
+              {item.package_items.filter(pi => pi.or_menu_item_id).map(pi => {
+                const mainItem = packageOptionItems.find(i => i.id === pi.menu_item_id)
+                const orItem = packageOptionItems.find(i => i.id === pi.or_menu_item_id)
+                if (!mainItem || !orItem) return null
+                
+                const selected = selectedPackageChoices[pi.id] || pi.menu_item_id
+                
+                return (
+                  <div key={pi.id} className="bg-gray-50 border border-amber-100/50 rounded-xl p-3.5">
+                    <p className="text-xs font-bold text-gray-500 mb-2.5">Pilih salah satu:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setSelectedPackageChoices(prev => ({ ...prev, [pi.id]: mainItem.id }))}
+                        className={`p-3 rounded-xl border text-sm font-bold text-center transition-all active:scale-[0.98] ${selected === mainItem.id ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300'}`}
+                      >
+                        {mainItem.name}
+                      </button>
+                      <button
+                        onClick={() => setSelectedPackageChoices(prev => ({ ...prev, [pi.id]: orItem.id }))}
+                        className={`p-3 rounded-xl border text-sm font-bold text-center transition-all active:scale-[0.98] ${selected === orItem.id ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300'}`}
+                      >
+                        {orItem.name}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Note input */}
         {item.is_available && (

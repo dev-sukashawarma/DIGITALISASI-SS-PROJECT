@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Plus, Minus, Trash2, ShoppingBag, Loader2,
-  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, CreditCard, Camera,
+  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, CreditCard, Camera, ThumbsUp,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -22,7 +22,7 @@ import { fetchWithTimeout } from '@/lib/offline-utils'
 import { createLocalOrder } from '@/lib/offline'
 import { QRCodeSVG } from 'qrcode.react'
 
-type Mode = 'walkin' | 'online'
+type Mode = 'walkin' | 'online' | 'endorse'
 
 interface Line {
   item: MenuItem
@@ -30,6 +30,7 @@ interface Line {
   note: string
   cartItemId: string
   parentId?: string
+  package_choices?: Record<string, string>
 }
 
 type Payment = 'cash' | 'qris' | 'card'
@@ -77,6 +78,7 @@ export default function OrderManualPage() {
   const [selectedMenuQty, setSelectedMenuQty] = useState(1)
   const [selectedMenuNote, setSelectedMenuNote] = useState('')
   const [selectedExtras, setSelectedExtras] = useState<Record<string, number>>({})
+  const [selectedPackageChoices, setSelectedPackageChoices] = useState<Record<string, string>>({})
 
   // ── State khusus jalur walk-in (kasir langsung) ───────────────────────────
   const [walkInSubmitting, setWalkInSubmitting] = useState(false)
@@ -172,7 +174,7 @@ export default function OrderManualPage() {
         const [menuRes, catRes, unavRes] = await fetchWithTimeout(
           Promise.all([
             supabase.from('menu_items')
-              .select('*, categories(id,name,sort_order)')
+              .select('*, categories(id,name,sort_order), package_items:menu_packages!package_id(id, menu_item_id, or_menu_item_id, quantity)')
               .or(`outlet_id.is.null,outlet_id.eq.${PUSAT_OUTLET_ID},outlet_id.eq.${outletId}`)
               .order('sort_order'),
             supabase.from('categories').select('*').order('sort_order'),
@@ -343,10 +345,10 @@ export default function OrderManualPage() {
   }, [items, upsellIds])
 
   // ── Helper keranjang ──────────────────────────────────────────────────────
-  const addItem = useCallback((item: MenuItem, quantity: number = 1, note: string = '', parentId?: string) => {
+  const addItem = useCallback((item: MenuItem, quantity: number = 1, note: string = '', parentId?: string, package_choices?: Record<string, string>) => {
     const newCartItemId = Math.random().toString(36).substring(2, 9)
     setLines((prev) => {
-      const newLine = { cartItemId: newCartItemId, item, quantity, note, parentId }
+      const newLine = { cartItemId: newCartItemId, item, quantity, note, parentId, package_choices }
       return [...prev, newLine]
     })
     return newCartItemId
@@ -392,7 +394,10 @@ export default function OrderManualPage() {
   const totalItems = lineList.reduce((s, l) => s + l.quantity, 0)
   
   const baseSubtotal = lineList.reduce((s, l) => s + l.item.price * l.quantity, 0)
-  const wrappedCalculateItemPrice = (price: number, id: string, channelPrices?: Record<string, number> | null) => calculateItemPrice(price, id, baseSubtotal, channel || (mode === 'online' ? 'gofood' : undefined), channelPrices)
+  const wrappedCalculateItemPrice = (price: number, id: string, channelPrices?: Record<string, number> | null) => {
+    if (mode === 'endorse') return 0;
+    return calculateItemPrice(price, id, baseSubtotal, channel || (mode === 'online' ? 'gofood' : undefined), channelPrices)
+  }
 
   const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity, 0)
   const globalDiscount = calculateGlobalDiscount(subtotalAmount)
@@ -429,7 +434,8 @@ export default function OrderManualPage() {
         quantity: l.quantity,
         note: l.note,
         parent_id: l.parentId,
-        cartItemId: l.cartItemId
+        cartItemId: l.cartItemId,
+        package_choices: l.package_choices
       })),
     }
 
@@ -502,6 +508,7 @@ export default function OrderManualPage() {
           quantity: l.quantity,
           unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices),
           subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity,
+          package_choices: l.package_choices
         })),
         payment_method: payment as string,
         customer_name: customerName.trim() || null,
@@ -586,13 +593,15 @@ export default function OrderManualPage() {
       payment_method: method,
       customer_name: customerName,
       amount_received: method === 'cash' ? amountReceived : undefined,
+      is_endorse: mode === 'endorse',
       payment_proof_url: typeof proofFile === 'string' ? proofFile : null,
       items: lineList.map((l) => ({
         menu_item_id: l.item.id,
         quantity: l.quantity,
         note: l.note,
         parent_id: l.parentId,
-        cartItemId: l.cartItemId
+        cartItemId: l.cartItemId,
+        package_choices: l.package_choices
       })),
     }
 
@@ -689,7 +698,8 @@ export default function OrderManualPage() {
           unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices),
           subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity,
           parent_id: l.parentId,
-          cartItemId: l.cartItemId
+          cartItemId: l.cartItemId,
+          package_choices: l.package_choices
         })),
         payment_method: method,
         customer_name: snapCustomer,
@@ -759,10 +769,10 @@ export default function OrderManualPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-gray-900 leading-tight">
-            {mode === 'walkin' ? 'Order Manual — Pesanan Baru' : 'Input Food Apps'}
+            {mode === 'walkin' ? 'Order Manual — Pesanan Baru' : mode === 'endorse' ? 'Order Endorse' : 'Input Food Apps'}
           </h1>
           <p className="text-sm text-gray-500 leading-tight">
-            {mode === 'walkin' ? 'Catat pesanan pelanggan secara manual' : 'Input pesanan dari aplikasi makanan'}
+            {mode === 'walkin' ? 'Catat pesanan pelanggan secara manual' : mode === 'endorse' ? 'Catat pesanan endorse dengan harga Rp 0' : 'Input pesanan dari aplikasi makanan'}
           </p>
         </div>
       </div>
@@ -782,6 +792,12 @@ export default function OrderManualPage() {
           >
             <Globe className="w-4 h-4" /> Food Apps
           </button>
+          <button
+            onClick={() => handleSwitchMode('endorse')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'endorse' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <ThumbsUp className="w-4 h-4" /> Endorse
+          </button>
         </div>
         
         {showInfo && (
@@ -789,7 +805,8 @@ export default function OrderManualPage() {
             <span className="shrink-0 bg-blue-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">i</span>
             <div className="text-sm text-blue-800 pr-6">
               <b>Order Manual</b> digunakan untuk pelanggan yang datang langsung atau memesan manual tanpa perantara aplikasi. <br/>
-              <b>Food Apps</b> digunakan untuk mencatat pesanan yang masuk dari aplikasi pihak ketiga seperti GrabFood, GoFood, dll.
+              <b>Food Apps</b> digunakan untuk mencatat pesanan yang masuk dari aplikasi pihak ketiga seperti GrabFood, GoFood, dll. <br/>
+              <b>Endorse</b> digunakan untuk mencatat pesanan endorsement atau gratis (Rp 0). Stok menu akan tetap berkurang secara normal.
             </div>
             <button 
               onClick={() => setShowInfo(false)}
@@ -943,7 +960,7 @@ export default function OrderManualPage() {
 
         {/* ══ KANAN: keranjang (desktop sticky) ══ */}
         <div className="hidden md:block sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 pr-2 pb-20">
-          {mode === 'walkin' ? (
+          {mode === 'walkin' || mode === 'endorse' ? (
             <WalkInCartPanel
               key={walkInPanelKey}
               lineList={lineList}
@@ -962,6 +979,7 @@ export default function OrderManualPage() {
               submitting={walkInSubmitting}
               error={walkInError}
               onPay={handleWalkInPay}
+              isEndorse={mode === 'endorse'}
             />
           ) : (
             <CartPanel
@@ -1017,7 +1035,7 @@ export default function OrderManualPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            {mode === 'walkin' ? (
+            {mode === 'walkin' || mode === 'endorse' ? (
               <WalkInCartPanel
                 key={walkInPanelKey}
                 lineList={lineList}
@@ -1037,6 +1055,7 @@ export default function OrderManualPage() {
                 error={walkInError}
                 onPay={handleWalkInPay}
                 embedded
+                isEndorse={mode === 'endorse'}
               />
             ) : (
               <CartPanel
@@ -1076,7 +1095,10 @@ export default function OrderManualPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] shadow-2xl animate-[popIn_0.2s_ease-out]">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
               <h2 className="font-bold text-lg text-gray-800 line-clamp-1">{selectedMenu.name}</h2>
-              <button onClick={() => setSelectedMenu(null)} className="p-2 bg-white hover:bg-gray-100 rounded-xl transition-colors shadow-sm border border-gray-200">
+              <button onClick={() => {
+                setSelectedMenu(null)
+                setSelectedPackageChoices({})
+              }} className="p-2 bg-white hover:bg-gray-100 rounded-xl transition-colors shadow-sm border border-gray-200">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -1094,6 +1116,44 @@ export default function OrderManualPage() {
                   className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors text-sm resize-none h-20"
                 />
               </div>
+
+              {/* Package Choices */}
+              {selectedMenu.is_package && selectedMenu.package_items && selectedMenu.package_items.length > 0 && selectedMenu.package_items.some(pi => pi.or_menu_item_id) && (
+                <div>
+                  <label className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                    <Sandwich className="w-4 h-4 text-amber-500" /> Pilihan Item Paket
+                  </label>
+                  <div className="space-y-3">
+                    {selectedMenu.package_items.filter(pi => pi.or_menu_item_id).map(pi => {
+                      const mainItem = items.find(i => i.id === pi.menu_item_id)
+                      const orItem = items.find(i => i.id === pi.or_menu_item_id)
+                      if (!mainItem || !orItem) return null
+                      
+                      const selected = selectedPackageChoices[pi.id] || pi.menu_item_id
+                      
+                      return (
+                        <div key={pi.id} className="bg-white border border-amber-100 shadow-sm rounded-xl p-3">
+                          <p className="text-xs font-bold text-gray-500 mb-2">Pilih salah satu:</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => setSelectedPackageChoices(prev => ({ ...prev, [pi.id]: mainItem.id }))}
+                              className={`p-2.5 rounded-lg border text-sm font-bold text-center transition-all active:scale-95 ${selected === mainItem.id ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-200'}`}
+                            >
+                              {mainItem.name}
+                            </button>
+                            <button
+                              onClick={() => setSelectedPackageChoices(prev => ({ ...prev, [pi.id]: orItem.id }))}
+                              className={`p-2.5 rounded-lg border text-sm font-bold text-center transition-all active:scale-95 ${selected === orItem.id ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-200'}`}
+                            >
+                              {orItem.name}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Extras */}
               {upsellItems.length > 0 && (
@@ -1162,7 +1222,19 @@ export default function OrderManualPage() {
             <div className="p-4 border-t border-gray-100 bg-white">
               <button
                 onClick={() => {
-                  const parentId = addItem(selectedMenu, selectedMenuQty, selectedMenuNote)
+                  let finalNote = selectedMenuNote
+                  if (selectedMenu.is_package && selectedMenu.package_items) {
+                    const choicesText = Object.entries(selectedPackageChoices).map(([piId, itemId]) => {
+                      const item = items.find(i => i.id === itemId)
+                      return item ? item.name : ''
+                    }).filter(Boolean).join(', ')
+                    
+                    if (choicesText) {
+                      finalNote = finalNote ? `${finalNote} (Paket: ${choicesText})` : `Paket: ${choicesText}`
+                    }
+                  }
+
+                  const parentId = addItem(selectedMenu, selectedMenuQty, finalNote, undefined, selectedPackageChoices)
                   Object.entries(selectedExtras).forEach(([extraId, extraQty]) => {
                     if (extraQty > 0) {
                       const extraItem = items.find(i => i.id === extraId)
@@ -1172,6 +1244,7 @@ export default function OrderManualPage() {
                     }
                   })
                   setSelectedMenu(null)
+                  setSelectedPackageChoices({})
                 }}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-amber-500/20"
               >

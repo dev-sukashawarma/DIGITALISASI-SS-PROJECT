@@ -18,7 +18,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const outletId = profile?.outlet_id || PUSAT_OUTLET_ID
 
   const [{ data: mainItem }, { data: settings }] = await Promise.all([
-    supabase.from('menu_items').select('*, categories(id,name,sort_order)').eq('id', id).single(),
+    supabase.from('menu_items').select('*, categories(id,name,sort_order), package_items:menu_packages!package_id(id, menu_item_id, or_menu_item_id, quantity)').eq('id', id).single(),
     supabase.from('kiosk_settings').select('key, value, outlet_id').or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`).in('key', ['upsell_ids', 'unavailable_menu_ids']),
   ])
 
@@ -81,10 +81,28 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     })
   }
 
+  let packageOptionItems: MenuItem[] = []
+  if (mainItem.is_package && mainItem.package_items) {
+    const packageItemIds = new Set<string>()
+    mainItem.package_items.forEach((pi: any) => {
+      if (pi.menu_item_id) packageItemIds.add(pi.menu_item_id)
+      if (pi.or_menu_item_id) packageItemIds.add(pi.or_menu_item_id)
+    })
+    
+    if (packageItemIds.size > 0) {
+      const { data: pItems } = await supabase
+        .from('menu_items')
+        .select('*')
+        .in('id', Array.from(packageItemIds))
+      packageOptionItems = pItems || []
+    }
+  }
+
   return (
     <ProductDetailClient
       item={mainItem as MenuItem}
       upsellItems={upsellItems}
+      packageOptionItems={packageOptionItems}
       outletId={outletId}
     />
   )

@@ -4,7 +4,7 @@ import { useState, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, X, Loader2,
+  Plus, Pencil, Trash2, X, Loader2, Copy,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
   FileArchive, Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown
 } from 'lucide-react'
@@ -25,6 +25,7 @@ interface FormState {
   name: string
   description: string
   price: string
+  strike_price: string
   base_price: string
   channel_prices: Record<string, string>
   category_id: string
@@ -33,11 +34,11 @@ interface FormState {
   available_online_channels: string[] | null
   image_url: string | null
   is_package: boolean
-  package_items: { menu_item_id: string, quantity: number, temp_id: string }[]
+  package_items: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number, temp_id: string }[]
 }
 
 const EMPTY: FormState = {
-  id: null, name: '', description: '', price: '', base_price: '',
+  id: null, name: '', description: '', price: '', strike_price: '', base_price: '',
   channel_prices: {},
   category_id: '', is_available: true, is_available_online: true, available_online_channels: null, image_url: null,
   is_package: false, package_items: []
@@ -177,6 +178,7 @@ export default function MenuView({
     setForm({
       id: item.id, name: item.name, description: item.description ?? '',
       price: displayPrice, 
+      strike_price: item.strike_price ? String(item.strike_price) : '',
       base_price: String(item.price),
       channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
@@ -185,7 +187,34 @@ export default function MenuView({
       available_online_channels: item.available_online_channels ?? null,
       image_url: item.image_url,
       is_package: item.is_package ?? false,
-      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
+      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
+    })
+    resetImage(); setError(''); setShowForm(true)
+  }
+
+  function openDuplicate(item: MenuItem) {
+    const formattedChannelPrices: Record<string, string> = {}
+    if (item.channel_prices) {
+      Object.entries(item.channel_prices).forEach(([k, v]) => {
+        formattedChannelPrices[k] = String(v)
+      })
+    }
+    
+    setForm({
+      id: '', 
+      name: `${item.name} (Copy)`, 
+      description: item.description ?? '',
+      price: String(item.price), 
+      strike_price: item.strike_price ? String(item.strike_price) : '',
+      base_price: String(item.price),
+      channel_prices: formattedChannelPrices,
+      category_id: item.category_id ?? '',
+      is_available: item.is_available, 
+      is_available_online: item.is_available_online ?? true,
+      available_online_channels: item.available_online_channels ?? null,
+      image_url: item.image_url,
+      is_package: item.is_package ?? false,
+      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
     })
     resetImage(); setError(''); setShowForm(true)
   }
@@ -254,11 +283,13 @@ export default function MenuView({
     const payload = {
       id: form.id ?? undefined,
       name: form.name.trim(), description: form.description.trim() || null,
-      price: finalBasePrice, category_id: form.category_id || null,
+      price: finalBasePrice, 
+      strike_price: form.strike_price ? parseFloat(form.strike_price) : null,
+      category_id: form.category_id || null,
       is_available: form.is_available, is_available_online: form.is_available_online, available_online_channels: form.available_online_channels, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
       is_package: form.is_package,
-      package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, quantity: pi.quantity })) : []
+      package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity })) : []
     }
 
     try {
@@ -499,6 +530,15 @@ export default function MenuView({
                             required className="input bg-gray-50 focus:bg-white font-bold text-gray-900 text-base py-3" />
                         </div>
                         <div>
+                          <label className="input-label text-gray-700 font-bold mb-2 block">
+                            Harga Coret
+                            <span className="text-gray-400 font-medium text-xs ml-2 bg-gray-100 px-2 py-0.5 rounded-md">Opsional</span>
+                          </label>
+                          <CurrencyInput value={form.strike_price}
+                            onChange={(v) => setForm({ ...form, strike_price: String(v) })}
+                            className="input bg-gray-50 focus:bg-white text-gray-900 text-base py-3" />
+                        </div>
+                        <div>
                           <label className="input-label text-gray-700 font-bold mb-2 block">Kategori</label>
                           <select value={form.category_id}
                             onChange={(e) => setForm({ ...form, category_id: e.target.value })}
@@ -539,23 +579,61 @@ export default function MenuView({
                           <div className="space-y-3">
                             {form.package_items.map((pi, idx) => (
                               <div key={pi.temp_id} className="flex gap-3 items-center bg-white p-3 rounded-xl border border-amber-100 shadow-sm">
-                                <div className="flex-1">
-                                  <MenuPicker 
-                                    value={pi.menu_item_id}
-                                    items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
-                                    onChange={(val) => {
-                                      const newItems = [...form.package_items];
-                                      newItems[idx].menu_item_id = val;
-                                      
-                                      let newBasePrice = 0;
-                                      newItems.forEach(item => {
-                                        const m = initialItems.find(x => x.id === item.menu_item_id);
-                                        if (m) newBasePrice += (m.price * item.quantity);
-                                      });
-                                      
-                                      setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
-                                    }}
-                                  />
+                                <div className="flex-1 space-y-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                      <MenuPicker 
+                                        value={pi.menu_item_id}
+                                        items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
+                                        onChange={(val) => {
+                                          const newItems = [...form.package_items];
+                                          newItems[idx].menu_item_id = val;
+                                          
+                                          let newBasePrice = 0;
+                                          newItems.forEach(item => {
+                                            const m = initialItems.find(x => x.id === item.menu_item_id);
+                                            if (m) newBasePrice += (m.price * item.quantity);
+                                          });
+                                          
+                                          setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  {pi.or_menu_item_id !== undefined && pi.or_menu_item_id !== null && (
+                                    <div className="flex items-center gap-3 pl-4 border-l-2 border-amber-200 animate-in fade-in slide-in-from-top-2 duration-300">
+                                      <span className="text-xs font-bold text-amber-500 uppercase tracking-widest shrink-0">ATAU</span>
+                                      <div className="flex-1">
+                                        <MenuPicker 
+                                          value={pi.or_menu_item_id || ''}
+                                          items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
+                                          onChange={(val) => {
+                                            const newItems = [...form.package_items];
+                                            newItems[idx].or_menu_item_id = val;
+                                            setForm({ ...form, package_items: newItems });
+                                          }}
+                                        />
+                                      </div>
+                                      <button type="button" onClick={() => {
+                                          const newItems = [...form.package_items];
+                                          newItems[idx].or_menu_item_id = null;
+                                          setForm({ ...form, package_items: newItems });
+                                      }} className="w-10 h-10 shrink-0 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  )}
+                                  
+                                  {(pi.or_menu_item_id === undefined || pi.or_menu_item_id === null) && (
+                                    <button type="button" onClick={() => {
+                                        const newItems = [...form.package_items];
+                                        newItems[idx].or_menu_item_id = '';
+                                        setForm({ ...form, package_items: newItems });
+                                    }} className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 mt-1 pl-1">
+                                      <Plus className="w-3 h-3" /> Tambah Opsi Atau
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="w-24">
                                   <input type="number" min="1" className="input text-center px-2 bg-gray-50 py-2.5 font-bold" 
@@ -893,6 +971,11 @@ export default function MenuView({
                             flex items-center justify-center transition-colors"
                           title="Edit">
                           <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => openDuplicate(item)}
+                          className="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-500 hover:text-blue-600 rounded-xl flex items-center justify-center transition-colors"
+                          title="Duplikasi">
+                          <Copy className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => deleteItem(item)}
                           className="w-8 h-8 bg-gray-50 hover:bg-red-50 text-gray-300 hover:text-red-500

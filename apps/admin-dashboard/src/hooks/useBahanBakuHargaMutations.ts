@@ -82,7 +82,7 @@ export function useBahanBakuHargaMutations() {
   })
 
   const addSku = useMutation({
-    mutationFn: async (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean; tingkatan_satuan?: string | null }) => {
+    mutationFn: async (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean; satuan_tengah?: string | null; faktor_tengah?: number | null }) => {
       // Jika ini sku default, set semua sku lain untuk bahan baku ini menjadi non-default
       if (vars.is_default) {
         await supabase.from('bahan_baku_sku').update({ is_default: false }).eq('bahan_baku_id', vars.bahan_baku_id)
@@ -94,7 +94,8 @@ export function useBahanBakuHargaMutations() {
         qty_isi: vars.qty_isi,
         harga_beli: vars.harga_beli,
         is_default: vars.is_default || false,
-        tingkatan_satuan: vars.tingkatan_satuan || null
+        satuan_tengah: vars.satuan_tengah || null,
+        faktor_tengah: vars.faktor_tengah || null
       })
       if (error) throw new Error(error.message)
     },
@@ -102,11 +103,13 @@ export function useBahanBakuHargaMutations() {
   })
 
   const updateSku = useMutation({
-    mutationFn: async (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number }) => {
+    mutationFn: async (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; satuan_tengah?: string | null; faktor_tengah?: number | null }) => {
       const { error } = await supabase.from('bahan_baku_sku').update({
         nama_kemasan: vars.nama_kemasan,
         qty_isi: vars.qty_isi,
-        harga_beli: vars.harga_beli
+        harga_beli: vars.harga_beli,
+        satuan_tengah: vars.satuan_tengah || null,
+        faktor_tengah: vars.faktor_tengah || null
       }).eq('id', vars.sku_id)
       if (error) throw new Error(error.message)
     },

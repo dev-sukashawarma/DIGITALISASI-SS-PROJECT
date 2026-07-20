@@ -30,10 +30,6 @@ type BahanBaku = {
   }[]
 }
 
-const SATUAN_OPTIONS = [
-  'Bal', 'Blok', 'Bungkus', 'Dus', 'Gram', 'Ikat', 'Kaleng', 'Karton', 'Karung', 'Kg', 'Lembar', 'Liter', 'Lusin', 'Ml', 'Pack', 'Pcs', 'Renceng', 'Roll', 'Sachet', 'Sisir', 'Toples', 'Tube'
-]
-
 export default function FormBahanBakuPage() {
   return (
     <Suspense fallback={
@@ -104,6 +100,37 @@ function FormBahanBakuContent() {
       setFilteredList(bahanBakuList)
     }
   }, [searchQuery, bahanBakuList])
+
+  // Auto-fill form SKU saat tombol Tambah diklik berdasarkan Konversi Satuan Bertingkat
+  useEffect(() => {
+    if (showSkuSection && selectedItem) {
+      setTimeout(() => {
+        const elB = document.getElementById('newSkuNamaBesar') as HTMLSelectElement
+        const elBFaktor = document.getElementById('newSkuFaktorBesar') as HTMLInputElement
+        if (elB) elB.value = selectedItem.satuan || ''
+  
+        const elT = document.getElementById('newSkuNamaTengah') as HTMLSelectElement
+        const elTFaktor = document.getElementById('newSkuFaktorTengah') as HTMLInputElement
+        if (elT && selectedItem.satuan_tengah) {
+          elT.value = selectedItem.satuan_tengah
+          if (elTFaktor) elTFaktor.value = (selectedItem.faktor_tampilan && selectedItem.faktor_tengah) ? String(Math.round(selectedItem.faktor_tampilan / selectedItem.faktor_tengah)) : ''
+        }
+
+        if (elBFaktor) {
+          elBFaktor.value = selectedItem.satuan_tengah 
+            ? (selectedItem.faktor_tengah ? String(selectedItem.faktor_tengah) : '')
+            : (selectedItem.faktor_tampilan ? String(selectedItem.faktor_tampilan) : '')
+        }
+  
+        const elK = document.getElementById('newSkuNamaKecil') as HTMLSelectElement
+        const elKQty = document.getElementById('newSkuQtyKecil') as HTMLInputElement
+        if (elK && selectedItem.satuan_kecil) {
+          elK.value = selectedItem.satuan_kecil
+          if (elKQty) elKQty.value = '1'
+        }
+      }, 10)
+    }
+  }, [showSkuSection, selectedItem])
 
   // Block rendering if no token
   if (!token) {
@@ -462,87 +489,108 @@ function FormBahanBakuContent() {
                 
                 <div className="flex flex-col gap-3">
                   {selectedItem.bahan_baku_sku && selectedItem.bahan_baku_sku.length > 0 ? (
-                    selectedItem.bahan_baku_sku.map((sku) => {
-                      const hargaSatuan = sku.qty_isi > 0 ? sku.harga_beli / sku.qty_isi : 0
-                      const isCheapest = Math.min(...(selectedItem.bahan_baku_sku?.filter(s => s.qty_isi > 0).map(s => s.harga_beli / s.qty_isi) || [0])) === hargaSatuan
-                      
-                      return (
-                        <div key={sku.id} className="flex flex-col bg-white p-3 rounded-lg border border-gray-200 gap-3 hover:border-gray-300 transition-colors shadow-sm">
-                          <div className="flex items-start justify-between">
-                            <div className="flex flex-col justify-center">
-                              <span className="text-sm font-bold text-suka-ink">{sku.nama_kemasan}</span>
-                              <span className="text-xs font-semibold text-gray-500 mt-0.5">
-                                Isi: {sku.qty_isi} {selectedItem.satuan_kecil || selectedItem.satuan} 
-                                <span className="mx-1.5">•</span> 
-                                Harga Beli: Rp {sku.harga_beli.toLocaleString('id-ID')}
-                              </span>
-                              <div className="flex gap-1.5 mt-1.5">
-                                {sku.is_default && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md font-bold">DEFAULT HPP</span>}
-                                {isCheapest && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md font-bold">TERMURAH</span>}
-                              </div>
-                            </div>
-                            
-                            <div className="flex gap-2 text-xs pt-1">
-                              {!sku.is_default && (
-                                <button 
-                                  type="button"
-                                  onClick={async () => {
-                                    if (!token) return
-                                    setIsSubmitting(true)
-                                    const res = await setDefaultBahanBakuSku(token, selectedItem.id, sku.id)
-                                    if (res.success) {
-                                      const refreshed = await getBahanBakuList(token)
-                                      if (refreshed.success && refreshed.data) {
-                                        setBahanBakuList(refreshed.data)
-                                        const updatedItem = refreshed.data.find(b => b.id === selectedItem.id)
-                                        if (updatedItem) setSelectedItem(updatedItem)
-                                      }
-                                    } else {
-                                      setErrorMsg(res.error || 'Gagal jadikan default')
-                                    }
-                                    setIsSubmitting(false)
-                                  }}
-                                  disabled={isSubmitting} 
-                                  className="font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-md" 
-                                  title="Jadikan Default HPP"
-                                >
-                                  Default
-                                </button>
-                              )}
-                              <button 
-                                type="button"
-                                onClick={async () => {
-                                  if (!token) return
-                                  if (confirm('Hapus kemasan ini?')) {
-                                    setIsSubmitting(true)
-                                    const res = await deleteBahanBakuSku(token, sku.id)
-                                    if (res.success) {
-                                      const refreshed = await getBahanBakuList(token)
-                                      if (refreshed.success && refreshed.data) {
-                                        setBahanBakuList(refreshed.data)
-                                        const updatedItem = refreshed.data.find(b => b.id === selectedItem.id)
-                                        if (updatedItem) setSelectedItem(updatedItem)
-                                      }
-                                    } else {
-                                      setErrorMsg(res.error || 'Gagal hapus SKU')
-                                    }
-                                    setIsSubmitting(false)
-                                  }
-                                }}
-                                disabled={isSubmitting} 
-                                className="font-bold text-red-500 hover:text-red-700 transition-colors bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-md"
-                              >
-                                Hapus
-                              </button>
-                            </div>
-                          </div>
+                    <div className="flex flex-col bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-colors shadow-sm overflow-hidden divide-y divide-gray-100">
+                      {selectedItem.bahan_baku_sku
+                        .sort((a, b) => {
+                          const order: Record<string, number> = { 'Besar': 1, 'Tengah': 2, 'Kecil': 3 }
+                          return (order[a.tingkatan_satuan || ''] || 99) - (order[b.tingkatan_satuan || ''] || 99)
+                        })
+                        .map((sku) => {
+                          const hargaSatuan = sku.qty_isi > 0 ? sku.harga_beli / sku.qty_isi : 0
+                          const isCheapest = Math.min(...(selectedItem.bahan_baku_sku?.filter(s => s.qty_isi > 0).map(s => s.harga_beli / s.qty_isi) || [0])) === hargaSatuan
                           
-                          <div className="text-sm font-bold text-gray-700 bg-gray-50 px-2 py-1 rounded-md self-start border border-gray-200">
-                            Rp {hargaSatuan.toLocaleString('id-ID')} / {selectedItem.satuan_kecil || selectedItem.satuan}
-                          </div>
-                        </div>
-                      )
-                    })
+                          return (
+                              <div key={sku.id} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
+                                <div className="flex flex-col gap-3">
+                                  <div className="flex items-center justify-end gap-2 mb-1">
+                                    {!sku.is_default && (
+                                      <button onClick={async () => {
+                                        if(!token) return;
+                                        await setDefaultBahanBakuSku(token, { bahan_baku_id: selectedItem.id, sku_id: sku.id });
+                                        const res = await getBahanBakuList(token);
+                                        if (res.success && res.data) {
+                                          setBahanBakuList(res.data);
+                                          const updated = res.data.find(x => x.id === selectedItem.id);
+                                          if (updated) setSelectedItem(updated);
+                                        }
+                                      }} className="font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-md border border-blue-100 text-xs">Jadikan Default</button>
+                                    )}
+                                    <button onClick={async () => {
+                                      if(!confirm('Hapus kemasan ini?')) return;
+                                      if(!token) return;
+                                      await deleteBahanBakuSku(token, sku.id);
+                                      const res = await getBahanBakuList(token);
+                                      if (res.success && res.data) {
+                                        setBahanBakuList(res.data);
+                                        const updated = res.data.find(x => x.id === selectedItem.id);
+                                        if (updated) setSelectedItem(updated);
+                                      }
+                                    }} className="font-bold text-red-500 hover:text-red-700 transition-colors bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-md border border-red-100 text-xs">Hapus</button>
+                                  </div>
+
+                                  <div className="space-y-3 pt-2 border-t border-gray-100">
+                                    {/* HPP Besar */}
+                                    <div className="flex flex-col bg-white p-3 rounded-lg border border-gray-200 gap-2">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                          <span className="text-sm font-medium text-gray-500">Satuan Besar</span>
+                                        </div>
+                                        <span className="font-bold text-suka-ink text-lg">{sku.nama_kemasan}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="text-sm font-bold text-suka-orange bg-orange-50 px-2 py-1 rounded-md self-start border border-orange-200">
+                                          {rupiah(sku.harga_beli)} / {sku.nama_kemasan}
+                                        </div>
+                                        {sku.is_default && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded-md font-bold">VARIASI DEFAULT</span>}
+                                        {isCheapest && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md font-bold">HPP TERMURAH</span>}
+                                      </div>
+                                    </div>
+                                    
+                                    {/* HPP Tengah */}
+                                    {sku.satuan_tengah && sku.faktor_tengah && (
+                                      <div className="flex flex-col bg-white p-3 rounded-lg border border-gray-200 gap-2">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-500">Satuan Tengah</span>
+                                            <span className="text-xs font-semibold text-gray-400 mt-0.5">1 {sku.nama_kemasan} = {sku.qty_isi / sku.faktor_tengah} {sku.satuan_tengah}</span>
+                                          </div>
+                                          <span className="font-bold text-suka-ink text-lg">{sku.satuan_tengah}</span>
+                                        </div>
+                                        <div className="text-sm font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md self-start border border-emerald-200">
+                                          {rupiah(sku.harga_beli / (sku.qty_isi / sku.faktor_tengah))} / {sku.satuan_tengah}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* HPP Kecil */}
+                                    <div className="flex flex-col bg-white p-3 rounded-lg border border-gray-200 gap-2">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                          <span className="text-sm font-medium text-gray-500">Satuan Kecil</span>
+                                          <span className="text-xs font-semibold text-gray-400 mt-0.5">
+                                            {sku.satuan_tengah && sku.faktor_tengah 
+                                               ? `${sku.qty_isi / sku.faktor_tengah} ${sku.satuan_tengah} = ${sku.qty_isi.toLocaleString('id-ID')} ${selectedItem.satuan_kecil || selectedItem.satuan}`
+                                               : `1 ${sku.nama_kemasan} = ${sku.qty_isi.toLocaleString('id-ID')} ${selectedItem.satuan_kecil || selectedItem.satuan}`
+                                            }
+                                          </span>
+                                          {sku.satuan_tengah && sku.faktor_tengah && (
+                                            <span className="text-xs text-gray-400 mt-0.5">
+                                              (1 {sku.satuan_tengah} = {sku.faktor_tengah} {selectedItem.satuan_kecil || selectedItem.satuan})
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="font-bold text-suka-ink text-lg">{selectedItem.satuan_kecil || selectedItem.satuan}</span>
+                                      </div>
+                                      <div className="text-sm font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-md self-start border border-amber-200">
+                                        {rupiah(hargaSatuan)} / {selectedItem.satuan_kecil || selectedItem.satuan}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                          )
+                        })}
+                    </div>
                   ) : (
                     <div className="p-4 text-center text-xs font-medium text-gray-400 bg-white border border-gray-200 rounded-lg shadow-sm">
                       Belum ada kemasan. Silakan tambah kemasan baru.
@@ -568,9 +616,9 @@ function FormBahanBakuContent() {
                                 {SATUAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
                             </div>
-                            <div>
-                              <input type="number" id="newSkuQtyBesar" placeholder={`Total Isi (${selectedItem.satuan_kecil || selectedItem.satuan})`} className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
-                            </div>
+                              <div>
+                                <input type="number" id="newSkuFaktorBesar" placeholder={`Isi berapa kemasan Tengah? (Misal: 6)`} className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
+                              </div>
                           </div>
                         </div>
 
@@ -584,9 +632,9 @@ function FormBahanBakuContent() {
                                 {SATUAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
                             </div>
-                            <div>
-                              <input type="number" id="newSkuQtyTengah" placeholder={`Total Isi (${selectedItem.satuan_kecil || selectedItem.satuan})`} className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
-                            </div>
+                              <div>
+                                <input type="number" id="newSkuFaktorTengah" placeholder={`Isi berapa kemasan Kecil? (Misal: 12)`} className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
+                              </div>
                           </div>
                         </div>
 
@@ -600,9 +648,9 @@ function FormBahanBakuContent() {
                                 {SATUAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
                             </div>
-                            <div>
-                              <input type="number" id="newSkuQtyKecil" placeholder={`Total Isi (${selectedItem.satuan_kecil || selectedItem.satuan})`} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
-                            </div>
+                              <div>
+                                <input type="number" id="newSkuQtyKecil" placeholder={`Total Gram (Biasanya 1)`} defaultValue={1} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
+                              </div>
                           </div>
                         </div>
                       </div>
@@ -626,113 +674,94 @@ function FormBahanBakuContent() {
                           className="px-4 py-2 bg-suka-orange text-white text-xs font-bold rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
                           disabled={isSubmitting}
                           onClick={async () => {
-                            if (!token) return
-                            const bNama = (document.getElementById('newSkuNamaBesar') as HTMLSelectElement).value
-                            const bQty = Number((document.getElementById('newSkuQtyBesar') as HTMLInputElement).value)
+                            if (!token) return;
+                            setIsSubmitting(true);
+                            const bNama = (document.getElementById('newSkuNamaBesar') as HTMLSelectElement).value;
+                            const bFaktor = Number((document.getElementById('newSkuFaktorBesar') as HTMLInputElement).value);
 
-                            const tNama = (document.getElementById('newSkuNamaTengah') as HTMLSelectElement).value
-                            const tQty = Number((document.getElementById('newSkuQtyTengah') as HTMLInputElement).value)
+                            const tNama = (document.getElementById('newSkuNamaTengah') as HTMLSelectElement).value;
+                            const tFaktor = Number((document.getElementById('newSkuFaktorTengah') as HTMLInputElement).value);
 
-                            const kNama = (document.getElementById('newSkuNamaKecil') as HTMLSelectElement).value
-                            const kQty = Number((document.getElementById('newSkuQtyKecil') as HTMLInputElement).value)
+                            const kNama = (document.getElementById('newSkuNamaKecil') as HTMLSelectElement).value;
+                            const kQty = Number((document.getElementById('newSkuQtyKecil') as HTMLInputElement).value);
                             
-                            const masterHarga = Number((document.getElementById('newSkuHargaMaster') as HTMLInputElement).value)
-
-                            let count = 0
-                            let isDefaultSet = selectedItem.bahan_baku_sku && selectedItem.bahan_baku_sku.length > 0
+                            const masterHarga = Number((document.getElementById('newSkuHargaMaster') as HTMLInputElement).value);
                             
                             if (masterHarga <= 0) {
-                              alert('Mohon isi Total Harga Beli kemasan.')
-                              return
+                              alert('Mohon isi Total Harga Beli kemasan.');
+                              setIsSubmitting(false);
+                              return;
                             }
 
+                            // Hitung kuantitas dalam satuan terkecil
+                            const qtyKecil = kQty > 0 ? kQty : 1;
+                            const qtyTengah = tNama && tFaktor > 0 ? tFaktor * qtyKecil : 0;
+                            const qtyBesar = bNama && bFaktor > 0 ? bFaktor * (qtyTengah > 0 ? qtyTengah : qtyKecil) : 0;
+    
+                            const bQty = qtyBesar;
+                            const tQty = qtyTengah;
+    
                             // Tentukan baseQty dari kemasan terbesar yang diisi
-                            const baseQty = (bNama && bQty > 0) ? bQty : ((tNama && tQty > 0) ? tQty : ((kNama && kQty > 0) ? kQty : 0))
+                            const baseQty = (bNama && bQty > 0) ? bQty : ((tNama && tQty > 0) ? tQty : ((kNama && kQty > 0) ? kQty : 0));
                             
                             if (baseQty === 0) {
-                              alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Total Isi).')
-                              return
+                              alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Faktor Pengali).');
+                              setIsSubmitting(false);
+                              return;
                             }
 
-                            setIsSubmitting(true)
+                            // Harga per satuan terkecil
+                            const pricePerUnit = masterHarga / baseQty;
 
-                            let errorOcurred = false
-                            
-                            const pricePerUnit = masterHarga / baseQty
-
-                            if (bNama && bQty > 0) {
-                              const res = await addBahanBakuSku(token, {
-                                bahan_baku_id: selectedItem.id,
-                                nama_kemasan: bNama,
-                                qty_isi: bQty,
-                                harga_beli: Math.round(pricePerUnit * bQty),
-                                is_default: !isDefaultSet,
-                                tingkatan_satuan: 'Besar'
-                              })
-                              if (!res.success) {
-                                errorOcurred = true
-                                setErrorMsg(res.error || 'Gagal tambah kemasan Besar')
-                              } else {
-                                isDefaultSet = true
-                                count++
+                              let kemasan_utama = ''
+                              let isi_utama = 0
+                              let satuan_tengah = null
+                              let faktor_tengah = null
+      
+                              if (bNama && bQty > 0) {
+                                kemasan_utama = bNama
+                                isi_utama = bQty
+                                if (tNama && tQty > 0) {
+                                  satuan_tengah = tNama
+                                  faktor_tengah = tQty
+                                }
+                              } else if (tNama && tQty > 0) {
+                                kemasan_utama = tNama
+                                isi_utama = tQty
+                              } else if (kNama && kQty > 0) {
+                                kemasan_utama = kNama
+                                isi_utama = kQty
                               }
-                            }
-                            
-                            if (tNama && tQty > 0) {
-                              const res = await addBahanBakuSku(token, {
-                                bahan_baku_id: selectedItem.id,
-                                nama_kemasan: tNama,
-                                qty_isi: tQty,
-                                harga_beli: Math.round(pricePerUnit * tQty),
-                                is_default: !isDefaultSet,
-                                tingkatan_satuan: 'Tengah'
-                              })
-                              if (!res.success) {
-                                errorOcurred = true
-                                setErrorMsg(res.error || 'Gagal tambah kemasan Tengah')
-                              } else {
-                                isDefaultSet = true
-                                count++
+      
+                              let isDefaultSet = selectedItem.bahan_baku_sku && selectedItem.bahan_baku_sku.length > 0;
+                              
+                              if (!kemasan_utama) {
+                                alert('Data kemasan tidak valid')
+                                setIsSubmitting(false)
+                                return
                               }
-                            }
-                            
-                            if (kNama && kQty > 0) {
-                              const res = await addBahanBakuSku(token, {
+      
+                              await addBahanBakuSku(token, {
                                 bahan_baku_id: selectedItem.id,
-                                nama_kemasan: kNama,
-                                qty_isi: kQty,
-                                harga_beli: Math.round(pricePerUnit * kQty),
+                                nama_kemasan: kemasan_utama,
+                                qty_isi: isi_utama,
+                                harga_beli: masterHarga,
                                 is_default: !isDefaultSet,
-                                tingkatan_satuan: 'Kecil'
+                                satuan_tengah: satuan_tengah,
+                                faktor_tengah: faktor_tengah
                               })
-                              if (!res.success) {
-                                errorOcurred = true
-                                setErrorMsg(res.error || 'Gagal tambah kemasan Kecil')
-                              } else {
-                                isDefaultSet = true
-                                count++
-                              }
-                            }
-                            
-                            if (count === 0 && !errorOcurred) {
-                              alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Total Isi).')
-                              setIsSubmitting(false)
-                              return
-                            }
-                            
-                            if (count > 0) {
+                              
                               const refreshed = await getBahanBakuList(token)
                               if (refreshed.success && refreshed.data) {
                                 setBahanBakuList(refreshed.data)
                                 const updatedItem = refreshed.data.find(b => b.id === selectedItem.id)
                                 if (updatedItem) setSelectedItem(updatedItem)
-                              }
                               
                               // reset form
                               ;(document.getElementById('newSkuNamaBesar') as HTMLSelectElement).value = '';
-                              ;(document.getElementById('newSkuQtyBesar') as HTMLInputElement).value = '';
+                              ;(document.getElementById('newSkuFaktorBesar') as HTMLInputElement).value = '';
                               ;(document.getElementById('newSkuNamaTengah') as HTMLSelectElement).value = '';
-                              ;(document.getElementById('newSkuQtyTengah') as HTMLInputElement).value = '';
+                              ;(document.getElementById('newSkuFaktorTengah') as HTMLInputElement).value = '';
                               ;(document.getElementById('newSkuNamaKecil') as HTMLSelectElement).value = '';
                               ;(document.getElementById('newSkuQtyKecil') as HTMLInputElement).value = '';
                               ;(document.getElementById('newSkuHargaMaster') as HTMLInputElement).value = '';

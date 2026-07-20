@@ -50,8 +50,8 @@ describe("isWithinRadius", () => {
 });
 
 describe("GEOFENCE_RADIUS_M", () => {
-  test("is tightened to 20 meters", () => {
-    expect(GEOFENCE_RADIUS_M).toBe(20);
+  test("is 30 meters", () => {
+    expect(GEOFENCE_RADIUS_M).toBe(30);
   });
 });
 

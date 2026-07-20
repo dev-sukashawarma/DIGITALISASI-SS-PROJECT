@@ -57,7 +57,7 @@ export async function deleteMenuItem(id: string, imageUrl: string | null) {
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
-export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_save?: { menu_item_id: string, quantity: number }[] }) {
+export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_save?: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number }[] }) {
   const supabase = await getSupabase()
   let orderOnline: any = null
   try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
@@ -66,6 +66,7 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
     name: form.name,
     description: form.description || null,
     price: Number(form.price),
+    strike_price: form.strike_price ? Number(form.strike_price) : null,
     category_id: form.category_id || null,
     image_url: form.image_url,
     is_available: form.is_available,
@@ -79,31 +80,38 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
   let finalId = form.id;
 
   if (form.id) {
-    await supabase.from('menu_items').update(payload).eq('id', form.id)
+    const { error: updateError } = await supabase.from('menu_items').update(payload).eq('id', form.id)
+    if (updateError) throw new Error(`Update menu error: ${updateError.message}`)
+    
     if (payload.is_package) {
       await supabase.from('menu_packages').delete().eq('package_id', finalId);
       if (form.package_items_to_save && form.package_items_to_save.length > 0) {
-        await supabase.from('menu_packages').insert(
+        const { error: pkgError } = await supabase.from('menu_packages').insert(
           form.package_items_to_save.map(pi => ({
             package_id: finalId,
             menu_item_id: pi.menu_item_id,
+            or_menu_item_id: pi.or_menu_item_id || null,
             quantity: pi.quantity
           }))
         )
+        if (pkgError) throw new Error(`Package items error: ${pkgError.message}`)
       }
     }
   } else {
-    const { data } = await supabase.from('menu_items').insert([payload]).select().single()
+    const { data, error: insertError } = await supabase.from('menu_items').insert([payload]).select().single()
+    if (insertError) throw new Error(`Insert menu error: ${insertError.message}`)
     if (data) {
       finalId = data.id
       if (payload.is_package && form.package_items_to_save && form.package_items_to_save.length > 0) {
-        await supabase.from('menu_packages').insert(
+        const { error: pkgError } = await supabase.from('menu_packages').insert(
           form.package_items_to_save.map(pi => ({
             package_id: finalId,
             menu_item_id: pi.menu_item_id,
+            or_menu_item_id: pi.or_menu_item_id || null,
             quantity: pi.quantity
           }))
         )
+        if (pkgError) throw new Error(`Package items error: ${pkgError.message}`)
       }
     }
   }

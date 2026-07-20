@@ -42,11 +42,12 @@ export function WalkInCartPanel(props: {
   error: string | null
   onPay: (method: Payment, amountReceived: number | null, proofFile?: File | null) => void
   embedded?: boolean
+  isEndorse?: boolean
 }) {
   const {
     lineList, totalItems, subtotal, totalPrice, globalDiscount, globalPromo,
     needsMoreForPromo, missingAmount, customerName, setCustomerName, setQty, setNote,
-    calculateItemPrice, submitting, error, onPay, embedded,
+    calculateItemPrice, submitting, error, onPay, embedded, isEndorse
   } = props
 
   const isOnline = useNetworkStatus()
@@ -56,9 +57,9 @@ export function WalkInCartPanel(props: {
 
   const amountReceived = cashInput ? parseInt(cashInput.replace(/\D/g, ''), 10) || 0 : 0
   const change = amountReceived - totalPrice
-  const cashEnough = amountReceived >= totalPrice && totalPrice > 0
+  const cashEnough = amountReceived >= totalPrice && (isEndorse || totalPrice > 0)
 
-  const canPayCash = lineList.length > 0 && cashEnough && !submitting && customerName.trim() !== ''
+  const canPayCash = lineList.length > 0 && (isEndorse || cashEnough) && !submitting && customerName.trim() !== ''
   const canOpenQris = lineList.length > 0 && !submitting && customerName.trim() !== ''
   const canPayCard = lineList.length > 0 && !submitting && customerName.trim() !== ''
 
@@ -184,84 +185,88 @@ export function WalkInCartPanel(props: {
           </div>
 
           {/* Metode bayar */}
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Metode Pembayaran</label>
-            <div className="grid grid-cols-3 gap-3">
-              <button
-                onClick={() => setPayment('cash')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-              >
-                <Banknote className="w-4 h-4" /> Tunai
-              </button>
-              <button
-                onClick={() => setPayment('qris')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-              >
-                <QrCode className="w-4 h-4" /> QRIS
-              </button>
-              <button
-                onClick={() => setPayment('card')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'card' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-              >
-                <CreditCard className="w-4 h-4" /> Debit
-              </button>
-            </div>
-          </div>
-
-          {/* Input tunai + kembalian */}
-          {payment === 'cash' && (
-            <div className="space-y-2.5">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Uang Diterima</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>
-                <input
-                  inputMode="numeric"
-                  value={amountReceived ? amountReceived.toLocaleString('id-ID') : ''}
-                  onChange={(e) => setCashInput(e.target.value.replace(/\D/g, ''))}
-                  placeholder="0"
-                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl bg-white text-right text-lg font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
-                />
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => setCashInput(String(Math.ceil(totalPrice)))}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 active:scale-95 transition-all"
-                >
-                  Uang Pas
-                </button>
-                {(() => {
-                  if (totalPrice <= 0) return [20000, 50000, 100000, 150000, 200000].slice(0, 4);
-                  const options = new Set<number>();
-                  [10000, 20000, 50000, 100000].forEach(step => {
-                    const rounded = Math.ceil(totalPrice / step) * step;
-                    if (rounded > totalPrice) options.add(rounded);
-                    if (rounded + step > totalPrice) options.add(rounded + step);
-                  });
-                  [50000, 100000, 150000, 200000, 300000, 500000].forEach(fixed => {
-                    if (fixed > totalPrice) options.add(fixed);
-                  });
-                  return Array.from(options).sort((a, b) => a - b).slice(0, 4);
-                })().map((v) => (
+          {!isEndorse && (
+            <>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Metode Pembayaran</label>
+                <div className="grid grid-cols-3 gap-3">
                   <button
-                    key={v}
-                    onClick={() => setCashInput(String(v))}
-                    className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-700 text-xs font-bold hover:bg-gray-50 active:scale-95 transition-all"
+                    onClick={() => setPayment('cash')}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
                   >
-                    {formatRupiah(v)}
+                    <Banknote className="w-4 h-4" /> Tunai
                   </button>
-                ))}
+                  <button
+                    onClick={() => setPayment('qris')}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                  >
+                    <QrCode className="w-4 h-4" /> QRIS
+                  </button>
+                  <button
+                    onClick={() => setPayment('card')}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'card' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                  >
+                    <CreditCard className="w-4 h-4" /> Debit
+                  </button>
+                </div>
               </div>
-              {amountReceived > 0 && (
-                <div className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 ${cashEnough ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100'}`}>
-                  <span className={`text-sm font-bold ${cashEnough ? 'text-emerald-700' : 'text-red-600'}`}>
-                    {cashEnough ? 'Kembalian' : 'Kurang'}
-                  </span>
-                  <span className={`text-lg font-black ${cashEnough ? 'text-emerald-700' : 'text-red-600'}`}>
-                    {formatRupiah(Math.abs(change))}
-                  </span>
+
+              {/* Input tunai + kembalian */}
+              {payment === 'cash' && (
+                <div className="space-y-2.5">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Uang Diterima</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>
+                    <input
+                      inputMode="numeric"
+                      value={amountReceived ? amountReceived.toLocaleString('id-ID') : ''}
+                      onChange={(e) => setCashInput(e.target.value.replace(/\D/g, ''))}
+                      placeholder="0"
+                      className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl bg-white text-right text-lg font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    />
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => setCashInput(String(Math.ceil(totalPrice)))}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 active:scale-95 transition-all"
+                    >
+                      Uang Pas
+                    </button>
+                    {(() => {
+                      if (totalPrice <= 0) return [20000, 50000, 100000, 150000, 200000].slice(0, 4);
+                      const options = new Set<number>();
+                      [10000, 20000, 50000, 100000].forEach(step => {
+                        const rounded = Math.ceil(totalPrice / step) * step;
+                        if (rounded > totalPrice) options.add(rounded);
+                        if (rounded + step > totalPrice) options.add(rounded + step);
+                      });
+                      [50000, 100000, 150000, 200000, 300000, 500000].forEach(fixed => {
+                        if (fixed > totalPrice) options.add(fixed);
+                      });
+                      return Array.from(options).sort((a, b) => a - b).slice(0, 4);
+                    })().map((v) => (
+                      <button
+                        key={v}
+                        onClick={() => setCashInput(String(v))}
+                        className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-700 text-xs font-bold hover:bg-gray-50 active:scale-95 transition-all"
+                      >
+                        {formatRupiah(v)}
+                      </button>
+                    ))}
+                  </div>
+                  {amountReceived > 0 && (
+                    <div className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 ${cashEnough ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100'}`}>
+                      <span className={`text-sm font-bold ${cashEnough ? 'text-emerald-700' : 'text-red-600'}`}>
+                        {cashEnough ? 'Kembalian' : 'Kurang'}
+                      </span>
+                      <span className={`text-lg font-black ${cashEnough ? 'text-emerald-700' : 'text-red-600'}`}>
+                        {formatRupiah(Math.abs(change))}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
 
@@ -294,7 +299,7 @@ export function WalkInCartPanel(props: {
         )}
 
         {/* Tombol bayar */}
-        {payment === 'qris' ? (
+        {payment === 'qris' && !isEndorse ? (
           <button
             onClick={() => setQrisOpen(true)}
             disabled={!canOpenQris}
@@ -304,12 +309,14 @@ export function WalkInCartPanel(props: {
           </button>
         ) : (
           <button
-            onClick={() => onPay(payment, payment === 'cash' ? amountReceived : null)}
-            disabled={payment === 'cash' ? !canPayCash : !canPayCard}
-            className={`w-full ${payment === 'card' ? 'bg-purple-500 hover:bg-purple-600 shadow-purple-200' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200'} disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95`}
+            onClick={() => onPay(isEndorse ? 'cash' : payment, (payment === 'cash' || isEndorse) ? (isEndorse ? 0 : amountReceived) : null)}
+            disabled={isEndorse ? !canPayCash : (payment === 'cash' ? !canPayCash : !canPayCard)}
+            className={`w-full ${(payment === 'card' && !isEndorse) ? 'bg-purple-500 hover:bg-purple-600 shadow-purple-200' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200'} disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95`}
           >
             {submitting ? (
               <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
+            ) : isEndorse ? (
+              <><CheckCircle2 className="w-5 h-5" /> Simpan Pesanan Endorse</>
             ) : (
               <><CheckCircle2 className="w-5 h-5" /> Bayar & Cetak Struk</>
             )}

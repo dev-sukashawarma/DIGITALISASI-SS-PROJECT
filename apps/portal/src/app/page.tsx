@@ -55,13 +55,6 @@ export default function LoginPage() {
       return
     }
     
-    if (staff.role === 'leader') {
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || process.env.NODE_ENV === 'development'
-      const financeUrl = process.env.NEXT_PUBLIC_APP_URL_FINANCE || (isLocal ? 'http://localhost:3020' : 'https://finance.sukashawarma.com')
-      window.location.href = `${financeUrl}/leader`
-      return
-    }
-
     router.push('/launcher')
   }
 

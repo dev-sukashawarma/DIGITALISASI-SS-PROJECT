@@ -4,7 +4,7 @@ import { useState, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, X, Loader2,
+  Plus, Pencil, Trash2, X, Loader2, Copy,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
   FileArchive, Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown
 } from 'lucide-react'
@@ -177,6 +177,32 @@ export default function MenuView({
     setForm({
       id: item.id, name: item.name, description: item.description ?? '',
       price: displayPrice, 
+      base_price: String(item.price),
+      channel_prices: formattedChannelPrices,
+      category_id: item.category_id ?? '',
+      is_available: item.is_available, 
+      is_available_online: item.is_available_online ?? true,
+      available_online_channels: item.available_online_channels ?? null,
+      image_url: item.image_url,
+      is_package: item.is_package ?? false,
+      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
+    })
+    resetImage(); setError(''); setShowForm(true)
+  }
+
+  function openDuplicate(item: MenuItem) {
+    const formattedChannelPrices: Record<string, string> = {}
+    if (item.channel_prices) {
+      Object.entries(item.channel_prices).forEach(([k, v]) => {
+        formattedChannelPrices[k] = String(v)
+      })
+    }
+    
+    setForm({
+      id: '', 
+      name: `${item.name} (Copy)`, 
+      description: item.description ?? '',
+      price: String(item.price), 
       base_price: String(item.price),
       channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
@@ -931,6 +957,11 @@ export default function MenuView({
                             flex items-center justify-center transition-colors"
                           title="Edit">
                           <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => openDuplicate(item)}
+                          className="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-500 hover:text-blue-600 rounded-xl flex items-center justify-center transition-colors"
+                          title="Duplikasi">
+                          <Copy className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => deleteItem(item)}
                           className="w-8 h-8 bg-gray-50 hover:bg-red-50 text-gray-300 hover:text-red-500

@@ -79,11 +79,13 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
   let finalId = form.id;
 
   if (form.id) {
-    await supabase.from('menu_items').update(payload).eq('id', form.id)
+    const { error: updateError } = await supabase.from('menu_items').update(payload).eq('id', form.id)
+    if (updateError) throw new Error(`Update menu error: ${updateError.message}`)
+    
     if (payload.is_package) {
       await supabase.from('menu_packages').delete().eq('package_id', finalId);
       if (form.package_items_to_save && form.package_items_to_save.length > 0) {
-        await supabase.from('menu_packages').insert(
+        const { error: pkgError } = await supabase.from('menu_packages').insert(
           form.package_items_to_save.map(pi => ({
             package_id: finalId,
             menu_item_id: pi.menu_item_id,
@@ -91,14 +93,16 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
             quantity: pi.quantity
           }))
         )
+        if (pkgError) throw new Error(`Package items error: ${pkgError.message}`)
       }
     }
   } else {
-    const { data } = await supabase.from('menu_items').insert([payload]).select().single()
+    const { data, error: insertError } = await supabase.from('menu_items').insert([payload]).select().single()
+    if (insertError) throw new Error(`Insert menu error: ${insertError.message}`)
     if (data) {
       finalId = data.id
       if (payload.is_package && form.package_items_to_save && form.package_items_to_save.length > 0) {
-        await supabase.from('menu_packages').insert(
+        const { error: pkgError } = await supabase.from('menu_packages').insert(
           form.package_items_to_save.map(pi => ({
             package_id: finalId,
             menu_item_id: pi.menu_item_id,
@@ -106,6 +110,7 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
             quantity: pi.quantity
           }))
         )
+        if (pkgError) throw new Error(`Package items error: ${pkgError.message}`)
       }
     }
   }

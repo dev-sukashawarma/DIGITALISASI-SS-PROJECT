@@ -26,8 +26,8 @@ export function BahanBakuTable({
   saving: boolean
   onUploadImage: (bahanBakuId: string, file: File, level: 'besar' | 'tengah' | 'kecil') => void
   uploading: boolean
-  onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean; tingkatan_satuan?: string | null }) => void
-  onUpdateSku: (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number }) => void
+  onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean; satuan_tengah?: string | null; faktor_tengah?: number | null }) => void
+  onUpdateSku: (vars: { sku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; satuan_tengah?: string | null; faktor_tengah?: number | null }) => void
   onDeleteSku: (sku_id: string) => void
   onSetDefaultSku: (vars: { bahan_baku_id: string; sku_id: string }) => void
   setSkuImage?: (sku_id: string, file: File) => void
@@ -147,47 +147,16 @@ export function BahanBakuTable({
                       )}
                     </div>
 
-                    {/* Variasi SKU Chain */}
+                    {/* Variasi SKU */}
                     {r.skus && r.skus.length > 0 && (
-                      <div className="flex items-center flex-wrap gap-1.5 mt-1 pt-1 border-t border-gray-100 w-full">
-                        {/* Besar */}
-                        {r.skus.filter(s => s.tingkatan_satuan === 'Besar').map((sku) => (
+                      <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-gray-100 w-full">
+                        {r.skus.map((sku) => (
                           <span 
                             key={sku.id} 
-                            className="inline-block px-2 py-1 text-xs font-medium rounded-full border bg-blue-50 text-blue-700 border-blue-200"
-                            title="Variasi (Besar)"
+                            className={`inline-flex items-center px-2 py-1 text-[10px] font-bold rounded-full border ${sku.is_default ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
+                            title={sku.satuan_tengah ? `Isi: ${sku.satuan_tengah}` : `Kemasan: ${sku.nama_kemasan}`}
                           >
-                            {sku.nama_kemasan}
-                          </span>
-                        ))}
-                        
-                        {r.skus.some(s => s.tingkatan_satuan === 'Besar') && r.skus.some(s => s.tingkatan_satuan === 'Tengah' || s.tingkatan_satuan === 'Kecil') && (
-                          <ArrowRight size={14} className="text-gray-400" />
-                        )}
-
-                        {/* Tengah */}
-                        {r.skus.filter(s => s.tingkatan_satuan === 'Tengah').map((sku) => (
-                          <span 
-                            key={sku.id} 
-                            className="inline-block px-2 py-1 text-xs font-medium rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200"
-                            title="Variasi (Tengah)"
-                          >
-                            {sku.nama_kemasan}
-                          </span>
-                        ))}
-
-                        {r.skus.some(s => s.tingkatan_satuan === 'Tengah') && r.skus.some(s => s.tingkatan_satuan === 'Kecil') && (
-                          <ArrowRight size={14} className="text-gray-400" />
-                        )}
-
-                        {/* Kecil */}
-                        {r.skus.filter(s => s.tingkatan_satuan === 'Kecil').map((sku) => (
-                          <span 
-                            key={sku.id} 
-                            className="inline-block px-2 py-1 text-xs font-medium rounded-full border bg-amber-50 text-amber-700 border-amber-200"
-                            title="Variasi (Kecil)"
-                          >
-                            {sku.nama_kemasan}
+                            {sku.nama_kemasan} {sku.satuan_tengah ? ` (${sku.satuan_tengah})` : ''}
                           </span>
                         ))}
                       </div>

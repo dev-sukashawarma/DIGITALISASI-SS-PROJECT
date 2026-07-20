@@ -139,7 +139,33 @@ Tidak disimpan ke DB karena bersifat kalkulasi dinamis.
 | 👥 Tim Saya | `TabTim.tsx` | `outlet_staff` table (filter by outlet_id) |
 | 💰 Investasi & ROI | `TabInvestasi.tsx` | `mitra_investments` + kalkulasi ROI |
 | 📤 Bukti Transfer | `TabTransfer.tsx` | `mitra_transfers` table |
-| 💬 Saran | `TabSaran.tsx` | `mitra_suggestions` (INSERT form) |
+| 💬 Saran | `TabSaran.tsx` | `mitra_suggestions` (INSERT + read status/tanggapan) |
+
+### Alur Notifikasi Saran
+
+Sistem push notification sudah ada via Supabase Edge Function `send-push`. Saat admin membalas saran mitra, notifikasi dikirim otomatis ke perangkat mitra yang terdaftar.
+
+```
+Mitra submit saran
+  → INSERT mitra_suggestions (status: 'baru')
+
+Admin buka /dashboard/owner/kelola-mitra → balas saran
+  → UPDATE mitra_suggestions (status: 'ditanggapi', tanggapan: '...')
+  → Trigger: POST ke Edge Function send-push
+      payload: {
+        user_id: <mitra_user_id>,
+        title: "Saran Anda Telah Dibalas 💬",
+        body: "Admin telah merespons saran Anda untuk outlet [nama_outlet]",
+        url: "/dashboard/mitra"
+      }
+  → Mitra dapat push notification di perangkatnya
+  → Mitra buka Tab Saran → lihat tanggapan admin
+```
+
+**Catatan implementasi:**
+- Notifikasi dikirim dari Server Action di halaman `kelola-mitra` setelah UPDATE berhasil
+- Menggunakan `session.access_token` dari sesi admin untuk otorisasi Edge Function
+- Mitra harus sudah subscribe push notification (via browser) agar notifikasi diterima
 
 ---
 

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Plus, Minus, Trash2, ShoppingBag, Loader2,
-  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, CreditCard, Camera,
+  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, CreditCard, Camera, ThumbsUp,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -593,6 +593,7 @@ export default function OrderManualPage() {
       payment_method: method,
       customer_name: customerName,
       amount_received: method === 'cash' ? amountReceived : undefined,
+      is_endorse: mode === 'endorse',
       payment_proof_url: typeof proofFile === 'string' ? proofFile : null,
       items: lineList.map((l) => ({
         menu_item_id: l.item.id,
@@ -795,7 +796,7 @@ export default function OrderManualPage() {
             onClick={() => handleSwitchMode('endorse')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'endorse' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            <StickyNote className="w-4 h-4" /> Endorse
+            <ThumbsUp className="w-4 h-4" /> Endorse
           </button>
         </div>
         

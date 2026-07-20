@@ -23,6 +23,7 @@ interface WalkInPayload {
   payment_method: 'cash' | 'qris' | 'card'
   customer_name?: string
   amount_received?: number // wajib untuk cash
+  is_endorse?: boolean
   items: WalkInItem[]
 }
 
@@ -126,6 +127,9 @@ export async function POST(request: Request) {
     }
 
     let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)
+    if (body.is_endorse) {
+      unitPrice = 0
+    }
 
     const subtotal = unitPrice * quantity
     total += subtotal

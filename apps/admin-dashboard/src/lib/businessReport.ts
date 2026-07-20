@@ -67,23 +67,23 @@ export function buildBusinessReportRows(
   outlets.forEach((o) => ensure(o.id, o.name))
 
   salesRows.forEach((r) => {
-    const cur = ensure(r.outlet_id, r.outlet_id)
+    const cur = ensure(r.outlet_id, 'Outlet Tidak Dikenal')
     cur.accums[groupChannel(r.sales_source)].revenue += r.omzet
   })
 
   hppByChannelRows.forEach((r) => {
-    const cur = ensure(r.outlet_id, r.outlet_id)
+    const cur = ensure(r.outlet_id, 'Outlet Tidak Dikenal')
     cur.accums[groupChannel(r.sales_source)].hpp += r.hpp
   })
 
   pcsRows.forEach((r) => {
-    const cur = ensure(r.outlet_id, r.outlet_id)
+    const cur = ensure(r.outlet_id, 'Outlet Tidak Dikenal')
     cur.accums[groupChannel(r.sales_source)].pcs += r.pcs
   })
 
   expenseRows.forEach((r) => {
     if (r.scope !== 'outlet' || !r.outlet_id) return // Pengeluaran Pusat tak dibebankan ke outlet manapun
-    const cur = ensure(r.outlet_id, r.outlet_id)
+    const cur = ensure(r.outlet_id, 'Outlet Tidak Dikenal')
     if (r.category === 'gaji_crew_outlet') cur.opexSalary += r.amount
     else cur.opexOutlet += r.amount
   })

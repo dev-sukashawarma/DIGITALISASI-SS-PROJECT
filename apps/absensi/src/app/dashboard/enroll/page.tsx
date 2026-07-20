@@ -60,11 +60,15 @@ export default function EnrollPage() {
       .eq("outlet_id", selectedOutletId)
       .eq("status", "active")
       .order("name")
-      .then(({ data }) => {
-        setStaffList((data as Staff[]) ?? []);
+      .then(({ data, error }) => {
+        if (error) {
+          toast.show("err", `Gagal memuat data staff: ${error.message}`);
+        } else {
+          setStaffList((data as Staff[]) ?? []);
+        }
         setLoadingStaff(false);
       });
-  }, [selectedOutletId, supabase]);
+  }, [selectedOutletId, supabase, toast]);
 
   // Load staff when outlet changes
   useEffect(() => {
@@ -132,9 +136,13 @@ export default function EnrollPage() {
             
             if (currentPhase === "center") {
               setPhase("left");
+              phaseRef.current = "left"; // sync langsung agar loop tidak re-trigger
             } else if (currentPhase === "left") {
               setPhase("right");
+              phaseRef.current = "right";
             } else if (currentPhase === "right") {
+              // Langsung set ref ke saving agar loop berhenti sebelum re-render
+              phaseRef.current = "saving";
               setPhase("saving");
               await saveAuto(newShots, videoRef.current);
             }
@@ -211,6 +219,8 @@ export default function EnrollPage() {
     setTargetStaff(s);
     setConsent(false);
     setIsReEnroll(false);
+    setCameraError(null); // reset error kamera dari sesi sebelumnya
+    setVideo(null);
     setPhase("consent");
   }
 
@@ -219,12 +229,16 @@ export default function EnrollPage() {
     setConsent(false);
     setIsReEnroll(true);
     setReEnrollReason("");
+    setCameraError(null);
+    setVideo(null);
     setPhase("consent");
   }
 
   function startEnroll() {
     setShots([]);
+    shotsRef.current = []; // sync ref langsung agar loop baca data baru
     setPhase("center");
+    phaseRef.current = "center";
   }
 
   function handleCancel() {
@@ -233,7 +247,12 @@ export default function EnrollPage() {
     setIsReEnroll(false);
     setReEnrollReason("");
     setShots([]);
+    shotsRef.current = [];
+    setVideo(null);       // bersihkan referensi video lama
+    videoRef.current = null;
+    setCameraError(null); // bersihkan error kamera
     setPhase("list");
+    phaseRef.current = "list";
   }
 
   function resetToNext() {

@@ -168,10 +168,7 @@ export function BahanBakuTable({
                               className={`inline-block px-2 py-1 text-xs font-medium rounded-full border ${colorClass}`}
                               title={`Variasi Tingkatan: ${sku.tingkatan_satuan || '?'}`}
                             >
-                              <div className="flex items-center gap-1">
-                                <PackageSearch size={10} className="opacity-60" />
-                                <span>{sku.nama_kemasan} ({sku.qty_isi} {r.satuan_kecil || r.satuan})</span>
-                              </div>
+                              {sku.nama_kemasan} ({sku.qty_isi} {r.satuan_kecil || r.satuan})
                             </span>
                           )
                         })}

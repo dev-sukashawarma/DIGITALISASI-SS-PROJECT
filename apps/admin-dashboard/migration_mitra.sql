@@ -66,7 +66,7 @@ CREATE POLICY "mitra_profiles_select_own" ON mitra_profiles
 
 CREATE POLICY "mitra_profiles_admin_all" ON mitra_profiles
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.user_id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
+    EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
   );
 
 -- mitra_investments
@@ -77,7 +77,7 @@ CREATE POLICY "mitra_investments_select_own" ON mitra_investments
 
 CREATE POLICY "mitra_investments_admin_all" ON mitra_investments
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.user_id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
+    EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
   );
 
 -- mitra_transfers
@@ -88,7 +88,7 @@ CREATE POLICY "mitra_transfers_select_own" ON mitra_transfers
 
 CREATE POLICY "mitra_transfers_admin_all" ON mitra_transfers
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.user_id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
+    EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
   );
 
 -- mitra_suggestions
@@ -100,7 +100,7 @@ CREATE POLICY "mitra_suggestions_insert_own" ON mitra_suggestions
 
 CREATE POLICY "mitra_suggestions_admin_all" ON mitra_suggestions
   FOR ALL USING (
-    EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.user_id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
+    EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
   );
 
 -- ============================================================
@@ -111,7 +111,7 @@ CREATE POLICY "admin_upload_mitra_transfers" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (
     bucket_id = 'mitra-transfers'
-    AND EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.user_id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
+    AND EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
   );
 
 CREATE POLICY "mitra_download_own_transfers" ON storage.objects
@@ -119,7 +119,7 @@ CREATE POLICY "mitra_download_own_transfers" ON storage.objects
   USING (
     bucket_id = 'mitra-transfers'
     AND (
-      EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.user_id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
+      EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
       OR split_part(name,'/',1)::uuid = ANY(
         SELECT unnest(outlet_ids) FROM mitra_profiles WHERE user_id = auth.uid()
       )
@@ -130,5 +130,5 @@ CREATE POLICY "admin_delete_mitra_transfers" ON storage.objects
   FOR DELETE TO authenticated
   USING (
     bucket_id = 'mitra-transfers'
-    AND EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.user_id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
+    AND EXISTS (SELECT 1 FROM outlet_staff WHERE outlet_staff.id = auth.uid() AND outlet_staff.role IN ('admin','owner'))
   );

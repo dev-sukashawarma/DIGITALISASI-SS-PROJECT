@@ -99,6 +99,18 @@ export default function MenuView({
 
   const sortedItems = useMemo(() => {
     let sortableItems = [...initialItems];
+
+    if (activeChannelFilter) {
+      const slug = getSlug(activeChannelFilter);
+      sortableItems = sortableItems.filter(item => {
+        if (item.is_available_online === false) return false;
+        if (item.available_online_channels !== null && Array.isArray(item.available_online_channels)) {
+          return item.available_online_channels.includes(slug);
+        }
+        return true;
+      });
+    }
+
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         let aValue: any;
@@ -945,11 +957,18 @@ export default function MenuView({
 
                     {/* Price */}
                     <td className="py-3.5 px-4 text-right">
-                      {activeChannelFilter && item.channel_prices?.[getSlug(activeChannelFilter)] ? (
-                        <span className="font-bold text-amber-600">{formatRupiah(item.channel_prices[getSlug(activeChannelFilter)])}</span>
-                      ) : (
-                        <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
-                      )}
+                      <div className="flex flex-col items-end">
+                        {item.strike_price && (
+                          <span className="text-xs text-gray-400 line-through decoration-gray-400/50 mb-0.5">
+                            {formatRupiah(item.strike_price)}
+                          </span>
+                        )}
+                        {activeChannelFilter && item.channel_prices?.[getSlug(activeChannelFilter)] ? (
+                          <span className="font-bold text-amber-600">{formatRupiah(item.channel_prices[getSlug(activeChannelFilter)])}</span>
+                        ) : (
+                          <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Status toggle */}

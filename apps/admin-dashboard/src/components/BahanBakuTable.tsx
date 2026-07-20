@@ -149,15 +149,28 @@ export function BahanBakuTable({
 
                     {/* Variasi SKU */}
                     {r.skus && r.skus.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-gray-100 w-full">
+                      <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-gray-100 w-full">
                         {r.skus.map((sku) => (
-                          <span 
-                            key={sku.id} 
-                            className={`inline-flex items-center px-2 py-1 text-[10px] font-bold rounded-full border ${sku.is_default ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
-                            title={sku.satuan_tengah ? `Isi: ${sku.satuan_tengah}` : `Kemasan: ${sku.nama_kemasan}`}
-                          >
-                            {sku.nama_kemasan} {sku.satuan_tengah ? ` (${sku.satuan_tengah})` : ''}
-                          </span>
+                          <div key={sku.id} className="flex items-center gap-1.5 flex-wrap">
+                            <span 
+                              className={`inline-flex items-center px-2 py-1 text-[10px] font-bold rounded-full border ${sku.is_default ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
+                            >
+                              {sku.nama_kemasan}
+                              {sku.satuan_tengah && sku.faktor_tengah ? (
+                                <>
+                                  <ArrowRight size={10} className="inline mx-1 text-gray-400" />
+                                  {sku.qty_isi / sku.faktor_tengah} {sku.satuan_tengah}
+                                  <ArrowRight size={10} className="inline mx-1 text-gray-400" />
+                                  {sku.qty_isi} {r.satuan_kecil || r.satuan}
+                                </>
+                              ) : (
+                                <>
+                                  <ArrowRight size={10} className="inline mx-1 text-gray-400" />
+                                  {sku.qty_isi} {r.satuan_kecil || r.satuan}
+                                </>
+                              )}
+                            </span>
+                          </div>
                         ))}
                       </div>
                     )}

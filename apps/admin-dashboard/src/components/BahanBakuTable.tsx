@@ -152,29 +152,35 @@ export function BahanBakuTable({
                       <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-gray-100 w-full">
                         {r.skus.map((sku) => (
                           <div key={sku.id} className="flex items-center gap-1.5 flex-wrap">
-                            <span 
-                              className={`inline-flex items-center px-2 py-1 text-[10px] font-bold rounded-full border ${sku.is_default ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
-                            >
+                            <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                               {sku.nama_kemasan}
-                              {sku.satuan_tengah && sku.faktor_tengah ? (
-                                <>
-                                  <ArrowRight size={10} className="inline mx-1 text-gray-400" />
-                                  {sku.qty_isi / sku.faktor_tengah} {sku.satuan_tengah}
-                                  <ArrowRight size={10} className="inline mx-1 text-gray-400" />
-                                  {sku.qty_isi} {r.satuan_kecil || r.satuan}
-                                </>
-                              ) : (
-                                <>
-                                  <ArrowRight size={10} className="inline mx-1 text-gray-400" />
-                                  {sku.qty_isi} {r.satuan_kecil || r.satuan}
-                                </>
-                              )}
-                              {sku.harga_beli ? (
-                                <span className="ml-1.5 pl-1.5 border-l border-gray-300 font-bold text-emerald-600">
-                                  {rupiah(sku.harga_beli)}
-                                </span>
-                              ) : null}
                             </span>
+                            
+                            {sku.satuan_tengah && sku.faktor_tengah ? (
+                              <>
+                                <ArrowRight size={14} className="text-gray-400" />
+                                <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  {sku.qty_isi / sku.faktor_tengah} {sku.satuan_tengah}
+                                </span>
+                                <ArrowRight size={14} className="text-gray-400" />
+                                <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                  {sku.qty_isi} {r.satuan_kecil || r.satuan}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <ArrowRight size={14} className="text-gray-400" />
+                                <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                  {sku.qty_isi} {r.satuan_kecil || r.satuan}
+                                </span>
+                              </>
+                            )}
+
+                            {sku.harga_beli ? (
+                              <span className="ml-1.5 pl-1.5 border-l border-gray-300 font-bold text-emerald-600 text-[11px]">
+                                {rupiah(sku.harga_beli)}
+                              </span>
+                            ) : null}
                           </div>
                         ))}
                       </div>

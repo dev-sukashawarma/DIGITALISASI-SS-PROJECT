@@ -3,8 +3,12 @@
 import { useState } from 'react'
 import { MitraOutletCard } from './MitraOutletCard'
 
+import { MitraOutletDrawer } from './MitraOutletDrawer'
+
 export function MitraDashboardView({ mitra, outlets, investasiMap, omzetMap }: any) {
   const [selectedOutletId, setSelectedOutletId] = useState<string | null>(null)
+  
+  const selectedOutlet = outlets.find((o: any) => o.id === selectedOutletId)
   
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -31,22 +35,12 @@ export function MitraDashboardView({ mitra, outlets, investasiMap, omzetMap }: a
         </div>
       )}
       
-      {/* Drawer placeholder */}
-      {selectedOutletId && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedOutletId(null)} />
-          <div className="relative w-full max-w-md bg-white h-full shadow-2xl p-6 overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">Detail Outlet</h2>
-              <button onClick={() => setSelectedOutletId(null)} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors">
-                ✕
-              </button>
-            </div>
-            <div className="p-4 bg-blue-50 text-blue-800 rounded-lg border border-blue-100 text-center">
-              Detail outlet akan ditampilkan di sini. (Task 5: Drawer Detail)
-            </div>
-          </div>
-        </div>
+      {selectedOutlet && (
+        <MitraOutletDrawer 
+          outlet={selectedOutlet}
+          userId={mitra.user_id}
+          onClose={() => setSelectedOutletId(null)}
+        />
       )}
     </div>
   )

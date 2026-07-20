@@ -123,25 +123,43 @@ export function BahanBakuTable({
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">{r.satuan}</span>
-                    
-                    {r.faktor_tengah && r.satuan_tengah && (
-                      <>
-                        <ArrowRight size={14} className="text-gray-400" />
-                        <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {r.faktor_tengah} {r.satuan_tengah}
-                        </span>
-                      </>
-                    )}
-                    
-                    {r.faktor_tampilan && r.satuan_kecil && (
-                      <>
-                        <ArrowRight size={14} className="text-gray-400" />
-                        <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                          {r.faktor_tampilan} {r.satuan_kecil}
-                        </span>
-                      </>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">{r.satuan}</span>
+                      
+                      {r.faktor_tengah && r.satuan_tengah && (
+                        <>
+                          <ArrowRight size={14} className="text-gray-400" />
+                          <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {r.faktor_tengah} {r.satuan_tengah}
+                          </span>
+                        </>
+                      )}
+                      
+                      {r.faktor_tampilan && r.satuan_kecil && (
+                        <>
+                          <ArrowRight size={14} className="text-gray-400" />
+                          <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            {r.faktor_tampilan} {r.satuan_kecil}
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Variasi SKU */}
+                    {r.skus && r.skus.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {r.skus.map(sku => (
+                          <span 
+                            key={sku.id} 
+                            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm"
+                            title={`Tingkatan: ${sku.tingkatan_satuan || '?'}`}
+                          >
+                            <PackageSearch size={11} className="text-gray-400" />
+                            {sku.nama_kemasan} <span className="text-gray-400 font-normal">({sku.qty_isi} {r.satuan_kecil || r.satuan})</span>
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </td>

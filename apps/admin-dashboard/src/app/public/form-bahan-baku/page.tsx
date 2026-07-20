@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { submitBahanBaku, getBahanBakuList, addBahanBakuSku, deleteBahanBakuSku, setDefaultBahanBakuSku, createBahanBaku } from './actions'
 import { Camera, Package, CheckCircle2, AlertCircle, Search, ImageIcon, Pencil } from 'lucide-react'
+import { rupiah } from '@/lib/format'
 
 const SATUAN_OPTIONS = [
   'Bal', 'Blok', 'Bungkus', 'Dus', 'Gram', 'Ikat', 'Kaleng', 'Karton', 'Karung', 'Kg', 'Lembar', 'Liter', 'Lusin', 'Ml', 'Pack', 'Pcs', 'Renceng', 'Roll', 'Sachet', 'Sisir', 'Toples', 'Tube'
@@ -27,6 +28,9 @@ type BahanBaku = {
     qty_isi: number
     harga_beli: number
     is_default: boolean
+    tingkatan_satuan: string | null
+    satuan_tengah: string | null
+    faktor_tengah: number | null
   }[]
 }
 
@@ -506,7 +510,7 @@ function FormBahanBakuContent() {
                                     {!sku.is_default && (
                                       <button onClick={async () => {
                                         if(!token) return;
-                                        await setDefaultBahanBakuSku(token, { bahan_baku_id: selectedItem.id, sku_id: sku.id });
+                                        await setDefaultBahanBakuSku(token, selectedItem.id, sku.id);
                                         const res = await getBahanBakuList(token);
                                         if (res.success && res.data) {
                                           setBahanBakuList(res.data);
@@ -709,9 +713,6 @@ function FormBahanBakuContent() {
                               setIsSubmitting(false);
                               return;
                             }
-
-                            // Harga per satuan terkecil
-                            const pricePerUnit = masterHarga / baseQty;
 
                               let kemasan_utama = ''
                               let isi_utama = 0

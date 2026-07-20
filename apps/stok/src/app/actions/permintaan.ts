@@ -2,14 +2,22 @@
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
+import { canApprovePermintaan } from '@/lib/stok/approver'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 
 // ---------------------------------------------------------------------------
 // Service role client — bypass RLS, dipakai untuk semua permintaan actions.
-// Aman karena:
-//  1. File ini hanya dieksekusi server-side ('use server')
-//  2. Role check dilakukan middleware (redirect ke portal jika bukan spv/admin/owner)
-//  3. Page-level guard isKitchen = outletStaff.role in [admin,spv,owner] | kitchenOutlet
+//
+// ⚠️ JANGAN andalkan middleware atau guard halaman sebagai pengaman di sini:
+//  - `'use server'` TIDAK berarti privat. Setiap export adalah endpoint POST
+//    yang bisa dipanggil langsung oleh siapa pun yang punya sesi, tanpa lewat
+//    halaman mana pun.
+//  - Middleware hanya cek `hasAppAccess(role, 'stok')` — crew pun lolos.
+//  - Guard halaman berjalan di browser; tidak melindungi Server Action.
+//
+// Karena itu setiap action yang mengubah data WAJIB memanggil gerbang
+// otorisasinya sendiri (lihat `requirePermintaanApprover`) — apalagi RPC
+// `*_svc` di DB adalah SECURITY DEFINER tanpa pemeriksaan role.
 // ---------------------------------------------------------------------------
 
 function makeServiceClient() {
@@ -33,6 +41,36 @@ async function getCurrentUserId(): Promise<string> {
     throw new Error('Unauthorized: No active user session found')
   }
   return user.id
+}
+
+/**
+ * Gerbang otorisasi server-side untuk approval permintaan bahan.
+ *
+ * WAJIB dipanggil sebelum menyentuh service-role client. RPC
+ * `approve_permintaan_svc` / `tolak_permintaan_svc` adalah SECURITY DEFINER dan
+ * TIDAK memeriksa role pemanggil sama sekali (hanya cek `status='menunggu'`),
+ * sedangkan `makeServiceClient()` mem-bypass RLS — dan approval menerbitkan
+ * surat jalan lewat `create_surat_jalan()`. Server Action = endpoint POST yang
+ * bisa dipanggil siapa pun yang punya sesi, jadi guard di UI tidak melindungi
+ * apa pun.
+ */
+async function requirePermintaanApprover(): Promise<string> {
+  const userId = await getCurrentUserId()
+
+  const { data: staff, error } = await makeServiceClient()
+    .from('outlet_staff')
+    .select('role, status')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!staff || staff.status !== 'active' || !canApprovePermintaan(staff.role)) {
+    throw new Error(
+      'Forbidden: hanya Gudang Pusat (kitchen) atau admin/owner yang boleh memproses permintaan bahan'
+    )
+  }
+
+  return userId
 }
 
 function mapRow(row: any): PermintaanWithItems {
@@ -144,6 +182,7 @@ export async function approvePermintaan(
   permintaanId: string,
   items: ApproveItemInput[]
 ): Promise<void> {
+  await requirePermintaanApprover()
   const supabase = makeServiceClient()
   const { error } = await supabase.rpc('approve_permintaan_svc', {
     p_permintaan_id: permintaanId,
@@ -160,6 +199,7 @@ export async function tolakPermintaan(
   permintaanId: string,
   alasan: string
 ): Promise<void> {
+  await requirePermintaanApprover()
   const supabase = makeServiceClient()
   const { error } = await supabase.rpc('tolak_permintaan_svc', {
     p_permintaan_id: permintaanId,

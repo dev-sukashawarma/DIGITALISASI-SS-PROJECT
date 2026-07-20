@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import { useApprovalList } from '@/hooks/usePermintaan'
+import { isApproverRole } from '@/lib/stok/approver'
 
 // Bottom nav crew tunggal & konsisten — dipakai di semua halaman stok.
 // Sebelumnya tiap halaman copy-paste nav sendiri dengan isi berbeda
@@ -19,9 +20,9 @@ const ITEMS = [
 
 export function BottomNav() {
   const pathname = usePathname()
-  const { profile, outletStaff } = useAuth()
-  
-  const isApprover = outletStaff?.role === 'kitchen' || outletStaff?.role_name === 'KITCHEN' || profile?.role_name === 'SPV' || profile?.role_name === 'LEADER'
+  const { outletStaff } = useAuth()
+
+  const isApprover = isApproverRole(outletStaff?.role)
   const { permintaan } = useApprovalList(isApprover)
   const pendingCount = permintaan.length
 

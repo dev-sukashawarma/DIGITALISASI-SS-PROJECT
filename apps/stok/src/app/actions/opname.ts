@@ -2,6 +2,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
+import { canApproveOpname } from '@/lib/stok/approver'
 
 function makeServiceClient() {
   return createClient(
@@ -28,12 +29,38 @@ async function getCurrentStaffId(): Promise<string> {
 }
 
 /**
+ * Gerbang otorisasi server-side untuk aksi approval opname.
+ *
+ * WAJIB dipanggil sebelum menyentuh service-role client: RPC `approve_opname`
+ * / `reject_opname` adalah SECURITY DEFINER dan TIDAK memeriksa role pemanggil
+ * (hanya cek status opname), sedangkan `makeServiceClient()` mem-bypass RLS.
+ * Server Action = endpoint POST yang bisa dipanggil siapa pun yang punya sesi,
+ * jadi guard di UI/halaman tidak melindungi apa pun.
+ */
+async function requireOpnameApprover(): Promise<string> {
+  const staffId = await getCurrentStaffId()
+
+  const { data: staff, error } = await makeServiceClient()
+    .from('outlet_staff')
+    .select('role, status')
+    .eq('id', staffId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!staff || staff.status !== 'active' || !canApproveOpname(staff.role)) {
+    throw new Error('Forbidden: hanya leader/SPV/kitchen yang boleh memproses approval opname')
+  }
+
+  return staffId
+}
+
+/**
  * Leader: setujui opname pending.
  * Memanggil RPC approve_opname yang otomatis finalize.
  */
 export async function approveOpname(opnameId: string): Promise<void> {
+  const staffId = await requireOpnameApprover()
   const supabase = makeServiceClient()
-  const staffId = await getCurrentStaffId()
 
   const { error } = await supabase.rpc('approve_opname', {
     p_opname_id: opnameId,
@@ -48,8 +75,8 @@ export async function approveOpname(opnameId: string): Promise<void> {
  * Status menjadi 'rejected', crew harus input ulang.
  */
 export async function rejectOpname(opnameId: string, reason: string): Promise<void> {
+  const staffId = await requireOpnameApprover()
   const supabase = makeServiceClient()
-  const staffId = await getCurrentStaffId()
 
   const { error } = await supabase.rpc('reject_opname', {
     p_opname_id: opnameId,
@@ -65,6 +92,7 @@ export async function rejectOpname(opnameId: string, reason: string): Promise<vo
  * Opsional filter per outlet (untuk leader yang handle 1 outlet).
  */
 export async function fetchPendingOpnameApprovals(outletId?: string) {
+  await requireOpnameApprover()
   const supabase = makeServiceClient()
 
   let query = supabase
@@ -90,6 +118,7 @@ export async function fetchPendingOpnameApprovals(outletId?: string) {
  * Hitung jumlah opname pending — untuk badge notifikasi di nav.
  */
 export async function countPendingOpnameApprovals(outletId?: string): Promise<number> {
+  await requireOpnameApprover()
   const supabase = makeServiceClient()
 
   let query = supabase

@@ -30,6 +30,10 @@ type BahanBaku = {
   }[]
 }
 
+const SATUAN_OPTIONS = [
+  'Bal', 'Blok', 'Bungkus', 'Dus', 'Gram', 'Ikat', 'Kaleng', 'Karton', 'Karung', 'Kg', 'Lembar', 'Liter', 'Lusin', 'Ml', 'Pack', 'Pcs', 'Renceng', 'Roll', 'Sachet', 'Sisir', 'Toples', 'Tube'
+]
+
 export default function FormBahanBakuPage() {
   return (
     <Suspense fallback={
@@ -559,7 +563,10 @@ function FormBahanBakuContent() {
                           <label className="text-xs font-bold text-blue-700 block mb-2">Satuan Besar</label>
                           <div className="space-y-2">
                             <div>
-                              <input type="text" id="newSkuNamaBesar" placeholder="Nama (Cth: Dus)" className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
+                              <select id="newSkuNamaBesar" className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white">
+                                <option value="">(Pilih Nama)</option>
+                                {SATUAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                              </select>
                             </div>
                             <div>
                               <input type="number" id="newSkuQtyBesar" placeholder={`Total Isi (${selectedItem.satuan_kecil || selectedItem.satuan})`} className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
@@ -575,7 +582,10 @@ function FormBahanBakuContent() {
                           <label className="text-xs font-bold text-emerald-700 block mb-2">Satuan Tengah</label>
                           <div className="space-y-2">
                             <div>
-                              <input type="text" id="newSkuNamaTengah" placeholder="Nama (Cth: Pouch)" className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
+                              <select id="newSkuNamaTengah" className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white">
+                                <option value="">(Pilih Nama)</option>
+                                {SATUAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                              </select>
                             </div>
                             <div>
                               <input type="number" id="newSkuQtyTengah" placeholder={`Total Isi (${selectedItem.satuan_kecil || selectedItem.satuan})`} className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
@@ -591,7 +601,10 @@ function FormBahanBakuContent() {
                           <label className="text-xs font-bold text-amber-700 block mb-2">Satuan Kecil</label>
                           <div className="space-y-2">
                             <div>
-                              <input type="text" id="newSkuNamaKecil" placeholder="Nama (Cth: Gram)" className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
+                              <select id="newSkuNamaKecil" className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white">
+                                <option value="">(Pilih Nama)</option>
+                                {SATUAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                              </select>
                             </div>
                             <div>
                               <input type="number" id="newSkuQtyKecil" placeholder={`Total Isi (${selectedItem.satuan_kecil || selectedItem.satuan})`} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />

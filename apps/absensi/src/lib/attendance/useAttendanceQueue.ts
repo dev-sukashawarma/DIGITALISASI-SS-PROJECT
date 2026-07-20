@@ -5,10 +5,8 @@ import { useOfflineQueue } from "@suka/offline-queue";
 import type { FlushOutcome } from "@suka/offline-queue";
 import { createClient } from "@/lib/supabase";
 import { submitAttendance } from "./submit";
+import { buildQueuedPayload, type QueuedAbsen } from "./queuePayload";
 import type { AttendancePayload } from "./types";
-
-// Item antrian: payload + selfie dataURL (diupload saat sync).
-type QueuedAbsen = { payload: AttendancePayload; selfieDataUrl: string | null; outlet_id?: string; };
 
 const FUNCTION_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/submit-attendance`;
 
@@ -19,14 +17,15 @@ export function useAttendanceQueue() {
   const supabase = createClient();
 
   async function syncOne(item: QueuedAbsen, token: string) {
-    return submitAttendance(
-      { ...item.payload, selfie_base64: item.selfieDataUrl || undefined, from_queue: true, outlet_id: item.outlet_id || '' },
-      { functionUrl: FUNCTION_URL, anonKey: token },
-    );
+    return submitAttendance(buildQueuedPayload(item), { functionUrl: FUNCTION_URL, anonKey: token });
   }
 
   /** Tambah absen ke antrian (dipakai saat offline). */
-  function enqueue(payload: AttendancePayload, selfieDataUrl: string | null, outlet_id?: string) {
+  function enqueue(
+    payload: AttendancePayload & { outlet_id?: string },
+    selfieDataUrl: string | null,
+    outlet_id?: string,
+  ) {
     return add({ payload, selfieDataUrl, outlet_id });
   }
 

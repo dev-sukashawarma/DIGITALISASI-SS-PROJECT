@@ -10,6 +10,7 @@ import {
   CHALLENGE_LABEL, type Challenge,
 } from "@/lib/face/liveness";
 import { submitAttendance } from "@/lib/attendance/submit";
+import { submitOrQueue } from "@/lib/attendance/submitOrQueue";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
@@ -342,7 +343,16 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
           scheduleReset(3000);
           return;
         }
-        await doSubmit(video);
+        // Jaring pengaman terakhir: apa pun yang lolos dari doSubmit tidak boleh
+        // meninggalkan kiosk membeku di fase "submitting" tanpa pesan.
+        try {
+          await doSubmit(video);
+        } catch (err) {
+          console.error("doSubmit gagal tak terduga:", err);
+          setResult({ ok: false, message: "Gagal mengirim absen. Silakan coba lagi." });
+          setPhase("result");
+          scheduleReset(3000);
+        }
       }
     } finally {
       busyRef.current = false;
@@ -421,30 +431,46 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       from_queue: false,
     };
 
-    if (!navigator.onLine) {
-      queue.enqueue(payload, dataUrl);
-      postToNative({ type: "haptic", style: "success" }); // no-op di luar WebView
-      setResult({ ok: true, message: action === "in" ? "Selamat bekerja! (Offline)" : "Hati-hati di jalan! (Offline)" });
-      setPhase("result"); scheduleReset(2500); return;
+    const isOnline = navigator.onLine;
+    let path: string | null = null;
+
+    // Upload selfie hanya bila online; kegagalan upload tidak boleh menggagalkan
+    // absen (selfie bersifat bukti tambahan, bukan syarat sah).
+    if (isOnline) {
+      try {
+        path = `${outletId}/${id}.jpg`;
+        const blob = await (await fetch(dataUrl)).blob();
+        const { error: uploadErr } = await supabase.storage.from("selfies").upload(path, blob, { contentType: "image/jpeg", upsert: true });
+        if (uploadErr) { console.error("Selfie upload err:", uploadErr); path = null; }
+      } catch (err) {
+        console.error("Selfie upload threw:", err);
+        path = null;
+      }
     }
 
-    const path = `${outletId}/${id}.jpg`;
-    const blob = await (await fetch(dataUrl)).blob();
-    const { error: uploadErr } = await supabase.storage.from("selfies").upload(path, blob, { contentType: "image/jpeg", upsert: true });
-    if (uploadErr) console.error("Selfie upload err:", uploadErr);
-    
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const authHeaderToken = typeof window !== 'undefined' && localStorage.getItem('supabase-auth-token')
-      ? JSON.parse(localStorage.getItem('supabase-auth-token') || '{}')?.session?.access_token
-      : null;
-    const token = authHeaderToken || anonKey;
-    const res = await submitAttendance({ ...payload, selfie_path: path }, { functionUrl: FUNCTION_URL, anonKey: token });
-    postToNative({ type: "haptic", style: res.ok ? "success" : "error" }); // no-op di luar WebView
-    setResult(res.ok
-      ? { ok: true, message: action === "in" ? "Selamat bekerja!" : "Hati-hati di jalan!" }
-      : { ok: false, message: gagalText(res.reason) });
+    const outcome = await submitOrQueue({
+      isOnline,
+      submit: () => {
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const authHeaderToken = typeof window !== 'undefined' && localStorage.getItem('supabase-auth-token')
+          ? JSON.parse(localStorage.getItem('supabase-auth-token') || '{}')?.session?.access_token
+          : null;
+        const token = authHeaderToken || anonKey;
+        return submitAttendance({ ...payload, selfie_path: path }, { functionUrl: FUNCTION_URL, anonKey: token });
+      },
+      // Jaring pengaman: dipakai saat benar-benar offline MAUPUN saat transport
+      // gagal walau navigator.onLine bilang true (sinyal jelek, server mati).
+      enqueue: () => queue.enqueue(payload, dataUrl, outletId),
+    });
+
+    postToNative({ type: "haptic", style: outcome.ok ? "success" : "error" }); // no-op di luar WebView
+
+    const sapaan = action === "in" ? "Selamat bekerja!" : "Hati-hati di jalan!";
+    setResult(outcome.ok
+      ? { ok: true, message: outcome.queued ? `${sapaan} (Tersimpan offline, akan dikirim otomatis)` : sapaan }
+      : { ok: false, message: gagalText(outcome.reason ?? "unknown") });
     setPhase("result");
-    scheduleReset(res.ok ? 2500 : 1000);
+    scheduleReset(outcome.ok ? 2500 : 1000);
   }
 
   // Bersihkan Geolocation Watcher saat komponen unmount

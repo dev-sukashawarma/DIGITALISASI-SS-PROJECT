@@ -33,7 +33,7 @@ interface FormState {
   available_online_channels: string[] | null
   image_url: string | null
   is_package: boolean
-  package_items: { menu_item_id: string, quantity: number, temp_id: string }[]
+  package_items: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number, temp_id: string }[]
 }
 
 const EMPTY: FormState = {
@@ -185,7 +185,7 @@ export default function MenuView({
       available_online_channels: item.available_online_channels ?? null,
       image_url: item.image_url,
       is_package: item.is_package ?? false,
-      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
+      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
     })
     resetImage(); setError(''); setShowForm(true)
   }
@@ -258,7 +258,7 @@ export default function MenuView({
       is_available: form.is_available, is_available_online: form.is_available_online, available_online_channels: form.available_online_channels, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
       is_package: form.is_package,
-      package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, quantity: pi.quantity })) : []
+      package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity })) : []
     }
 
     try {
@@ -539,23 +539,61 @@ export default function MenuView({
                           <div className="space-y-3">
                             {form.package_items.map((pi, idx) => (
                               <div key={pi.temp_id} className="flex gap-3 items-center bg-white p-3 rounded-xl border border-amber-100 shadow-sm">
-                                <div className="flex-1">
-                                  <MenuPicker 
-                                    value={pi.menu_item_id}
-                                    items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
-                                    onChange={(val) => {
-                                      const newItems = [...form.package_items];
-                                      newItems[idx].menu_item_id = val;
-                                      
-                                      let newBasePrice = 0;
-                                      newItems.forEach(item => {
-                                        const m = initialItems.find(x => x.id === item.menu_item_id);
-                                        if (m) newBasePrice += (m.price * item.quantity);
-                                      });
-                                      
-                                      setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
-                                    }}
-                                  />
+                                <div className="flex-1 space-y-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                      <MenuPicker 
+                                        value={pi.menu_item_id}
+                                        items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
+                                        onChange={(val) => {
+                                          const newItems = [...form.package_items];
+                                          newItems[idx].menu_item_id = val;
+                                          
+                                          let newBasePrice = 0;
+                                          newItems.forEach(item => {
+                                            const m = initialItems.find(x => x.id === item.menu_item_id);
+                                            if (m) newBasePrice += (m.price * item.quantity);
+                                          });
+                                          
+                                          setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  {pi.or_menu_item_id !== undefined && pi.or_menu_item_id !== null && (
+                                    <div className="flex items-center gap-3 pl-4 border-l-2 border-amber-200 animate-in fade-in slide-in-from-top-2 duration-300">
+                                      <span className="text-xs font-bold text-amber-500 uppercase tracking-widest shrink-0">ATAU</span>
+                                      <div className="flex-1">
+                                        <MenuPicker 
+                                          value={pi.or_menu_item_id || ''}
+                                          items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
+                                          onChange={(val) => {
+                                            const newItems = [...form.package_items];
+                                            newItems[idx].or_menu_item_id = val;
+                                            setForm({ ...form, package_items: newItems });
+                                          }}
+                                        />
+                                      </div>
+                                      <button type="button" onClick={() => {
+                                          const newItems = [...form.package_items];
+                                          newItems[idx].or_menu_item_id = null;
+                                          setForm({ ...form, package_items: newItems });
+                                      }} className="w-10 h-10 shrink-0 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  )}
+                                  
+                                  {(pi.or_menu_item_id === undefined || pi.or_menu_item_id === null) && (
+                                    <button type="button" onClick={() => {
+                                        const newItems = [...form.package_items];
+                                        newItems[idx].or_menu_item_id = '';
+                                        setForm({ ...form, package_items: newItems });
+                                    }} className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 mt-1 pl-1">
+                                      <Plus className="w-3 h-3" /> Tambah Opsi Atau
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="w-24">
                                   <input type="number" min="1" className="input text-center px-2 bg-gray-50 py-2.5 font-bold" 

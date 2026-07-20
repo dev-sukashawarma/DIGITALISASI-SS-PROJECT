@@ -57,7 +57,7 @@ export async function deleteMenuItem(id: string, imageUrl: string | null) {
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
-export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_save?: { menu_item_id: string, quantity: number }[] }) {
+export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_save?: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number }[] }) {
   const supabase = await getSupabase()
   let orderOnline: any = null
   try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
@@ -87,6 +87,7 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
           form.package_items_to_save.map(pi => ({
             package_id: finalId,
             menu_item_id: pi.menu_item_id,
+            or_menu_item_id: pi.or_menu_item_id || null,
             quantity: pi.quantity
           }))
         )
@@ -101,6 +102,7 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
           form.package_items_to_save.map(pi => ({
             package_id: finalId,
             menu_item_id: pi.menu_item_id,
+            or_menu_item_id: pi.or_menu_item_id || null,
             quantity: pi.quantity
           }))
         )

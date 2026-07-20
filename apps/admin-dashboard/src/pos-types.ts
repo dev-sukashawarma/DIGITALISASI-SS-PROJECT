@@ -42,8 +42,10 @@ export interface PackageItem {
   id: string
   package_id: string
   menu_item_id: string
+  or_menu_item_id?: string | null
   quantity: number
   menu_item?: MenuItem
+  or_menu_item?: MenuItem
 }
 
 export interface MenuItem {
@@ -71,6 +73,7 @@ export interface CartItem {
   quantity: number
   note?: string
   parentId?: string
+  package_choices?: Record<string, string>
 }
 
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
@@ -104,6 +107,10 @@ export interface OrderItem {
   unit_price: number
   subtotal: number
   notes?: string | null
+  package_choices?: Record<string, string> | null
+  menu_items?: {
+    image_url: string | null
+  }
 }
 
 export interface OrderWithItems extends Order {

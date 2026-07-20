@@ -804,7 +804,8 @@ export default function OrderManualPage() {
             <span className="shrink-0 bg-blue-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">i</span>
             <div className="text-sm text-blue-800 pr-6">
               <b>Order Manual</b> digunakan untuk pelanggan yang datang langsung atau memesan manual tanpa perantara aplikasi. <br/>
-              <b>Food Apps</b> digunakan untuk mencatat pesanan yang masuk dari aplikasi pihak ketiga seperti GrabFood, GoFood, dll.
+              <b>Food Apps</b> digunakan untuk mencatat pesanan yang masuk dari aplikasi pihak ketiga seperti GrabFood, GoFood, dll. <br/>
+              <b>Endorse</b> digunakan untuk mencatat pesanan endorsement atau gratis (Rp 0). Stok menu akan tetap berkurang secara normal.
             </div>
             <button 
               onClick={() => setShowInfo(false)}

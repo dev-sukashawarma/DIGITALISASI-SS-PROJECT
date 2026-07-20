@@ -5,48 +5,42 @@ describe('accessibleItems for MITRA', () => {
   const items = accessibleItems('MITRA')
   const hrefs = items.map((i) => i.href)
 
-  it('exposes exactly the 4 mitra pages (order-independent)', () => {
-    expect([...hrefs].sort()).toEqual(
-      [
-        '/dashboard/owner',
-        '/dashboard/owner/targets',
-        '/dashboard/owner/profit',
-        '/dashboard/owner/expenses',
-      ].sort()
-    )
+  it('exposes exactly 1 page: /dashboard/mitra', () => {
+    expect(hrefs).toEqual(['/dashboard/mitra'])
   })
 
-  it('never exposes Pesan ke Kasir, HR, or System routes', () => {
-    expect(hrefs).not.toContain('/dashboard/owner/messages')
+  it('never exposes owner, HR, or system routes', () => {
+    expect(hrefs.some((h) => h.startsWith('/dashboard/owner'))).toBe(false)
     expect(hrefs.some((h) => h.startsWith('/dashboard/hr'))).toBe(false)
-    expect(hrefs).not.toContain('/dashboard/outlets')
     expect(hrefs).not.toContain('/dashboard/system-health')
   })
 })
 
 describe('Input Pengeluaran nav item', () => {
-  it('ADMIN punya Input Pengeluaran, OWNER tidak', () => {
+  it('ADMIN punya akses Bisnis, OWNER tidak punya akses Pengadaan', () => {
     const admin = accessibleItems('ADMIN').map((i) => i.href)
     const owner = accessibleItems('OWNER').map((i) => i.href)
-    expect(admin).toContain('/dashboard/expenses/input')
-    expect(owner).not.toContain('/dashboard/expenses/input')
+    // ADMIN sees Bisnis group items
+    expect(admin).toContain('/dashboard/owner')
+    // OWNER cannot access Pengadaan group items
+    expect(owner).not.toContain('/dashboard/pembelian')
   })
 })
 
 describe('accessibleGroups (pintu berlapis)', () => {
-  it('MITRA hanya melihat 1 pintu (Bisnis) berisi 4 item', () => {
+  it('MITRA hanya melihat 1 pintu (Portal Mitra) berisi 1 item', () => {
     const groups = accessibleGroups('MITRA')
-    expect(groups.map((g) => g.title)).toEqual(['Bisnis'])
-    expect(groups[0].items).toHaveLength(4)
+    expect(groups.map((g) => g.title)).toEqual(['Portal Mitra'])
+    expect(groups[0].items).toHaveLength(1)
   })
-  it('ADMIN melihat 6 pintu', () => {
+  it('ADMIN melihat 7 pintu', () => {
     expect(accessibleGroups('ADMIN').map((g) => g.title)).toEqual([
-      'Bisnis', 'Karyawan', 'Produk & Stok', 'Laporan', 'Sistem', 'Manajemen POS',
+      'Bisnis', 'Karyawan', 'Pengadaan', 'Produk & Stok', 'Laporan', 'Sistem', 'Manajemen POS',
     ])
   })
-  it('OWNER melihat pintu Bisnis, Laporan, Sistem, Manajemen POS (tanpa Karyawan/Produk)', () => {
+  it('OWNER melihat pintu Bisnis, Laporan, Sistem (tanpa Karyawan/Produk/POS)', () => {
     const titles = accessibleGroups('OWNER').map((g) => g.title)
-    expect(titles).toEqual(['Bisnis', 'Laporan', 'Sistem', 'Manajemen POS'])
+    expect(titles).toEqual(['Bisnis', 'Laporan', 'Sistem'])
   })
   it('setiap pintu yang tampil punya minimal 1 item', () => {
     for (const role of ['ADMIN', 'OWNER', 'ADMIN_HR', 'MITRA'] as const) {

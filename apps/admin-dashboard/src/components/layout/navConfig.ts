@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, type LucideIcon,
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, type LucideIcon,
 } from 'lucide-react'
 
 
@@ -16,14 +16,23 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: 'Bisnis',
     icon: Wallet,
-    roles: ['OWNER', 'ADMIN', 'MITRA'],
+    roles: ['OWNER', 'ADMIN'],
     items: [
-      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN', 'MITRA'] },
+      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/profit', label: 'Untung Rugi', shortLabel: 'Untung Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/targets', label: 'Target & Pesan', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/waste', label: 'Kerugian Waste', shortLabel: 'Waste', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/rekap-bulanan', label: 'Rekap Bulanan', shortLabel: 'Rekap', icon: Table2, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/kelola-mitra', label: 'Kelola Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['OWNER', 'ADMIN'] },
+    ],
+  },
+  {
+    title: 'Portal Mitra',
+    icon: HeartHandshake,
+    roles: ['MITRA'],
+    items: [
+      { href: '/dashboard/mitra', label: 'Dashboard Saya', shortLabel: 'Dashboard', icon: LayoutDashboard, roles: ['MITRA'] },
     ],
   },
   {

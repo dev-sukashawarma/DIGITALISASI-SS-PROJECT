@@ -88,22 +88,27 @@ export function BahanBakuDetailModal({
       // Gunakan timeout kecil agar elemen DOM sudah di-render
       setTimeout(() => {
         const elB = document.getElementById('newSkuNamaBesar') as HTMLSelectElement
-        const elBQty = document.getElementById('newSkuQtyBesar') as HTMLInputElement
+        const elBFaktor = document.getElementById('newSkuFaktorBesar') as HTMLInputElement
         if (elB) elB.value = bahanBaku.satuan || ''
-        if (elBQty) elBQty.value = bahanBaku.faktor_tampilan ? String(bahanBaku.faktor_tampilan) : ''
   
         const elT = document.getElementById('newSkuNamaTengah') as HTMLSelectElement
-        const elTQty = document.getElementById('newSkuQtyTengah') as HTMLInputElement
+        const elTFaktor = document.getElementById('newSkuFaktorTengah') as HTMLInputElement
         if (elT && bahanBaku.satuan_tengah) {
           elT.value = bahanBaku.satuan_tengah
-          elTQty.value = (bahanBaku.faktor_tampilan && bahanBaku.faktor_tengah) ? String(Math.round(bahanBaku.faktor_tampilan / bahanBaku.faktor_tengah)) : ''
+          if (elTFaktor) elTFaktor.value = (bahanBaku.faktor_tampilan && bahanBaku.faktor_tengah) ? String(Math.round(bahanBaku.faktor_tampilan / bahanBaku.faktor_tengah)) : ''
+        }
+
+        if (elBFaktor) {
+          elBFaktor.value = bahanBaku.satuan_tengah 
+            ? (bahanBaku.faktor_tengah ? String(bahanBaku.faktor_tengah) : '')
+            : (bahanBaku.faktor_tampilan ? String(bahanBaku.faktor_tampilan) : '')
         }
   
         const elK = document.getElementById('newSkuNamaKecil') as HTMLSelectElement
         const elKQty = document.getElementById('newSkuQtyKecil') as HTMLInputElement
         if (elK && bahanBaku.satuan_kecil) {
           elK.value = bahanBaku.satuan_kecil
-          elKQty.value = '1'
+          if (elKQty) elKQty.value = '1'
         }
       }, 10)
     }
@@ -638,7 +643,7 @@ export function BahanBakuDetailModal({
                           </select>
                         </div>
                         <div>
-                          <input type="number" id="newSkuQtyBesar" placeholder={`Total Isi (${bahanBaku.satuan_kecil || bahanBaku.satuan})`} className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
+                          <input type="number" id="newSkuFaktorBesar" placeholder={`1 Besar = ... (Satuan Tengah/Kecil)`} className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
                         </div>
                       </div>
                     </div>
@@ -654,7 +659,7 @@ export function BahanBakuDetailModal({
                           </select>
                         </div>
                         <div>
-                          <input type="number" id="newSkuQtyTengah" placeholder={`Total Isi (${bahanBaku.satuan_kecil || bahanBaku.satuan})`} className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
+                          <input type="number" id="newSkuFaktorTengah" placeholder={`1 Tengah = ... (Satuan Kecil)`} className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
                         </div>
                       </div>
                     </div>
@@ -670,10 +675,7 @@ export function BahanBakuDetailModal({
                           </select>
                         </div>
                         <div>
-                          <input type="number" id="newSkuQtyKecil" placeholder={`Total Isi (${bahanBaku.satuan_kecil || bahanBaku.satuan})`} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
-                        </div>
-                        <div>
-                          <input type="number" id="newSkuQtyKecil" placeholder={`Total Isi (${bahanBaku.satuan_kecil || bahanBaku.satuan})`} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
+                          <input type="number" id="newSkuQtyKecil" placeholder={`Total Isi (biasanya 1)`} defaultValue={1} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
                         </div>
                       </div>
                     </div>
@@ -699,10 +701,10 @@ export function BahanBakuDetailModal({
                       disabled={skuSaving}
                       onClick={() => {
                         const bNama = (document.getElementById('newSkuNamaBesar') as HTMLSelectElement).value
-                        const bQty = Number((document.getElementById('newSkuQtyBesar') as HTMLInputElement).value)
+                        const bFaktor = Number((document.getElementById('newSkuFaktorBesar') as HTMLInputElement).value)
 
                         const tNama = (document.getElementById('newSkuNamaTengah') as HTMLSelectElement).value
-                        const tQty = Number((document.getElementById('newSkuQtyTengah') as HTMLInputElement).value)
+                        const tFaktor = Number((document.getElementById('newSkuFaktorTengah') as HTMLInputElement).value)
 
                         const kNama = (document.getElementById('newSkuNamaKecil') as HTMLSelectElement).value
                         const kQty = Number((document.getElementById('newSkuQtyKecil') as HTMLInputElement).value)
@@ -717,11 +719,19 @@ export function BahanBakuDetailModal({
                           return
                         }
 
+                        // Hitung kuantitas dalam satuan terkecil
+                        const qtyKecil = kQty > 0 ? kQty : 1
+                        const qtyTengah = tNama && tFaktor > 0 ? tFaktor * qtyKecil : 0
+                        const qtyBesar = bNama && bFaktor > 0 ? bFaktor * (qtyTengah > 0 ? qtyTengah : qtyKecil) : 0
+
+                        const bQty = qtyBesar
+                        const tQty = qtyTengah
+
                         // Tentukan baseQty dari kemasan terbesar yang diisi
                         const baseQty = (bNama && bQty > 0) ? bQty : ((tNama && tQty > 0) ? tQty : ((kNama && kQty > 0) ? kQty : 0))
                         
                         if (baseQty === 0) {
-                          alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Total Isi).')
+                          alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Faktor Pengali).')
                           return
                         }
 
@@ -768,15 +778,15 @@ export function BahanBakuDetailModal({
                         }
                         
                         if (count === 0) {
-                          alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Total Isi).')
+                          alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Faktor Pengali).')
                           return
                         }
                         
                         // reset form & hide
                         ;(document.getElementById('newSkuNamaBesar') as HTMLSelectElement).value = '';
-                        ;(document.getElementById('newSkuQtyBesar') as HTMLInputElement).value = '';
+                        ;(document.getElementById('newSkuFaktorBesar') as HTMLInputElement).value = '';
                         ;(document.getElementById('newSkuNamaTengah') as HTMLSelectElement).value = '';
-                        ;(document.getElementById('newSkuQtyTengah') as HTMLInputElement).value = '';
+                        ;(document.getElementById('newSkuFaktorTengah') as HTMLInputElement).value = '';
                         ;(document.getElementById('newSkuNamaKecil') as HTMLSelectElement).value = '';
                         ;(document.getElementById('newSkuQtyKecil') as HTMLInputElement).value = '';
                         ;(document.getElementById('newSkuHargaMaster') as HTMLInputElement).value = '';

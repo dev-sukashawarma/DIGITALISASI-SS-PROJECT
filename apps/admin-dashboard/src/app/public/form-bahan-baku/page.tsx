@@ -30,10 +30,6 @@ type BahanBaku = {
   }[]
 }
 
-const SATUAN_OPTIONS = [
-  'Bal', 'Blok', 'Bungkus', 'Dus', 'Gram', 'Ikat', 'Kaleng', 'Karton', 'Karung', 'Kg', 'Lembar', 'Liter', 'Lusin', 'Ml', 'Pack', 'Pcs', 'Renceng', 'Roll', 'Sachet', 'Sisir', 'Toples', 'Tube'
-]
-
 export default function FormBahanBakuPage() {
   return (
     <Suspense fallback={
@@ -110,22 +106,27 @@ function FormBahanBakuContent() {
     if (showSkuSection && selectedItem) {
       setTimeout(() => {
         const elB = document.getElementById('newSkuNamaBesar') as HTMLSelectElement
-        const elBQty = document.getElementById('newSkuQtyBesar') as HTMLInputElement
+        const elBFaktor = document.getElementById('newSkuFaktorBesar') as HTMLInputElement
         if (elB) elB.value = selectedItem.satuan || ''
-        if (elBQty) elBQty.value = selectedItem.faktor_tampilan ? String(selectedItem.faktor_tampilan) : ''
   
         const elT = document.getElementById('newSkuNamaTengah') as HTMLSelectElement
-        const elTQty = document.getElementById('newSkuQtyTengah') as HTMLInputElement
+        const elTFaktor = document.getElementById('newSkuFaktorTengah') as HTMLInputElement
         if (elT && selectedItem.satuan_tengah) {
           elT.value = selectedItem.satuan_tengah
-          elTQty.value = (selectedItem.faktor_tampilan && selectedItem.faktor_tengah) ? String(Math.round(selectedItem.faktor_tampilan / selectedItem.faktor_tengah)) : ''
+          if (elTFaktor) elTFaktor.value = (selectedItem.faktor_tampilan && selectedItem.faktor_tengah) ? String(Math.round(selectedItem.faktor_tampilan / selectedItem.faktor_tengah)) : ''
+        }
+
+        if (elBFaktor) {
+          elBFaktor.value = selectedItem.satuan_tengah 
+            ? (selectedItem.faktor_tengah ? String(selectedItem.faktor_tengah) : '')
+            : (selectedItem.faktor_tampilan ? String(selectedItem.faktor_tampilan) : '')
         }
   
         const elK = document.getElementById('newSkuNamaKecil') as HTMLSelectElement
         const elKQty = document.getElementById('newSkuQtyKecil') as HTMLInputElement
         if (elK && selectedItem.satuan_kecil) {
           elK.value = selectedItem.satuan_kecil
-          elKQty.value = '1'
+          if (elKQty) elKQty.value = '1'
         }
       }, 10)
     }
@@ -582,9 +583,9 @@ function FormBahanBakuContent() {
                                 {SATUAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
                             </div>
-                            <div>
-                              <input type="number" id="newSkuQtyBesar" placeholder={`Total Isi (${selectedItem.satuan_kecil || selectedItem.satuan})`} className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
-                            </div>
+                              <div>
+                                <input type="number" id="newSkuFaktorBesar" placeholder={`1 Besar = ... (Satuan Tengah/Kecil)`} className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
+                              </div>
                           </div>
                         </div>
 
@@ -598,9 +599,9 @@ function FormBahanBakuContent() {
                                 {SATUAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
                             </div>
-                            <div>
-                              <input type="number" id="newSkuQtyTengah" placeholder={`Total Isi (${selectedItem.satuan_kecil || selectedItem.satuan})`} className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
-                            </div>
+                              <div>
+                                <input type="number" id="newSkuFaktorTengah" placeholder={`1 Tengah = ... (Satuan Kecil)`} className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
+                              </div>
                           </div>
                         </div>
 
@@ -614,9 +615,9 @@ function FormBahanBakuContent() {
                                 {SATUAN_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
                             </div>
-                            <div>
-                              <input type="number" id="newSkuQtyKecil" placeholder={`Total Isi (${selectedItem.satuan_kecil || selectedItem.satuan})`} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
-                            </div>
+                              <div>
+                                <input type="number" id="newSkuQtyKecil" placeholder={`Total Isi (biasanya 1)`} defaultValue={1} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
+                              </div>
                           </div>
                         </div>
                       </div>
@@ -640,96 +641,89 @@ function FormBahanBakuContent() {
                           className="px-4 py-2 bg-suka-orange text-white text-xs font-bold rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
                           disabled={isSubmitting}
                           onClick={async () => {
-                            if (!token) return
-                            const bNama = (document.getElementById('newSkuNamaBesar') as HTMLSelectElement).value
-                            const bQty = Number((document.getElementById('newSkuQtyBesar') as HTMLInputElement).value)
+                            if (!token) return;
+                            setIsSubmitting(true);
+                            const bNama = (document.getElementById('newSkuNamaBesar') as HTMLSelectElement).value;
+                            const bFaktor = Number((document.getElementById('newSkuFaktorBesar') as HTMLInputElement).value);
 
-                            const tNama = (document.getElementById('newSkuNamaTengah') as HTMLSelectElement).value
-                            const tQty = Number((document.getElementById('newSkuQtyTengah') as HTMLInputElement).value)
+                            const tNama = (document.getElementById('newSkuNamaTengah') as HTMLSelectElement).value;
+                            const tFaktor = Number((document.getElementById('newSkuFaktorTengah') as HTMLInputElement).value);
 
-                            const kNama = (document.getElementById('newSkuNamaKecil') as HTMLSelectElement).value
-                            const kQty = Number((document.getElementById('newSkuQtyKecil') as HTMLInputElement).value)
+                            const kNama = (document.getElementById('newSkuNamaKecil') as HTMLSelectElement).value;
+                            const kQty = Number((document.getElementById('newSkuQtyKecil') as HTMLInputElement).value);
                             
-                            const masterHarga = Number((document.getElementById('newSkuHargaMaster') as HTMLInputElement).value)
-
-                            let count = 0
-                            let isDefaultSet = selectedItem.bahan_baku_sku && selectedItem.bahan_baku_sku.length > 0
+                            const masterHarga = Number((document.getElementById('newSkuHargaMaster') as HTMLInputElement).value);
                             
                             if (masterHarga <= 0) {
-                              alert('Mohon isi Total Harga Beli kemasan.')
-                              return
+                              alert('Mohon isi Total Harga Beli kemasan.');
+                              setIsSubmitting(false);
+                              return;
                             }
 
+                            // Hitung kuantitas dalam satuan terkecil
+                            const qtyKecil = kQty > 0 ? kQty : 1;
+                            const qtyTengah = tNama && tFaktor > 0 ? tFaktor * qtyKecil : 0;
+                            const qtyBesar = bNama && bFaktor > 0 ? bFaktor * (qtyTengah > 0 ? qtyTengah : qtyKecil) : 0;
+    
+                            const bQty = qtyBesar;
+                            const tQty = qtyTengah;
+    
                             // Tentukan baseQty dari kemasan terbesar yang diisi
-                            const baseQty = (bNama && bQty > 0) ? bQty : ((tNama && tQty > 0) ? tQty : ((kNama && kQty > 0) ? kQty : 0))
+                            const baseQty = (bNama && bQty > 0) ? bQty : ((tNama && tQty > 0) ? tQty : ((kNama && kQty > 0) ? kQty : 0));
                             
                             if (baseQty === 0) {
-                              alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Total Isi).')
-                              return
+                              alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Faktor Pengali).');
+                              setIsSubmitting(false);
+                              return;
                             }
 
-                            setIsSubmitting(true)
+                            // Harga per satuan terkecil
+                            const pricePerUnit = masterHarga / baseQty;
 
-                            let errorOcurred = false
+                            let count = 0;
+                            let isDefaultSet = selectedItem.bahan_baku_sku && selectedItem.bahan_baku_sku.length > 0;
                             
-                            const pricePerUnit = masterHarga / baseQty
-
                             if (bNama && bQty > 0) {
-                              const res = await addBahanBakuSku(token, {
+                              await addBahanBakuSku(token, {
                                 bahan_baku_id: selectedItem.id,
                                 nama_kemasan: bNama,
                                 qty_isi: bQty,
                                 harga_beli: Math.round(pricePerUnit * bQty),
                                 is_default: !isDefaultSet,
                                 tingkatan_satuan: 'Besar'
-                              })
-                              if (!res.success) {
-                                errorOcurred = true
-                                setErrorMsg(res.error || 'Gagal tambah kemasan Besar')
-                              } else {
-                                isDefaultSet = true
-                                count++
-                              }
+                              });
+                              isDefaultSet = true;
+                              count++;
                             }
                             
                             if (tNama && tQty > 0) {
-                              const res = await addBahanBakuSku(token, {
+                              await addBahanBakuSku(token, {
                                 bahan_baku_id: selectedItem.id,
                                 nama_kemasan: tNama,
                                 qty_isi: tQty,
                                 harga_beli: Math.round(pricePerUnit * tQty),
                                 is_default: !isDefaultSet,
                                 tingkatan_satuan: 'Tengah'
-                              })
-                              if (!res.success) {
-                                errorOcurred = true
-                                setErrorMsg(res.error || 'Gagal tambah kemasan Tengah')
-                              } else {
-                                isDefaultSet = true
-                                count++
-                              }
+                              });
+                              isDefaultSet = true;
+                              count++;
                             }
                             
                             if (kNama && kQty > 0) {
-                              const res = await addBahanBakuSku(token, {
+                              await addBahanBakuSku(token, {
                                 bahan_baku_id: selectedItem.id,
                                 nama_kemasan: kNama,
                                 qty_isi: kQty,
                                 harga_beli: Math.round(pricePerUnit * kQty),
                                 is_default: !isDefaultSet,
                                 tingkatan_satuan: 'Kecil'
-                              })
-                              if (!res.success) {
-                                errorOcurred = true
-                                setErrorMsg(res.error || 'Gagal tambah kemasan Kecil')
-                              } else {
-                                isDefaultSet = true
-                                count++
-                              }
+                              });
+                              isDefaultSet = true;
+                              count++;
                             }
                             
-                            if (count === 0 && !errorOcurred) {
-                              alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Total Isi).')
+                            if (count === 0) {
+                              alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Faktor Pengali).')
                               setIsSubmitting(false)
                               return
                             }
@@ -744,9 +738,9 @@ function FormBahanBakuContent() {
                               
                               // reset form
                               ;(document.getElementById('newSkuNamaBesar') as HTMLSelectElement).value = '';
-                              ;(document.getElementById('newSkuQtyBesar') as HTMLInputElement).value = '';
+                              ;(document.getElementById('newSkuFaktorBesar') as HTMLInputElement).value = '';
                               ;(document.getElementById('newSkuNamaTengah') as HTMLSelectElement).value = '';
-                              ;(document.getElementById('newSkuQtyTengah') as HTMLInputElement).value = '';
+                              ;(document.getElementById('newSkuFaktorTengah') as HTMLInputElement).value = '';
                               ;(document.getElementById('newSkuNamaKecil') as HTMLSelectElement).value = '';
                               ;(document.getElementById('newSkuQtyKecil') as HTMLInputElement).value = '';
                               ;(document.getElementById('newSkuHargaMaster') as HTMLInputElement).value = '';

@@ -233,8 +233,7 @@ export default function KasirNav() {
           </button>
         </div>
 
-        <nav className={`flex-1 py-6 space-y-2 px-4 overflow-y-auto pb-24 md:px-0`}>
-          <div className={`${isCollapsed ? 'md:px-2.5 md:overflow-visible' : 'md:px-4 md:overflow-y-auto'} px-4 overflow-y-auto space-y-2 h-full w-full`}>
+        <nav className={`flex-1 py-6 space-y-2 ${isCollapsed ? 'px-2.5 overflow-visible' : 'px-4 overflow-y-auto'}`}>
           {links.map((link) => {
             const hasSubItems = !!link.subItems && link.subItems.length > 0;
             const Icon = link.icon;
@@ -359,7 +358,6 @@ export default function KasirNav() {
               </span>
             )}
           </a>
-          </div>
         </nav>
 
         <div className={`py-6 border-t border-[#d9c2b2] space-y-2 shrink-0 ${isCollapsed ? 'px-2.5' : 'px-4'}`}>

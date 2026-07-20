@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import KasirMenuClient, { type MenuQueryData } from './KasirMenuClient'
 import type { MenuItem, Category } from '@/types'
 
@@ -12,7 +13,13 @@ export default async function KasirMenuServerPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect(process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com')
+    const headersList = await headers()
+    const host = headersList.get('host') || ''
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1') || process.env.NODE_ENV === 'development'
+    
+    // Portal berjalan di 3010
+    const portalUrl = isLocal ? 'http://localhost:3010' : (process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com')
+    redirect(portalUrl)
   }
 
   // 2. Dapatkan outlet_id

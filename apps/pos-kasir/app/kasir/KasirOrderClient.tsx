@@ -1123,7 +1123,7 @@ export default function KasirOrderClient({
       <StockMarquee />
 
       {/* ── Header & Stats ── */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 flex-wrap pb-4 border-b border-slate-200">
+      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 flex-wrap pb-4 border-b border-slate-200">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Order</h1>
           {isMounted && outletName && (
@@ -1142,7 +1142,7 @@ export default function KasirOrderClient({
           )}
         </div>
         
-        <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto shrink-0">
           <Link
             href="/kasir/order-manual"
             className="bg-[#f29744] hover:bg-[#e08632] text-white font-bold px-4 py-3 rounded-2xl flex items-center gap-2 transition-all active:scale-95 shadow-sm shadow-[#f29744]/20 flex-shrink-0"
@@ -1211,7 +1211,7 @@ export default function KasirOrderClient({
       </div>
 
       {/* Bento Grid columns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xl:gap-6 items-stretch pb-20">
         
         {/* ── Column 1: MENUNGGU PEMBAYARAN (Pending) ── */}
         <div className="bg-slate-50/50 border border-slate-200 shadow-sm rounded-2xl p-5 flex flex-col">

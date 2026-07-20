@@ -123,10 +123,10 @@ class FaceRecognizer(context: Context) {
     companion object {
         /**
          * Threshold cosine similarity verifikasi 1:1.
-         * Nilai awal 0.80 — WAJIB dikalibrasi ulang via FaceDebugScreen setiap ganti model
-         * (lihat Task 9 plan fase 1). Pola kalibrasi web dulu: titik tengah skor orang-sama vs orang-beda.
+         * Kalibrasi 2026-07-20 (4 sample): min same-person=0.6837, max different-person=0.5411
+         * Threshold final=0.65 (safety margin 0.034 dari min same-person, gap 0.11 dari max different-person).
          */
-        const val MOBILE_MATCH_THRESHOLD = 0.80f
+        const val MOBILE_MATCH_THRESHOLD = 0.65f
 
         fun cosineSimilarity(vectorA: FloatArray, vectorB: FloatArray): Float {
             // Guard dimensi: descriptor lama/korup vs model baru → gagal eksplisit, bukan crash

@@ -603,9 +603,6 @@ export function BahanBakuDetailModal({
                         <div>
                           <input type="number" id="newSkuQtyBesar" placeholder={`Total Isi (${bahanBaku.satuan_kecil || bahanBaku.satuan})`} className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
                         </div>
-                        <div>
-                          <input type="number" id="newSkuHargaBesar" placeholder="Harga Beli" className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
-                        </div>
                       </div>
                     </div>
 
@@ -621,9 +618,6 @@ export function BahanBakuDetailModal({
                         </div>
                         <div>
                           <input type="number" id="newSkuQtyTengah" placeholder={`Total Isi (${bahanBaku.satuan_kecil || bahanBaku.satuan})`} className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
-                        </div>
-                        <div>
-                          <input type="number" id="newSkuHargaTengah" placeholder="Harga Beli" className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
                         </div>
                       </div>
                     </div>
@@ -642,10 +636,16 @@ export function BahanBakuDetailModal({
                           <input type="number" id="newSkuQtyKecil" placeholder={`Total Isi (${bahanBaku.satuan_kecil || bahanBaku.satuan})`} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
                         </div>
                         <div>
-                          <input type="number" id="newSkuHargaKecil" placeholder="Harga Beli" className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
+                          <input type="number" id="newSkuQtyKecil" placeholder={`Total Isi (${bahanBaku.satuan_kecil || bahanBaku.satuan})`} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-3">
+                    <label className="text-xs font-bold text-gray-700 block mb-1">Total Harga Beli (Rp)</label>
+                    <p className="text-[10px] text-gray-400 mb-2">Harga ini mewakili kemasan paling besar yang Anda isi di atas. Harga kemasan lebih kecil akan dihitung otomatis.</p>
+                    <input type="number" id="newSkuHargaMaster" placeholder="Contoh: 150000" className="w-full text-sm p-2 border border-gray-300 rounded-md outline-none focus:border-suka-orange" />
                   </div>
 
                   <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
@@ -661,27 +661,42 @@ export function BahanBakuDetailModal({
                       className="px-4 py-2 text-xs font-bold rounded-lg"
                       disabled={skuSaving}
                       onClick={() => {
-                        const bNama = (document.getElementById('newSkuNamaBesar') as HTMLInputElement).value
+                        const bNama = (document.getElementById('newSkuNamaBesar') as HTMLSelectElement).value
                         const bQty = Number((document.getElementById('newSkuQtyBesar') as HTMLInputElement).value)
-                        const bHarga = Number((document.getElementById('newSkuHargaBesar') as HTMLInputElement).value)
 
-                        const tNama = (document.getElementById('newSkuNamaTengah') as HTMLInputElement).value
+                        const tNama = (document.getElementById('newSkuNamaTengah') as HTMLSelectElement).value
                         const tQty = Number((document.getElementById('newSkuQtyTengah') as HTMLInputElement).value)
-                        const tHarga = Number((document.getElementById('newSkuHargaTengah') as HTMLInputElement).value)
 
-                        const kNama = (document.getElementById('newSkuNamaKecil') as HTMLInputElement).value
+                        const kNama = (document.getElementById('newSkuNamaKecil') as HTMLSelectElement).value
                         const kQty = Number((document.getElementById('newSkuQtyKecil') as HTMLInputElement).value)
-                        const kHarga = Number((document.getElementById('newSkuHargaKecil') as HTMLInputElement).value)
+
+                        const masterHarga = Number((document.getElementById('newSkuHargaMaster') as HTMLInputElement).value)
 
                         let count = 0
                         let isDefaultSet = bahanBaku.skus && bahanBaku.skus.length > 0
                         
-                        if (bNama && bQty > 0 && bHarga > 0) {
+                        if (masterHarga <= 0) {
+                          alert('Mohon isi Total Harga Beli kemasan.')
+                          return
+                        }
+
+                        // Tentukan baseQty dari kemasan terbesar yang diisi
+                        const baseQty = (bNama && bQty > 0) ? bQty : ((tNama && tQty > 0) ? tQty : ((kNama && kQty > 0) ? kQty : 0))
+                        
+                        if (baseQty === 0) {
+                          alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Total Isi).')
+                          return
+                        }
+
+                        // Harga per satuan terkecil
+                        const pricePerUnit = masterHarga / baseQty
+
+                        if (bNama && bQty > 0) {
                           onAddSku({
                             bahan_baku_id: bahanBaku.id,
                             nama_kemasan: bNama,
                             qty_isi: bQty,
-                            harga_beli: bHarga,
+                            harga_beli: Math.round(pricePerUnit * bQty),
                             is_default: !isDefaultSet,
                             tingkatan_satuan: 'Besar'
                           })
@@ -689,12 +704,12 @@ export function BahanBakuDetailModal({
                           count++
                         }
                         
-                        if (tNama && tQty > 0 && tHarga > 0) {
+                        if (tNama && tQty > 0) {
                           onAddSku({
                             bahan_baku_id: bahanBaku.id,
                             nama_kemasan: tNama,
                             qty_isi: tQty,
-                            harga_beli: tHarga,
+                            harga_beli: Math.round(pricePerUnit * tQty),
                             is_default: !isDefaultSet,
                             tingkatan_satuan: 'Tengah'
                           })
@@ -702,12 +717,12 @@ export function BahanBakuDetailModal({
                           count++
                         }
                         
-                        if (kNama && kQty > 0 && kHarga > 0) {
+                        if (kNama && kQty > 0) {
                           onAddSku({
                             bahan_baku_id: bahanBaku.id,
                             nama_kemasan: kNama,
                             qty_isi: kQty,
-                            harga_beli: kHarga,
+                            harga_beli: Math.round(pricePerUnit * kQty),
                             is_default: !isDefaultSet,
                             tingkatan_satuan: 'Kecil'
                           })
@@ -716,20 +731,18 @@ export function BahanBakuDetailModal({
                         }
                         
                         if (count === 0) {
-                          alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama, Total Isi, dan Harga Beli).')
+                          alert('Mohon isi minimal satu satuan (Besar/Tengah/Kecil) dengan lengkap (Nama dan Total Isi).')
                           return
                         }
                         
                         // reset form & hide
-                        ;(document.getElementById('newSkuNamaBesar') as HTMLInputElement).value = '';
+                        ;(document.getElementById('newSkuNamaBesar') as HTMLSelectElement).value = '';
                         ;(document.getElementById('newSkuQtyBesar') as HTMLInputElement).value = '';
-                        ;(document.getElementById('newSkuHargaBesar') as HTMLInputElement).value = '';
-                        ;(document.getElementById('newSkuNamaTengah') as HTMLInputElement).value = '';
+                        ;(document.getElementById('newSkuNamaTengah') as HTMLSelectElement).value = '';
                         ;(document.getElementById('newSkuQtyTengah') as HTMLInputElement).value = '';
-                        ;(document.getElementById('newSkuHargaTengah') as HTMLInputElement).value = '';
-                        ;(document.getElementById('newSkuNamaKecil') as HTMLInputElement).value = '';
+                        ;(document.getElementById('newSkuNamaKecil') as HTMLSelectElement).value = '';
                         ;(document.getElementById('newSkuQtyKecil') as HTMLInputElement).value = '';
-                        ;(document.getElementById('newSkuHargaKecil') as HTMLInputElement).value = '';
+                        ;(document.getElementById('newSkuHargaMaster') as HTMLInputElement).value = '';
                         
                         setShowSkuSection(false);
                       }}

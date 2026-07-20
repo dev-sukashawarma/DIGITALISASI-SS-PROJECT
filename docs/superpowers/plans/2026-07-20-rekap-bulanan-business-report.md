@@ -188,11 +188,23 @@ git commit -m "feat(admin-dashboard): add groupChannel pure function"
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `apps/admin-dashboard/src/lib/period.test.ts`:
+In `apps/admin-dashboard/src/lib/period.test.ts`, replace line 1-2:
 
 ```typescript
-import { monthRange } from './period'
+import { describe, it, expect } from 'vitest'
+import { presetRange, previousRange } from './period'
+```
 
+with:
+
+```typescript
+import { describe, it, expect } from 'vitest'
+import { presetRange, previousRange, monthRange } from './period'
+```
+
+Then append at the end of the file:
+
+```typescript
 describe('monthRange', () => {
   it('Juli 2026 (31 hari)', () => {
     expect(monthRange(2026, 7)).toEqual({ from: '2026-07-01', to: '2026-07-31' })
@@ -208,8 +220,6 @@ describe('monthRange', () => {
   })
 })
 ```
-
-(Add the `import { monthRange } from './period'` alongside the existing `import { presetRange, previousRange } from './period'` line — merge into one import statement.)
 
 - [ ] **Step 2: Run test to verify it fails**
 

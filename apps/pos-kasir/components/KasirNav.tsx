@@ -192,7 +192,7 @@ export default function KasirNav() {
           ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}`}
       >
         <div className={`absolute inset-y-0 left-0 ${isCollapsed ? 'md:w-[300px] w-64' : 'w-64'} overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden pointer-events-none`}>
-          <div className={`flex flex-col min-h-full bg-[#f5ede3] border-r border-[#d9c2b2] pointer-events-auto transition-all duration-300 ease-in-out ${isCollapsed ? 'md:w-20 w-64' : 'w-64'}`}>
+          <div className={`relative flex flex-col min-h-full bg-[#f5ede3] border-r border-[#d9c2b2] pointer-events-auto transition-all duration-300 ease-in-out ${isCollapsed ? 'md:w-20 w-64' : 'w-64'}`}>
         {/* Collapse toggle button for desktop */}
         <button
           onClick={toggleCollapse}

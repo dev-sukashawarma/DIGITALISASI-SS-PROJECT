@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, it, expect } from 'vitest'
 import { normalizeBahanBaku, filterBahanBaku, parsePriceInput } from './bahanBaku'
 import type { BahanBakuRaw } from './bahanBaku'

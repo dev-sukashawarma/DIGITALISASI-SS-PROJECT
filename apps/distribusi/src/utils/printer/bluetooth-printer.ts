@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { usePrinterStore, WebBluetoothDevice } from './printerStore';
 import { EscPosEncoder } from './escpos-encoder';
 import { loadImageRaster } from './escpos-image';

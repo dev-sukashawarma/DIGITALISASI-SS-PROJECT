@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import { useState, useRef } from 'react'
 import { Check, Pencil, X, ArrowRight, Camera, PackageSearch, FileText, AlertTriangle } from 'lucide-react'

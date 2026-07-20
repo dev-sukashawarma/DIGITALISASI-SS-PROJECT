@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '@suka/auth'
 import { useRealtimeInvalidate } from '@suka/realtime'
@@ -10,8 +10,10 @@ export function useLeaveNotifications() {
   const supabase = createClient()
   const queryClient = useQueryClient()
 
+  const randomSuffix = useMemo(() => Math.random().toString(36).slice(2), [])
+
   useRealtimeInvalidate({
-    channelName: `absensi-cuti-${outletStaff?.id ?? "none"}`,
+    channelName: `absensi-cuti-${outletStaff?.id ?? "none"}-${randomSuffix}`,
     enabled: !!outletStaff?.id,
     subs: [
       {
@@ -31,7 +33,7 @@ export function useLeaveNotifications() {
     queryFn: async () => {
       if (!outletStaff?.id) return 0
       
-      const lastSeenStr = localStorage.getItem(`last_seen_cuti_${outletStaff.id}`)
+      const lastSeenStr = typeof window !== 'undefined' ? localStorage.getItem(`last_seen_cuti_${outletStaff.id}`) : null
       const lastSeen = lastSeenStr ? lastSeenStr : '2000-01-01T00:00:00Z'
       
       const { count, error } = await supabase
@@ -55,12 +57,12 @@ export function useLeaveNotifications() {
     prevCount.current = unreadCount
   }, [unreadCount])
 
-  const markAsRead = () => {
-    if (outletStaff?.id) {
+  const markAsRead = useCallback(() => {
+    if (outletStaff?.id && typeof window !== 'undefined') {
       localStorage.setItem(`last_seen_cuti_${outletStaff.id}`, new Date().toISOString())
       queryClient.invalidateQueries({ queryKey: ['unread-leaves-count', outletStaff.id] })
     }
-  }
+  }, [outletStaff?.id, queryClient])
 
   return { unreadCount, markAsRead }
 }

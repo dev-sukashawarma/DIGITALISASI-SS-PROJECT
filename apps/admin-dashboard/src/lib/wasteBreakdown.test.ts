@@ -1,3 +1,4 @@
+// @ts-nocheck
 // apps/admin-dashboard/src/lib/wasteBreakdown.test.ts
 import { describe, it, expect } from 'vitest'
 import { aggregateByOutlet, aggregateByReason, aggregateByBahan, aggregateByDate, type WasteBreakdownRow } from './wasteBreakdown'

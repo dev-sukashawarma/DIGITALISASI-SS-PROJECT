@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
 export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await params;
   
   // In a real application, you would:
   // 1. Generate a secure token

@@ -124,7 +124,7 @@ export default function ChecklistMonitorPage() {
       supabase.removeChannel(channelRef.current);
     }
     const ch = supabase
-      .channel(`absensi-checklist-monitor-${selectedOutletId}`)
+      .channel(`absensi-checklist-monitor-${selectedOutletId}-${Math.random().toString(36).substring(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_checklist_ticks" },

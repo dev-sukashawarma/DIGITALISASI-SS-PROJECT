@@ -398,8 +398,8 @@ export default function KasirMenuClient({
           <p className="font-semibold text-gray-500">Menu tidak ditemukan</p>
         </div>
       ) : (
-        <div className="card overflow-visible pb-32">
-          <div className="overflow-x-auto overflow-y-visible">
+        <div className="card overflow-visible">
+          <div className="overflow-x-auto pb-56">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -485,7 +485,7 @@ export default function KasirMenuClient({
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3.5 px-5 relative">
+                      <td className={`py-3.5 px-5 relative ${openDropdownId === item.id ? 'z-[9999]' : ''}`}>
                         <div className="flex items-center justify-end">
                           <button 
                             className="dropdown-trigger px-3 py-1.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 flex items-center gap-2 text-gray-700 font-semibold transition-all"
@@ -496,7 +496,7 @@ export default function KasirMenuClient({
                         </div>
                         
                         {openDropdownId === item.id && (
-                          <div className="dropdown-menu absolute right-5 top-14 z-50 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 animate-scale-in origin-top-right">
+                          <div className="dropdown-menu absolute right-5 top-14 z-[9999] w-56 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 animate-scale-in origin-top-right">
                             <button onClick={() => { toggleRecommendation(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-xl text-[13px] flex items-center justify-between transition-colors">
                               <span className={recommendations.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Jadikan Menu Rekomendasi</span>
                               {recommendations.includes(item.id) && <Check className="w-4 h-4 text-amber-600" />}

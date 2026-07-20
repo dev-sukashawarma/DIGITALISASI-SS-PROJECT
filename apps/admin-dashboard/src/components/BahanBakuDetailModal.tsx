@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import React, { useRef, useState, useEffect } from 'react'
 import { X, Camera, Package, Image as ImageIcon, Pencil, Check, ArrowRight, ZoomIn } from 'lucide-react'

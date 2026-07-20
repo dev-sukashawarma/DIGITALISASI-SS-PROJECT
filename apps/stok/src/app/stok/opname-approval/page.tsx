@@ -170,7 +170,7 @@ export default function OpnameApprovalPage() {
                   {flaggedItems.length > 0 && (
                     <div className="space-y-1.5">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-[#544437]/50">Item Bermasalah</p>
-                      {flaggedItems.slice(0, 3).map((item) => (
+                      {flaggedItems.slice(0, 3).map((item: any) => (
                         <div key={item.bahan_baku_id} className="flex justify-between items-center bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">
                           <span className="text-[10px] font-bold text-red-800 font-mono truncate">
                             {item.bahan_baku_id?.slice(0, 8)}...

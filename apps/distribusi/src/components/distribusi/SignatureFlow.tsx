@@ -63,7 +63,7 @@ export function SignatureFlow({
   const hasAdmin = signedRoles.includes('Admin Kitchen') || signedRoles.includes('Kitchen SPV')
   const hasSupir = signedRoles.includes('Supir')
   
-  const missingRoles = []
+  const missingRoles: string[] = []
   if (!hasAdmin) missingRoles.push('Admin Kitchen')
   if (!hasSupir) missingRoles.push('Supir')
 

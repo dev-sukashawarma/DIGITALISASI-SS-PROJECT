@@ -29,13 +29,13 @@ const statusLabelMap = {
 
 export default function MutasiDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: mutasiId } = use(params);
-  const router = useRouter();
+  
   const { outletStaff } = useAuth();
   const { selectedOutletId } = useOutletScope();
   
   // Actually we should fetch just this one mutasi, but for simplicity we reuse the list hook and filter.
   // In a real app, we'd have a specific fetch hook or server component.
-  const { mutasi, loading, refresh } = useMutasiList(selectedOutletId);
+  const { mutasi, loading, refresh } = useMutasiList(selectedOutletId || undefined);
   const { approve, kirim, terima } = useMutasiActions();
   
   const [data, setData] = useState<MutasiAntarOutlet | null>(null);

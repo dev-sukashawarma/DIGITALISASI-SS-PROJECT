@@ -21,7 +21,7 @@ export function BottomNav() {
   const pathname = usePathname()
   const { profile } = useAuth()
   
-  const isApprover = profile?.role_name === 'KITCHEN' || profile?.role_name === 'SPV' || profile?.role_name === 'LEADER'
+  const isApprover = outletStaff?.role_name === 'KITCHEN' || profile?.role_name === 'SPV' || profile?.role_name === 'LEADER'
   const { permintaan } = useApprovalList(isApprover)
   const pendingCount = permintaan.length
 

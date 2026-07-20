@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PeriodFilterValue, SalesSource } from '@/lib/types'

@@ -15,7 +15,7 @@ interface TransferSuggestionPanelProps {
 
 export function TransferSuggestionPanel({
   items,
-  onTransfer,
+  
 }: TransferSuggestionPanelProps) {
   const suggestions = useMemo(
     () => computeTransferSuggestions(items),

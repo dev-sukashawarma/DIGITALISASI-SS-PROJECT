@@ -49,13 +49,15 @@ export default function LoginPage() {
     }
 
     if (['admin', 'owner', 'mitra'].includes(staff.role)) {
-      const adminUrl = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || process.env.NODE_ENV === 'development'
+      const adminUrl = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || (isLocal ? 'http://localhost:3005' : 'https://admin.sukashawarma.com')
       window.location.href = adminUrl
       return
     }
     
     if (staff.role === 'leader') {
-      const financeUrl = process.env.NEXT_PUBLIC_APP_URL_FINANCE || 'https://finance.sukashawarma.com'
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || process.env.NODE_ENV === 'development'
+      const financeUrl = process.env.NEXT_PUBLIC_APP_URL_FINANCE || (isLocal ? 'http://localhost:3020' : 'https://finance.sukashawarma.com')
       window.location.href = `${financeUrl}/leader`
       return
     }
@@ -228,7 +230,8 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                const kasirUrl = process.env.NEXT_PUBLIC_APP_URL_POS_KASIR || 'https://pos.sukashawarma.com'
+                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || process.env.NODE_ENV === 'development'
+                const kasirUrl = process.env.NEXT_PUBLIC_APP_URL_POS_KASIR || (isLocal ? 'http://localhost:3004' : 'https://pos.sukashawarma.com')
                 window.location.href = `${kasirUrl}/kiosk/qr-login`
               }}
               className="w-full flex items-center justify-center gap-2 py-3 border-2 border-suka-orange/30 text-suka-orange bg-suka-orange/5 hover:bg-suka-orange/10 hover:border-suka-orange/50 transition-all font-bold rounded-xl active:scale-[0.98] text-sm sm:text-base cursor-pointer"

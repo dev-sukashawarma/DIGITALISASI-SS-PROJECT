@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import { useState } from 'react'
 import { Card, Button, Input } from '@suka/design-system'

@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id" className="h-full w-full overflow-hidden bg-suka-cream">
-      <body className={`${plusJakartaSans.className} h-full w-full overflow-hidden bg-suka-cream antialiased`}>
+      <body suppressHydrationWarning className={`${plusJakartaSans.className} h-full w-full overflow-hidden bg-suka-cream antialiased`}>
         {children}
       </body>
     </html>

@@ -29,9 +29,11 @@ export function useRealtimeChannel(opts: {
   useEffect(() => {
     if (!enabled) return
 
-    // Nama channel STABIL per-scope (bukan random). Cleanup andal via removeChannel
-    // mencegah channel bocor / duplikat saat unmount / re-subscribe.
-    const channel = supabase.channel(channelName)
+    // Supabase caches channels by name. If we reuse the same name, we might get an already-subscribed channel
+    // which throws an error if we call .on() again. Adding a random suffix ensures a fresh channel object.
+    const actualChannelName = `${channelName}-${Math.random().toString(36).slice(2)}`
+    const channel = supabase.channel(actualChannelName)
+    
     subsRef.current.forEach((sub, idx) => {
       channel.on(
         'postgres_changes' as any,

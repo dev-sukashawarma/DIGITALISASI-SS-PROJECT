@@ -290,7 +290,7 @@ export default function KruChecklistPage() {
   // Real-time updates for ticks
   useEffect(() => {
     if (!recordId) return;
-    const channelName = `absensi-checklist-ticks-${recordId}`;
+    const channelName = `absensi-checklist-ticks-${recordId}-${Math.random().toString(36).substring(2)}`;
     const ch = supabase
       .channel(channelName)
       .on(

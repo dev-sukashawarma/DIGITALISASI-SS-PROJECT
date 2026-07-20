@@ -210,7 +210,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     });
   }, [bahanBaku, searchTerm, activeCategory, isGudang]);
 
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  
   const [pendingApproval, setPendingApprovalState] = useState(false);
 
   async function handleFinalize() {
@@ -369,8 +369,8 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           }
 
           let useComposite = false;
-          let compLabel = '';
-          let compLargeLabel = b.satuan;
+          let compLabel: string = '';
+          let compLargeLabel: string = b.satuan;
           let compFactor = 1;
           let toBaseUnit: ((l: number, s: number) => number) | undefined = undefined;
 

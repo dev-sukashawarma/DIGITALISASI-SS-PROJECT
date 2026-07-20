@@ -137,7 +137,7 @@ export function OpnameList({ items }: { items: Opname[] }) {
       {/* Opname List Cards */}
       <div className="space-y-3">
         {filteredItems.map((o) => {
-          const isFinalized = o.status === 'finalized';
+          // const isFinalized = o.status === 'finalized';
           const formattedDate = formatOpnameDate(o.tanggal);
           
           const totalCounted = o.opname_item?.filter((item) => item.qty_fisik !== null).length || 0;

@@ -7,27 +7,25 @@ import AppTile from '@/components/AppTile'
 import { Avatar } from '@suka/design-system'
 import { MapPin, Clock, CheckCircle2 } from 'lucide-react'
 
+import { headers } from 'next/headers'
+
 // URL app: env-driven (NEXT_PUBLIC_APP_URL_<APP>) agar benar di lokal & prod,
 // fallback ke subdomain produksi bila env kosong. Lihat ADR-008.
-const APP_URL: Record<AppName, string> = {
-  'admin-dashboard': process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD  ?? 'https://admin.sukashawarma.com',
-  stok:              process.env.NEXT_PUBLIC_APP_URL_STOK            ?? 'https://stok.sukashawarma.com',
-  absensi:           process.env.NEXT_PUBLIC_APP_URL_ABSENSI         ?? 'https://absensi.sukashawarma.com',
-  distribusi:        process.env.NEXT_PUBLIC_APP_URL_DISTRIBUSI      ?? 'https://distribusi.sukashawarma.com',
-  'pos-kasir':       process.env.NEXT_PUBLIC_APP_URL_POS_KASIR       ?? 'https://pos.sukashawarma.com',
-  'owner-dashboard': process.env.NEXT_PUBLIC_APP_URL_OWNER_DASHBOARD ?? 'https://owner.sukashawarma.com',
-  finance:           process.env.NEXT_PUBLIC_APP_URL_FINANCE         ?? 'https://finance.sukashawarma.com',
-}
 
-// Metadata per app
-const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
-  'admin-dashboard': { label: 'Admin Dashboard',  url: APP_URL['admin-dashboard'], desc: 'Administrasi staff, akun & sistem' },
-  stok:              { label: 'Stok',             url: APP_URL.stok,              desc: 'Monitoring & ledger stok bahan baku' },
-  absensi:           { label: 'Absensi',          url: APP_URL.absensi,           desc: 'Presensi karyawan dengan verifikasi wajah' },
-  distribusi:        { label: 'Distribusi',       url: APP_URL.distribusi,        desc: 'Pengiriman bahan baku & surat jalan' },
-  'pos-kasir':       { label: 'POS Kasir',        url: APP_URL['pos-kasir'],      desc: 'Transaksi penjualan & point of sale' },
-  'owner-dashboard': { label: 'Owner Dashboard',  url: APP_URL['owner-dashboard'], desc: 'Laporan omzet & analisis keuangan' },
-  finance:           { label: 'Finance',          url: APP_URL.finance,           desc: 'Keuangan, petty cash & pengajuan dana' },
+const getAppUrls = async () => {
+  const headersList = await headers()
+  const host = headersList.get('host') || ''
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1') || process.env.NODE_ENV === 'development'
+
+  return {
+    'admin-dashboard': isLocal ? 'http://localhost:3005' : (process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'),
+    stok:              isLocal ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_APP_URL_STOK || 'https://stok.sukashawarma.com'),
+    absensi:           isLocal ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_APP_URL_ABSENSI || 'https://absensi.sukashawarma.com'),
+    distribusi:        isLocal ? 'http://localhost:3002' : (process.env.NEXT_PUBLIC_APP_URL_DISTRIBUSI || 'https://distribusi.sukashawarma.com'),
+    'pos-kasir':       isLocal ? 'http://localhost:3004' : (process.env.NEXT_PUBLIC_APP_URL_POS_KASIR || 'https://pos.sukashawarma.com'),
+    'owner-dashboard': isLocal ? 'http://localhost:3003' : (process.env.NEXT_PUBLIC_APP_URL_OWNER_DASHBOARD || 'https://owner.sukashawarma.com'),
+    finance:           isLocal ? 'http://localhost:3020' : (process.env.NEXT_PUBLIC_APP_URL_FINANCE || 'https://finance.sukashawarma.com'),
+  } as Record<AppName, string>
 }
 
 export default async function LauncherPage() {
@@ -55,12 +53,24 @@ export default async function LauncherPage() {
     redirect('/')
   }
 
+  const APP_URL = await getAppUrls()
+
   // Admin, Owner, dan Mitra tidak punya menu operasional di launcher → langsung ke admin-dashboard.
   // Chokepoint tunggal: berlaku utk login baru, akses /launcher langsung, & revisit.
   if (['admin', 'owner', 'mitra'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
   }
   const apps = accessibleApps(staff.role)
+
+  const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
+    'admin-dashboard': { label: 'Admin Dashboard',  url: APP_URL['admin-dashboard'], desc: 'Administrasi staff, akun & sistem' },
+    stok:              { label: 'Stok',             url: APP_URL.stok,              desc: 'Monitoring & ledger stok bahan baku' },
+    absensi:           { label: 'Absensi',          url: APP_URL.absensi,           desc: 'Presensi karyawan dengan verifikasi wajah' },
+    distribusi:        { label: 'Distribusi',       url: APP_URL.distribusi,        desc: 'Pengiriman bahan baku & surat jalan' },
+    'pos-kasir':       { label: 'POS Kasir',        url: APP_URL['pos-kasir'],      desc: 'Transaksi penjualan & point of sale' },
+    'owner-dashboard': { label: 'Owner Dashboard',  url: APP_URL['owner-dashboard'], desc: 'Laporan omzet & analisis keuangan' },
+    finance:           { label: 'Finance',          url: APP_URL.finance,           desc: 'Keuangan, petty cash & pengajuan dana' },
+  }
 
   // Configure greeting and styling banners based on user roles
   const getBannerConfig = (role: string) => {

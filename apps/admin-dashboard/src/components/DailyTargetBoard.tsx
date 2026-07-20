@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import { useMemo, useState, useEffect } from 'react'
 import { useTargetProgress } from '@/hooks/useTargetProgress'

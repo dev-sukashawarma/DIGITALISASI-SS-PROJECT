@@ -139,7 +139,7 @@ export default function KasirNav() {
   return (
     <>
       {/* Top bar mobile */}
-      <header className="print:hidden lg:hidden sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-[#fff8f1] border-b border-[#d9c2b2] shadow-sm">
+      <header className="print:hidden md:hidden sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-[#fff8f1] border-b border-[#d9c2b2] shadow-sm">
         <Link href="/kasir" className="flex items-center gap-2.5">
           {brandLogo ? (
             <img src={brandLogo} alt="Logo" className="w-8 h-8 object-contain rounded-xl" />
@@ -174,25 +174,25 @@ export default function KasirNav() {
       {/* Backdrop */}
       {open && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fade-in"
+          className="md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fade-in"
           onClick={() => setOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`print:hidden fixed lg:sticky top-0 left-0 z-50 lg:z-[100]
+        className={`print:hidden fixed md:sticky top-0 left-0 z-50 md:z-[100]
           h-[100dvh] shrink-0 self-start
           bg-[#f5ede3] border-r border-[#d9c2b2]
           flex flex-col
           transition-all duration-300 ease-in-out
-          ${isCollapsed ? 'lg:w-20' : 'lg:w-64'} w-64
-          ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}
+          ${isCollapsed ? 'md:w-20' : 'md:w-64'} w-64
+          ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}`}
       >
         {/* Collapse toggle button for desktop */}
         <button
           onClick={toggleCollapse}
-          className="hidden lg:flex absolute top-1/2 -translate-y-1/2 -right-3.5 z-[60] w-7 h-7 bg-[#f29744] hover:bg-[#e08632] text-white rounded-full border border-[#d9c2b2] shadow-sm items-center justify-center cursor-pointer transition-transform duration-200 active:scale-95"
+          className="hidden md:flex absolute top-1/2 -translate-y-1/2 -right-3.5 z-[60] w-7 h-7 bg-[#f29744] hover:bg-[#e08632] text-white rounded-full border border-[#d9c2b2] shadow-sm items-center justify-center cursor-pointer transition-transform duration-200 active:scale-95"
           title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -226,13 +226,14 @@ export default function KasirNav() {
           </Link>
           <button
             onClick={() => setOpen(false)}
-            className="absolute top-2 right-2 lg:hidden w-8 h-8 flex items-center justify-center rounded-xl text-[#877365] hover:bg-[#e9e1d8]"
+            className="absolute top-2 right-2 md:hidden w-8 h-8 flex items-center justify-center rounded-xl text-[#877365] hover:bg-[#e9e1d8]"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <nav className={`flex-1 py-6 space-y-2 ${isCollapsed ? 'px-2.5 overflow-visible' : 'px-4 overflow-y-auto'} pb-24`}>
+        <nav className={`flex-1 py-6 space-y-2 px-4 overflow-y-auto pb-24 md:px-0`}>
+          <div className={`${isCollapsed ? 'md:px-2.5 md:overflow-visible' : 'md:px-4 md:overflow-y-auto'} px-4 overflow-y-auto space-y-2 h-full w-full`}>
           {links.map((link) => {
             const hasSubItems = !!link.subItems && link.subItems.length > 0;
             const Icon = link.icon;
@@ -314,7 +315,7 @@ export default function KasirNav() {
 
                 {/* Popover for Collapsed Sidebar (desktop hover/click) */}
                 {isCollapsed && (
-                  <div className={`absolute left-full top-0 ml-3 w-48 bg-[#fff8f1] border border-[#d9c2b2] shadow-xl rounded-2xl p-2 z-[100] animate-fade-in before:content-[''] before:absolute before:top-4 before:-left-2 before:border-t-8 before:border-t-transparent before:border-b-8 before:border-b-transparent before:border-r-8 before:border-r-[#fff8f1] ${isThisDropdownOpen ? 'block' : 'hidden lg:group-hover:block'}`}>
+                  <div className={`absolute left-full top-0 ml-3 w-48 bg-[#fff8f1] border border-[#d9c2b2] shadow-xl rounded-2xl p-2 z-[100] animate-fade-in before:content-[''] before:absolute before:top-4 before:-left-2 before:border-t-8 before:border-t-transparent before:border-b-8 before:border-b-transparent before:border-r-8 before:border-r-[#fff8f1] ${isThisDropdownOpen ? 'block' : 'hidden md:group-hover:block'}`}>
                     <div className="text-xs font-bold text-[#a48e7f] mb-2 px-3 uppercase tracking-wider">{link.label}</div>
                     <div className="flex flex-col gap-1">
                       {link.subItems!.map(sub => {
@@ -357,6 +358,7 @@ export default function KasirNav() {
               </span>
             )}
           </a>
+          </div>
         </nav>
 
         <div className={`py-6 border-t border-[#d9c2b2] space-y-2 shrink-0 ${isCollapsed ? 'px-2.5' : 'px-4'}`}>

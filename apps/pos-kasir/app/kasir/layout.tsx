@@ -15,7 +15,7 @@ export default function KasirLayout({ children }: { children: React.ReactNode })
   const isDashboard = pathname === '/kasir'
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[#fff8f1] flex flex-col lg:flex-row print:block print:h-auto print:overflow-visible">
+    <div className="h-[100dvh] overflow-hidden bg-[#fff8f1] flex flex-col md:flex-row print:block print:h-auto print:overflow-visible">
       <NetworkIndicator />
       <OfflineSyncManager />
       <OfflineWarmup />
@@ -29,7 +29,7 @@ export default function KasirLayout({ children }: { children: React.ReactNode })
 
         <div className={isDashboard
           ? "w-full px-6 py-6 print:p-0"
-          : "max-w-6xl mx-auto px-4 sm:px-5 lg:px-8 py-6 lg:py-8 print:p-0 print:max-w-none"
+          : "max-w-6xl mx-auto px-4 sm:px-5 md:px-8 py-6 md:py-8 print:p-0 print:max-w-none"
         }>
           {children}
         </div>

@@ -1,8 +1,8 @@
 'use client'
 import { useState, useRef, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { submitBahanBaku, getBahanBakuList, addBahanBakuSku, deleteBahanBakuSku, setDefaultBahanBakuSku, createBahanBaku } from './actions'
-import { Camera, Package, UploadCloud, CheckCircle2, AlertCircle, ChevronRight, Search, ImageIcon, Pencil } from 'lucide-react'
+import { Camera, Package, CheckCircle2, AlertCircle, Search, ImageIcon, Pencil } from 'lucide-react'
 
 const SATUAN_OPTIONS = [
   'Bal', 'Blok', 'Bungkus', 'Dus', 'Gram', 'Ikat', 'Kaleng', 'Karton', 'Karung', 'Kg', 'Lembar', 'Liter', 'Lusin', 'Ml', 'Pack', 'Pcs', 'Renceng', 'Roll', 'Sachet', 'Sisir', 'Toples', 'Tube'
@@ -55,7 +55,7 @@ function FormBahanBakuContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
-  const [showAdvanced, setShowAdvanced] = useState(false)
+
   
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewUrlTengah, setPreviewUrlTengah] = useState<string | null>(null)
@@ -86,7 +86,7 @@ function FormBahanBakuContent() {
           setErrorMsg(res.error || 'Gagal mengambil data master bahan baku')
         }
         setIsLoading(false)
-      }).catch(err => {
+      }).catch(() => {
         setErrorMsg('Gagal mengambil data master bahan baku')
         setIsLoading(false)
       })
@@ -336,7 +336,7 @@ function FormBahanBakuContent() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : selectedItem ? (
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
               <div>
@@ -755,7 +755,7 @@ function FormBahanBakuContent() {
               </button>
             </div>
           </form>
-        )}
+        ) : null}
       </div>
     </div>
   )

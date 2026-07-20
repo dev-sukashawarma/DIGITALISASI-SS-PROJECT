@@ -1,6 +1,6 @@
 'use server'
 
-import { cookies } from 'next/headers'
+
 import { createClient } from '@supabase/supabase-js'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
 import type { StaffFormValues } from '@/lib/types'

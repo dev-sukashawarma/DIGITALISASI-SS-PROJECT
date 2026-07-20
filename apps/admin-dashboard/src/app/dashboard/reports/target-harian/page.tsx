@@ -1,14 +1,14 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useEffect } from 'react'
 import { format, parseISO } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useHistoricalTargets, useSyncTargets } from '@/hooks/useHistoricalTargets'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { PeriodFilter } from '@/components/PeriodFilter'
-import { PageHeader } from '@/components/ui'
-import { Target, FileText, AlertCircle, RefreshCw } from 'lucide-react'
+import { PageHeader, Section } from '@/components/ui'
+import { FileText, AlertCircle, RefreshCw } from 'lucide-react'
 import { cleanOutletName } from '@/components/OutletCombobox'
 
 const formatRupiah = (num: number) => {
@@ -28,7 +28,7 @@ export default function TargetHarianPage() {
     [outlets, lockedOutletId]
   )
   
-  const { rows, isLoading, isError, error } = useHistoricalTargets(filter)
+  const { rows, groupedByDate, isLoading, isError, error } = useHistoricalTargets(filter)
   const syncMutation = useSyncTargets()
 
   useEffect(() => {
@@ -102,67 +102,78 @@ export default function TargetHarianPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {rows.map((record) => {
-            const isAchieved = record.achieved_pct >= 100
-            const formattedDate = format(parseISO(record.record_date), 'dd MMM yyyy', { locale: id })
-            
-            return (
-              <div 
-                key={record.id}
-                className="p-4 rounded-2xl border border-suka-gray-200 bg-white hover:border-suka-orange/30 hover:shadow-md transition-all duration-300 relative overflow-hidden group"
-              >
-                <div className={`absolute top-0 left-0 w-1 h-full ${
-                  isAchieved ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'
-                }`} />
-                
-                <div className="pl-3">
-                  <div className="flex justify-between items-start mb-3 gap-2">
-                    <h4 className="font-bold text-suka-brown text-sm leading-tight">
-                      {cleanOutletName(record.outlet_name)}
-                    </h4>
-                    <span className="text-[10px] font-bold text-suka-gray-400 whitespace-nowrap bg-suka-gray-50 px-2 py-0.5 rounded-md">
-                      {formattedDate}
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <div className="text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider mb-0.5">Omzet Dicapai</div>
-                      <div className="font-extrabold text-suka-brown text-lg">
-                        {formatRupiah(record.omzet_achieved)}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between items-end mb-1">
-                        <div className="text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider">Target</div>
-                        <div className="font-bold text-suka-gray-600 text-xs">
-                          {formatRupiah(record.target_amount)}
-                        </div>
-                      </div>
-                      <div className="h-1.5 w-full bg-suka-gray-100 rounded-full overflow-hidden">
+        <div className="space-y-6">
+          {Object.entries(groupedByDate)
+            .sort((a, b) => b[0].localeCompare(a[0]))
+            .map(([dateStr, dateRows]) => {
+              const formattedDateGroup = format(parseISO(dateStr), 'EEEE, dd MMMM yyyy', { locale: id })
+              return (
+                <Section key={dateStr} title={formattedDateGroup} collapsible defaultOpen>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {dateRows.map((record) => {
+                      const isAchieved = record.achieved_pct >= 100
+                      const formattedDate = format(parseISO(record.record_date), 'dd MMM yyyy', { locale: id })
+                      
+                      return (
                         <div 
-                          className={`h-1.5 rounded-full transition-all duration-500
-                            ${isAchieved ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'}
-                          `}
-                          style={{ width: `${Math.min(record.achieved_pct, 100)}%` }}
-                        ></div>
-                      </div>
-                      <div className="mt-1.5 text-right">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                          isAchieved ? 'bg-emerald-50 text-emerald-600' : 
-                          record.achieved_pct >= 80 ? 'bg-amber-50 text-amber-600' : 
-                          'bg-rose-50 text-rose-600'
-                        }`}>
-                          {record.achieved_pct.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
+                          key={record.id}
+                          className="p-4 rounded-2xl border border-suka-gray-200 bg-white hover:border-suka-orange/30 hover:shadow-md transition-all duration-300 relative overflow-hidden group"
+                        >
+                          <div className={`absolute top-0 left-0 w-1 h-full ${
+                            isAchieved ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'
+                          }`} />
+                          
+                          <div className="pl-3">
+                            <div className="flex justify-between items-start mb-3 gap-2">
+                              <h4 className="font-bold text-suka-brown text-sm leading-tight">
+                                {cleanOutletName(record.outlet_name)}
+                              </h4>
+                              <span className="text-[10px] font-bold text-suka-gray-400 whitespace-nowrap bg-suka-gray-50 px-2 py-0.5 rounded-md">
+                                {formattedDate}
+                              </span>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              <div>
+                                <div className="text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider mb-0.5">Omzet Dicapai</div>
+                                <div className="font-extrabold text-suka-brown text-lg">
+                                  {formatRupiah(record.omzet_achieved)}
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <div className="flex justify-between items-end mb-1">
+                                  <div className="text-[10px] font-bold text-suka-gray-500 uppercase tracking-wider">Target</div>
+                                  <div className="font-bold text-suka-gray-600 text-xs">
+                                    {formatRupiah(record.target_amount)}
+                                  </div>
+                                </div>
+                                <div className="h-1.5 w-full bg-suka-gray-100 rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-1.5 rounded-full transition-all duration-500
+                                      ${isAchieved ? 'bg-emerald-500' : record.achieved_pct >= 80 ? 'bg-amber-500' : 'bg-rose-500'}
+                                    `}
+                                    style={{ width: `${Math.min(record.achieved_pct, 100)}%` }}
+                                  ></div>
+                                </div>
+                                <div className="mt-1.5 text-right">
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                    isAchieved ? 'bg-emerald-50 text-emerald-600' : 
+                                    record.achieved_pct >= 80 ? 'bg-amber-50 text-amber-600' : 
+                                    'bg-rose-50 text-rose-600'
+                                  }`}>
+                                    {record.achieved_pct.toFixed(1)}%
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                </div>
-              </div>
-            )
+                </Section>
+              )
           })}
         </div>
       )}

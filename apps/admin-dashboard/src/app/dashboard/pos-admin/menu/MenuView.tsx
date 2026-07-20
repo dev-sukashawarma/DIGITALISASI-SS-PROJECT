@@ -16,7 +16,7 @@ import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
 import MenuSearch from './MenuSearch'
 import { MenuPicker } from './MenuPicker'
-import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting, updateMenuChannelPrices } from './actions'
+import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
 
 const BUCKET = 'menu-images'
 
@@ -72,7 +72,7 @@ export default function MenuView({
   initialRecommendations = [] 
 }: MenuViewProps) {
   const router = useRouter()
-  const supabase = createClient()
+
   const { showConfirm } = useDialogStore()
   const [form, setForm]           = useState<FormState>(EMPTY)
   const [showForm, setShowForm]   = useState(false)

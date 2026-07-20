@@ -86,7 +86,7 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
   if (orderOnline) {
     try {
       // Try to update first
-      const { error: secondaryError, count } = await orderOnline.from('outlets')
+      const { error: secondaryError } = await orderOnline.from('outlets')
         .update({
           name: values.name,
           slug: values.slug,

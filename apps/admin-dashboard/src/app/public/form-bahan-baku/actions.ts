@@ -148,6 +148,26 @@ export async function submitBahanBaku(formData: FormData) {
 
     if (updateError) throw new Error(`Gagal menyimpan data: ${updateError.message}`)
 
+    // Sync SKUs
+    if (satuan && faktor_tampilan) {
+      await supabase.from('bahan_baku_sku')
+        .update({ nama_kemasan: satuan, qty_isi: faktor_tampilan })
+        .eq('bahan_baku_id', id)
+        .eq('tingkatan_satuan', 'Besar')
+    }
+    if (satuan_tengah && faktor_tengah) {
+      await supabase.from('bahan_baku_sku')
+        .update({ nama_kemasan: satuan_tengah, qty_isi: faktor_tengah })
+        .eq('bahan_baku_id', id)
+        .eq('tingkatan_satuan', 'Tengah')
+    }
+    if (satuan_kecil) {
+      await supabase.from('bahan_baku_sku')
+        .update({ nama_kemasan: satuan_kecil, qty_isi: 1 })
+        .eq('bahan_baku_id', id)
+        .eq('tingkatan_satuan', 'Kecil')
+    }
+
     revalidatePath('/public/form-bahan-baku')
     return { success: true }
   } catch (error: any) {

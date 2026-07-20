@@ -56,6 +56,26 @@ export function useBahanBakuHargaMutations() {
         faktor_tampilan: vars.faktor_tampilan
       }).eq('id', vars.bahan_baku_id)
       if (error) throw new Error(error.message)
+
+      // Sync SKUs
+      if (vars.satuan && vars.faktor_tampilan) {
+        await supabase.from('bahan_baku_sku')
+          .update({ nama_kemasan: vars.satuan, qty_isi: vars.faktor_tampilan })
+          .eq('bahan_baku_id', vars.bahan_baku_id)
+          .eq('tingkatan_satuan', 'Besar')
+      }
+      if (vars.satuan_tengah && vars.faktor_tengah) {
+        await supabase.from('bahan_baku_sku')
+          .update({ nama_kemasan: vars.satuan_tengah, qty_isi: vars.faktor_tengah })
+          .eq('bahan_baku_id', vars.bahan_baku_id)
+          .eq('tingkatan_satuan', 'Tengah')
+      }
+      if (vars.satuan_kecil) {
+        await supabase.from('bahan_baku_sku')
+          .update({ nama_kemasan: vars.satuan_kecil, qty_isi: 1 })
+          .eq('bahan_baku_id', vars.bahan_baku_id)
+          .eq('tingkatan_satuan', 'Kecil')
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
   })

@@ -82,6 +82,7 @@ export async function POST(request: Request) {
     quantity: number
     unit_price: number
     subtotal: number
+    package_choices?: Record<string, string>
   }[] = []
 
   // Hitung base subtotal (harga asli) untuk pengecekan min_purchase promo item
@@ -168,6 +169,7 @@ export async function POST(request: Request) {
       quantity,
       unit_price: unitPrice,
       subtotal,
+      package_choices: reqItem.package_choices
     })
   }
 

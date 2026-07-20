@@ -107,12 +107,13 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           payment_method: paymentMethod,
           discount_amount: globalDiscount, // global order discount
-          items: items.map(({ cartItemId, parentId, item, quantity, note }) => {
+          items: items.map(({ cartItemId, parentId, item, quantity, note, package_choices }) => {
             const finalPrice = wrappedCalculateItemPrice(item.price, item.id)
             return { 
               cartItemId, 
               parentId, 
               menu_item_id: item.id, 
+              package_choices,
               quantity, 
               unit_price: finalPrice, // Important so API checkout uses discounted price
               note: note?.trim() 

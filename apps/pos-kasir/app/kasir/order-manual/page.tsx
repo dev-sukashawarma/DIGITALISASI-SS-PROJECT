@@ -431,7 +431,8 @@ export default function OrderManualPage() {
         quantity: l.quantity,
         note: l.note,
         parent_id: l.parentId,
-        cartItemId: l.cartItemId
+        cartItemId: l.cartItemId,
+        package_choices: l.package_choices
       })),
     }
 
@@ -504,6 +505,7 @@ export default function OrderManualPage() {
           quantity: l.quantity,
           unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices),
           subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity,
+          package_choices: l.package_choices
         })),
         payment_method: payment as string,
         customer_name: customerName.trim() || null,
@@ -594,7 +596,8 @@ export default function OrderManualPage() {
         quantity: l.quantity,
         note: l.note,
         parent_id: l.parentId,
-        cartItemId: l.cartItemId
+        cartItemId: l.cartItemId,
+        package_choices: l.package_choices
       })),
     }
 
@@ -691,7 +694,8 @@ export default function OrderManualPage() {
           unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices),
           subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity,
           parent_id: l.parentId,
-          cartItemId: l.cartItemId
+          cartItemId: l.cartItemId,
+          package_choices: l.package_choices
         })),
         payment_method: method,
         customer_name: snapCustomer,
@@ -1205,7 +1209,19 @@ export default function OrderManualPage() {
             <div className="p-4 border-t border-gray-100 bg-white">
               <button
                 onClick={() => {
-                  const parentId = addItem(selectedMenu, selectedMenuQty, selectedMenuNote, undefined, selectedPackageChoices)
+                  let finalNote = selectedMenuNote
+                  if (selectedMenu.is_package && selectedMenu.package_items) {
+                    const choicesText = Object.entries(selectedPackageChoices).map(([piId, itemId]) => {
+                      const item = items.find(i => i.id === itemId)
+                      return item ? item.name : ''
+                    }).filter(Boolean).join(', ')
+                    
+                    if (choicesText) {
+                      finalNote = finalNote ? `${finalNote} (Paket: ${choicesText})` : `Paket: ${choicesText}`
+                    }
+                  }
+
+                  const parentId = addItem(selectedMenu, selectedMenuQty, finalNote, undefined, selectedPackageChoices)
                   Object.entries(selectedExtras).forEach(([extraId, extraQty]) => {
                     if (extraQty > 0) {
                       const extraItem = items.find(i => i.id === extraId)

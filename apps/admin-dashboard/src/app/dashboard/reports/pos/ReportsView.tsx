@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
-  FileText, Calendar, ChevronDown, Award, Banknote,
+  FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote,
   QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
+import { resolveOrderSource } from '@/lib/order-source'
 import dynamic from 'next/dynamic'
 
 const CategoryPieChart = dynamic(() => import('./CategoryPieChart'), {
@@ -72,6 +73,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   const [shifts, setShifts] = useState<ShiftRow[]>([])
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
+  const [selectedChannel, setSelectedChannel] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   
   // Date Range State
@@ -189,9 +191,27 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
+  // ─── Available Channels ───
+  const availableChannels = useMemo(() => {
+    const map = new Map<string, { key: string; label: string }>()
+    orders.forEach(o => {
+      const src = resolveOrderSource(o.channel, o.sales_source)
+      if (!map.has(src.key)) {
+        map.set(src.key, { key: src.key, label: src.label })
+      }
+    })
+    return Array.from(map.values())
+  }, [orders])
+
   // ─── Derived Analytics ───
   const analytics = useMemo(() => {
-    const completed = orders.filter(o => o.status === 'completed')
+    const filteredOrders = selectedChannel === 'all' 
+      ? orders 
+      : selectedChannel === 'food_apps'
+        ? orders.filter(o => ['shopeefood', 'grabfood', 'gofood'].includes(resolveOrderSource(o.channel, o.sales_source).key))
+        : orders.filter(o => resolveOrderSource(o.channel, o.sales_source).key === selectedChannel)
+
+    const completed = filteredOrders.filter(o => o.status === 'completed')
     const totalOrders = completed.length
     let totalRevenue = completed.reduce((s, o) => s + o.total_amount, 0)
 
@@ -243,8 +263,8 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     ].filter(d => d.value > 0)
 
     // Success vs Failure
-    const cancelled = orders.filter(o => o.status === 'cancelled').length
-    const successRate = orders.length > 0 ? Math.round((completed.length / orders.length) * 100) : 0
+    const cancelled = filteredOrders.filter(o => o.status === 'cancelled').length
+    const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
 
     return {
       completedOrders: completed,
@@ -256,7 +276,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       cancelledCount: cancelled,
       totalRevenue
     }
-  }, [orders, shifts])
+  }, [orders, shifts, selectedChannel])
 
   const selectedOutletName = selectedOutlet === 'all' 
     ? 'Semua Cabang' 
@@ -286,6 +306,96 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   const totalPages = Math.ceil(filteredTableData.length / itemsPerPage)
 
 
+  // Item Breakdown (Rekap)
+  const itemBreakdownData = useMemo(() => {
+    const map = new Map<string, { name: string; groupLabel: string; qty: number; grossRevenue: number; netRevenue: number }>()
+    
+    filteredTableData.forEach(order => {
+      // Hitung subtotal kotor dari seluruh item di pesanan ini
+      const orderSubtotal = order.order_items.reduce((sum, item) => sum + (item.subtotal || 0), 0)
+      
+      // Jika ada diskon/pajak di tingkat pesanan, distribusikan secara proporsional ke tiap item
+      const ratio = orderSubtotal > 0 ? (order.total_amount / orderSubtotal) : 1
+
+      order.order_items.forEach(item => {
+        const cleanName = cleanItemName(item.menu_item_name)
+        const src = resolveOrderSource(order.channel, order.sales_source)
+        
+        let groupLabel = 'OFFLINE'
+        if (['shopeefood', 'grabfood', 'gofood'].includes(src.key)) {
+          groupLabel = 'FOOD APPS'
+        } else if (src.key === 'online') {
+          groupLabel = 'WEB ONLINE'
+        }
+        
+        const key = `${cleanName}-${groupLabel}`
+        
+        if (!map.has(key)) {
+          map.set(key, {
+            name: cleanName,
+            groupLabel,
+            qty: 0,
+            grossRevenue: 0,
+            netRevenue: 0
+          })
+        }
+        
+        const existing = map.get(key)!
+        existing.qty += item.quantity
+        existing.grossRevenue += item.subtotal
+        existing.netRevenue += (item.subtotal * ratio)
+      })
+    })
+    
+    return Array.from(map.values()).sort((a, b) => b.qty - a.qty)
+  }, [filteredTableData])
+
+  const [itemBreakdownSearch, setItemBreakdownSearch] = useState('')
+  const [itemBreakdownFilter, setItemBreakdownFilter] = useState('all')
+  const [itemBreakdownSortColumn, setItemBreakdownSortColumn] = useState<'name' | 'groupLabel' | 'qty' | 'grossRevenue'>('qty')
+  const [itemBreakdownSortDirection, setItemBreakdownSortDirection] = useState<'asc' | 'desc'>('desc')
+
+  const filteredItemBreakdownData = useMemo(() => {
+    let result = itemBreakdownData
+    if (itemBreakdownFilter !== 'all') {
+      result = result.filter(item => item.groupLabel === itemBreakdownFilter)
+    }
+    if (itemBreakdownSearch) {
+      const q = itemBreakdownSearch.toLowerCase()
+      result = result.filter(item => item.name.toLowerCase().includes(q) || item.groupLabel.toLowerCase().includes(q))
+    }
+    
+    result = [...result].sort((a, b) => {
+      let valA = a[itemBreakdownSortColumn]
+      let valB = b[itemBreakdownSortColumn]
+      
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        return itemBreakdownSortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA)
+      } else {
+        return itemBreakdownSortDirection === 'asc' ? (valA as number) - (valB as number) : (valB as number) - (valA as number)
+      }
+    })
+    
+    return result
+  }, [itemBreakdownData, itemBreakdownFilter, itemBreakdownSearch, itemBreakdownSortColumn, itemBreakdownSortDirection])
+
+  const [itemBreakdownPage, setItemBreakdownPage] = useState(1)
+  const paginatedItemBreakdown = filteredItemBreakdownData.slice((itemBreakdownPage - 1) * itemsPerPage, itemBreakdownPage * itemsPerPage)
+  const totalItemBreakdownPages = Math.ceil(filteredItemBreakdownData.length / itemsPerPage)
+
+  const toggleItemBreakdownSort = (col: 'name' | 'groupLabel' | 'qty' | 'grossRevenue') => {
+    if (itemBreakdownSortColumn === col) {
+      setItemBreakdownSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setItemBreakdownSortColumn(col)
+      setItemBreakdownSortDirection('desc')
+    }
+  }
+
+  const renderItemBreakdownSortIcon = (col: 'name' | 'groupLabel' | 'qty' | 'grossRevenue') => {
+    if (itemBreakdownSortColumn !== col) return <ChevronDown className="w-4 h-4 opacity-0 group-hover:opacity-30 transition-opacity" />
+    return itemBreakdownSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+  }
   const downloadPDF = () => {
     window.print()
   }
@@ -312,6 +422,18 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               selectedOutlet={selectedOutlet} 
               onChange={setSelectedOutlet} 
             />
+
+            <select
+              value={selectedChannel}
+              onChange={e => setSelectedChannel(e.target.value)}
+              className="bg-white border border-gray-200 hover:border-gray-300 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 transition-all shadow-sm outline-none cursor-pointer"
+            >
+              <option value="all">Semua Channel</option>
+              <option value="food_apps">Semua Food Apps</option>
+              {availableChannels.map(ch => (
+                <option key={ch.key} value={ch.key}>{ch.label}</option>
+              ))}
+            </select>
 
             <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto">
               <button
@@ -499,14 +621,14 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             <div className="card p-6 shadow-sm border border-gray-100">
               <div className="flex items-center gap-2 mb-5">
                 <Award className="w-5 h-5 text-amber-500" />
-                <h2 className="font-bold text-gray-900 text-lg">Top 10 Produk Terlaris</h2>
+                <h2 className="font-bold text-gray-900 text-lg">Item Yang Terjual</h2>
               </div>
 
               {analytics.bestSellers.length === 0 ? (
                 <div className="py-8 text-center text-gray-400 text-sm">Belum ada data penjualan</div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-                  {analytics.bestSellers.slice(0, 10).map((item, idx) => {
+                  {analytics.bestSellers.map((item, idx) => {
                     const maxQty = analytics.bestSellers[0].qty
                     const pct = (item.qty / maxQty) * 100
                     const medals = ['🥇', '🥈', '🥉']
@@ -594,33 +716,73 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                       <td colSpan={6} className="px-5 py-10 text-center text-gray-400 font-medium">Data tidak ditemukan</td>
                     </tr>
                   ) : (
-                    paginatedData.map((order) => (
-                      <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
-                        <td className="px-5 py-4 font-bold text-gray-900">
-                          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number}</span>
-                        </td>
-                        <td className="px-5 py-4 text-gray-500 font-medium text-xs">
-                          {new Date(order.created_at).toLocaleString('id-ID', {
-                            day: 'numeric', month: 'short', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit'
-                          })}
-                        </td>
-                        <td className="px-5 py-4 text-gray-600 truncate max-w-[250px] font-medium" title={order.order_items.map(i => cleanItemName(i.menu_item_name)).join(', ')}>
-                          {order.order_items.map(i => cleanItemName(i.menu_item_name)).join(', ')}
-                        </td>
-                        <td className="px-5 py-4">
-                          <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} size="sm" />
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold rounded-lg uppercase">
-                            {order.payment_method || '-'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right font-bold text-gray-900 text-base">{formatRupiah(order.total_amount)}</td>
-                      </tr>
-                    ))
+                    paginatedData.map((order) => {
+                      const orderSubtotal = order.order_items.reduce((sum, i) => sum + (i.subtotal || 0), 0);
+                      const discount = orderSubtotal - order.total_amount;
+                      
+                      return (
+                        <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
+                          <td className="px-5 py-4 font-bold text-gray-900">
+                            <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number}</span>
+                          </td>
+                          <td className="px-5 py-4 text-gray-500 font-medium text-xs">
+                            {new Date(order.created_at).toLocaleString('id-ID', {
+                              day: 'numeric', month: 'short', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit'
+                            })}
+                          </td>
+                          <td className="px-5 py-4 text-gray-600 font-medium">
+                            <div className="flex flex-col gap-1.5">
+                              {order.order_items.map((i, idx) => (
+                                <div key={idx} className="whitespace-normal leading-tight text-[13px] flex items-start gap-1.5">
+                                  <span className="font-bold text-gray-900 bg-gray-100 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">{i.quantity}x</span> 
+                                  <span>{cleanItemName(i.menu_item_name)}</span>
+                                </div>
+                              ))}
+                              {discount > 0 && (
+                                <div className="whitespace-normal leading-tight text-[12px] flex items-start gap-1.5 mt-0.5 pt-1.5 border-t border-gray-100/60">
+                                  <span className="font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">Promo</span>
+                                  <span className="text-red-500">- {formatRupiah(discount)}</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} size="sm" />
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold rounded-lg uppercase">
+                              {order.payment_method || '-'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="font-bold text-gray-900 text-base">{formatRupiah(order.total_amount)}</div>
+                            {discount > 0 && (
+                              <div className="text-[11px] font-medium text-red-500 mt-1">
+                                (Diskon: -{formatRupiah(discount)})
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
+                <tfoot className="bg-amber-50/50 font-bold text-gray-900 border-t border-amber-200">
+                  <tr>
+                    <td colSpan={4} className="px-5 py-4 text-right uppercase tracking-wider text-xs text-amber-800">
+                      Total Keseluruhan
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md text-xs">
+                        {filteredTableData.length} Transaksi
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-right text-base text-amber-700">
+                      {formatRupiah(filteredTableData.reduce((acc, curr) => acc + curr.total_amount, 0))}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
             
@@ -641,6 +803,175 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                   <button 
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 rounded-lg text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Selanjutnya
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Rekap Rincian Item Terjual */}
+          <div className="card p-6 shadow-sm border border-gray-100 mt-6 overflow-hidden no-print">
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="font-bold text-gray-900 text-lg">Rekap Rincian Item Terjual</h2>
+                <p className="text-gray-400 text-xs mt-0.5">Ringkasan total kuantitas per item berdasarkan sumber pesanan</p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    className="block w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors text-sm font-medium"
+                    placeholder="Cari item..."
+                    value={itemBreakdownSearch}
+                    onChange={(e) => { setItemBreakdownSearch(e.target.value); setItemBreakdownPage(1); }}
+                  />
+                </div>
+                <select
+                  value={itemBreakdownFilter}
+                  onChange={e => { setItemBreakdownFilter(e.target.value); setItemBreakdownPage(1); }}
+                  className="w-full sm:w-auto bg-white border border-gray-200 hover:border-gray-300 px-3 py-2 rounded-xl text-sm font-semibold text-gray-700 transition-all shadow-sm outline-none cursor-pointer"
+                >
+                  <option value="all">Semua Kategori</option>
+                  <option value="FOOD APPS">FOOD APPS</option>
+                  <option value="WEB ONLINE">WEB ONLINE</option>
+                  <option value="OFFLINE">OFFLINE</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-gray-100">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100 select-none">
+                  <tr>
+                    <th 
+                      className="px-5 py-4 cursor-pointer hover:bg-gray-200 transition-colors group"
+                      onClick={() => toggleItemBreakdownSort('name')}
+                    >
+                      <div className="flex items-center gap-2">
+                        Nama Item {renderItemBreakdownSortIcon('name')}
+                      </div>
+                    </th>
+                    <th 
+                      className="px-5 py-4 cursor-pointer hover:bg-gray-200 transition-colors group"
+                      onClick={() => toggleItemBreakdownSort('groupLabel')}
+                    >
+                      <div className="flex items-center gap-2">
+                        Sumber Pesanan {renderItemBreakdownSortIcon('groupLabel')}
+                      </div>
+                    </th>
+                    <th 
+                      className="px-5 py-4 text-center cursor-pointer hover:bg-gray-200 transition-colors group"
+                      onClick={() => toggleItemBreakdownSort('qty')}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        Total Qty Terjual {renderItemBreakdownSortIcon('qty')}
+                      </div>
+                    </th>
+                    <th 
+                      className="px-5 py-4 text-right cursor-pointer hover:bg-gray-200 transition-colors group"
+                      onClick={() => toggleItemBreakdownSort('grossRevenue')}
+                    >
+                      <div className="flex items-center justify-end gap-2">
+                        Total Pendapatan {renderItemBreakdownSortIcon('grossRevenue')}
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paginatedItemBreakdown.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-10 text-center text-gray-400 font-medium">Data tidak ditemukan</td>
+                    </tr>
+                  ) : (
+                    paginatedItemBreakdown.map((item, idx) => {
+                      return (
+                        <tr key={idx} className="hover:bg-amber-50/50 transition-colors">
+                          <td className="px-5 py-4 font-bold text-gray-900 uppercase">
+                            {item.groupLabel} {item.name}
+                          </td>
+                          <td className="px-5 py-4 uppercase text-gray-500 font-bold text-xs">
+                            {item.groupLabel}
+                          </td>
+                          <td className="px-5 py-4 text-center font-bold text-gray-900">
+                            {item.qty}
+                          </td>
+                          <td className="px-5 py-4 text-right font-bold text-gray-900">
+                            {formatRupiah(item.grossRevenue)}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+                {filteredItemBreakdownData.length > 0 && (
+                  <tfoot className="bg-amber-50/50 font-bold text-gray-900 border-t border-amber-200">
+                    <tr>
+                      <td colSpan={2} className="px-5 py-3 text-right uppercase tracking-wider text-xs text-amber-800">
+                        Total Harga Kotor
+                      </td>
+                      <td className="px-5 py-3 text-center">
+                        <span className="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md text-xs">
+                          {filteredItemBreakdownData.reduce((acc, curr) => acc + curr.qty, 0)} Item
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right text-base text-amber-700">
+                        {formatRupiah(filteredItemBreakdownData.reduce((acc, curr) => acc + curr.grossRevenue, 0))}
+                      </td>
+                    </tr>
+                    {(() => {
+                       const totalGross = filteredItemBreakdownData.reduce((acc, curr) => acc + curr.grossRevenue, 0)
+                       const totalNet = filteredItemBreakdownData.reduce((acc, curr) => acc + curr.netRevenue, 0)
+                       const discount = totalGross - totalNet
+                       if (discount > 0) {
+                         return (
+                           <tr>
+                             <td colSpan={3} className="px-5 py-3 text-right uppercase tracking-wider text-xs text-red-600">
+                               Potongan Diskon / Promo
+                             </td>
+                             <td className="px-5 py-3 text-right text-base text-red-600">
+                               - {formatRupiah(discount)}
+                             </td>
+                           </tr>
+                         )
+                       }
+                       return null
+                    })()}
+                    <tr>
+                      <td colSpan={3} className="px-5 py-4 text-right uppercase tracking-wider text-sm text-gray-900 font-extrabold border-t border-amber-200">
+                        Total Pendapatan Bersih
+                      </td>
+                      <td className="px-5 py-4 text-right text-lg text-emerald-600 font-extrabold border-t border-amber-200">
+                        {formatRupiah(filteredItemBreakdownData.reduce((acc, curr) => acc + curr.netRevenue, 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+            
+            {totalItemBreakdownPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-xs font-medium text-gray-400">
+                  Menampilkan {((itemBreakdownPage - 1) * itemsPerPage) + 1} - {Math.min(itemBreakdownPage * itemsPerPage, filteredItemBreakdownData.length)} dari {filteredItemBreakdownData.length}
+                </p>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setItemBreakdownPage(p => Math.max(1, p - 1))}
+                    disabled={itemBreakdownPage === 1}
+                    className="px-3 py-1.5 rounded-lg text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Sebelumnya
+                  </button>
+                  <button 
+                    onClick={() => setItemBreakdownPage(p => Math.min(totalItemBreakdownPages, p + 1))}
+                    disabled={itemBreakdownPage === totalItemBreakdownPages}
                     className="px-3 py-1.5 rounded-lg text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Selanjutnya

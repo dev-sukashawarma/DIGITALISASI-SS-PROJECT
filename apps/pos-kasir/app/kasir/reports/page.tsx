@@ -693,7 +693,7 @@ export default function ReportsPage() {
                       const pct = (rev / maxDaily) * 100
                       const dayLabel = new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
                       return (
-                        <div key={date} className="flex-1 flex flex-col justify-end items-center gap-1 h-full group relative min-w-[30px] max-w-[60px]">
+                        <div key={date} className="flex-1 flex flex-col justify-end items-center gap-1 h-full group relative min-w-0 max-w-[60px]">
                           <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg no-print">
                             {dayLabel}: {formatRupiah(rev)}
                           </div>

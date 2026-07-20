@@ -90,3 +90,12 @@ describe('Pengaturan Printer nav item', () => {
     expect(sistem?.items.map((i) => i.href)).toContain('/dashboard/printer')
   })
 })
+
+describe('Rekap Bulanan nav item', () => {
+  it('OWNER dan ADMIN punya akses, MITRA dan ADMIN_HR tidak', () => {
+    expect(accessibleItems('OWNER').map(i => i.href)).toContain('/dashboard/owner/rekap-bulanan')
+    expect(accessibleItems('ADMIN').map(i => i.href)).toContain('/dashboard/owner/rekap-bulanan')
+    expect(accessibleItems('MITRA').map(i => i.href)).not.toContain('/dashboard/owner/rekap-bulanan')
+    expect(accessibleItems('ADMIN_HR').map(i => i.href)).not.toContain('/dashboard/owner/rekap-bulanan')
+  })
+})

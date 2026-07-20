@@ -158,12 +158,6 @@ export default function DashboardPage() {
             {isPusat ? 'Pengiriman' : 'Penerimaan'}
           </button>
           <button
-            onClick={() => handleNavigate('/stok')}
-            className="text-xs font-bold text-suka-gray-600 hover:text-suka-orange px-1 py-1 transition-colors cursor-pointer"
-          >
-            Inventory
-          </button>
-          <button
             onClick={() => handleNavigate('/distribusi/riwayat')}
             className="text-xs font-bold text-suka-gray-600 hover:text-suka-orange px-1 py-1 transition-colors cursor-pointer"
           >

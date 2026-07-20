@@ -81,6 +81,33 @@ export function BahanBakuDetailModal({
       })
     }
   }, [isOpen, bahanBaku])
+
+  // Auto-fill form SKU saat tombol Tambah diklik berdasarkan Konversi Satuan Bertingkat
+  useEffect(() => {
+    if (showSkuSection && bahanBaku) {
+      // Gunakan timeout kecil agar elemen DOM sudah di-render
+      setTimeout(() => {
+        const elB = document.getElementById('newSkuNamaBesar') as HTMLSelectElement
+        const elBQty = document.getElementById('newSkuQtyBesar') as HTMLInputElement
+        if (elB) elB.value = bahanBaku.satuan || ''
+        if (elBQty) elBQty.value = bahanBaku.faktor_tampilan ? String(bahanBaku.faktor_tampilan) : ''
+  
+        const elT = document.getElementById('newSkuNamaTengah') as HTMLSelectElement
+        const elTQty = document.getElementById('newSkuQtyTengah') as HTMLInputElement
+        if (elT && bahanBaku.satuan_tengah) {
+          elT.value = bahanBaku.satuan_tengah
+          elTQty.value = (bahanBaku.faktor_tampilan && bahanBaku.faktor_tengah) ? String(Math.round(bahanBaku.faktor_tampilan / bahanBaku.faktor_tengah)) : ''
+        }
+  
+        const elK = document.getElementById('newSkuNamaKecil') as HTMLSelectElement
+        const elKQty = document.getElementById('newSkuQtyKecil') as HTMLInputElement
+        if (elK && bahanBaku.satuan_kecil) {
+          elK.value = bahanBaku.satuan_kecil
+          elKQty.value = '1'
+        }
+      }, 10)
+    }
+  }, [showSkuSection, bahanBaku])
   
   if (!isOpen || !bahanBaku) return null
 

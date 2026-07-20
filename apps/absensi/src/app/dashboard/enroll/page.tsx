@@ -171,37 +171,34 @@ export default function EnrollPage() {
       const { dataUrl } = captureFrame(currentVideo);
       const refPath = `${selectedOutletId}/${targetStaff.id}.jpg`;
       const blob = await (await fetch(dataUrl)).blob();
-      
-      // Upload foto referensi — tangkap error secara eksplisit
+
+      // Upload foto referensi ke storage — tangkap error secara eksplisit
       const { error: storageError } = await supabase.storage
         .from("face-refs")
         .upload(refPath, blob, { upsert: true, contentType: "image/jpeg" });
       if (storageError) throw new Error(`Upload foto gagal: ${storageError.message}`);
-        
-      // Update DB — gunakan .select() untuk deteksi RLS silent block
-      // (RLS yang memblokir tidak throw error, tapi data[] akan kosong)
-      const { data: updated, error } = await supabase
-        .from("outlet_staff")
-        .update({
-          face_descriptor: descriptor,
-          ref_photo_url: refPath,
-          consent_at: new Date().toISOString(),
-          consent_by: outletStaff.id,
-          enrolled_at: new Date().toISOString(),
-          ...(isReEnroll && {
-            re_enrolled_at: new Date().toISOString(),
-            re_enrolled_by: outletStaff.id,
-            re_enroll_reason: reEnrollReason.trim() || null,
-          }),
-        })
-        .eq("id", targetStaff.id)
-        .select("id");
-        
-      if (error) throw error;
-      if (!updated || updated.length === 0) {
-        throw new Error("Update gagal: tidak ada baris yang diperbarui. Kemungkinan akses ditolak (RLS) atau ID tidak ditemukan.");
+
+      // Update DB via server-side API route (service_role) — bypass RLS sepenuhnya.
+      // Browser client terkena RLS policy yang bergantung auth_is_supervisor(),
+      // sehingga role tertentu diblokir diam-diam. API route validasi role di server.
+      const res = await fetch("/api/enroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetStaffId: targetStaff.id,
+          descriptor,
+          refPhotoPath: refPath,
+          consentAt: new Date().toISOString(),
+          isReEnroll,
+          reEnrollReason: reEnrollReason.trim() || null,
+        }),
+      });
+
+      const result = await res.json();
+      if (!res.ok || !result.ok) {
+        throw new Error(result.detail || result.reason || "Gagal menyimpan ke server");
       }
-      
+
       // Tandai staff sebagai terdaftar (pindah ke section "Sudah Terdaftar")
       setStaffList(prev => prev.map(s =>
         s.id === targetStaff.id ? { ...s, enrolled_at: new Date().toISOString() } : s

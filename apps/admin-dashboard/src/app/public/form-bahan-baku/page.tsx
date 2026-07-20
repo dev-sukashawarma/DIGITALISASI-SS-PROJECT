@@ -584,7 +584,7 @@ function FormBahanBakuContent() {
                               </select>
                             </div>
                               <div>
-                                <input type="number" id="newSkuFaktorBesar" placeholder={`1 Besar = ... (Satuan Tengah/Kecil)`} className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
+                                <input type="number" id="newSkuFaktorBesar" placeholder={`Isi berapa kemasan Tengah? (Misal: 6)`} className="w-full text-xs p-2 border border-blue-200 rounded-md outline-none focus:border-blue-500 bg-white" />
                               </div>
                           </div>
                         </div>
@@ -600,7 +600,7 @@ function FormBahanBakuContent() {
                               </select>
                             </div>
                               <div>
-                                <input type="number" id="newSkuFaktorTengah" placeholder={`1 Tengah = ... (Satuan Kecil)`} className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
+                                <input type="number" id="newSkuFaktorTengah" placeholder={`Isi berapa kemasan Kecil? (Misal: 12)`} className="w-full text-xs p-2 border border-emerald-200 rounded-md outline-none focus:border-emerald-500 bg-white" />
                               </div>
                           </div>
                         </div>
@@ -616,7 +616,7 @@ function FormBahanBakuContent() {
                               </select>
                             </div>
                               <div>
-                                <input type="number" id="newSkuQtyKecil" placeholder={`Total Isi (biasanya 1)`} defaultValue={1} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
+                                <input type="number" id="newSkuQtyKecil" placeholder={`Total Gram (Biasanya 1)`} defaultValue={1} className="w-full text-xs p-2 border border-amber-200 rounded-md outline-none focus:border-amber-500 bg-white" />
                               </div>
                           </div>
                         </div>

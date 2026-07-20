@@ -46,6 +46,9 @@ export default function KasirNav() {
   const { outletId } = useMyOutlet()
 
   let resolvedPortalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    resolvedPortalUrl = 'http://localhost:3010'
+  }
   if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
     resolvedPortalUrl = 'http://localhost:3010'
   }
@@ -184,12 +187,12 @@ export default function KasirNav() {
       <aside
         className={`print:hidden fixed md:sticky top-0 left-0 z-50 md:z-[100]
           h-[100dvh] shrink-0 self-start
-          bg-[#f5ede3] border-r border-[#d9c2b2]
-          flex flex-col
           transition-all duration-300 ease-in-out
           ${isCollapsed ? 'md:w-20' : 'md:w-64'} w-64
           ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}`}
       >
+        <div className={`absolute inset-y-0 left-0 ${isCollapsed ? 'md:w-[300px] w-64' : 'w-64'} overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden pointer-events-none`}>
+          <div className={`flex flex-col min-h-full bg-[#f5ede3] border-r border-[#d9c2b2] pointer-events-auto transition-all duration-300 ease-in-out ${isCollapsed ? 'md:w-20 w-64' : 'w-64'}`}>
         {/* Collapse toggle button for desktop */}
         <button
           onClick={toggleCollapse}
@@ -233,7 +236,7 @@ export default function KasirNav() {
           </button>
         </div>
 
-        <nav className={`flex-1 py-6 space-y-2 ${isCollapsed ? 'px-2.5 overflow-visible' : 'px-4 overflow-y-auto'}`}>
+        <nav className={`flex-1 py-6 space-y-2 ${isCollapsed ? 'px-2.5' : 'px-4'}`}>
           {links.map((link) => {
             const hasSubItems = !!link.subItems && link.subItems.length > 0;
             const Icon = link.icon;
@@ -408,6 +411,8 @@ export default function KasirNav() {
             )}
             {!isCollapsed && <span className="animate-fade-in">{loggingOut ? 'Keluar…' : 'Keluar'}</span>}
           </button>
+        </div>
+        </div>
         </div>
       </aside>
     </>

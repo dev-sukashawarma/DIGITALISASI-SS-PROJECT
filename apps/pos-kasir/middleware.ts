@@ -1,9 +1,10 @@
 import { createSupabaseServerClient, hasAppAccess, resolveUserId } from '@suka/auth'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
-
 export async function middleware(request: NextRequest) {
+  const isLocal = request.nextUrl.hostname === 'localhost' || request.nextUrl.hostname === '127.0.0.1' || process.env.NODE_ENV === 'development'
+  const PORTAL_URL = isLocal ? 'http://localhost:3010' : (process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com')
+
   const response = NextResponse.next()
 
   const supabase = createSupabaseServerClient({

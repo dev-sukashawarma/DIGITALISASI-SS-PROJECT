@@ -371,346 +371,392 @@ export default function MenuView({
         </div>
       </div>
 
-      {/* ── Form Modal ──────────────────────────────────────── */}
       {showForm && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6"
           onClick={(e) => { if (e.target === e.currentTarget) closeForm() }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh] animate-scale-in">
-
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl flex flex-col max-h-[92vh] animate-scale-in overflow-hidden border border-gray-100">
             {/* Sticky header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-amber-100 rounded-2xl flex items-center justify-center">
-                  <Sandwich className="w-5 h-5 text-amber-500" strokeWidth={1.5} />
+            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 flex-shrink-0 bg-white/80 backdrop-blur-md z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-amber-100 to-amber-50 rounded-2xl flex items-center justify-center shadow-inner border border-amber-200/50">
+                  <Sandwich className="w-7 h-7 text-amber-500" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h2 className="font-bold text-lg text-gray-900 leading-none">
+                  <h2 className="font-extrabold text-2xl text-gray-900 tracking-tight">
                     {form.id ? 'Edit Menu' : 'Tambah Menu Baru'}
                   </h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-sm font-medium text-gray-500 mt-1">
                     {form.id ? 'Perbarui data menu' : 'Isi detail menu baru'}
                   </p>
                 </div>
               </div>
               <button onClick={closeForm}
-                className="w-8 h-8 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-xl flex items-center justify-center text-gray-400 transition-colors">
-                <X className="w-4 h-4" />
+                className="w-11 h-11 bg-gray-50 hover:bg-red-50 hover:text-red-500 rounded-full flex items-center justify-center text-gray-400 transition-all duration-200 border border-gray-100 hover:border-red-100">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Scrollable body */}
-            <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden">
-              <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+            <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden bg-[#F9FAFB]">
+              <div className="overflow-y-auto flex-1 px-8 py-8">
+                
+                {/* Error */}
+                {error && (
+                  <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl p-4 text-red-600 text-sm shadow-sm animate-shake">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <span className="font-medium">{error}</span>
+                  </div>
+                )}
 
-                {/* Photo upload — compact row */}
-                <div>
-                  <label className="input-label mb-2 block">Foto Produk</label>
-                  <div className="flex items-center gap-4 p-3 rounded-2xl border border-gray-100 bg-gray-50">
-                    {/* Thumbnail */}
-                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-amber-50 flex-shrink-0 flex items-center justify-center relative group">
-                      {displayImage ? (
-                        <>
-                          <Image
-                            src={displayImage}
-                            alt="Preview"
-                            fill
-                            className="object-cover"
-                            unoptimized={true}
-                          />
-                          {preview && (
-                            <span className="absolute top-1 left-1 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-none">
-                              Baru
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <Sandwich className="w-7 h-7 text-amber-200" strokeWidth={1} />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column */}
+                  <div className="space-y-6">
+                    {/* Photo Upload */}
+                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                      <label className="input-label mb-3 block text-gray-700 font-bold">Foto Produk</label>
+                      <div 
+                        className={`relative border-2 border-dashed rounded-2xl transition-all duration-200 group cursor-pointer overflow-hidden flex flex-col items-center justify-center min-h-[220px]
+                          ${displayImage ? 'border-transparent bg-gray-900 shadow-inner' : 'border-gray-200 bg-gray-50/50 hover:bg-amber-50/30 hover:border-amber-300'}`}
+                        onClick={() => fileRef.current?.click()}
+                      >
+                        {displayImage ? (
+                          <>
+                            <Image src={displayImage} alt="Preview" fill className="object-cover opacity-90 group-hover:opacity-40 transition-opacity duration-300" unoptimized={true} />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                <UploadCloud className="w-6 h-6 text-white" />
+                              </div>
+                              <span className="text-white text-sm font-semibold drop-shadow-md">Ganti Foto</span>
+                            </div>
+                            {preview && (
+                              <span className="absolute top-4 left-4 bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg leading-none shadow-lg z-20 flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                                BARU
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center gap-4 text-gray-400 p-8">
+                            <div className="w-16 h-16 rounded-[1.25rem] bg-amber-50 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-100 transition-all duration-300 border border-amber-100/50 group-hover:border-amber-200 group-hover:shadow-sm">
+                              <UploadCloud className="w-8 h-8 text-amber-500" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-base font-bold text-gray-700 mb-1.5 group-hover:text-amber-600 transition-colors">Klik untuk upload foto</p>
+                              <p className="text-xs text-gray-400 font-medium">Format: JPG, PNG, WebP (Maks. 5MB)</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {displayImage && (
+                        <div className="mt-4 flex justify-end">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); preview ? resetImage() : setForm(p => ({ ...p, image_url: null })) }} className="text-red-500 text-sm flex items-center gap-2 font-bold hover:text-red-600 transition-colors bg-red-50/50 hover:bg-red-50 px-4 py-2 rounded-xl border border-transparent hover:border-red-100">
+                            <Trash2 className="w-4 h-4" /> Hapus Foto
+                          </button>
+                        </div>
+                      )}
+                      <input ref={fileRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="hidden" onChange={handleFile} />
+                    </div>
+
+                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm space-y-6">
+                      {/* Name */}
+                      <div>
+                        <label className="input-label text-gray-700 font-bold mb-2 block">Nama Menu <span className="text-red-500">*</span></label>
+                        <input type="text" value={form.name}
+                          onChange={(e) => setForm({ ...form, name: e.target.value })}
+                          required maxLength={100} className="input bg-gray-50 focus:bg-white text-base py-3" placeholder="Cth: Chicken Shawarma" autoFocus />
+                      </div>
+
+                      {/* Description */}
+                      <div>
+                        <label className="input-label text-gray-700 font-bold mb-2 block flex items-center justify-between">
+                          <span>Deskripsi</span>
+                          <span className="text-gray-400 font-medium text-xs bg-gray-100 px-2 py-1 rounded-md">Opsional</span>
+                        </label>
+                        <textarea value={form.description}
+                          onChange={(e) => setForm({ ...form, description: e.target.value })}
+                          maxLength={300} rows={3} className="input resize-none bg-gray-50 focus:bg-white text-base py-3"
+                          placeholder="Deskripsi singkat yang menggugah selera..." />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column */}
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm space-y-6">
+                      {/* Price & Category */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div>
+                          <label className="input-label text-gray-700 font-bold mb-2 block">
+                            {activeChannelFilter 
+                              ? `Harga ${initialChannels.find(c => c.id === activeChannelFilter)?.name || ''}` 
+                              : 'Harga Dasar'}
+                            <span className="text-red-500 ml-1">*</span>
+                          </label>
+                          <CurrencyInput value={form.price}
+                            onChange={(v) => setForm({ ...form, price: String(v) })}
+                            required className="input bg-gray-50 focus:bg-white font-bold text-gray-900 text-base py-3" />
+                        </div>
+                        <div>
+                          <label className="input-label text-gray-700 font-bold mb-2 block">Kategori</label>
+                          <select value={form.category_id}
+                            onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+                            className="input bg-gray-50 focus:bg-white text-base py-3 font-medium">
+                            <option value="">-- Pilih Kategori --</option>
+                            {initialCategories.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Menu Type Toggle */}
+                      <div>
+                        <label className="input-label mb-2 block text-gray-700 font-bold">Tipe Menu</label>
+                        <div className="flex bg-gray-100/80 p-1.5 rounded-[1.25rem]">
+                          <button type="button" 
+                            onClick={() => setForm({ ...form, is_package: false })}
+                            className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ${!form.is_package ? 'bg-white shadow text-gray-900 scale-[1.02]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}>
+                            Satuan
+                          </button>
+                          <button type="button" 
+                            onClick={() => setForm({ ...form, is_package: true })}
+                            className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ${form.is_package ? 'bg-white shadow text-gray-900 scale-[1.02]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}>
+                            Paket (Combo)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Package Builder */}
+                      {form.is_package && (
+                        <div className="space-y-4 p-5 bg-amber-50/60 rounded-[1.25rem] border border-amber-100/60 animate-in fade-in slide-in-from-top-2 duration-300">
+                          <label className="input-label text-amber-900 font-bold flex items-center justify-between mb-1">
+                            <span>Isi Paket</span>
+                            <span className="text-xs font-semibold text-amber-700 bg-amber-200/50 px-2.5 py-1 rounded-full">{form.package_items.length} item</span>
+                          </label>
+                          
+                          <div className="space-y-3">
+                            {form.package_items.map((pi, idx) => (
+                              <div key={pi.temp_id} className="flex gap-3 items-center bg-white p-3 rounded-xl border border-amber-100 shadow-sm">
+                                <div className="flex-1">
+                                  <MenuPicker 
+                                    value={pi.menu_item_id}
+                                    items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
+                                    onChange={(val) => {
+                                      const newItems = [...form.package_items];
+                                      newItems[idx].menu_item_id = val;
+                                      
+                                      let newBasePrice = 0;
+                                      newItems.forEach(item => {
+                                        const m = initialItems.find(x => x.id === item.menu_item_id);
+                                        if (m) newBasePrice += (m.price * item.quantity);
+                                      });
+                                      
+                                      setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
+                                    }}
+                                  />
+                                </div>
+                                <div className="w-24">
+                                  <input type="number" min="1" className="input text-center px-2 bg-gray-50 py-2.5 font-bold" 
+                                    value={pi.quantity}
+                                    onChange={(e) => {
+                                      const qty = parseInt(e.target.value) || 1;
+                                      const newItems = [...form.package_items];
+                                      newItems[idx].quantity = qty;
+
+                                      let newBasePrice = 0;
+                                      newItems.forEach(item => {
+                                        const m = initialItems.find(x => x.id === item.menu_item_id);
+                                        if (m) newBasePrice += (m.price * item.quantity);
+                                      });
+
+                                      setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
+                                    }}
+                                  />
+                                </div>
+                                <button type="button" onClick={() => {
+                                  const newItems = form.package_items.filter((_, i) => i !== idx);
+                                  
+                                  let newBasePrice = 0;
+                                  newItems.forEach(item => {
+                                    const m = initialItems.find(x => x.id === item.menu_item_id);
+                                    if (m) newBasePrice += (m.price * item.quantity);
+                                  });
+
+                                  setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
+                                }} className="w-11 h-11 shrink-0 bg-red-50 rounded-xl flex items-center justify-center text-red-500 hover:bg-red-100 hover:text-red-600 transition-colors border border-transparent hover:border-red-200">
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          <button type="button" onClick={() => {
+                            setForm({ ...form, package_items: [...form.package_items, { menu_item_id: '', quantity: 1, temp_id: Math.random().toString() }] })
+                          }} className="w-full py-3 mt-3 text-sm font-bold text-amber-600 bg-amber-100/50 hover:bg-amber-100 rounded-xl flex items-center justify-center gap-2 transition-all border border-amber-200/50 border-dashed hover:border-solid hover:shadow-sm">
+                            <Plus className="w-4 h-4" /> Tambah Item Paket
+                          </button>
+                        </div>
                       )}
                     </div>
 
-                    {/* Upload actions */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-400 mb-2.5">JPG, PNG, WebP — maks 5 MB</p>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => fileRef.current?.click()}
-                          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
-                            bg-amber-500 text-white hover:bg-amber-600 transition-colors">
-                          <UploadCloud className="w-3.5 h-3.5" />
-                          {displayImage ? 'Ganti' : 'Upload'}
+                    {/* Ketersediaan */}
+                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm space-y-4">
+                      <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                        Pengaturan Ketersediaan
+                      </h3>
+
+                      {/* Availability toggle */}
+                      <button type="button"
+                        onClick={() => setForm({ ...form, is_available: !form.is_available })}
+                        className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300
+                          ${form.is_available
+                            ? 'border-green-200 bg-green-50/40 hover:bg-green-50'
+                            : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}>
+                        <div className="flex items-center gap-4">
+                          <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
+                            ${form.is_available ? 'bg-green-100 text-green-600' : 'bg-white border border-gray-200 text-gray-400'}`}>
+                            {form.is_available
+                              ? <ToggleRight className="w-7 h-7" />
+                              : <ToggleLeft  className="w-7 h-7" />}
+                          </div>
+                          <div className="text-left">
+                            <p className={`text-sm font-bold leading-none mb-1.5 ${form.is_available ? 'text-green-800' : 'text-gray-600'}`}>
+                              {form.is_available ? 'Tersedia' : 'Tidak Tersedia'}
+                            </p>
+                            <p className="text-xs font-medium text-gray-500">
+                              {form.is_available ? 'Pelanggan dapat memesan' : 'Ditandai sebagai habis'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-14 h-7 rounded-full transition-all duration-300 relative flex-shrink-0 shadow-inner
+                          ${form.is_available ? 'bg-green-500' : 'bg-gray-300'}`}>
+                          <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm
+                            transition-transform duration-300 ${form.is_available ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
+                        </div>
+                      </button>
+
+                      {/* Online Availability toggle */}
+                      <div className="space-y-3">
+                        <button type="button"
+                          onClick={() => {
+                            const willBeOnline = !form.is_available_online;
+                            setForm({ ...form, is_available_online: willBeOnline, available_online_channels: willBeOnline ? null : [] })
+                          }}
+                          className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300
+                            ${form.is_available_online
+                              ? 'border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50'
+                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}>
+                          <div className="flex items-center gap-4">
+                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
+                              ${form.is_available_online ? 'bg-indigo-100 text-indigo-600' : 'bg-white border border-gray-200 text-gray-400'}`}>
+                              {form.is_available_online
+                                ? <ToggleRight className="w-7 h-7" />
+                                : <ToggleLeft  className="w-7 h-7" />}
+                            </div>
+                            <div className="text-left">
+                              <p className={`text-sm font-bold leading-none mb-1.5 ${form.is_available_online ? 'text-indigo-800' : 'text-gray-600'}`}>
+                                {form.is_available_online ? 'Tersedia di Food Apps' : 'Hanya POS (Offline)'}
+                              </p>
+                              <p className="text-xs font-medium text-gray-500">
+                                {form.is_available_online ? 'Menu muncul di aplikasi online' : 'Sembunyikan dari aplikasi online'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className={`w-14 h-7 rounded-full transition-all duration-300 relative flex-shrink-0 shadow-inner
+                            ${form.is_available_online ? 'bg-indigo-500' : 'bg-gray-300'}`}>
+                            <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm
+                              transition-transform duration-300 ${form.is_available_online ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
+                          </div>
                         </button>
-                        {displayImage && (
-                          <button type="button"
-                            onClick={() => { preview ? resetImage() : setForm(p => ({ ...p, image_url: null })) }}
-                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
-                              bg-red-50 text-red-500 hover:bg-red-100 transition-colors">
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Hapus
-                          </button>
+                        
+                        {form.is_available_online && initialChannels.length > 0 && (
+                          <div className="p-5 rounded-[1.25rem] border border-indigo-100 bg-indigo-50/30 ml-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <p className="text-[11px] font-bold text-indigo-800/70 uppercase tracking-widest mb-4 flex items-center gap-2.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_4px_rgba(99,102,241,0.5)]"></span>
+                              Platform Online Tersedia:
+                            </p>
+                            <div className="space-y-3">
+                              <label className="flex items-center gap-3.5 cursor-pointer group">
+                                <div className="relative flex items-center">
+                                  <input type="radio" 
+                                    checked={form.available_online_channels === null} 
+                                    onChange={() => setForm({ ...form, available_online_channels: null })}
+                                    className="peer sr-only" />
+                                  <div className="w-5 h-5 rounded-full border-[2.5px] border-gray-300 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 transition-colors shadow-sm"></div>
+                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
+                                    <div className="w-2 h-2 rounded-full bg-white"></div>
+                                  </div>
+                                </div>
+                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Semua Platform Food Apps</span>
+                              </label>
+                              <label className="flex items-center gap-3.5 cursor-pointer group">
+                                <div className="relative flex items-center">
+                                  <input type="radio" 
+                                    checked={form.available_online_channels !== null} 
+                                    onChange={() => setForm({ ...form, available_online_channels: [] })}
+                                    className="peer sr-only" />
+                                  <div className="w-5 h-5 rounded-full border-[2.5px] border-gray-300 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 transition-colors shadow-sm"></div>
+                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
+                                    <div className="w-2 h-2 rounded-full bg-white"></div>
+                                  </div>
+                                </div>
+                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Pilih Platform Spesifik</span>
+                              </label>
+                            </div>
+                            
+                            {form.available_online_channels !== null && (
+                              <div className="mt-5 pl-8 pt-5 border-t border-indigo-100/60 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-300">
+                                {initialChannels.map(ch => {
+                                  const slug = getSlug(ch.id);
+                                  const isChecked = form.available_online_channels!.includes(slug);
+                                  return (
+                                    <label key={ch.id} className="flex items-center gap-3 cursor-pointer hover:bg-white p-2.5 rounded-xl transition-all duration-200 border border-transparent hover:border-indigo-100 hover:shadow-sm">
+                                      <div className="relative flex items-center">
+                                        <input type="checkbox" 
+                                          checked={isChecked}
+                                          onChange={(e) => {
+                                            const curr = form.available_online_channels || [];
+                                            if (e.target.checked) {
+                                              setForm({ ...form, available_online_channels: [...curr, slug] });
+                                            } else {
+                                              setForm({ ...form, available_online_channels: curr.filter(c => c !== slug) });
+                                            }
+                                          }}
+                                          className="peer sr-only" />
+                                        <div className="w-5 h-5 rounded-[6px] border-[2px] border-gray-300 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 transition-colors shadow-sm"></div>
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
+                                          <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
+                                        </div>
+                                      </div>
+                                      <span className="text-sm font-bold text-gray-700">{ch.name}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
                   </div>
-                  <input ref={fileRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp"
-                    className="hidden" onChange={handleFile} />
                 </div>
 
-                {/* Name */}
-                <div>
-                  <label className="input-label">Nama Menu <span className="text-red-400 font-normal">*</span></label>
-                  <input type="text" value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    required maxLength={100} className="input" placeholder="Chicken Shawarma" autoFocus />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="input-label">Deskripsi <span className="text-gray-300 font-normal text-xs">(opsional)</span></label>
-                  <textarea value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    maxLength={300} rows={2} className="input resize-none"
-                    placeholder="Deskripsi singkat menu..." />
-                </div>
-
-                {/* Menu Type Toggle */}
-                <div>
-                  <label className="input-label mb-2 block">Tipe Menu</label>
-                  <div className="flex bg-gray-100 p-1 rounded-xl">
-                    <button type="button" 
-                      onClick={() => setForm({ ...form, is_package: false })}
-                      className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors ${!form.is_package ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
-                      Satuan
-                    </button>
-                    <button type="button" 
-                      onClick={() => setForm({ ...form, is_package: true })}
-                      className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors ${form.is_package ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
-                      Paket (Combo)
-                    </button>
-                  </div>
-                </div>
-
-                {/* Package Builder */}
-                {form.is_package && (
-                  <div className="space-y-3 p-4 bg-amber-50/50 rounded-2xl border border-amber-100">
-                    <label className="input-label">Isi Paket</label>
-                    {form.package_items.map((pi, idx) => (
-                      <div key={pi.temp_id} className="flex gap-2 items-center">
-                        <MenuPicker 
-                          value={pi.menu_item_id}
-                          items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
-                          onChange={(val) => {
-                             const newItems = [...form.package_items];
-                             newItems[idx].menu_item_id = val;
-                             
-                             let newBasePrice = 0;
-                             newItems.forEach(item => {
-                               const m = initialItems.find(x => x.id === item.menu_item_id);
-                               if (m) newBasePrice += (m.price * item.quantity);
-                             });
-                             
-                             setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
-                          }}
-                        />
-                        <input type="number" min="1" className="input w-20 text-center" 
-                          value={pi.quantity}
-                          onChange={(e) => {
-                             const qty = parseInt(e.target.value) || 1;
-                             const newItems = [...form.package_items];
-                             newItems[idx].quantity = qty;
-
-                             let newBasePrice = 0;
-                             newItems.forEach(item => {
-                               const m = initialItems.find(x => x.id === item.menu_item_id);
-                               if (m) newBasePrice += (m.price * item.quantity);
-                             });
-
-                             setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
-                          }}
-                        />
-                        <button type="button" onClick={() => {
-                          const newItems = form.package_items.filter((_, i) => i !== idx);
-                          
-                          let newBasePrice = 0;
-                          newItems.forEach(item => {
-                            const m = initialItems.find(x => x.id === item.menu_item_id);
-                            if (m) newBasePrice += (m.price * item.quantity);
-                          });
-
-                          setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
-                        }} className="w-10 h-10 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-red-500 hover:bg-red-50">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                    <button type="button" onClick={() => {
-                      setForm({ ...form, package_items: [...form.package_items, { menu_item_id: '', quantity: 1, temp_id: Math.random().toString() }] })
-                    }} className="text-sm font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1 mt-2">
-                      <Plus className="w-4 h-4" /> Tambah Item
-                    </button>
-                  </div>
-                )}
-
-                {/* Price & Category */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="input-label">
-                      {activeChannelFilter 
-                        ? `Harga ${initialChannels.find(c => c.id === activeChannelFilter)?.name || ''} (Rp)` 
-                        : 'Harga Dasar (Rp)'}
-                      <span className="text-red-400 font-normal ml-1">*</span>
-                    </label>
-                    <CurrencyInput value={form.price}
-                      onChange={(v) => setForm({ ...form, price: String(v) })}
-                      required className="input" />
-                  </div>
-                  <div>
-                    <label className="input-label">Kategori</label>
-                    <select value={form.category_id}
-                      onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                      className="input">
-                      <option value="">-- Pilih --</option>
-                      {initialCategories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-
-
-                {/* Availability toggle */}
-                <button type="button"
-                  onClick={() => setForm({ ...form, is_available: !form.is_available })}
-                  className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all
-                    ${form.is_available
-                      ? 'border-amber-200 bg-amber-50/60 hover:bg-amber-50'
-                      : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors
-                      ${form.is_available ? 'bg-amber-100' : 'bg-gray-100'}`}>
-                      {form.is_available
-                        ? <ToggleRight className="w-5 h-5 text-amber-500" />
-                        : <ToggleLeft  className="w-5 h-5 text-gray-300" />}
-                    </div>
-                    <div className="text-left">
-                      <p className={`text-sm font-semibold leading-none ${form.is_available ? 'text-amber-700' : 'text-gray-500'}`}>
-                        {form.is_available ? 'Tersedia' : 'Tidak Tersedia'}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {form.is_available ? 'Pelanggan dapat memesan' : 'Ditandai sebagai habis'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0
-                    ${form.is_available ? 'bg-amber-500' : 'bg-gray-200'}`}>
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm
-                      transition-transform duration-200 ${form.is_available ? 'translate-x-5' : ''}`} />
-                  </div>
-                </button>
-
-                {/* Online Availability toggle */}
-                <div className="space-y-2">
-                  <button type="button"
-                    onClick={() => {
-                      const willBeOnline = !form.is_available_online;
-                      setForm({ ...form, is_available_online: willBeOnline, available_online_channels: willBeOnline ? null : [] })
-                    }}
-                    className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all
-                      ${form.is_available_online
-                        ? 'border-indigo-200 bg-indigo-50/60 hover:bg-indigo-50'
-                        : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors
-                        ${form.is_available_online ? 'bg-indigo-100' : 'bg-gray-100'}`}>
-                        {form.is_available_online
-                          ? <ToggleRight className="w-5 h-5 text-indigo-500" />
-                          : <ToggleLeft  className="w-5 h-5 text-gray-300" />}
-                      </div>
-                      <div className="text-left">
-                        <p className={`text-sm font-semibold leading-none ${form.is_available_online ? 'text-indigo-700' : 'text-gray-500'}`}>
-                          {form.is_available_online ? 'Tersedia di Food Apps' : 'Hanya POS (Offline)'}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {form.is_available_online ? 'Menu dapat dipesan via aplikasi online' : 'Disembunyikan dari aplikasi online'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0
-                      ${form.is_available_online ? 'bg-indigo-500' : 'bg-gray-200'}`}>
-                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm
-                        transition-transform duration-200 ${form.is_available_online ? 'translate-x-5' : ''}`} />
-                    </div>
-                  </button>
-                  
-                  {form.is_available_online && initialChannels.length > 0 && (
-                    <div className="p-4 rounded-2xl border border-gray-100 bg-white ml-6">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Tersedia untuk:</p>
-                      <div className="space-y-2">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" 
-                            checked={form.available_online_channels === null} 
-                            onChange={() => setForm({ ...form, available_online_channels: null })}
-                            className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300" />
-                          <span className="text-sm text-gray-700 font-medium">Semua Channel Food Apps</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" 
-                            checked={form.available_online_channels !== null} 
-                            onChange={() => setForm({ ...form, available_online_channels: [] })}
-                            className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300" />
-                          <span className="text-sm text-gray-700 font-medium">Pilih Channel Spesifik (Custom)</span>
-                        </label>
-                      </div>
-                      
-                      {form.available_online_channels !== null && (
-                        <div className="mt-3 pl-6 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2">
-                          {initialChannels.map(ch => {
-                            const slug = getSlug(ch.id);
-                            const isChecked = form.available_online_channels!.includes(slug);
-                            return (
-                              <label key={ch.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
-                                <input type="checkbox" 
-                                  checked={isChecked}
-                                  onChange={(e) => {
-                                    const curr = form.available_online_channels || [];
-                                    if (e.target.checked) {
-                                      setForm({ ...form, available_online_channels: [...curr, slug] });
-                                    } else {
-                                      setForm({ ...form, available_online_channels: curr.filter(c => c !== slug) });
-                                    }
-                                  }}
-                                  className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" />
-                                <span className="text-sm text-gray-700">{ch.name}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Error */}
-                {error && (
-                  <div className="flex items-center gap-2.5 bg-red-50 border border-red-100 rounded-xl p-3 text-red-600 text-sm">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
               </div>
 
-              {/* Sticky footer — action buttons */}
-              <div className="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0 bg-white rounded-b-3xl">
-                <button type="button" onClick={closeForm}
-                  className="btn-secondary flex-1 py-2.5 text-sm">
+            {/* Sticky footer — action buttons */}
+            <div className="flex gap-4 px-8 py-5 border-t border-gray-100 flex-shrink-0 bg-white/95 backdrop-blur-md z-10 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+              <button type="button" onClick={closeForm}
+                  className="px-8 py-3.5 rounded-[1.25rem] font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all duration-200 w-1/3 text-sm flex items-center justify-center border border-gray-200/50">
                   Batal
                 </button>
                 <button type="submit" disabled={saving || uploading}
-                  className="btn-primary flex-[2] py-2.5 text-sm">
+                  className="btn-primary flex-1 py-3.5 rounded-[1.25rem] text-base font-bold shadow-lg shadow-amber-500/30 hover:shadow-amber-500/40 hover:-translate-y-0.5 transition-all duration-200">
                   {(saving || uploading)
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />{uploading ? 'Mengupload...' : 'Menyimpan...'}</>
-                    : form.id ? 'Simpan Perubahan' : 'Tambah Menu'}
+                    ? <div className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /><span>{uploading ? 'Mengupload...' : 'Menyimpan...'}</span></div>
+                    : form.id ? 'Simpan Perubahan' : 'Tambah Menu Baru'}
                 </button>
               </div>
             </form>

@@ -51,11 +51,14 @@ describe('Two-way Order Status Sync API Routes', () => {
     if (outlets && outlets.length > 0) {
       testOutletId = outlets[0].id
     } else {
-      const { data: newOutlet } = await db
+      const { data: newOutlet, error } = await db
         .from('outlets')
         .insert({ name: 'Test Sync Outlet' })
         .select()
         .single()
+      if (error || !newOutlet) {
+        throw new Error(`Failed to create test outlet: ${error?.message || 'Unknown error'}`)
+      }
       testOutletId = newOutlet.id
     }
 

@@ -120,6 +120,7 @@ export default function CrewBonusPage() {
               onChange={setSelectedOutletId}
               className="w-full sm:w-[200px]"
               placeholder="Pilih Outlet..."
+              searchable
             />
           )}
         </div>

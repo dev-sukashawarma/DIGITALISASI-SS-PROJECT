@@ -98,6 +98,28 @@ async function fetchOutletAnalytics(outletId: string, range: DateRange, customSt
     if (error) throw error
 
     if (data) {
+      // Kita abaikan perhitungan 'hourly' dari backend karena ada potensi selisih zona waktu (UTC vs WIB).
+      // Hitung ulang secara manual di frontend, dan paksa konversi waktu ketat ke Waktu Indonesia Barat (Asia/Jakarta).
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('created_at')
+        .eq('outlet_id', outletId)
+        .eq('status', 'completed')
+        .gte('created_at', p_start.toISOString())
+        .lte('created_at', p_end.toISOString());
+
+      if (ordersData) {
+        const newHourly = Array(24).fill(0);
+        ordersData.forEach((o: any) => {
+          // Konversi string UTC dari Supabase menjadi waktu spesifik WIB (Asia/Jakarta)
+          const dateWIBStr = new Date(o.created_at).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+          const dateWIB = new Date(dateWIBStr);
+          const h = dateWIB.getHours();
+          newHourly[h]++;
+        });
+        data.hourly = newHourly;
+      }
+
       await db.app_state.put({
         key: `reports_analytics:${outletId}:${range}`,
         value: data,
@@ -291,7 +313,6 @@ export default function ReportsPage() {
     }
   }, [justClosedShift, loadingShifts, shifts.length])
 
-  // ─── Derived Analytics ───
   const analytics = useMemo(() => {
     const base = analyticsData || {
       totalRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
@@ -306,12 +327,29 @@ export default function ReportsPage() {
     let totalRevenue = base.totalRevenue
     let avgOrderValue = base.totalOrders > 0 ? Math.round(totalRevenue / base.totalOrders) : 0
 
+    // Kalkulasi Jam Tersibuk (Peak Hour) jika API tidak menyediakannya
+    let peakHour = base.peakHour;
+    if (peakHour == null && base.hourly && Array.isArray(base.hourly)) {
+      let maxCount = 0;
+      let peakIndex = null;
+      for (let i = 0; i < base.hourly.length; i++) {
+        if (base.hourly[i] > maxCount) {
+          maxCount = base.hourly[i];
+          peakIndex = i;
+        }
+      }
+      if (maxCount > 0) {
+        peakHour = peakIndex;
+      }
+    }
+
     return {
       ...base,
       totalRevenue,
       paymentBreakdown: base.paymentBreakdown,
       avgOrderValue,
-      totalCashVariance // keep it in the object if needed elsewhere
+      totalCashVariance, // keep it in the object if needed elsewhere
+      peakHour
     }
   }, [analyticsData, shifts])
 
@@ -487,7 +525,7 @@ export default function ReportsPage() {
               </div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Jam Tersibuk</p>
               <p className="text-3xl font-bold text-gray-900 mt-0.5">
-                {analytics.totalOrders > 0 ? `${String(analytics.peakHour).padStart(2, '0')}:00` : '—'}
+                {analytics.totalOrders > 0 && analytics.peakHour != null ? `${String(analytics.peakHour).padStart(2, '0')}:00` : '—'}
               </p>
             </div>
           </div>

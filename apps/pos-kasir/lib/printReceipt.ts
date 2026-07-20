@@ -76,8 +76,7 @@ export function buildReceiptHtml(
   const paperWidth = layout.paperWidth
   // Ukuran font: fontSizePx adalah basis. Default (customer 14 / kitchen 22) → scale 1
   // → identik dengan tampilan lama. Elemen lain menskala proporsional dari basis ini.
-  const defaultBase = isKitchen ? 22 : 14
-  const scale = (layout.fontSizePx || defaultBase) / defaultBase
+  const scale = (layout.fontSizePx || 14) / 14
   const fs = (basePx: number) => Math.round(basePx * scale)
   const weight = layout.bold ? 900 : 400
   const fontFam = FONT_STACK[layout.fontFamily] ?? FONT_STACK.monospace

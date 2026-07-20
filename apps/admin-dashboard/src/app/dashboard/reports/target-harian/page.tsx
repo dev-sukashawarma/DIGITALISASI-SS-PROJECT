@@ -108,7 +108,7 @@ export default function TargetHarianPage() {
             .map(([dateStr, dateRows]) => {
               const formattedDateGroup = format(parseISO(dateStr), 'EEEE, dd MMMM yyyy', { locale: id })
               return (
-                <Section key={dateStr} title={formattedDateGroup} collapsible defaultOpen>
+                <Section key={dateStr} title={formattedDateGroup} collapsible defaultOpen={false}>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {dateRows.map((record) => {
                       const isAchieved = record.achieved_pct >= 100

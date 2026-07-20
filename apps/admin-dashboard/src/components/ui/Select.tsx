@@ -15,11 +15,15 @@ interface SelectProps {
   onChange: (val: string) => void
   placeholder?: string
   className?: string
+  searchable?: boolean
+  searchPlaceholder?: string
 }
 
-export function Select({ options, value, onChange, placeholder = 'Pilih...', className = '' }: SelectProps) {
+export function Select({ options, value, onChange, placeholder = 'Pilih...', className = '', searchable = false, searchPlaceholder = 'Cari...' }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const selectedOption = options.find((o) => o.value === value)
 
@@ -33,6 +37,18 @@ export function Select({ options, value, onChange, placeholder = 'Pilih...', cla
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (isOpen && searchable) {
+      setTimeout(() => searchInputRef.current?.focus(), 50)
+    } else {
+      setSearchQuery('')
+    }
+  }, [isOpen, searchable])
+
+  const filteredOptions = searchable 
+    ? options.filter(o => o.label.toLowerCase().includes(searchQuery.toLowerCase()))
+    : options;
 
   return (
     <div className={`relative ${className}`} ref={wrapperRef}>
@@ -56,7 +72,21 @@ export function Select({ options, value, onChange, placeholder = 'Pilih...', cla
 
       {isOpen && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-suka-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-auto focus:outline-none">
-          {options.map((option) => (
+          {searchable && (
+            <div className="px-2 pb-2 pt-1 sticky top-0 bg-white z-10 border-b border-suka-gray-100 mb-1">
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-md outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange/30 placeholder:text-gray-400"
+              />
+            </div>
+          )}
+          {filteredOptions.length === 0 && (
+            <div className="px-3 py-2 text-sm text-gray-500 italic">Tidak ditemukan</div>
+          )}
+          {filteredOptions.map((option) => (
             <button
               key={option.value}
               onClick={() => {

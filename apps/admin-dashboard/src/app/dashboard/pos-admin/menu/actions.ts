@@ -66,6 +66,7 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
     name: form.name,
     description: form.description || null,
     price: Number(form.price),
+    strike_price: form.strike_price ? Number(form.strike_price) : null,
     category_id: form.category_id || null,
     image_url: form.image_url,
     is_available: form.is_available,

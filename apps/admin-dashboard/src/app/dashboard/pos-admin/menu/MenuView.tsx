@@ -25,6 +25,7 @@ interface FormState {
   name: string
   description: string
   price: string
+  strike_price: string
   base_price: string
   channel_prices: Record<string, string>
   category_id: string
@@ -37,7 +38,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  id: null, name: '', description: '', price: '', base_price: '',
+  id: null, name: '', description: '', price: '', strike_price: '', base_price: '',
   channel_prices: {},
   category_id: '', is_available: true, is_available_online: true, available_online_channels: null, image_url: null,
   is_package: false, package_items: []
@@ -177,6 +178,7 @@ export default function MenuView({
     setForm({
       id: item.id, name: item.name, description: item.description ?? '',
       price: displayPrice, 
+      strike_price: item.strike_price ? String(item.strike_price) : '',
       base_price: String(item.price),
       channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
@@ -203,6 +205,7 @@ export default function MenuView({
       name: `${item.name} (Copy)`, 
       description: item.description ?? '',
       price: String(item.price), 
+      strike_price: item.strike_price ? String(item.strike_price) : '',
       base_price: String(item.price),
       channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
@@ -280,7 +283,9 @@ export default function MenuView({
     const payload = {
       id: form.id ?? undefined,
       name: form.name.trim(), description: form.description.trim() || null,
-      price: finalBasePrice, category_id: form.category_id || null,
+      price: finalBasePrice, 
+      strike_price: form.strike_price ? parseFloat(form.strike_price) : null,
+      category_id: form.category_id || null,
       is_available: form.is_available, is_available_online: form.is_available_online, available_online_channels: form.available_online_channels, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
       is_package: form.is_package,
@@ -523,6 +528,15 @@ export default function MenuView({
                           <CurrencyInput value={form.price}
                             onChange={(v) => setForm({ ...form, price: String(v) })}
                             required className="input bg-gray-50 focus:bg-white font-bold text-gray-900 text-base py-3" />
+                        </div>
+                        <div>
+                          <label className="input-label text-gray-700 font-bold mb-2 block">
+                            Harga Coret
+                            <span className="text-gray-400 font-medium text-xs ml-2 bg-gray-100 px-2 py-0.5 rounded-md">Opsional</span>
+                          </label>
+                          <CurrencyInput value={form.strike_price}
+                            onChange={(v) => setForm({ ...form, strike_price: String(v) })}
+                            className="input bg-gray-50 focus:bg-white text-gray-900 text-base py-3" />
                         </div>
                         <div>
                           <label className="input-label text-gray-700 font-bold mb-2 block">Kategori</label>

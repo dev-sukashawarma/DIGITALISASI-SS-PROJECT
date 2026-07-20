@@ -169,6 +169,11 @@ export function BahanBakuTable({
                                   {sku.qty_isi} {r.satuan_kecil || r.satuan}
                                 </>
                               )}
+                              {sku.harga_beli ? (
+                                <span className="ml-1.5 pl-1.5 border-l border-gray-300 font-bold text-emerald-600">
+                                  {rupiah(sku.harga_beli)}
+                                </span>
+                              ) : null}
                             </span>
                           </div>
                         ))}

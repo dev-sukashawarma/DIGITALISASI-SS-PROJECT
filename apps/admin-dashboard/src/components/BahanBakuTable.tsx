@@ -124,8 +124,8 @@ export function BahanBakuTable({
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex flex-col gap-2 h-full">
+                    <div className="flex items-center gap-1.5 flex-wrap min-h-[24px]">
                       <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">{r.satuan}</span>
                       
                       {r.faktor_tengah && r.satuan_tengah && (
@@ -151,7 +151,7 @@ export function BahanBakuTable({
                     {r.skus && r.skus.length > 0 && (
                       <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-gray-100 w-full">
                         {r.skus.map((sku) => (
-                          <div key={sku.id} className="flex items-center gap-1.5 flex-wrap">
+                          <div key={sku.id} className="flex items-center gap-1.5 flex-wrap min-h-[24px]">
                             <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                               {sku.nama_kemasan}
                             </span>
@@ -175,12 +175,6 @@ export function BahanBakuTable({
                                 </span>
                               </>
                             )}
-
-                            {sku.harga_beli ? (
-                              <span className="ml-1.5 pl-1.5 border-l border-gray-300 font-bold text-emerald-600 text-[11px]">
-                                {rupiah(sku.harga_beli)}
-                              </span>
-                            ) : null}
                           </div>
                         ))}
                       </div>
@@ -188,26 +182,45 @@ export function BahanBakuTable({
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className={r.harga ? 'font-medium text-suka-ink' : 'text-gray-400'}>
-                      {r.harga ? rupiah(r.harga.harga_beli) : '—'}
-                    </span>
-                    {alertMap.has(r.id) && (() => {
-                      const alert = alertMap.get(r.id)!
-                      const naik = alert.selisih_pct > 0
-                      const pct = Math.abs(alert.selisih_pct * 100).toFixed(1)
-                      return (
-                        <span
-                          title={`Harga aktual di ${alert.nomor_po}: ${rupiah(alert.harga_terima)} (${naik ? '+' : '-'}${pct}%)`}
-                          className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full cursor-help ${
-                            naik ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-50 text-green-600 border border-green-200'
-                          }`}
-                        >
-                          <AlertTriangle size={9} />
-                          {naik ? '+' : '-'}{pct}%
-                        </span>
-                      )
-                    })()}
+                  <div className="flex flex-col gap-2 h-full">
+                    <div className="flex items-center gap-1.5 min-h-[24px]">
+                      <span className={r.harga ? 'font-medium text-suka-ink' : 'text-gray-400'}>
+                        {r.harga ? rupiah(r.harga.harga_beli) : '—'}
+                      </span>
+                      {alertMap.has(r.id) && (() => {
+                        const alert = alertMap.get(r.id)!
+                        const naik = alert.selisih_pct > 0
+                        const pct = Math.abs(alert.selisih_pct * 100).toFixed(1)
+                        return (
+                          <span
+                            title={`Harga aktual di ${alert.nomor_po}: ${rupiah(alert.harga_terima)} (${naik ? '+' : '-'}${pct}%)`}
+                            className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full cursor-help ${
+                              naik ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-50 text-green-600 border border-green-200'
+                            }`}
+                          >
+                            <AlertTriangle size={9} />
+                            {naik ? '+' : '-'}{pct}%
+                          </span>
+                        )
+                      })()}
+                    </div>
+
+                    {/* Harga Variasi SKU */}
+                    {r.skus && r.skus.length > 0 && (
+                      <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-gray-100 w-full">
+                        {r.skus.map((sku) => (
+                          <div key={sku.id} className="flex items-center min-h-[24px]">
+                            {sku.harga_beli ? (
+                              <span className="font-bold text-emerald-600 text-sm">
+                                {rupiah(sku.harga_beli)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">

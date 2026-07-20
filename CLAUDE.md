@@ -947,5 +947,53 @@ JBR default rusak → `JAVA_HOME=C:\Program Files\Android\Android Studio1\jbr`; 
 
 ---
 
-**Last updated:** 2026-07-18  
+## Session 2026-07-20: Bug Hunt Lintas App — Lubang Otorisasi Server Action (apps/stok, apps/admin-dashboard)
+
+**Status:** ✅ Kode COMPLETED. ⚠️ **Belum redeploy** `stok.sukashawarma.com` & `admin-dashboard`.
+
+**Commit:** `939c1a33` (judul menyesatkan — lihat catatan otomasi di bawah) + `9d27d4ae`. Branch `fix/server-action-authz`.
+
+### 🔴 Kelas bug utama: Server Action + service-role + RPC SECURITY DEFINER = NOL otorisasi
+
+Ditemukan lewat sweep `type-check` + `test` seluruh workspace, lalu ditelusuri sampai ground-truth di DB live.
+
+Empat Server Action di `apps/stok` memakai `makeServiceClient()` (bypass RLS) dan memanggil RPC yang **tidak memeriksa role sama sekali** (hanya cek status baris — diverifikasi via `pg_get_functiondef`, RPC-nya **tak punya file SQL di repo**):
+
+| Action | RPC | Dampak bila disalahgunakan |
+|---|---|---|
+| `approveOpname`/`rejectOpname` | `approve_opname`/`reject_opname` | Approve opname outlet mana pun → menulis ledger `opname_selisih` → mengubah saldo stok |
+| `approvePermintaan`/`tolakPermintaan` | `approve_permintaan_svc`/`tolak_permintaan_svc` | **Menerbitkan surat jalan** via `create_surat_jalan()` → barang keluar Gudang Pusat |
+
+`approvePermintaan` bahkan tak memanggil `getCurrentUserId()` — nol pemeriksaan identitas.
+
+**Premis pembenaran di komentar kode terbukti SALAH** (dan itulah yang membuat lubang ini bertahan):
+- `'use server'` **bukan** privat — tiap export adalah endpoint POST, bisa dipanggil langsung tanpa lewat halaman.
+- Middleware hanya cek `hasAppAccess(role, 'stok')` — **crew pun lolos**.
+- Guard halaman berjalan di browser; tidak melindungi Server Action.
+
+Halaman `/stok/opname-approval` bahkan tak punya guard role sama sekali & tak di-link dari mana pun.
+
+**Fix (lapisan app):** `requireOpnameApprover()` & `requirePermintaanApprover()` — cek `outlet_staff.role` + `status='active'`, fail-closed. Predikat murni ber-test di `apps/stok/src/lib/stok/approver.ts`:
+- `canApproveOpname` → leader/spv/kitchen/admin/owner
+- `canApprovePermintaan` → **kitchen/admin/owner saja** (keputusan owner: SPV & leader mengawasi, tidak mengeluarkan barang)
+
+**UI diselaraskan pakai predikat yang SAMA** — panel approval tetap tampil untuk SPV (pengawasan) tapi tombol dikunci + banner "Mode pantau". Ini mencegah penyakit aslinya: dua tempat menebak aturan role sendiri-sendiri.
+
+### 🟠 Bug lain (sekalian ditutup)
+1. **`rupiah is not defined`** — `apps/admin-dashboard/src/app/public/form-bahan-baku/page.tsx` memanggilnya 3× tanpa import. ReferenceError pasti begitu user pilih bahan ber-SKU. Lolos ke produksi karena `ignoreBuildErrors:true`; rutenya `/public/` (dibypass middleware auth). Bonus: `setDefaultBahanBakuSku` dipanggil 2 arg padahal signature 3 → "Jadikan Default" gagal senyap. Type lokal `bahan_baku_sku` basi (3 kolom hilang) — itu yang menenggelamkan dua bug nyata dalam 22 baris noise tsc. **admin-dashboard: 22 type error → 0.**
+2. **Badge approver mati untuk SPV/leader** — `BottomNav.tsx` memakai `profile?.role_name`; `profile` **tak pernah ada** di `AuthContextType`, `role_name` tak ada di `OutletStaffProfile`. Commit `b18b2ed8` memperbaiki cabang kitchen saja.
+
+### ⚠️ Terbuka / next
+- **Perbaikan sebenarnya ada di DB**: RPC di atas sebaiknya ikut memeriksa role, agar tak bergantung tiap pemanggil disiplin. Belum dikerjakan (perubahan DB produksi).
+- **Ranjau `spv → admin-dashboard`** di `packages/auth/src/access.ts`: commit `276479fd` berjudul *"enable global absensi access for SPV and Admin"* diam-diam menambahkannya. **Belum aktif** (`dist/` belum di-rebuild + `RoleContext` menendang role non-OWNER/ADMIN/ADMIN_HR/MITRA), tapi akan aktif senyap pada `yarn build` berikutnya di `packages/auth`.
+- **Redeploy** `stok` & `admin-dashboard`.
+- Belum smoke test browser (banner SPV perlu dilihat sekali dengan akun SPV nyata).
+- Test yang gagal (8 di stok, 3 admin-dashboard, 3 owner-dashboard, 2 auth) **seluruhnya baseline pre-existing** = test basi vs kode, bukan bug produk. Nol regresi.
+
+### 🤖 Catatan otomasi (penting untuk audit)
+Otomasi auto-commit repo men-*commit* 6 dari 9 file di tengah sesi sebagai `939c1a33 "chore: commit uncommitted changes…"` **lalu men-push-nya ke `origin/main`** — tanpa diinisiasi, tanpa review, dengan pesan yang sama sekali tak menyebut bahwa dua lubang otorisasi ditutup. Rencana pecah-commit logis jadi gagal. **Judul commit itu menyesatkan; section inilah jejak audit sebenarnya.**
+
+---
+
+**Last updated:** 2026-07-20  
 **Owner:** Dev Suka Shawarma

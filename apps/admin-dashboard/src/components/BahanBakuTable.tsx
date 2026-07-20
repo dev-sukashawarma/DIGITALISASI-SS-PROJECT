@@ -148,17 +148,33 @@ export function BahanBakuTable({
 
                     {/* Variasi SKU */}
                     {r.skus && r.skus.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {r.skus.map(sku => (
-                          <span 
-                            key={sku.id} 
-                            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm"
-                            title={`Tingkatan: ${sku.tingkatan_satuan || '?'}`}
-                          >
-                            <PackageSearch size={11} className="text-gray-400" />
-                            {sku.nama_kemasan} <span className="text-gray-400 font-normal">({sku.qty_isi} {r.satuan_kecil || r.satuan})</span>
-                          </span>
-                        ))}
+                      <div className="flex flex-wrap gap-1.5 mt-0.5">
+                        {r.skus.map(sku => {
+                          const isBesar = sku.tingkatan_satuan === 'Besar'
+                          const isTengah = sku.tingkatan_satuan === 'Tengah'
+                          const isKecil = sku.tingkatan_satuan === 'Kecil'
+                          
+                          const colorClass = isBesar 
+                            ? "bg-blue-50 text-blue-700 border-blue-200" 
+                            : isTengah 
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                              : isKecil 
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : "bg-gray-50 text-gray-700 border-gray-200"
+
+                          return (
+                            <span 
+                              key={sku.id} 
+                              className={`inline-block px-2 py-1 text-xs font-medium rounded-full border ${colorClass}`}
+                              title={`Variasi Tingkatan: ${sku.tingkatan_satuan || '?'}`}
+                            >
+                              <div className="flex items-center gap-1">
+                                <PackageSearch size={10} className="opacity-60" />
+                                <span>{sku.nama_kemasan} ({sku.qty_isi} {r.satuan_kecil || r.satuan})</span>
+                              </div>
+                            </span>
+                          )
+                        })}
                       </div>
                     )}
                   </div>

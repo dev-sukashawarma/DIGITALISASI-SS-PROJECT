@@ -1,23 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase";
 
 const SPV_ROLES = ["spv", "leader", "admin", "admin_hr", "owner", "kitchen"];
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Verifikasi user yang request via browser client (pakai session JWT)
-    const browserSupabase = createClient();
-    const { data: { user }, error: authError } = await browserSupabase.auth.getUser();
-    if (authError || !user) {
+    // 1. Ambil JWT dari Authorization header yang dikirim client
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader?.replace("Bearer ", "").trim();
+    if (!token) {
       return NextResponse.json({ ok: false, reason: "unauthenticated" }, { status: 401 });
     }
 
-    // 2. Cek role user — harus SPV/Leader/Admin
+    // 2. Verifikasi token & dapatkan user via service role
     const admin = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
+
+    const { data: { user }, error: authError } = await admin.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ ok: false, reason: "unauthenticated" }, { status: 401 });
+    }
 
     const { data: requester, error: reqErr } = await admin
       .from("outlet_staff")

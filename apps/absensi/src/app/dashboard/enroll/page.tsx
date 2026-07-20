@@ -179,11 +179,17 @@ export default function EnrollPage() {
       if (storageError) throw new Error(`Upload foto gagal: ${storageError.message}`);
 
       // Update DB via server-side API route (service_role) — bypass RLS sepenuhnya.
-      // Browser client terkena RLS policy yang bergantung auth_is_supervisor(),
-      // sehingga role tertentu diblokir diam-diam. API route validasi role di server.
+      // Kirim JWT token di header agar server bisa verifikasi identity user
+      // (server-side tidak bisa akses localStorage browser).
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Sesi login tidak ditemukan, coba login ulang.");
+
       const res = await fetch("/api/enroll", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           targetStaffId: targetStaff.id,
           descriptor,

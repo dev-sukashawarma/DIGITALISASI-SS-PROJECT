@@ -164,11 +164,15 @@ export default function EnrollPage() {
       const refPath = `${selectedOutletId}/${targetStaff.id}.jpg`;
       const blob = await (await fetch(dataUrl)).blob();
       
-      await supabase.storage
+      // Upload foto referensi — tangkap error secara eksplisit
+      const { error: storageError } = await supabase.storage
         .from("face-refs")
         .upload(refPath, blob, { upsert: true, contentType: "image/jpeg" });
+      if (storageError) throw new Error(`Upload foto gagal: ${storageError.message}`);
         
-      const { error } = await supabase
+      // Update DB — gunakan .select() untuk deteksi RLS silent block
+      // (RLS yang memblokir tidak throw error, tapi data[] akan kosong)
+      const { data: updated, error } = await supabase
         .from("outlet_staff")
         .update({
           face_descriptor: descriptor,
@@ -182,9 +186,13 @@ export default function EnrollPage() {
             re_enroll_reason: reEnrollReason.trim() || null,
           }),
         })
-        .eq("id", targetStaff.id);
+        .eq("id", targetStaff.id)
+        .select("id");
         
       if (error) throw error;
+      if (!updated || updated.length === 0) {
+        throw new Error("Update gagal: tidak ada baris yang diperbarui. Kemungkinan akses ditolak (RLS) atau ID tidak ditemukan.");
+      }
       
       // Tandai staff sebagai terdaftar (pindah ke section "Sudah Terdaftar")
       setStaffList(prev => prev.map(s =>

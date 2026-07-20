@@ -13,6 +13,7 @@ import type { MenuItem } from '@/types'
 export default function ProductDetailClient({
   item,
   upsellItems,
+  packageOptionItems,
   outletId,
 }: {
   item: MenuItem

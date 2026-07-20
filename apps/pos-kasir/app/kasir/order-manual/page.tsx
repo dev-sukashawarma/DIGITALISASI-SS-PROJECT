@@ -22,7 +22,7 @@ import { fetchWithTimeout } from '@/lib/offline-utils'
 import { createLocalOrder } from '@/lib/offline'
 import { QRCodeSVG } from 'qrcode.react'
 
-type Mode = 'walkin' | 'online'
+type Mode = 'walkin' | 'online' | 'endorse'
 
 interface Line {
   item: MenuItem
@@ -394,7 +394,10 @@ export default function OrderManualPage() {
   const totalItems = lineList.reduce((s, l) => s + l.quantity, 0)
   
   const baseSubtotal = lineList.reduce((s, l) => s + l.item.price * l.quantity, 0)
-  const wrappedCalculateItemPrice = (price: number, id: string, channelPrices?: Record<string, number> | null) => calculateItemPrice(price, id, baseSubtotal, channel || (mode === 'online' ? 'gofood' : undefined), channelPrices)
+  const wrappedCalculateItemPrice = (price: number, id: string, channelPrices?: Record<string, number> | null) => {
+    if (mode === 'endorse') return 0;
+    return calculateItemPrice(price, id, baseSubtotal, channel || (mode === 'online' ? 'gofood' : undefined), channelPrices)
+  }
 
   const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity, 0)
   const globalDiscount = calculateGlobalDiscount(subtotalAmount)
@@ -765,10 +768,10 @@ export default function OrderManualPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-gray-900 leading-tight">
-            {mode === 'walkin' ? 'Order Manual — Pesanan Baru' : 'Input Food Apps'}
+            {mode === 'walkin' ? 'Order Manual — Pesanan Baru' : mode === 'endorse' ? 'Order Endorse' : 'Input Food Apps'}
           </h1>
           <p className="text-sm text-gray-500 leading-tight">
-            {mode === 'walkin' ? 'Catat pesanan pelanggan secara manual' : 'Input pesanan dari aplikasi makanan'}
+            {mode === 'walkin' ? 'Catat pesanan pelanggan secara manual' : mode === 'endorse' ? 'Catat pesanan endorse dengan harga Rp 0' : 'Input pesanan dari aplikasi makanan'}
           </p>
         </div>
       </div>
@@ -787,6 +790,12 @@ export default function OrderManualPage() {
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'online' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Globe className="w-4 h-4" /> Food Apps
+          </button>
+          <button
+            onClick={() => handleSwitchMode('endorse')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'endorse' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <StickyNote className="w-4 h-4" /> Endorse
           </button>
         </div>
         
@@ -949,7 +958,7 @@ export default function OrderManualPage() {
 
         {/* ══ KANAN: keranjang (desktop sticky) ══ */}
         <div className="hidden md:block sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 pr-2 pb-20">
-          {mode === 'walkin' ? (
+          {mode === 'walkin' || mode === 'endorse' ? (
             <WalkInCartPanel
               key={walkInPanelKey}
               lineList={lineList}
@@ -968,6 +977,7 @@ export default function OrderManualPage() {
               submitting={walkInSubmitting}
               error={walkInError}
               onPay={handleWalkInPay}
+              isEndorse={mode === 'endorse'}
             />
           ) : (
             <CartPanel
@@ -1023,7 +1033,7 @@ export default function OrderManualPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            {mode === 'walkin' ? (
+            {mode === 'walkin' || mode === 'endorse' ? (
               <WalkInCartPanel
                 key={walkInPanelKey}
                 lineList={lineList}
@@ -1043,6 +1053,7 @@ export default function OrderManualPage() {
                 error={walkInError}
                 onPay={handleWalkInPay}
                 embedded
+                isEndorse={mode === 'endorse'}
               />
             ) : (
               <CartPanel

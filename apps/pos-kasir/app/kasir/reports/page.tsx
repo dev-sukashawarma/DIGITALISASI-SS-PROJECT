@@ -741,7 +741,7 @@ export default function ReportsPage() {
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <p className="text-sm font-semibold text-gray-800 print-dark-text truncate">{item.name}</p>
+                              <p className="text-sm font-semibold text-gray-800 print-dark-text truncate">{cleanItemName(item.name)}</p>
                               <div className="flex items-center gap-3 flex-shrink-0 ml-2">
                                 <span className="text-xs text-gray-500 print-dark-text font-medium">{item.qty} terjual</span>
                                 <span className="text-xs font-bold text-gray-900">{formatRupiah(item.revenue)}</span>

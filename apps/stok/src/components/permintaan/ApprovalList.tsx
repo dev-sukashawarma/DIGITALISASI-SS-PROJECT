@@ -6,7 +6,16 @@ import { convertToDistribusiUnit } from '@/lib/format/compositeUnit'
 import type { PermintaanWithItems } from '@/types/permintaan'
 import { ApprovalModal } from './ApprovalModal'
 
-export function ApprovalList() {
+interface Props {
+  /**
+   * Apakah pengguna boleh benar-benar menyetujui/menolak. Bila `false`, daftar
+   * tetap tampil (untuk pengawasan) tetapi aksi dikunci dan alasannya
+   * dijelaskan — server akan menolaknya juga lewat `requirePermintaanApprover`.
+   */
+  canApprove?: boolean
+}
+
+export function ApprovalList({ canApprove = true }: Props) {
   const { permintaan, loading, error, refresh } = useApprovalList()
   const { bahanBaku } = useBahanBaku()
   const [selected, setSelected] = useState<PermintaanWithItems | null>(null)
@@ -22,6 +31,23 @@ export function ApprovalList() {
 
   return (
     <>
+      {!canApprove && (
+        <div
+          role="status"
+          className="bg-[#f5ede3] border border-[#d9c2b2]/60 rounded-2xl p-4 mb-3 flex gap-3 items-start"
+        >
+          <span className="text-base leading-none mt-0.5">👁️</span>
+          <div className="space-y-0.5">
+            <p className="text-xs font-bold text-[#701604]">Mode pantau — tanpa hak persetujuan</p>
+            <p className="text-[11px] text-[#544437]/80 leading-relaxed">
+              Anda bisa melihat antrean permintaan, tetapi keputusan setujui/tolak ada di
+              Gudang Pusat (kitchen). Persetujuan menerbitkan surat jalan, jadi hanya Gudang
+              Pusat, admin, atau owner yang dapat memprosesnya.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3">
         {permintaan.map(p => {
           const reqCode = `#REQ-${p.id.slice(0, 4).toUpperCase()}`
@@ -101,6 +127,7 @@ export function ApprovalList() {
       {selected && (
         <ApprovalModal
           permintaan={selected}
+          canApprove={canApprove}
           onClose={() => setSelected(null)}
           onDone={() => {
             setSelected(null)

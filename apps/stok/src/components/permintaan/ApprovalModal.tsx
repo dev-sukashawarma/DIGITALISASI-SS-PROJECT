@@ -11,9 +11,11 @@ interface Props {
   permintaan: PermintaanWithItems
   onClose: () => void
   onDone: () => void
+  /** Bila `false`, rincian tetap bisa dibaca tetapi Setujui/Tolak dikunci. */
+  canApprove?: boolean
 }
 
-export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
+export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }: Props) {
   const { approve, tolak } = usePermintaanActions()
   const { bahanBaku } = useBahanBaku()
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -312,6 +314,19 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
           </p>
         )}
 
+        {!canApprove && (
+          <p
+            className="text-xs font-semibold text-[#544437] bg-[#f5ede3] border border-[#d9c2b2]/60 p-2.5 rounded-xl mb-4 flex items-start gap-2"
+            role="status"
+          >
+            <span>👁️</span>
+            <span>
+              Anda hanya memantau. Keputusan setujui/tolak permintaan ini ada di Gudang Pusat
+              (kitchen), admin, atau owner — sebab persetujuan langsung menerbitkan surat jalan.
+            </span>
+          </p>
+        )}
+
         {/* Actions */}
         <div className="flex gap-2 justify-end pt-2">
           <button
@@ -325,16 +340,18 @@ export function ApprovalModal({ permintaan, onClose, onDone }: Props) {
           <button
             type="button"
             onClick={handleTolak}
-            disabled={loading}
-            className="px-4 py-3 text-xs uppercase font-bold tracking-wider rounded-xl text-red-600 border border-red-300 hover:bg-red-50 transition active:scale-95 disabled:opacity-50"
+            disabled={loading || !canApprove}
+            title={canApprove ? undefined : 'Hanya Gudang Pusat, admin, atau owner yang boleh menolak'}
+            className="px-4 py-3 text-xs uppercase font-bold tracking-wider rounded-xl text-red-600 border border-red-300 hover:bg-red-50 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           >
             Tolak
           </button>
           <button
             type="button"
             onClick={handleApprove}
-            disabled={loading}
-            className="px-5 py-3 text-xs uppercase font-bold tracking-wider rounded-xl bg-[#f29744] text-white hover:bg-[#e0873a] transition active:scale-95 disabled:opacity-50"
+            disabled={loading || !canApprove}
+            title={canApprove ? undefined : 'Hanya Gudang Pusat, admin, atau owner yang boleh menyetujui'}
+            className="px-5 py-3 text-xs uppercase font-bold tracking-wider rounded-xl bg-[#f29744] text-white hover:bg-[#e0873a] transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#f29744]"
           >
             Setujui
           </button>

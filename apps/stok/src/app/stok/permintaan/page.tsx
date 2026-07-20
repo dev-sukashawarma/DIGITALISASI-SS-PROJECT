@@ -8,6 +8,7 @@ import { PermintaanList } from '@/components/permintaan/PermintaanList'
 import { ApprovalList } from '@/components/permintaan/ApprovalList'
 import { OutletSwitcher } from '@/components/common/OutletSwitcher'
 import { BottomNav } from '@/components/common/BottomNav'
+import { canApprovePermintaan } from '@/lib/stok/approver'
 
 const KITCHEN_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 
@@ -23,8 +24,14 @@ export default function PermintaanPage() {
   }
   if (!outletStaff) return null
 
+  // Siapa yang MELIHAT panel persetujuan (termasuk SPV, untuk pengawasan)…
   const isKitchen = selectedOutletId === KITCHEN_OUTLET_ID
     || ['admin', 'spv', 'owner', 'kitchen'].includes(outletStaff.role)
+
+  // …dan siapa yang benar-benar boleh MEMUTUSKAN. Sengaja memakai predikat yang
+  // sama dengan gerbang server (`requirePermintaanApprover`) supaya tampilan
+  // tak pernah menjanjikan aksi yang nanti ditolak server.
+  const canApprove = canApprovePermintaan(outletStaff.role)
 
   const handleSubmitSuccess = () => {
     setRefreshKey(k => k + 1)
@@ -54,7 +61,7 @@ export default function PermintaanPage() {
         {isKitchen ? (
           <section className="space-y-3">
             <h2 className="text-xs font-bold uppercase tracking-wider text-[#f29744]">Menunggu Persetujuan</h2>
-            <ApprovalList />
+            <ApprovalList canApprove={canApprove} />
           </section>
         ) : (
           <>

@@ -56,7 +56,8 @@ export default function KasirNav() {
   const isOnline = useNetworkStatus()
   const [offlineQueueCount, setOfflineQueueCount] = useState(0)
 
-  const [isCollapsed, setIsCollapsed] = useState(true)
+  const [isCollapsedState, setIsCollapsed] = useState(true)
+  const isCollapsed = isCollapsedState && !open;
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const { device, isConnecting, disconnect } = usePrinterStore()
 

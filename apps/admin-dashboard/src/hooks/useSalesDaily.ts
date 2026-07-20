@@ -14,16 +14,26 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
     queryKey: ['sales-daily', filter.from, filter.to, filter.outletId, filter.source],
     staleTime: 2 * 60_000,
     queryFn: async () => {
-      let q = supabase
-        .from('sales_daily_scoped')
-        .select('outlet_id, sales_source, sales_date, omzet, jumlah_order_completed')
-        .gte('sales_date', filter.from)
-        .lte('sales_date', filter.to)
-      if (filter.outletId !== 'all') q = q.eq('outlet_id', filter.outletId)
-      if (filter.source !== 'all') q = q.eq('sales_source', filter.source)
-      const { data, error } = await q
-      if (error) throw error
-      return (data ?? []).map((r: any) => ({
+      const PAGE_SIZE = 1000
+      const all: any[] = []
+      let offset = 0
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        let q = supabase
+          .from('sales_daily_scoped')
+          .select('outlet_id, sales_source, sales_date, omzet, jumlah_order_completed')
+          .gte('sales_date', filter.from)
+          .lte('sales_date', filter.to)
+        if (filter.outletId !== 'all') q = q.eq('outlet_id', filter.outletId)
+        if (filter.source !== 'all') q = q.eq('sales_source', filter.source)
+        const { data, error } = await q.range(offset, offset + PAGE_SIZE - 1)
+        if (error) throw error
+        const page = data ?? []
+        all.push(...page)
+        if (page.length < PAGE_SIZE) break
+        offset += PAGE_SIZE
+      }
+      return all.map((r: any) => ({
         outlet_id: r.outlet_id,
         outlet_name: '',
         sales_source: r.sales_source as SalesSource,

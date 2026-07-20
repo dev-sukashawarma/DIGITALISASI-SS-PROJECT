@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, type LucideIcon,
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, type LucideIcon,
 } from 'lucide-react'
 
 
@@ -23,6 +23,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/targets', label: 'Target & Pesan', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/waste', label: 'Kerugian Waste', shortLabel: 'Waste', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/rekap-bulanan', label: 'Rekap Bulanan', shortLabel: 'Rekap', icon: Table2, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {

@@ -23,3 +23,10 @@ export function previousRange(range: { from: string; to: string }): { from: stri
   const days = Math.round((Date.parse(range.to) - Date.parse(range.from)) / 86400000) + 1
   return { from: addDays(range.from, -days), to: addDays(range.from, -1) }
 }
+
+/** Rentang tanggal 1 bulan kalender penuh. `month` 1-indexed (1=Januari). */
+export function monthRange(year: number, month: number): { from: string; to: string } {
+  const mm = String(month).padStart(2, '0')
+  const lastDay = new Date(year, month, 0).getDate()
+  return { from: `${year}-${mm}-01`, to: `${year}-${mm}-${String(lastDay).padStart(2, '0')}` }
+}

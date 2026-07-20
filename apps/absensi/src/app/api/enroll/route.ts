@@ -47,21 +47,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, reason: "invalid_payload" }, { status: 400 });
     }
 
-    // 4. Validasi target staff ada di outlet yang sama dengan requester
+    // 4. Pastikan target staff ada (bisa dari outlet manapun).
+    // SPV/Leader adalah global role — mereka bisa switch outlet via OutletSwitcher
+    // sehingga outlet_id mereka di DB bisa berbeda dengan outlet yang di-enroll.
+    // Validasi akses sudah cukup di level role (step 3 di atas).
     const { data: target, error: targetErr } = await admin
       .from("outlet_staff")
-      .select("id, outlet_id, status")
+      .select("id")
       .eq("id", targetStaffId)
       .single();
 
     if (targetErr || !target) {
       return NextResponse.json({ ok: false, reason: "target_not_found" }, { status: 404 });
-    }
-
-    // Admin/owner bisa enroll lintas outlet, SPV/leader harus outlet sama
-    const isGlobalRole = ["admin", "admin_hr", "owner"].includes(requester.role);
-    if (!isGlobalRole && target.outlet_id !== requester.outlet_id) {
-      return NextResponse.json({ ok: false, reason: "cross_outlet_forbidden" }, { status: 403 });
     }
 
     // 5. Update dengan service_role — bypass RLS sepenuhnya

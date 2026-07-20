@@ -47,6 +47,7 @@ export interface MenuItem {
   name: string
   description: string | null
   price: number
+  strike_price?: number | null
   channel_prices?: Record<string, number> | null
   image_url: string | null
   is_available: boolean

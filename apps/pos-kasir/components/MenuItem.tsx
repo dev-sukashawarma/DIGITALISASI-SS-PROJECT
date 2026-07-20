@@ -111,7 +111,7 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo }: 
           {isDiscountActiveNow ? (
             <>
               <span className="text-[10px] text-gray-400 line-through leading-none mb-0.5">
-                {formatRupiah(item.price)}
+                {formatRupiah(item.strike_price ?? item.price)}
               </span>
               <span className="font-bold text-red-600 text-base tracking-tight leading-none">
                 {formatRupiah(finalPrice)}
@@ -119,6 +119,11 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo }: 
             </>
           ) : (
             <>
+              {item.strike_price != null && (
+                <span className="text-[10px] text-gray-400 line-through leading-none mb-0.5 block">
+                  {formatRupiah(item.strike_price)}
+                </span>
+              )}
               <span className="font-bold text-amber-600 text-base tracking-tight leading-none">
                 {formatRupiah(finalPrice)}
               </span>

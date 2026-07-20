@@ -947,6 +947,11 @@ export default function OrderManualPage() {
                       <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem]">{it.name}</p>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex flex-col">
+                          {it.strike_price != null && (
+                            <span className="text-gray-400 line-through text-[10px] xl:text-xs">
+                              {formatRupiah(it.strike_price)}
+                            </span>
+                          )}
                           <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(wrappedCalculateItemPrice(it.price, it.id, it.channel_prices))}</span>
                         </div>
                       </div>

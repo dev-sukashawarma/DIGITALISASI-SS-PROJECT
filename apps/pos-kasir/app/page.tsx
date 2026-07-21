@@ -21,7 +21,7 @@ export default async function KioskHomePage() {
 
   // 2. Fetch data menu SSR — paralel, satu round-trip dari server ke Supabase
   const [items_result, cats_result, outlet_result, settings_result] = await Promise.all([
-    supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`).order('sort_order'),
+    supabase.from('menu_items').select('*, categories(id,name,sort_order)').order('sort_order'),
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('outlets').select('name').eq('id', outletId).single(),
     supabase.from('kiosk_settings').select('key, value, outlet_id')
@@ -65,7 +65,19 @@ export default async function KioskHomePage() {
   const autoUnavailableIds: string[] = parseIds(autoUnav)
   const forceAvailableIds: string[] = parseIds(forceAvail)
   
-  const rawItems = (items_result.data as MenuItem[]) ?? []
+  let rawItems = (items_result.data as MenuItem[]) ?? []
+  if (items_result.data) {
+    rawItems = (items_result.data as any[]).filter((item: any) => {
+      if (item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0) {
+        return item.available_outlets.includes(outletId);
+      }
+      if (item.outlet_id && item.outlet_id !== outletId && item.outlet_id !== PUSAT_OUTLET_ID) {
+        return false;
+      }
+      return true;
+    });
+  }
+
   const menuItems = rawItems.map(item => {
     const isManualUnav = unavailableIds.includes(item.id)
     const isAutoUnav = autoUnavailableIds.includes(item.id)

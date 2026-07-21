@@ -36,7 +36,7 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
   try {
     const [{ data: m, error: mErr }, { data: c, error: cErr }, { data: settings, error: sErr }] = await fetchWithTimeout(
       Promise.all([
-        supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`).order('sort_order'),
+        supabase.from('menu_items').select('*, categories(id,name,sort_order)').order('sort_order'),
         supabase.from('categories').select('*').order('sort_order'),
         supabase.from('kiosk_settings').select('key, value, outlet_id').or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`).in('key', ['bestseller_ids', 'upsell_ids', 'unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids', 'recommendation_ids']),
       ])
@@ -81,10 +81,23 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
     let up = getSetting('upsell_ids', false)
     let rec = getSetting('recommendation_ids', false)
 
+    let filteredItems = m ?? [];
+    if (m) {
+      filteredItems = m.filter((item: any) => {
+        if (item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0) {
+          return item.available_outlets.includes(outletId);
+        }
+        if (item.outlet_id && item.outlet_id !== outletId && item.outlet_id !== PUSAT_OUTLET_ID) {
+          return false;
+        }
+        return true;
+      });
+    }
+
     // Update dexie cache
     const now = Date.now()
-    if (m) {
-      await db.menu_items.bulkPut(m.map((it: any) => ({ ...it, synced_at: now })))
+    if (filteredItems.length > 0) {
+      await db.menu_items.bulkPut(filteredItems.map((it: any) => ({ ...it, synced_at: now })))
     }
     if (c) {
       await db.categories.bulkPut(c.map((cat: any) => ({ ...cat, synced_at: now })))
@@ -96,7 +109,7 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
     }
 
     return {
-      items: m ?? [],
+      items: filteredItems,
       categories: c ?? [],
       bestsellers: bs,
       upsells: up,

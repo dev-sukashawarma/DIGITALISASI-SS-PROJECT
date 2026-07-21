@@ -41,7 +41,7 @@ export default async function KasirMenuServerPage() {
   const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 
   const [{ data: m }, { data: c }, { data: settings }] = await Promise.all([
-    supabase.from('menu_items').select('*, categories(id,name,sort_order)').or(`outlet_id.is.null,outlet_id.eq.${PUSAT_OUTLET_ID},outlet_id.eq.${outletId}`).order('sort_order'),
+    supabase.from('menu_items').select('*, categories(id,name,sort_order)').order('sort_order'),
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('kiosk_settings').select('key, value, outlet_id')
       .or(`outlet_id.is.null,outlet_id.eq.${PUSAT_OUTLET_ID},outlet_id.eq.${outletId}`)
@@ -81,8 +81,21 @@ export default async function KasirMenuServerPage() {
   let autoUnav = getSetting('auto_unavailable_menu_ids', false)
   let forceAvail = getSetting('force_available_menu_ids', false)
 
+  let filteredItems = (m as any) ?? [];
+  if (m) {
+    filteredItems = m.filter((item: any) => {
+      if (item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0) {
+        return item.available_outlets.includes(outletId);
+      }
+      if (item.outlet_id && item.outlet_id !== outletId && item.outlet_id !== PUSAT_OUTLET_ID) {
+        return false;
+      }
+      return true;
+    });
+  }
+
   const initialData: MenuQueryData = {
-    items: (m as any) ?? [],
+    items: filteredItems,
     categories: (c as Category[]) ?? [],
     bestsellers: parseIds(b),
     upsells: parseIds(u),

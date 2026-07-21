@@ -44,7 +44,7 @@ export function useOpnameActions() {
 
   const createDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
     const { data, error } = await supabase.from('opname')
-      .insert({ outlet_id: outletId, tipe, created_by: createdBy, notes: notes || null }).select().single()
+      .insert({ outlet_id: outletId, tipe, status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
     if (error) throw error
     return data as Opname
   }, [])
@@ -64,7 +64,7 @@ export function useOpnameActions() {
 
     // Tidak ada draft → buat baru
     const { data, error } = await supabase.from('opname')
-      .insert({ outlet_id: outletId, tipe, created_by: createdBy, notes: notes || null }).select().single()
+      .insert({ outlet_id: outletId, tipe, status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
     if (error) throw error
     return data as Opname
   }, [])

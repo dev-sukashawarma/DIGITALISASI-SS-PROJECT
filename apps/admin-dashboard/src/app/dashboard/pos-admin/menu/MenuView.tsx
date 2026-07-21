@@ -11,7 +11,7 @@ import {
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput } from '@suka/design-system'
 import { formatRupiah } from '@/lib/validations'
-import type { MenuItem, Category, SalesChannel } from '@/pos-types'
+import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
 import MenuSearch from './MenuSearch'
@@ -35,13 +35,14 @@ interface FormState {
   image_url: string | null
   is_package: boolean
   package_items: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number, temp_id: string }[]
+  outlet_ids: string[] | null
 }
 
 const EMPTY: FormState = {
   id: null, name: '', description: '', price: '', strike_price: '', base_price: '',
   channel_prices: {},
   category_id: '', is_available: true, is_available_online: true, available_online_channels: null, image_url: null,
-  is_package: false, package_items: []
+  is_package: false, package_items: [], outlet_ids: null
 }
 
 async function deleteStorageImage(url: string) {
@@ -59,6 +60,7 @@ interface MenuViewProps {
   initialItems: MenuItem[]
   initialCategories: Category[]
   initialChannels: SalesChannel[]
+  initialOutlets?: Outlet[]
   initialUpsells?: string[]
   initialBestsellers?: string[]
   initialRecommendations?: string[]
@@ -68,6 +70,7 @@ export default function MenuView({
   initialItems = [], 
   initialCategories = [], 
   initialChannels = [], 
+  initialOutlets = [],
   initialUpsells = [], 
   initialBestsellers = [], 
   initialRecommendations = [] 
@@ -90,6 +93,7 @@ export default function MenuView({
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [activeChannelFilter, setActiveChannelFilter] = useState<string>('')
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
+  const [outletSearch, setOutletSearch] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   const getSlug = (channelId: string) => {
@@ -170,6 +174,7 @@ export default function MenuView({
 
   function openAdd() {
     setForm({ ...EMPTY, category_id: initialCategories[0]?.id ?? '' })
+    setOutletSearch('')
     resetImage(); setError(''); setShowForm(true)
   }
 
@@ -199,8 +204,10 @@ export default function MenuView({
       available_online_channels: item.available_online_channels ?? null,
       image_url: item.image_url,
       is_package: item.is_package ?? false,
-      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
+      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || [],
+      outlet_ids: (item as any).available_outlets ? (item as any).available_outlets : (item.outlet_id ? [item.outlet_id] : null)
     })
+    setOutletSearch('')
     resetImage(); setError(''); setShowForm(true)
   }
 
@@ -226,8 +233,10 @@ export default function MenuView({
       available_online_channels: item.available_online_channels ?? null,
       image_url: item.image_url,
       is_package: item.is_package ?? false,
-      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || []
+      package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || [],
+      outlet_ids: (item as any).available_outlets ? (item as any).available_outlets : (item.outlet_id ? [item.outlet_id] : null)
     })
+    setOutletSearch('')
     resetImage(); setError(''); setShowForm(true)
   }
 
@@ -301,7 +310,9 @@ export default function MenuView({
       is_available: form.is_available, is_available_online: form.is_available_online, available_online_channels: form.available_online_channels, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
       is_package: form.is_package,
-      package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity })) : []
+      package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity })) : [],
+      outlet_id: form.outlet_ids && form.outlet_ids.length === 1 ? form.outlet_ids[0] : null,
+      available_outlets: form.outlet_ids
     }
 
     try {
@@ -727,6 +738,94 @@ export default function MenuView({
                             transition-transform duration-300 ${form.is_available ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
                         </div>
                       </button>
+
+                      {/* Outlet Assignment toggle */}
+                      <div className="space-y-3 mt-4">
+                        <button type="button"
+                          onClick={() => {
+                            const isAllOutlets = form.outlet_ids === null;
+                            if (isAllOutlets) {
+                              setForm({ ...form, outlet_ids: [] });
+                            } else {
+                              setForm({ ...form, outlet_ids: null });
+                            }
+                          }}
+                          className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300
+                            ${form.outlet_ids === null
+                              ? 'border-fuchsia-200 bg-fuchsia-50/40 hover:bg-fuchsia-50'
+                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}>
+                          <div className="flex items-center gap-4">
+                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
+                              ${form.outlet_ids === null ? 'bg-fuchsia-100 text-fuchsia-600' : 'bg-white border border-gray-200 text-gray-400'}`}>
+                              {form.outlet_ids === null
+                                ? <ToggleRight className="w-7 h-7" />
+                                : <ToggleLeft  className="w-7 h-7" />}
+                            </div>
+                            <div className="text-left">
+                              <p className={`text-sm font-bold leading-none mb-1.5 ${form.outlet_ids === null ? 'text-fuchsia-800' : 'text-gray-600'}`}>
+                                {form.outlet_ids === null ? 'Berlaku Semua Outlet' : 'Outlet Spesifik'}
+                              </p>
+                              <p className="text-xs font-medium text-gray-500">
+                                {form.outlet_ids === null ? 'Menu tersedia di seluruh cabang' : 'Pilih cabang tertentu'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className={`w-14 h-7 rounded-full transition-all duration-300 relative flex-shrink-0 shadow-inner
+                            ${form.outlet_ids === null ? 'bg-fuchsia-500' : 'bg-gray-300'}`}>
+                            <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm
+                              transition-transform duration-300 ${form.outlet_ids === null ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
+                          </div>
+                        </button>
+                        
+                        {form.outlet_ids !== null && initialOutlets.length > 0 && (
+                          <div className="p-5 rounded-[1.25rem] border border-fuchsia-100 bg-fuchsia-50/30 ml-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                              <p className="text-[11px] font-bold text-fuchsia-800/70 uppercase tracking-widest flex items-center gap-2.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 shadow-[0_0_4px_rgba(217,70,239,0.5)]"></span>
+                                Pilih Outlet:
+                              </p>
+                              <div className="relative w-full sm:w-1/2">
+                                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-fuchsia-400" />
+                                <input 
+                                  type="text" 
+                                  placeholder="Cari outlet..." 
+                                  value={outletSearch} 
+                                  onChange={e => setOutletSearch(e.target.value)} 
+                                  className="w-full bg-white border border-fuchsia-100 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 shadow-sm" 
+                                />
+                              </div>
+                            </div>
+
+                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                              {initialOutlets.filter(o => o.name.toLowerCase().includes(outletSearch.toLowerCase())).map(o => {
+                                const isChecked = form.outlet_ids!.includes(o.id);
+                                return (
+                                  <label key={o.id} className={`flex items-center gap-3 cursor-pointer p-3 rounded-xl transition-all duration-200 border ${isChecked ? 'bg-fuchsia-50/80 border-fuchsia-200 shadow-sm' : 'hover:bg-white border-transparent hover:border-fuchsia-100'}`}>
+                                    <div className="relative flex items-center shrink-0">
+                                      <input type="checkbox" 
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          const curr = form.outlet_ids || [];
+                                          if (e.target.checked) {
+                                            setForm({ ...form, outlet_ids: [...curr, o.id] });
+                                          } else {
+                                            setForm({ ...form, outlet_ids: curr.filter(id => id !== o.id) });
+                                          }
+                                        }}
+                                        className="peer sr-only" />
+                                      <div className="w-5 h-5 rounded-[6px] border-[2px] border-gray-300 peer-checked:border-fuchsia-500 peer-checked:bg-fuchsia-500 transition-colors shadow-sm"></div>
+                                      <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
+                                        <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
+                                      </div>
+                                    </div>
+                                    <span className={`text-sm font-bold ${isChecked ? 'text-fuchsia-900' : 'text-gray-700'}`}>{o.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
                       {/* Online Availability toggle */}
                       <div className="space-y-3">

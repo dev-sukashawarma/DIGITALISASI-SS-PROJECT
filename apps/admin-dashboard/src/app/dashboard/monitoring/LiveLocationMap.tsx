@@ -93,7 +93,7 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
                     <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider">
                       {crew.role}
                     </span>
-                    <span className="bg-[#f5ede3] text-[#904d00] px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider truncate max-w-[140px]" title={matchedOutlet?.name || ''}>
+                    <span className="bg-[#f5ede3] text-[#904d00] px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider">
                       {matchedOutlet?.name || 'Cabang Unknown'}
                     </span>
                   </div>

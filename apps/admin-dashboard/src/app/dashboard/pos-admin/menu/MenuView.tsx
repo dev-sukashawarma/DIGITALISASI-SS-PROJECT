@@ -743,37 +743,37 @@ export default function MenuView({
                       <div className="space-y-3 mt-4">
                         <button type="button"
                           onClick={() => {
-                            const isAllOutlets = form.outlet_ids === null;
-                            if (isAllOutlets) {
-                              setForm({ ...form, outlet_ids: [] });
+                            const isSpecific = form.outlet_ids !== null;
+                            if (isSpecific) {
+                              setForm({ ...form, outlet_ids: null }); // Turn OFF -> Global
                             } else {
-                              setForm({ ...form, outlet_ids: null });
+                              setForm({ ...form, outlet_ids: [] }); // Turn ON -> Specific
                             }
                           }}
                           className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300
-                            ${form.outlet_ids === null
+                            ${form.outlet_ids !== null
                               ? 'border-fuchsia-200 bg-fuchsia-50/40 hover:bg-fuchsia-50'
                               : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}>
                           <div className="flex items-center gap-4">
                             <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
-                              ${form.outlet_ids === null ? 'bg-fuchsia-100 text-fuchsia-600' : 'bg-white border border-gray-200 text-gray-400'}`}>
-                              {form.outlet_ids === null
+                              ${form.outlet_ids !== null ? 'bg-fuchsia-100 text-fuchsia-600' : 'bg-white border border-gray-200 text-gray-400'}`}>
+                              {form.outlet_ids !== null
                                 ? <ToggleRight className="w-7 h-7" />
                                 : <ToggleLeft  className="w-7 h-7" />}
                             </div>
                             <div className="text-left">
-                              <p className={`text-sm font-bold leading-none mb-1.5 ${form.outlet_ids === null ? 'text-fuchsia-800' : 'text-gray-600'}`}>
-                                {form.outlet_ids === null ? 'Berlaku Semua Outlet' : 'Outlet Spesifik'}
+                              <p className={`text-sm font-bold leading-none mb-1.5 ${form.outlet_ids !== null ? 'text-fuchsia-800' : 'text-gray-600'}`}>
+                                Outlet Spesifik
                               </p>
                               <p className="text-xs font-medium text-gray-500">
-                                {form.outlet_ids === null ? 'Menu tersedia di seluruh cabang' : 'Pilih cabang tertentu'}
+                                {form.outlet_ids !== null ? 'Hanya berlaku di outlet pilihan' : 'Berlaku global di semua outlet'}
                               </p>
                             </div>
                           </div>
                           <div className={`w-14 h-7 rounded-full transition-all duration-300 relative flex-shrink-0 shadow-inner
-                            ${form.outlet_ids === null ? 'bg-fuchsia-500' : 'bg-gray-300'}`}>
+                            ${form.outlet_ids !== null ? 'bg-fuchsia-500' : 'bg-gray-300'}`}>
                             <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm
-                              transition-transform duration-300 ${form.outlet_ids === null ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
+                              transition-transform duration-300 ${form.outlet_ids !== null ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
                           </div>
                         </button>
                         
@@ -782,7 +782,7 @@ export default function MenuView({
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                               <p className="text-[11px] font-bold text-fuchsia-800/70 uppercase tracking-widest flex items-center gap-2.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 shadow-[0_0_4px_rgba(217,70,239,0.5)]"></span>
-                                Pilih Outlet:
+                                Pilih Outlet: {form.outlet_ids && form.outlet_ids.length > 0 && <span className="normal-case font-semibold text-fuchsia-600 bg-fuchsia-100/50 px-2 py-0.5 rounded-md">({form.outlet_ids.length} cabang dipilih)</span>}
                               </p>
                               <div className="relative w-full sm:w-1/2">
                                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-fuchsia-400" />
@@ -795,6 +795,28 @@ export default function MenuView({
                                 />
                               </div>
                             </div>
+                            
+                            {/* Selected Outlets Summary */}
+                            {form.outlet_ids && form.outlet_ids.length > 0 && (
+                              <div className="mb-4 p-3 bg-white/60 border border-fuchsia-100/50 rounded-xl">
+                                <p className="text-xs font-semibold text-gray-500 mb-2">Menu ini akan aktif di cabang berikut:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {form.outlet_ids.map(id => {
+                                    const out = initialOutlets.find(o => o.id === id);
+                                    if (!out) return null;
+                                    return (
+                                      <span key={id} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-fuchsia-100 text-fuchsia-800 text-xs font-bold rounded-lg border border-fuchsia-200 shadow-sm">
+                                        {out.name}
+                                        <button type="button" onClick={() => setForm({ ...form, outlet_ids: form.outlet_ids!.filter(oid => oid !== id) })} className="hover:bg-fuchsia-200 rounded-full p-0.5 transition-colors">
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
 
                             <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
                               {initialOutlets.filter(o => o.name.toLowerCase().includes(outletSearch.toLowerCase())).map(o => {

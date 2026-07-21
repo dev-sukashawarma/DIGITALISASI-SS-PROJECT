@@ -43,6 +43,9 @@ export default function LocationPresence() {
               async (position) => {
                 const lat = position.coords.latitude
                 const lng = position.coords.longitude
+                const accuracy = position.coords.accuracy || 0
+                const speed = position.coords.speed || 0
+                const heading = position.coords.heading || null
                 
                 await room.track({
                   outlet_id: outletId,
@@ -51,6 +54,9 @@ export default function LocationPresence() {
                   role: staffData.role,
                   lat,
                   lng,
+                  accuracy,
+                  speed,
+                  heading,
                   updated_at: new Date().toISOString()
                 }).catch(() => {})
               },

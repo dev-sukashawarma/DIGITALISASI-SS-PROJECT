@@ -8,6 +8,7 @@ import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound,
 import { ModelPreloader } from "@/components/ModelPreloader";
 import { SwipeableContainer } from "@/components/layout/SwipeableContainer";
 import { useLeaveNotifications } from "@/features/cuti/useLeaveNotifications";
+import { LocationPresence } from "@/components/LocationPresence";
 
 const getPortalUrl = () => {
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com';
@@ -122,6 +123,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       <ModelPreloader />
+      <LocationPresence 
+        outletId={outletStaff?.outlet_id} 
+        staffId={outletStaff?.id} 
+        staffName={outletStaff?.name} 
+        role={outletStaff?.role} 
+      />
       {/* Sidebar — hanya desktop. Di mobile diganti bottom navigation bar */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col shrink-0">
         <div className="h-full flex flex-col">

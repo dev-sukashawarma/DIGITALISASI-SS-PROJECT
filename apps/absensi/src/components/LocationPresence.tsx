@@ -1,30 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useMyOutlet } from '@/lib/useMyOutlet'
+import { useEffect } from 'react'
+import { createClient } from '@/lib/supabase'
 
-export default function LocationPresence() {
-  const { outletId } = useMyOutlet()
-  const [channel, setChannel] = useState<any>(null)
-  const [staffData, setStaffData] = useState<{ id: string, name: string, role: string } | null>(null)
-
+export function LocationPresence({ 
+  outletId, 
+  staffId, 
+  staffName, 
+  role 
+}: { 
+  outletId?: string | null, 
+  staffId?: string | null, 
+  staffName?: string | null, 
+  role?: string | null 
+}) {
   useEffect(() => {
-    async function fetchStaff() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase.from('outlet_staff').select('id, name, role').eq('id', user.id).single()
-        if (data) {
-          setStaffData(data)
-        }
-      }
-    }
-    fetchStaff()
-  }, [])
-
-  useEffect(() => {
-    if (!outletId || !staffData) return
+    if (!outletId || !staffId) return
 
     const supabase = createClient()
     const room = supabase.channel('room:crew_location')
@@ -32,12 +23,9 @@ export default function LocationPresence() {
     let watchId: number | null = null
 
     room
-      .on('presence', { event: 'sync' }, () => {
-        // Log sync if needed
-      })
+      .on('presence', { event: 'sync' }, () => {})
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // Start watching location
           if ('geolocation' in navigator) {
             watchId = navigator.geolocation.watchPosition(
               async (position) => {
@@ -49,10 +37,10 @@ export default function LocationPresence() {
                 
                 await room.track({
                   outlet_id: outletId,
-                  staff_id: staffData.id,
-                  staff_name: staffData.name,
-                  role: staffData.role,
-                  device_type: 'KASIR',
+                  staff_id: staffId,
+                  staff_name: staffName,
+                  role: role,
+                  device_type: 'PERSONAL',
                   lat,
                   lng,
                   accuracy,
@@ -64,23 +52,20 @@ export default function LocationPresence() {
               (err) => {
                 console.warn('Geolocation error:', err.message)
               },
-              {
-                enableHighAccuracy: true,
-                maximumAge: 10000,
-                timeout: 10000
-              }
+              { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
             )
           }
         }
       })
 
-    setChannel(room)
+    // keep room alive
+
 
     return () => {
       if (watchId !== null) navigator.geolocation.clearWatch(watchId)
       supabase.removeChannel(room)
     }
-  }, [outletId, staffData])
+  }, [outletId, staffId, staffName, role])
 
   return null
 }

@@ -3,7 +3,7 @@
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { User, MapPin, Activity, Signal } from 'lucide-react'
+import { User, MapPin, Activity, Signal, MonitorSmartphone, Smartphone } from 'lucide-react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 // Fix leaflet default icons for Next.js
@@ -51,6 +51,7 @@ export type CrewLocation = {
   accuracy?: number
   speed?: number
   heading?: number
+  device_type?: 'KASIR' | 'PERSONAL'
   updated_at: string
 }
 
@@ -65,7 +66,9 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
     ? [outlets.find(o => o.lat && o.lng)!.lat!, outlets.find(o => o.lat && o.lng)!.lng!] 
     : [-6.200000, 106.816666]
 
-  const crewIcon = createCustomIcon(<User size={18} />, 'text-blue-700', 'bg-blue-100')
+  const kasirIcon = createCustomIcon(<MonitorSmartphone size={18} />, 'text-purple-700', 'bg-purple-100')
+  const personalIcon = createCustomIcon(<Smartphone size={18} />, 'text-blue-700', 'bg-blue-100')
+  const defaultIcon = createCustomIcon(<User size={18} />, 'text-gray-700', 'bg-gray-100')
 
   return (
     <div className="w-full h-[600px] rounded-2xl overflow-hidden shadow-sm border border-[#d9c2b2] z-0">
@@ -106,9 +109,12 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
                 }} 
               />
               
-              <Marker position={[crew.lat, crew.lng]} icon={crewIcon}>
+              <Marker position={[crew.lat, crew.lng]} icon={crew.device_type === 'KASIR' ? kasirIcon : crew.device_type === 'PERSONAL' ? personalIcon : defaultIcon}>
                 <Popup className="min-w-[240px]">
-                  <div className="font-black text-[#1e1b15] text-lg mb-1">{crew.staff_name}</div>
+                  <div className="font-black text-[#1e1b15] text-lg mb-1 flex items-center gap-2">
+                    {crew.device_type === 'KASIR' ? <MonitorSmartphone size={18} className="text-purple-600" /> : <Smartphone size={18} className="text-blue-600" />}
+                    {crew.staff_name}
+                  </div>
                   <div className="flex flex-wrap items-center gap-1.5 mb-3">
                     <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider">
                       {crew.role}

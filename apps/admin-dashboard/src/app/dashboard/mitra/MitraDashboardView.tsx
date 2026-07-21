@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { MitraOutletDetails } from './MitraOutletDetails'
 import { PageHeader } from '@/components/ui'
 import CountUp from 'react-countup'
-import { TrendingUp, DollarSign, Store } from 'lucide-react'
+import { TrendingUp, DollarSign, Store, Activity } from 'lucide-react'
 import { deltaPct } from '@/lib/format'
 import dynamic from 'next/dynamic'
 

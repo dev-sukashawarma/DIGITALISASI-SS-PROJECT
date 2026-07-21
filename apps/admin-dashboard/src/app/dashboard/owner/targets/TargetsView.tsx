@@ -192,12 +192,17 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     }
     setSending(true)
     try {
+      // Dapatkan userId untuk mode bypass RPC
+      const { data: { session } } = await supabase.auth.getSession()
+      const userId = session?.user?.id
+
       if (hasTarget) {
         if (audienceAll) {
-          const { error } = await supabase.rpc('set_daily_target', {
-            p_outlet: null,
-            p_amount: targetAmount,
-            p_per_item_bonus: hasBonus ? bonusAmount : 0
+          const { error } = await supabase.from('daily_sales_targets').insert({
+            outlet_id: null,
+            target_amount: targetAmount,
+            per_item_bonus: hasBonus ? bonusAmount : 0,
+            created_by: userId || null
           })
           if (error) throw error
         } else {
@@ -212,15 +217,27 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
         }
       }
       if (hasMessage) {
-        const { error } = await supabase.rpc('send_owner_message', {
-          p_kind: kind,
-          p_title: title.trim() || null,
-          p_body: body.trim(),
-          p_target_type: audienceAll ? 'all' : 'outlets',
-          p_outlet_ids: audienceAll ? ['00000000-0000-0000-0000-000000000000'] : Array.from(selectedOutlets),
-          p_expires_at: computeExpiry(),
-        })
-        if (error) throw error
+        if (audienceAll) {
+          const { error } = await supabase.from('owner_messages').insert({
+            sender_id: userId || null,
+            kind: kind || 'motivasi',
+            title: title.trim() || null,
+            body: body.trim(),
+            target_type: 'all',
+            expires_at: computeExpiry()
+          })
+          if (error) throw error
+        } else {
+          const { error } = await supabase.rpc('send_owner_message', {
+            p_kind: kind,
+            p_title: title.trim() || null,
+            p_body: body.trim(),
+            p_target_type: 'outlets',
+            p_outlet_ids: Array.from(selectedOutlets),
+            p_expires_at: computeExpiry(),
+          })
+          if (error) throw error
+        }
       }
       setSent(true)
       setTimeout(() => setSent(false), 2000)

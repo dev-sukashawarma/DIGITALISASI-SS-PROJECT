@@ -995,5 +995,36 @@ Otomasi auto-commit repo men-*commit* 6 dari 9 file di tengah sesi sebagai `939c
 
 ---
 
-**Last updated:** 2026-07-20  
+## Session 2026-07-21: Bug Hunt POS-Kasir — 8 Temuan, 4 Diperbaiki
+
+**Status:** ✅ 4 fix ter-commit di `fix/bom-reversal-regression-dan-xss-approval`; migration P1 **applied & verified di DB live**. ⚠️ **Belum redeploy `pos-kasir`** (P5/P6/P8 baru berlaku setelahnya). 4 temuan sisa menunggu keputusan.
+
+**📄 Detail lengkap (bukti, angka, opsi solusi):** `docs/SESSION-2026-07-21-BUG-HUNT-POS-KASIR.md`
+
+### 🔑 Gotcha paling penting: ranjau migration tahun 2030
+Ada **8 migration bertimestamp 2030** (`20300101000000`–`20300103000005`). Karena diurutkan berdasarkan nama, mereka **selalu jalan paling akhir** dan **menimpa perbaikan bertanggal wajar**. Dua di antaranya (menu packages) menyalin basis `trg_process_bom_stok` dari versi pra-8-Juli → membuang fix reversal idempoten **dan** fitur `item_name`, tanpa keluhan apa pun dari `CREATE OR REPLACE`.
+
+**Sebelum menyentuh fungsi DB apa pun:** `grep -rn "<nama_fungsi>" supabase/migrations/`
+Fix di-land sebagai `20300103000006` (bernomor setelah ranjau) — **bukan** rename, karena riwayat migration bersih dan rename akan memaksa `repair` tanpa perlu. Timestamp 2030 tetap jadi "lantai" = utang teknis.
+
+### Diperbaiki
+| Commit | Temuan |
+|---|---|
+| `a29e3812` | **P1** reversal BOM over-restore — pemicunya siklus `selesai→batal→selesai→batal` (bukan "completed 2x" seperti dugaan awal); `SUM` wajib mencakup `adjustment` agar idempoten. Kerusakan nyata: **nol** (jalur reversal belum pernah tereksekusi) |
+| `5a5d92c3` | **P5** stored XSS di 2 halaman approval → `esc()` + **CSP di 19 respons**. Pengganda: cookie sesi `.sukashawarma.com`, non-httpOnly, umur 1 tahun → sesi curian berlaku di SEMUA app |
+| `6fc8e9f5` | **P6** rupiah pecahan promo persentase → `Math.round` di harga satuan (bukan total, agar `unit_price × qty = subtotal` konsisten) + test baru 10 kasus |
+| `a18f74e2` | **P8** token dicek setelah status → oracle; dipindah ke paling atas + `timingSafeEqual` + pesan galat diseragamkan |
+
+### ⏸ Menunggu keputusan
+- **P3 — pemohon pegang kunci persetujuannya sendiri.** Link bypass **disusun di browser crew** (`BlockedOverlay.tsx`), RLS `bypass_requests` ketiganya `USING (true)` (nama policy menjanjikan scope per-outlet, ekspresinya tidak). Token top-up dibuat `crypto.randomUUID()` **di browser kasir** (Rp 1.320.000 disetujui). Menambah token TIDAK menutup ini. Hardening yang bisa jalan duluan tanpa keputusan: **scope-kan RLS `bypass_requests`**.
+- **P4 — 66 staff berbagi SATU PIN** yang termasuk default umum, dan kolom `pin` terbaca crew (`SELECT` tanpa batas kolom). Tapi `/api/staff/verify-pin` **nol call site** = kode mati, dampak hari ini nol. Keputusan: buang atau benahi (PIN unik per orang **dulu**).
+- **P7 — RPC `increment_promo_usage` sudah atomik** (`FOR UPDATE`); yang salah ketiga pemanggil membuang nilai balik `data` → order dapat diskon tanpa tercatat. Seluruh 167 promo sedang non-aktif.
+- **P2 — reject pembatalan** hardcode `'pending'`. Prioritas turun: alur nyatanya `preparing:pending_approval`, belum melukai. Anomali: 1 order `cancelled` + `cancellation_status='rejected'` (mustahil dari kode yang dibaca).
+
+### Pelajaran
+Tiga analisis awal **terbukti keliru** setelah diverifikasi ke DB live (P1 pemicu, P4 dampak, P7 mekanisme), dan satu nyaris jadi laporan palsu (21 promo global disangka duplikat — ternyata 1 per outlet). **Nama file dan nama policy adalah klaim, bukan bukti.** Simulasi read-only sebelum menulis fix adalah yang memaksa koreksi P1.
+
+---
+
+**Last updated:** 2026-07-21  
 **Owner:** Dev Suka Shawarma

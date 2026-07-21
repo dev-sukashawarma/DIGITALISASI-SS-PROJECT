@@ -129,6 +129,24 @@ function buildReceiptItems(order: ParsedOrder): ReceiptLine[] {
       unit_price: root.unit_price,
       subtotal: root.subtotal
     })
+    // Include package sub-items as children in printed receipt
+    const pkgItems: any[] = (root.menu_items?.is_package && root.menu_items?.package_items) ? root.menu_items.package_items : [];
+    const pkgChoices: Record<string, string> = root.package_choices || {};
+    pkgItems.forEach((pi: any) => {
+      const chosenId = pkgChoices[pi.id];
+      const displayName = chosenId && pi.or_menu_item_id && chosenId === pi.or_menu_item_id
+        ? (pi.or_menu_item?.name || pi.menu_item?.name)
+        : pi.menu_item?.name;
+      if (displayName) {
+        items.push({
+          name: `  └ ${displayName}`,
+          quantity: pi.quantity,
+          unit_price: 0,
+          subtotal: 0,
+          isChild: true
+        });
+      }
+    });
     if (childrenMap[root.parsedId]) {
       childrenMap[root.parsedId].forEach(child => {
         items.push({
@@ -155,7 +173,7 @@ async function fetchTodayOrders(outletId: string): Promise<OrderWithItems[]> {
     const { data, error } = await fetchWithTimeout(
       supabase
         .from('orders')
-        .select('*, order_items(*, menu_items(image_url))')
+        .select('*, order_items(*, menu_items(image_url, is_package, package_items:menu_packages!package_id(id, quantity, menu_item_id, or_menu_item_id, menu_item:menu_items!menu_item_id(id,name), or_menu_item:menu_items!or_menu_item_id(id,name))))')
         .eq('outlet_id', outletId)
         .or(`created_at.gte.${today.toISOString()},status.in.(pending,preparing)`)
         .order('created_at', { ascending: false })
@@ -309,9 +327,16 @@ const renderOrderNotes = (notes: string | null) => {
           {/* Items List (Full Details with Tree Pattern) */}
           <div className="flex-1">
             <div className="space-y-1.5">
-              {rootItems.map((oi: any) => (
+              {rootItems.map((oi: any) => {
+                // Resolve package sub-items from menu_items.package_items
+                const pkgItems: any[] = (oi.menu_items?.is_package && oi.menu_items?.package_items) ? oi.menu_items.package_items : [];
+                // package_choices contains { [package_item_id]: chosen_menu_item_id }
+                const pkgChoices: Record<string, string> = oi.package_choices || {};
+                // hasChildren = explicit extra children OR package sub-items OR note
+                const hasChildren = oi.parsedNote || (childrenMap[oi.parsedId] && childrenMap[oi.parsedId].length > 0) || pkgItems.length > 0;
+                return (
                 <div key={oi.id} className="py-1.5 relative border-b border-slate-100/70 last:border-0 last:pb-0">
-                  {(oi.parsedNote || (childrenMap[oi.parsedId] && childrenMap[oi.parsedId].length > 0)) && (
+                  {hasChildren && (
                     <div className={`absolute left-[11px] top-6 bottom-3 w-[2px] ${lineBg}`} />
                   )}
 
@@ -333,7 +358,12 @@ const renderOrderNotes = (notes: string | null) => {
                     )}
 
                     <div className="min-w-0 flex-1 mt-0.5">
-                      <span className="text-sm font-semibold text-slate-800 leading-snug break-words">{oi.parsedName}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-semibold text-slate-800 leading-snug break-words">{oi.parsedName}</span>
+                        {pkgItems.length > 0 && (
+                          <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm ${isPending ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>PAKET</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -345,6 +375,33 @@ const renderOrderNotes = (notes: string | null) => {
                       </div>
                     </div>
                   )}
+
+                  {/* Package sub-items displayed as hierarchy */}
+                  {pkgItems.map((pi: any) => {
+                    // If user chose an alternative (or_menu_item), show that instead
+                    const chosenId = pkgChoices[pi.id];
+                    const displayName = chosenId && pi.or_menu_item_id && chosenId === pi.or_menu_item_id
+                      ? pi.or_menu_item?.name || pi.menu_item?.name
+                      : pi.menu_item?.name;
+                    const isAlternative = chosenId && pi.or_menu_item_id && chosenId === pi.or_menu_item_id;
+                    return (
+                      <div key={pi.id} className="relative pl-[1.6rem] py-1 flex items-center gap-2">
+                        <div className={`absolute left-[11px] top-1/2 -translate-y-1/2 w-3 h-[2px] ${lineBg}`} />
+                        <span className="font-bold text-slate-400 text-xs w-5 shrink-0 text-right">{pi.quantity}x</span>
+                        <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded-sm ${
+                            isAlternative
+                              ? (isPending ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700')
+                              : (isPending ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600')
+                          }`}>ISI</span>
+                          <span className="text-xs font-semibold text-slate-700 break-words min-w-0">{displayName}</span>
+                          {pi.or_menu_item_id && !isAlternative && (
+                            <span className="text-[9px] text-slate-400 font-medium italic hidden sm:inline">atau {pi.or_menu_item?.name}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
 
                   {childrenMap[oi.parsedId] && childrenMap[oi.parsedId].map((child: any) => (
                     <div key={child.id} className="relative pl-[1.6rem] py-1.5 flex items-start gap-2">
@@ -364,7 +421,8 @@ const renderOrderNotes = (notes: string | null) => {
                     </div>
                   ))}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Catatan Keseluruhan */}

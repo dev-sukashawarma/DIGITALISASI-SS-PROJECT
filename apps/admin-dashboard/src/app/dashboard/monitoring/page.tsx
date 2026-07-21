@@ -360,9 +360,9 @@ export default function MonitoringPage() {
                           {/* Card Header */}
                           <div className={`p-4 border-b flex flex-col gap-3 flex-shrink-0 relative ${hasOpnameToday ? 'border-blue-50 bg-blue-50/20' : 'border-gray-50'}`}>
                             <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <Store className={`w-5 h-5 shrink-0 ${hasOpnameToday ? 'text-blue-500' : 'text-gray-400'}`} />
-                                <h3 className="font-bold text-gray-900 truncate" title={outlet.name}>{outlet.name}</h3>
+                              <div className="flex items-start gap-2">
+                                <Store className={`w-5 h-5 shrink-0 mt-0.5 ${hasOpnameToday ? 'text-blue-500' : 'text-gray-400'}`} />
+                                <h3 className="font-bold text-gray-900 leading-tight" title={outlet.name}>{outlet.name}</h3>
                               </div>
                               {hasOpnameToday && (
                                 <span title="Telah melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-700 border border-blue-200 animate-pulse">

@@ -217,7 +217,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
           p_title: title.trim() || null,
           p_body: body.trim(),
           p_target_type: audienceAll ? 'all' : 'outlets',
-          p_outlet_ids: audienceAll ? [] : Array.from(selectedOutlets),
+          p_outlet_ids: audienceAll ? ['00000000-0000-0000-0000-000000000000'] : Array.from(selectedOutlets),
           p_expires_at: computeExpiry(),
         })
         if (error) throw error

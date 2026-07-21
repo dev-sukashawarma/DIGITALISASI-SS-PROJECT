@@ -175,7 +175,6 @@ export default function OrderManualPage() {
           Promise.all([
             supabase.from('menu_items')
               .select('*, categories(id,name,sort_order), package_items:menu_packages!package_id(id, menu_item_id, or_menu_item_id, quantity)')
-              .or(`outlet_id.is.null,outlet_id.eq.${PUSAT_OUTLET_ID},outlet_id.eq.${outletId}`)
               .order('sort_order'),
             supabase.from('categories').select('*').order('sort_order'),
             supabase.from('kiosk_settings').select('key, value, outlet_id')
@@ -188,7 +187,16 @@ export default function OrderManualPage() {
         if (catRes.error) throw catRes.error
         if (unavRes.error && unavRes.error.code !== 'PGRST116') throw unavRes.error
 
-        const fetchedItems = menuRes.data ?? []
+        const fetchedItemsRaw = menuRes.data ?? []
+        const fetchedItems = fetchedItemsRaw.filter((item: any) => {
+          if (item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0) {
+            return item.available_outlets.includes(outletId)
+          }
+          if (item.outlet_id && item.outlet_id !== outletId && item.outlet_id !== PUSAT_OUTLET_ID) {
+            return false
+          }
+          return true
+        })
         const fetchedCategories = catRes.data ?? []
         const settings = unavRes.data
         const parseIds = (raw: string | null | undefined) => {

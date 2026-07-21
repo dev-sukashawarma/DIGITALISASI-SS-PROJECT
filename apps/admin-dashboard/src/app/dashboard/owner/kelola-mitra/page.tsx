@@ -35,14 +35,14 @@ export default async function KelolaMitraPage() {
   // but if we have `staf_profiles`, let's check `outlet_staff` for now.
   const { data: staffList } = await supabase
     .from('outlet_staff')
-    .select('id, name, role')
-    .eq('role', 'MITRA')
+    .select('id, name, role, username')
+    .eq('role', 'mitra')
     
   // Format user list for dropdown
   const allUsers = (staffList || []).map(s => ({
     id: s.id, // outlet_staff.id
     name: s.name,
-    username: s.role
+    username: s.username
   }))
   
   return (

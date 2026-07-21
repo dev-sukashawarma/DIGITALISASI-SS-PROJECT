@@ -63,7 +63,11 @@ export default async function LauncherPage() {
   const apps = accessibleApps(staff.role)
 
   const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
-    'admin-dashboard': { label: 'Admin Dashboard',  url: APP_URL['admin-dashboard'], desc: 'Administrasi staff, akun & sistem' },
+    'admin-dashboard': { 
+      label: staff.role === 'leader' ? 'Dashboard Cabang' : 'Admin Dashboard',  
+      url: APP_URL['admin-dashboard'], 
+      desc: staff.role === 'leader' ? 'Monitoring performa, stok, & top up petty cash' : 'Administrasi staff, akun & sistem' 
+    },
     stok:              { label: 'Stok',             url: APP_URL.stok,              desc: 'Monitoring & ledger stok bahan baku' },
     absensi:           { label: 'Absensi',          url: APP_URL.absensi,           desc: 'Presensi karyawan dengan verifikasi wajah' },
     distribusi:        { label: 'Distribusi',       url: APP_URL.distribusi,        desc: 'Pengiriman bahan baku & surat jalan' },

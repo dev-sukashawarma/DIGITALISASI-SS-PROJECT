@@ -4,14 +4,21 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
-import { Activity, User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected } from 'lucide-react'
+import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation } from 'lucide-react'
+import dynamic from 'next/dynamic'
 
-type Outlet = { id: string; name: string; is_active: boolean; region?: string | null }
+const LiveLocationMap = dynamic(() => import('./LiveLocationMap'), { 
+  ssr: false, 
+  loading: () => <div className="w-full h-[600px] bg-gray-100 animate-pulse rounded-2xl border border-gray-200"></div> 
+})
+
+type Outlet = { id: string; name: string; is_active: boolean; region?: string | null; lat?: number | null; lng?: number | null }
 type Staff = { id: string; name: string; outlet_id: string; role: string; is_active: boolean }
 type Attendance = { outlet_id: string; outlet_staff_id: string; type: 'in' | 'out'; ts_server: string }
 type Opname = { id: string; outlet_id: string; created_at: string }
 
 export default function MonitoringPage() {
+  const [activeTab, setActiveTab] = useState<'POS' | 'LOCATION'>('POS')
   const [selectedOutletId, setSelectedOutletId] = useState<string>('ALL')
   const [posStatusFilter, setPosStatusFilter] = useState<string>('ALL')
   const [crewStatusFilter, setCrewStatusFilter] = useState<string>('ALL')
@@ -21,6 +28,7 @@ export default function MonitoringPage() {
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [opnamesToday, setOpnamesToday] = useState<Opname[]>([])
   const [connectedPrinters, setConnectedPrinters] = useState<Set<string>>(new Set())
+  const [crewLocations, setCrewLocations] = useState<any[]>([])
   
   const [checklistReq, setChecklistReq] = useState<Record<string, string[]>>({})
   const [checklistTicks, setChecklistTicks] = useState<Record<string, string[]>>({})
@@ -52,7 +60,7 @@ export default function MonitoringPage() {
 
       // Fetch independent queries in parallel for instant updates
       const [outRes, stfRes, attRes, catRes, recRes, opnRes] = await Promise.all([
-        supabase.from('outlets').select('id, name, is_active, region').eq('is_active', true),
+        supabase.from('outlets').select('id, name, is_active, region, lat, lng').eq('is_active', true),
         supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader']),
         supabase.from('attendance')
           .select('outlet_id, outlet_staff_id, type, ts_server')
@@ -155,9 +163,28 @@ export default function MonitoringPage() {
       })
       .subscribe()
 
+    // Setup Realtime Presence for Crew Location
+    const locationRoom = supabase.channel('room:crew_location')
+    locationRoom
+      .on('presence', { event: 'sync' }, () => {
+        const state = locationRoom.presenceState()
+        const crews = []
+        for (const id in state) {
+          const presences = state[id] as any[]
+          for (const presence of presences) {
+            if (presence.staff_id && presence.lat && presence.lng) {
+              crews.push(presence)
+            }
+          }
+        }
+        setCrewLocations(crews)
+      })
+      .subscribe()
+
     return () => {
       supabase.removeChannel(sub)
       supabase.removeChannel(presenceRoom)
+      supabase.removeChannel(locationRoom)
     }
   }, [])
 
@@ -180,18 +207,46 @@ export default function MonitoringPage() {
   const opnameOutletIds = new Set(opnamesToday.map(o => o.outlet_id))
 
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 bg-gray-50/50 min-h-[calc(100vh-4rem)] relative">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2.5">
-            <Activity className="w-7 h-7 sm:w-8 sm:h-8 text-suka-orange" />
-            Monitoring Aktivitas Sistem
-          </h1>
-          <p className="text-sm text-gray-500 font-medium mt-1">Pantau kesiapan cabang dan absensi kru secara real-time</p>
+    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto">
+      
+      {/* Header & Tabs */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Monitoring Aktivitas</h1>
+            <p className="text-sm text-gray-500 mt-1">Pantau status POS, absensi kru, dan lokasi secara real-time</p>
+          </div>
+        </div>
+
+        {/* Tab Switcher */}
+        <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+          <button
+            onClick={() => setActiveTab('POS')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-2
+              ${activeTab === 'POS' ? 'bg-[#1e1b15] text-[#fff8f1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+          >
+            <Monitor className="w-4 h-4" />
+            POS & Crew
+          </button>
+          <button
+            onClick={() => setActiveTab('LOCATION')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-2
+              ${activeTab === 'LOCATION' ? 'bg-[#1e1b15] text-[#fff8f1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+          >
+            <Navigation className="w-4 h-4" />
+            Live Location
+          </button>
         </div>
       </div>
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-8 gap-4">
+
+      {activeTab === 'LOCATION' ? (
+        <div className="animate-fade-in">
+          <LiveLocationMap outlets={outlets as any[]} crews={crewLocations as any[]} />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6 animate-fade-in">
+          {/* Filter Bar */}
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto p-1.5 bg-gray-50/80 rounded-xl border border-gray-100/80 backdrop-blur-sm shadow-sm">
               <Select 
                 value={posStatusFilter}  
@@ -427,6 +482,8 @@ export default function MonitoringPage() {
               )
             })}
           </div>
+        </div>
+      )}
     </div>
   )
 }

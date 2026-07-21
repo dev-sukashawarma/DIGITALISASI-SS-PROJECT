@@ -186,6 +186,10 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
       toast.error('Nominal target harian harus diisi jika ingin mengatur bonus harian.')
       return
     }
+    if (title.trim().length > 0 && body.trim().length === 0) {
+      toast.error('Isi pesan tidak boleh kosong jika Anda menulis judul pesan.')
+      return
+    }
     if (!hasTarget && !hasMessage) {
       toast.error('Silakan isi nominal target harian ATAU tulis pesan untuk kasir.')
       return
@@ -226,7 +230,10 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
             target_type: 'all',
             expires_at: computeExpiry()
           })
-          if (error) throw error
+          if (error) {
+            alert(`Error insert message all: ${JSON.stringify(error)}`)
+            throw error
+          }
         } else {
           const { error } = await supabase.rpc('send_owner_message', {
             p_kind: kind,
@@ -236,7 +243,10 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
             p_outlet_ids: Array.from(selectedOutlets),
             p_expires_at: computeExpiry(),
           })
-          if (error) throw error
+          if (error) {
+            alert(`Error RPC message outlets: ${JSON.stringify(error)}`)
+            throw error
+          }
         }
       }
       setSent(true)
@@ -248,8 +258,9 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
       setSelectedOutlets(new Set())
       setAudienceAll(false)
       await Promise.all([loadTargets(), loadHistory()])
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Gagal mengirim.')
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.message || 'Gagal mengirim.')
     } finally {
       setSending(false)
     }

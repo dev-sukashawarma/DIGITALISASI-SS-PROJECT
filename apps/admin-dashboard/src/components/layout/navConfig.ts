@@ -79,6 +79,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Settings,
     roles: ['OWNER', 'ADMIN'],
     items: [
+      { href: '/dashboard/monitoring', label: 'Monitoring Aktivitas', shortLabel: 'Monitoring', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/panduan', label: 'Panduan Sistem', shortLabel: 'Panduan', icon: BookOpen, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
       { href: '/dashboard/system-health', label: 'Kesehatan Sistem', shortLabel: 'Sistem', icon: Activity, roles: ['ADMIN'] },

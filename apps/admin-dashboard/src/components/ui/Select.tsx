@@ -55,19 +55,19 @@ export function Select({ options, value, onChange, placeholder = 'Pilih...', cla
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between bg-white border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20 transition-shadow"
+        className="w-full text-left flex items-center justify-between bg-white border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20 transition-shadow"
       >
-        <span className={`block truncate ${!selectedOption ? 'text-suka-gray-400' : 'text-suka-ink'}`}>
+        <span className={`block truncate flex-1 pr-2 ${!selectedOption ? 'text-suka-gray-400' : 'text-suka-ink'}`}>
           {selectedOption ? (
             <span className="flex items-center gap-2">
-              {selectedOption.icon}
-              {selectedOption.label}
+              {selectedOption.icon && <span className="shrink-0">{selectedOption.icon}</span>}
+              <span className="truncate">{selectedOption.label}</span>
             </span>
           ) : (
             placeholder
           )}
         </span>
-        <ChevronDown className={`w-4 h-4 text-suka-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 shrink-0 text-suka-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
@@ -93,15 +93,15 @@ export function Select({ options, value, onChange, placeholder = 'Pilih...', cla
                 onChange(option.value)
                 setIsOpen(false)
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-suka-gray-50 transition-colors ${
+              className={`w-full text-left flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-suka-gray-50 transition-colors ${
                 value === option.value ? 'bg-suka-orange/5 text-suka-brown font-semibold' : 'text-suka-ink'
               }`}
             >
-              <span className="flex items-center gap-2">
-                {option.icon}
-                {option.label}
+              <span className="flex items-center gap-2 flex-1 pr-2">
+                {option.icon && <span className="shrink-0">{option.icon}</span>}
+                <span className="break-words line-clamp-2">{option.label}</span>
               </span>
-              {value === option.value && <Check className="w-4 h-4 text-suka-brown" />}
+              {value === option.value && <Check className="w-4 h-4 shrink-0 text-suka-brown" />}
             </button>
           ))}
         </div>

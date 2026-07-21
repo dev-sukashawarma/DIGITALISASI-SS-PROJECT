@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import MenuView from './MenuView'
-import type { MenuItem, Category, SalesChannel } from '@/pos-types'
+import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,11 +22,12 @@ export default async function AdminMenuPage(props: {
     itemsQuery = itemsQuery.ilike('name', `%${q}%`)
   }
 
-  let [itemsRes, categoriesRes, settingsRes, channelsRes] = await Promise.all([
+  let [itemsRes, categoriesRes, settingsRes, channelsRes, outletsRes] = await Promise.all([
     itemsQuery,
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('kiosk_settings').select('key, value').eq('outlet_id', '550e8400-e29b-41d4-a716-446655440001').in('key', ['upsell_ids', 'bestseller_ids', 'recommendation_ids']),
-    supabase.from('sales_channels').select('*').eq('is_active', true).order('name')
+    supabase.from('sales_channels').select('*').eq('is_active', true).order('name'),
+    supabase.from('outlets').select('*').eq('is_active', true).order('name')
   ])
 
   if (itemsRes.error) {
@@ -41,6 +42,7 @@ export default async function AdminMenuPage(props: {
   const initialItems: MenuItem[] = itemsRes.data || []
   const initialCategories: Category[] = categoriesRes.data || []
   const initialChannels: SalesChannel[] = channelsRes.data || []
+  const initialOutlets: Outlet[] = outletsRes.data || []
   const settingsData = settingsRes.data || []
   
   const parseIds = (key: string) => {
@@ -59,6 +61,7 @@ export default async function AdminMenuPage(props: {
       initialItems={initialItems} 
       initialCategories={initialCategories} 
       initialChannels={initialChannels}
+      initialOutlets={initialOutlets}
       initialUpsells={upsellIds}
       initialBestsellers={bestsellerIds}
       initialRecommendations={recommendationIds}

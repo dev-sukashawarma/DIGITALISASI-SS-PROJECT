@@ -76,6 +76,7 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
     channel_prices: form.channel_prices || {},
     is_package: form.is_package || false,
     outlet_id: form.outlet_id || null,
+    available_outlets: form.available_outlets || null,
   }
 
   let finalId = form.id;

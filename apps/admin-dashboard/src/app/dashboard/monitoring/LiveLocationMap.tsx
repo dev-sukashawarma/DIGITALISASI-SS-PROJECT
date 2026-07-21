@@ -3,7 +3,7 @@
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { User, MapPin, Navigation, Compass, Activity, Signal } from 'lucide-react'
+import { User, MapPin, Activity, Signal } from 'lucide-react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 // Fix leaflet default icons for Next.js

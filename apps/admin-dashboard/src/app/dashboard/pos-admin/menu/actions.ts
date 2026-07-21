@@ -57,7 +57,7 @@ export async function deleteMenuItem(id: string, imageUrl: string | null) {
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
-export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_save?: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number }[] }) {
+export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_save?: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number }[], available_outlets?: string[] | null }) {
   const supabase = await getSupabase()
   let orderOnline: any = null
   try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }

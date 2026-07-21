@@ -1,6 +1,9 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
+import { presetRange, previousRange } from '@/lib/period'
+import { getOwnerDashboardData } from '@/app/actions/ownerDashboard'
 import { MitraDashboardView } from './MitraDashboardView'
+import type { PeriodFilterValue } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,35 +61,35 @@ export default async function MitraDashboardPage() {
     }
   }
   
-  // 4. Hitung omzet bulan ini
-  const omzetMap: Record<string, number> = {}
-  if (outletIds.length > 0) {
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
-    
-    // orders typically have payment_status = 'paid' or status = 'completed'
-    // Let's use status = 'completed' based on typical structure
-    const { data: orders } = await supabase
-      .from('orders')
-      .select('outlet_id, total_amount')
-      .in('outlet_id', outletIds)
-      .gte('created_at', startOfMonth.toISOString())
-      .eq('status', 'completed')
-      
-    if (orders) {
-      orders.forEach(o => {
-        omzetMap[o.outlet_id] = (omzetMap[o.outlet_id] || 0) + Number(o.total_amount)
-      })
-    }
+  // 4. Hitung trend / omzet menggunakan agregasi Owner Dashboard
+  // Kita gunakan preset '30d' sebagai default pandangan Mitra
+  const defaultRange = presetRange('30d')
+  const curFilter: PeriodFilterValue = {
+    from: defaultRange.from,
+    to: defaultRange.to,
+    outletId: 'all',
+    source: 'all'
   }
+  
+  const prevFilter: PeriodFilterValue = {
+    ...curFilter,
+    ...previousRange({ from: curFilter.from, to: curFilter.to })
+  }
+
+  // Aggregate current and previous data
+  const [curData, prevData] = await Promise.all([
+    getOwnerDashboardData(curFilter, outlets),
+    getOwnerDashboardData(prevFilter, outlets)
+  ])
   
   return (
     <MitraDashboardView 
       mitra={profile} 
       outlets={outlets} 
-      investasiMap={investasiMap} 
-      omzetMap={omzetMap} 
+      investasiMap={investasiMap}
+      curKpiRows={curData.kpiRows}
+      prevKpiRows={prevData.kpiRows}
+      hourlyRows={curData.hourlyRows}
     />
   )
 }

@@ -142,23 +142,23 @@ export default function MonitoringPage() {
 
   return (
     <div className="space-y-8 max-w-7xl pb-10">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-50 rounded-lg border border-indigo-100 shadow-sm">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5 border-b border-gray-100 pb-5">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="p-2.5 bg-indigo-50 rounded-lg border border-indigo-100 shadow-sm shrink-0">
             <Activity className="w-6 h-6 text-indigo-600" />
           </div>
           <div>
-            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Monitoring Aktivitas Sistem</h2>
-            <p className="text-sm text-gray-500 mt-0.5 font-medium">Pantau absensi crew dan status lock POS per cabang secara realtime</p>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight">Monitoring Aktivitas Sistem</h2>
+            <p className="text-xs sm:text-sm text-gray-500 mt-0.5 font-medium leading-snug">Pantau absensi crew dan status lock POS per cabang secara realtime</p>
           </div>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto p-1.5 bg-gray-50/80 rounded-xl border border-gray-100/80 backdrop-blur-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto p-1.5 bg-gray-50/80 rounded-xl border border-gray-100/80 backdrop-blur-sm shadow-sm">
           <Select 
-            value={posStatusFilter} 
+            value={posStatusFilter}  
             onChange={setPosStatusFilter}
             placeholder="Status POS..."
-            className="w-full sm:w-48"
+            className="w-full sm:min-w-[170px]"
             options={[
               { label: 'Semua Status POS', value: 'ALL', icon: <Monitor className="w-4 h-4 text-gray-500" /> },
               { label: 'POS Terbuka', value: 'OPEN', icon: <Unlock className="w-4 h-4 text-emerald-500" /> },
@@ -169,7 +169,7 @@ export default function MonitoringPage() {
             value={crewStatusFilter} 
             onChange={setCrewStatusFilter}
             placeholder="Status Crew..."
-            className="w-full sm:w-48"
+            className="w-full sm:min-w-[170px]"
             options={[
               { label: 'Semua Status Crew', value: 'ALL', icon: <Users className="w-4 h-4 text-gray-500" /> },
               { label: 'Hadir', value: 'PRESENT', icon: <UserCheck className="w-4 h-4 text-emerald-500" /> },
@@ -182,7 +182,7 @@ export default function MonitoringPage() {
             searchable
             placeholder="Pilih Outlet..."
             searchPlaceholder="Cari outlet..."
-            className="w-full sm:w-64"
+            className="w-full sm:min-w-[220px]"
             options={[
               { label: 'Semua Cabang', value: 'ALL', icon: <MapPin className="w-4 h-4 text-gray-500" /> },
               ...outlets.map(o => ({ label: o.name, value: o.id, icon: <Store className="w-4 h-4 text-indigo-500" /> }))
@@ -252,52 +252,55 @@ export default function MonitoringPage() {
           }
 
           return (
-            <div key={outlet.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+            <div key={outlet.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col h-full">
               {/* Card Header */}
-              <div className="p-4 border-b border-gray-50 flex flex-col gap-3">
+              <div className="p-4 border-b border-gray-50 flex flex-col gap-3 flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <Store className="w-5 h-5 text-gray-400" />
-                  <h3 className="font-bold text-gray-900 truncate">{outlet.name}</h3>
+                  <Store className="w-5 h-5 text-gray-400 shrink-0" />
+                  <h3 className="font-bold text-gray-900 truncate" title={outlet.name}>{outlet.name}</h3>
                 </div>
-                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold ${posColor}`}>
-                  <PosIcon className="w-3.5 h-3.5" />
-                  {posStatus}
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold self-start w-full sm:w-auto ${posColor}`}>
+                  <PosIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{posStatus}</span>
                 </div>
               </div>
 
               {/* Card Body - Crew List */}
-              <div className="p-2">
+              <div className="p-2 flex-grow">
                 {visibleStaff.length === 0 ? (
-                  <div className="py-4 text-center text-xs text-gray-400 font-medium">Tidak ada crew aktif / sesuai filter</div>
+                  <div className="py-8 px-4 flex flex-col items-center justify-center text-center">
+                    <Users className="w-8 h-8 text-gray-200 mb-2" />
+                    <span className="text-xs text-gray-400 font-medium">Tidak ada crew aktif / sesuai filter</span>
+                  </div>
                 ) : (
                   <ul className="space-y-1">
                     {visibleStaff.map(staff => {
                       const lastAttType = staffState.get(staff.id)
                       let attLabel = 'Belum Absen'
-                      let attColor = 'bg-red-100 text-red-700'
+                      let attColor = 'bg-red-100 text-red-700 border border-red-100'
                       let attDot = 'bg-red-500'
 
                       if (lastAttType === 'in') {
                         attLabel = 'Hadir'
-                        attColor = 'bg-emerald-100 text-emerald-700'
+                        attColor = 'bg-emerald-100 text-emerald-700 border border-emerald-100'
                         attDot = 'bg-emerald-500'
                       } else if (lastAttType === 'out') {
                         attLabel = 'Pulang'
-                        attColor = 'bg-gray-100 text-gray-600'
+                        attColor = 'bg-gray-100 text-gray-600 border border-gray-200'
                         attDot = 'bg-gray-400'
                       }
 
                       return (
                         <li key={staff.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition-colors">
-                          <div className="flex items-center gap-2 truncate pr-2">
-                            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                              <User className="w-4 h-4 text-gray-500" />
+                          <div className="flex items-center gap-2.5 truncate pr-2">
+                            <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-100/50 flex items-center justify-center shrink-0">
+                              <User className="w-3.5 h-3.5 text-indigo-500" />
                             </div>
-                            <span className="text-sm font-semibold text-gray-700 truncate">{staff.name}</span>
+                            <span className="text-sm font-semibold text-gray-700 truncate" title={staff.name}>{staff.name}</span>
                           </div>
-                          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 ${attColor}`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${attDot}`} />
-                            {attLabel}
+                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold shrink-0 ${attColor}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${attDot}`} />
+                            <span className="whitespace-nowrap tracking-wide uppercase">{attLabel}</span>
                           </div>
                         </li>
                       )

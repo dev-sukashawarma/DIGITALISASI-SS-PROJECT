@@ -20,7 +20,8 @@ const SERVICES = [
   PRINTER_SERVICE_UUID,
   CUSTOM_SERVICE_UUID_1,
   CUSTOM_SERVICE_UUID_2,
-  '000018f0-0000-1000-8000-00805f9b34fb' // commonly used generic 16-bit UUID
+  '000018f0-0000-1000-8000-00805f9b34fb', // commonly used generic 16-bit UUID
+  '6e400001-b5a3-f393-e0a9-e50e24dcca9e'  // Nordic UART Service (sering dipakai printer thermal generik)
 ];
 
 // @ts-ignore
@@ -68,17 +69,16 @@ export async function connectBluetoothPrinter() {
 
     // @ts-ignore
     const device = await navigator.bluetooth.requestDevice({
-      filters: [
-        { services: [CUSTOM_SERVICE_UUID_1] },
-        { services: [CUSTOM_SERVICE_UUID_2] },
-        { services: [PRINTER_SERVICE_UUID] },
-        { namePrefix: 'PANDA' },
-        { namePrefix: 'PRJ' },
-        { namePrefix: 'Printer' },
-        { namePrefix: 'BlueTooth' },
-        { namePrefix: 'MTP' }
-      ],
-      optionalServices: [CUSTOM_SERVICE_UUID_1, CUSTOM_SERVICE_UUID_2, PRINTER_SERVICE_UUID, '000018f0-0000-1000-8000-00805f9b34fb']
+      acceptAllDevices: true,
+      optionalServices: [
+        CUSTOM_SERVICE_UUID_1, 
+        CUSTOM_SERVICE_UUID_2, 
+        PRINTER_SERVICE_UUID, 
+        '000018f0-0000-1000-8000-00805f9b34fb',
+        // Tambahan UUID umum untuk printer thermal lain (Nordic UART, dll)
+        '6e400001-b5a3-f393-e0a9-e50e24dcca9e', 
+        'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
+      ]
     });
 
     return await connectToDevice(device, store);

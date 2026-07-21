@@ -55,7 +55,7 @@ export function MitraOutletDetails({
       </div>
       
       {/* Content Area */}
-      <div className="w-full bg-white border border-suka-gray-200 rounded-2xl shadow-sm p-6 sm:p-8">
+      <div className={activeTab === 'info' ? 'w-full' : 'w-full bg-white border border-suka-gray-200 rounded-2xl shadow-sm p-6 sm:p-8'}>
         {activeTab === 'info' && <TabInfoOutlet outlet={outlet} />}
         {activeTab === 'orderan' && <TabOrderan outletId={outlet.id} />}
         {activeTab === 'tim' && <TabTim outletId={outlet.id} />}

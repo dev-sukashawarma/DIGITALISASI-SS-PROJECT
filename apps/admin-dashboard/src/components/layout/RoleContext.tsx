@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from '@suka/auth'
 import { usePathname, useRouter } from 'next/navigation'
 
-type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA'
+type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER'
 
 interface RoleContextType {
   role: Role
@@ -26,7 +26,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
     if (outletStaff?.role) {
       const mappedRole = outletStaff.role.toUpperCase() as Role
-      if (['OWNER', 'ADMIN', 'ADMIN_HR', 'MITRA'].includes(mappedRole)) {
+      if (['OWNER', 'ADMIN', 'ADMIN_HR', 'MITRA', 'LEADER'].includes(mappedRole)) {
         setRole(mappedRole)
         setOutletId(outletStaff.outlet_id ?? null)
       } else {
@@ -68,6 +68,15 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     const allowed = ['/dashboard/mitra']
     if (!allowed.some((a) => pathname === a || pathname.startsWith(a + '/'))) {
       router.replace('/dashboard/mitra')
+    }
+  }, [role, pathname, router])
+
+  // Route-guard: LEADER may only see /dashboard/leader
+  useEffect(() => {
+    if (role !== 'LEADER') return
+    const allowed = ['/dashboard/leader']
+    if (!allowed.some((a) => pathname === a || pathname.startsWith(a + '/'))) {
+      router.replace('/dashboard/leader')
     }
   }, [role, pathname, router])
 

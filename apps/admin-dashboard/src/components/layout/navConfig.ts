@@ -6,13 +6,24 @@ import {
 } from 'lucide-react'
 
 
-export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA'
+export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER'
 
 export type NavItem = { href: string; label: string; shortLabel?: string; icon: LucideIcon; roles: Role[] }
 /** Sebuah "pintu" navigasi — kelompok besar berlabel bahasa awam. */
 export type NavGroup = { title: string; icon: LucideIcon; items: NavItem[]; roles: Role[] }
 
 export const NAV_GROUPS: NavGroup[] = [
+  {
+    title: 'Dashboard Cabang',
+    icon: Store,
+    roles: ['LEADER'],
+    items: [
+      { href: '/dashboard/leader', label: 'Ringkasan Cabang', shortLabel: 'Overview', icon: LayoutDashboard, roles: ['LEADER'] },
+      { href: '/dashboard/leader/petty-cash', label: 'Top Up Petty Cash', shortLabel: 'Petty Cash', icon: Banknote, roles: ['LEADER'] },
+      { href: '/dashboard/leader/sales', label: 'Penjualan & Target', shortLabel: 'Penjualan', icon: Target, roles: ['LEADER'] },
+      { href: '/dashboard/leader/stock', label: 'Stok Cabang', shortLabel: 'Stok', icon: Package, roles: ['LEADER'] },
+    ],
+  },
   {
     title: 'Bisnis',
     icon: Wallet,
@@ -122,6 +133,7 @@ export function isItemActive(href: string, pathname: string): boolean {
   if (
     href === '/dashboard/hr' ||
     href === '/dashboard/owner' ||
+    href === '/dashboard/leader' ||
     href === '/dashboard' ||
     href === '/dashboard/owner/expenses' ||
     href === '/dashboard/pos-admin' ||

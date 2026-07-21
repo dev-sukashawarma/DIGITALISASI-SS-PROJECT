@@ -33,27 +33,36 @@ export function MitraOutletDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
+      {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" 
+        className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity duration-300" 
         onClick={onClose} 
       />
       
-      <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50/80">
+      {/* Drawer */}
+      <div className="relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+        
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
           <div>
-            <h2 className="text-xl font-bold">{outlet.name}</h2>
-            <p className="text-sm text-gray-500 truncate max-w-[300px]">{outlet.address || '-'}</p>
+            <div className="flex items-center space-x-2 mb-1">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500"></span>
+              <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Live View</span>
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900">{outlet.name}</h2>
+            <p className="text-sm text-slate-500 mt-1 max-w-[320px] leading-relaxed">{outlet.address || 'Alamat tidak tersedia'}</p>
           </div>
           <button 
             onClick={onClose} 
-            className="p-2 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
+            className="p-2.5 text-slate-400 bg-white border border-slate-200 hover:text-slate-700 hover:bg-slate-50 hover:border-slate-300 rounded-full transition-all shadow-sm"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
         
-        <div className="px-4 pt-4 border-b">
-          <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide">
+        {/* Navigation Tabs */}
+        <div className="px-4 pt-4 border-b border-slate-100 bg-white">
+          <div className="flex overflow-x-auto space-x-2 pb-3 scrollbar-hide">
             {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.id
@@ -61,13 +70,13 @@ export function MitraOutletDrawer({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as TabType)}
-                  className={`flex items-center px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
                     isActive 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-amber-100 text-amber-800 shadow-sm border border-amber-200/50' 
+                      : 'bg-white text-slate-500 border border-transparent hover:bg-slate-100 hover:text-slate-800'
                   }`}
                 >
-                  <Icon className="w-4 h-4 mr-1.5" />
+                  <Icon className={`w-4 h-4 mr-2 ${isActive ? 'text-amber-600' : 'text-slate-400'}`} />
                   {tab.label}
                 </button>
               )
@@ -75,7 +84,8 @@ export function MitraOutletDrawer({
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
           {activeTab === 'info' && <TabInfoOutlet outlet={outlet} />}
           {activeTab === 'orderan' && <TabOrderan outletId={outlet.id} />}
           {activeTab === 'tim' && <TabTim outletId={outlet.id} />}

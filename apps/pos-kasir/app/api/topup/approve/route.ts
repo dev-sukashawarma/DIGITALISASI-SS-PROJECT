@@ -3,6 +3,26 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
+// description diketik kasir dan TIDAK boleh masuk mentah ke HTML: halaman ini
+// dibuka owner, dan cookie sesi di sini ber-domain '.sukashawarma.com'
+// (berlaku di semua app, umur 1 tahun).
+function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+// Lapis kedua: halaman ini tak butuh JS sama sekali, jadi matikan eksekusi skrip
+// apa pun. Menutup seluruh kelas XSS, bukan cuma titik interpolasi yang sudah diketahui.
+const HTML_HEADERS = {
+  'Content-Type': 'text/html',
+  'Content-Security-Policy':
+    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
+} as const
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -34,28 +54,28 @@ export async function GET(req: NextRequest) {
     if (fetchError || !topup) {
       return new NextResponse(
         generateHtmlMsg('Top Up Tidak Ditemukan', 'Data top up tidak ditemukan atau ID salah.', false),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
     if (topup.status === 'approved') {
       return new NextResponse(
         generateHtmlMsg('Sudah Disetujui', 'Top up ini sudah disetujui sebelumnya.', true),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
     if (topup.status === 'rejected') {
       return new NextResponse(
         generateHtmlMsg('Sudah Ditolak', 'Top up ini sebelumnya sudah ditolak.', true),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
     if (topup.approval_token !== token) {
       return new NextResponse(
         generateHtmlMsg('Token Tidak Valid', 'Token persetujuan tidak valid atau sudah kadaluarsa.', false),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
@@ -94,15 +114,15 @@ export async function GET(req: NextRequest) {
         
         <div class="details">
           <p>Nominal:<strong>${amountStr}</strong></p>
-          <p>Alasan:<strong>${topup.description || '-'}</strong></p>
+          <p>Alasan:<strong>${esc(topup.description || '-')}</strong></p>
         </div>
 
         <div class="btn-group">
-          <form method="POST" action="/api/topup/approve?id=${id}&token=${token}">
+          <form method="POST" action="/api/topup/approve?id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}">
             <input type="hidden" name="action" value="reject">
             <button type="submit" class="btn btn-reject">Tolak</button>
           </form>
-          <form method="POST" action="/api/topup/approve?id=${id}&token=${token}">
+          <form method="POST" action="/api/topup/approve?id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}">
             <input type="hidden" name="action" value="approve">
             <button type="submit" class="btn btn-approve">Setujui</button>
           </form>
@@ -111,7 +131,7 @@ export async function GET(req: NextRequest) {
     </body>
     </html>
     `
-    return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } })
+    return new NextResponse(html, { headers: HTML_HEADERS })
 
   } catch (error) {
     console.error("Error fetching top up details:", error)
@@ -152,14 +172,14 @@ export async function POST(req: NextRequest) {
     if (fetchError || !topup || topup.approval_token !== token) {
       return new NextResponse(
         generateHtmlMsg('Validasi Gagal', 'Data tidak ditemukan atau token tidak valid.', false),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
     if (topup.status !== 'pending') {
       return new NextResponse(
         generateHtmlMsg('Sudah Diproses', `Pengajuan ini sudah ${topup.status === 'approved' ? 'disetujui' : 'ditolak'}.`, topup.status === 'approved'),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
@@ -176,19 +196,19 @@ export async function POST(req: NextRequest) {
     if (updateError) {
       return new NextResponse(
         generateHtmlMsg('Gagal', 'Terjadi kesalahan saat menyimpan pembaruan.', false),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
     if (action === 'approve') {
       return new NextResponse(
         generateHtmlMsg('Berhasil Disetujui', `Pengajuan dana sebesar Rp ${topup.amount.toLocaleString('id-ID')} telah disetujui.`, true),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     } else {
       return new NextResponse(
         generateHtmlMsg('Berhasil Ditolak', 'Pengajuan dana telah ditolak.', true),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
@@ -224,7 +244,7 @@ function generateHtmlMsg(title: string, message: string, isSuccess: boolean) {
       ${icon}
       <h1>${title}</h1>
       <p>${message}</p>
-      <button onclick="window.open('','_self').close(); setTimeout(function(){ window.location.href = 'https://app.sukashawarma.com'; }, 500);" class="btn" style="border:none; cursor:pointer; font-family:inherit; font-size:15px;">Tutup Halaman</button>
+      <a href="https://app.sukashawarma.com" class="btn">Tutup Halaman</a>
     </div>
   </body>
   </html>

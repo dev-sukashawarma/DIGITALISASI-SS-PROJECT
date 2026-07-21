@@ -3,6 +3,26 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
+// Data dari DB (reason/nama kasir/nama outlet) diketik manusia dan TIDAK boleh
+// masuk mentah ke HTML: halaman ini dibuka SPV/owner, dan cookie sesi di sini
+// ber-domain '.sukashawarma.com' (berlaku di semua app, umur 1 tahun).
+function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+// Lapis kedua: halaman ini tak butuh JS sama sekali, jadi matikan eksekusi skrip
+// apa pun. Menutup seluruh kelas XSS, bukan cuma titik interpolasi yang sudah diketahui.
+const HTML_HEADERS = {
+  'Content-Type': 'text/html',
+  'Content-Security-Policy':
+    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
+} as const
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -31,21 +51,21 @@ export async function GET(req: NextRequest) {
     if (fetchError || !request) {
       return new NextResponse(
         generateHtmlMsg('Pengajuan Tidak Ditemukan', 'Data pengajuan bypass tidak ditemukan atau ID salah.', false),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
     if (request.status === 'approved') {
       return new NextResponse(
         generateHtmlMsg('Sudah Disetujui', 'Bypass absensi ini sudah disetujui sebelumnya.', true),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
     if (request.status === 'rejected') {
       return new NextResponse(
         generateHtmlMsg('Sudah Ditolak', 'Bypass absensi ini sebelumnya sudah ditolak.', true),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
@@ -83,17 +103,17 @@ export async function GET(req: NextRequest) {
         <h1>Konfirmasi Bypass Absensi</h1>
         
         <div class="details">
-          <p>Outlet:<strong>${outletName}</strong></p>
-          <p>Kasir:<strong>${request.requested_by_name}</strong></p>
-          <p>Alasan:<strong>${request.reason || '-'}</strong></p>
+          <p>Outlet:<strong>${esc(outletName)}</strong></p>
+          <p>Kasir:<strong>${esc(request.requested_by_name)}</strong></p>
+          <p>Alasan:<strong>${esc(request.reason || '-')}</strong></p>
         </div>
 
         <div class="btn-group">
-          <form method="POST" action="/api/bypass/approve?id=${id}">
+          <form method="POST" action="/api/bypass/approve?id=${encodeURIComponent(id)}">
             <input type="hidden" name="action" value="reject">
             <button type="submit" class="btn btn-reject">Tolak</button>
           </form>
-          <form method="POST" action="/api/bypass/approve?id=${id}">
+          <form method="POST" action="/api/bypass/approve?id=${encodeURIComponent(id)}">
             <input type="hidden" name="action" value="approve">
             <button type="submit" class="btn btn-approve">Setujui</button>
           </form>
@@ -102,7 +122,7 @@ export async function GET(req: NextRequest) {
     </body>
     </html>
     `
-    return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } })
+    return new NextResponse(html, { headers: HTML_HEADERS })
 
   } catch (error) {
     console.error("Error fetching bypass request details:", error)
@@ -142,14 +162,14 @@ export async function POST(req: NextRequest) {
     if (fetchError || !request) {
       return new NextResponse(
         generateHtmlMsg('Validasi Gagal', 'Data tidak ditemukan.', false),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
     if (request.status !== 'pending') {
       return new NextResponse(
         generateHtmlMsg('Sudah Diproses', `Pengajuan bypass ini sudah ${request.status === 'approved' ? 'disetujui' : 'ditolak'}.`, request.status === 'approved'),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
@@ -166,19 +186,19 @@ export async function POST(req: NextRequest) {
     if (updateError) {
       return new NextResponse(
         generateHtmlMsg('Gagal', 'Terjadi kesalahan saat menyimpan pembaruan.', false),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
     if (action === 'approve') {
       return new NextResponse(
         generateHtmlMsg('Berhasil Disetujui', 'Bypass absensi telah disetujui. POS Kasir akan otomatis terbuka.', true),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     } else {
       return new NextResponse(
         generateHtmlMsg('Berhasil Ditolak', 'Bypass absensi telah ditolak.', true),
-        { headers: { 'Content-Type': 'text/html' } }
+        { headers: HTML_HEADERS }
       )
     }
 
@@ -214,7 +234,7 @@ function generateHtmlMsg(title: string, message: string, isSuccess: boolean) {
       ${icon}
       <h1>${title}</h1>
       <p>${message}</p>
-      <button onclick="window.open('','_self').close(); setTimeout(function(){ window.location.href = 'https://app.sukashawarma.com'; }, 500);" class="btn" style="border:none; cursor:pointer; font-family:inherit; font-size:15px;">Tutup Halaman</button>
+      <a href="https://app.sukashawarma.com" class="btn">Tutup Halaman</a>
     </div>
   </body>
   </html>

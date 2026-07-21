@@ -50,19 +50,25 @@ export function useOpnameActions() {
   }, [])
 
   const createOrReuseDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
-    // Cek apakah sudah ada draft hari ini untuk outlet ini
-    const todayStr = new Date().toISOString().slice(0, 10)
+    // Cek apakah sudah ada opname hari ini untuk outlet ini (semua status kecuali rejected)
+    // Gunakan range tanggal hari ini (WIB = UTC+7) agar timezone-safe
+    const now = new Date()
+    // Ambil tanggal hari ini dalam WIB
+    const wibOffset = 7 * 60 // menit
+    const wibNow = new Date(now.getTime() + wibOffset * 60 * 1000)
+    const todayWIB = wibNow.toISOString().slice(0, 10) // "YYYY-MM-DD"
+
     const { data: existing } = await supabase.from('opname')
       .select('*')
       .eq('outlet_id', outletId)
       .eq('tipe', tipe)
-      .eq('tanggal', todayStr)
-      .in('status', ['draft'])
+      .eq('tanggal', todayWIB)
+      .not('status', 'eq', 'rejected')
       .maybeSingle()
 
     if (existing) return existing as Opname
 
-    // Tidak ada draft → buat baru
+    // Tidak ada opname hari ini → buat baru
     const { data, error } = await supabase.from('opname')
       .insert({ outlet_id: outletId, tipe, status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
     if (error) throw error

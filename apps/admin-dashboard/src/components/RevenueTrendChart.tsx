@@ -6,10 +6,12 @@ import { rupiah, rupiahCompact } from '@/lib/format'
 
 export function RevenueTrendChart({ 
   rows, 
-  isHourly = false 
+  isHourly = false,
+  className
 }: { 
   rows: any[], 
-  isHourly?: boolean 
+  isHourly?: boolean,
+  className?: string
 }) {
   let data: any[] = []
 
@@ -47,31 +49,37 @@ export function RevenueTrendChart({
   const actuallyHasData = hasData && (!isHourly || totalOmzet > 0)
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4">
-      <div>
-        <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">
-          {isHourly ? 'Tren Omzet per Jam' : 'Tren Omzet Harian'}
-        </h3>
-        <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">
-          {isHourly ? 'Distribusi omzet sepanjang hari' : 'Grafik penjualan completed orders'}
-        </p>
-      </div>
+    <div className={className || "bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4"}>
+      {!className && (
+        <div>
+          <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">
+            {isHourly ? 'Tren Omzet per Jam' : 'Tren Omzet Harian'}
+          </h3>
+          <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">
+            {isHourly ? 'Distribusi omzet sepanjang hari' : 'Grafik penjualan completed orders'}
+          </p>
+        </div>
+      )}
 
       {!actuallyHasData ? (
-        <div className="h-64 flex items-center justify-center text-suka-gray-400 text-sm">
-          Tidak ada data transaksi
+        <div className="h-64 flex items-center justify-center text-suka-gray-400 text-sm font-semibold">
+          Belum ada data transaksi
         </div>
       ) : (
-        <div className="w-full h-64">
+        <div className="w-full h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="omzetGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f29744" stopOpacity={0.4}/>
-                  <stop offset="95%" stopColor="#f29744" stopOpacity={0.0}/>
+                  <stop offset="0%" stopColor="#f29744" stopOpacity={0.8}/>
+                  <stop offset="100%" stopColor="#f29744" stopOpacity={0.0}/>
                 </linearGradient>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" strokeOpacity={0.5} />
               <XAxis 
                 dataKey="date" 
                 fontSize={10} 

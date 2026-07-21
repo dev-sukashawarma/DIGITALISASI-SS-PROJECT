@@ -30,10 +30,10 @@ export function MitraOutletDetails({
   ] as const
 
   return (
-    <div className="flex flex-col space-y-4 mt-2">
+    <div className="flex flex-col space-y-4 mt-6">
       
-      {/* Navigation Tabs */}
-      <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide">
+      {/* Navigation Tabs (Glassmorphic) */}
+      <div className="flex overflow-x-auto space-x-2 pb-2 px-1 scrollbar-hide">
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
@@ -41,21 +41,24 @@ export function MitraOutletDetails({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as TabType)}
-              className={`flex items-center px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${
+              className={`flex items-center px-6 py-3 rounded-full text-sm font-extrabold whitespace-nowrap transition-all duration-300 relative overflow-hidden group ${
                 isActive 
-                  ? 'bg-suka-orange text-white shadow-md shadow-suka-orange/20' 
-                  : 'bg-white text-suka-gray-500 border border-suka-gray-200 hover:bg-gray-50 hover:text-suka-brown shadow-sm'
+                  ? 'text-white bg-gradient-to-r from-suka-orange to-suka-orange/90 shadow-lg shadow-suka-orange/30 scale-105' 
+                  : 'bg-white/60 backdrop-blur-md text-suka-gray-500 border border-white hover:bg-white/90 hover:text-suka-brown hover:shadow-md hover:scale-105'
               }`}
             >
-              <Icon className={`w-4 h-4 mr-2 ${isActive ? 'text-white' : 'text-suka-gray-400'}`} />
-              {tab.label}
+              {isActive && (
+                <div className="absolute inset-0 bg-white/20 w-1/2 -skew-x-12 -translate-x-full group-hover:translate-x-[250%] transition-transform duration-700 ease-in-out"></div>
+              )}
+              <Icon className={`w-4 h-4 mr-2 relative z-10 transition-colors duration-300 ${isActive ? 'text-white' : 'text-suka-gray-400 group-hover:text-suka-orange'}`} />
+              <span className="relative z-10">{tab.label}</span>
             </button>
           )
         })}
       </div>
       
       {/* Content Area */}
-      <div className={activeTab === 'info' ? 'w-full' : 'w-full bg-white border border-suka-gray-200 rounded-2xl shadow-sm p-6 sm:p-8'}>
+      <div className={activeTab === 'info' ? 'w-full animate-fade-in' : 'w-full bg-white/80 backdrop-blur-xl border border-white rounded-[32px] shadow-xl shadow-suka-gray-200/50 p-6 sm:p-8 animate-fade-in'}>
         {activeTab === 'info' && <TabInfoOutlet outlet={outlet} />}
         {activeTab === 'orderan' && <TabOrderan outletId={outlet.id} />}
         {activeTab === 'tim' && <TabTim outletId={outlet.id} />}

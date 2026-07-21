@@ -50,9 +50,9 @@ export function calculateItemPrice(
       
       if (apply) {
         if (globalPromo.discount_type === 'nominal') {
-          return Math.max(0, basePrice - globalPromo.discount_value);
+          return Math.max(0, Math.round(basePrice - globalPromo.discount_value));
         } else {
-          return Math.max(0, basePrice * (1 - globalPromo.discount_value / 100));
+          return Math.max(0, Math.round(basePrice * (1 - globalPromo.discount_value / 100)));
         }
       }
     }
@@ -77,9 +77,9 @@ export function calculateItemPrice(
   }
 
   if (promo.discount_type === 'nominal') {
-    return Math.max(0, basePrice - promo.discount_value);
+    return Math.max(0, Math.round(basePrice - promo.discount_value));
   } else {
-    return Math.max(0, basePrice * (1 - promo.discount_value / 100));
+    return Math.max(0, Math.round(basePrice * (1 - promo.discount_value / 100)));
   }
 }
 

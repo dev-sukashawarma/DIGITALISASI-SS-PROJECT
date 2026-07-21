@@ -10,8 +10,8 @@ export default async function DashboardPage() {
     redirect('/leader')
   }
   
-  if (staff?.role === 'korlap') {
-    redirect('/korlap')
+  if (staff?.role === 'area_manager') {
+    redirect('/area-manager')
   }
 
   return <DashboardClient />

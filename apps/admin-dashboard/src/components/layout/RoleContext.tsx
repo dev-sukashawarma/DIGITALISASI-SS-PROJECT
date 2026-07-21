@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from '@suka/auth'
 import { usePathname, useRouter } from 'next/navigation'
 
-type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER'
+type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER'
 
 interface RoleContextType {
   role: Role
@@ -26,7 +26,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
     if (outletStaff?.role) {
       const mappedRole = outletStaff.role.toUpperCase() as Role
-      if (['OWNER', 'ADMIN', 'ADMIN_HR', 'MITRA', 'LEADER'].includes(mappedRole)) {
+      if (['OWNER', 'ADMIN', 'ADMIN_HR', 'MITRA', 'LEADER', 'AREA_MANAGER'].includes(mappedRole)) {
         setRole(mappedRole)
         setOutletId(outletStaff.outlet_id ?? null)
       } else {

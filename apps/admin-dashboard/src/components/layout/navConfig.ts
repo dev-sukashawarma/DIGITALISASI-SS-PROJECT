@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 
 
-export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER'
+export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER'
 
 export type NavItem = { href: string; label: string; shortLabel?: string; icon: LucideIcon; roles: Role[] }
 /** Sebuah "pintu" navigasi — kelompok besar berlabel bahasa awam. */
@@ -22,6 +22,16 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/leader/petty-cash', label: 'Top Up Petty Cash', shortLabel: 'Petty Cash', icon: Banknote, roles: ['LEADER'] },
       { href: '/dashboard/leader/sales', label: 'Penjualan & Target', shortLabel: 'Penjualan', icon: Target, roles: ['LEADER'] },
       { href: '/dashboard/leader/stock', label: 'Stok Cabang', shortLabel: 'Stok', icon: Package, roles: ['LEADER'] },
+    ],
+  },
+  {
+    title: 'Area Manager Dashboard',
+    icon: Store,
+    roles: ['AREA_MANAGER'],
+    items: [
+      { href: '/dashboard/area-manager', label: 'Ringkasan Wilayah', shortLabel: 'Overview', icon: LayoutDashboard, roles: ['AREA_MANAGER'] },
+      { href: '/dashboard/area-manager/petty-cash', label: 'Approval Petty Cash', shortLabel: 'Petty Cash', icon: Banknote, roles: ['AREA_MANAGER'] },
+      { href: '/dashboard/area-manager/monitoring', label: 'Monitoring Cabang', shortLabel: 'Monitoring', icon: Target, roles: ['AREA_MANAGER'] },
     ],
   },
   {

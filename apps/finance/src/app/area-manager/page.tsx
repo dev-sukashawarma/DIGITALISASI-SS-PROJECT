@@ -1,11 +1,11 @@
 import React from 'react'
 import { Card } from '@suka/design-system'
 
-export default function KorlapDashboardPage() {
+export default function Area ManagerDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-suka-brown">Overview Korlap</h1>
+        <h1 className="text-2xl font-bold text-suka-brown">Overview Area Manager</h1>
         <p className="text-suka-gray-500 mt-1">Ringkasan aktivitas persetujuan Petty Cash luar Bogor.</p>
       </div>
 
@@ -15,7 +15,7 @@ export default function KorlapDashboardPage() {
           <p className="text-3xl font-bold text-suka-brown mt-2">Cek Tab Petty Cash</p>
           <div className="mt-4">
             <span className="text-xs text-suka-orange font-medium bg-orange-50 px-2 py-1 rounded-full">
-              Butuh Review Korlap
+              Butuh Review Area Manager
             </span>
           </div>
         </Card>

@@ -16,7 +16,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const reviewRequests = allRequests?.filter(r => r.status === 'forwarded_to_finance') || []
-  const historyRequests = allRequests?.filter(r => r.status !== 'forwarded_to_finance' && r.status !== 'pending' && r.status !== 'forwarded_to_korlap') || []
+  const historyRequests = allRequests?.filter(r => r.status !== 'forwarded_to_finance' && r.status !== 'pending' && r.status !== 'forwarded_to_area_manager') || []
   
   const requests = activeTab === 'review' ? reviewRequests : historyRequests
 
@@ -95,7 +95,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                   <td className="py-3 px-4">
                     {req.status === 'forwarded_to_finance' && <Badge variant="info">Menunggu Finance</Badge>}
                     {req.status === 'approved_by_finance' && <Badge variant="info">Disetujui Finance (Serahkan)</Badge>}
-                    {req.status === 'forwarded_by_korlap' && <Badge variant="success">Diserahkan ke Leader</Badge>}
+                    {req.status === 'forwarded_by_area_manager' && <Badge variant="success">Diserahkan ke Leader</Badge>}
                     {req.status === 'forwarded_by_leader' && <Badge variant="success">Diserahkan ke Crew</Badge>}
                     {req.status === 'completed' && <Badge variant="success">Selesai</Badge>}
                     {req.status === 'rejected' && <Badge variant="error">Ditolak</Badge>}

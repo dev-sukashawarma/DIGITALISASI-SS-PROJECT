@@ -10,7 +10,7 @@ export type Role =
   | 'mitra'
   | 'staff_pusat'
   | 'admin_finance'
-  | 'korlap'
+  | 'area_manager'
 
 export type AppName =
   | 'pos-kasir'

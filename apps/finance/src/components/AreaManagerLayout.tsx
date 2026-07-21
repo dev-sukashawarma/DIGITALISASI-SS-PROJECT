@@ -8,20 +8,20 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: 'KORLAP',
     items: [
-      { href: '/korlap', label: 'Overview', icon: LayoutDashboard },
-      { href: '/korlap/petty-cash', label: 'Petty Cash', icon: Wallet },
+      { href: '/area-manager', label: 'Overview', icon: LayoutDashboard },
+      { href: '/area-manager/petty-cash', label: 'Petty Cash', icon: Wallet },
     ],
   },
 ]
 
-export function KorlapLayout({ children }: { children: ReactNode }) {
+export function AreaManagerLayout({ children }: { children: ReactNode }) {
   return (
     <RoleLayout
       brand="Suka"
-      brandAccent="Korlap"
+      brandAccent="Area Manager"
       navGroups={NAV_GROUPS}
-      homePath="/korlap"
-      defaultTitle="Dashboard Korlap"
+      homePath="/area-manager"
+      defaultTitle="Dashboard Area Manager"
     >
       {children}
     </RoleLayout>

@@ -733,11 +733,11 @@ export default function ShiftPage() {
                                 <p className={`text-[11px] font-semibold uppercase mt-0.5 ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-red-500' : 'text-blue-500'}`}>
                                   Top Up Petty Cash (
                                   {top.status === 'pending' ? '⏳ Menunggu Review Leader' : 
-                                   top.status === 'forwarded_to_korlap' ? '⏳ Menunggu Review Korlap' :
+                                   top.status === 'forwarded_to_area_manager' ? '⏳ Menunggu Review Area Manager' :
                                    top.status === 'forwarded_to_finance' ? '⏳ Menunggu Pencairan Finance' :
                                    top.status === 'rejected' ? '❌ Ditolak' : 
-                                   top.status === 'approved_by_finance' ? `⏳ Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Korlap'}` :
-                                   top.status === 'forwarded_by_korlap' ? '⏳ Dana dipegang Leader' :
+                                   top.status === 'approved_by_finance' ? `🟢 Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Area Manager'}` :
+                                   top.status === 'forwarded_by_area_manager' ? '🟢 Dana dipegang Leader' :
                                    top.status === 'forwarded_by_leader' ? '✅ Dana siap diterima Kasir' :
                                    `✅ Selesai${(top as any).disbursement_method ? ` - ${(top as any).disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`})
                                 </p>

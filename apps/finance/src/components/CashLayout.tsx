@@ -53,12 +53,12 @@ export function CashLayout({ children }: { children: ReactNode }) {
     { href: '/pengeluaran', label: 'Pengeluaran', icon: Receipt },
   ]
 
-  if (pathname?.startsWith('/leader') || pathname?.startsWith('/korlap')) {
+  if (pathname?.startsWith('/leader') || pathname?.startsWith('/area-manager')) {
     return <>{children}</>
   }
 
-  // Prevent leader/korlap from seeing the finance dashboard if they manually navigate to /setoran etc.
-  if (outletStaff && (outletStaff.role === 'leader' || outletStaff.role === 'korlap') && pathname !== '/') {
+  // Prevent leader/area-manager from seeing the finance dashboard if they manually navigate to /setoran etc.
+  if (outletStaff && (outletStaff.role === 'leader' || outletStaff.role === 'area_manager') && pathname !== '/') {
     if (typeof window !== 'undefined') {
       window.location.href = `/${outletStaff.role}`
     }

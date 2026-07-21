@@ -16,8 +16,8 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
   const [selectedRequest, setSelectedRequest] = useState<PettyCashTopup | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const reviewRequests = allRequests?.filter(r => r.status === 'pending' || r.status === 'forwarded_by_korlap' || r.status === 'approved_by_finance') || []
-  const historyRequests = allRequests?.filter(r => r.status !== 'pending' && r.status !== 'forwarded_by_korlap' && r.status !== 'approved_by_finance') || []
+  const reviewRequests = allRequests?.filter(r => r.status === 'pending' || r.status === 'forwarded_by_area_manager' || r.status === 'approved_by_finance') || []
+  const historyRequests = allRequests?.filter(r => r.status !== 'pending' && r.status !== 'forwarded_by_area_manager' && r.status !== 'approved_by_finance') || []
   
   const requests = activeTab === 'review' ? reviewRequests : historyRequests
 
@@ -96,10 +96,10 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                   <td className="py-3 px-4 text-sm text-suka-gray-500">{req.reason}</td>
                   <td className="py-3 px-4">
                     {req.status === 'pending' && <Badge variant="warning">Menunggu Leader</Badge>}
-                    {req.status === 'forwarded_to_korlap' && <Badge variant="info">Menunggu Korlap</Badge>}
+                    {req.status === 'forwarded_to_area_manager' && <Badge variant="info">Menunggu Area Manager</Badge>}
                     {req.status === 'forwarded_to_finance' && <Badge variant="info">Menunggu Finance</Badge>}
                     {req.status === 'approved_by_finance' && <Badge variant="info">Disetujui Finance (Serahkan)</Badge>}
-                    {req.status === 'forwarded_by_korlap' && <Badge variant="success">Diserahkan ke Leader</Badge>}
+                    {req.status === 'forwarded_by_area_manager' && <Badge variant="success">Diserahkan ke Leader</Badge>}
                     {req.status === 'forwarded_by_leader' && <Badge variant="success">Diserahkan ke Crew</Badge>}
                     {req.status === 'completed' && <Badge variant="success">Selesai</Badge>}
                     {req.status === 'approved' && <Badge variant="success">Disetujui</Badge>}
@@ -111,7 +111,7 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                         Review
                       </Button>
                     )}
-                    {(req.status === 'forwarded_by_korlap' || req.status === 'approved_by_finance') && activeTab === 'review' && (
+                    {(req.status === 'forwarded_by_area_manager' || req.status === 'approved_by_finance') && activeTab === 'review' && (
                       <Button variant="primary" size="sm" onClick={() => handleForward(req)}>
                         Teruskan Dana
                       </Button>

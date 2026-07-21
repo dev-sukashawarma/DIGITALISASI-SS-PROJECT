@@ -13,7 +13,7 @@ export type NavGroup = { title: string; items: NavItem[] }
 interface RoleLayoutProps {
   /** Static brand prefix, e.g. "Suka" */
   brand: string
-  /** Accent word after the brand prefix, e.g. "Leader" / "Korlap" */
+  /** Accent word after the brand prefix, e.g. "Leader" / "Area Manager" */
   brandAccent: string
   navGroups: NavGroup[]
   /** Path treated as the section root (never matched as a sub-route) */

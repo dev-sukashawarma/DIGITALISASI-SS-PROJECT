@@ -2,7 +2,7 @@ import { Wallet, Users, Award, UserCog, Clock, Megaphone, Star, Tag,
   Droplets, Zap, Wifi, Home, Globe, Building2, type LucideIcon } from 'lucide-react'
 
 export const OUTLET_CATEGORIES = [
-  'pengeluaran_outlet', 'gaji_crew_outlet', 'bonus_leader', 'bonus_korlap',
+  'pengeluaran_outlet', 'gaji_crew_outlet', 'bonus_leader', 'bonus_area_manager',
   'lembur', 'ads', 'endorsement', 'promo', 'pdam', 'pln', 'internet', 'sewa_outlet',
 ] as const
 export const PUSAT_CATEGORIES = ['pengeluaran_global', 'gaji_staff_kantor'] as const
@@ -20,7 +20,7 @@ export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: stri
   pengeluaran_outlet: { label: 'Pengeluaran Outlet', color: '#4b5563', icon: Wallet },
   gaji_crew_outlet:   { label: 'Gaji Crew Outlet',   color: '#701604', icon: Users },
   bonus_leader:       { label: 'Bonus Leader',       color: '#b45309', icon: Award },
-  bonus_korlap:       { label: 'Bonus Korlap',       color: '#92400e', icon: UserCog },
+  bonus_area_manager:       { label: 'Bonus Area Manager',       color: '#92400e', icon: UserCog },
   lembur:             { label: 'Lembur',             color: '#c2410c', icon: Clock },
   ads:                { label: 'Ads',                color: '#2563eb', icon: Megaphone },
   endorsement:        { label: 'Endorsement',        color: '#7c3aed', icon: Star },

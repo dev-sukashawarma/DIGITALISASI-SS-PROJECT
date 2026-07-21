@@ -57,13 +57,13 @@ export function useProcessPettyCashLeader() {
   })
 }
 
-export function useProcessPettyCashKorlap() {
+export function useProcessPettyCashArea Manager() {
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
-      const { error } = await supabase.rpc('korlap_process_petty_cash', {
+      const { error } = await supabase.rpc('area_manager_process_petty_cash', {
         p_topup_id: id,
         p_action: action
       })
@@ -105,13 +105,13 @@ export function useProcessPettyCashFinance() {
   })
 }
 
-export function useForwardPettyCashKorlap() {
+export function useForwardPettyCashAreaManager() {
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const { error } = await supabase.rpc('korlap_forward_funds', {
+      const { error } = await supabase.rpc('area_manager_forward_funds', {
         p_topup_id: id
       })
       if (error) throw error

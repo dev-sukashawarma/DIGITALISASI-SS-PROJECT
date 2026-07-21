@@ -22,7 +22,7 @@ export const Sidebar = () => {
     <aside className="hidden w-64 shrink-0 border-r border-suka-gray-200 bg-white md:flex md:flex-col print:hidden">
       <div className="p-5 border-b border-suka-gray-100">
         <div className="text-xl font-extrabold text-suka-brown tracking-tight">
-          {role === 'LEADER' ? 'Leader' : 'Admin'}
+          {role === 'LEADER' ? 'Leader' : role === 'AREA_MANAGER' ? 'AreaManager' : 'Admin'}
           <span className="text-suka-orange">Hub</span>
         </div>
       </div>

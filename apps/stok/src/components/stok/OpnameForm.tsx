@@ -241,31 +241,24 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
 
       const hasFlagged = items.some(i => i.flagged);
       
-      // Gudang tidak menggunakan sistem 'Menunggu Leader' (pending_approval),
-      // jadi jika ini gudang, akan langsung ter-finalize meskipun ada selisih.
-      if (hasFlagged && !isGudang) {
-        // Set status ke pending_approval — leader harus approve sebelum finalize
-        await setPendingApproval(opname.id);
-        setPendingApprovalState(true);
-        showToast('⚠️ Selisih terdeteksi! Opname menunggu persetujuan Leader.', 'warning');
-        // Tidak redirect — tampilkan state menunggu
+      // Semua outlet tidak menggunakan sistem 'Menunggu Leader' (pending_approval),
+      // jadi akan selalu langsung ter-finalize meskipun ada selisih.
+      const res = await finalize(opname.id);
+      
+      if (hasFlagged) {
+         showToast('✅ Opname difinalisasi (Selisih dicatat).', 'success');
       } else {
-        const res = await finalize(opname.id);
-        
-        if (hasFlagged) {
-           showToast('✅ Opname difinalisasi (Selisih dicatat).', 'success');
-        } else {
-           const successMsg = res.queued 
-             ? '⚠️ Offline: Data disimpan di antrean lokal & akan disinkron saat online!' 
-             : '🟢 Berhasil: Formulir opname berhasil disimpan dan difinalisasi!';
-           showToast(successMsg, res.queued ? 'warning' : 'success');
-        }
-
-        // Navigate back after toast plays a bit
-        setTimeout(() => {
-          router.push('/stok/opname');
-        }, 2000);
+         const successMsg = res.queued 
+           ? '⚠️ Offline: Data disimpan di antrean lokal & akan disinkron saat online!' 
+           : '🟢 Berhasil: Formulir opname berhasil disimpan dan difinalisasi!';
+         showToast(successMsg, res.queued ? 'warning' : 'success');
       }
+
+      // Navigate back after toast plays a bit
+      setTimeout(() => {
+        router.push('/stok/opname');
+      }, 2000);
+      
     } catch (err: any) {
       showToast(`🔴 Gagal memproses opname: ${err.message || err}`, 'warning');
     } finally {

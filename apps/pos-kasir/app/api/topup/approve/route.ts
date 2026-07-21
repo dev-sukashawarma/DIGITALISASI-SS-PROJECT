@@ -23,6 +23,16 @@ const HTML_HEADERS = {
     "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
 } as const
 
+// Perbandingan constant-time, seragam dengan /api/orders/update-status.
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return diff === 0
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -53,7 +63,19 @@ export async function GET(req: NextRequest) {
 
     if (fetchError || !topup) {
       return new NextResponse(
-        generateHtmlMsg('Top Up Tidak Ditemukan', 'Data top up tidak ditemukan atau ID salah.', false),
+        generateHtmlMsg('Top Up Tidak Ditemukan', 'Data top up tidak ditemukan atau link tidak valid.', false),
+        { headers: HTML_HEADERS }
+      )
+    }
+
+    // Token divalidasi SEBELUM status diperiksa. Kalau dibalik, pemegang `id`
+    // saja (tanpa token yang benar) tetap bisa memastikan pengajuan itu ada dan
+    // tahu posisinya di alur persetujuan -- oracle yang memudahkan penyalahgunaan lain.
+    // Pesan galatnya sengaja sama dengan "tidak ditemukan" agar tak membocorkan
+    // mana yang salah: id-nya, atau token-nya.
+    if (!timingSafeEqual(String(topup.approval_token ?? ''), token)) {
+      return new NextResponse(
+        generateHtmlMsg('Top Up Tidak Ditemukan', 'Data top up tidak ditemukan atau link tidak valid.', false),
         { headers: HTML_HEADERS }
       )
     }
@@ -68,13 +90,6 @@ export async function GET(req: NextRequest) {
     if (topup.status === 'rejected') {
       return new NextResponse(
         generateHtmlMsg('Sudah Ditolak', 'Top up ini sebelumnya sudah ditolak.', true),
-        { headers: HTML_HEADERS }
-      )
-    }
-
-    if (topup.approval_token !== token) {
-      return new NextResponse(
-        generateHtmlMsg('Token Tidak Valid', 'Token persetujuan tidak valid atau sudah kadaluarsa.', false),
         { headers: HTML_HEADERS }
       )
     }
@@ -169,9 +184,9 @@ export async function POST(req: NextRequest) {
       .eq('id', id)
       .single()
 
-    if (fetchError || !topup || topup.approval_token !== token) {
+    if (fetchError || !topup || !timingSafeEqual(String(topup.approval_token ?? ''), token)) {
       return new NextResponse(
-        generateHtmlMsg('Validasi Gagal', 'Data tidak ditemukan atau token tidak valid.', false),
+        generateHtmlMsg('Validasi Gagal', 'Data tidak ditemukan atau link tidak valid.', false),
         { headers: HTML_HEADERS }
       )
     }

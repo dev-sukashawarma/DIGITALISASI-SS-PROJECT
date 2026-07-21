@@ -467,7 +467,9 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
 
                 {/* Pesan (opsional) */}
                 <div className="pt-1 border-t border-suka-gray-100 space-y-4">
-                  <label className="block text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider">Pesan (opsional)</label>
+                  <label className="block text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider">
+                    Pesan (opsional)
+                  </label>
 
                   <div className="flex gap-2">
                     {KINDS.map((k) => {
@@ -515,7 +517,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                       value={body}
                       onChange={(e) => setBody(e.target.value)}
                       rows={3}
-                      placeholder="Tulis pesan untuk kasir... (kosongkan jika hanya set target)"
+                      placeholder={title.trim().length > 0 ? "Wajib diisi jika Anda menulis judul pesan..." : "Tulis pesan untuk kasir... (kosongkan jika hanya set target)"}
                       maxLength={500}
                       className="w-full px-3 py-2.5 rounded-xl text-sm font-medium text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 resize-none"
                     />
@@ -552,11 +554,16 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
 
                 <button
                   onClick={submit}
-                  disabled={sending}
-                  className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-suka-orange hover:bg-amber-600 disabled:opacity-40 text-white font-bold text-sm transition-all active:scale-95 shadow-sm shadow-suka-orange/20"
+                  disabled={
+                    sending || 
+                    (title.trim().length > 0 && body.trim().length === 0) || 
+                    (hasBonus && !hasTarget) || 
+                    (!hasTarget && body.trim().length === 0)
+                  }
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-suka-orange hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm transition-all active:scale-95 shadow-sm shadow-suka-orange/20"
                 >
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : sent ? <CheckCircle2 className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-                  {sent ? 'Terkirim!' : hasTarget && hasMessage ? 'Kirim Target & Pesan' : hasMessage ? 'Kirim Pesan' : 'Simpan Target'}
+                  {sent ? 'Terkirim!' : (title.trim().length > 0 && body.trim().length === 0) ? 'Isi Pesan Wajib Diisi' : (hasBonus && !hasTarget) ? 'Isi Target Harian' : (!hasTarget && body.trim().length === 0) ? 'Isi Target atau Pesan' : hasTarget && hasMessage ? 'Kirim Target & Pesan' : hasMessage ? 'Kirim Pesan' : 'Simpan Target'}
                 </button>
                   </div>
                 )}

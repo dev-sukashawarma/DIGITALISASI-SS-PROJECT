@@ -139,7 +139,7 @@ export default function BriefingBanner() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'owner_message_outlets' }, () => {
         setTimeout(fetchMessages, 500)
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_targets' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_sales_targets' }, () => {
         setTimeout(() => queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] }), 500)
       })
       .subscribe()

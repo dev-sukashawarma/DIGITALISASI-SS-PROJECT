@@ -49,6 +49,26 @@ export function useOpnameActions() {
     return data as Opname
   }, [])
 
+  const createOrReuseDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
+    // Cek apakah sudah ada draft hari ini untuk outlet ini
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const { data: existing } = await supabase.from('opname')
+      .select('*')
+      .eq('outlet_id', outletId)
+      .eq('tipe', tipe)
+      .eq('tanggal', todayStr)
+      .in('status', ['draft'])
+      .maybeSingle()
+
+    if (existing) return existing as Opname
+
+    // Tidak ada draft → buat baru
+    const { data, error } = await supabase.from('opname')
+      .insert({ outlet_id: outletId, tipe, created_by: createdBy, notes: notes || null }).select().single()
+    if (error) throw error
+    return data as Opname
+  }, [])
+
   const upsertItems = useCallback(async (items: Partial<OpnameItem>[]) => {
     const { error } = await supabase.from('opname_item')
       .upsert(items, { onConflict: 'opname_id,bahan_baku_id' })
@@ -81,5 +101,5 @@ export function useOpnameActions() {
 
   useEffect(() => { if (isOnline) flushFinalize() }, [isOnline, flushFinalize])
 
-  return { createDraft, upsertItems, setPendingApproval, finalize }
+  return { createDraft, createOrReuseDraft, upsertItems, setPendingApproval, finalize }
 }

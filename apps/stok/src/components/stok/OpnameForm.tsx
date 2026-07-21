@@ -92,7 +92,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   const router = useRouter();
   const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);
-  const { createDraft, upsertItems, setPendingApproval, finalize } = useOpnameActions();
+  const { createDraft, createOrReuseDraft, upsertItems, setPendingApproval, finalize } = useOpnameActions();
 
   const { data: outlets } = useQuery({
     queryKey: ['monitoring', 'outlets'],
@@ -220,7 +220,8 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     }
     setBusy(true);
     try {
-      const opname = await createDraft(outletId, 'harian', createdBy, notes);
+      // Cek apakah sudah ada draft hari ini untuk outlet ini, supaya tidak buat duplikat
+      const opname = await createOrReuseDraft(outletId, 'harian', createdBy, notes);
       const items = bahanBaku
         .filter((b) => fisik[b.id] !== undefined && fisik[b.id] !== '')
         .map((b) => {

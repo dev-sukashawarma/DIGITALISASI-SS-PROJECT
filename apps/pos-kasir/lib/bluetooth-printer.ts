@@ -28,23 +28,46 @@ const SERVICES = [
 async function connectToDevice(device: BluetoothDevice, store: any) {
   if (!device.gatt) throw new Error('Perangkat tidak mendukung GATT Bluetooth.');
 
-  const server = await device.gatt.connect();
+  // Jika sudah konek (stale state), putuskan dulu untuk reset koneksi
+  if (device.gatt.connected) {
+    device.gatt.disconnect();
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+
+  let server;
+  try {
+    server = await device.gatt.connect();
+  } catch (err: any) {
+    throw new Error('Gagal menyambung ke perangkat. Pastikan printer menyala. (' + err.message + ')');
+  }
+
+  // WORKAROUND KRITIS: Android Chrome sering throw "GATT Server is disconnected" 
+  // jika kita memanggil getPrimaryService() terlalu cepat setelah connect().
+  await new Promise(resolve => setTimeout(resolve, 600));
+
   let targetCharacteristic = null;
+  let lastError = null;
 
   for (const serviceUuid of SERVICES) {
     try {
       const service = await server.getPrimaryService(serviceUuid.toLowerCase());
+      await new Promise(resolve => setTimeout(resolve, 200)); // Delay ekstra stabilitas
+      
       const characteristics = await service.getCharacteristics();
       // @ts-ignore
       targetCharacteristic = characteristics.find((c: any) => c.properties.write || c.properties.writeWithoutResponse);
       if (targetCharacteristic) break;
-    } catch (err) {
-      // Skip
+    } catch (err: any) {
+      lastError = err;
+      // Skip ke UUID berikutnya jika gagal
     }
   }
 
   if (!targetCharacteristic) {
-    throw new Error('Tidak menemukan layanan cetak pada printer ini. Pastikan ini adalah printer thermal yang kompatibel.');
+    if (server.connected) {
+      server.disconnect();
+    }
+    throw new Error('Layanan cetak tidak ditemukan pada printer ini. (' + (lastError?.message || 'Unknown Service') + ')');
   }
 
   store.setDevice(device as WebBluetoothDevice, targetCharacteristic);
@@ -240,7 +263,9 @@ export async function printViaBluetooth(
   const payload = encoder.encode();
   
   // Safe chunking logic: send small chunks to prevent buffer overflow or split \r\n
-  const maxChunkSize = 128; 
+  // Diubah menjadi 64 bytes dan 50ms (ultra-safe) karena banyak printer murah
+  // langsung memutus koneksi (disconnect) jika buffer BLE penuh.
+  const maxChunkSize = 64; 
   try {
     for (let i = 0; i < payload.length; i += maxChunkSize) {
       const chunk = payload.slice(i, i + maxChunkSize);
@@ -252,7 +277,7 @@ export async function printViaBluetooth(
         await store.characteristic.writeValue(chunk);
       }
       // Increased delay to allow printer to process buffer properly
-      await new Promise(r => setTimeout(r, 40)); 
+      await new Promise(r => setTimeout(r, 50)); 
     }
   } catch (err: any) {
     console.error('Print chunk failed:', err);

@@ -124,8 +124,8 @@ export default function FaceDebugPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-suka-ink">Diagnostik Wajah</h1>
         <OutletSwitcher 
-          selectedOutletId={selectedOutletId} 
-          onOutletChange={setSelectedOutletId} 
+          currentOutletId={selectedOutletId} 
+          onChange={setSelectedOutletId} 
         />
       </div>
 

@@ -415,14 +415,24 @@ export function AttendanceKioskPanel() {
                 <p className="text-gray-300 text-xs leading-normal">
                   {kiosk.result?.message || "Anda terdeteksi di luar radius outlet."}
                 </p>
-                {kiosk.gpsDistance !== null && (
-                  <div className="inline-block bg-slate-900 border border-red-500/30 rounded-lg px-2.5 py-1 mt-1">
-                    <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Jarak Saat Ini</p>
-                    <p className="text-base font-black text-red-400">{formatDistanceMeters(kiosk.gpsDistance, false)}</p>
-                  </div>
-                )}
+                <div className="flex flex-col gap-2 mt-2">
+                  {kiosk.gpsDistance !== null && (
+                    <div className="inline-block bg-slate-900 border border-red-500/30 rounded-lg px-2.5 py-1">
+                      <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Jarak Saat Ini</p>
+                      <p className="text-base font-black text-red-400">{formatDistanceMeters(kiosk.gpsDistance, false)}</p>
+                    </div>
+                  )}
+                  {kiosk.deviceCoords && (
+                    <div className="inline-block bg-slate-900 border border-red-500/30 rounded-lg px-2.5 py-1">
+                      <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Koordinat Anda</p>
+                      <p className="text-[11px] font-mono text-red-300">
+                        {kiosk.deviceCoords.lat.toFixed(6)}, {kiosk.deviceCoords.lng.toFixed(6)}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-col gap-2 w-full max-w-[200px]">
+              <div className="flex flex-col gap-2 w-full max-w-[200px] mt-1">
                 <button
                   onClick={() => kiosk.checkLocation()}
                   className="py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-[0.98] w-full"

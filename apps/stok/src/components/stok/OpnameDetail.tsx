@@ -30,7 +30,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
     const load = async () => {
       try {
         const [opnameRes, itemsRes] = await Promise.all([
-          supabase.from('opname').select('*, outlet_staff(name)').eq('id', opnameId).single(),
+          supabase.from('opname').select('*, outlet_staff!opname_created_by_fkey(name)').eq('id', opnameId).single(),
           supabase.from('opname_item').select('id, opname_id, bahan_baku_id, qty_fisik, qty_system, selisih, flagged, catatan').eq('opname_id', opnameId)
         ])
         

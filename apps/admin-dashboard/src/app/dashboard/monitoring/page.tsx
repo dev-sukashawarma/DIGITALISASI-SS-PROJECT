@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
-import { Activity, User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck } from 'lucide-react'
+import { Activity, User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected } from 'lucide-react'
 
 type Outlet = { id: string; name: string; is_active: boolean; region?: string | null }
 type Staff = { id: string; name: string; outlet_id: string; role: string; is_active: boolean }
@@ -20,6 +20,7 @@ export default function MonitoringPage() {
   const [staffList, setStaffList] = useState<Staff[]>([])
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [opnamesToday, setOpnamesToday] = useState<Opname[]>([])
+  const [connectedPrinters, setConnectedPrinters] = useState<Set<string>>(new Set())
   
   const [checklistReq, setChecklistReq] = useState<Record<string, string[]>>({})
   const [checklistTicks, setChecklistTicks] = useState<Record<string, string[]>>({})
@@ -135,8 +136,28 @@ export default function MonitoringPage() {
         console.log(`[Realtime] Monitoring channel status: ${status}`)
       })
 
+    // Setup Realtime Presence for Printer status
+    const presenceRoom = supabase.channel('room:printer_status')
+    presenceRoom
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceRoom.presenceState()
+        const activeOutlets = new Set<string>()
+        
+        for (const id in state) {
+          const presences = state[id] as any[]
+          for (const presence of presences) {
+            if (presence.outlet_id && presence.is_connected) {
+              activeOutlets.add(presence.outlet_id)
+            }
+          }
+        }
+        setConnectedPrinters(activeOutlets)
+      })
+      .subscribe()
+
     return () => {
       supabase.removeChannel(sub)
+      supabase.removeChannel(presenceRoom)
     }
   }, [])
 
@@ -332,16 +353,22 @@ export default function MonitoringPage() {
                                 <Store className={`w-5 h-5 shrink-0 mt-0.5 ${hasOpnameToday ? 'text-blue-500' : 'text-gray-400'}`} />
                                 <h3 className="font-bold text-gray-900 leading-tight" title={outlet.name}>{outlet.name}</h3>
                               </div>
-                              {hasOpnameToday ? (
-                                <span title="Telah melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-700 border border-blue-200 animate-pulse">
-                                  <ClipboardCheck className="w-3 h-3 mr-1" />
-                                  Opname
+                              <div className="flex flex-col gap-1.5 items-end">
+                                {hasOpnameToday ? (
+                                  <span title="Telah melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-700 border border-blue-200 animate-pulse">
+                                    <ClipboardCheck className="w-3 h-3 mr-1" />
+                                    Opname
+                                  </span>
+                                ) : (
+                                  <span title="Belum melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-gray-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-gray-200">
+                                    Belum Opname
+                                  </span>
+                                )}
+                                <span title={connectedPrinters.has(outlet.id) ? "Printer Bluetooth Terhubung" : "Printer Bluetooth Terputus"} className={`flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${connectedPrinters.has(outlet.id) ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                                  {connectedPrinters.has(outlet.id) ? <BluetoothConnected className="w-3 h-3 mr-1" /> : <Bluetooth className="w-3 h-3 mr-1" />}
+                                  Printer
                                 </span>
-                              ) : (
-                                <span title="Belum melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-gray-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-gray-200">
-                                  Belum Opname
-                                </span>
-                              )}
+                              </div>
                             </div>
                             <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold self-start w-full sm:w-auto ${posColor}`}>
                               <PosIcon className="w-3.5 h-3.5 shrink-0" />

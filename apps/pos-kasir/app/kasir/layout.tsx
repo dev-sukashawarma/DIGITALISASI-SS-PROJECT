@@ -9,6 +9,7 @@ import OfflineSyncManager from '@/components/OfflineSyncManager'
 import OfflineWarmup from '@/components/OfflineWarmup'
 import PettyCashNotification from '@/components/PettyCashNotification'
 import PrinterBlockerMount from '@/components/PrinterBlockerMount'
+import PrinterPresence from '@/components/PrinterPresence'
 
 export default function KasirLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -22,6 +23,7 @@ export default function KasirLayout({ children }: { children: React.ReactNode })
       <OnlineOrderSync />
       <PettyCashNotification />
       <PrinterBlockerMount />
+      <PrinterPresence />
       <KasirNav />
       <main className="flex-1 min-w-0 overflow-y-auto print:overflow-visible print:w-full print:max-w-none">
         {/* Briefing hari ini: target harian + pesan owner (satu kartu persisten) */}

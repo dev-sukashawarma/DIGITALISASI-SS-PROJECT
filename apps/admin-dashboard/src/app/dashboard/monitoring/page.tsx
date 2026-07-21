@@ -246,7 +246,7 @@ export default function MonitoringPage() {
       ) : (
         <div className="flex flex-col gap-6 animate-fade-in">
           {/* Filter Bar */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 relative z-20">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto p-1.5 bg-gray-50/80 rounded-xl border border-gray-100/80 backdrop-blur-sm shadow-sm">
               <Select 
                 value={posStatusFilter}  

@@ -18,9 +18,6 @@ export default async function AdminMenuPage(props: {
   })
 
   let itemsQuery = supabase.from('menu_items').select('*, categories(id,name,sort_order), package_items:menu_packages!package_id(id, menu_item_id, quantity, or_menu_item_id)').order('sort_order')
-  if (q) {
-    itemsQuery = itemsQuery.ilike('name', `%${q}%`)
-  }
 
   let [itemsRes, categoriesRes, settingsRes, channelsRes, outletsRes] = await Promise.all([
     itemsQuery,
@@ -33,9 +30,6 @@ export default async function AdminMenuPage(props: {
   if (itemsRes.error) {
     console.error("Error fetching items with package_items:", itemsRes.error);
     let fallbackQuery = supabase.from('menu_items').select('*, categories(id,name,sort_order)').order('sort_order');
-    if (q) {
-      fallbackQuery = fallbackQuery.ilike('name', `%${q}%`);
-    }
     itemsRes = await fallbackQuery;
   }
 
@@ -65,6 +59,7 @@ export default async function AdminMenuPage(props: {
       initialUpsells={upsellIds}
       initialBestsellers={bestsellerIds}
       initialRecommendations={recommendationIds}
+      searchQuery={q}
     />
   )
 }

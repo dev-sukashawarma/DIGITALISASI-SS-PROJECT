@@ -64,6 +64,7 @@ interface MenuViewProps {
   initialUpsells?: string[]
   initialBestsellers?: string[]
   initialRecommendations?: string[]
+  searchQuery?: string
 }
 
 export default function MenuView({ 
@@ -73,7 +74,8 @@ export default function MenuView({
   initialOutlets = [],
   initialUpsells = [], 
   initialBestsellers = [], 
-  initialRecommendations = [] 
+  initialRecommendations = [],
+  searchQuery = ''
 }: MenuViewProps) {
   const router = useRouter()
 
@@ -103,6 +105,12 @@ export default function MenuView({
 
   const sortedItems = useMemo(() => {
     let sortableItems = [...initialItems];
+
+    if (searchQuery) {
+      sortableItems = sortableItems.filter(item => 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
 
     if (activeChannelFilter) {
       const slug = getSlug(activeChannelFilter);
@@ -146,7 +154,7 @@ export default function MenuView({
       });
     }
     return sortableItems;
-  }, [initialItems, sortConfig, activeChannelFilter]);
+  }, [initialItems, sortConfig, activeChannelFilter, searchQuery]);
 
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';

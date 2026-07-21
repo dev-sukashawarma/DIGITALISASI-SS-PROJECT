@@ -35,10 +35,24 @@ async function connectToDevice(device: BluetoothDevice, store: any) {
   }
 
   let server;
-  try {
-    server = await device.gatt.connect();
-  } catch (err: any) {
-    throw new Error('Gagal menyambung ke perangkat. Pastikan printer menyala. (' + err.message + ')');
+  let connectAttempts = 0;
+  const maxAttempts = 3;
+  
+  while (connectAttempts < maxAttempts) {
+    try {
+      server = await device.gatt.connect();
+      break; // Berhasil konek, keluar dari loop
+    } catch (err: any) {
+      connectAttempts++;
+      console.warn(`Percobaan koneksi ke-${connectAttempts} gagal:`, err);
+      
+      if (connectAttempts >= maxAttempts) {
+        throw new Error(`Gagal menyambung ke perangkat setelah ${maxAttempts} percobaan. Pastikan printer menyala. (${err.message})`);
+      }
+      
+      // Tunggu sebentar sebelum mencoba lagi (Backoff)
+      await new Promise(resolve => setTimeout(resolve, 500 * connectAttempts));
+    }
   }
 
   // WORKAROUND KRITIS: Android Chrome sering throw "GATT Server is disconnected" 

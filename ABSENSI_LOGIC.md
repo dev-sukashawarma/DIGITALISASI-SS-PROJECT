@@ -63,15 +63,15 @@ Alur absensi pada mesin Kiosk/Client diatur melalui *state machine* dengan fase-
 
 Geofencing diterapkan dengan perhitungan *Haversine Formula* (jarak bumi bulat) dalam satuan meter.
 
-- **Konstanta Jarak Maksimal (Radius)**: `GEOFENCE_RADIUS_M = 20` meter.
+- **Konstanta Jarak Maksimal (Radius)**: `GEOFENCE_RADIUS_M = 50` meter.
 - **Konstanta Akurasi Terburuk (Max Accuracy)**: `MAX_GPS_ACCURACY_M = 150` meter.
 - **Toleransi Akurasi Indoor (GPS Drift)**:
   Karena perangkat berada di dalam ruangan, GPS sering "melompat" dan akurasinya merosot (misalnya akurasi 15m, jarak terukur 30m). Logika kompensasi yang digunakan:
   `Adjusted Distance = Math.max(0, Distance_Meters - Accuracy_Meters)`
 - **Kondisi Lolos**:
-  `Adjusted Distance <= 20`
+  `Adjusted Distance <= 50`
 - **Contoh Kasus**:
-  - Jarak 30m, Akurasi 15m $\rightarrow$ Adjusted = $30 - 15 = 15m$ ($\le 20m \rightarrow$ **Lolos**)
+  - Jarak 60m, Akurasi 20m $\rightarrow$ Adjusted = $60 - 20 = 40m$ ($\le 50m \rightarrow$ **Lolos**)
   - Jarak 5m, Akurasi 160m $\rightarrow$ Ditolak sejak awal karena $160m > 150m$ (MAX\_GPS\_ACCURACY\_M).
 - **Server Validates**: 
   Nilai `lat` dan `lng` beserta `accuracy` dikirim ke server. Server melakukan perhitungan ulang dengan tabel `outlets`. Ini wajib ditiru di *backend* agar *client* (mobile app) tidak dapat memanipulasi absensi lewat *Fake GPS* secara naif. Pengecualian: jika `lat/lng` outlet di database *NULL*, maka validasi lokasi *di-bypass* sepenuhnya.

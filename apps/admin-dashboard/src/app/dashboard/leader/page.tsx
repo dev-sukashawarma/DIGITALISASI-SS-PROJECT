@@ -7,7 +7,7 @@ export default function LeaderDashboardPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard Cabang</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Leader Dashboard</h1>
         <p className="text-sm text-slate-500 mt-1">Ringkasan performa dan operasional cabang Anda hari ini.</p>
       </div>
 

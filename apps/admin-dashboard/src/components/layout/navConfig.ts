@@ -14,11 +14,11 @@ export type NavGroup = { title: string; icon: LucideIcon; items: NavItem[]; role
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    title: 'Dashboard Cabang',
+    title: 'Leader Dashboard',
     icon: Store,
     roles: ['LEADER'],
     items: [
-      { href: '/dashboard/leader', label: 'Ringkasan Cabang', shortLabel: 'Overview', icon: LayoutDashboard, roles: ['LEADER'] },
+      { href: '/dashboard/leader', label: 'Ringkasan Leader', shortLabel: 'Overview', icon: LayoutDashboard, roles: ['LEADER'] },
       { href: '/dashboard/leader/petty-cash', label: 'Top Up Petty Cash', shortLabel: 'Petty Cash', icon: Banknote, roles: ['LEADER'] },
       { href: '/dashboard/leader/sales', label: 'Penjualan & Target', shortLabel: 'Penjualan', icon: Target, roles: ['LEADER'] },
       { href: '/dashboard/leader/stock', label: 'Stok Cabang', shortLabel: 'Stok', icon: Package, roles: ['LEADER'] },

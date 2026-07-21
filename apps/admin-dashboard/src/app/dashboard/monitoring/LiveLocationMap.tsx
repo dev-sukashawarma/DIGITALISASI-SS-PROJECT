@@ -3,7 +3,7 @@
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Store, User } from 'lucide-react'
+import { User, MapPin, Navigation } from 'lucide-react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 // Fix leaflet default icons for Next.js
@@ -38,6 +38,7 @@ export type OutletLocation = {
   name: string
   lat: number | null
   lng: number | null
+  address?: string | null
 }
 
 export type CrewLocation = {
@@ -61,7 +62,6 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
     ? [outlets.find(o => o.lat && o.lng)!.lat!, outlets.find(o => o.lat && o.lng)!.lng!] 
     : [-6.200000, 106.816666]
 
-  const outletIcon = createCustomIcon(<Store size={18} />, 'text-[#904d00]', 'bg-[#f29744]')
   const crewIcon = createCustomIcon(<User size={18} />, 'text-blue-700', 'bg-blue-100')
 
   return (
@@ -77,18 +77,7 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
 
-        {/* Render Outlets */}
-        {outlets.map(outlet => {
-          if (!outlet.lat || !outlet.lng) return null
-          return (
-            <Marker key={outlet.id} position={[outlet.lat, outlet.lng]} icon={outletIcon}>
-              <Popup>
-                <div className="font-bold text-[#1e1b15]">{outlet.name}</div>
-                <div className="text-xs text-[#877365]">Cabang Resmi</div>
-              </Popup>
-            </Marker>
-          )
-        })}
+        {/* Render Crews Only */}
 
         {/* Render Crews */}
         {crews.map(crew => {
@@ -98,12 +87,36 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
           return (
             <div key={crew.staff_id}>
               <Marker position={[crew.lat, crew.lng]} icon={crewIcon}>
-                <Popup>
-                  <div className="font-bold text-[#1e1b15]">{crew.staff_name}</div>
-                  <div className="text-xs text-blue-600 font-semibold mb-1 uppercase tracking-wider">{crew.role}</div>
-                  <div className="text-xs text-[#877365]">Di Cabang: {matchedOutlet?.name || 'Tidak diketahui'}</div>
-                  <div className="text-[10px] text-gray-400 mt-1">
-                    Update: {new Date(crew.updated_at).toLocaleTimeString('id-ID')}
+                <Popup className="min-w-[220px]">
+                  <div className="font-black text-[#1e1b15] text-lg mb-1">{crew.staff_name}</div>
+                  <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                      {crew.role}
+                    </span>
+                    <span className="bg-[#f5ede3] text-[#904d00] px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider truncate max-w-[140px]" title={matchedOutlet?.name || ''}>
+                      {matchedOutlet?.name || 'Cabang Unknown'}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-start gap-1.5 text-[#544437]">
+                      <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[#877365]" />
+                      <span className="leading-tight">{matchedOutlet?.address || 'Alamat cabang tidak tersedia'}</span>
+                    </div>
+                    <div className="flex items-start gap-1.5 text-[#544437]">
+                      <Navigation className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-600" />
+                      <span className="font-mono text-[10px] bg-gray-100 px-1 py-0.5 rounded text-gray-700">
+                        Lat: {crew.lat.toFixed(6)} <br/>
+                        Lng: {crew.lng.toFixed(6)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px]">
+                    <span className="text-gray-400">Update Terakhir:</span>
+                    <span className="font-bold text-[#1e1b15]">
+                      {new Date(crew.updated_at).toLocaleTimeString('id-ID')}
+                    </span>
                   </div>
                 </Popup>
               </Marker>

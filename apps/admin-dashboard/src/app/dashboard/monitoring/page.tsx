@@ -12,7 +12,7 @@ const LiveLocationMap = dynamic(() => import('./LiveLocationMap'), {
   loading: () => <div className="w-full h-[600px] bg-gray-100 animate-pulse rounded-2xl border border-gray-200"></div> 
 })
 
-type Outlet = { id: string; name: string; is_active: boolean; region?: string | null; lat?: number | null; lng?: number | null }
+type Outlet = { id: string; name: string; is_active: boolean; region?: string | null; lat?: number | null; lng?: number | null; address?: string | null }
 type Staff = { id: string; name: string; outlet_id: string; role: string; is_active: boolean }
 type Attendance = { outlet_id: string; outlet_staff_id: string; type: 'in' | 'out'; ts_server: string }
 type Opname = { id: string; outlet_id: string; created_at: string }
@@ -60,7 +60,7 @@ export default function MonitoringPage() {
 
       // Fetch independent queries in parallel for instant updates
       const [outRes, stfRes, attRes, catRes, recRes, opnRes] = await Promise.all([
-        supabase.from('outlets').select('id, name, is_active, region, lat, lng').eq('is_active', true),
+        supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
         supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader']),
         supabase.from('attendance')
           .select('outlet_id, outlet_staff_id, type, ts_server')

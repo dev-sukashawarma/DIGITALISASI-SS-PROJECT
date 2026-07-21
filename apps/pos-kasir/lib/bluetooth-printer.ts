@@ -110,8 +110,9 @@ export async function autoConnectBluetoothPrinter() {
   } catch (error: any) {
     console.warn('Auto-connect Bluetooth gagal, abaikan saja:', error);
   } finally {
-    if (store.isConnecting) {
-      store.setConnecting(false);
+    const freshStore = usePrinterStore.getState();
+    if (freshStore.isConnecting) {
+      freshStore.setConnecting(false);
     }
   }
   return false;
@@ -243,7 +244,13 @@ export async function printViaBluetooth(
   try {
     for (let i = 0; i < payload.length; i += maxChunkSize) {
       const chunk = payload.slice(i, i + maxChunkSize);
-      await store.characteristic.writeValue(chunk);
+      if (store.characteristic.properties.writeWithoutResponse && typeof store.characteristic.writeValueWithoutResponse === 'function') {
+        await store.characteristic.writeValueWithoutResponse(chunk);
+      } else if (store.characteristic.properties.write && typeof store.characteristic.writeValueWithResponse === 'function') {
+        await store.characteristic.writeValueWithResponse(chunk);
+      } else {
+        await store.characteristic.writeValue(chunk);
+      }
       // Increased delay to allow printer to process buffer properly
       await new Promise(r => setTimeout(r, 40)); 
     }

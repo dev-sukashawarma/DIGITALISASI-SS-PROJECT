@@ -60,15 +60,15 @@ export default function PrinterBlockerMount() {
     }
   }, [device])
 
-  const handleConnectClick = () => {
+  const handleConnectClick = async () => {
     setIsScanningAnim(true)
-    // Build hype with custom scanning UI for 2 seconds before calling real bluetooth prompt
-    setTimeout(() => {
-      connectBluetoothPrinter().catch(() => {
-        // If it fails immediately (e.g. cancelled), reset the animation state
-        setIsScanningAnim(false)
-      })
-    }, 2000)
+    // HAPUS setTimeout: Web Bluetooth API (requestDevice) WAJIB dipanggil secara sinkronous
+    // dari user gesture (onClick). Menggunakan setTimeout > 1 detik akan memblokir request 
+    // dengan error "Must be handling a user gesture".
+    const success = await connectBluetoothPrinter()
+    if (!success) {
+      setIsScanningAnim(false)
+    }
   }
 
   // Effect to reset scanning animation if store connection state changes to false and we don't have device

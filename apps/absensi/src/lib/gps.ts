@@ -11,12 +11,12 @@ export type LatLng = { lat: number; lng: number };
 /**
  * Radius geofence absensi (meter) - sumber tunggal client & server.
  *
- * Diperketat ke 50 m setelah koordinat outlet dikalibrasi akurat lewat halaman
+ * Diperketat ke 100 m setelah koordinat outlet dikalibrasi akurat lewat halaman
  * peta SPV (/dashboard/pengaturan-lokasi). GPS drift indoor dikompensasi
  * toleransi akurasi inline (max(0, jarak - akurasi) <= radius) + penolakan
  * akurasi buruk (MAX_GPS_ACCURACY_M). Outlet dengan lat/lng NULL dikecualikan.
  */
-export const GEOFENCE_RADIUS_M = 50;
+export const GEOFENCE_RADIUS_M = 100;
 
 const EARTH_RADIUS_M = 6_371_000; // radius rata-rata bumi (meter)
 

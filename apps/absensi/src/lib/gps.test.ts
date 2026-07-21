@@ -50,8 +50,8 @@ describe("isWithinRadius", () => {
 });
 
 describe("GEOFENCE_RADIUS_M", () => {
-  test("is 50 meters", () => {
-    expect(GEOFENCE_RADIUS_M).toBe(50);
+  test("is 100 meters", () => {
+    expect(GEOFENCE_RADIUS_M).toBe(100);
   });
 });
 
@@ -65,17 +65,17 @@ describe("isGpsAccuracyAcceptable", () => {
   });
 });
 
-describe("toleransi akurasi pada radius 50 (logika inline client/server)", () => {
+describe("toleransi akurasi pada radius 100 (logika inline client/server)", () => {
   const outlet = { lat: -6.2, lng: 106.84 };
-  // ~0.0006 deg lat ≈ 66.7 m utara
-  const far = { lat: outlet.lat + 0.0006, lng: outlet.lng };
+  // ~0.0011 deg lat ≈ 122.2 m utara
+  const far = { lat: outlet.lat + 0.0011, lng: outlet.lng };
   const adjusted = (acc: number) => Math.max(0, haversineMeters(outlet, far) - acc);
 
-  test("rejects 66m away with perfect accuracy (0)", () => {
+  test("rejects 122m away with perfect accuracy (0)", () => {
     expect(adjusted(0) <= GEOFENCE_RADIUS_M).toBe(false);
   });
-  test("accepts 66m away when accuracy 25m absorbs the gap", () => {
-    // adjusted = max(0, ~66.7 - 25) ≈ 41.7 <= 50
+  test("accepts 122m away when accuracy 25m absorbs the gap", () => {
+    // adjusted = max(0, ~122.2 - 25) ≈ 97.2 <= 100
     expect(adjusted(25) <= GEOFENCE_RADIUS_M).toBe(true);
   });
   test("accepts point at center regardless", () => {

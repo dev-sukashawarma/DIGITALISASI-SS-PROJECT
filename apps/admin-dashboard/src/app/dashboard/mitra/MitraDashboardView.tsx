@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { MitraOutletDetails } from './MitraOutletDetails'
-import { PageHeader } from '@/components/ui'
 import CountUp from 'react-countup'
 import { TrendingUp, DollarSign, Store, Activity } from 'lucide-react'
 import { deltaPct } from '@/lib/format'
 import dynamic from 'next/dynamic'
+
+import { useMitraOutlet } from './MitraOutletContext'
+import { TabInfoOutlet } from './MitraOutletInfo'
 
 const RevenueTrendChart = dynamic(
   () => import('@/components/RevenueTrendChart').then((m) => m.RevenueTrendChart),
@@ -15,22 +15,11 @@ const RevenueTrendChart = dynamic(
 
 export function MitraDashboardView({ 
   mitra, 
-  outlets, 
   investasiMap,
   curKpiRows,
   prevKpiRows
 }: any) {
-  const [selectedOutletId, setSelectedOutletId] = useState<string | null>(
-    outlets.length > 0 ? outlets[0].id : null
-  )
-  
-  useEffect(() => {
-    if (outlets.length > 0 && !selectedOutletId) {
-      setSelectedOutletId(outlets[0].id)
-    }
-  }, [outlets, selectedOutletId])
-  
-  const selectedOutlet = outlets.find((o: any) => o.id === selectedOutletId)
+  const { outlets, selectedOutlet, selectedOutletId, setSelectedOutletId } = useMitraOutlet()
   
   // Hitung Nilai Investasi
   const currentInvestasi = selectedOutletId ? (investasiMap[selectedOutletId] || 0) : 0
@@ -59,62 +48,71 @@ export function MitraDashboardView({
           isPositive ? 'text-suka-green bg-green-100/80 border border-green-200' : 'text-red-700 bg-red-100/80 border border-red-200'
         }`}
       >
-        {isPositive ? '↑' : '↓'} {Math.abs(delta).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%
+        {isPositive ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
       </span>
     )
   }
 
   return (
-    <div className="relative min-h-screen pb-12 w-full max-w-[1600px] mx-auto animate-fade-in">
-      
-      {/* Decorative Premium Background Elements */}
-      <div className="absolute top-0 inset-x-0 h-[400px] bg-gradient-to-br from-suka-orange/10 via-suka-orange/5 to-transparent rounded-b-[40px] pointer-events-none -z-10" />
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-suka-orange/10 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="absolute top-[10%] right-[-5%] w-[400px] h-[400px] bg-suka-brown/5 rounded-full blur-3xl pointer-events-none -z-10" />
+    <div className="min-h-screen relative overflow-hidden bg-[#fafafa]">
+      {/* Premium Glassmorphic Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-br from-suka-orange/10 via-suka-brown/5 to-transparent pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-suka-orange/20 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-suka-brown/10 blur-[120px] pointer-events-none" />
 
-      <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+      <div className="max-w-7xl mx-auto space-y-8 p-4 sm:p-6 lg:p-8 relative z-10 animate-fade-in">
         
-        {/* Header Section (Re-layout) */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 relative z-10">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 backdrop-blur-md border border-white shadow-sm mb-4">
-              <span className="w-2 h-2 rounded-full bg-suka-green animate-pulse"></span>
-              <span className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Mitra Investor Portal</span>
+        {/* Hero Section with Glassmorphism */}
+        <div className="bg-white/70 backdrop-blur-xl border border-white p-8 rounded-[32px] shadow-xl shadow-suka-orange/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-suka-orange/10 rounded-full blur-[60px] -z-10 translate-x-1/2 -translate-y-1/2"></div>
+          
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-suka-orange/10 text-suka-orange text-xs font-black uppercase tracking-widest border border-suka-orange/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-suka-orange mr-2 animate-pulse"></span>
+                Portal Kemitraan
+              </span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-suka-brown tracking-tight mb-2">
-              Selamat datang, <span className="text-suka-orange">{mitra.nama_mitra}</span>.
+            <h1 className="text-3xl md:text-4xl font-black text-suka-brown tracking-tighter">
+              Halo, <span className="text-suka-orange drop-shadow-sm">{mitra.nama_lengkap || 'Mitra'}</span> 👋
             </h1>
-            <p className="text-sm sm:text-base text-suka-gray-500 max-w-2xl font-medium">
-              Pantau performa harian outlet Anda, analisis tren penjualan, dan tingkatkan nilai pengembalian investasi (ROI) secara *real-time*.
+            <p className="text-suka-gray-500 font-medium">
+              Pantau performa dan ringkasan investasi outlet Anda secara real-time.
             </p>
           </div>
-
+          
+          {/* Outlet Selector (Floating Glass Button Style) */}
           {outlets.length > 0 && (
-            <div className="flex flex-col gap-1.5 bg-white/40 backdrop-blur-md p-2 rounded-2xl border border-white/60 shadow-sm shrink-0">
-              <label className="text-[10px] font-extrabold text-suka-gray-500 uppercase tracking-wider px-2">Outlet Terpilih</label>
-              <div className="relative">
-                <select
+            <div className="w-full md:w-auto relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-suka-orange to-suka-brown rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+              <div className="relative bg-white/80 backdrop-blur-md rounded-2xl border border-white shadow-sm p-2 flex items-center">
+                <div className="p-2 bg-suka-orange/10 rounded-xl mr-3">
+                  <Store className="w-5 h-5 text-suka-orange" />
+                </div>
+                <select 
+                  className="bg-transparent text-sm font-extrabold text-suka-brown outline-none cursor-pointer pr-8 appearance-none"
                   value={selectedOutletId || ''}
                   onChange={(e) => setSelectedOutletId(e.target.value)}
-                  className="w-full sm:w-64 appearance-none pl-4 pr-10 py-3 bg-white/80 backdrop-blur-lg border border-white/60 rounded-xl text-sm font-extrabold text-suka-brown focus:ring-2 focus:ring-suka-orange focus:border-suka-orange outline-none cursor-pointer transition-all hover:bg-white hover:shadow-md"
                 >
-                  {outlets.map((outlet: any) => (
-                    <option key={outlet.id} value={outlet.id}>
-                      {outlet.name}
+                  {outlets.map((o: any) => (
+                    <option key={o.id} value={o.id} className="font-medium text-slate-700">
+                      Outlet: {o.name}
                     </option>
                   ))}
                 </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Store className="w-4 h-4 text-suka-orange" />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <svg className="w-4 h-4 text-suka-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
               </div>
             </div>
           )}
         </div>
-        
+
         {outlets.length === 0 ? (
-          <div className="bg-white/70 backdrop-blur-md border border-white/80 rounded-[32px] p-16 text-center shadow-xl shadow-suka-orange/5 max-w-3xl mx-auto mt-12 relative z-10">
-            <div className="bg-gradient-to-br from-suka-orange/20 to-suka-orange/5 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+          <div className="bg-white/70 backdrop-blur-md rounded-[32px] p-12 text-center border border-white shadow-xl shadow-suka-orange/5 animate-fade-in relative overflow-hidden">
+             <div className="bg-suka-orange/10 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
               <Store className="w-12 h-12 text-suka-orange" />
             </div>
             <h3 className="text-2xl font-extrabold text-suka-brown mb-3">Belum Ada Outlet Aktif</h3>
@@ -124,6 +122,12 @@ export function MitraDashboardView({
           </div>
         ) : (
           <div className="space-y-8 relative z-10">
+            
+            {/* Info Cards Moved to Top */}
+            {selectedOutlet && (
+              <TabInfoOutlet outlet={selectedOutlet} />
+            )}
+
             {/* KPI Cards - Glassmorphism Style */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               
@@ -226,16 +230,6 @@ export function MitraDashboardView({
                   className="w-full"
                />
             </div>
-
-            {/* Details Tabs */}
-            {selectedOutlet && (
-              <div className="pt-4">
-                <MitraOutletDetails 
-                  outlet={selectedOutlet}
-                  userId={mitra.user_id}
-                />
-              </div>
-            )}
           </div>
         )}
       </div>

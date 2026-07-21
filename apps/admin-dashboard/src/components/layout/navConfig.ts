@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, type LucideIcon,
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, type LucideIcon, MessageSquare, ArrowRightLeft
 } from 'lucide-react'
 
 
@@ -44,6 +44,11 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['MITRA'],
     items: [
       { href: '/dashboard/mitra', label: 'Dashboard Saya', shortLabel: 'Dashboard', icon: LayoutDashboard, roles: ['MITRA'] },
+      { href: '/dashboard/mitra/orderan', label: 'Riwayat Orderan', shortLabel: 'Orderan', icon: ShoppingCart, roles: ['MITRA'] },
+      { href: '/dashboard/mitra/tim', label: 'Tim Outlet', shortLabel: 'Tim', icon: Users, roles: ['MITRA'] },
+      { href: '/dashboard/mitra/investasi', label: 'Laporan Investasi', shortLabel: 'Investasi', icon: DollarSign, roles: ['MITRA'] },
+      { href: '/dashboard/mitra/transfer', label: 'Transfer Bagi Hasil', shortLabel: 'Transfer', icon: ArrowRightLeft, roles: ['MITRA'] },
+      { href: '/dashboard/mitra/saran', label: 'Saran & Kritik', shortLabel: 'Saran', icon: MessageSquare, roles: ['MITRA'] },
     ],
   },
   {

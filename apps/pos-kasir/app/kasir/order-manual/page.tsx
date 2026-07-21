@@ -329,6 +329,8 @@ export default function OrderManualPage() {
       if (isOnlineChannel) {
         if (it.is_available_online === false) return false
         if (it.available_online_channels && !it.available_online_channels.includes(channel || '')) return false
+      } else if (mode === 'walkin' || mode === 'endorse') {
+        if (it.available_online_channels && it.available_online_channels.length > 0) return false
       }
       return true
     }).map(it => {
@@ -336,12 +338,31 @@ export default function OrderManualPage() {
       const isAutoUnav = autoUnavailableIds.has(it.id)
       const isForceAvail = forceAvailableIds.has(it.id)
       const isDisabled = isManualUnav || (isAutoUnav && !isForceAvail) || it.is_available === false
-      return { ...it, isDisabled }
+
+      let price = it.price;
+      let strike_price = it.strike_price;
+      
+      if (strike_price != null && strike_price < price) {
+        price = strike_price;
+        strike_price = it.price;
+      }
+
+      return { ...it, price, strike_price, isDisabled }
     })
-  }, [items, unavailableIds, autoUnavailableIds, forceAvailableIds, activeCat, search, channel])
+  }, [items, unavailableIds, autoUnavailableIds, forceAvailableIds, activeCat, search, channel, mode])
 
   const upsellItems = useMemo(() => {
-    return items.filter(it => upsellIds.includes(it.id) && it.is_available !== false)
+    return items.filter(it => upsellIds.includes(it.id) && it.is_available !== false).map(it => {
+      let price = it.price;
+      let strike_price = it.strike_price;
+      
+      if (strike_price != null && strike_price < price) {
+        price = strike_price;
+        strike_price = it.price;
+      }
+
+      return { ...it, price, strike_price }
+    })
   }, [items, upsellIds])
 
   // ── Helper keranjang ──────────────────────────────────────────────────────

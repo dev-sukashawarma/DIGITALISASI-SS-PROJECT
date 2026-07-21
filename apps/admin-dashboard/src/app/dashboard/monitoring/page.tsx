@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
-import { Activity, User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, LineChart, Cpu, ClipboardCheck } from 'lucide-react'
-import LiveCashflow from './LiveCashflow'
+import { Activity, User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck } from 'lucide-react'
 
 type Outlet = { id: string; name: string; is_active: boolean; region?: string | null }
 type Staff = { id: string; name: string; outlet_id: string; role: string; is_active: boolean }
@@ -13,7 +12,6 @@ type Attendance = { outlet_id: string; outlet_staff_id: string; type: 'in' | 'ou
 type Opname = { id: string; outlet_id: string; created_at: string }
 
 export default function MonitoringPage() {
-  const [activeTab, setActiveTab] = useState<'pos-status' | 'live-cashflow'>('pos-status')
   const [selectedOutletId, setSelectedOutletId] = useState<string>('ALL')
   const [posStatusFilter, setPosStatusFilter] = useState<string>('ALL')
   const [crewStatusFilter, setCrewStatusFilter] = useState<string>('ALL')
@@ -162,46 +160,16 @@ export default function MonitoringPage() {
 
   return (
     <div className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 bg-gray-50/50 min-h-[calc(100vh-4rem)] relative">
-      {/* Tab Navigation */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2.5">
             <Activity className="w-7 h-7 sm:w-8 sm:h-8 text-suka-orange" />
             Monitoring Aktivitas Sistem
           </h1>
-          <p className="text-sm text-gray-500 font-medium mt-1">Pantau kesiapan cabang, kru, dan arus kas secara real-time</p>
-        </div>
-
-        <div className="inline-flex items-center p-1 bg-gray-200/50 rounded-xl border border-gray-200/80 backdrop-blur-sm self-start">
-          <button
-            onClick={() => setActiveTab('pos-status')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
-              activeTab === 'pos-status'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-            }`}
-          >
-            <Cpu className="w-4 h-4" />
-            POS & Crew
-          </button>
-          <button
-            onClick={() => setActiveTab('live-cashflow')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
-              activeTab === 'live-cashflow'
-                ? 'bg-white text-emerald-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-            }`}
-          >
-            <LineChart className="w-4 h-4" />
-            Live Cashflow
-          </button>
+          <p className="text-sm text-gray-500 font-medium mt-1">Pantau kesiapan cabang dan absensi kru secara real-time</p>
         </div>
       </div>
-
-      {activeTab === 'live-cashflow' && <LiveCashflow />}
-
-      {activeTab === 'pos-status' && (
-        <>
           <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-8 gap-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto p-1.5 bg-gray-50/80 rounded-xl border border-gray-100/80 backdrop-blur-sm shadow-sm">
               <Select 
@@ -428,8 +396,6 @@ export default function MonitoringPage() {
               )
             })}
           </div>
-        </>
-      )}
     </div>
   )
 }

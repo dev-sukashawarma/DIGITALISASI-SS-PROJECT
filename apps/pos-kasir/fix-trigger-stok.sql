@@ -14,6 +14,7 @@ BEGIN
 
   -- Pengecualian: tipe 'opname_selisih', 'rejected_kiriman', dan 'pemakaian' boleh hasilkan saldo negatif
   IF NEW.saldo_sesudah < 0
+    AND NEW.qty < 0
     AND NEW.tipe NOT IN ('opname_selisih', 'rejected_kiriman', 'pemakaian')
   THEN
     RAISE EXCEPTION 'Stok tidak cukup: saldo saat ini % %, pengurangan % %',

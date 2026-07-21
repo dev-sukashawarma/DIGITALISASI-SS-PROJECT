@@ -58,7 +58,7 @@ export function MitraOutletDetails({
       </div>
       
       {/* Content Area */}
-      <div className={activeTab === 'info' ? 'w-full animate-fade-in' : 'w-full bg-white/80 backdrop-blur-xl border border-white rounded-[32px] shadow-xl shadow-suka-gray-200/50 p-6 sm:p-8 animate-fade-in'}>
+      <div className="w-full animate-fade-in">
         {activeTab === 'info' && <TabInfoOutlet outlet={outlet} />}
         {activeTab === 'orderan' && <TabOrderan outletId={outlet.id} />}
         {activeTab === 'tim' && <TabTim outletId={outlet.id} />}

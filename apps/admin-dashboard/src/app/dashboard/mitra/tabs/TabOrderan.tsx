@@ -25,34 +25,53 @@ export function TabOrderan({ outletId }: { outletId: string }) {
     fetchOrders()
   }, [outletId])
 
-  if (loading) return <div className="text-center p-4 text-gray-500">Memuat orderan...</div>
-  if (orders.length === 0) return <div className="text-center p-4 text-gray-500">Belum ada orderan.</div>
+  if (loading) return (
+    <div className="bg-white/70 backdrop-blur-md rounded-[32px] p-12 text-center border border-white shadow-xl shadow-suka-orange/5">
+      <div className="w-8 h-8 border-4 border-suka-orange border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <p className="text-suka-gray-500 font-bold uppercase tracking-wider text-sm">Memuat data orderan...</p>
+    </div>
+  )
+
+  if (orders.length === 0) return (
+    <div className="bg-white/70 backdrop-blur-md rounded-[32px] p-16 text-center border border-white shadow-xl shadow-suka-orange/5 animate-fade-in">
+      <div className="bg-gradient-to-br from-suka-orange/20 to-suka-orange/5 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-suka-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+        </svg>
+      </div>
+      <h3 className="text-xl font-extrabold text-suka-brown mb-2">Belum Ada Orderan</h3>
+      <p className="text-suka-gray-500 font-medium text-sm">Transaksi penjualan untuk outlet ini akan muncul di sini.</p>
+    </div>
+  )
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 animate-fade-in">
       {orders.map((o) => (
-        <div key={o.id} className="flex justify-between items-center p-3 border rounded-lg bg-gray-50">
+        <div key={o.id} className="flex justify-between items-center p-5 bg-white/70 backdrop-blur-md rounded-[24px] border border-white shadow-lg shadow-suka-orange/5 hover:bg-white/90 hover:scale-[1.01] transition-all duration-300">
           <div>
-            <div className="font-medium text-sm">
-              {new Date(o.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            <div className="font-extrabold text-sm text-suka-brown mb-1">
+              {new Date(o.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </div>
-            <div className="text-xs text-gray-500 mt-1 uppercase">{o.order_source || 'POS'}</div>
+            <div className="text-xs font-bold text-suka-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-suka-orange"></span>
+              {o.order_source || 'Point of Sales'}
+            </div>
           </div>
           <div className="text-right">
-            <div className="font-semibold text-sm">
+            <div className="font-black text-lg text-suka-brown">
               {Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(o.total_amount)}
             </div>
-            <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] font-bold rounded ${
-              o.status === 'completed' ? 'bg-green-100 text-green-700' :
-              o.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-              'bg-yellow-100 text-yellow-700'
+            <span className={`inline-block mt-1 px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm ${
+              o.status === 'completed' ? 'bg-gradient-to-r from-green-400 to-suka-green text-white shadow-green-500/30' :
+              o.status === 'cancelled' ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-red-500/30' :
+              'bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-yellow-500/30'
             }`}>
               {o.status}
             </span>
           </div>
         </div>
       ))}
-      <div className="text-xs text-center text-gray-400 mt-4">
+      <div className="text-xs font-bold text-center text-suka-gray-400 uppercase tracking-widest mt-6 bg-white/50 py-3 rounded-full border border-white/60">
         Menampilkan 15 transaksi terakhir
       </div>
     </div>

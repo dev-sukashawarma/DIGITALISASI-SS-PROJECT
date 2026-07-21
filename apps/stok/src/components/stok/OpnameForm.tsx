@@ -241,7 +241,9 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
 
       const hasFlagged = items.some(i => i.flagged);
       
-      if (hasFlagged) {
+      // Gudang tidak menggunakan sistem 'Menunggu Leader' (pending_approval),
+      // jadi jika ini gudang, akan langsung ter-finalize meskipun ada selisih.
+      if (hasFlagged && !isGudang) {
         // Set status ke pending_approval — leader harus approve sebelum finalize
         await setPendingApproval(opname.id);
         setPendingApprovalState(true);
@@ -250,11 +252,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       } else {
         const res = await finalize(opname.id);
         
-        const successMsg = res.queued 
-          ? '⚠️ Offline: Data disimpan di antrean lokal & akan disinkron saat online!' 
-          : '🟢 Berhasil: Formulir opname berhasil disimpan dan difinalisasi!';
-        
-        showToast(successMsg, res.queued ? 'warning' : 'success');
+        if (hasFlagged) {
+           showToast('✅ Opname difinalisasi (Selisih dicatat).', 'success');
+        } else {
+           const successMsg = res.queued 
+             ? '⚠️ Offline: Data disimpan di antrean lokal & akan disinkron saat online!' 
+             : '🟢 Berhasil: Formulir opname berhasil disimpan dan difinalisasi!';
+           showToast(successMsg, res.queued ? 'warning' : 'success');
+        }
 
         // Navigate back after toast plays a bit
         setTimeout(() => {

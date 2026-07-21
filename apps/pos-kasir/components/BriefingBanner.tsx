@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import confetti from 'canvas-confetti'
 import { useMyOutlet } from '@/lib/useMyOutlet'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Target, PartyPopper, Sparkles, Info, AlertTriangle } from 'lucide-react'
 
 /**
@@ -125,16 +125,22 @@ export default function BriefingBanner() {
     }
   }, [])
 
+  const queryClient = useQueryClient()
+
   useEffect(() => {
     fetchMessages()
     const supabase = createClient()
+    const channelName = `kasir-briefing-${outletId || 'all'}-${Date.now()}`
     const channel = supabase
-      .channel('kasir-briefing-messages')
+      .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'owner_messages' }, () => {
         setTimeout(fetchMessages, 500)
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'owner_message_outlets' }, () => {
         setTimeout(fetchMessages, 500)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_targets' }, () => {
+        setTimeout(() => queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] }), 500)
       })
       .subscribe()
     const interval = setInterval(fetchMessages, 60000)
@@ -142,7 +148,7 @@ export default function BriefingBanner() {
       supabase.removeChannel(channel)
       clearInterval(interval)
     }
-  }, [fetchMessages])
+  }, [fetchMessages, outletId, queryClient])
 
 
 

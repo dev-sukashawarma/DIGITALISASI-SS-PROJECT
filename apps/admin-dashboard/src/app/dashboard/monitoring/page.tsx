@@ -332,10 +332,14 @@ export default function MonitoringPage() {
                                 <Store className={`w-5 h-5 shrink-0 mt-0.5 ${hasOpnameToday ? 'text-blue-500' : 'text-gray-400'}`} />
                                 <h3 className="font-bold text-gray-900 leading-tight" title={outlet.name}>{outlet.name}</h3>
                               </div>
-                              {hasOpnameToday && (
+                              {hasOpnameToday ? (
                                 <span title="Telah melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-700 border border-blue-200 animate-pulse">
                                   <ClipboardCheck className="w-3 h-3 mr-1" />
                                   Opname
+                                </span>
+                              ) : (
+                                <span title="Belum melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-gray-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-gray-200">
+                                  Belum Opname
                                 </span>
                               )}
                             </div>

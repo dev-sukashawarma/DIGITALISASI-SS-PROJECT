@@ -51,7 +51,8 @@ export type CrewLocation = {
   accuracy?: number
   speed?: number
   heading?: number
-  device_type?: 'KASIR' | 'PERSONAL'
+  device_type?: 'KASIR' | 'PERSONAL' | 'OFFLINE'
+  isOffline?: boolean
   updated_at: string
 }
 
@@ -68,6 +69,7 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
 
   const kasirIcon = createCustomIcon(<MonitorSmartphone size={18} />, 'text-purple-700', 'bg-purple-100')
   const personalIcon = createCustomIcon(<Smartphone size={18} />, 'text-blue-700', 'bg-blue-100')
+  const offlineIcon = createCustomIcon(<User size={18} />, 'text-gray-400', 'bg-gray-100 border-dashed')
   const defaultIcon = createCustomIcon(<User size={18} />, 'text-gray-700', 'bg-gray-100')
 
   return (
@@ -97,26 +99,28 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
 
           return (
             <div key={crew.staff_id}>
-              {/* Accuracy Radar Circle */}
-              <Circle 
-                center={[crew.lat, crew.lng]} 
-                radius={accuracyRadius} 
-                pathOptions={{ 
-                  color: isMoving ? '#10b981' : '#3b82f6', 
-                  fillColor: isMoving ? '#10b981' : '#3b82f6', 
-                  fillOpacity: 0.15,
-                  weight: 1
-                }} 
-              />
+              {/* Accuracy Radar Circle - Hide if offline */}
+              {!crew.isOffline && (
+                <Circle 
+                  center={[crew.lat, crew.lng]} 
+                  radius={accuracyRadius} 
+                  pathOptions={{ 
+                    color: isMoving ? '#10b981' : '#3b82f6', 
+                    fillColor: isMoving ? '#10b981' : '#3b82f6', 
+                    fillOpacity: 0.15,
+                    weight: 1
+                  }} 
+                />
+              )}
               
-              <Marker position={[crew.lat, crew.lng]} icon={crew.device_type === 'KASIR' ? kasirIcon : crew.device_type === 'PERSONAL' ? personalIcon : defaultIcon}>
+              <Marker position={[crew.lat, crew.lng]} icon={crew.isOffline ? offlineIcon : crew.device_type === 'KASIR' ? kasirIcon : crew.device_type === 'PERSONAL' ? personalIcon : defaultIcon}>
                 <Popup className="min-w-[240px]">
                   <div className="font-black text-[#1e1b15] text-lg mb-1 flex items-center gap-2">
-                    {crew.device_type === 'KASIR' ? <MonitorSmartphone size={18} className="text-purple-600" /> : <Smartphone size={18} className="text-blue-600" />}
+                    {crew.isOffline ? <User size={18} className="text-gray-400" /> : crew.device_type === 'KASIR' ? <MonitorSmartphone size={18} className="text-purple-600" /> : <Smartphone size={18} className="text-blue-600" />}
                     {crew.staff_name}
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${crew.isOffline ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-blue-700'}`}>
                       {crew.role}
                     </span>
                     <span className="bg-[#f5ede3] text-[#904d00] px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider">
@@ -130,13 +134,17 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
                         <Signal className="w-3 h-3 text-green-400" /> GPS Telemetry
                       </span>
-                      {isMoving ? (
+                      {crew.isOffline ? (
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">
+                          OFFLINE (Di Outlet)
+                        </span>
+                      ) : isMoving ? (
                         <span className="flex items-center gap-1 text-[10px] font-bold text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded animate-pulse">
                           <Activity className="w-3 h-3" /> BERGERAK
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">
-                          DIAM
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-gray-300 bg-gray-700 px-1.5 py-0.5 rounded">
+                          DIAM (Live)
                         </span>
                       )}
                     </div>

@@ -204,6 +204,39 @@ export default function MonitoringPage() {
     return acc
   }, {} as Record<string, Outlet[]>)
 
+  // Combine live crews with offline crews (who are present today)
+  const allCrewsForMap = [...crewLocations]
+  
+  // Find staffs who have attendance today but are not currently live
+  const presentStaffIds = new Set(attendances.map(a => a.outlet_staff_id))
+  
+  staffList.forEach(staff => {
+    // Only show offline staff if they have clocked in today
+    if (presentStaffIds.has(staff.id)) {
+      const isLive = crewLocations.some(c => c.staff_id === staff.id)
+      if (!isLive) {
+        // Get outlet coordinates as fallback
+        const outlet = outlets.find(o => o.id === staff.outlet_id)
+        if (outlet && outlet.lat && outlet.lng) {
+          allCrewsForMap.push({
+            staff_id: staff.id,
+            staff_name: staff.name,
+            role: staff.role,
+            outlet_id: staff.outlet_id,
+            lat: outlet.lat,
+            lng: outlet.lng,
+            accuracy: 0,
+            speed: 0,
+            heading: 0,
+            device_type: 'OFFLINE',
+            isOffline: true,
+            updated_at: new Date().toISOString()
+          })
+        }
+      }
+    }
+  })
+
   const opnameOutletIds = new Set(opnamesToday.map(o => o.outlet_id))
 
   return (
@@ -241,7 +274,7 @@ export default function MonitoringPage() {
 
       {activeTab === 'LOCATION' ? (
         <div className="animate-fade-in">
-          <LiveLocationMap outlets={outlets as any[]} crews={crewLocations as any[]} />
+          <LiveLocationMap outlets={outlets as any[]} crews={allCrewsForMap as any[]} />
         </div>
       ) : (
         <div className="flex flex-col gap-6 animate-fade-in">

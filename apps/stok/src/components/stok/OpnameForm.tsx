@@ -241,9 +241,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
 
       const hasFlagged = items.some(i => i.flagged);
       
-      // HANYA akun kitchen yang perlu pending_approval dari Leader.
-      // Akun lain (gudang dll) langsung finalize.
-      if (hasFlagged && role === 'kitchen') {
+      if (hasFlagged) {
         // Set status ke pending_approval — leader harus approve sebelum finalize
         await setPendingApproval(opname.id);
         setPendingApprovalState(true);
@@ -252,14 +250,11 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       } else {
         const res = await finalize(opname.id);
         
-        if (hasFlagged) {
-           showToast('✅ Opname difinalisasi (Selisih dicatat).', 'success');
-        } else {
-           const successMsg = res.queued 
-             ? '⚠️ Offline: Data disimpan di antrean lokal & akan disinkron saat online!' 
-             : '🟢 Berhasil: Formulir opname berhasil disimpan dan difinalisasi!';
-           showToast(successMsg, res.queued ? 'warning' : 'success');
-        }
+        const successMsg = res.queued 
+          ? '⚠️ Offline: Data disimpan di antrean lokal & akan disinkron saat online!' 
+          : '🟢 Berhasil: Formulir opname berhasil disimpan dan difinalisasi!';
+        
+        showToast(successMsg, res.queued ? 'warning' : 'success');
 
         // Navigate back after toast plays a bit
         setTimeout(() => {

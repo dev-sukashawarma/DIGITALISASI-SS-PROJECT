@@ -48,11 +48,11 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const [permissionState, setPermissionState] = useState<"prompt" | "requesting" | "denied" | "granted">("prompt");
   const [permissionError, setPermissionError] = useState<string | null>(null);
 
-  // Check initial permissions state on mount
+  // Check initial permissions state on mount and add listeners for settings updates
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const checkInitialPermissions = async () => {
+    const checkPermissions = async () => {
       try {
         if (navigator.permissions) {
           const [camPerm, geoPerm] = await Promise.all([
@@ -62,11 +62,22 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
 
           if (camPerm?.state === "granted" && geoPerm?.state === "granted") {
             setPermissionState("granted");
+            setPermissionError(null);
             return;
           }
           if (camPerm?.state === "denied" || geoPerm?.state === "denied") {
             setPermissionState("denied");
-            setPermissionError("Akses kamera atau lokasi ditolak di browser. Harap izinkan melalui setelan situs.");
+            let errStr = "Izin ditolak oleh pengguna atau browser. Silakan aktifkan di setelan situs.";
+            if (camPerm?.state === "denied" && geoPerm?.state !== "denied") {
+              errStr = "Izin kamera ditolak di setelan browser. Silakan izinkan akses kamera.";
+            } else if (geoPerm?.state === "denied" && camPerm?.state !== "denied") {
+              errStr = "Izin lokasi ditolak di setelan browser. Silakan izinkan akses lokasi.";
+            }
+            setPermissionError(errStr);
+            return;
+          }
+          if (camPerm?.state === "prompt" || geoPerm?.state === "prompt") {
+            setPermissionState("prompt");
             return;
           }
         }
@@ -75,7 +86,22 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       }
     };
 
-    checkInitialPermissions();
+    checkPermissions();
+
+    // Re-check permissions when returning to the app window/tab
+    const handleFocusOrVisibility = () => {
+      if (document.visibilityState === "visible") {
+        checkPermissions();
+      }
+    };
+
+    window.addEventListener("focus", handleFocusOrVisibility);
+    document.addEventListener("visibilitychange", handleFocusOrVisibility);
+
+    return () => {
+      window.removeEventListener("focus", handleFocusOrVisibility);
+      document.removeEventListener("visibilitychange", handleFocusOrVisibility);
+    };
   }, []);
 
   /** Validasi lokasi sebelum scan wajah. Radius = GEOFENCE_RADIUS_M (lib/gps). */
@@ -228,37 +254,67 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     setPermissionState("requesting");
     setPermissionError(null);
 
-    try {
-      // 1. Request Camera Permission
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-        stream.getTracks().forEach((t) => t.stop());
-      }
+    let cameraSuccess = false;
+    let cameraErr: any = null;
+    let locationSuccess = false;
+    let locationErr: any = null;
 
-      // 2. Request Geolocation Permission
-      await new Promise<void>((resolve, reject) => {
-        if (!navigator.geolocation) {
-          reject(new Error("Browser tidak mendukung geolokasi GPS."));
-          return;
+    // 1. Request Camera Permission (uses ideal facingMode fallback to prevent OverconstrainedError)
+    if (typeof navigator !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "user" } } });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
         }
-        navigator.geolocation.getCurrentPosition(
-          () => resolve(),
-          (err) => reject(err),
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-      });
-
-      setPermissionState("granted");
-      checkLocation();
-    } catch (err: any) {
-      console.error("Error requesting permissions:", err);
-      let msg = "Gagal mendapatkan izin kamera atau lokasi.";
-      if (err.name === "NotAllowedError" || err.code === 1) {
-        msg = "Izin ditolak oleh pengguna atau browser. Silakan aktifkan di setelan situs.";
-      } else if (err.message) {
-        msg = err.message;
+        stream.getTracks().forEach((t) => t.stop());
+        cameraSuccess = true;
+      } catch (err: any) {
+        console.error("Camera permission request failed:", err);
+        cameraErr = err;
       }
+    } else {
+      cameraErr = new Error("Browser tidak mendukung kamera.");
+    }
+
+    // 2. Request Geolocation Permission (executed independently so popup prompt shows even if camera failed)
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            () => resolve(),
+            (err) => reject(err),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+        });
+        locationSuccess = true;
+      } catch (err: any) {
+        console.error("Geolocation permission request failed:", err);
+        locationErr = err;
+      }
+    } else {
+      locationErr = new Error("Browser tidak mendukung geolokasi GPS.");
+    }
+
+    if (cameraSuccess && locationSuccess) {
+      setPermissionState("granted");
+      setPermissionError(null);
+      checkLocation();
+    } else {
       setPermissionState("denied");
+      let msg = "Gagal mendapatkan izin browser.";
+      if (!cameraSuccess && !locationSuccess) {
+        msg = "Izin kamera dan lokasi ditolak oleh pengguna atau browser. Silakan aktifkan di setelan situs.";
+      } else if (!cameraSuccess) {
+        msg = cameraErr?.name === "NotAllowedError" || cameraErr?.code === 1
+          ? "Izin kamera ditolak di setelan browser. Silakan izinkan akses kamera."
+          : `Gagal mengakses kamera: ${cameraErr?.message || cameraErr}`;
+      } else if (!locationSuccess) {
+        msg = locationErr?.code === 1 || locationErr?.name === "NotAllowedError"
+          ? "Izin lokasi ditolak di setelan browser. Silakan izinkan akses lokasi."
+          : `Gagal mengakses lokasi GPS: ${locationErr?.message || locationErr}`;
+      }
       setPermissionError(msg);
     }
   }, [checkLocation]);
@@ -538,14 +594,14 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   // Bersihkan Geolocation Watcher saat komponen unmount
   useEffect(() => {
     return () => {
-      if (watchIdRef.current !== null) {
+      if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
   }, []);
 
   function scheduleReset(delay = 2500) {
-    if (watchIdRef.current !== null) {
+    if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }

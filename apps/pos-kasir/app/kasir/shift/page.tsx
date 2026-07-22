@@ -243,25 +243,38 @@ export default function ShiftPage() {
         setTopups([])
         setCashOrders([])
 
-        // Kunci nominal setoran awal Dana Operasional ke SETORAN AWAL (starting_petty_cash)
-        // shift terakhir — BUKAN sisa/hitungan akhir laci. Jadi buka shift selalu
-        // reset ke nominal setoran standar (mis. 300K), bukan mengikuti sisa shift lalu.
-        // Ambil shift terakhir yang punya setoran awal valid (> 0) agar baris anomali
-        // (0/null) tidak "mengunci" outlet ke nominal keliru selamanya.
+        // Kunci nominal setoran awal Dana Operasional ke SISA PETTY CASH (ending_petty_cash)
+        // shift terakhir yang sudah ditutup (closed) — BUKAN nominal tetap standar.
         const { data: lastShift } = await supabase
           .from('shifts')
-          .select('starting_petty_cash')
+          .select('starting_petty_cash, expected_ending_petty_cash, actual_ending_petty_cash')
           .eq('outlet_id', outletId)
-          .gt('starting_petty_cash', 0)
+          .eq('status', 'closed')
           .order('start_time', { ascending: false })
           .limit(1)
           .maybeSingle()
 
-        if (lastShift && lastShift.starting_petty_cash !== null && lastShift.starting_petty_cash !== undefined) {
-          setStartingPettyCash(String(lastShift.starting_petty_cash))
+        if (lastShift) {
+          const endingBalance = lastShift.actual_ending_petty_cash ?? lastShift.expected_ending_petty_cash ?? lastShift.starting_petty_cash ?? 0
+          setStartingPettyCash(String(endingBalance))
           setPettyCashLocked(true)
         } else {
-          setPettyCashLocked(false)
+          const { data: fallbackShift } = await supabase
+            .from('shifts')
+            .select('starting_petty_cash')
+            .eq('outlet_id', outletId)
+            .gt('starting_petty_cash', 0)
+            .order('start_time', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (fallbackShift && fallbackShift.starting_petty_cash) {
+            setStartingPettyCash(String(fallbackShift.starting_petty_cash))
+            setPettyCashLocked(true)
+          } else {
+            setStartingPettyCash('0')
+            setPettyCashLocked(false)
+          }
         }
       }
 
@@ -595,7 +608,7 @@ export default function ShiftPage() {
                 </div>
                 {pettyCashLocked && (
                   <p className="text-xs text-gray-500 mt-1.5">
-                    Mengikuti setoran awal terakhir. Hubungi SPV/Admin bila nominal ini perlu diubah.
+                    Mengikuti sisa saldo petty cash dari closing shift sebelumnya. Hubungi SPV/Admin bila nominal ini perlu diubah.
                   </p>
                 )}
               </div>

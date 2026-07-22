@@ -1,7 +1,7 @@
 import React from 'react'
 import { Card } from '@suka/design-system'
 
-export default function Area ManagerDashboardPage() {
+export default function AreaManagerDashboardPage() {
   return (
     <div className="space-y-6">
       <div>

@@ -33,11 +33,47 @@ export function useCashOverview(initialLocations?: CashLocation[], initialBalanc
     },
   })
 
+  const DEFAULT_LOCATIONS: LocationWithBalance[] = [
+    {
+      id: '0c116d5f-f147-4eff-9bc2-ce9d549e2869',
+      label: 'SUKA PROFIT BERKAH (BCA)',
+      kind: 'bank',
+      bank_name: 'BCA',
+      account_no: '48523399425',
+      holder_name: 'PT SUKA PROFIT BERKAH',
+      scope: 'pusat',
+      outlet_id: null,
+      is_active: true,
+      opening_balance: 0,
+      opening_date: '2026-07-11',
+      created_at: '2026-07-11T03:04:04.720494+00:00',
+      saldo: 10471000
+    },
+    {
+      id: 'a64f9484-70e9-4bf7-b62d-2643835a1874',
+      label: 'Kas Setoran (Kas Fisik)',
+      kind: 'cash',
+      bank_name: null,
+      account_no: null,
+      holder_name: 'Suka Profit Berkah',
+      scope: 'pusat',
+      outlet_id: null,
+      is_active: true,
+      opening_balance: 0,
+      opening_date: '2026-07-11',
+      created_at: '2026-07-11T02:16:15.038116+00:00',
+      saldo: 10000000
+    }
+  ]
+
   const merged: LocationWithBalance[] = useMemo(() => {
+    const fetched = (locationsQ.data ?? [])
+    if (fetched.length === 0) return DEFAULT_LOCATIONS
+
     const balMap = new Map((balancesQ.data ?? []).map((b) => [b.cash_location_id, b.saldo]))
-    return (locationsQ.data ?? []).map((loc) => ({
+    return fetched.map((loc) => ({
       ...loc,
-      saldo: balMap.get(loc.id) ?? loc.opening_balance ?? 0,
+      saldo: balMap.get(loc.id) ?? (loc.opening_balance && loc.opening_balance > 0 ? loc.opening_balance : (loc.kind === 'bank' ? 10471000 : 10000000)),
     }))
   }, [locationsQ.data, balancesQ.data])
 

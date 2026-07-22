@@ -35,6 +35,12 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
     (method === 'tunai' && loc.kind === 'cash')
   )
 
+  React.useEffect(() => {
+    if (availableLocations.length > 0 && (!cashLocationId || !availableLocations.some(l => l.id === cashLocationId))) {
+      setCashLocationId(availableLocations[0].id)
+    }
+  }, [availableLocations, method])
+
   if (!isOpen) return null
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

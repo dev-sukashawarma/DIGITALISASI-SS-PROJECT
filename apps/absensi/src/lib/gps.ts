@@ -67,3 +67,65 @@ export function formatDistanceMeters(meters: number, shortForm: boolean = false)
   }
   return `${meters.toFixed(1).replace(/\.0$/, '')}${shortForm ? 'm' : ' meter'}`;
 }
+
+/**
+ * Parameter & Helper Deteksi Sinyal Meta Fake GPS (Mock Location Provider)
+ */
+export interface GpsMetaSignal {
+  accuracy: number;
+  altitude?: number | null;
+  altitudeAccuracy?: number | null;
+  speed?: number | null;
+  isMock?: boolean;
+  sampleVariance?: number;
+}
+
+export interface AntiFakeGpsResult {
+  isFakeGps: boolean;
+  reason?: string;
+}
+
+/**
+ * Analisis pola sinyal meta lokasi untuk mendeteksi penggunaan Fake GPS.
+ * Aplikasi Fake GPS umumnya menyuplai nilai akurasi statis (1.0m/0.0m) atau 0 variansi jitter satelit.
+ */
+export function detectFakeGpsSignals(meta: GpsMetaSignal): AntiFakeGpsResult {
+  if (meta.isMock === true) {
+    return { isFakeGps: true, reason: "mock_provider_flagged" };
+  }
+  
+  if (meta.accuracy !== undefined && meta.accuracy !== null) {
+    if (meta.accuracy === 1.0 || meta.accuracy === 0.0) {
+      return { isFakeGps: true, reason: "static_fake_accuracy" };
+    }
+  }
+
+  if (meta.sampleVariance !== undefined && meta.sampleVariance === 0) {
+    return { isFakeGps: true, reason: "zero_satellite_jitter" };
+  }
+
+  return { isFakeGps: false };
+}
+
+/**
+ * Hitung kecepatan perpindahan antar dua koordinat (km/jam).
+ * Digunakan untuk mendeteksi teleportasi lokasi yang tidak wajar.
+ */
+export function calculateSpeedKmH(
+  prevCoords: LatLng,
+  prevTimestampMs: number,
+  currCoords: LatLng,
+  currTimestampMs: number
+): number {
+  const timeDiffHours = (currTimestampMs - prevTimestampMs) / (1000 * 60 * 60);
+  if (timeDiffHours <= 0) return 0;
+  
+  const distMeters = haversineMeters(prevCoords, currCoords);
+  const distKm = distMeters / 1000;
+  
+  return distKm / timeDiffHours;
+}
+
+/** Max kecepatan perjalanan wajar (km/jam). Di atas ini dianggap teleportasi/fake GPS */
+export const MAX_REASONABLE_SPEED_KMH = 160;
+

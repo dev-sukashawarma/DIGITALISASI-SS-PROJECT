@@ -94,85 +94,97 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       }
     }
 
-    // 2. Ambil lokasi perangkat secara kontinu (watchPosition)
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      setResult({ ok: false, message: "Browser tidak mendukung fitur geolokasi" });
-      setPhase("location_invalid");
-      return;
-    }
+    // Helper fungsi untuk memproses koordinat lokasi perangkat
+    const handleLocationPosition = (pos: GeolocationPosition, targetOutletCoords: { lat: number; lng: number } | null): boolean => {
+      const currentCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      const accuracy = pos.coords.accuracy;
+      setDeviceCoords(currentCoords);
+      setDeviceAccuracy(accuracy);
 
+      // Deteksi sinyal mock location / Fake GPS buatan
+      const isMockSignal = 
+        Boolean((pos.coords as any).isMock || (pos.coords as any).mocked) ||
+        (accuracy === 1.0 || accuracy === 0.0);
+
+      if (isMockSignal) {
+        setResult({
+          ok: false,
+          message: "Lokasi Fake GPS / Mock Location Terdeteksi! Harap matikan aplikasi pemalsu lokasi di HP Anda dan gunakan GPS asli.",
+        });
+        setPhase("location_invalid");
+        return false;
+      }
+
+      // Akurasi GPS terlalu rendah → tolak tegas.
+      if (!isGpsAccuracyAcceptable(accuracy)) {
+        setResult({
+          ok: false,
+          message: `Akurasi GPS terlalu rendah (${accuracy.toFixed(0)} m, maksimal ${MAX_GPS_ACCURACY_M} m). Aktifkan "Lokasi Akurat/Precise" dan nyalakan GPS HP Anda, lalu coba lagi.`,
+        });
+        setPhase("location_invalid");
+        return false;
+      }
+
+      if (!targetOutletCoords) {
+        locationLockedRef.current = true;
+        setPhase("idle");
+        setResult(null);
+        return true;
+      }
+
+      const dist = haversineMeters(targetOutletCoords, currentCoords);
+      setGpsDistance(dist);
+
+      const adjustedDist = Math.max(0, dist - accuracy);
+      if (adjustedDist <= GEOFENCE_RADIUS_M) {
+        locationLockedRef.current = true;
+        setPhase("idle");
+        setResult(null);
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
+        return true;
+      } else {
+        const msg = `Di luar jangkauan (Jarak Anda: ${formatDistanceMeters(dist, true)}, batas: ${formatDistanceMeters(GEOFENCE_RADIUS_M, true)}, Akurasi GPS: ${formatDistanceMeters(accuracy, true)}). Silakan mendekat ke area kasir.`;
+        setResult({ ok: false, message: msg });
+        setPhase("location_invalid");
+        return false;
+      }
+    };
+
+    // 2. PROBE 1: Ambil lokasi secara INSTAN (Fast Fix) dalam orde milidetik tanpa membuat user menunggu
+    navigator.geolocation.getCurrentPosition(
+      (pos) => handleLocationPosition(pos, coords),
+      () => {},
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+    );
+
+    // 3. PROBE 2: Jalankan pemindaian presisi di background
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
 
     watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const currentCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        const accuracy = pos.coords.accuracy;
-        setDeviceCoords(currentCoords);
-        setDeviceAccuracy(accuracy);
-
-        // Akurasi GPS terlalu rendah → tolak tegas (jangan loloskan ke idle).
-        if (!isGpsAccuracyAcceptable(accuracy)) {
-          setResult({
-            ok: false,
-            message: `Akurasi GPS terlalu rendah (${accuracy.toFixed(0)} m, maksimal ${MAX_GPS_ACCURACY_M} m). Aktifkan "Lokasi Akurat/Precise" dan nyalakan GPS HP Anda, lalu coba lagi.`,
-          });
-          setPhase("location_invalid");
-          return;
-        }
-
-        if (!coords) {
-          locationLockedRef.current = true;
-          setPhase("idle");
-          setResult(null);
-          if (watchIdRef.current !== null) {
-            navigator.geolocation.clearWatch(watchIdRef.current);
-            watchIdRef.current = null;
-          }
-          return;
-        }
-
-        const dist = haversineMeters(coords, currentCoords);
-        setGpsDistance(dist);
-
-        // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= GEOFENCE_RADIUS_M (mengompensasi GPS drift indoor)
-        const adjustedDist = Math.max(0, dist - accuracy);
-
-        if (adjustedDist <= GEOFENCE_RADIUS_M) {
-
-
-          locationLockedRef.current = true;
-          setPhase("idle");
-          setResult(null);
-          if (watchIdRef.current !== null) {
-            navigator.geolocation.clearWatch(watchIdRef.current);
-            watchIdRef.current = null;
-          }
-        } else {
-          let msg = `Di luar jangkauan (Jarak Anda: ${formatDistanceMeters(dist, true)}, batas: ${formatDistanceMeters(GEOFENCE_RADIUS_M, true)}, Akurasi GPS: ${formatDistanceMeters(accuracy, true)}). Silakan mendekat ke area kasir.`;
-          setResult({
-            ok: false,
-            message: msg,
-          });
-          setPhase("location_invalid");
-        }
-      },
+      (pos) => handleLocationPosition(pos, coords),
       (err) => {
-        console.error("Geolocation error:", { code: err.code, message: err.message });
+        // Jika Probe 1 sudah meloloskan lokasi, abaikan error background Probe 2
+        if (locationLockedRef.current) return;
+
+        console.error("Geolocation watch error:", { code: err.code, message: err.message });
         let errMsg = "Gagal memindai lokasi perangkat";
         if (err.code === err.PERMISSION_DENIED) {
           errMsg = "Izin lokasi ditolak. Harap izinkan akses lokasi pada browser Anda.";
         } else if (err.code === err.POSITION_UNAVAILABLE) {
-          errMsg = "Sinyal GPS/lokasi tidak terdeteksi. Silakan coba lagi.";
+          errMsg = "Sinyal GPS/lokasi tidak terdeteksi. Silakan aktifkan GPS HP Anda dan coba lagi.";
         } else if (err.code === err.TIMEOUT) {
-          errMsg = "Waktu pemindaian lokasi habis (Timeout). Coba lagi.";
+          errMsg = "Waktu pemindaian lokasi habis. Pastikan GPS HP aktif dan coba lagi.";
         }
         setResult({ ok: false, message: errMsg });
         setPhase("location_invalid");
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
     );
   }, [outletId, outletCoords, supabase]);
   const [who, setWho] = useState<{ id: string; name: string } | null>(null);
@@ -415,6 +427,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       gps_lat: deviceCoords?.lat ?? null,
       gps_lng: deviceCoords?.lng ?? null,
       gps_accuracy: deviceAccuracy ?? null,
+      is_mock: (deviceAccuracy === 1.0 || deviceAccuracy === 0.0),
       match_distance: 0,
       selfie_path: null,
       ts_client: new Date().toISOString(),

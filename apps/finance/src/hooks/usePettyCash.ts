@@ -57,7 +57,7 @@ export function useProcessPettyCashLeader() {
   })
 }
 
-export function useProcessPettyCashArea Manager() {
+export function useProcessPettyCashAreaManager() {
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
 

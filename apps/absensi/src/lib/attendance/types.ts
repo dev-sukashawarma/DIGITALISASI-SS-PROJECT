@@ -7,6 +7,7 @@ export type AttendancePayload = {
   gps_lat?: number | null;
   gps_lng?: number | null;
   gps_accuracy?: number | null;
+  is_mock?: boolean;
   match_distance: number;
   selfie_path: string | null;
   selfie_base64?: string;     // Optional: base64 data when syncing from offline queue

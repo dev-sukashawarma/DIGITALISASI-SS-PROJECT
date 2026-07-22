@@ -50,15 +50,21 @@ export default function PapanKehadiranPage() {
     return supabase.storage.from(SELFIE_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
+  const isSpvOrAdmin = ["spv", "owner", "admin", "admin_hr"].includes(outletStaff?.role || "");
+
   const today = new Date().toISOString().slice(0, 10);
   const { data, isLoading } = useQuery({
     queryKey: ["papan-kehadiran", selectedOutletId, today],
     enabled: !!selectedOutletId,
     queryFn: async () => {
-      const [{ data: staff }, { data: recs }, { data: localCfg }, { data: globalCfg }] = await Promise.all([
+      const [{ data: staff }, { data: recs }, { data: alerts }, { data: localCfg }, { data: globalCfg }] = await Promise.all([
         supabase.from("outlet_staff").select("id,name,role").eq("outlet_id", selectedOutletId).eq("status", "active"),
         supabase.from("attendance").select("outlet_staff_id,type,status,ts_server,selfie_url,telat_menit")
           .eq("outlet_id", selectedOutletId).gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
+        supabase.from("attendance").select("id,outlet_staff_id,status,ts_server,gps_lat,gps_lng")
+          .eq("outlet_id", selectedOutletId)
+          .in("status", ["fake_gps_blocked", "teleportation_blocked"])
+          .gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
         supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", selectedOutletId).maybeSingle(),
         supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
       ]);
@@ -69,7 +75,15 @@ export default function PapanKehadiranPage() {
         } catch(e) {}
       }
       if (!cfg) return null;
-      return computeBoard((staff as BoardStaff[]) ?? [], (recs as BoardRecord[]) ?? [], cfg);
+      const boardData = computeBoard((staff as BoardStaff[]) ?? [], (recs as BoardRecord[]) ?? [], cfg);
+      
+      const staffMap = new Map((staff ?? []).map(s => [s.id, s.name]));
+      const formattedAlerts = (alerts ?? []).map(a => ({
+        ...a,
+        staff_name: staffMap.get(a.outlet_staff_id) || "Staf"
+      }));
+
+      return { ...boardData, securityAlerts: formattedAlerts };
     },
   });
 
@@ -134,6 +148,30 @@ export default function PapanKehadiranPage() {
   return (
     <div className="space-y-5">
       {headerAndSwitcher}
+
+      {isSpvOrAdmin && data.securityAlerts && data.securityAlerts.length > 0 && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900">
+          <div className="flex items-center gap-2 font-semibold text-red-700 mb-2">
+            <span>⚠️ Alert Keamanan SPV: Terdeteksi {data.securityAlerts.length} Percobaan Fake GPS / Teleportasi Hari Ini</span>
+          </div>
+          <div className="space-y-1.5 text-xs text-red-800">
+            {data.securityAlerts.map((alert: any) => (
+              <div key={alert.id} className="flex justify-between items-center bg-white/80 p-2.5 rounded-xl border border-red-100 shadow-sm">
+                <div>
+                  <span className="font-semibold text-red-950">{alert.staff_name}</span>
+                  <span className="mx-1.5 text-red-400">•</span>
+                  <span className="text-red-700 font-medium">
+                    {alert.status === "fake_gps_blocked" ? "Fake GPS (Mock Provider)" : "Teleportasi Instan"}
+                  </span>
+                </div>
+                <span className="text-gray-500 font-mono text-[11px]">
+                  {new Date(alert.ts_server).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-suka-gray-200 bg-white p-4 sm:p-5">
         <div className="flex items-baseline justify-between mb-3">

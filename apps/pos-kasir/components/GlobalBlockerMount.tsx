@@ -45,7 +45,7 @@ export default function GlobalBlockerMount() {
       }
 
       const { data: profile } = await supabase.from('outlet_staff')
-        .select('role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, is_active, inactive_reason)')
+        .select('id, name, email, role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, is_active, inactive_reason)')
         .eq('id', currentUid).single()
 
       if (profile && profile.role !== 'admin') {
@@ -55,8 +55,13 @@ export default function GlobalBlockerMount() {
         const outletName = (profile.outlets as any)?.name || ''
         const isDramaga = outletName.toLowerCase().includes('dramaga')
         
-        // Bypass khusus Dramaga HANYA untuk hari ini (17 Juli 2026) di local
+        // Bypass khusus development untuk user empang_tes@ss.com HANYA untuk hari ini (22 Juli 2026)
         const currentDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+        const isEmpangTes = (profile as any).name === 'empang_tes' || (profile as any).email === 'empang_tes@ss.com' || (profile as any).name?.includes('empang_tes')
+        if (process.env.NODE_ENV === 'development' && isEmpangTes && currentDateStr === '2026-07-22') {
+          setIsBlocked(false)
+          return
+        }
         if (process.env.NODE_ENV === 'development' && isDramaga && currentDateStr === '2026-07-17') {
           setIsBlocked(false)
           return

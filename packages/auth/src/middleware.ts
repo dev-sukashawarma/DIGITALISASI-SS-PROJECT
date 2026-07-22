@@ -6,8 +6,14 @@ import { resolveUserId } from './jwt'
 import { STAFF_HEADER, serializeStaffHeader } from './staff-header'
 import type { AppName } from './types'
 
-/** URL portal untuk redirect saat akses ditolak; override via env per-app. */
-const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
+function getPortalUrl(request: NextRequest): string {
+  const host = request.headers.get('host') || request.nextUrl.host || ''
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1') || process.env.NODE_ENV === 'development'
+  if (isLocal) {
+    return 'http://localhost:3010'
+  }
+  return process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+}
 
 /**
  * Gerbang akses tunggal untuk middleware sub-app SUKA.
@@ -63,13 +69,13 @@ export async function enforceAppAccess(
   // --- Identitas: JWT lokal bila secret ada, fallback getUser() ---
   const userId = await resolveUserId(supabase, process.env.SUPABASE_JWT_SECRET)
   if (!userId) {
-    return getRedirect(PORTAL_URL)
+    return getRedirect(getPortalUrl(request))
   }
 
   // --- Gate: role + status (1 RT DB; tetap dibutuhkan) ---
   const { staff } = await getOutletStaff(supabase, userId)
   if (!staff || !hasAppAccess(staff.role, app) || staff.status !== 'active') {
-    return getRedirect(PORTAL_URL)
+    return getRedirect(getPortalUrl(request))
   }
 
   // Teruskan staff tepercaya ke RSC/client.

@@ -33,7 +33,7 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
     var dayOfMonth = dateObj.getDate(); // 1 - 31
     var targetCol = 4 + (dayOfMonth - 1); // Kolom D = Tanggal 1 (Index 4)
 
-    // 2. Tentukan Channel (OFFLINE, FOOD APPS, TIKTOK GO)
+    // 2. Tentukan Seksi Channel (OFFLINE, FOOD APPS, TIKTOK GO)
     var channel = (data.channel || '').toLowerCase();
     var isFoodApps = channel.includes('food') || channel.includes('gofood') || channel.includes('grabfood') || channel.includes('shopeefood');
     var isTikTok = channel.includes('tiktok');
@@ -44,29 +44,31 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
 
     if (data.items && data.items.length > 0) {
       data.items.forEach(function(item) {
-        var itemName = (item.menu_item_name || '').trim().toLowerCase();
+        var rawName = (item.menu_item_name || '').trim().toLowerCase();
+        var cleanName = rawName.replace(/^fa\s+/, '').trim();
         var qty = Number(item.quantity) || 0;
         if (qty <= 0) return;
 
         var matchedRow = -1;
 
-        // Cari di seksi sesuai channel
+        // Cari di seksi sesuai channel (Baris persis berdasarkan Sheet Anda)
         for (var r = 0; r < menuColumnValues.length; r++) {
           var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
+          var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
           var rowNum = r + 1;
 
-          if (isFoodApps && rowNum >= 32 && rowNum <= 51) {
-            if (cellVal && (cellVal === itemName || cellVal.includes(itemName) || itemName.includes(cellVal))) {
+          if (isFoodApps && rowNum >= 42 && rowNum <= 57) {
+            if (cellVal && (cleanCellVal === cleanName || cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
               matchedRow = rowNum;
               break;
             }
-          } else if (isTikTok && rowNum >= 53 && rowNum <= 70) {
-            if (cellVal && (cellVal === itemName || cellVal.includes(itemName) || itemName.includes(cellVal))) {
+          } else if (isTikTok && rowNum >= 63 && rowNum <= 75) {
+            if (cellVal && (cleanCellVal === cleanName || cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
               matchedRow = rowNum;
               break;
             }
-          } else if (!isFoodApps && !isTikTok && rowNum >= 2 && rowNum <= 30) {
-            if (cellVal && (cellVal === itemName || cellVal.includes(itemName) || itemName.includes(cellVal))) {
+          } else if (!isFoodApps && !isTikTok && rowNum >= 11 && rowNum <= 36) {
+            if (cellVal && (cleanCellVal === cleanName || cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
               matchedRow = rowNum;
               break;
             }
@@ -77,14 +79,15 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
         if (matchedRow === -1) {
           for (var r = 0; r < menuColumnValues.length; r++) {
             var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
-            if (cellVal && (cellVal === itemName || cellVal.includes(itemName) || itemName.includes(cellVal))) {
+            var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
+            if (cellVal && (cleanCellVal === cleanName || cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
               matchedRow = r + 1;
               break;
             }
           }
         }
 
-        // Jika baris menu ditemukan, tambahkan qty pada tanggal bersangkutan
+        // Jika baris menu ditemukan, tambahkan qty (PCS) pada tanggal bersangkutan
         if (matchedRow > 0) {
           var cellRange = sheet.getRange(matchedRow, targetCol);
           var currentVal = Number(cellRange.getValue()) || 0;

@@ -166,10 +166,14 @@ export default function CloseShiftPage() {
       let snapCashOrders: CashOrder[] = []
 
       if (shiftData) {
+        const startOfToday = new Date()
+        startOfToday.setHours(0, 0, 0, 0)
+        const fetchStartTime = new Date(shiftData.start_time) > startOfToday ? shiftData.start_time : startOfToday.toISOString()
+
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
           supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('updated_at', shiftData.start_time)
+          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('updated_at', fetchStartTime)
         ])
 
         snapExpenses = expRes.data || []

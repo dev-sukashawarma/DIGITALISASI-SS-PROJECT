@@ -1,3 +1,5 @@
+import { getGoogleSheetsConfig } from './google-sheets-config'
+
 export interface GoogleSheetsItemPayload {
   menu_item_name: string
   quantity: number
@@ -112,3 +114,25 @@ export async function sendOrderToGoogleSheets(
     return false
   }
 }
+
+/**
+ * Triggers Google Sheets sync asynchronously (fire-and-forget) if enabled in settings
+ */
+export function triggerGoogleSheetsSyncIfActive(
+  supabase: any,
+  order: any,
+  items: any[],
+  outletName: string
+) {
+  // Asynchronous fire-and-forget
+  getGoogleSheetsConfig(supabase)
+    .then(config => {
+      if (config.enabled && config.url) {
+        sendOrderToGoogleSheets(config.url, order, items, outletName)
+      }
+    })
+    .catch(err => {
+      console.error('Trigger Google Sheets Sync Error:', err)
+    })
+}
+

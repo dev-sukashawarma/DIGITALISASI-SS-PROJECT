@@ -1,8 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   formatGoogleSheetsPayload,
-  sendOrderToGoogleSheets
+  sendOrderToGoogleSheets,
+  triggerGoogleSheetsSyncIfActive
 } from './google-sheets-webhook'
+import { getGoogleSheetsConfig } from './google-sheets-config'
+
+vi.mock('./google-sheets-config', () => ({
+  getGoogleSheetsConfig: vi.fn()
+}))
 
 describe('google-sheets-webhook', () => {
   describe('formatGoogleSheetsPayload', () => {
@@ -173,4 +179,74 @@ describe('google-sheets-webhook', () => {
       expect(result2).toBe(false)
     })
   })
+
+  describe('triggerGoogleSheetsSyncIfActive', () => {
+    it('should fire-and-forget sendOrderToGoogleSheets when config is enabled with url', async () => {
+      const mockConfig = {
+        enabled: true,
+        url: 'https://script.google.com/macros/s/test-webhook/exec'
+      }
+      vi.mocked(getGoogleSheetsConfig).mockResolvedValue(mockConfig)
+
+      const globalFetchMock = vi.fn().mockResolvedValue({ ok: true })
+      vi.stubGlobal('fetch', globalFetchMock)
+
+      const mockSupabase = {}
+      const order = { order_number: 'ORD-789' }
+      const items = [{ menu_item_name: 'Shawarma', quantity: 1, unit_price: 20000 }]
+      const outletName = 'Outlet Dipatiukur'
+
+      triggerGoogleSheetsSyncIfActive(mockSupabase, order, items, outletName)
+
+      expect(getGoogleSheetsConfig).toHaveBeenCalledWith(mockSupabase)
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(globalFetchMock).toHaveBeenCalledWith(
+        mockConfig.url,
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+
+      vi.unstubAllGlobals()
+    })
+
+    it('should not call sendOrderToGoogleSheets when config is disabled or url is missing', async () => {
+      const mockConfig = {
+        enabled: false,
+        url: 'https://script.google.com/macros/s/test-webhook/exec'
+      }
+      vi.mocked(getGoogleSheetsConfig).mockResolvedValue(mockConfig)
+
+      const globalFetchMock = vi.fn()
+      vi.stubGlobal('fetch', globalFetchMock)
+
+      triggerGoogleSheetsSyncIfActive({}, { order_number: 1 }, [], 'Outlet Test')
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(globalFetchMock).not.toHaveBeenCalled()
+
+      vi.unstubAllGlobals()
+    })
+
+    it('should handle errors in getGoogleSheetsConfig gracefully without crashing', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.mocked(getGoogleSheetsConfig).mockRejectedValue(new Error('Config fetch failed'))
+
+      triggerGoogleSheetsSyncIfActive({}, { order_number: 1 }, [], 'Outlet Test')
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Trigger Google Sheets Sync Error:',
+        expect.any(Error)
+      )
+
+      consoleErrorSpy.mockRestore()
+    })
+  })
 })
+

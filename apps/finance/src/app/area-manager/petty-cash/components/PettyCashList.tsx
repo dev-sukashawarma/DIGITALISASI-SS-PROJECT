@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Card, Badge, Button, Spinner, EmptyState } from '@suka/design-system'
 import { ApprovalModal } from '@/components/petty-cash/ApprovalModal'
 import { usePettyCashRequests, useProcessPettyCashAreaManager, useForwardPettyCashAreaManager } from '@/hooks/usePettyCash'
-import { tanggalWaktu } from '@/lib/format'
+import { tanggalWaktu, relativeTime } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'
 
 export function PettyCashList({ initialRequests }: { initialRequests?: PettyCashTopup[] }) {
@@ -98,7 +98,10 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
             <tbody>
               {requests.map((req) => (
                 <tr key={req.id} className="border-b border-suka-gray-100 last:border-0 hover:bg-suka-gray-50 transition-colors">
-                  <td className="py-3 px-4 text-sm text-suka-brown whitespace-nowrap">{tanggalWaktu(req.created_at)}</td>
+                  <td className="py-3 px-4 text-sm whitespace-nowrap" title={tanggalWaktu(req.created_at)}>
+                    <div className="font-bold text-suka-brown">{relativeTime(req.created_at)}</div>
+                    <div className="text-[11px] text-suka-gray-500 font-normal">{tanggalWaktu(req.created_at)}</div>
+                  </td>
                   <td className="py-3 px-4 text-sm font-medium text-suka-brown">{req.outlet?.name || '-'}</td>
                   <td className="py-3 px-4 text-xs text-suka-gray-600">
                     {req.bank_name ? (

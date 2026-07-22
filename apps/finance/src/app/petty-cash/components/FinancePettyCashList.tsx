@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Wallet, Clock, History, Filter, Store, Building2, CheckCircle2, XCircle, Send, ArrowRight, Loader2 } from 'lucide-react'
 import { FinanceApprovalModal } from './FinanceApprovalModal'
 import { usePettyCashRequests, useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
-import { tanggalWaktu } from '@/lib/format'
+import { tanggalWaktu, relativeTime } from '@/lib/format'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 
 const formatRupiah = (val: number) => `Rp ${val.toLocaleString('id-ID')}`
@@ -179,8 +179,9 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
               <tbody className="divide-y divide-suka-gray-100 text-sm">
                 {requests.map((req) => (
                   <tr key={req.id} className="hover:bg-suka-gray-50/60 transition-colors">
-                    <td className="py-4 px-6 text-xs font-semibold text-suka-gray-600 whitespace-nowrap">
-                      {tanggalWaktu(req.created_at)}
+                    <td className="py-4 px-6 text-xs whitespace-nowrap" title={tanggalWaktu(req.created_at)}>
+                      <div className="font-bold text-suka-brown text-sm">{relativeTime(req.created_at)}</div>
+                      <div className="text-[11px] text-suka-gray-500 font-normal">{tanggalWaktu(req.created_at)}</div>
                     </td>
                     <td className="py-4 px-6 font-bold text-suka-brown">
                       <div className="flex items-center gap-1.5">

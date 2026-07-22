@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react'
 import { Wallet, X, Store, CreditCard, Building2, User, AlertCircle, CheckCircle2, XCircle, Trash2, Camera } from 'lucide-react'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
+import { relativeTime, tanggalWaktu } from '@/lib/format'
 import { useCashOverview } from '@/hooks/useCashData'
 
 interface FinanceApprovalModalProps {
@@ -118,6 +119,9 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
               <div className="flex items-center gap-1.5 font-bold text-suka-brown text-sm">
                 <Store className="w-4 h-4 text-suka-orange" />
                 {request.outlet?.name || '-'}
+              </div>
+              <div className="text-[11px] font-semibold text-suka-gray-500" title={tanggalWaktu(request.created_at)}>
+                {relativeTime(request.created_at)} ({tanggalWaktu(request.created_at)})
               </div>
             </div>
             <div className="text-right">

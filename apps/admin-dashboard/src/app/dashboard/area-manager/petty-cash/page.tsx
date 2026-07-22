@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { CheckCircle2, Clock, Store, ShieldCheck, Send, History, Filter, XCircle, ArrowRight, Loader2, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
+import { formatRelativeTime, formatDateTime } from '@/lib/date'
 import { toast } from 'sonner'
 import { getAreaManagerPettyCashTopups } from './actions'
 
@@ -322,9 +323,13 @@ export default function AreaManagerPettyCashPage() {
                 {filteredReviewRequests.map((req) => (
                   <div key={req.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/60 transition-colors">
                     <div className="space-y-1.5 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
                           <Store className="w-3.5 h-3.5 text-slate-400" /> {req.outlet?.name || 'Unknown Outlet'}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200" title={formatDateTime(req.created_at)}>
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          {formatRelativeTime(req.created_at)}
                         </span>
                         {(req.status === 'pending' || req.status === 'forwarded_to_area_manager') && (
                           <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md">
@@ -467,6 +472,7 @@ export default function AreaManagerPettyCashPage() {
               <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+                    <th className="px-6 py-3 font-semibold">Waktu / Tanggal</th>
                     <th className="px-6 py-3 font-semibold">Outlet</th>
                     <th className="px-6 py-3 font-semibold">Nominal</th>
                     <th className="px-6 py-3 font-semibold">Alasan / Keperluan</th>
@@ -476,19 +482,23 @@ export default function AreaManagerPettyCashPage() {
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {loading ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-400 font-medium">
+                      <td colSpan={5} className="px-6 py-8 text-center text-slate-400 font-medium">
                         Memuat data riwayat...
                       </td>
                     </tr>
                   ) : filteredHistoryRequests.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-400">
+                      <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
                         Tidak ada riwayat pengajuan pada kategori ini.
                       </td>
                     </tr>
                   ) : (
                     filteredHistoryRequests.map((r) => (
                       <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-slate-600" title={formatDateTime(r.created_at)}>
+                          <div className="font-bold text-slate-800">{formatRelativeTime(r.created_at)}</div>
+                          <div className="text-[11px] text-slate-400 font-normal">{formatDateTime(r.created_at)}</div>
+                        </td>
                         <td className="px-6 py-4 font-bold text-slate-800">
                           <div className="flex items-center gap-1.5">
                             <Store className="w-4 h-4 text-slate-400" />

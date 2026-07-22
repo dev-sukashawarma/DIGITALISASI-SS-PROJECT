@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator, Lock, X } from 'lucide-react'
+import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator, Lock, X, Camera } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
@@ -49,6 +49,7 @@ interface PettyCashTopup {
   creator?: { name: string | null } | null
   approved_at?: string | null
   approved_by?: string | null
+  proof_of_transfer_url?: string | null
 }
 
 interface CashOrder {
@@ -764,6 +765,14 @@ export default function ShiftPage() {
                             </div>
                             <div className="flex flex-col items-end shrink-0 gap-1.5">
                               <span className={`text-sm font-black ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-gray-400 line-through' : 'text-blue-600'}`}>+{formatRupiah(top.amount)}</span>
+                              {top.proof_of_transfer_url && (
+                                <button
+                                  onClick={() => setSelectedReceiptUrl(top.proof_of_transfer_url || null)}
+                                  className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Camera className="w-3 h-3 text-emerald-600" /> Bukti Transfer Finance
+                                </button>
+                              )}
                               {top.status === 'forwarded_by_leader' && (
                                 <button
                                   onClick={() => handleReceiveFunds(top.id)}

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { CheckCircle2, Clock, Store, ShieldCheck, Send, History, Filter, XCircle, ArrowRight, Loader2, RefreshCw } from 'lucide-react'
+import { CheckCircle2, Clock, Store, ShieldCheck, Send, History, Filter, XCircle, ArrowRight, Loader2, RefreshCw, Camera, X, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import { formatRelativeTime, formatDateTime } from '@/lib/date'
@@ -18,7 +18,48 @@ interface TopupRequest {
   bank_name?: string | null
   bank_account_number?: string | null
   bank_account_name?: string | null
+  proof_of_transfer_url?: string | null
   outlet?: { name: string; region?: string | null } | null
+}
+
+function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
+  if (!imageUrl) return null
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
+      <div className="relative bg-white rounded-3xl overflow-hidden shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col border border-slate-200">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <Camera className="w-4 h-4" />
+            </div>
+            <h3 className="font-extrabold text-slate-800 text-sm">Foto Bukti Transfer Finance</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-slate-50">
+          <img src={imageUrl} alt="Bukti Transfer" className="max-h-[65vh] w-auto object-contain rounded-2xl shadow-md border border-slate-200" />
+        </div>
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0 text-xs">
+          <span className="text-slate-500 font-semibold">Lampiran Bukti Transfer Resmi</span>
+          <a
+            href={imageUrl}
+            target="_blank"
+            rel="noreferrer"
+            download="Bukti_Transfer_Petty_Cash.jpg"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm"
+          >
+            <Download className="w-3.5 h-3.5" /> Unduh / Foto Utuh
+          </a>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function AreaManagerPettyCashPage() {
@@ -27,6 +68,7 @@ export default function AreaManagerPettyCashPage() {
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isProcessing, setIsProcessing] = useState<string | null>(null)
+  const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
 
   // Tabs: 'review' | 'history'
   const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')
@@ -346,12 +388,25 @@ export default function AreaManagerPettyCashPage() {
                       <p className="font-bold text-slate-900 text-base">{req.description}</p>
                       
                       {/* Bank Info */}
-                      <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200 inline-block">
-                        <span className="font-bold text-slate-700">Rekening Tujuan: </span>
-                        {req.bank_name ? (
-                          <span>{req.bank_name} - <b>{req.bank_account_number}</b> (a.n {req.bank_account_name || '-'})</span>
-                        ) : (
-                          <span className="italic text-slate-400">Belum ada</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200 inline-block">
+                          <span className="font-bold text-slate-700">Rekening Tujuan: </span>
+                          {req.bank_name ? (
+                            <span>{req.bank_name} - <b>{req.bank_account_number}</b> (a.n {req.bank_account_name || '-'})</span>
+                          ) : (
+                            <span className="italic text-slate-400">Belum ada</span>
+                          )}
+                        </div>
+
+                        {req.proof_of_transfer_url && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProofUrl(req.proof_of_transfer_url || null)}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-xl border border-emerald-200 transition-colors shadow-sm cursor-pointer"
+                          >
+                            <Camera className="w-4 h-4 text-emerald-600" />
+                            <span>Lihat Bukti Transfer Finance</span>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -533,6 +588,17 @@ export default function AreaManagerPettyCashPage() {
                               <XCircle className="w-3.5 h-3.5" /> Ditolak
                             </span>
                           )}
+
+                          {r.proof_of_transfer_url && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProofUrl(r.proof_of_transfer_url || null)}
+                              className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-lg border border-emerald-200 transition-colors cursor-pointer"
+                            >
+                              <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Lihat Bukti Transfer</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -543,6 +609,11 @@ export default function AreaManagerPettyCashPage() {
           </div>
         </section>
       )}
+
+      <ProofImageLightbox
+        imageUrl={selectedProofUrl}
+        onClose={() => setSelectedProofUrl(null)}
+      />
     </div>
   )
 }

@@ -2,11 +2,52 @@
 
 import React, { useState } from 'react'
 import { Card, Badge, Button, Spinner, EmptyState } from '@suka/design-system'
+import { Camera, X, Download } from 'lucide-react'
 import { ApprovalModal } from '@/components/petty-cash/ApprovalModal'
 import { CreateTopupModal } from './CreateTopupModal'
 import { usePettyCashRequests, useProcessPettyCashLeader, useForwardPettyCashLeader } from '@/hooks/usePettyCash'
 import { tanggalWaktu, relativeTime } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'
+
+function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
+  if (!imageUrl) return null
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-suka-ink/80 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
+      <div className="relative bg-white rounded-3xl overflow-hidden shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col border border-suka-gray-200">
+        <div className="p-4 border-b border-suka-gray-100 flex items-center justify-between bg-white shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-suka-orange/10 text-suka-orange flex items-center justify-center">
+              <Camera className="w-4 h-4" />
+            </div>
+            <h3 className="font-extrabold text-suka-brown text-sm">Foto Bukti Transfer Finance</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-suka-gray-100 hover:bg-suka-gray-200 text-suka-gray-500 hover:text-suka-brown flex items-center justify-center transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-suka-gray-50">
+          <img src={imageUrl} alt="Bukti Transfer" className="max-h-[65vh] w-auto object-contain rounded-2xl shadow-md border border-suka-gray-200" />
+        </div>
+        <div className="p-4 bg-suka-gray-50 border-t border-suka-gray-100 flex items-center justify-between shrink-0 text-xs">
+          <span className="text-suka-gray-500 font-semibold">Lampiran Bukti Transfer Resmi</span>
+          <a
+            href={imageUrl}
+            target="_blank"
+            rel="noreferrer"
+            download="Bukti_Transfer_Petty_Cash.jpg"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-suka-orange text-white rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-sm"
+          >
+            <Download className="w-3.5 h-3.5" /> Unduh / Foto Utuh
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function PettyCashList({ initialRequests }: { initialRequests?: PettyCashTopup[] }) {
   const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests)
@@ -17,6 +58,7 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
   const [selectedRequest, setSelectedRequest] = useState<PettyCashTopup | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
 
   const reviewRequests = allRequests?.filter(r => 
     r.status === 'pending' || 
@@ -153,6 +195,19 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                     {req.status === 'rejected' && (
                       <Badge variant="error">Ditolak</Badge>
                     )}
+
+                    {req.proof_of_transfer_url && (
+                      <div className="mt-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProofUrl(req.proof_of_transfer_url || null)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-lg border border-emerald-200 transition-colors cursor-pointer"
+                        >
+                          <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Bukti Transfer</span>
+                        </button>
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-right whitespace-nowrap">
                     {req.status === 'pending' && activeTab === 'review' && (
@@ -186,6 +241,11 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
       <CreateTopupModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+      />
+
+      <ProofImageLightbox
+        imageUrl={selectedProofUrl}
+        onClose={() => setSelectedProofUrl(null)}
       />
     </div>
   )

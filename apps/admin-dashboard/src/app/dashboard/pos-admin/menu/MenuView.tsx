@@ -9,7 +9,7 @@ import {
   FileArchive, Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { CurrencyInput } from '@suka/design-system'
+import { CurrencyInput, compressImageToWebP } from '@suka/design-system'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
@@ -352,9 +352,9 @@ export default function MenuView({
   async function uploadImage(file: File): Promise<string | null> {
     setUploading(true)
     const supabase = createClient()
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-    const name = `${Date.now()}-${crypto.randomUUID().slice(0,8)}.${ext}`
-    const { error: err } = await supabase.storage.from(BUCKET).upload(name, file, { contentType: file.type })
+    const compressedFile = await compressImageToWebP(file, 800, 800, 0.8)
+    const name = `${Date.now()}-${crypto.randomUUID().slice(0,8)}.webp`
+    const { error: err } = await supabase.storage.from(BUCKET).upload(name, compressedFile, { contentType: 'image/webp' })
     setUploading(false)
     if (err) { setError(`Upload gagal: ${err.message}`); return null }
     return supabase.storage.from(BUCKET).getPublicUrl(name).data.publicUrl

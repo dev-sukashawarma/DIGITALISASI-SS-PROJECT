@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/Skeleton'
 import { useDialogStore } from '@/lib/dialogStore'
 import { db } from '@/lib/db'
 import { useNetworkStatus } from '@/lib/useNetworkStatus'
-import { postToNative, isRunningInWebView } from '@suka/design-system'
+import { postToNative, isRunningInWebView, compressImageToWebP } from '@suka/design-system'
 
 interface Shift {
   id: string
@@ -363,10 +363,10 @@ export default function ShiftPage() {
 
       let receiptUrl = null
       if (receiptFile) {
-        const fileExt = receiptFile.name.split('.').pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+        const compressedFile = await compressImageToWebP(receiptFile, 1200, 1200, 0.8)
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.webp`
         const filePath = `${outletId}/${fileName}`
-        const { error: uploadError } = await supabase.storage.from('petty-cash-receipts').upload(filePath, receiptFile)
+        const { error: uploadError } = await supabase.storage.from('petty-cash-receipts').upload(filePath, compressedFile)
         if (uploadError) throw new Error(`Gagal mengunggah foto struk: ${uploadError.message}`)
         const { data: publicUrlData } = supabase.storage.from('petty-cash-receipts').getPublicUrl(filePath)
         receiptUrl = publicUrlData.publicUrl

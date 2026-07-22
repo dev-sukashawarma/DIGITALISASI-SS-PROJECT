@@ -12,6 +12,8 @@ interface KpiCardsProps {
 export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps) {
   // Current values
   const omzet = rows.reduce((s, r) => s + r.omzet, 0)
+  const totalDeductions = rows.reduce((s, r) => s + (Number((r as any).total_deductions) || 0), 0)
+  const netRevenue = Math.max(0, omzet - totalDeductions)
   const completed = rows.reduce((s, r) => s + r.jumlah_order_completed, 0)
   const currentAov = aov(omzet, completed)
 
@@ -39,14 +41,34 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
 
   const cards = [
     {
-      label: 'Omzet Penjualan',
+      label: 'Omzet Penjualan (Kotor)',
       value: omzet,
       isString: false,
       isRupiah: true,
       delta: dOmzet,
       icon: TrendingUp,
+      color: '#f29744', // Suka Orange
+      subtext: 'Pemasukan kotor sebelum potongan',
+    },
+    {
+      label: 'Total Potongan (Diskon/Promo)',
+      value: totalDeductions,
+      isString: false,
+      isRupiah: true,
+      delta: null,
+      icon: DollarSign,
+      color: '#e11d48', // Rose Red
+      subtext: 'Potongan promo Food Apps & Diskon',
+    },
+    {
+      label: 'Pendapatan Bersih (Net)',
+      value: netRevenue,
+      isString: false,
+      isRupiah: true,
+      delta: dOmzet,
+      icon: TrendingUp,
       color: '#0a7d2c', // Suka Green
-      subtext: 'Pemasukan bersih dari kasir',
+      subtext: 'Bebas biaya potongan promo/diskon',
     },
     {
       label: 'Jumlah Order',
@@ -55,7 +77,7 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
       isRupiah: false,
       delta: dCompleted,
       icon: ShoppingBag,
-      color: '#f29744', // Suka Orange
+      color: '#3b82f6', // Blue
       subtext: 'Transaksi selesai diproses',
     },
     {
@@ -83,7 +105,7 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
   ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
       {cards.map((c) => {
         const Icon = c.icon
         const hasDelta = c.delta !== null && c.delta !== 0 && c.delta !== undefined

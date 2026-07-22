@@ -266,6 +266,10 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     const cancelled = filteredOrders.filter(o => o.status === 'cancelled').length
     const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
 
+    // Deductions calculation
+    const totalDeductions = completed.reduce((s, o) => s + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0), 0)
+    const netRevenue = Math.max(0, totalRevenue - totalDeductions)
+
     return {
       completedOrders: completed,
       paymentBreakdown,
@@ -274,7 +278,9 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       totalOrders,
       successRate,
       cancelledCount: cancelled,
-      totalRevenue
+      totalRevenue,
+      totalDeductions,
+      netRevenue
     }
   }, [orders, shifts, selectedChannel])
 
@@ -495,11 +501,41 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
-          {[1,2,3,4].map(i => <div key={i} className="card h-28 animate-pulse bg-gray-50" />)}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 no-print">
+          {[1,2,3].map(i => <div key={i} className="card h-28 animate-pulse bg-gray-50" />)}
         </div>
       ) : (
         <>
+          {/* ── KPI Cards (Omzet Kotor, Potongan, Pendapatan Bersih) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-amber-500 text-white p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
+              <div>
+                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet Kotor</p>
+                <p className="text-2xl font-black mt-1">{formatRupiah(analytics.totalRevenue)}</p>
+              </div>
+              <p className="text-[10px] text-white/70 mt-2 font-medium">*Sebelum potongan promo/diskon</p>
+            </div>
+
+            <div className="bg-rose-500 text-white p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
+              <div>
+                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Total Potongan</p>
+                <p className="text-2xl font-black mt-1">-{formatRupiah(analytics.totalDeductions)}</p>
+              </div>
+              <p className="text-[10px] text-white/70 mt-2 font-medium">*Promo Food Apps & Diskon Menu</p>
+            </div>
+
+            <div className="bg-emerald-600 text-white p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
+              <div>
+                <p className="text-xs font-bold text-white/90 uppercase tracking-wider">Pendapatan Bersih</p>
+                <p className="text-2xl font-black mt-1">{formatRupiah(analytics.netRevenue)}</p>
+              </div>
+              <p className="text-[10px] text-white/90 mt-2 font-bold">✓ Bebas biaya potongan</p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Success vs Failure Rate */}
             <div className="card p-6 shadow-sm border border-gray-100">

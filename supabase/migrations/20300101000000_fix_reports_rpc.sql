@@ -7,6 +7,8 @@ RETURNS JSONB AS $$
 DECLARE
   v_result JSONB;
   v_total_revenue DECIMAL := 0;
+  v_total_deductions DECIMAL := 0;
+  v_net_revenue DECIMAL := 0;
   v_total_orders INT := 0;
   v_pending_count INT := 0;
   v_canceled_count INT := 0;
@@ -21,15 +23,18 @@ DECLARE
   v_total_main INT := 0;
   v_total_extras INT := 0;
 BEGIN
-  -- Basic stats
+  -- Basic stats: Total Revenue, Total Deductions (discount_amount + promo_subsidy), Total Orders
   SELECT 
     COALESCE(SUM(total_amount), 0),
+    COALESCE(SUM(COALESCE(discount_amount, 0) + COALESCE(promo_subsidy, 0)), 0),
     COUNT(*)
-  INTO v_total_revenue, v_total_orders
+  INTO v_total_revenue, v_total_deductions, v_total_orders
   FROM orders
   WHERE outlet_id = p_outlet_id 
     AND status = 'completed'
     AND created_at >= p_start AND created_at <= p_end;
+
+  v_net_revenue := v_total_revenue - v_total_deductions;
     
   -- Canceled count
   SELECT COUNT(*) INTO v_canceled_count
@@ -147,6 +152,8 @@ BEGIN
   -- Build Result
   v_result := jsonb_build_object(
     'totalRevenue', v_total_revenue,
+    'totalDeductions', v_total_deductions,
+    'netRevenue', v_net_revenue,
     'totalOrders', v_total_orders,
     'avgOrderValue', v_avg_order,
     'pendingCount', v_pending_count,

@@ -102,20 +102,24 @@ async function fetchOutletAnalytics(outletId: string, range: DateRange, customSt
       // Hitung ulang secara manual di frontend, dan paksa konversi waktu ketat ke Waktu Indonesia Barat (Asia/Jakarta).
       const { data: ordersData } = await supabase
         .from('orders')
-        .select('created_at')
+        .select('created_at, discount_amount, promo_subsidy')
         .eq('outlet_id', outletId)
         .eq('status', 'completed')
         .gte('created_at', p_start.toISOString())
         .lte('created_at', p_end.toISOString());
 
+      let totalDeductions = 0;
       if (ordersData) {
         const newHourly = Array(24).fill(0);
         ordersData.forEach((o: any) => {
           const d = new Date(o.created_at);
           const h = (d.getUTCHours() + 7) % 24;
           newHourly[h]++;
+          totalDeductions += (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
         });
         data.hourly = newHourly;
+        data.totalDeductions = totalDeductions;
+        data.netRevenue = Math.max(0, (data.totalRevenue || 0) - totalDeductions);
       }
 
       await db.app_state.put({
@@ -129,7 +133,7 @@ async function fetchOutletAnalytics(outletId: string, range: DateRange, customSt
     console.warn('Network error fetching report analytics, falling back to Dexie cache', err)
     const cached = await db.app_state.get(`reports_analytics:${outletId}:${range}`).catch(() => undefined)
     return cached?.value ?? {
-      totalRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
+      totalRevenue: 0, totalDeductions: 0, netRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
       paymentBreakdown: {}, hourly: Array(24).fill(0), dailyEntries: [], bestSellers: [], categoryData: []
     }
   }
@@ -314,16 +318,16 @@ export default function ReportsPage() {
 
   const analytics = useMemo(() => {
     const base = analyticsData || {
-      totalRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
+      totalRevenue: 0, totalDeductions: 0, netRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
       paymentBreakdown: {}, hourly: Array(24).fill(0), dailyEntries: [], bestSellers: [], categoryData: []
     }
     
     // Hitung total selisih laci (variance) dari tutup shift
     const totalCashVariance = shifts.reduce((s, shift) => s + (shift.variance || 0), 0)
 
-    // We keep payment breakdown as actual orders, or we can choose to add variance ONLY to a separate display.
-    // For now, let's keep totalRevenue strictly as base.totalRevenue so it matches total orders.
-    let totalRevenue = base.totalRevenue
+    let totalRevenue = base.totalRevenue || 0
+    let totalDeductions = base.totalDeductions || 0
+    let netRevenue = Math.max(0, totalRevenue - totalDeductions)
     let avgOrderValue = base.totalOrders > 0 ? Math.round(totalRevenue / base.totalOrders) : 0
 
     // Kalkulasi Jam Tersibuk (Peak Hour) jika API tidak menyediakannya
@@ -345,9 +349,11 @@ export default function ReportsPage() {
     return {
       ...base,
       totalRevenue,
+      totalDeductions,
+      netRevenue,
       paymentBreakdown: base.paymentBreakdown,
       avgOrderValue,
-      totalCashVariance, // keep it in the object if needed elsewhere
+      totalCashVariance,
       peakHour
     }
   }, [analyticsData, shifts])
@@ -480,52 +486,85 @@ export default function ReportsPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
-          {[1,2,3,4].map(i => <div key={i} className="card h-28 animate-pulse bg-gray-50" />)}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 no-print">
+          {[1,2,3,4,5,6].map(i => <div key={i} className="card h-28 animate-pulse bg-gray-50" />)}
         </div>
       ) : (
         <>
-          {/* ── KPI Cards (Kasir specific + combined) ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Total Revenue */}
-            <div className="card p-5 bg-amber-500 text-white col-span-2 md:col-span-1 relative overflow-hidden">
-              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-              <div className="relative">
-                <div className="w-9 h-9 bg-white/20 rounded-2xl flex items-center justify-center mb-3">
-                  <Banknote className="w-4.5 h-4.5 text-white" strokeWidth={1.5} />
+          {/* ── KPI Cards (6 Cards) ── */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+            {/* Total Revenue (Omzet Kotor) */}
+            <div className="card p-4 bg-amber-500 text-white relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
+              <div>
+                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-2">
+                  <Banknote className="w-4 h-4 text-white" strokeWidth={1.5} />
                 </div>
-                <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Total Pendapatan</p>
-                <p className="text-xl font-bold mt-0.5 leading-tight">{formatRupiah(analytics.totalRevenue)}</p>
+                <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest">Omzet Kotor</p>
+                <p className="text-lg font-black mt-0.5 leading-tight">{formatRupiah(analytics.totalRevenue)}</p>
               </div>
+              <p className="text-[9px] text-white/70 mt-1 font-medium">*Sebelum potongan</p>
+            </div>
+
+            {/* Total Deductions (Potongan Promo & Diskon) */}
+            <div className="card p-4 bg-rose-500 text-white relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
+              <div>
+                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-2">
+                  <Minus className="w-4 h-4 text-white" strokeWidth={2} />
+                </div>
+                <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest">Total Potongan</p>
+                <p className="text-lg font-black mt-0.5 leading-tight">-{formatRupiah(analytics.totalDeductions)}</p>
+              </div>
+              <p className="text-[9px] text-white/70 mt-1 font-medium">*Promo Apps & Diskon</p>
+            </div>
+
+            {/* Net Revenue (Pendapatan Bersih) */}
+            <div className="card p-4 bg-emerald-600 text-white relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
+              <div>
+                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-2">
+                  <TrendingUp className="w-4 h-4 text-white" strokeWidth={2} />
+                </div>
+                <p className="text-[10px] font-bold text-white/90 uppercase tracking-widest">Pendapatan Bersih</p>
+                <p className="text-lg font-black mt-0.5 leading-tight">{formatRupiah(analytics.netRevenue)}</p>
+              </div>
+              <p className="text-[9px] text-white/80 mt-1 font-bold">✓ Bebas biaya potongan</p>
             </div>
 
             {/* Total Orders */}
-            <div className="card p-5">
-              <div className="w-9 h-9 bg-blue-50 rounded-2xl flex items-center justify-center mb-3">
-                <ShoppingBag className="w-4.5 h-4.5 text-blue-500" strokeWidth={1.5} />
+            <div className="card p-4 flex flex-col justify-between">
+              <div>
+                <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center mb-2">
+                  <ShoppingBag className="w-4 h-4 text-blue-500" strokeWidth={1.5} />
+                </div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pesanan Sukses</p>
+                <p className="text-2xl font-black text-gray-900 mt-0.5">{analytics.totalOrders}</p>
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Pesanan Sukses</p>
-              <p className="text-3xl font-bold text-gray-900 mt-0.5">{analytics.totalOrders}</p>
             </div>
 
             {/* Average Order */}
-            <div className="card p-5">
-              <div className="w-9 h-9 bg-emerald-50 rounded-2xl flex items-center justify-center mb-3">
-                <TrendingUp className="w-4.5 h-4.5 text-emerald-500" strokeWidth={1.5} />
+            <div className="card p-4 flex flex-col justify-between">
+              <div>
+                <div className="w-8 h-8 bg-purple-50 rounded-xl flex items-center justify-center mb-2">
+                  <TrendingUp className="w-4 h-4 text-purple-500" strokeWidth={1.5} />
+                </div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Rata-rata / Order</p>
+                <p className="text-base font-black text-gray-900 mt-0.5">{formatRupiah(analytics.avgOrderValue)}</p>
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Rata-rata / Pesanan</p>
-              <p className="text-xl font-bold text-gray-900 mt-0.5">{formatRupiah(analytics.avgOrderValue)}</p>
             </div>
 
             {/* Peak Hour */}
-            <div className="card p-5">
-              <div className="w-9 h-9 bg-purple-50 rounded-2xl flex items-center justify-center mb-3">
-                <Clock className="w-4.5 h-4.5 text-purple-500" strokeWidth={1.5} />
+            <div className="card p-4 flex flex-col justify-between">
+              <div>
+                <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center mb-2">
+                  <Clock className="w-4 h-4 text-indigo-500" strokeWidth={1.5} />
+                </div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Jam Tersibuk</p>
+                <p className="text-2xl font-black text-gray-900 mt-0.5">
+                  {analytics.totalOrders > 0 && analytics.peakHour != null ? `${String(analytics.peakHour).padStart(2, '0')}:00` : '—'}
+                </p>
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Jam Tersibuk</p>
-              <p className="text-3xl font-bold text-gray-900 mt-0.5">
-                {analytics.totalOrders > 0 && analytics.peakHour != null ? `${String(analytics.peakHour).padStart(2, '0')}:00` : '—'}
-              </p>
             </div>
           </div>
 

@@ -10,16 +10,35 @@ export interface ServerErrorProps {
 }
 
 export function ServerError({ error, reset, homeUrl = '/' }: ServerErrorProps) {
-  React.useEffect(() => {
-    // Log the error to an error reporting service
-    console.error('Next.js Error Boundary Caught:', error)
+  const isChunkError = React.useMemo(() => {
+    const msg = (error?.message || '').toLowerCase()
+    return msg.includes('loading chunk') || msg.includes('chunkloaderror') || msg.includes('failed to fetch')
   }, [error])
 
-  let statusCode = error.statusCode || 500
-  if (error.message.includes('503')) statusCode = 503
-  if (error.message.includes('501')) statusCode = 501
-  if (error.message.includes('403')) statusCode = 403
-  if (error.message.includes('404')) statusCode = 404
+  React.useEffect(() => {
+    console.error('Next.js Error Boundary Caught:', error)
+    if (isChunkError) {
+      const storageKey = 'chunk_error_reloaded_' + (error?.digest || 'default')
+      if (typeof window !== 'undefined' && !sessionStorage.getItem(storageKey)) {
+        sessionStorage.setItem(storageKey, 'true')
+        window.location.reload()
+      }
+    }
+  }, [error, isChunkError])
+
+  const handleReset = () => {
+    if (isChunkError && typeof window !== 'undefined') {
+      window.location.reload()
+    } else {
+      reset()
+    }
+  }
+
+  let statusCode = error.statusCode || (isChunkError ? 503 : 500)
+  if (error?.message?.includes('503')) statusCode = 503
+  if (error?.message?.includes('501')) statusCode = 501
+  if (error?.message?.includes('403')) statusCode = 403
+  if (error?.message?.includes('404')) statusCode = 404
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
@@ -31,16 +50,20 @@ export function ServerError({ error, reset, homeUrl = '/' }: ServerErrorProps) {
         </div>
         <div className="p-8 text-center">
           <h1 className="text-6xl font-black text-gray-900 mb-2">{statusCode}</h1>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Oops! Terjadi Kesalahan Server</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">
+            {isChunkError ? 'Pembaruan Sistem Berhasil' : 'Oops! Terjadi Kesalahan Server'}
+          </h2>
           <div className="bg-gray-100 p-3 rounded-lg mb-8 inline-block max-w-full overflow-hidden text-ellipsis">
             <code className="text-gray-600 text-xs font-mono">{error.message || 'Internal Server Error'}</code>
           </div>
           <p className="text-gray-500 mb-8 text-sm leading-relaxed">
-            Maaf, sistem sedang mengalami kendala teknis atau sedang dalam perbaikan. Tim kami sedang berusaha memperbaikinya sesegera mungkin.
+            {isChunkError
+              ? 'Telah terjadi pembaruan versi pada sistem. Silakan muat ulang halaman untuk menggunakan versi terbaru.'
+              : 'Maaf, sistem sedang mengalami kendala teknis atau sedang dalam perbaikan. Tim kami sedang berusaha memperbaikinya sesegera mungkin.'}
           </p>
           <div className="flex flex-col gap-3">
             <button
-              onClick={() => reset()}
+              onClick={handleReset}
               className="w-full py-3.5 px-4 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-95 duration-200"
             >
               <RefreshCcw className="w-5 h-5" />

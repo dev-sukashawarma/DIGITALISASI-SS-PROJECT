@@ -13,6 +13,7 @@ interface ReceiptSignature {
 
 interface Props {
   suratJalanId: string
+  initialSignatures?: ReceiptSignature[]
   submitting: boolean
   onFinalize: () => void
   onBack: () => void
@@ -21,9 +22,9 @@ interface Props {
 const REQUIRED_ROLES = ['Crew Penerima', 'Supir'] as const
 const MAX_SIGNATURE_SIZE = 50000 // 50KB, sama dgn pola pengirim
 
-export function ReceiptSignatureStep({ suratJalanId, submitting, onFinalize, onBack }: Props) {
+export function ReceiptSignatureStep({ suratJalanId, initialSignatures, submitting, onFinalize, onBack }: Props) {
   const { outletStaff } = useAuth()
-  const [signatures, setSignatures] = useState<ReceiptSignature[]>([])
+  const [signatures, setSignatures] = useState<ReceiptSignature[]>(initialSignatures || [])
   const [signedBy, setSignedBy] = useState('')
   const [role, setRole] = useState<typeof REQUIRED_ROLES[number]>('Crew Penerima')
   const [signatureImage, setSignatureImage] = useState('')

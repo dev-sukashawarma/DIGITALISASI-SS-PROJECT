@@ -321,6 +321,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     return (
       <ReceiptSignatureStep
         suratJalanId={id}
+        initialSignatures={data?.receipt_signatures || []}
         submitting={submitting}
         onFinalize={handleSubmit}
         onBack={() => setStep('summary')}

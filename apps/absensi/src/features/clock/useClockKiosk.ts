@@ -45,6 +45,39 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const [gpsDistance, setGpsDistance] = useState<number | null>(null);
   const [result, setResult] = useState<KioskResult | null>(null);
 
+  const [permissionState, setPermissionState] = useState<"prompt" | "requesting" | "denied" | "granted">("prompt");
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+
+  // Check initial permissions state on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkInitialPermissions = async () => {
+      try {
+        if (navigator.permissions) {
+          const [camPerm, geoPerm] = await Promise.all([
+            navigator.permissions.query({ name: "camera" as any }).catch(() => null),
+            navigator.permissions.query({ name: "geolocation" as any }).catch(() => null),
+          ]);
+
+          if (camPerm?.state === "granted" && geoPerm?.state === "granted") {
+            setPermissionState("granted");
+            return;
+          }
+          if (camPerm?.state === "denied" || geoPerm?.state === "denied") {
+            setPermissionState("denied");
+            setPermissionError("Akses kamera atau lokasi ditolak di browser. Harap izinkan melalui setelan situs.");
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Permissions query error:", e);
+      }
+    };
+
+    checkInitialPermissions();
+  }, []);
+
   /** Validasi lokasi sebelum scan wajah. Radius = GEOFENCE_RADIUS_M (lib/gps). */
   const checkLocation = useCallback(async () => {
     if (!outletId) return;
@@ -176,6 +209,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         let errMsg = "Gagal memindai lokasi perangkat";
         if (err.code === err.PERMISSION_DENIED) {
           errMsg = "Izin lokasi ditolak. Harap izinkan akses lokasi pada browser Anda.";
+          setPermissionState("denied");
+          setPermissionError(errMsg);
         } else if (err.code === err.POSITION_UNAVAILABLE) {
           errMsg = "Sinyal GPS/lokasi tidak terdeteksi. Silakan aktifkan GPS HP Anda dan coba lagi.";
         } else if (err.code === err.TIMEOUT) {
@@ -187,6 +222,46 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
     );
   }, [outletId, outletCoords, supabase]);
+
+  /** Handshake/Pemicu Izin Browser lewat interaksi user (Tombol UI) */
+  const requestPermissions = useCallback(async () => {
+    setPermissionState("requesting");
+    setPermissionError(null);
+
+    try {
+      // 1. Request Camera Permission
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        stream.getTracks().forEach((t) => t.stop());
+      }
+
+      // 2. Request Geolocation Permission
+      await new Promise<void>((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("Browser tidak mendukung geolokasi GPS."));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          () => resolve(),
+          (err) => reject(err),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
+
+      setPermissionState("granted");
+      checkLocation();
+    } catch (err: any) {
+      console.error("Error requesting permissions:", err);
+      let msg = "Gagal mendapatkan izin kamera atau lokasi.";
+      if (err.name === "NotAllowedError" || err.code === 1) {
+        msg = "Izin ditolak oleh pengguna atau browser. Silakan aktifkan di setelan situs.";
+      } else if (err.message) {
+        msg = err.message;
+      }
+      setPermissionState("denied");
+      setPermissionError(msg);
+    }
+  }, [checkLocation]);
   const [who, setWho] = useState<{ id: string; name: string } | null>(null);
   const [action, setAction] = useState<"in" | "out">("in");
   const [challenge, setChallenge] = useState<Challenge | null>(null);
@@ -490,7 +565,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   /** Kalibrasi ulang koordinat outlet ke posisi fisik saat ini */
   return { phase, who, action, challenge, challengeLabel: challenge ? CHALLENGE_LABEL[challenge] : "", result,
            loadCandidates, tick, runLiveness, flushQueue, isOnline: queue.isOnline, pending: queue.pending,
-           checkLocation, gpsDistance, deviceCoords, deviceAccuracy };
+           checkLocation, gpsDistance, deviceCoords, deviceAccuracy,
+           permissionState, permissionError, requestPermissions };
 }
 
 function gagalText(reason: string): string {

@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 import { CameraCapture } from "@/components/CameraCapture";
+import { PermissionModal } from "@/components/PermissionModal";
 import { loadFaceModels } from "@/lib/face/recognizer";
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
@@ -242,6 +243,14 @@ export function AttendanceKioskPanel() {
 
   return (
     <div className="max-w-md mx-auto space-y-4">
+      {/* Permission Onboarding Modal & Mandatory Gate */}
+      <PermissionModal
+        isOpen={kiosk.permissionState !== "granted"}
+        permissionState={kiosk.permissionState}
+        onRequestPermissions={kiosk.requestPermissions}
+        errorMessage={kiosk.permissionError}
+      />
+
       {/* Compact Header */}
       <div className="flex items-center justify-between px-1">
         <div className="min-w-0">

@@ -1,17 +1,32 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import ChecklistManagementPage from "./page";
 
 // Mock dependencies
-vi.mock("@/context/AuthContext", () => ({
+vi.mock("@suka/auth", () => ({
   useAuth: vi.fn(() => ({
     outletStaff: { outlet_id: "test-outlet-1" }
   }))
 }));
 
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const actual: any = await importOriginal();
+  return {
+    ...actual,
+    useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn() })),
+    useQuery: vi.fn((options: any) => {
+      if (options?.queryFn) options.queryFn();
+      return { data: [], isLoading: false };
+    }),
+  };
+});
+
 const mockSelect = vi.fn();
 const mockEq = vi.fn();
+const mockIn = vi.fn();
+const mockNeq = vi.fn();
 const mockOrder = vi.fn();
 const mockInsert = vi.fn();
 const mockUpdate = vi.fn();
@@ -21,23 +36,30 @@ const mockFrom = vi.fn(() => {
   const chain: any = {
     select: mockSelect,
     eq: mockEq,
+    in: mockIn,
+    neq: mockNeq,
     order: mockOrder,
     insert: mockInsert,
     update: mockUpdate,
-    delete: mockDelete
+    delete: mockDelete,
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
   };
   mockSelect.mockReturnValue(chain);
   mockEq.mockReturnValue(chain);
+  mockIn.mockReturnValue(chain);
+  mockNeq.mockReturnValue(chain);
   mockOrder.mockResolvedValue({ data: [], error: null });
   mockInsert.mockResolvedValue({ error: null });
   mockUpdate.mockResolvedValue({ error: null });
-  mockDelete.mockReturnValue(chain); // wait, delete().eq() resolves
+  mockDelete.mockReturnValue(chain);
   return chain;
 });
 
 vi.mock("@/lib/supabase", () => ({
   createClient: vi.fn(() => ({
-    from: mockFrom
+    from: mockFrom,
+    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
   }))
 }));
 

@@ -26,3 +26,39 @@ jobs:
         run: yarn workspace @suka/admin-dashboard type-check
       - name: Test
         run: yarn workspace @suka/admin-dashboard test
+
+  migration-timestamp-lint:
+    name: Migration timestamps sane
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Determine newly added migration files
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            if [ "$BASE" = "0000000000000000000000000000000000000000" ] || [ -z "$BASE" ]; then
+              BASE="HEAD~1"
+            fi
+          fi
+          if ! git diff --diff-filter=A --name-only "$BASE" "${{ github.sha }}" -- 'supabase/migrations/*.sql' > /tmp/added.txt; then
+            echo "::error::git diff gagal (base=$BASE) — tidak bisa menentukan file migration baru. Cek fetch-depth/base SHA, JANGAN anggap 'tidak ada migration baru'." >&2
+            exit 1
+          fi
+          cat /tmp/added.txt
+      - name: Run unit tests
+        run: node --test scripts/migration-timestamp-lint.test.mjs
+      - name: Lint new migration timestamps
+        run: |
+          if [ -s /tmp/added.txt ]; then
+            node scripts/migration-timestamp-lint.mjs $(cat /tmp/added.txt)
+          else
+            echo "Tidak ada migration baru, skip."
+          fi

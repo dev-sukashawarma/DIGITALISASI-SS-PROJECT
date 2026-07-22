@@ -130,7 +130,7 @@ describe('google-sheets-webhook', () => {
         expect.objectContaining({
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'text/plain;charset=utf-8'
           },
           body: expect.any(String)
         })
@@ -206,7 +206,7 @@ describe('google-sheets-webhook', () => {
         mockConfig.url,
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         })
       )
 

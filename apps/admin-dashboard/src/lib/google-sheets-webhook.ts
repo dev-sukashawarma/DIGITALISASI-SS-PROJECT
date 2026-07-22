@@ -103,12 +103,21 @@ export async function sendOrderToGoogleSheets(
     const response = await customFetch(webhookUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'text/plain;charset=utf-8'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      redirect: 'follow'
     })
 
-    return response.ok
+    if (response.ok) {
+      return true
+    }
+
+    if (response.type === 'opaque' || response.status === 200 || response.status === 302) {
+      return true
+    }
+
+    return false
   } catch (error) {
     console.error('Failed to send order to Google Sheets webhook:', error)
     return false

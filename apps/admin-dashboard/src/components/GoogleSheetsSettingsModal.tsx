@@ -168,12 +168,32 @@ export default function GoogleSheetsSettingsModal({ isOpen, onClose }: GoogleShe
     ]
 
     try {
-      const success = await sendOrderToGoogleSheets(
-        url.trim(),
-        dummyOrder,
-        dummyItems,
-        'Cabang Uji Coba'
-      )
+      // First try via server proxy API to bypass browser CORS restriction
+      let success = false
+      try {
+        const proxyRes = await fetch('/api/integrations/google-sheets/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: url.trim(),
+            order: dummyOrder,
+            items: dummyItems,
+            outletName: 'Cabang Uji Coba'
+          })
+        })
+        const data = await proxyRes.json()
+        if (proxyRes.ok && data.success) {
+          success = true
+        }
+      } catch (proxyErr) {
+        // Fallback to direct client-side fetch if proxy fails
+        success = await sendOrderToGoogleSheets(
+          url.trim(),
+          dummyOrder,
+          dummyItems,
+          'Cabang Uji Coba'
+        )
+      }
 
       if (success) {
         setAlert({
@@ -189,7 +209,7 @@ export default function GoogleSheetsSettingsModal({ isOpen, onClose }: GoogleShe
     } catch (err: any) {
       setAlert({
         type: 'error',
-        message: `Koneksi gagal: ${err.message || 'Kesalahan jaringan atau CORS'}`
+        message: `Koneksi gagal: ${err.message || 'Kesalahan jaringan'}`
       })
     } finally {
       setTesting(false)

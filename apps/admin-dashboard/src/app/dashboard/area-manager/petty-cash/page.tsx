@@ -166,7 +166,7 @@ export default function AreaManagerPettyCashPage() {
   const rejectedCount = allHistoryRequests.filter(r => r.status === 'rejected').length
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-6 font-sans">
       <div>
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
           <ShieldCheck className="w-7 h-7 text-indigo-600" />
@@ -204,7 +204,7 @@ export default function AreaManagerPettyCashPage() {
       {/* TAB 1: REVIEW / ACTION NEEDED */}
       {activeTab === 'review' && (
         <section className="space-y-4">
-          {/* Sub-filter chips for Review */}
+          {/* Sub-filter chips for Review (No Emojis) */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mr-1">
               <Filter className="w-3.5 h-3.5" /> Filter:
@@ -221,23 +221,25 @@ export default function AreaManagerPettyCashPage() {
             </button>
             <button
               onClick={() => setReviewFilter('unapproved')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 reviewFilter === 'unapproved'
                   ? 'bg-amber-600 text-white shadow-sm'
                   : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
               }`}
             >
-              ⏳ Belum di-ACC ({unapprovedCount})
+              <Clock className="w-3.5 h-3.5" />
+              Belum di-ACC ({unapprovedCount})
             </button>
             <button
               onClick={() => setReviewFilter('ready_handover')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 reviewFilter === 'ready_handover'
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
               }`}
             >
-              🟢 Siap Diserahkan ({readyHandoverCount})
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Siap Diserahkan ({readyHandoverCount})
             </button>
           </div>
 
@@ -258,13 +260,13 @@ export default function AreaManagerPettyCashPage() {
                           <Store className="w-3.5 h-3.5 text-slate-400" /> {req.outlet?.name || 'Unknown Outlet'}
                         </span>
                         {(req.status === 'pending' || req.status === 'forwarded_to_area_manager') && (
-                          <span className="text-xs font-bold px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md">
-                            BELUM DI-ACC (MENUNGGU AM)
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md">
+                            <Clock className="w-3.5 h-3.5" /> BELUM DI-ACC (MENUNGGU AM)
                           </span>
                         )}
                         {(req.status === 'approved_by_finance' || req.status === 'forwarded_by_finance') && (
-                          <span className="text-xs font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md">
-                            SUDAH DICAIRKAN FINANCE (SERAHKAN KE LEADER)
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" /> SUDAH DICAIRKAN FINANCE (SERAHKAN KE LEADER)
                           </span>
                         )}
                       </div>
@@ -332,7 +334,7 @@ export default function AreaManagerPettyCashPage() {
       {/* TAB 2: RIWAYAT PENGAJUAN AREA MANAGER */}
       {activeTab === 'history' && (
         <section className="space-y-4">
-          {/* Sub-filter chips for History */}
+          {/* Sub-filter chips for History (No Emojis) */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mr-1">
               <Filter className="w-3.5 h-3.5" /> Filter Riwayat:
@@ -349,43 +351,47 @@ export default function AreaManagerPettyCashPage() {
             </button>
             <button
               onClick={() => setHistoryFilter('acc_finance')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 historyFilter === 'acc_finance'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
               }`}
             >
+              <Clock className="w-3.5 h-3.5" />
               Sudah di-ACC (Ke Finance) ({accFinanceCount})
             </button>
             <button
               onClick={() => setHistoryFilter('forwarded_leader')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 historyFilter === 'forwarded_leader'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
               }`}
             >
+              <ArrowRight className="w-3.5 h-3.5" />
               Diserahkan ke Leader ({forwardedLeaderCount})
             </button>
             <button
               onClick={() => setHistoryFilter('completed')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 historyFilter === 'completed'
                   ? 'bg-emerald-700 text-white shadow-sm'
                   : 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
               }`}
             >
-              ✅ Selesai (Crew Terima) ({completedCount})
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Selesai (Crew Terima) ({completedCount})
             </button>
             <button
               onClick={() => setHistoryFilter('rejected')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 historyFilter === 'rejected'
                   ? 'bg-red-600 text-white shadow-sm'
                   : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
               }`}
             >
-              ❌ Ditolak ({rejectedCount})
+              <XCircle className="w-3.5 h-3.5" />
+              Ditolak ({rejectedCount})
             </button>
           </div>
 

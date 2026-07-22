@@ -103,6 +103,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
 
   const [fisik, setFisik] = useState<Record<string, string>>({});
   const [containerInput, setContainerInput] = useState<Record<string, string>>({});
+  const [pendingApproval] = useState(false);
   const [remainderInput, setRemainderInput] = useState<Record<string, string>>({});
   const [remainderError, setRemainderError] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState('');

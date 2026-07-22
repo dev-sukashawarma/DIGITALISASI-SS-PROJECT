@@ -1,20 +1,9 @@
-// Konfigurasi channel order eksternal (GoFood, ShopeeFood, dll).
-// Dipakai bersama oleh halaman input order manual & badge di papan Order.
-//
-// Catatan: warna memakai brand color masing-masing channel. "Logo" dirender
-// sebagai mark/inisial berstilir (lihat ChannelBadge) agar tidak perlu
-// menyimpan aset gambar berhak cipta. Bisa diganti PNG asli kapan saja
-// dengan menaruh file di /public dan menyetel `logo` di sini.
-
 export interface ChannelConfig {
   id: string
   label: string
-  // Warna latar utama (brand color) & warna teks kontras
   bg: string
   fg: string
-  // Mark singkat (inisial) untuk badge bulat
   mark: string
-  // SVG path untuk logo brand (opsional)
   logoPath?: string
 }
 
@@ -27,5 +16,9 @@ export const CHANNELS: ChannelConfig[] = [
 
 export function getChannel(id: string | null | undefined): ChannelConfig | null {
   if (!id) return null
-  return CHANNELS.find((c) => c.id === id) ?? null
+  const norm = id.toLowerCase()
+  if (['tiktok', 'tiktokgo', 'tiktok_go'].includes(norm)) {
+    return CHANNELS.find((c) => c.id === 'tiktokgo') ?? null
+  }
+  return CHANNELS.find((c) => c.id === norm) ?? null
 }

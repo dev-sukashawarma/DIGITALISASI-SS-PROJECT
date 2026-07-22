@@ -60,7 +60,15 @@ const RANGE_LABELS: Record<DateRange, string> = {
   custom: 'Kustom Tanggal',
 }
 
-async function fetchOutletAnalytics(outletId: string, range: DateRange, customStart: string, customEnd: string): Promise<any> {
+async function fetchOutletAnalytics(
+  outletId: string,
+  range: DateRange,
+  customStart: string,
+  customEnd: string,
+  channelFilter: string = 'all',
+  paymentFilter: string = 'all',
+  statusFilter: string = 'all'
+): Promise<any> {
   try {
     const supabase = createClient()
 
@@ -88,50 +96,106 @@ async function fetchOutletAnalytics(outletId: string, range: DateRange, customSt
       p_end.setHours(23, 59, 59, 999)
     }
 
-    const { data, error } = await fetchWithTimeout(
-      supabase.rpc('get_outlet_analytics', {
-        p_outlet_id: outletId,
-        p_start: p_start.toISOString(),
-        p_end: p_end.toISOString()
-      }).then(res => res)
-    )
+    let ordersQuery = supabase
+      .from('orders')
+      .select('id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, order_items(id, menu_item_name, quantity, subtotal)')
+      .eq('outlet_id', outletId)
+      .gte('created_at', p_start.toISOString())
+      .lte('created_at', p_end.toISOString())
+
+    if (statusFilter !== 'all') {
+      ordersQuery = ordersQuery.eq('status', statusFilter)
+    }
+    if (paymentFilter !== 'all') {
+      ordersQuery = ordersQuery.eq('payment_method', paymentFilter)
+    }
+    if (channelFilter !== 'all') {
+      if (channelFilter === 'offline') {
+        ordersQuery = ordersQuery.is('channel', null)
+      } else if (channelFilter === 'food_apps') {
+        ordersQuery = ordersQuery.in('channel', ['gofood', 'grabfood', 'shopeefood', 'tiktokgo', 'tiktok', 'tiktok_go'])
+      } else if (channelFilter === 'tiktokgo' || channelFilter === 'tiktok') {
+        ordersQuery = ordersQuery.in('channel', ['tiktokgo', 'tiktok', 'tiktok_go'])
+      } else {
+        ordersQuery = ordersQuery.eq('channel', channelFilter)
+      }
+    }
+
+    const { data: ordersData, error } = await fetchWithTimeout(ordersQuery.then(res => res))
     if (error) throw error
 
-    if (data) {
-      // Kita abaikan perhitungan 'hourly' dari backend karena ada potensi selisih zona waktu (UTC vs WIB).
-      // Hitung ulang secara manual di frontend, dan paksa konversi waktu ketat ke Waktu Indonesia Barat (Asia/Jakarta).
-      const { data: ordersData } = await supabase
-        .from('orders')
-        .select('created_at, discount_amount, promo_subsidy')
-        .eq('outlet_id', outletId)
-        .eq('status', 'completed')
-        .gte('created_at', p_start.toISOString())
-        .lte('created_at', p_end.toISOString());
+    const completedOrders = (ordersData || []).filter((o: any) => o.status === 'completed')
+    const totalRevenue = completedOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0)
+    const totalDeductions = completedOrders.reduce((s: number, o: any) => s + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0), 0)
+    const netRevenue = Math.max(0, totalRevenue - totalDeductions)
+    const totalOrders = completedOrders.length
+    const pendingCount = (ordersData || []).filter((o: any) => o.status === 'pending').length
+    const canceledCount = (ordersData || []).filter((o: any) => o.status === 'cancelled').length
+    const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
 
-      let totalDeductions = 0;
-      if (ordersData) {
-        const newHourly = Array(24).fill(0);
-        ordersData.forEach((o: any) => {
-          const d = new Date(o.created_at);
-          const h = (d.getUTCHours() + 7) % 24;
-          newHourly[h]++;
-          totalDeductions += (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
-        });
-        data.hourly = newHourly;
-        data.totalDeductions = totalDeductions;
-        data.netRevenue = Math.max(0, (data.totalRevenue || 0) - totalDeductions);
+    const paymentBreakdown: Record<string, { count: number; revenue: number }> = {}
+    const hourly = Array(24).fill(0)
+    const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {}
+
+    completedOrders.forEach((o: any) => {
+      // Payment Breakdown
+      const pm = o.payment_method || 'unknown'
+      if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, revenue: 0 }
+      paymentBreakdown[pm].count++
+      paymentBreakdown[pm].revenue += Number(o.total_amount) || 0
+
+      // Hourly (Asia/Jakarta +7)
+      const d = new Date(o.created_at)
+      const h = (d.getUTCHours() + 7) % 24
+      hourly[h]++
+
+      // Best Sellers
+      if (Array.isArray(o.order_items)) {
+        o.order_items.forEach((oi: any) => {
+          const name = oi.menu_item_name || 'Item'
+          if (!itemMap[name]) itemMap[name] = { name, qty: 0, revenue: 0 }
+          itemMap[name].qty += Number(oi.quantity) || 0
+          itemMap[name].revenue += Number(oi.subtotal) || 0
+        })
       }
+    })
 
-      await db.app_state.put({
-        key: `reports_analytics:${outletId}:${range}`,
-        value: data,
-        synced_at: Date.now()
-      }).catch(() => {})
+    const bestSellers = Object.values(itemMap).sort((a, b) => b.qty - a.qty).slice(0, 10)
+
+    let maxHourlyCount = 0
+    let peakHour: number | null = null
+    for (let i = 0; i < 24; i++) {
+      if (hourly[i] > maxHourlyCount) {
+        maxHourlyCount = hourly[i]
+        peakHour = i
+      }
     }
-    return data
+
+    const analyticsResult = {
+      totalRevenue,
+      totalDeductions,
+      netRevenue,
+      totalOrders,
+      avgOrderValue,
+      pendingCount,
+      canceledCount,
+      paymentBreakdown,
+      hourly,
+      peakHour,
+      bestSellers,
+      categoryData: []
+    }
+
+    await db.app_state.put({
+      key: `reports_analytics:${outletId}:${range}:${channelFilter}:${paymentFilter}:${statusFilter}`,
+      value: analyticsResult,
+      synced_at: Date.now()
+    }).catch(() => {})
+
+    return analyticsResult
   } catch (err) {
     console.warn('Network error fetching report analytics, falling back to Dexie cache', err)
-    const cached = await db.app_state.get(`reports_analytics:${outletId}:${range}`).catch(() => undefined)
+    const cached = await db.app_state.get(`reports_analytics:${outletId}:${range}:${channelFilter}:${paymentFilter}:${statusFilter}`).catch(() => undefined)
     return cached?.value ?? {
       totalRevenue: 0, totalDeductions: 0, netRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
       paymentBreakdown: {}, hourly: Array(24).fill(0), dailyEntries: [], bestSellers: [], categoryData: []
@@ -139,7 +203,18 @@ async function fetchOutletAnalytics(outletId: string, range: DateRange, customSt
   }
 }
 
-async function fetchPaginatedOrders(outletId: string, range: DateRange, customStart: string, customEnd: string, search: string, page: number, limit: number) {
+async function fetchPaginatedOrders(
+  outletId: string,
+  range: DateRange,
+  customStart: string,
+  customEnd: string,
+  search: string,
+  page: number,
+  limit: number,
+  channelFilter: string = 'all',
+  paymentFilter: string = 'all',
+  statusFilter: string = 'all'
+) {
   try {
     const supabase = createClient()
     
@@ -167,19 +242,43 @@ async function fetchPaginatedOrders(outletId: string, range: DateRange, customSt
       p_end.setHours(23, 59, 59, 999)
     }
 
+    let q = supabase
+      .from('orders')
+      .select('*, order_items(*)', { count: 'exact' })
+      .eq('outlet_id', outletId)
+      .gte('created_at', p_start.toISOString())
+      .lte('created_at', p_end.toISOString())
+      .order('created_at', { ascending: false })
+
+    if (statusFilter !== 'all') {
+      q = q.eq('status', statusFilter)
+    }
+    if (paymentFilter !== 'all') {
+      q = q.eq('payment_method', paymentFilter)
+    }
+    if (channelFilter !== 'all') {
+      if (channelFilter === 'offline') {
+        q = q.is('channel', null)
+      } else if (channelFilter === 'food_apps') {
+        q = q.in('channel', ['gofood', 'grabfood', 'shopeefood', 'tiktokgo', 'tiktok', 'tiktok_go'])
+      } else if (channelFilter === 'tiktokgo' || channelFilter === 'tiktok') {
+        q = q.in('channel', ['tiktokgo', 'tiktok', 'tiktok_go'])
+      } else {
+        q = q.eq('channel', channelFilter)
+      }
+    }
+
+    if (search.trim()) {
+      const s = search.trim()
+      q = q.or(`payment_method.ilike.%${s}%,channel.ilike.%${s}%`)
+    }
+
     const offset = (page - 1) * limit
-    const { data, error } = await fetchWithTimeout(
-      supabase.rpc('search_outlet_orders', {
-        p_outlet_id: outletId,
-        p_start: p_start.toISOString(),
-        p_end: p_end.toISOString(),
-        p_search: search,
-        p_limit: limit,
-        p_offset: offset
-      }).then(res => res)
-    )
+    q = q.range(offset, offset + limit - 1)
+
+    const { data, count, error } = await fetchWithTimeout(q.then(res => res))
     if (error) throw error
-    return { data: data || [], total: data && data.length > 0 ? data[0].total_count : 0 }
+    return { data: data || [], total: count ?? (data?.length || 0) }
   } catch(err) {
     return { data: [], total: 0 }
   }
@@ -258,6 +357,11 @@ export default function ReportsPage() {
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
 
+  // Filter States
+  const [channelFilter, setChannelFilter] = useState<string>('all')
+  const [paymentFilter, setPaymentFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+
   // Outlet Data (outletName sudah di-cache di useMyOutlet, tidak perlu query terpisah lagi)
   const { outletId, outletName: rawOutletName } = useMyOutlet()
   const outletName = rawOutletName || 'Memuat...'
@@ -283,16 +387,16 @@ export default function ReportsPage() {
   const isCustomReady = range !== 'custom' || (!!customStart && !!customEnd)
 
   const { data: analyticsData, isLoading: loading } = useQuery({
-    queryKey: ['reports', outletId, range, customStart, customEnd],
-    queryFn: () => fetchOutletAnalytics(outletId as string, range, customStart, customEnd),
+    queryKey: ['reports', outletId, range, customStart, customEnd, channelFilter, paymentFilter, statusFilter],
+    queryFn: () => fetchOutletAnalytics(outletId as string, range, customStart, customEnd, channelFilter, paymentFilter, statusFilter),
     enabled: !!outletId && isCustomReady,
     staleTime: 30000,
     retry: false,
   })
 
   const { data: searchResults, isLoading: loadingSearch } = useQuery({
-    queryKey: ['reportSearch', outletId, range, customStart, customEnd, deferredSearchQuery, currentPage],
-    queryFn: () => fetchPaginatedOrders(outletId as string, range, customStart, customEnd, deferredSearchQuery, currentPage, itemsPerPage),
+    queryKey: ['reportSearch', outletId, range, customStart, customEnd, deferredSearchQuery, currentPage, channelFilter, paymentFilter, statusFilter],
+    queryFn: () => fetchPaginatedOrders(outletId as string, range, customStart, customEnd, deferredSearchQuery, currentPage, itemsPerPage, channelFilter, paymentFilter, statusFilter),
     enabled: !!outletId && isCustomReady,
     staleTime: 30000,
     retry: false,
@@ -413,8 +517,46 @@ export default function ReportsPage() {
           <p className="text-gray-400 text-sm mt-0.5">Insight bisnis Anda secara real-time</p>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+        {/* Filters Bar */}
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+          {/* Filter Channel / Food Apps */}
+          <select
+            value={channelFilter}
+            onChange={(e) => { setChannelFilter(e.target.value); setCurrentPage(1); }}
+            className="bg-white border border-gray-200 hover:border-gray-300 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 transition-all shadow-sm outline-none cursor-pointer"
+          >
+            <option value="all">Semua Channel</option>
+            <option value="food_apps">Semua Food Apps</option>
+            <option value="offline">POS Kasir (Walk-in)</option>
+            <option value="gofood">GoFood</option>
+            <option value="grabfood">GrabFood</option>
+            <option value="shopeefood">ShopeeFood</option>
+            <option value="tiktokgo">TikTok Go</option>
+          </select>
+
+          {/* Filter Metode Bayar */}
+          <select
+            value={paymentFilter}
+            onChange={(e) => { setPaymentFilter(e.target.value); setCurrentPage(1); }}
+            className="bg-white border border-gray-200 hover:border-gray-300 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 transition-all shadow-sm outline-none cursor-pointer"
+          >
+            <option value="all">Semua Metode</option>
+            <option value="cash">Tunai</option>
+            <option value="qris">QRIS</option>
+            <option value="card">Kartu</option>
+          </select>
+
+          {/* Filter Status Transaksi */}
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            className="bg-white border border-gray-200 hover:border-gray-300 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 transition-all shadow-sm outline-none cursor-pointer"
+          >
+            <option value="all">Semua Status</option>
+            <option value="completed">Selesai</option>
+            <option value="cancelled">Dibatalkan</option>
+          </select>
+
           {/* Custom Date Picker (if selected) */}
           {range === 'custom' && (
             <div className="flex flex-col sm:flex-row items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200 w-full sm:w-auto order-last sm:order-first">

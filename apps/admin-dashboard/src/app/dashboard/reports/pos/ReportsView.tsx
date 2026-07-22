@@ -205,11 +205,20 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
   // ─── Derived Analytics ───
   const analytics = useMemo(() => {
+    const isFoodApp = (key: string) => ['shopeefood', 'grabfood', 'gofood', 'tiktokgo', 'tiktok', 'tiktok_go'].includes(key.toLowerCase())
+
     const filteredOrders = selectedChannel === 'all' 
       ? orders 
       : selectedChannel === 'food_apps'
-        ? orders.filter(o => ['shopeefood', 'grabfood', 'gofood'].includes(resolveOrderSource(o.channel, o.sales_source).key))
-        : orders.filter(o => resolveOrderSource(o.channel, o.sales_source).key === selectedChannel)
+        ? orders.filter(o => isFoodApp(resolveOrderSource(o.channel, o.sales_source).key))
+        : orders.filter(o => {
+            const k = resolveOrderSource(o.channel, o.sales_source).key.toLowerCase()
+            const target = selectedChannel.toLowerCase()
+            if (target === 'tiktokgo' || target === 'tiktok') {
+              return ['tiktokgo', 'tiktok', 'tiktok_go'].includes(k)
+            }
+            return k === target
+          })
 
     const completed = filteredOrders.filter(o => o.status === 'completed')
     const totalOrders = completed.length

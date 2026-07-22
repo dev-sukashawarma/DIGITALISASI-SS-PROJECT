@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useDeferredValue } from 'react'
 import {
   BarChart3, TrendingUp, TrendingDown, ShoppingBag, Banknote,
   Calendar, ChevronDown, Award, Clock, CreditCard, QrCode,
@@ -111,10 +111,8 @@ async function fetchOutletAnalytics(outletId: string, range: DateRange, customSt
       if (ordersData) {
         const newHourly = Array(24).fill(0);
         ordersData.forEach((o: any) => {
-          // Konversi string UTC dari Supabase menjadi waktu spesifik WIB (Asia/Jakarta)
-          const dateWIBStr = new Date(o.created_at).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
-          const dateWIB = new Date(dateWIBStr);
-          const h = dateWIB.getHours();
+          const d = new Date(o.created_at);
+          const h = (d.getUTCHours() + 7) % 24;
           newHourly[h]++;
         });
         data.hourly = newHourly;
@@ -262,6 +260,7 @@ export default function ReportsPage() {
 
   // Table State
   const [searchQuery, setSearchQuery] = useState('')
+  const deferredSearchQuery = useDeferredValue(searchQuery)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
@@ -288,8 +287,8 @@ export default function ReportsPage() {
   })
 
   const { data: searchResults, isLoading: loadingSearch } = useQuery({
-    queryKey: ['reportSearch', outletId, range, customStart, customEnd, searchQuery, currentPage],
-    queryFn: () => fetchPaginatedOrders(outletId as string, range, customStart, customEnd, searchQuery, currentPage, itemsPerPage),
+    queryKey: ['reportSearch', outletId, range, customStart, customEnd, deferredSearchQuery, currentPage],
+    queryFn: () => fetchPaginatedOrders(outletId as string, range, customStart, customEnd, deferredSearchQuery, currentPage, itemsPerPage),
     enabled: !!outletId && isCustomReady,
     staleTime: 30000,
     retry: false,

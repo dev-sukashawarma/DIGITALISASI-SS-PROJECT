@@ -1,6 +1,4 @@
-'use client'
-
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, useDeferredValue } from 'react'
 import Image from 'next/image'
 import {
   Loader2,
@@ -356,12 +354,16 @@ export default function KasirMenuClient({
     }
   }
 
-  const filteredItems = items.filter(item => {
-    if (!searchQuery) return true;
-    const lowerQ = searchQuery.toLowerCase();
-    return item.name.toLowerCase().includes(lowerQ) || 
-           (item.categories?.name && item.categories.name.toLowerCase().includes(lowerQ));
-  });
+  const deferredSearchQuery = useDeferredValue(searchQuery)
+
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      if (!deferredSearchQuery.trim()) return true;
+      const lowerQ = deferredSearchQuery.toLowerCase();
+      return item.name.toLowerCase().includes(lowerQ) || 
+             (item.categories?.name && item.categories.name.toLowerCase().includes(lowerQ));
+    });
+  }, [items, deferredSearchQuery]);
 
   return (
     <div className="space-y-6">

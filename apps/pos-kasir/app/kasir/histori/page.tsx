@@ -97,7 +97,7 @@ async function fetchHistoriOrders(
     if (endIso) q = q.lte('created_at', endIso)
     
     if (dateFilter === 'all') {
-       q = q.limit(1000)
+       q = q.limit(100)
     }
 
     const { data, error } = await fetchWithTimeout(q.then(res => res))

@@ -154,21 +154,32 @@ export default function ShiftPage() {
     if (outletId) {
       fetchCurrentState()
 
+      let debounceTimer: NodeJS.Timeout | null = null
+      const triggerRefresh = () => {
+        if (debounceTimer) clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => fetchCurrentState(true), 500)
+      }
+
+      const channelName = `shift-realtime-${outletId}`
+      const existing = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`)
+      if (existing) supabase.removeChannel(existing)
+
       const channel = supabase
-        .channel(`shift-realtime-${outletId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_topups', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState(true))
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState(true))
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` }, () => fetchCurrentState(true))
+        .channel(channelName)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_topups', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
         .subscribe()
 
-      // Polling fallback every 10 seconds to ensure updates (especially if Supabase Replication is off)
+      // Polling fallback dipasang 30 detik untuk menghemat jaringan & CPU
       const interval = setInterval(() => {
         fetchCurrentState(true)
-      }, 10000)
+      }, 30000)
 
       return () => {
-        supabase.removeChannel(channel)
+        if (debounceTimer) clearTimeout(debounceTimer)
         clearInterval(interval)
+        supabase.removeChannel(channel)
       }
     }
   }, [outletId, supabase])

@@ -49,7 +49,8 @@ export default function LoginPage() {
     }
 
     if (['admin', 'owner', 'mitra', 'area_manager', 'korlap'].includes(staff.role)) {
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || process.env.NODE_ENV === 'development'
+      const host = typeof window !== 'undefined' ? window.location.hostname : ''
+      const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
       const adminUrl = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || (isLocal ? 'http://localhost:3005' : 'https://admin.sukashawarma.com')
       window.location.href = adminUrl
       return
@@ -223,7 +224,8 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || process.env.NODE_ENV === 'development'
+                const host = typeof window !== 'undefined' ? window.location.hostname : ''
+                const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
                 const kasirUrl = process.env.NEXT_PUBLIC_APP_URL_POS_KASIR || (isLocal ? 'http://localhost:3004' : 'https://pos.sukashawarma.com')
                 window.location.href = `${kasirUrl}/kiosk/qr-login`
               }}

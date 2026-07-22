@@ -14,7 +14,7 @@ export default async function KasirOrdersServerPage() {
   if (!user) {
     const headersList = await headers()
     const host = headersList.get('host') || ''
-    const isLocal = host.includes('localhost') || host.includes('127.0.0.1') || process.env.NODE_ENV === 'development'
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
     
     // Portal berjalan di 3010
     const portalUrl = isLocal ? 'http://localhost:3010' : (process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com')

@@ -15,7 +15,7 @@ import { headers } from 'next/headers'
 const getAppUrls = async () => {
   const headersList = await headers()
   const host = headersList.get('host') || ''
-  const isLocal = host.includes('localhost') || host.includes('127.0.0.1') || process.env.NODE_ENV === 'development'
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
 
   return {
     'admin-dashboard': isLocal ? 'http://localhost:3005' : (process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'),

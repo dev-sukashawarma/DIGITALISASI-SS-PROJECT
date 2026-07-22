@@ -8,7 +8,7 @@ import type { AppName } from './types'
 
 function getPortalUrl(request: NextRequest): string {
   const host = request.headers.get('host') || request.nextUrl.host || ''
-  const isLocal = host.includes('localhost') || host.includes('127.0.0.1') || process.env.NODE_ENV === 'development'
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
   if (isLocal) {
     return 'http://localhost:3010'
   }

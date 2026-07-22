@@ -830,36 +830,62 @@ export default function ReportsPage() {
             </div>
 
             {/* ── Total Menu Terjual ── */}
-            <div className="card p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
+            <div className="card p-6 shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-white via-amber-50/20 to-orange-50/30">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+              
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <h2 className="font-bold text-gray-900 text-lg">Total Menu Terjual</h2>
-                  <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
-                    {analytics.totalItemsSold || 0} Menu Terjual
-                  </span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center border border-amber-200/50 shadow-xs">
+                      <ShoppingBag className="w-5 h-5" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-gray-900 text-lg leading-tight">Total Menu Terjual</h2>
+                      <p className="text-gray-400 print-dark-text text-xs">Proporsi porsi terjual dari pesanan lunas</p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-gray-400 print-dark-text text-xs mb-4">Rincian item terjual dari pesanan lunas</p>
 
+                {/* Hero Big Stat Number */}
+                <div className="my-3 p-4 rounded-2xl bg-white border border-amber-100 shadow-sm flex items-baseline justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Total Porsi / Item</p>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <span className="text-4xl sm:text-5xl font-black text-amber-600 tracking-tight">
+                        {analytics.totalItemsSold || 0}
+                      </span>
+                      <span className="text-sm font-bold text-amber-800 bg-amber-100/70 border border-amber-200/60 px-2.5 py-1 rounded-xl">
+                        Menu Terjual
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[11px] font-semibold text-gray-400">Variasi Menu</p>
+                    <p className="text-base font-black text-gray-800">{analytics.bestSellers.length} Produk</p>
+                  </div>
+                </div>
+
+                {/* Mini Top Item Breakdown */}
                 {analytics.totalItemsSold === 0 || analytics.bestSellers.length === 0 ? (
-                  <div className="h-36 flex flex-col items-center justify-center text-gray-400 print-dark-text text-sm">
-                    <Package className="w-8 h-8 text-gray-300 mb-2" />
-                    Belum ada menu terjual
+                  <div className="h-24 flex flex-col items-center justify-center text-gray-400 print-dark-text text-xs">
+                    <Package className="w-6 h-6 text-gray-300 mb-1" />
+                    Belum ada item terjual
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
-                    {analytics.bestSellers.slice(0, 6).map((item: any, index: number) => {
+                  <div className="space-y-2.5 mt-3">
+                    {analytics.bestSellers.slice(0, 4).map((item: any, index: number) => {
                       const pct = analytics.totalItemsSold > 0 
                         ? Math.round((item.qty / analytics.totalItemsSold) * 100) 
                         : 0;
                       return (
                         <div key={index} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="font-bold text-gray-800 truncate max-w-[180px]">{cleanItemName(item.name)}</span>
-                            <span className="font-bold text-gray-900">{item.qty} item <span className="text-gray-400 font-normal">({pct}%)</span></span>
+                            <span className="font-bold text-gray-700 truncate max-w-[190px]">{cleanItemName(item.name)}</span>
+                            <span className="font-extrabold text-gray-900">{item.qty} <span className="text-gray-400 font-medium">porsi ({pct}%)</span></span>
                           </div>
-                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                              className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-500"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
@@ -868,10 +894,6 @@ export default function ReportsPage() {
                     })}
                   </div>
                 )}
-              </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-                <span>Total Porsi Terjual:</span>
-                <span className="font-black text-amber-600 text-sm">{analytics.totalItemsSold || 0} Menu Terjual</span>
               </div>
             </div>
           </div>

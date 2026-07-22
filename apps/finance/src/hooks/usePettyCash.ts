@@ -5,11 +5,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 
-export function usePettyCashRequests(status?: string, initialData?: PettyCashTopup[]) {
+export function usePettyCashRequests(status?: string, initialData?: PettyCashTopup[], regionFilter?: string) {
   const supabase = useMemo(() => createClient(), [])
 
   return useQuery<PettyCashTopup[]>({
-    queryKey: ['petty_cash_topups', status],
+    queryKey: ['petty_cash_topups', status, regionFilter],
     initialData,
     queryFn: async () => {
       let query = supabase
@@ -17,12 +17,16 @@ export function usePettyCashRequests(status?: string, initialData?: PettyCashTop
         .select(`
           *,
           outlet_staff!petty_cash_topups_created_by_fkey(name),
-          outlets!petty_cash_topups_outlet_id_fkey(name)
+          outlets!petty_cash_topups_outlet_id_fkey!inner(name, region)
         `)
         .order('created_at', { ascending: false })
       
       if (status) {
         query = query.eq('status', status)
+      }
+
+      if (regionFilter) {
+        query = query.ilike('outlets.region', regionFilter)
       }
 
       const { data, error } = await query

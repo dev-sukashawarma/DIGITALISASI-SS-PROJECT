@@ -36,8 +36,9 @@ export default function AreaManagerPettyCashPage() {
         .from('petty_cash_topups')
         .select(`
           *,
-          outlets!petty_cash_topups_outlet_id_fkey(name)
+          outlets!petty_cash_topups_outlet_id_fkey!inner(name, region)
         `)
+        .ilike('outlets.region', 'BOGOR')
         .order('created_at', { ascending: false })
 
       if (error) throw error

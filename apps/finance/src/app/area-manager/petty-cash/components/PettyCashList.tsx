@@ -8,7 +8,7 @@ import { tanggalWaktu } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'
 
 export function PettyCashList({ initialRequests }: { initialRequests?: PettyCashTopup[] }) {
-  const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests)
+  const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests, 'BOGOR')
   const processTopup = useProcessPettyCashAreaManager()
   const forwardTopup = useForwardPettyCashAreaManager()
   

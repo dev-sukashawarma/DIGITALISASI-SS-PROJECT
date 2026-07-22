@@ -39,6 +39,36 @@ export function usePettyCashRequests(status?: string, initialData?: PettyCashTop
   })
 }
 
+export function useCreatePettyCashTopup() {
+  const supabase = useMemo(() => createClient(), [])
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: {
+      outletId: string
+      amount: number
+      description: string
+      bankName?: string
+      bankAccountNumber?: string
+      bankAccountName?: string
+    }) => {
+      const { data, error } = await supabase.rpc('create_petty_cash_topup', {
+        p_outlet_id: payload.outletId,
+        p_amount: payload.amount,
+        p_description: payload.description,
+        p_bank_name: payload.bankName || null,
+        p_bank_account_number: payload.bankAccountNumber || null,
+        p_bank_account_name: payload.bankAccountName || null,
+      })
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
+    }
+  })
+}
+
 export function useProcessPettyCashLeader() {
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
@@ -83,19 +113,39 @@ export function useProcessPettyCashFinance() {
     mutationFn: async ({ 
       id, 
       action, 
-      method, 
-      cashLocationId 
+      method = 'transfer', 
+      cashLocationId,
+      proofOfTransferUrl
     }: { 
       id: string; 
       action: 'approve' | 'reject';
       method?: DisbursementMethod;
       cashLocationId?: string;
+      proofOfTransferUrl?: string;
     }) => {
       const { error } = await supabase.rpc('finance_process_petty_cash', {
         p_topup_id: id,
         p_action: action,
-        p_method: method || null,
-        p_cash_location_id: cashLocationId || null
+        p_method: method || 'transfer',
+        p_cash_location_id: cashLocationId || null,
+        p_proof_of_transfer_url: proofOfTransferUrl || null
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
+    }
+  })
+}
+
+export function useForwardPettyCashFinance() {
+  const supabase = useMemo(() => createClient(), [])
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { error } = await supabase.rpc('finance_forward_funds', {
+        p_topup_id: id
       })
       if (error) throw error
     },

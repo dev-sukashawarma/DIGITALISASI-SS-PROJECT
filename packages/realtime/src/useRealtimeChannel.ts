@@ -29,9 +29,15 @@ export function useRealtimeChannel(opts: {
   useEffect(() => {
     if (!enabled) return
 
-    // Supabase caches channels by name. If we reuse the same name, we might get an already-subscribed channel
-    // which throws an error if we call .on() again. Adding a random suffix ensures a fresh channel object.
-    const actualChannelName = `${channelName}-${Math.random().toString(36).slice(2)}`
+    // Gunakan nama channel deterministik berbasis channelName + signature untuk mencegah channel yatim.
+    const actualChannelName = `${channelName}:${signature}`
+
+    // Bersihkan channel lama yang memiliki topik sama bila ada.
+    const existing = supabase.getChannels().find((c) => c.topic === `realtime:${actualChannelName}`)
+    if (existing) {
+      supabase.removeChannel(existing)
+    }
+
     const channel = supabase.channel(actualChannelName)
     
     subsRef.current.forEach((sub, idx) => {

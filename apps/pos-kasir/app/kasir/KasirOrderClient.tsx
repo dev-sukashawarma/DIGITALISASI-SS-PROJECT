@@ -715,25 +715,34 @@ export default function KasirOrderClient({
   useEffect(() => {
     if (!outletId) return;
 
-    const channel = supabase.channel('kasir-orders-realtime')
+    let debounceTimer: NodeJS.Timeout | null = null;
+    const triggerInvalidate = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
+        queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
+      }, 300);
+    };
+
+    const channelName = `kasir-orders-realtime-${outletId}`
+    const existing = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`)
+    if (existing) supabase.removeChannel(existing)
+
+    const channel = supabase.channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
-          queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
-        }
+        () => triggerInvalidate()
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'order_items' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
-        }
+        () => triggerInvalidate()
       )
       .subscribe()
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel)
     }
   }, [outletId, queryClient, supabase])

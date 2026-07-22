@@ -29,9 +29,7 @@ export function useTargetProgress(from?: string, to?: string) {
         query = supabase.from('daily_target_progress_scoped').select('*')
       }
 
-      const { data } = await query
-        .or(`outlet_name.neq.BustCache${Date.now()}`) // CACHE BUSTER IS MANDATORY FOR GET REQUESTS
-        .order('outlet_name')
+      const { data } = await query.order('outlet_name')
         
       return (data ?? [])
         .map((r: any) => ({
@@ -50,8 +48,8 @@ export function useTargetProgress(from?: string, to?: string) {
           )
         })
     },
-    staleTime: 0,
-    refetchInterval: 3000,
+    staleTime: 15000,
+    refetchInterval: 30000,
   })
 
   useEffect(() => {
@@ -61,11 +59,15 @@ export function useTargetProgress(from?: string, to?: string) {
       clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['target_progress_global'] })
-      }, 100)
+      }, 500)
     }
 
+    const channelName = 'owner-target-progress'
+    const existing = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`)
+    if (existing) supabase.removeChannel(existing)
+
     const channel = supabase
-      .channel('owner-target-progress')
+      .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefetch)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_sales_targets' }, scheduleRefetch)
       .subscribe()

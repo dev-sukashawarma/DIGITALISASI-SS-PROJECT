@@ -58,14 +58,26 @@ export interface LocationWithBalance extends CashLocation {
   saldo: number
 }
 
-export type PettyCashStatus = 'pending' | 'forwarded_to_area_manager' | 'forwarded_to_finance' | 'approved' | 'approved_by_finance' | 'forwarded_by_area_manager' | 'forwarded_by_leader' | 'completed' | 'rejected'
+export type PettyCashStatus = 
+  | 'pending' 
+  | 'forwarded_to_area_manager' 
+  | 'forwarded_to_finance' 
+  | 'approved_by_finance' 
+  | 'forwarded_by_finance'
+  | 'forwarded_by_area_manager' 
+  | 'forwarded_by_leader' 
+  | 'completed' 
+  | 'rejected'
+
 export type DisbursementMethod = 'potong_setoran' | 'transfer' | 'tunai'
 
 export interface PettyCashTopup {
   id: string
-  shift_id: string
+  outlet_id: string
+  shift_id?: string
   amount: number
   reason: string
+  description?: string
   status: PettyCashStatus
   disbursement_method: DisbursementMethod | null
   disbursed_from_cash_location_id: string | null
@@ -73,8 +85,16 @@ export interface PettyCashTopup {
   approved_by: string | null
   finance_approved_by: string | null
   approved_at: string | null
+  bank_name?: string | null
+  bank_account_number?: string | null
+  bank_account_name?: string | null
+  proof_of_transfer_url?: string | null
+  finance_forwarded_by?: string | null
+  finance_forwarded_at?: string | null
   area_manager_forwarded_by?: string | null
+  area_manager_forwarded_at?: string | null
   leader_forwarded_by?: string | null
+  leader_forwarded_at?: string | null
   crew_received_by?: string | null
   completed_at?: string | null
   // Joins
@@ -91,6 +111,9 @@ export interface Outlet {
   lng: number
   type: 'pusat' | 'cabang' | 'franchise'
   is_active: boolean
+  bank_name?: string | null
+  bank_account_number?: string | null
+  bank_account_name?: string | null
 }
 
 export type SalesSource = 'gojek' | 'grab' | 'shopee' | 'pos' | 'manual'

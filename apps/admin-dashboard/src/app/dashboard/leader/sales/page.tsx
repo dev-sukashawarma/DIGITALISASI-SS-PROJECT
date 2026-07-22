@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Target, TrendingUp, Minus, Plus } from 'lucide-react'
+import { Target, TrendingUp } from 'lucide-react'
 
 export default function SalesMonitoringPage() {
   const currentSales = 2450000;

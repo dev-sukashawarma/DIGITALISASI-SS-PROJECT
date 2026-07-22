@@ -17,6 +17,18 @@ interface CartStore {
   totalPrice: () => number
 }
 
+function arePackageChoicesEqual(a?: Record<string, string>, b?: Record<string, string>): boolean {
+  if (a === b) return true;
+  if (!a || !b) return !a && !b;
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const key of keysA) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
 export const useCart = create<CartStore>()(
   persist(
     (set, get) => ({
@@ -27,7 +39,7 @@ export const useCart = create<CartStore>()(
         let newCartItemId = ''
         set((state) => {
           const existingIndex = state.items.findIndex(
-            (i) => i.item.id === item.id && (i.note || '') === note && i.parentId === parentId && JSON.stringify(i.package_choices || {}) === JSON.stringify(package_choices || {})
+            (i) => i.item.id === item.id && (i.note || '') === note && i.parentId === parentId && arePackageChoicesEqual(i.package_choices, package_choices)
           )
           if (existingIndex >= 0) {
             newCartItemId = state.items[existingIndex].cartItemId
@@ -96,3 +108,9 @@ export const useCart = create<CartStore>()(
     }
   )
 )
+
+export const selectCartTotalItems = (state: CartStore) =>
+  state.items.reduce((sum, i) => sum + i.quantity, 0);
+
+export const selectCartTotalPrice = (state: CartStore) =>
+  state.items.reduce((sum, i) => sum + i.item.price * i.quantity, 0);

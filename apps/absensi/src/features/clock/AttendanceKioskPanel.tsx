@@ -232,7 +232,7 @@ export function AttendanceKioskPanel() {
         if (kiosk.phase === "idle") kiosk.tick(v);
         else if (kiosk.phase === "liveness") kiosk.runLiveness(v);
       }
-      loopRef.current = window.setTimeout(loop, kiosk.phase === "liveness" ? 40 : 1000);
+      loopRef.current = window.setTimeout(loop, kiosk.phase === "liveness" ? 120 : 1000);
     }
     loop();
     return () => { if (loopRef.current) clearTimeout(loopRef.current); };

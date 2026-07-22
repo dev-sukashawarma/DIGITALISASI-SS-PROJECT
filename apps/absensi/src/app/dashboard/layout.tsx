@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@suka/auth";
 import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus, ArrowLeft, CalendarDays, Banknote, Book } from "lucide-react";
-import { ModelPreloader } from "@/components/ModelPreloader";
 import { SwipeableContainer } from "@/components/layout/SwipeableContainer";
 import { useLeaveNotifications } from "@/features/cuti/useLeaveNotifications";
 import { LocationPresence } from "@/components/LocationPresence";
@@ -122,7 +121,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <ModelPreloader />
       <LocationPresence 
         outletId={outletStaff?.outlet_id} 
         staffId={outletStaff?.id} 

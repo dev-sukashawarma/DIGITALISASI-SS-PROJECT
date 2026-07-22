@@ -15,7 +15,7 @@ export default async function AdminPettyCashPage() {
     .from('petty_cash_topups')
     .select(`
       *,
-      outlet:outlets(name),
+      outlet:outlets(name, bank_name, bank_account_number, bank_account_name),
       creator:outlet_staff!petty_cash_topups_created_by_fkey(name),
       approver:outlet_staff!petty_cash_topups_approved_by_fkey(name)
     `)

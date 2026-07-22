@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+// @ts-ignore
 import { Command } from 'cmdk'
 import { useRouter } from 'next/navigation'
-import { Search, LayoutDashboard, FileText, Settings, Users, PackageOpen, X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { NAV_GROUPS } from './navConfig'
 import { useRole } from './RoleContext'
 
@@ -12,12 +13,11 @@ export function CommandMenu() {
   const router = useRouter()
   const { role } = useRole()
 
-  // Toggle the menu when ⌘K is pressed
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
-        setOpen((open) => !open)
+        setOpen((prev) => !prev)
       }
     }
 
@@ -29,17 +29,15 @@ export function CommandMenu() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-suka-brown/20 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={() => setOpen(false)}
       />
 
-      {/* Command Palette */}
       <div className="relative w-full max-w-lg overflow-hidden bg-white/90 backdrop-blur-2xl rounded-3xl shadow-[0_20px_60px_rgb(0,0,0,0.1)] border border-white/60 animate-in zoom-in-95 duration-200">
         <Command
           className="w-full flex flex-col bg-transparent"
-          onKeyDown={(e) => {
+          onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
             if (e.key === 'Escape') setOpen(false)
           }}
         >

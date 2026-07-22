@@ -129,10 +129,14 @@ async function fetchOutletAnalytics(
     
     // Total Potongan: Meliputi diskon order, diskon item menu POS, dan subsidi promo Food Apps di semua channel
     const totalDeductions = completedOrders.reduce((s: number, o: any) => {
+      const disc = Number(o.discount_amount) || 0
+      const promo = Number(o.promo_subsidy) || 0
+      if (disc > 0 || promo > 0) {
+        return s + disc + promo
+      }
       const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
-      const itemDiscount = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
-      const orderDeduction = Math.max(Number(o.discount_amount) || 0, itemDiscount) + (Number(o.promo_subsidy) || 0)
-      return s + orderDeduction
+      const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
+      return s + itemDiff
     }, 0)
 
     const netRevenue = Math.max(0, totalRevenue - totalDeductions)

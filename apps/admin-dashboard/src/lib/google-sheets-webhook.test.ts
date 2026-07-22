@@ -148,7 +148,7 @@ describe('google-sheets-webhook', () => {
     it('should return false if response.ok is false or fetch fails', async () => {
       const webhookUrl = 'https://script.google.com/macros/s/test-webhook/exec'
       const order = { order_number: 'ORD-456' }
-      const items = []
+      const items: any[] = []
       const outletName = 'Outlet Dago'
 
       const failingFetch = vi.fn().mockResolvedValue({

@@ -11,8 +11,7 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
-  HelpCircle,
-  ExternalLink
+  HelpCircle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getGoogleSheetsConfig, saveGoogleSheetsConfig } from '@/lib/google-sheets-config'

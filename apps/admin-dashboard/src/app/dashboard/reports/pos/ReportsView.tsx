@@ -291,10 +291,14 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
     // Deductions calculation (Meliputi diskon order, diskon item menu POS Kasir, dan subsidi promo Food Apps di semua channel)
     const totalDeductions = completed.reduce((s, o) => {
+      const disc = Number((o as any).discount_amount) || 0
+      const promo = Number((o as any).promo_subsidy) || 0
+      if (disc > 0 || promo > 0) {
+        return s + disc + promo
+      }
       const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
-      const itemDiscount = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
-      const orderDeduction = Math.max(Number((o as any).discount_amount) || 0, itemDiscount) + (Number((o as any).promo_subsidy) || 0)
-      return s + orderDeduction
+      const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
+      return s + itemDiff
     }, 0)
 
     const netRevenue = Math.max(0, totalRevenue - totalDeductions)

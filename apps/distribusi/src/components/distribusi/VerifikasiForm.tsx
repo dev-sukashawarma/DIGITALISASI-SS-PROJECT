@@ -81,22 +81,43 @@ export function VerifikasiForm({ id }: { id: string }) {
     })
   }, [data])
 
-  // Initialize verifications when data is loaded
+  // Initialize verifications when data is loaded.
+  // Item yang sudah pernah diverifikasi (verified_at terisi, mis. karena finalize
+  // sebelumnya gagal di RPC lain setelah item ter-update) dihidrasi dari data
+  // tersimpan, supaya crew tidak diminta ulang isi qty/kondisi/foto yang sudah benar.
   useEffect(() => {
-    if (data?.surat_jalan_item) {
-      const initial: Record<string, ItemVerification> = {}
-      data.surat_jalan_item.forEach((item: any) => {
-        initial[item.id] = {
-          qty_terima: '', // Wajib input manual
-          kondisi: 'baik',
-          catatan: '',
-          foto_path: null,
-          foto_preview: null,
-        }
-      })
-      setVerifications(initial)
+    if (items.length === 0) return
+    let cancelled = false
+    const supabase = createSupabaseBrowserClient()
+
+    const hydrate = async () => {
+      const entries = await Promise.all(
+        items.map(async (item: any) => {
+          if (!item.verified_at) {
+            return [item.id, { qty_terima: '', kondisi: 'baik' as const, catatan: '', foto_path: null, foto_preview: null }] as const
+          }
+          let foto_preview: string | null = null
+          if (item.foto_path) {
+            const { data: blob } = await supabase.storage.from('verif-foto-bahan').download(item.foto_path)
+            if (blob) foto_preview = URL.createObjectURL(blob)
+          }
+          const qty_terima = typeof item.qty_terima === 'number' ? Math.round(item.qty_terima * item.factor * 1000) / 1000 : ''
+          return [item.id, {
+            qty_terima,
+            kondisi: (item.kondisi === 'rusak' ? 'jelek' : 'baik') as Kondisi,
+            catatan: item.catatan || '',
+            foto_path: item.foto_path || null,
+            foto_preview,
+          }] as const
+        })
+      )
+      if (cancelled) return
+      setVerifications(Object.fromEntries(entries))
     }
-  }, [data])
+
+    hydrate()
+    return () => { cancelled = true }
+  }, [items])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

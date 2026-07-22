@@ -209,6 +209,9 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
             created_by: userId || null
           })
           if (error) throw error
+
+          // Clear all per-outlet overrides so ALL outlets follow the new global target
+          await supabase.from('daily_sales_targets').delete().not('outlet_id', 'is', null)
         } else {
           for (const id of selectedOutlets) {
             const { error } = await supabase.rpc('set_daily_target', {
@@ -438,7 +441,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                   </div>
                   <p className="text-[10px] text-suka-gray-400 font-semibold mt-1.5">
                     {audienceAll
-                      ? <>Jadi <b>default global</b> (kini {rupiah(globalDefault)}/hari). Outlet dengan override tidak berubah.</>
+                      ? <>Jadi <b>target global baru</b> (kini {rupiah(globalDefault)}/hari). Seluruh outlet (termasuk yang di-override) akan langsung mengikuti target ini.</>
                       : <>Jadi <b>override</b> untuk {selectedOutlets.size || 0} outlet terpilih.</>}
                   </p>
                 </div>
@@ -460,7 +463,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                   </div>
                   <p className="text-[10px] text-suka-gray-400 font-semibold mt-1.5">
                     {audienceAll
-                      ? <>Jadi <b>default global</b> (kini {rupiah(globalDefaultBonus)}/item). Outlet dengan override tidak berubah.</>
+                      ? <>Jadi <b>bonus global baru</b> (kini {rupiah(globalDefaultBonus)}/item). Seluruh outlet (termasuk yang di-override) akan langsung mengikuti bonus ini.</>
                       : <>Jadi <b>override</b> untuk {selectedOutlets.size || 0} outlet terpilih.</>}
                   </p>
                 </div>

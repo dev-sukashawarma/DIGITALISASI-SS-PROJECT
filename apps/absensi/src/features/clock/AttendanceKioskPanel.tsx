@@ -148,12 +148,12 @@ export function AttendanceKioskPanel() {
     };
   }, [outletStaff?.outlet_id]);
 
-  // Otomatis memicu pemindaian lokasi saat phase diset ke "locating"
+  // Otomatis memicu pemindaian lokasi saat phase diset ke "locating" dan izin sudah diberikan
   useEffect(() => {
-    if (kiosk.phase === "locating") {
+    if (kiosk.phase === "locating" && kiosk.permissionState === "granted") {
       kiosk.checkLocation();
     }
-  }, [kiosk.phase, kiosk.checkLocation]);
+  }, [kiosk.phase, kiosk.permissionState, kiosk.checkLocation]);
 
   // Update nowMinutes setiap menit agar window overlay refresh otomatis
   useEffect(() => {
@@ -450,13 +450,13 @@ export function AttendanceKioskPanel() {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : kiosk.permissionState === "granted" ? (
             <CameraCapture 
               onReady={(v) => (videoRef.current = v)} 
               onError={(e) => setCameraError(e)}
               className="w-full h-full object-cover rounded-lg"
             />
-          )}
+          ) : null}
 
           {/* Background Backdrop to darken outside during liveness */}
           {kiosk.phase !== "idle" && (

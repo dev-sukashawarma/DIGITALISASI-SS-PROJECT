@@ -11,7 +11,6 @@ import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import { resolveOrderSource } from '@/lib/order-source'
 import GoogleSheetsSettingsModal from '@/components/GoogleSheetsSettingsModal'
-import dynamic from 'next/dynamic'
 
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'

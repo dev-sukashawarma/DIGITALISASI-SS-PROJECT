@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
 import { rupiah } from '@/lib/format'
+import { PageHeader } from '@/components/ui'
 import {
   Save, RotateCcw, Store, Globe, CheckCircle2, Loader2, Search, Send,
   Target as TargetIcon, Sparkles, Info, AlertTriangle, Clock, Eye, Power,
@@ -103,6 +104,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
   const [globalDefaultBonus, setGlobalDefaultBonus] = useState<number>(initialGlobalDefaultBonus)
   const [history, setHistory] = useState<OverviewRow[]>(initialHistory)
 
+  // ── Compose (target + pesan) ────────────────────────────────────────────
   const [audienceAll, setAudienceAll] = useState(true)
   const [selectedOutlets, setSelectedOutlets] = useState<Set<string>>(new Set())
   const [outletSearch, setOutletSearch] = useState('')
@@ -116,12 +118,14 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
 
+  // ── Per-outlet quick edit ───────────────────────────────────────────────
   const [overrideInputs, setOverrideInputs] = useState<Record<string, string>>({})
   const [overrideBonusInputs, setOverrideBonusInputs] = useState<Record<string, string>>({})
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [savedKey, setSavedKey] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
+  // ── Form Visibility (Open by default for ease of use) ───────────────────
   const [isFormOpen, setIsFormOpen] = useState(true)
 
   const loadTargets = useCallback(async () => {
@@ -156,6 +160,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 1800)
   }
 
+  // ── Compose helpers ───────────────────────────────────────────────────────
   const toggleOutlet = (id: string) => {
     setSelectedOutlets((prev) => {
       const next = new Set(prev)
@@ -281,6 +286,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     }
   }
 
+  // ── Per-outlet quick edit ─────────────────────────────────────────────────
   const saveOverride = async (outletId: string) => {
     const row = rows.find((x) => x.outlet_id === outletId)
     if (!row) return
@@ -344,54 +350,43 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="bg-white/20 text-white font-bold text-xs px-3 py-1 rounded-full border border-white/30 backdrop-blur-md">
-                🎯 Layar Kasir & Target Penjualan
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Target Omzet & Pesan Kasir</h1>
-            <p className="text-amber-100 text-sm mt-1 max-w-2xl leading-relaxed font-medium">
-              Atur target omzet harian cabang, bonus insentif per porsi, serta kirim pengumuman atau pesan motivasi langsung ke layar kasir.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
-            <div className="bg-white/15 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/25 text-right">
-              <p className="text-[11px] font-bold text-amber-100 uppercase tracking-widest">Target Global</p>
-              <p className="text-lg font-black">{rupiah(globalDefault)} <span className="text-xs font-semibold">/hari</span></p>
-            </div>
-            {overrideCount > 0 && (
-              <div className="bg-white/15 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/25 text-center">
-                <p className="text-[11px] font-bold text-amber-100 uppercase tracking-widest">Override</p>
-                <p className="text-base font-black">{overrideCount} Cabang</p>
-              </div>
-            )}
-          </div>
+      {/* ── Page Header Standard System Design (0 Gradient, 0 Yellow) ── */}
+      <PageHeader
+        title="Target & Pesan Kasir"
+        description="Atur target omzet harian cabang, bonus insentif per porsi, serta kirim pengumuman atau pesan motivasi langsung ke layar kasir."
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-suka-brown bg-suka-cream px-3 py-1.5 rounded-full border border-suka-brown/10">
+            Target Global: {rupiah(globalDefault)} / hari
+          </span>
+          {overrideCount > 0 && (
+            <span className="text-xs font-bold text-suka-orange bg-suka-orange/10 px-3 py-1.5 rounded-full border border-suka-orange/20">
+              {overrideCount} outlet khusus
+            </span>
+          )}
         </div>
-      </div>
+      </PageHeader>
 
       {!isReadOnly && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden flex flex-col justify-between">
-            <div className="p-5 sm:p-6 bg-gradient-to-b from-amber-50/50 to-white border-b border-amber-100 flex items-center justify-between">
+          {/* ── Form Utama (Langkah 1, 2, 3) ── */}
+          <div className="lg:col-span-7 bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden flex flex-col justify-between">
+            {/* Form Header */}
+            <div className="p-5 sm:p-6 bg-white border-b border-suka-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-md shadow-amber-500/20">
+                <div className="w-10 h-10 rounded-2xl bg-suka-brown text-white flex items-center justify-center font-black shadow-sm">
                   <Send className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="font-extrabold text-gray-900 text-lg leading-tight">Form Buat Target & Pesan</h2>
-                  <p className="text-gray-400 text-xs">Ikuti langkah sederhana di bawah untuk mengirim ke kasir</p>
+                  <h2 className="font-extrabold text-suka-brown text-base leading-tight uppercase tracking-tight">Form Buat Target & Pesan</h2>
+                  <p className="text-suka-gray-400 text-xs font-medium">Ikuti langkah sederhana di bawah untuk mengirim ke kasir</p>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsFormOpen(!isFormOpen)}
-                className="text-xs font-bold text-amber-700 bg-amber-100/80 hover:bg-amber-200/80 px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
+                className="text-xs font-bold text-suka-brown bg-suka-cream hover:bg-suka-orange/10 px-3.5 py-1.5 rounded-xl transition-all border border-suka-brown/10 flex items-center gap-1.5"
               >
                 {isFormOpen ? <>Tutup Form <ChevronUp className="w-4 h-4" /></> : <>Buka Form <ChevronDown className="w-4 h-4" /></>}
               </button>
@@ -399,10 +394,11 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
 
             {isFormOpen && (
               <div className="p-5 sm:p-6 space-y-6">
+                {/* ── LANGKAH 1: PILIH PENERIMA ── */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center">1</span>
-                    <h3 className="font-bold text-gray-900 text-sm">Pilih Cabang / Outlet Penerima</h3>
+                    <span className="w-6 h-6 rounded-full bg-suka-brown text-white font-black text-xs flex items-center justify-center">1</span>
+                    <h3 className="font-bold text-suka-brown text-sm">Pilih Cabang / Outlet Penerima</h3>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -411,14 +407,14 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                       onClick={() => setAudienceAll(true)}
                       className={`p-3.5 rounded-2xl border text-left transition-all active:scale-[.98] flex items-center gap-3 ${
                         audienceAll
-                          ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20'
-                          : 'bg-white text-gray-700 border-gray-200 hover:border-amber-300'
+                          ? 'bg-suka-brown text-white border-suka-brown shadow-sm'
+                          : 'bg-white text-suka-gray-700 border-suka-gray-200 hover:border-suka-brown/30'
                       }`}
                     >
-                      <Globe className={`w-5 h-5 shrink-0 ${audienceAll ? 'text-white' : 'text-amber-500'}`} />
+                      <Globe className={`w-5 h-5 shrink-0 ${audienceAll ? 'text-white' : 'text-suka-brown'}`} />
                       <div>
                         <p className="font-bold text-xs leading-tight">Semua Outlet</p>
-                        <p className={`text-[10px] mt-0.5 ${audienceAll ? 'text-amber-100' : 'text-gray-400'}`}>Terkirim ke seluruh cabang</p>
+                        <p className={`text-[10px] mt-0.5 ${audienceAll ? 'text-suka-cream/80' : 'text-suka-gray-400'}`}>Terkirim ke seluruh cabang</p>
                       </div>
                     </button>
 
@@ -427,14 +423,14 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                       onClick={() => setAudienceAll(false)}
                       className={`p-3.5 rounded-2xl border text-left transition-all active:scale-[.98] flex items-center gap-3 ${
                         !audienceAll
-                          ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20'
-                          : 'bg-white text-gray-700 border-gray-200 hover:border-amber-300'
+                          ? 'bg-suka-brown text-white border-suka-brown shadow-sm'
+                          : 'bg-white text-suka-gray-700 border-suka-gray-200 hover:border-suka-brown/30'
                       }`}
                     >
-                      <Store className={`w-5 h-5 shrink-0 ${!audienceAll ? 'text-white' : 'text-amber-500'}`} />
+                      <Store className={`w-5 h-5 shrink-0 ${!audienceAll ? 'text-white' : 'text-suka-brown'}`} />
                       <div>
                         <p className="font-bold text-xs leading-tight">Pilih Spesifik</p>
-                        <p className={`text-[10px] mt-0.5 ${!audienceAll ? 'text-amber-100' : 'text-gray-400'}`}>
+                        <p className={`text-[10px] mt-0.5 ${!audienceAll ? 'text-suka-cream/80' : 'text-suka-gray-400'}`}>
                           {selectedOutlets.size > 0 ? `${selectedOutlets.size} cabang dipilih` : 'Pilih outlet tertentu'}
                         </p>
                       </div>
@@ -442,22 +438,22 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                   </div>
 
                   {!audienceAll && (
-                    <div className="p-3 bg-amber-50/50 rounded-2xl border border-amber-200/60 space-y-2 mt-2">
+                    <div className="p-3 bg-suka-cream/50 rounded-2xl border border-suka-brown/10 space-y-2 mt-2">
                       <div className="flex items-center gap-2">
                         <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-gray-400" />
                           <input
                             value={outletSearch}
                             onChange={(e) => setOutletSearch(e.target.value)}
                             placeholder="Cari nama cabang..."
-                            className="w-full pl-9 pr-3 py-2 rounded-xl text-xs font-bold text-gray-800 bg-white border border-gray-200 outline-none focus:border-amber-500"
+                            className="w-full pl-9 pr-3 py-2 rounded-xl text-xs font-bold text-suka-brown bg-white border border-suka-gray-200 outline-none focus:border-suka-orange"
                           />
                         </div>
                         <button
                           type="button"
                           onClick={toggleAllPicker}
                           disabled={filteredPickerOutlets.length === 0}
-                          className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                          className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-white border border-suka-gray-200 text-suka-brown hover:bg-suka-cream transition-colors"
                         >
                           {allPickerSelected ? 'Batal Semua' : 'Pilih Semua'}
                         </button>
@@ -472,10 +468,10 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                               type="button"
                               onClick={() => toggleOutlet(o.outlet_id)}
                               className={`flex items-center gap-2 p-2 rounded-xl text-xs font-bold text-left transition-all ${
-                                checked ? 'bg-amber-500 text-white shadow-xs' : 'bg-white text-gray-700 border border-gray-100 hover:bg-amber-50'
+                                checked ? 'bg-suka-brown text-white shadow-xs' : 'bg-white text-suka-brown border border-suka-gray-100 hover:bg-suka-cream'
                               }`}
                             >
-                              <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 ${checked ? 'bg-white text-amber-600' : 'border-gray-300'}`}>
+                              <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 ${checked ? 'bg-white text-suka-brown' : 'border-suka-gray-300'}`}>
                                 {checked && <CheckCircle2 className="w-3 h-3" />}
                               </div>
                               <span className="truncate">{cleanName(o.outlet_name)}</span>
@@ -487,55 +483,62 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                   )}
                 </div>
 
-                <div className="space-y-3 pt-4 border-t border-gray-100">
+                {/* ── LANGKAH 2: TARGET & BONUS SALES ── */}
+                <div className="space-y-3 pt-4 border-t border-suka-gray-100">
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center">2</span>
-                    <h3 className="font-bold text-gray-900 text-sm">Target Omzet & Bonus Sales <span className="text-gray-400 font-normal">(Opsional)</span></h3>
+                    <span className="w-6 h-6 rounded-full bg-suka-brown text-white font-black text-xs flex items-center justify-center">2</span>
+                    <h3 className="font-bold text-suka-brown text-sm">Target Omzet & Bonus Sales <span className="text-suka-gray-400 font-normal">(Opsional)</span></h3>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Target Amount */}
                     <div className="space-y-1">
-                      <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                        <TargetIcon className="w-4 h-4 text-amber-600" /> Target Omzet Harian
+                      <label className="block text-xs font-bold text-suka-brown flex items-center gap-1.5">
+                        <TargetIcon className="w-4 h-4 text-suka-brown" /> Target Omzet Harian
                       </label>
                       <div className="relative">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-extrabold text-xs">Rp</span>
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs">Rp</span>
                         <input
                           inputMode="numeric"
                           value={targetInput ? Number(targetInput).toLocaleString('id-ID') : ''}
                           onChange={(e) => setTargetInput(e.target.value.replace(/\D/g, ''))}
                           placeholder="misal: 5.000.000"
-                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50/50 border border-gray-200 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown focus:bg-white transition-all"
                         />
                       </div>
+                      <p className="text-[11px] text-suka-gray-400 font-medium">Target omzet penjualan harian untuk kasir</p>
                     </div>
 
+                    {/* Bonus per Item */}
                     <div className="space-y-1">
-                      <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4 text-amber-600" /> Bonus Per Item Terjual
+                      <label className="block text-xs font-bold text-suka-brown flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-suka-brown" /> Bonus Per Item Terjual
                       </label>
                       <div className="relative">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-extrabold text-xs">Rp</span>
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs">Rp</span>
                         <input
                           inputMode="numeric"
                           value={bonusInput ? Number(bonusInput).toLocaleString('id-ID') : ''}
                           onChange={(e) => setBonusInput(e.target.value.replace(/\D/g, ''))}
                           placeholder="misal: 150.000"
-                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50/50 border border-gray-200 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown focus:bg-white transition-all"
                         />
                       </div>
+                      <p className="text-[11px] text-suka-gray-400 font-medium">Nominal bonus tambahan per item terjual</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-3 pt-4 border-t border-gray-100">
+                {/* ── LANGKAH 3: TULIS PESAN KASIR ── */}
+                <div className="space-y-3 pt-4 border-t border-suka-gray-100">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center">3</span>
-                      <h3 className="font-bold text-gray-900 text-sm">Pesan Pengumuman & Motivasi <span className="text-gray-400 font-normal">(Opsional)</span></h3>
+                      <span className="w-6 h-6 rounded-full bg-suka-brown text-white font-black text-xs flex items-center justify-center">3</span>
+                      <h3 className="font-bold text-suka-brown text-sm">Pesan Pengumuman & Motivasi <span className="text-suka-gray-400 font-normal">(Opsional)</span></h3>
                     </div>
                   </div>
 
+                  {/* Jenis Pesan */}
                   <div className="grid grid-cols-3 gap-2">
                     {KINDS.map((k) => {
                       const Icon = k.icon
@@ -547,20 +550,20 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                           onClick={() => setKind(k.key)}
                           className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
                             active
-                              ? `${k.bg} ${k.border} font-bold shadow-xs`
-                              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                              ? 'bg-suka-brown text-white border-suka-brown font-bold shadow-xs'
+                              : 'bg-white border-suka-gray-200 text-suka-gray-600 hover:bg-suka-cream/50'
                           }`}
-                          style={active ? { color: k.color } : undefined}
                         >
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-5 h-5" style={{ color: active ? '#ffffff' : k.color }} />
                           <span className="text-xs font-bold">{k.label}</span>
                         </button>
                       )
                     })}
                   </div>
 
+                  {/* Template Pesan Cepat */}
                   <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    <label className="block text-[11px] font-bold text-suka-gray-400 uppercase tracking-wider">
                       💡 Pilih Template Pesan Cepat (1 Klik):
                     </label>
                     <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
@@ -569,15 +572,16 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                           key={idx}
                           type="button"
                           onClick={() => setBody(q)}
-                          className="w-full text-left p-2.5 rounded-xl text-xs font-medium text-gray-700 bg-amber-50/40 hover:bg-amber-100/60 border border-amber-100/80 transition-colors flex items-center justify-between gap-2"
+                          className="w-full text-left p-2.5 rounded-xl text-xs font-medium text-suka-brown bg-suka-cream hover:bg-suka-orange/10 border border-suka-brown/10 transition-colors flex items-center justify-between gap-2"
                         >
                           <span className="line-clamp-1">{q}</span>
-                          <span className="text-[10px] font-bold text-amber-700 bg-white px-2 py-0.5 rounded-md shrink-0 border border-amber-200/50">Pakai</span>
+                          <span className="text-[10px] font-bold text-suka-brown bg-white px-2 py-0.5 rounded-md shrink-0 border border-suka-brown/20">Pakai</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
+                  {/* Input Judul & Isi Pesan */}
                   <div className="space-y-3">
                     <input
                       type="text"
@@ -585,7 +589,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Judul Pesan (Opsional), contoh: Semangat Pagi!"
                       maxLength={80}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-900 bg-gray-50/50 border border-gray-200 outline-none focus:border-amber-500 focus:bg-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown focus:bg-white"
                     />
 
                     <div>
@@ -595,15 +599,16 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                         rows={3}
                         placeholder={title.trim() ? 'Tulis isi pesan lengkap di sini...' : 'Tulis pesan untuk kasir... (Kosongkan jika hanya mengatur target omzet)'}
                         maxLength={500}
-                        className="w-full p-3 rounded-xl text-xs font-medium text-gray-900 bg-gray-50/50 border border-gray-200 outline-none focus:border-amber-500 focus:bg-white resize-none"
+                        className="w-full p-3 rounded-xl text-xs font-medium text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown focus:bg-white resize-none"
                       />
-                      <p className="text-[10px] text-gray-400 font-semibold text-right mt-1">{body.length}/500 Karakter</p>
+                      <p className="text-[10px] text-suka-gray-400 font-semibold text-right mt-1">{body.length}/500 Karakter</p>
                     </div>
                   </div>
 
+                  {/* Masa Berlaku Pesan */}
                   <div className="space-y-2 pt-2">
-                    <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-amber-600" /> Masa Berlaku Tampil Pesan
+                    <label className="block text-xs font-bold text-suka-brown flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-suka-brown" /> Masa Berlaku Tampil Pesan
                     </label>
                     <div className="flex flex-wrap gap-1.5">
                       {EXPIRY_PRESETS.map((p) => (
@@ -613,8 +618,8 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                           onClick={() => setExpiryKey(p.key)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
                             expiryKey === p.key
-                              ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                              ? 'bg-suka-brown text-white border-suka-brown shadow-xs'
+                              : 'bg-white text-suka-gray-600 border-suka-gray-200 hover:bg-suka-cream/50'
                           }`}
                         >
                           {p.label}
@@ -626,12 +631,13 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                         type="datetime-local"
                         value={customExpiry}
                         onChange={(e) => setCustomExpiry(e.target.value)}
-                        className="mt-2 w-full px-3 py-2 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 border border-gray-200 outline-none focus:border-amber-500"
+                        className="mt-2 w-full px-3 py-2 rounded-xl text-xs font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown"
                       />
                     )}
                   </div>
                 </div>
 
+                {/* ── TOMBOL SUBMIT EKSPLISIT (Solid Color, No Gradient) ── */}
                 <button
                   type="button"
                   onClick={submit}
@@ -641,7 +647,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                     (hasBonus && !hasTarget) || 
                     (!hasTarget && body.trim().length === 0)
                   }
-                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-sm shadow-md shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[.99] flex items-center justify-center gap-2 mt-4"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-suka-brown hover:bg-suka-ink text-white font-extrabold text-sm shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[.99] flex items-center justify-center gap-2 mt-4"
                 >
                   {sending ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -664,21 +670,22 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
             )}
           </div>
 
-          <div className="lg:col-span-5 bg-white rounded-3xl border border-amber-100 shadow-sm p-5 sm:p-6 flex flex-col justify-between">
+          {/* ── Riwayat Pesan Terkirim ── */}
+          <div className="lg:col-span-5 bg-white rounded-2xl border border-suka-gray-200 shadow-sm p-5 sm:p-6 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-suka-gray-100">
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-amber-600" />
-                  <h3 className="font-extrabold text-gray-900 text-base">Riwayat Pesan Kasir</h3>
+                  <MessageSquare className="w-5 h-5 text-suka-brown" />
+                  <h3 className="font-extrabold text-suka-brown text-base uppercase tracking-tight">Riwayat Pesan Kasir</h3>
                 </div>
-                <span className="text-xs font-bold text-gray-400">{history.length} Terkirim</span>
+                <span className="text-xs font-bold text-suka-gray-400">{history.length} Terkirim</span>
               </div>
 
               {history.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center text-gray-400 text-center p-4">
-                  <MessageSquare className="w-8 h-8 text-gray-300 mb-2" />
+                <div className="h-64 flex flex-col items-center justify-center text-suka-gray-400 text-center p-4">
+                  <MessageSquare className="w-8 h-8 text-suka-gray-300 mb-2" />
                   <p className="text-xs font-bold">Belum Ada Pesan Terkirim</p>
-                  <p className="text-[11px] text-gray-400 mt-1">Pesan motivasi/pengumuman yang Anda kirim akan tampil di sini.</p>
+                  <p className="text-[11px] text-suka-gray-400 mt-1">Pesan motivasi/pengumuman yang Anda kirim akan tampil di sini.</p>
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
@@ -686,7 +693,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                     const meta = KINDS.find((k) => k.key === m.kind) ?? KINDS[0]
                     const Icon = meta.icon
                     return (
-                      <div key={m.id} className="p-4 rounded-2xl border border-gray-100 bg-gray-50/50 hover:bg-amber-50/20 transition-colors space-y-2.5">
+                      <div key={m.id} className="p-4 rounded-2xl border border-suka-gray-100 bg-suka-cream/30 hover:bg-suka-cream/80 transition-colors space-y-2.5">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${meta.color}1a` }}>
@@ -694,26 +701,26 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                             </div>
                             <div>
                               <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</span>
-                              {m.title && <h4 className="text-xs font-bold text-gray-900 leading-tight">{m.title}</h4>}
+                              {m.title && <h4 className="text-xs font-bold text-suka-brown leading-tight">{m.title}</h4>}
                             </div>
                           </div>
 
                           {m.is_live ? (
-                            <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full shrink-0">🟢 AKTIF</span>
+                            <span className="text-[10px] font-bold text-suka-green bg-suka-green/10 px-2 py-0.5 rounded-full shrink-0">🟢 AKTIF</span>
                           ) : (
-                            <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">SELESAI</span>
+                            <span className="text-[10px] font-bold text-suka-gray-400 bg-suka-gray-100 px-2 py-0.5 rounded-full shrink-0">SELESAI</span>
                           )}
                         </div>
 
-                        <p className="text-xs text-gray-700 leading-relaxed font-medium bg-white p-2.5 rounded-xl border border-gray-100">{m.body}</p>
+                        <p className="text-xs text-suka-brown leading-relaxed font-medium bg-white p-2.5 rounded-xl border border-suka-gray-100">{m.body}</p>
 
-                        <div className="flex items-center justify-between text-[11px] font-semibold text-gray-400 pt-1">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-suka-gray-400 pt-1">
                           <div className="flex items-center gap-3">
                             <span className="flex items-center gap-1">
-                              {m.target_type === 'all' ? <><Globe className="w-3.5 h-3.5 text-amber-600" /> Semua Cabang</> : <><Store className="w-3.5 h-3.5 text-amber-600" /> {m.outlet_ids.length} Cabang</>}
+                              {m.target_type === 'all' ? <><Globe className="w-3.5 h-3.5 text-suka-brown" /> Semua Cabang</> : <><Store className="w-3.5 h-3.5 text-suka-brown" /> {m.outlet_ids.length} Cabang</>}
                             </span>
-                            <span className="flex items-center gap-1 text-gray-500">
-                              <Eye className="w-3.5 h-3.5 text-gray-400" /> {m.read_count} Dibaca
+                            <span className="flex items-center gap-1 text-suka-gray-500">
+                              <Eye className="w-3.5 h-3.5 text-suka-gray-400" /> {m.read_count} Dibaca
                             </span>
                           </div>
                           <span>{new Date(m.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
@@ -722,12 +729,12 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                         {m.target_type === 'outlets' && m.outlet_ids && m.outlet_ids.length > 0 && (
                           <div className="flex flex-wrap gap-1 pt-1">
                             {m.outlet_ids.slice(0, 4).map((id) => (
-                              <span key={id} className="text-[10px] font-bold text-amber-900 bg-amber-100/70 px-2 py-0.5 rounded-md">
+                              <span key={id} className="text-[10px] font-bold text-suka-brown bg-suka-cream px-2 py-0.5 rounded-md border border-suka-brown/10">
                                 {outletNameById.get(id) ?? id}
                               </span>
                             ))}
                             {m.outlet_ids.length > 4 && (
-                              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-md">
+                              <span className="text-[10px] font-bold text-suka-gray-500 bg-suka-gray-100 px-1.5 py-0.5 rounded-md">
                                 +{m.outlet_ids.length - 4} lagi
                               </span>
                             )}
@@ -753,32 +760,33 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
         </div>
       )}
 
-      <div className="bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-b from-gray-50/50 to-white">
+      {/* ── Tabel Target Per Outlet ── */}
+      <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-suka-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white">
           <div>
             <div className="flex items-center gap-2">
-              <Store className="w-5 h-5 text-amber-600" />
-              <h3 className="font-extrabold text-gray-900 text-base">Daftar Target Omzet Per Cabang</h3>
+              <Store className="w-5 h-5 text-suka-brown" />
+              <h3 className="font-extrabold text-suka-brown text-base uppercase tracking-tight">Daftar Target Omzet Per Cabang</h3>
             </div>
-            <p className="text-gray-400 text-xs mt-0.5">
+            <p className="text-suka-gray-400 text-xs mt-0.5 font-medium">
               Default Global: <b>{rupiah(globalDefault)}</b>/hari · Bonus <b>{rupiah(globalDefaultBonus)}</b>/item
             </p>
           </div>
 
           <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-suka-gray-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari nama cabang..."
-              className="w-full pl-9 pr-3.5 py-2 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 border border-gray-200 outline-none focus:border-amber-500 focus:bg-white"
+              className="w-full pl-9 pr-3.5 py-2 rounded-xl text-xs font-bold text-suka-ink bg-suka-cream/40 border border-suka-gray-200 outline-none focus:border-suka-brown focus:bg-white"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-amber-50/40 text-gray-500 uppercase tracking-wider font-extrabold border-b border-gray-100">
+            <thead className="bg-suka-cream/50 text-suka-gray-500 uppercase tracking-wider font-extrabold border-b border-suka-gray-100">
               <tr>
                 <th className="py-3.5 px-5">Nama Cabang / Outlet</th>
                 <th className="py-3.5 px-4">Status Target</th>
@@ -787,7 +795,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                 {!isReadOnly && <th className="py-3.5 px-5 text-right">Aksi Edit Khusus</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 font-medium">
+            <tbody className="divide-y divide-suka-gray-100 font-medium">
               {filteredRows.map((r) => {
                 const targetVal = overrideInputs[r.outlet_id] ?? ''
                 const bonusVal = overrideBonusInputs[r.outlet_id] ?? ''
@@ -795,23 +803,23 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                 const isSaved = savedKey === r.outlet_id
 
                 return (
-                  <tr key={r.outlet_id} className="hover:bg-amber-50/20 transition-colors">
-                    <td className="py-3.5 px-5 font-bold text-gray-900">{cleanName(r.outlet_name)}</td>
+                  <tr key={r.outlet_id} className="hover:bg-suka-cream/30 transition-colors">
+                    <td className="py-3.5 px-5 font-bold text-suka-brown">{cleanName(r.outlet_name)}</td>
                     <td className="py-3.5 px-4">
                       {r.is_override ? (
-                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-full">
+                        <span className="text-[10px] font-bold text-suka-orange bg-suka-orange/10 border border-suka-orange/20 px-2.5 py-1 rounded-full">
                           Target Khusus
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
+                        <span className="text-[10px] font-bold text-suka-gray-500 bg-suka-gray-100 px-2.5 py-1 rounded-full">
                           Ikut Global
                         </span>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 font-black text-gray-900">
+                    <td className="py-3.5 px-4 font-black text-suka-ink">
                       {rupiah(r.target_amount)}
                     </td>
-                    <td className="py-3.5 px-4 font-bold text-gray-700">
+                    <td className="py-3.5 px-4 font-bold text-suka-brown">
                       {rupiah(r.per_item_bonus)}
                     </td>
 
@@ -824,14 +832,14 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                               placeholder="Target baru"
                               value={targetVal ? Number(targetVal).toLocaleString('id-ID') : ''}
                               onChange={(e) => setOverrideInputs({ ...overrideInputs, [r.outlet_id]: e.target.value.replace(/\D/g, '') })}
-                              className="w-24 px-2 py-1 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 outline-none focus:border-amber-500"
+                              className="w-24 px-2 py-1 rounded-lg text-xs font-bold bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown"
                             />
                             <input
                               inputMode="numeric"
                               placeholder="Bonus"
                               value={bonusVal ? Number(bonusVal).toLocaleString('id-ID') : ''}
                               onChange={(e) => setOverrideBonusInputs({ ...overrideBonusInputs, [r.outlet_id]: e.target.value.replace(/\D/g, '') })}
-                              className="w-20 px-2 py-1 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 outline-none focus:border-amber-500"
+                              className="w-20 px-2 py-1 rounded-lg text-xs font-bold bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown"
                             />
                           </div>
 
@@ -839,7 +847,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                             type="button"
                             onClick={() => saveOverride(r.outlet_id)}
                             disabled={isSaving || (!targetVal.trim() && !bonusVal.trim())}
-                            className="p-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-30 text-white font-bold transition-all shrink-0"
+                            className="p-1.5 rounded-lg bg-suka-brown hover:bg-suka-ink disabled:opacity-30 text-white font-bold transition-all shrink-0"
                             title="Simpan Target Khusus Cabang Ini"
                           >
                             {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isSaved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
@@ -850,7 +858,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                               type="button"
                               onClick={() => clearOverride(r.outlet_id)}
                               disabled={isSaving}
-                              className="p-1.5 rounded-lg bg-gray-100 hover:bg-red-50 text-gray-500 hover:text-red-600 font-bold transition-all shrink-0"
+                              className="p-1.5 rounded-lg bg-suka-cream hover:bg-red-50 text-suka-brown hover:text-red-600 font-bold transition-all shrink-0 border border-suka-brown/10"
                               title="Reset Kembali ke Target Global"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />

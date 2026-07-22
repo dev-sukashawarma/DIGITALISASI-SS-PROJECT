@@ -2,6 +2,7 @@ export * from './tokens'
 export * from './components'
 export { cn } from './utils/cn'
 export { getBahanBakuSource } from './utils/bahanBaku'
+export { compressImageToWebP } from './utils/imageCompressor'
 export {
   isRunningInWebView,
   isWebViewUserAgent,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect, useDeferredValue } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
@@ -9,16 +9,24 @@ import {
   FileArchive, Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { CurrencyInput } from '@suka/design-system'
+import { CurrencyInput, compressImageToWebP } from '@suka/design-system'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
-import MenuSearch from './MenuSearch'
 import { MenuPicker } from './MenuPicker'
 import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
 
 const BUCKET = 'menu-images'
+
+const CHANNEL_THEME_CLASSES: Record<string, { selected: string; row: string; badge: string; badgeSelected: string }> = {
+  gray:    { selected: 'bg-gray-900 text-white',    row: 'hover:bg-gray-50 text-gray-700',       badge: 'bg-gray-100 text-gray-500',       badgeSelected: 'bg-white/15 text-white' },
+  amber:   { selected: 'bg-amber-600 text-white',   row: 'hover:bg-amber-50 text-amber-900',     badge: 'bg-amber-50 text-amber-700',      badgeSelected: 'bg-white/15 text-white' },
+  orange:  { selected: 'bg-orange-600 text-white',  row: 'hover:bg-orange-50 text-orange-900',   badge: 'bg-orange-50 text-orange-700',    badgeSelected: 'bg-white/15 text-white' },
+  slate:   { selected: 'bg-slate-950 text-white',   row: 'hover:bg-slate-50 text-slate-900',     badge: 'bg-slate-100 text-slate-600',     badgeSelected: 'bg-white/15 text-white' },
+  emerald: { selected: 'bg-emerald-600 text-white', row: 'hover:bg-emerald-50 text-emerald-900', badge: 'bg-emerald-50 text-emerald-700',  badgeSelected: 'bg-white/15 text-white' },
+  green:   { selected: 'bg-green-600 text-white',   row: 'hover:bg-green-50 text-green-900',     badge: 'bg-green-50 text-green-700',      badgeSelected: 'bg-white/15 text-white' },
+}
 
 interface FormState {
   id: string | null
@@ -94,33 +102,112 @@ export default function MenuView({
   const [recommendations, setRecommendations] = useState<string[]>(initialRecommendations || [])
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [activeChannelFilter, setActiveChannelFilter] = useState<string>('')
+  const [channelDropdownOpen, setChannelDropdownOpen] = useState(false)
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [outletSearch, setOutletSearch] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const channelDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (channelDropdownRef.current && !channelDropdownRef.current.contains(e.target as Node)) {
+        setChannelDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const getSlug = (channelId: string) => {
-    const ch = initialChannels.find(c => c.id === channelId)
-    return ch ? ch.name.toLowerCase().replace(/\s+/g, '') : ''
+    if (!channelId) return ''
+    if (channelId === 'pos_kasir') return 'pos_kasir'
+    if (channelId === 'all_food_apps') return 'all_food_apps'
+    const ch = initialChannels.find(c => c.id === channelId || c.name.toLowerCase().replace(/\s+/g, '') === channelId.toLowerCase().replace(/\s+/g, ''))
+    const raw = ch ? ch.name : channelId
+    const slug = raw.toLowerCase().replace(/\s+/g, '')
+    if (slug === 'tiktokgo' || slug === 'tiktok_go') return 'tiktokgo'
+    return slug
   }
+
+  const isItemInChannel = useMemo(() => {
+    return (item: MenuItem, channelKey: string) => {
+      if (!channelKey || channelKey === 'all') return true
+      
+      if (channelKey === 'pos_kasir') {
+        return item.is_available !== false
+      }
+
+      if (channelKey === 'all_food_apps') {
+        if (item.is_available_online === false) return false
+        const hasPrices = item.channel_prices && Object.keys(item.channel_prices).length > 0
+        const hasChannels = item.available_online_channels && item.available_online_channels.length > 0
+        return Boolean(hasPrices || hasChannels || item.is_available_online)
+      }
+
+      const targetSlug = getSlug(channelKey)
+      if (item.is_available_online === false) return false
+
+      // 1. Check if item has a channel price set for this channel
+      const channelPrice = item.channel_prices?.[targetSlug] || (targetSlug === 'tiktokgo' ? item.channel_prices?.tiktok_go : undefined)
+      const hasSpecificPrice = channelPrice !== undefined && channelPrice !== null && Number(channelPrice) > 0
+
+      // 2. Check if item explicitly lists this channel in available_online_channels
+      let hasExplicitChannel = false
+      if (item.available_online_channels !== null && Array.isArray(item.available_online_channels)) {
+        hasExplicitChannel = item.available_online_channels.some(
+          c => c.toLowerCase().replace(/\s+/g, '') === targetSlug || (targetSlug === 'tiktokgo' && (c === 'tiktokgo' || c === 'tiktok_go'))
+        )
+      }
+
+      // STRICT FILTER: If specific food app (e.g. TikTok Go), MUST have specific price or explicit channel assignment!
+      return hasSpecificPrice || hasExplicitChannel
+    }
+  }, [initialChannels])
+
+  const channelOptions = useMemo(() => {
+    const opts: Array<{ key: string; label: string; count: number; icon: string; theme: string }> = [
+      { key: '', label: 'Semua Menu', count: initialItems.length, icon: '🍽️', theme: 'gray' },
+      { key: 'pos_kasir', label: 'POS Kasir Toko', count: initialItems.filter(i => isItemInChannel(i, 'pos_kasir')).length, icon: '🏪', theme: 'amber' },
+      { key: 'all_food_apps', label: 'Semua Food Apps', count: initialItems.filter(i => isItemInChannel(i, 'all_food_apps')).length, icon: '🛵', theme: 'orange' },
+    ]
+
+    initialChannels.forEach(ch => {
+      const slug = ch.name.toLowerCase().replace(/\s+/g, '')
+      let icon = '📱'
+      let theme = 'gray'
+      if (slug.includes('tiktok')) { icon = '🎵'; theme = 'slate' }
+      else if (slug.includes('gofood')) { icon = '🟢'; theme = 'emerald' }
+      else if (slug.includes('grabfood')) { icon = '🟢'; theme = 'green' }
+      else if (slug.includes('shopee')) { icon = '🧡'; theme = 'orange' }
+
+      opts.push({
+        key: ch.id,
+        label: `Khusus ${ch.name}`,
+        count: initialItems.filter(i => isItemInChannel(i, ch.id)).length,
+        icon,
+        theme,
+      })
+    })
+
+    return opts
+  }, [initialItems, initialChannels, isItemInChannel])
+
+  const selectedChannelOption = channelOptions.find(o => o.key === activeChannelFilter) ?? channelOptions[0]
+
+  const [searchVal, setSearchVal] = useState(searchQuery)
+  const deferredSearch = useDeferredValue(searchVal)
 
   const sortedItems = useMemo(() => {
     let sortableItems = [...initialItems];
 
-    if (searchQuery) {
+    if (deferredSearch) {
       sortableItems = sortableItems.filter(item => 
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        item.name.toLowerCase().includes(deferredSearch.toLowerCase())
       );
     }
 
     if (activeChannelFilter) {
-      const slug = getSlug(activeChannelFilter);
-      sortableItems = sortableItems.filter(item => {
-        if (item.is_available_online === false) return false;
-        if (item.available_online_channels !== null && Array.isArray(item.available_online_channels)) {
-          return item.available_online_channels.includes(slug);
-        }
-        return true;
-      });
+      sortableItems = sortableItems.filter(item => isItemInChannel(item, activeChannelFilter));
     }
 
     if (sortConfig !== null) {
@@ -135,7 +222,7 @@ export default function MenuView({
           aValue = a.categories?.name?.toLowerCase() || '';
           bValue = b.categories?.name?.toLowerCase() || '';
         } else if (sortConfig.key === 'price') {
-          if (activeChannelFilter) {
+          if (activeChannelFilter && !['pos_kasir', 'all_food_apps'].includes(activeChannelFilter)) {
             const slug = getSlug(activeChannelFilter);
             aValue = a.channel_prices?.[slug] || a.price;
             bValue = b.channel_prices?.[slug] || b.price;
@@ -154,7 +241,7 @@ export default function MenuView({
       });
     }
     return sortableItems;
-  }, [initialItems, sortConfig, activeChannelFilter, searchQuery]);
+  }, [initialItems, sortConfig, activeChannelFilter, searchQuery, isItemInChannel]);
 
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -265,9 +352,9 @@ export default function MenuView({
   async function uploadImage(file: File): Promise<string | null> {
     setUploading(true)
     const supabase = createClient()
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-    const name = `${Date.now()}-${crypto.randomUUID().slice(0,8)}.${ext}`
-    const { error: err } = await supabase.storage.from(BUCKET).upload(name, file, { contentType: file.type })
+    const compressedFile = await compressImageToWebP(file, 800, 800, 0.8)
+    const name = `${Date.now()}-${crypto.randomUUID().slice(0,8)}.webp`
+    const { error: err } = await supabase.storage.from(BUCKET).upload(name, compressedFile, { contentType: 'image/webp' })
     setUploading(false)
     if (err) { setError(`Upload gagal: ${err.message}`); return null }
     return supabase.storage.from(BUCKET).getPublicUrl(name).data.publicUrl
@@ -385,25 +472,22 @@ export default function MenuView({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Manajemen Menu</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{initialItems.length} item ditemukan</p>
+          <p className="text-gray-400 text-sm mt-0.5">{sortedItems.length} menu ditampilkan ({initialItems.length} total)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Channel Filter */}
-          {initialChannels.length > 0 && (
-            <select
-              value={activeChannelFilter}
-              onChange={(e) => setActiveChannelFilter(e.target.value)}
-              className="py-2.5 px-4 text-sm font-medium rounded-2xl border border-gray-200 bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all cursor-pointer text-gray-700"
-            >
-              <option value="">Harga Dasar</option>
-              {initialChannels.map(ch => (
-                <option key={ch.id} value={ch.id}>Harga {ch.name}</option>
-              ))}
-            </select>
-          )}
-
           {/* Search Input */}
-          <MenuSearch />
+          <div className="relative w-full sm:w-auto sm:min-w-[220px]">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-2xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-sm"
+              placeholder="Cari menu..."
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
+            />
+          </div>
 
           <button
             onClick={() => setShowZipModal(true)}
@@ -430,6 +514,62 @@ export default function MenuView({
             <Plus className="w-4 h-4" />
             Tambah Menu
           </button>
+        </div>
+      </div>
+
+      {/* Channel Filter Dropdown (custom, non-native) */}
+      <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex flex-wrap items-center gap-3">
+        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider px-2">Filter Channel:</span>
+
+        <div className="relative" ref={channelDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setChannelDropdownOpen(o => !o)}
+            aria-haspopup="listbox"
+            aria-expanded={channelDropdownOpen}
+            className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl pl-3.5 pr-3 py-2 min-w-[260px] justify-between hover:bg-gray-100 transition-all cursor-pointer"
+          >
+            <span className="flex items-center gap-2 text-xs font-bold text-gray-800">
+              <span>{selectedChannelOption.icon}</span>
+              <span>{selectedChannelOption.label}</span>
+              <span className="text-gray-400 font-semibold">({selectedChannelOption.count})</span>
+            </span>
+            {channelDropdownOpen
+              ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+          </button>
+
+          {channelDropdownOpen && (
+            <div
+              role="listbox"
+              className="absolute z-20 mt-2 w-full min-w-[280px] bg-white rounded-2xl border border-gray-100 shadow-lg py-1.5 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150"
+            >
+              {channelOptions.map(opt => {
+                const isSelected = activeChannelFilter === opt.key
+                const theme = CHANNEL_THEME_CLASSES[opt.theme] ?? CHANNEL_THEME_CLASSES.gray
+                return (
+                  <button
+                    key={opt.key || 'all'}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => { setActiveChannelFilter(opt.key); setChannelDropdownOpen(false) }}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer ${
+                      isSelected ? theme.selected : theme.row
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <span>{opt.icon}</span>
+                      <span>{opt.label}</span>
+                    </span>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${isSelected ? theme.badgeSelected : theme.badge}`}>
+                      {opt.count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1069,6 +1209,56 @@ export default function MenuView({
                         {bestsellers.includes(item.id) && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">Best Seller</span>}
                         {recommendations.includes(item.id) && <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-bold">Rekomendasi</span>}
                         {upsells.includes(item.id) && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">Menu Ekstra</span>}
+
+                        {/* Channel Badges */}
+                        {(() => {
+                          const activeSlug = activeChannelFilter ? getSlug(activeChannelFilter) : '';
+                          const isSpecificFoodApp = Boolean(activeSlug && !['pos_kasir', 'all_food_apps'].includes(activeSlug));
+
+                          const hasSpecificChannelPrice = (slug: string) => {
+                            if (!item.channel_prices) return false;
+                            const val = item.channel_prices[slug] || (slug === 'tiktokgo' ? item.channel_prices.tiktok_go : undefined);
+                            return val !== undefined && val !== null && Number(val) > 0;
+                          };
+
+                          const hasExplicitChannel = (slug: string) => {
+                            if (!item.available_online_channels || !Array.isArray(item.available_online_channels)) return false;
+                            return item.available_online_channels.some(
+                              c => c.toLowerCase().replace(/\s+/g, '') === slug || (slug === 'tiktokgo' && (c === 'tiktokgo' || c === 'tiktok_go'))
+                            );
+                          };
+
+                          const isRealInChannel = (slug: string) => {
+                            return hasSpecificChannelPrice(slug) || hasExplicitChannel(slug);
+                          };
+
+                          const showPosKasirBadge = !isSpecificFoodApp && activeSlug !== 'all_food_apps' && item.is_available !== false;
+
+                          return (
+                            <>
+                              {showPosKasirBadge && (
+                                <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold">POS Kasir</span>
+                              )}
+
+                              {item.is_available_online !== false && activeSlug !== 'pos_kasir' && (
+                                <>
+                                  {(isSpecificFoodApp ? activeSlug === 'gofood' : isRealInChannel('gofood')) && (
+                                    <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">GoFood</span>
+                                  )}
+                                  {(isSpecificFoodApp ? activeSlug === 'grabfood' : isRealInChannel('grabfood')) && (
+                                    <span className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded font-bold">GrabFood</span>
+                                  )}
+                                  {(isSpecificFoodApp ? activeSlug === 'shopeefood' : isRealInChannel('shopeefood')) && (
+                                    <span className="text-[10px] bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-bold">ShopeeFood</span>
+                                  )}
+                                  {(isSpecificFoodApp ? activeSlug === 'tiktokgo' : isRealInChannel('tiktokgo')) && (
+                                    <span className="text-[10px] bg-slate-900 text-white px-1.5 py-0.5 rounded font-bold">TikTok Go</span>
+                                  )}
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                       
                       {openDropdownId === item.id && (
@@ -1092,8 +1282,11 @@ export default function MenuView({
                             {formatRupiah(item.strike_price)}
                           </span>
                         )}
-                        {activeChannelFilter && item.channel_prices?.[getSlug(activeChannelFilter)] ? (
-                          <span className="font-bold text-amber-600">{formatRupiah(item.channel_prices[getSlug(activeChannelFilter)])}</span>
+                        {activeChannelFilter && !['pos_kasir', 'all_food_apps'].includes(activeChannelFilter) && item.channel_prices?.[getSlug(activeChannelFilter)] ? (
+                          <>
+                            <span className="font-bold text-amber-600">{formatRupiah(item.channel_prices[getSlug(activeChannelFilter)])}</span>
+                            <span className="text-[10px] text-gray-400 font-medium">Dasar: {formatRupiah(item.price)}</span>
+                          </>
                         ) : (
                           <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
                         )}

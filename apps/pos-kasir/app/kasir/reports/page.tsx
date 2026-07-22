@@ -173,6 +173,7 @@ async function fetchOutletAnalytics(
     })
 
     const bestSellers = Object.values(itemMap).sort((a, b) => b.qty - a.qty).slice(0, 10)
+    const totalItemsSold = Object.values(itemMap).reduce((sum, item) => sum + item.qty, 0)
 
     let maxHourlyCount = 0
     let peakHour: number | null = null
@@ -188,6 +189,7 @@ async function fetchOutletAnalytics(
       totalDeductions,
       netRevenue,
       totalOrders,
+      totalItemsSold,
       avgOrderValue,
       pendingCount,
       canceledCount,
@@ -442,6 +444,7 @@ export default function ReportsPage() {
     let totalDeductions = base.totalDeductions || 0
     let netRevenue = Math.max(0, totalRevenue - totalDeductions)
     let totalOrders = base.totalOrders || 0
+    let totalItemsSold = base.totalItemsSold || 0
     let pendingCount = base.pendingCount || 0
     let canceledCount = base.canceledCount || 0
     let avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
@@ -473,6 +476,7 @@ export default function ReportsPage() {
       totalDeductions,
       netRevenue,
       totalOrders,
+      totalItemsSold,
       pendingCount,
       canceledCount,
       paymentBreakdown,
@@ -825,52 +829,72 @@ export default function ReportsPage() {
               )}
             </div>
 
-            {/* ── Category Breakdown (Admin feature) ── */}
-            <div className="card p-6 shadow-sm border border-gray-100 flex flex-col">
-              <h2 className="font-bold text-gray-900 text-lg mb-1">Kategori Produk</h2>
-              <p className="text-gray-400 print-dark-text text-xs mb-4">Proporsi item terjual</p>
+            {/* ── Total Menu Terjual ── */}
+            <div className="card p-6 shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-white via-amber-50/20 to-orange-50/30">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+              
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center border border-amber-200/50 shadow-xs">
+                      <ShoppingBag className="w-5 h-5" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-gray-900 text-lg leading-tight">Total Menu Terjual</h2>
+                      <p className="text-gray-400 print-dark-text text-xs">Proporsi porsi terjual dari pesanan lunas</p>
+                    </div>
+                  </div>
+                </div>
 
-              {analytics.categoryData.length === 0 ? (
-                <div className="h-32 flex items-center justify-center text-gray-400 print-dark-text text-sm">
-                  Belum ada data
-                </div>
-              ) : (
-                <div className="flex flex-col h-full justify-center">
-                  <div className="h-32 w-full mb-6">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={analytics.categoryData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={35}
-                          outerRadius={60}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {analytics.categoryData.map((entry: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <RechartsTooltip formatter={(value: any) => [`${value} item`, 'Terjual']} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                {/* Hero Big Stat Number */}
+                <div className="my-3 p-4 rounded-2xl bg-white border border-amber-100 shadow-sm flex items-baseline justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Total Porsi / Item</p>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <span className="text-4xl sm:text-5xl font-black text-amber-600 tracking-tight">
+                        {analytics.totalItemsSold || 0}
+                      </span>
+                      <span className="text-sm font-bold text-amber-800 bg-amber-100/70 border border-amber-200/60 px-2.5 py-1 rounded-xl">
+                        Menu Terjual
+                      </span>
+                    </div>
                   </div>
-                  <div className="space-y-3 px-2">
-                    {analytics.categoryData.map((entry: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></span>
-                          <span className="text-sm font-bold text-gray-700 print-dark-text">{entry.name}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-sm font-bold text-gray-900">{entry.value} item</span>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[11px] font-semibold text-gray-400">Variasi Menu</p>
+                    <p className="text-base font-black text-gray-800">{analytics.bestSellers.length} Produk</p>
                   </div>
                 </div>
-              )}
+
+                {/* Mini Top Item Breakdown */}
+                {analytics.totalItemsSold === 0 || analytics.bestSellers.length === 0 ? (
+                  <div className="h-24 flex flex-col items-center justify-center text-gray-400 print-dark-text text-xs">
+                    <Package className="w-6 h-6 text-gray-300 mb-1" />
+                    Belum ada item terjual
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 mt-3">
+                    {analytics.bestSellers.slice(0, 4).map((item: any, index: number) => {
+                      const pct = analytics.totalItemsSold > 0 
+                        ? Math.round((item.qty / analytics.totalItemsSold) * 100) 
+                        : 0;
+                      return (
+                        <div key={index} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-gray-700 truncate max-w-[190px]">{cleanItemName(item.name)}</span>
+                            <span className="font-extrabold text-gray-900">{item.qty} <span className="text-gray-400 font-medium">porsi ({pct}%)</span></span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

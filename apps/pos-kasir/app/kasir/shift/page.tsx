@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/Skeleton'
 import { useDialogStore } from '@/lib/dialogStore'
 import { db } from '@/lib/db'
 import { useNetworkStatus } from '@/lib/useNetworkStatus'
-import { postToNative, isRunningInWebView } from '@suka/design-system'
+import { postToNative, isRunningInWebView, compressImageToWebP } from '@suka/design-system'
 
 interface Shift {
   id: string
@@ -200,14 +200,10 @@ export default function ShiftPage() {
       if (shiftError) throw shiftError
       setActiveShift(shiftData || null)
 
-      // Get Petty Cash Balance
-      const { data: pcData } = await supabase.rpc('get_petty_cash_balance', { p_outlet_id: outletId })
-      const balance = Number(pcData) || 0
-      setPettyCashBalance(balance)
-
       let snapExpenses: Expense[] = []
       let snapTopups: PettyCashTopup[] = []
       let snapCashOrders: CashOrder[] = []
+      let calculatedBalance = 0
 
       if (shiftData) {
         // We fetch expenses, topups, and orders since shift start
@@ -232,13 +228,29 @@ export default function ShiftPage() {
           supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('updated_at', fetchStartTime)
         ])
 
-        snapExpenses = await fetchCreators(expRes.data || [])
-        snapTopups = await fetchCreators(topRes.data || [])
+        const [processedExpenses, processedTopups] = await Promise.all([
+          fetchCreators(expRes.data || []),
+          fetchCreators(topRes.data || [])
+        ])
+        snapExpenses = processedExpenses
+        snapTopups = processedTopups
         snapCashOrders = (ordRes.data || []).filter(o => o.payment_method === 'cash')
         setExpenses(snapExpenses)
         setTopups(snapTopups)
         setCashOrders(snapCashOrders)
+
+        // Saldo Petty Cash Shift Ini: Modal Awal + TopUp Diterima - Pengeluaran Shift Ini
+        const startPetty = Number(shiftData.starting_petty_cash) || 0
+        const topupsTotal = snapTopups
+          .filter(t => ['completed', 'approved', 'approved_by_finance', 'forwarded_by_leader'].includes(t.status))
+          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+        const expensesTotal = snapExpenses
+          .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+
+        calculatedBalance = startPetty + topupsTotal - expensesTotal
+        setPettyCashBalance(calculatedBalance)
       } else {
+        setPettyCashBalance(0)
         setExpenses([])
         setTopups([])
         setCashOrders([])
@@ -283,7 +295,7 @@ export default function ShiftPage() {
         key: `pettycash:${outletId}`,
         value: {
           shift: shiftData || null,
-          balance,
+          balance: calculatedBalance,
           expenses: snapExpenses,
           topups: snapTopups,
           cashOrders: snapCashOrders,
@@ -351,10 +363,10 @@ export default function ShiftPage() {
 
       let receiptUrl = null
       if (receiptFile) {
-        const fileExt = receiptFile.name.split('.').pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+        const compressedFile = await compressImageToWebP(receiptFile, 1200, 1200, 0.8)
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.webp`
         const filePath = `${outletId}/${fileName}`
-        const { error: uploadError } = await supabase.storage.from('petty-cash-receipts').upload(filePath, receiptFile)
+        const { error: uploadError } = await supabase.storage.from('petty-cash-receipts').upload(filePath, compressedFile)
         if (uploadError) throw new Error(`Gagal mengunggah foto struk: ${uploadError.message}`)
         const { data: publicUrlData } = supabase.storage.from('petty-cash-receipts').getPublicUrl(filePath)
         receiptUrl = publicUrlData.publicUrl

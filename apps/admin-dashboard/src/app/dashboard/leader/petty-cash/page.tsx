@@ -1,7 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Plus, Clock, CheckCircle2, XCircle, Store, Building2, Send, Check } from 'lucide-react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { 
+  Plus, Clock, CheckCircle2, XCircle, Store, Building2, Send, Check, 
+  Search, Camera, X, Download, AlertCircle, Wallet, Calendar 
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import { toast } from 'sonner'
@@ -16,7 +19,64 @@ interface TopupRequest {
   bank_name?: string | null
   bank_account_number?: string | null
   bank_account_name?: string | null
+  proof_of_transfer_url?: string | null
   outlet?: { name: string } | null
+}
+
+function formatDateTime(iso: string) {
+  if (!iso) return '-'
+  try {
+    const d = new Date(iso)
+    return d.toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch {
+    return iso
+  }
+}
+
+function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
+  if (!imageUrl) return null
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
+      <div className="relative bg-white rounded-3xl overflow-hidden shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col border border-slate-200">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
+              <Camera className="w-4 h-4" />
+            </div>
+            <h3 className="font-extrabold text-slate-800 text-sm">Foto Bukti Transfer Finance</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-slate-50">
+          <img src={imageUrl} alt="Bukti Transfer" className="max-h-[65vh] w-auto object-contain rounded-2xl shadow-md border border-slate-200" />
+        </div>
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0 text-xs">
+          <span className="text-slate-500 font-semibold">Lampiran Bukti Transfer Resmi</span>
+          <a
+            href={imageUrl}
+            target="_blank"
+            rel="noreferrer"
+            download="Bukti_Transfer_Petty_Cash.jpg"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-sm"
+          >
+            <Download className="w-3.5 h-3.5" /> Unduh Foto Utuh
+          </a>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function LeaderPettyCashPage() {
@@ -26,7 +86,12 @@ export default function LeaderPettyCashPage() {
   const [requests, setRequests] = useState<TopupRequest[]>([])
   const [outlets, setOutlets] = useState<any[]>([])
   const [selectedOutletId, setSelectedOutletId] = useState<string>('')
+  const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
   
+  // Search & Filter
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+
   // Form fields
   const [amount, setAmount] = useState<string>('')
   const [description, setDescription] = useState<string>('')
@@ -159,32 +224,73 @@ export default function LeaderPettyCashPage() {
     }
   }
 
+  // Filtered requests
+  const filteredRequests = useMemo(() => {
+    return requests.filter(r => {
+      // Status filter
+      if (statusFilter === 'pending' && !(r.status === 'pending' || r.status === 'forwarded_to_area_manager')) return false
+      if (statusFilter === 'finance' && !(r.status === 'forwarded_to_finance' || r.status === 'approved_by_finance' || r.status === 'forwarded_by_finance')) return false
+      if (statusFilter === 'action_needed' && r.status !== 'forwarded_by_area_manager') return false
+      if (statusFilter === 'completed' && !(r.status === 'completed' || r.status === 'forwarded_by_leader')) return false
+      if (statusFilter === 'rejected' && r.status !== 'rejected') return false
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const outletName = (r.outlet?.name || '').toLowerCase()
+        const desc = (r.description || '').toLowerCase()
+        const bank = (r.bank_name || '').toLowerCase()
+        const acc = (r.bank_account_number || '').toLowerCase()
+        const holder = (r.bank_account_name || '').toLowerCase()
+        const amountStr = r.amount.toString()
+        
+        return outletName.includes(q) || desc.includes(q) || bank.includes(q) || acc.includes(q) || holder.includes(q) || amountStr.includes(q)
+      }
+
+      return true
+    })
+  }, [requests, statusFilter, searchQuery])
+
+  // Summary counts
+  const countPending = requests.filter(r => r.status === 'pending' || r.status === 'forwarded_to_area_manager').length
+  const countActionNeeded = requests.filter(r => r.status === 'forwarded_by_area_manager').length
+  const countCompleted = requests.filter(r => r.status === 'completed' || r.status === 'forwarded_by_leader').length
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Top Up Petty Cash Outlet</h1>
-          <p className="text-sm text-slate-500 mt-1">Pilih outlet cabang yang ingin diajukan topup petty cash-nya.</p>
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 font-sans">
+      
+      {/* HEADER BAR */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-600 flex items-center justify-center shrink-0">
+            <Wallet className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Top Up Petty Cash Outlet</h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium">Kelola & pantau status pengajuan dana operasional cabang.</p>
+          </div>
         </div>
         <button 
           onClick={() => setShowForm(!showForm)}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-sm"
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-sm shadow-orange-500/20 shrink-0 cursor-pointer"
         >
-          <Plus size={18} />
+          <Plus className="w-4 h-4 stroke-[3]" />
           {showForm ? 'Sembunyikan Form' : '+ Form Pengajuan Baru'}
         </button>
       </div>
 
+      {/* FORM SECTION */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-blue-200 p-6 shadow-sm space-y-6 animate-in fade-in">
+        <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-orange-500/30 p-5 sm:p-7 shadow-sm space-y-6 animate-in fade-in duration-200">
+          
           {/* STEP 1: OUTLET SELECTION CARDS */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <Store className="w-4 h-4 text-blue-600" />
+                <Store className="w-4 h-4 text-orange-500" />
                 Langkah 1: Pilih Outlet Tujuan Top Up
               </label>
-              <span className="text-xs text-slate-500 font-medium">Pilih salah satu outlet di bawah</span>
+              <span className="text-xs text-slate-500 font-medium">Pilih salah satu outlet cabang</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -194,19 +300,19 @@ export default function LeaderPettyCashPage() {
                   <div
                     key={o.id}
                     onClick={() => handleOutletSelect(o.id)}
-                    className={`cursor-pointer p-4 rounded-xl border-2 transition-all flex flex-col justify-between relative ${
+                    className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex flex-col justify-between relative ${
                       isSelected
-                        ? 'border-blue-600 bg-blue-50/70 shadow-sm'
-                        : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/70 hover:border-slate-300'
+                        ? 'border-orange-500 bg-orange-50/60 shadow-xs'
+                        : 'border-slate-200 bg-slate-50/40 hover:bg-slate-100/70 hover:border-slate-300'
                     }`}
                   >
                     {isSelected && (
-                      <div className="absolute top-2.5 right-2.5 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center">
+                      <div className="absolute top-3 right-3 w-5 h-5 bg-orange-500 text-white rounded-full flex items-center justify-center">
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                       </div>
                     )}
                     <div>
-                      <h4 className={`text-sm font-bold ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>
+                      <h4 className={`text-sm font-extrabold ${isSelected ? 'text-orange-950' : 'text-slate-800'}`}>
                         {o.name}
                       </h4>
                       <p className="text-[11px] text-slate-500 mt-1 font-mono">{o.slug}</p>
@@ -228,7 +334,7 @@ export default function LeaderPettyCashPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Nominal Top Up (Rp)
                 </label>
                 <div className="relative">
@@ -244,14 +350,14 @@ export default function LeaderPettyCashPage() {
                       const raw = e.target.value.replace(/\D/g, '')
                       setAmount(raw)
                     }}
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-10 pr-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-black focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all outline-none"
                     required 
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Alasan / Keperluan Operasional
                 </label>
                 <textarea 
@@ -259,7 +365,7 @@ export default function LeaderPettyCashPage() {
                   placeholder="Pembelian bahan baku es kristal, kantong plastik & perlengkapan kasir..." 
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all outline-none"
                   required
                 />
               </div>
@@ -319,7 +425,7 @@ export default function LeaderPettyCashPage() {
             <button
               type="submit"
               disabled={isSubmitting || !selectedOutletId}
-              className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-3 text-xs sm:text-sm font-extrabold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition-all shadow-sm shadow-orange-500/20 disabled:opacity-50 cursor-pointer"
             >
               <Send className="w-4 h-4" />
               {isSubmitting ? 'Mengirim...' : 'Kirim Pengajuan Top Up'}
@@ -328,113 +434,371 @@ export default function LeaderPettyCashPage() {
         </form>
       )}
 
-      {/* Real Data Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <h2 className="text-lg font-bold text-slate-800">Daftar Pengajuan Top Up Petty Cash (Data Real)</h2>
-          <span className="text-xs font-bold text-slate-500">Total: {requests.length} pengajuan</span>
+      {/* REAL DATA TABLE & CARDS SECTION */}
+      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden space-y-0">
+        
+        {/* TABLE HEADER & FILTER BAR */}
+        <div className="p-5 border-b border-slate-100 bg-slate-50/50 space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                Daftar Pengajuan Top Up Petty Cash
+              </h2>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Riwayat & pemantauan status persetujuan berjenjang</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-extrabold text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
+                Total: <span className="text-orange-600">{filteredRequests.length}</span> / {requests.length} data
+              </span>
+            </div>
+          </div>
+
+          {/* SEARCH & FILTER CONTROLS */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 pt-2">
+            
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari nama outlet, alasan, bank, atau nominal..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all shadow-2xs"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Status Filter Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all ${
+                  statusFilter === 'all'
+                    ? 'bg-slate-800 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                Semua ({requests.length})
+              </button>
+
+              {countActionNeeded > 0 && (
+                <button
+                  onClick={() => setStatusFilter('action_needed')}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all ${
+                    statusFilter === 'action_needed'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                >
+                  <Send className="w-3 h-3" /> Action Leader ({countActionNeeded})
+                </button>
+              )}
+
+              <button
+                onClick={() => setStatusFilter('pending')}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  statusFilter === 'pending'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <Clock className="w-3 h-3 text-amber-500" /> Menunggu AM ({countPending})
+              </button>
+
+              <button
+                onClick={() => setStatusFilter('completed')}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  statusFilter === 'completed'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Selesai ({countCompleted})
+              </button>
+            </div>
+
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[700px]">
+
+        {/* DESKTOP TABLE VIEW (md:block) */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
-                <th className="px-6 py-3.5 font-bold">Outlet</th>
-                <th className="px-6 py-3.5 font-bold">Rekening Tujuan</th>
-                <th className="px-6 py-3.5 font-bold">Nominal</th>
-                <th className="px-6 py-3.5 font-bold">Alasan</th>
-                <th className="px-6 py-3.5 font-bold">Status Hirarki</th>
-                <th className="px-6 py-3.5 font-bold text-right">Aksi</th>
+              <tr className="bg-slate-50/80 text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-200">
+                <th className="px-5 py-3.5 font-extrabold w-[160px]">Tanggal & Waktu</th>
+                <th className="px-5 py-3.5 font-extrabold w-[200px]">Outlet Cabang</th>
+                <th className="px-5 py-3.5 font-extrabold w-[200px]">Rekening Tujuan</th>
+                <th className="px-5 py-3.5 font-extrabold w-[140px]">Nominal Top Up</th>
+                <th className="px-5 py-3.5 font-extrabold">Alasan / Keperluan</th>
+                <th className="px-5 py-3.5 font-extrabold w-[230px]">Status Hirarki</th>
+                <th className="px-5 py-3.5 font-extrabold text-right w-[160px]">Bukti / Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {requests.length === 0 ? (
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                    Belum ada pengajuan petty cash.
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 space-y-2">
+                    <AlertCircle className="w-8 h-8 mx-auto text-slate-300" />
+                    <p className="font-bold text-slate-600 text-sm">Tidak ada pengajuan ditemukan.</p>
+                    <p className="text-xs text-slate-400">Coba ubah kata kunci pencarian atau filter status di atas.</p>
                   </td>
                 </tr>
               ) : (
-                requests.map((row) => (
+                filteredRequests.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-6 py-4 font-bold text-slate-900 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <Store className="w-4 h-4 text-slate-400" />
-                        {row.outlet?.name || '-'}
+                    
+                    {/* Tanggal */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        {formatDateTime(row.created_at)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-xs text-slate-600 whitespace-nowrap">
+
+                    {/* Outlet */}
+                    <td className="px-5 py-4 font-extrabold text-slate-900">
+                      <div className="flex items-center gap-2">
+                        <Store className="w-4 h-4 text-orange-500 shrink-0" />
+                        <span>{row.outlet?.name || '-'}</span>
+                      </div>
+                    </td>
+
+                    {/* Rekening Tujuan */}
+                    <td className="px-5 py-4 text-xs">
                       {row.bank_name ? (
-                        <div>
-                          <div className="font-bold text-slate-800">{row.bank_name} - {row.bank_account_number}</div>
-                          <div className="text-slate-500">a.n {row.bank_account_name || '-'}</div>
+                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-200/70 space-y-0.5">
+                          <div className="font-extrabold text-slate-800 flex items-center gap-1">
+                            <Building2 className="w-3.5 h-3.5 text-orange-500" />
+                            {row.bank_name} - <span className="font-mono text-slate-900">{row.bank_account_number}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-medium">a.n {row.bank_account_name || '-'}</div>
                         </div>
                       ) : (
-                        <span className="text-slate-400 italic">Belum diisi</span>
+                        <span className="text-slate-400 italic text-[11px] bg-slate-100 px-2 py-1 rounded-md">Belum diisi</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 font-black text-blue-600 whitespace-nowrap">
+
+                    {/* Nominal */}
+                    <td className="px-5 py-4 font-black text-orange-600 text-sm whitespace-nowrap">
                       {formatRupiah(row.amount)}
                     </td>
-                    <td className="px-6 py-4 text-slate-600 max-w-xs truncate">
+
+                    {/* Alasan */}
+                    <td className="px-5 py-4 text-slate-700 max-w-xs truncate font-medium">
                       {row.description}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {(row.status === 'pending' || row.status === 'forwarded_to_area_manager') && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                          <Clock className="w-3.5 h-3.5" /> Menunggu Area Manager
-                        </span>
-                      )}
-                      {row.status === 'forwarded_to_finance' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                          <Clock className="w-3.5 h-3.5" /> Menunggu Finance
-                        </span>
-                      )}
-                      {(row.status === 'approved_by_finance' || row.status === 'forwarded_by_finance') && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Disetujui Finance (Pencairan)
-                        </span>
-                      )}
+
+                    {/* Status Hirarki - FULL RESPONSIVE BADGES */}
+                    <td className="px-5 py-4">
+                      <div className="flex flex-col items-start gap-1">
+                        {(row.status === 'pending' || row.status === 'forwarded_to_area_manager') && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                            <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>Menunggu Area Manager</span>
+                          </span>
+                        )}
+
+                        {row.status === 'forwarded_to_finance' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-blue-50 text-blue-800 border border-blue-200 shadow-2xs">
+                            <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span>Menunggu Finance</span>
+                          </span>
+                        )}
+
+                        {(row.status === 'approved_by_finance' || row.status === 'forwarded_by_finance') && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-orange-50 text-orange-800 border border-orange-200 shadow-2xs">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                            <span>Disetujui Finance (Pencairan)</span>
+                          </span>
+                        )}
+
+                        {row.status === 'forwarded_by_area_manager' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-black bg-emerald-600 text-white shadow-2xs animate-pulse">
+                            <Send className="w-3.5 h-3.5 shrink-0" />
+                            <span>Siap Serahkan ke Crew</span>
+                          </span>
+                        )}
+
+                        {row.status === 'forwarded_by_leader' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Diserahkan ke Crew (Saldo +)</span>
+                          </span>
+                        )}
+
+                        {row.status === 'completed' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-emerald-600 text-white shadow-2xs">
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>Selesai (Crew Terima)</span>
+                          </span>
+                        )}
+
+                        {row.status === 'rejected' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-red-50 text-red-700 border border-red-200 shadow-2xs">
+                            <XCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                            <span>Ditolak</span>
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Bukti / Aksi */}
+                    <td className="px-5 py-4 text-right whitespace-nowrap space-y-1">
                       {row.status === 'forwarded_by_area_manager' && (
                         <button
                           onClick={() => handleLeaderForwardToCrew(row.id)}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer"
                         >
                           <Send className="w-3.5 h-3.5" /> Serahkan ke Crew
                         </button>
                       )}
-                      {row.status === 'forwarded_by_leader' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Diserahkan ke Crew (Saldo +)
-                        </span>
-                      )}
-                      {row.status === 'completed' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500 text-white">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Selesai (Crew Terima)
-                        </span>
-                      )}
-                      {row.status === 'rejected' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
-                          <XCircle className="w-3.5 h-3.5" /> Ditolak
-                        </span>
+
+                      {row.proof_of_transfer_url && (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProofUrl(row.proof_of_transfer_url || null)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold text-xs rounded-xl border border-emerald-200 transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Lihat Bukti</span>
+                          </button>
+                        </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right whitespace-nowrap">
-                      {row.status === 'forwarded_by_area_manager' && (
-                        <button
-                          onClick={() => handleLeaderForwardToCrew(row.id)}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition-all shadow-sm cursor-pointer"
-                        >
-                          <Send className="w-4 h-4" /> Serahkan ke Crew
-                        </button>
-                      )}
-                    </td>
+
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* MOBILE CARD VIEW (md:hidden) */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {filteredRequests.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 space-y-2">
+              <AlertCircle className="w-8 h-8 mx-auto text-slate-300" />
+              <p className="font-bold text-slate-600 text-sm">Tidak ada pengajuan ditemukan.</p>
+            </div>
+          ) : (
+            filteredRequests.map((row) => (
+              <div key={row.id} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
+                
+                {/* Card Header: Outlet & Status */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Store className="w-4 h-4 text-orange-500 shrink-0" />
+                    <span className="font-black text-slate-900 text-sm">{row.outlet?.name || '-'}</span>
+                  </div>
+                  
+                  {/* Status Badge */}
+                  <div>
+                    {(row.status === 'pending' || row.status === 'forwarded_to_area_manager') && (
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        Menunggu AM
+                      </span>
+                    )}
+                    {row.status === 'forwarded_to_finance' && (
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                        Menunggu Finance
+                      </span>
+                    )}
+                    {(row.status === 'approved_by_finance' || row.status === 'forwarded_by_finance') && (
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-orange-50 text-orange-800 border border-orange-200">
+                        Acc Finance
+                      </span>
+                    )}
+                    {row.status === 'forwarded_by_area_manager' && (
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black bg-emerald-600 text-white animate-pulse">
+                        Siap Serahkan
+                      </span>
+                    )}
+                    {row.status === 'forwarded_by_leader' && (
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        Serah ke Crew
+                      </span>
+                    )}
+                    {row.status === 'completed' && (
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-600 text-white">
+                        Selesai
+                      </span>
+                    )}
+                    {row.status === 'rejected' && (
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
+                        Ditolak
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Amount & Time */}
+                <div className="flex items-baseline justify-between pt-1">
+                  <span className="text-lg font-black text-orange-600">{formatRupiah(row.amount)}</span>
+                  <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-slate-400" />
+                    {formatDateTime(row.created_at)}
+                  </span>
+                </div>
+
+                {/* Description */}
+                <p className="text-xs text-slate-700 font-medium bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  {row.description}
+                </p>
+
+                {/* Bank Info & Actions */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                  <div>
+                    {row.bank_name ? (
+                      <span className="text-[11px] text-slate-600 font-bold">
+                        {row.bank_name} ({row.bank_account_number})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">Belum ada rekening</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {row.proof_of_transfer_url && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProofUrl(row.proof_of_transfer_url || null)}
+                        className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-extrabold text-[11px] rounded-lg border border-emerald-200"
+                      >
+                        📷 Bukti
+                      </button>
+                    )}
+
+                    {row.status === 'forwarded_by_area_manager' && (
+                      <button
+                        onClick={() => handleLeaderForwardToCrew(row.id)}
+                        className="px-3 py-1.5 bg-emerald-600 text-white font-black text-[11px] rounded-xl shadow-xs"
+                      >
+                        Serahkan ke Crew
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            ))
+          )}
+        </div>
+
       </div>
+
+      <ProofImageLightbox
+        imageUrl={selectedProofUrl}
+        onClose={() => setSelectedProofUrl(null)}
+      />
     </div>
   )
 }

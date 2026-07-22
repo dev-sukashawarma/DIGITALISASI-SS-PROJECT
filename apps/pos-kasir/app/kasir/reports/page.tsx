@@ -173,6 +173,7 @@ async function fetchOutletAnalytics(
     })
 
     const bestSellers = Object.values(itemMap).sort((a, b) => b.qty - a.qty).slice(0, 10)
+    const totalItemsSold = Object.values(itemMap).reduce((sum, item) => sum + item.qty, 0)
 
     let maxHourlyCount = 0
     let peakHour: number | null = null
@@ -188,6 +189,7 @@ async function fetchOutletAnalytics(
       totalDeductions,
       netRevenue,
       totalOrders,
+      totalItemsSold,
       avgOrderValue,
       pendingCount,
       canceledCount,
@@ -442,6 +444,7 @@ export default function ReportsPage() {
     let totalDeductions = base.totalDeductions || 0
     let netRevenue = Math.max(0, totalRevenue - totalDeductions)
     let totalOrders = base.totalOrders || 0
+    let totalItemsSold = base.totalItemsSold || 0
     let pendingCount = base.pendingCount || 0
     let canceledCount = base.canceledCount || 0
     let avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
@@ -473,6 +476,7 @@ export default function ReportsPage() {
       totalDeductions,
       netRevenue,
       totalOrders,
+      totalItemsSold,
       pendingCount,
       canceledCount,
       paymentBreakdown,
@@ -825,52 +829,50 @@ export default function ReportsPage() {
               )}
             </div>
 
-            {/* ── Category Breakdown (Admin feature) ── */}
-            <div className="card p-6 shadow-sm border border-gray-100 flex flex-col">
-              <h2 className="font-bold text-gray-900 text-lg mb-1">Kategori Produk</h2>
-              <p className="text-gray-400 print-dark-text text-xs mb-4">Proporsi item terjual</p>
+            {/* ── Total Menu Terjual ── */}
+            <div className="card p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="font-bold text-gray-900 text-lg">Total Menu Terjual</h2>
+                  <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                    {analytics.totalItemsSold || 0} Menu Terjual
+                  </span>
+                </div>
+                <p className="text-gray-400 print-dark-text text-xs mb-4">Rincian item terjual dari pesanan lunas</p>
 
-              {analytics.categoryData.length === 0 ? (
-                <div className="h-32 flex items-center justify-center text-gray-400 print-dark-text text-sm">
-                  Belum ada data
-                </div>
-              ) : (
-                <div className="flex flex-col h-full justify-center">
-                  <div className="h-32 w-full mb-6">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={analytics.categoryData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={35}
-                          outerRadius={60}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {analytics.categoryData.map((entry: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <RechartsTooltip formatter={(value: any) => [`${value} item`, 'Terjual']} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                {analytics.totalItemsSold === 0 || analytics.bestSellers.length === 0 ? (
+                  <div className="h-36 flex flex-col items-center justify-center text-gray-400 print-dark-text text-sm">
+                    <Package className="w-8 h-8 text-gray-300 mb-2" />
+                    Belum ada menu terjual
                   </div>
-                  <div className="space-y-3 px-2">
-                    {analytics.categoryData.map((entry: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></span>
-                          <span className="text-sm font-bold text-gray-700 print-dark-text">{entry.name}</span>
+                ) : (
+                  <div className="space-y-3 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                    {analytics.bestSellers.slice(0, 6).map((item: any, index: number) => {
+                      const pct = analytics.totalItemsSold > 0 
+                        ? Math.round((item.qty / analytics.totalItemsSold) * 100) 
+                        : 0;
+                      return (
+                        <div key={index} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-gray-800 truncate max-w-[180px]">{cleanItemName(item.name)}</span>
+                            <span className="font-bold text-gray-900">{item.qty} item <span className="text-gray-400 font-normal">({pct}%)</span></span>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <span className="text-sm font-bold text-gray-900">{entry.value} item</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                <span>Total Porsi Terjual:</span>
+                <span className="font-black text-amber-600 text-sm">{analytics.totalItemsSold || 0} Menu Terjual</span>
+              </div>
             </div>
           </div>
 

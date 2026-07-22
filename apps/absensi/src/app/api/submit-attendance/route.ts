@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M } from "@/lib/gps";
+import { 
+  haversineMeters, 
+  GEOFENCE_RADIUS_M, 
+  MAX_GPS_ACCURACY_M, 
+  detectFakeGpsSignals, 
+  calculateSpeedKmH, 
+  MAX_REASONABLE_SPEED_KMH 
+} from "@/lib/gps";
 
 export async function POST(req: Request) {
   try {
@@ -31,9 +38,41 @@ export async function POST(req: Request) {
     let distanceM: number | null = null;
     // Hanya validasi GPS jika koordinat outlet terdaftar (tidak null)
     if (outlet.lat !== null && outlet.lng !== null) {
-      // Tolak bila akurasi GPS sangat buruk — radius 30 m jadi tak bermakna
-      // bila toleransi akurasi membengkak. Minta crew aktifkan Lokasi Akurat.
       const reportedAccuracy = Number(body.gps_accuracy ?? 0);
+      
+      // Layer 1: Deteksi Meta Sinyal Fake GPS / Mock Location Provider
+      const fakeGpsCheck = detectFakeGpsSignals({
+        accuracy: reportedAccuracy,
+        isMock: body.is_mock
+      });
+
+      if (fakeGpsCheck.isFakeGps) {
+        // Catat Alert Keamanan untuk SPV di database
+        await admin.from("attendance").upsert({
+          id: body.id || crypto.randomUUID(),
+          outlet_staff_id: body.outlet_staff_id,
+          outlet_id: body.outlet_id,
+          type: body.type || "in",
+          ts_server: new Date().toISOString(),
+          ts_client: body.ts_client || new Date().toISOString(),
+          gps_lat: body.gps_lat ?? null,
+          gps_lng: body.gps_lng ?? null,
+          distance_m: null,
+          match_distance: body.match_distance || 0,
+          selfie_url: body.selfie_path || null,
+          status: "fake_gps_blocked",
+          telat_menit: null
+        }, { onConflict: "id", ignoreDuplicates: true });
+
+        return NextResponse.json({
+          ok: false,
+          reason: "fake_gps_detected",
+          message: "Lokasi tidak dapat diverifikasi. Harap matikan penyedia lokasi pihak ketiga (Mock Location) dan aktifkan GPS Akurat.",
+          accuracy_m: reportedAccuracy,
+        }, { status: 403 });
+      }
+
+      // Tolak bila akurasi GPS sangat buruk — radius 30 m jadi tak bermakna
       if (reportedAccuracy > MAX_GPS_ACCURACY_M) {
         return NextResponse.json({
           ok: false,
@@ -46,6 +85,53 @@ export async function POST(req: Request) {
         const outletCoords = { lat: Number(outlet.lat), lng: Number(outlet.lng) };
         const userCoords = { lat: Number(body.gps_lat), lng: Number(body.gps_lng) };
         distanceM = haversineMeters(outletCoords, userCoords);
+
+        // Layer 2: Deteksi Teleportasi / Perpindahan Instan Tidak Wajar (Speed > 160 km/h)
+        const { data: lastAttendance } = await admin
+          .from("attendance")
+          .select("gps_lat, gps_lng, ts_server")
+          .eq("outlet_staff_id", body.outlet_staff_id)
+          .not("gps_lat", "is", null)
+          .order("ts_server", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastAttendance && lastAttendance.gps_lat && lastAttendance.gps_lng && lastAttendance.ts_server) {
+          const prevCoords = { lat: Number(lastAttendance.gps_lat), lng: Number(lastAttendance.gps_lng) };
+          const prevTimeMs = new Date(lastAttendance.ts_server).getTime();
+          const currTimeMs = new Date().getTime();
+          
+          // Hanya hitung jika riwayat absen terakhir terjadi kurang dari 2 jam lalu
+          const timeDiffMin = (currTimeMs - prevTimeMs) / 60000;
+          if (timeDiffMin > 0 && timeDiffMin <= 120) {
+            const speedKmh = calculateSpeedKmH(prevCoords, prevTimeMs, userCoords, currTimeMs);
+            if (speedKmh > MAX_REASONABLE_SPEED_KMH) {
+              // Catat Alert Teleportasi untuk SPV di database
+              await admin.from("attendance").upsert({
+                id: body.id || crypto.randomUUID(),
+                outlet_staff_id: body.outlet_staff_id,
+                outlet_id: body.outlet_id,
+                type: body.type || "in",
+                ts_server: new Date().toISOString(),
+                ts_client: body.ts_client || new Date().toISOString(),
+                gps_lat: body.gps_lat ?? null,
+                gps_lng: body.gps_lng ?? null,
+                distance_m: distanceM,
+                match_distance: body.match_distance || 0,
+                selfie_url: body.selfie_path || null,
+                status: "teleportation_blocked",
+                telat_menit: null
+              }, { onConflict: "id", ignoreDuplicates: true });
+
+              return NextResponse.json({
+                ok: false,
+                reason: "teleportation_detected",
+                message: "Perpindahan lokasi instan tidak wajar terdeteksi.",
+                speed_kmh: Math.round(speedKmh)
+              }, { status: 403 });
+            }
+          }
+        }
       }
 
       // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= GEOFENCE_RADIUS_M

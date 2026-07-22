@@ -117,6 +117,7 @@ export async function sendOrderToGoogleSheets(
     const payload = formatGoogleSheetsPayload(order, items, outletName)
     const response = await customFetch(webhookUrl, {
       method: 'POST',
+      mode: 'no-cors',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8'
       },

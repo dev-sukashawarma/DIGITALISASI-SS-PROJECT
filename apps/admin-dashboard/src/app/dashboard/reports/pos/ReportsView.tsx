@@ -13,10 +13,6 @@ import { resolveOrderSource } from '@/lib/order-source'
 import GoogleSheetsSettingsModal from '@/components/GoogleSheetsSettingsModal'
 import dynamic from 'next/dynamic'
 
-const CategoryPieChart = dynamic(() => import('./CategoryPieChart'), {
-  ssr: false,
-  loading: () => <div className="w-full h-full animate-pulse bg-gray-100 rounded-full"></div>
-})
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
 
@@ -508,10 +504,10 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   }
 
   return (
-    <div className="space-y-6 pb-10 animate-fade-in" id="report-content">
+    <div className="space-y-8 pb-12 animate-fade-in" id="report-content">
 
       {/* ── Header Web (Hidden on Print) ── */}
-      <div className="no-print flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+      <div className="no-print flex flex-col xl:flex-row items-start xl:items-center justify-between gap-5 bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-3">
               <FileText className="w-7 h-7 text-amber-500" />
@@ -617,38 +613,47 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       ) : (
         <>
           {/* ── KPI Cards (Omzet Kotor, Potongan, Pendapatan Bersih) ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-amber-500 text-white p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-              <div>
-                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet Kotor</p>
-                <p className="text-2xl font-black mt-1">{formatRupiah(analytics.totalRevenue)}</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+              <div className="relative z-10">
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Omzet Kotor</p>
+                <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRevenue)}</p>
               </div>
-              <p className="text-[10px] text-white/70 mt-2 font-medium">*Sebelum potongan promo/diskon</p>
+              <div className="relative z-10 mt-8 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
+                <p className="text-[11px] text-white/80 font-medium tracking-wide">*Sebelum potongan promo/diskon</p>
+              </div>
             </div>
 
-            <div className="bg-rose-500 text-white p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-              <div>
-                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Total Potongan</p>
-                <p className="text-2xl font-black mt-1">-{formatRupiah(analytics.totalDeductions)}</p>
+            <div className="bg-gradient-to-br from-rose-400 to-rose-600 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-rose-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+              <div className="relative z-10">
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total Potongan</p>
+                <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">-{formatRupiah(analytics.totalDeductions)}</p>
               </div>
-              <p className="text-[10px] text-white/70 mt-2 font-medium">*Promo Food Apps & Diskon Menu</p>
+              <div className="relative z-10 mt-8 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
+                <p className="text-[11px] text-white/80 font-medium tracking-wide">*Promo Food Apps & Diskon Menu</p>
+              </div>
             </div>
 
-            <div className="bg-emerald-600 text-white p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-              <div>
-                <p className="text-xs font-bold text-white/90 uppercase tracking-wider">Pendapatan Bersih</p>
-                <p className="text-2xl font-black mt-1">{formatRupiah(analytics.netRevenue)}</p>
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+              <div className="relative z-10">
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Pendapatan Bersih</p>
+                <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.netRevenue)}</p>
               </div>
-              <p className="text-[10px] text-white/90 mt-2 font-bold">✓ Bebas biaya potongan</p>
+              <div className="relative z-10 mt-8 flex items-center gap-2 bg-black/10 w-fit px-3 py-1.5 rounded-full">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-300"></div>
+                <p className="text-[11px] text-white font-bold tracking-wide">✓ Bebas biaya potongan</p>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Success vs Failure Rate */}
-            <div className="card p-6 shadow-sm border border-gray-100">
+            <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80">
               <h2 className="font-bold text-gray-900 text-lg mb-1">Status Transaksi</h2>
               <p className="text-gray-400 print-dark-text text-xs mb-5">Pesanan Lunas vs Batal</p>
 
@@ -683,8 +688,30 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               </div>
             </div>
 
+            {/* Total Items Sold */}
+            <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80 flex flex-col">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="font-bold text-gray-900 text-lg mb-1">Kinerja Penjualan</h2>
+                  <p className="text-gray-400 print-dark-text text-xs">Total item produk terjual</p>
+                </div>
+                <div className="w-10 h-10 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center">
+                  <Package className="w-5 h-5" />
+                </div>
+              </div>
+              
+              <div className="flex-1 flex flex-col justify-center items-center py-8 mt-2 bg-gradient-to-b from-gray-50/50 to-white rounded-2xl border border-gray-100/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.01)]">
+                <span className="text-[5.5rem] leading-none font-black text-gray-900 tracking-tighter drop-shadow-sm mb-2">
+                  {analytics.categoryData.reduce((sum, item) => sum + item.value, 0)}
+                </span>
+                <span className="text-amber-500 font-bold uppercase tracking-[0.2em] text-[10px] bg-amber-50 px-3 py-1 rounded-full">
+                  Item Terjual
+                </span>
+              </div>
+            </div>
+
             {/* Payment Method Breakdown */}
-            <div className="card p-6 shadow-sm border border-gray-100">
+            <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80">
               <h2 className="font-bold text-gray-900 text-lg mb-1">Distribusi Pembayaran</h2>
               <p className="text-gray-400 print-dark-text text-xs mb-5">Rincian per metode bayar</p>
 
@@ -729,42 +756,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 </div>
               )}
             </div>
-
-            {/* Category Breakdown (Donut Chart) */}
-            <div className="card p-6 shadow-sm border border-gray-100 flex flex-col">
-              <h2 className="font-bold text-gray-900 text-lg mb-1">Kategori Produk</h2>
-              <p className="text-gray-400 print-dark-text text-xs mb-4">Proporsi item terjual</p>
-
-              {analytics.categoryData.length === 0 ? (
-                <div className="h-32 flex items-center justify-center text-gray-400 print-dark-text text-sm">
-                  Belum ada data
-                </div>
-              ) : (
-                <div className="flex flex-col h-full justify-center">
-                  <div className="h-32 w-full mb-6">
-                    <CategoryPieChart data={analytics.categoryData} />
-                  </div>
-                  <div className="space-y-3 px-2">
-                    {analytics.categoryData.map((entry, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></span>
-                          <span className="text-sm font-bold text-gray-700 print-dark-text">{entry.name}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-sm font-bold text-gray-900">{entry.value} item</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-6">
             {/* ── Best Sellers ── */}
-            <div className="card p-6 shadow-sm border border-gray-100">
+            <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80">
               <div className="flex items-center gap-2 mb-5">
                 <Award className="w-5 h-5 text-amber-500" />
                 <h2 className="font-bold text-gray-900 text-lg">Item Yang Terjual</h2>
@@ -821,7 +817,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           </div>
           
           {/* Advanced Data Table Transaksi */}
-          <div className="card p-6 shadow-sm border border-gray-100 mt-6 overflow-hidden no-print">
+          <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80 mt-6 overflow-hidden no-print">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 border-b border-gray-100/80 pb-4">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1139,7 +1135,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           </div>
           
           {/* Rekap Rincian Item Terjual */}
-          <div className="card p-6 shadow-sm border border-gray-100 mt-6 overflow-hidden no-print">
+          <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80 mt-6 overflow-hidden no-print">
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="font-bold text-gray-900 text-lg">Rekap Rincian Item Terjual</h2>
@@ -1308,7 +1304,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           </div>
           
           {/* Laporan Tutup Shift */}
-          <div className="card p-6 shadow-sm border border-gray-100 mt-6 overflow-hidden no-print">
+          <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80 mt-6 overflow-hidden no-print">
             <div>
               <h2 className="font-bold text-gray-900 text-lg">Laporan Laci Cash</h2>
               <p className="text-gray-400 text-xs mt-0.5 mb-6">Rekonsiliasi kas laci dan petty cash (uang operasional)</p>

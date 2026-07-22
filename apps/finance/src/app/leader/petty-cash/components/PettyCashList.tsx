@@ -134,7 +134,12 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                       <Badge variant="info">Ke Area Manager</Badge>
                     )}
                     {req.status === 'forwarded_by_area_manager' && (
-                      <Badge variant="warning">Siap Diserahkan ke Crew</Badge>
+                      <button
+                        onClick={() => handleForward(req)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer transition-all"
+                      >
+                        Serahkan ke Crew
+                      </button>
                     )}
                     {req.status === 'forwarded_by_leader' && (
                       <Badge variant="success">Diserahkan ke Crew (Saldo +)</Badge>

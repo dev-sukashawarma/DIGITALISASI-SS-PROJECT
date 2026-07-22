@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Plus, Clock, CheckCircle2, XCircle, Store, ArrowRight, Building2, Send, Check } from 'lucide-react'
+import { Plus, Clock, CheckCircle2, XCircle, Store, Building2, Send, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import { toast } from 'sonner'
@@ -395,9 +395,12 @@ export default function LeaderPettyCashPage() {
                         </span>
                       )}
                       {row.status === 'forwarded_by_area_manager' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <ArrowRight className="w-3.5 h-3.5" /> Siap Diserahkan ke Crew
-                        </span>
+                        <button
+                          onClick={() => handleLeaderForwardToCrew(row.id)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer"
+                        >
+                          <Send className="w-3.5 h-3.5" /> Serahkan ke Crew
+                        </button>
                       )}
                       {row.status === 'forwarded_by_leader' && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
@@ -419,9 +422,9 @@ export default function LeaderPettyCashPage() {
                       {row.status === 'forwarded_by_area_manager' && (
                         <button
                           onClick={() => handleLeaderForwardToCrew(row.id)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition-all shadow-sm cursor-pointer"
                         >
-                          Serahkan ke Crew
+                          <Send className="w-4 h-4" /> Serahkan ke Crew
                         </button>
                       )}
                     </td>

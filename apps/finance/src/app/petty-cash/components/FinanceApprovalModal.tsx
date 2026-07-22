@@ -104,6 +104,9 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
       } else {
         await onReject()
       }
+    } catch (err: any) {
+      console.error('Error processing petty cash disbursement:', err)
+      alert('Gagal memproses pencairan: ' + (err.message || 'Terjadi kesalahan pada koneksi server.'))
     } finally {
       setIsLoading(false)
       setActionType(null)

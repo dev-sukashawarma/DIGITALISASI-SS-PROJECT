@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
-import { calculateProductionEstimate, type ProductionEstimate } from '@/lib/stok/productionEstimate';
+import { calculateProductionEstimate } from '@/lib/stok/productionEstimate';
 import { fetchEstimasiRecipes, type EstimasiRecipe } from '@/app/actions/estimasi_produksi';
 
 interface Props {

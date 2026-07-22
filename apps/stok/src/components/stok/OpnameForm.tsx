@@ -92,7 +92,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   const router = useRouter();
   const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);
-  const { createDraft, createOrReuseDraft, upsertItems, setPendingApproval, finalize } = useOpnameActions();
+  const { createOrReuseDraft, upsertItems, finalize } = useOpnameActions();
 
   const { data: outlets } = useQuery({
     queryKey: ['monitoring', 'outlets'],
@@ -209,9 +209,6 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       return matchesSearch && matchesCategory;
     });
   }, [bahanBaku, searchTerm, activeCategory, isGudang]);
-
-  
-  const [pendingApproval, setPendingApprovalState] = useState(false);
 
   async function handleFinalize() {
     if (Object.keys(remainderError).length > 0) {

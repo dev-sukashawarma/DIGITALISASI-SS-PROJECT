@@ -11,7 +11,7 @@ import { BottomNav } from '@/components/common/BottomNav';
 
 export default function LedgerPage() {
   const { outletStaff } = useAuth();
-  const { selectedOutletId, boundOutlets } = useOutletScope();
+  const { selectedOutletId } = useOutletScope();
   const [page, setPage] = useState(0);
   const { transaksi, loading, error } = useLedgerTransaksiList(selectedOutletId, page);
 

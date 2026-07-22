@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@suka/auth'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { approveOpname, rejectOpname, fetchPendingOpnameApprovals } from '@/app/actions/opname'
 import { BottomNav } from '@/components/common/BottomNav'
@@ -10,7 +9,6 @@ type PendingOpname = Awaited<ReturnType<typeof fetchPendingOpnameApprovals>>[num
 
 export default function OpnameApprovalPage() {
   const { outletStaff } = useAuth()
-  const router = useRouter()
 
   const [list, setList] = useState<PendingOpname[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,7 +25,7 @@ export default function OpnameApprovalPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchPendingOpnameApprovals(outletStaff?.outlet_id)
+      const data = await fetchPendingOpnameApprovals(outletStaff?.outlet_id ?? undefined)
       setList(data ?? [])
     } catch (err: any) {
       showToast(err.message, 'error')
@@ -129,7 +127,7 @@ export default function OpnameApprovalPage() {
           </div>
         ) : (
           list.map((opname) => {
-            const flaggedItems = opname.opname_item?.filter(i => i.flagged) ?? []
+            const flaggedItems = opname.opname_item?.filter((i: any) => i.flagged) ?? []
             const totalItems = opname.opname_item?.length ?? 0
 
             return (

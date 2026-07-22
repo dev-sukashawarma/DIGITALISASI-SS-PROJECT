@@ -239,13 +239,13 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
       let finalQty = Number(qty)
       if (isNaN(finalQty) || finalQty <= 0) return null
 
-      let unitName = selectedBahan.satuan
+      let unitName = selectedBahan.satuan as Satuan
       if (selectedUnitType === 'kecil' && selectedBahan.faktor_tampilan) {
         finalQty = finalQty / selectedBahan.faktor_tampilan
-        unitName = selectedBahan.satuan_kecil ?? selectedBahan.satuan
+        unitName = (selectedBahan.satuan_kecil ?? selectedBahan.satuan) as Satuan
       } else if (selectedUnitType === 'tengah' && selectedBahan.faktor_tengah) {
         finalQty = finalQty / selectedBahan.faktor_tengah
-        unitName = selectedBahan.satuan_tengah ?? selectedBahan.satuan
+        unitName = (selectedBahan.satuan_tengah ?? selectedBahan.satuan) as Satuan
       }
 
       const text = `${qty} ${unitName} (${finalQty} ${selectedBahan.satuan})`

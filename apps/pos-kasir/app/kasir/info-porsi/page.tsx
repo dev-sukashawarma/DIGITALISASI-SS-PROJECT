@@ -1,75 +1,57 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import { AlertCircle, AlertTriangle, Loader2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useMyOutlet } from '@/lib/useMyOutlet'
+import { fetchWithTimeout } from '@/lib/offline-utils'
 
 export default function InfoPorsiPage() {
-  const [limitedMenus, setLimitedMenus] = useState<[string, number][] | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { outletId, loaded } = useMyOutlet()
 
-  useEffect(() => {
-    async function fetchPortions() {
-      try {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        const { data: profile } = await supabase
-          .from('outlet_staff')
-          .select('outlet_id, role')
-          .eq('id', user.id)
-          .single()
-
-        let outletId = profile?.outlet_id
-        if (profile?.role === 'admin' && !outletId) {
-          outletId = '550e8400-e29b-41d4-a716-446655440001'
-        }
-
-        if (!outletId) return
-
-        const { data: criticalItems } = await supabase
+  const { data: limitedMenus, isLoading: loading } = useQuery({
+    queryKey: ['info-porsi', outletId],
+    queryFn: async () => {
+      if (!outletId) return []
+      const supabase = createClient()
+      const { data: criticalItems, error } = await fetchWithTimeout(
+        supabase
           .from('monitoring_view_crew')
           .select('item_name, projection_text')
           .eq('outlet_id', outletId)
+          .then(res => res)
+      )
 
-        if (!criticalItems || criticalItems.length === 0) {
-          setLimitedMenus([])
-          return
-        }
-
-        const menuPortions: Record<string, number> = {}
-
-        criticalItems.forEach(item => {
-          if (!item.projection_text) return
-          const parts = item.projection_text.split(' atau ')
-          parts.forEach((part: string) => {
-            const match = part.match(/(.*?)\s*\((\d+)\s*porsi\)/)
-            if (match) {
-              const menuName = match[1].trim()
-              const portions = parseInt(match[2], 10)
-              if (menuPortions[menuName] === undefined) {
-                menuPortions[menuName] = portions
-              } else {
-                menuPortions[menuName] = Math.min(menuPortions[menuName], portions)
-              }
-            }
-          })
-        })
-
-        const sorted = Object.entries(menuPortions)
-          .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
-
-        setLimitedMenus(sorted)
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setLoading(false)
+      if (error || !criticalItems || criticalItems.length === 0) {
+        return []
       }
-    }
 
-    fetchPortions()
-  }, [])
+      const menuPortions: Record<string, number> = {}
+
+      criticalItems.forEach(item => {
+        if (!item.projection_text) return
+        const parts = item.projection_text.split(' atau ')
+        parts.forEach((part: string) => {
+          const match = part.match(/(.*?)\s*\((\d+)\s*porsi\)/)
+          if (match) {
+            const menuName = match[1].trim()
+            const portions = parseInt(match[2], 10)
+            if (menuPortions[menuName] === undefined) {
+              menuPortions[menuName] = portions
+            } else {
+              menuPortions[menuName] = Math.min(menuPortions[menuName], portions)
+            }
+          }
+        })
+      })
+
+      return Object.entries(menuPortions)
+        .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
+    },
+    enabled: !!outletId && loaded,
+    staleTime: 1000 * 60 * 2, // 2 minutes cache
+  })
 
   return (
     <div className="flex-1 w-full flex flex-col bg-[#fff8f1] min-h-screen">

@@ -103,74 +103,94 @@ export default function LeaderPettyCashPage() {
     loadData()
   }, [])
 
+  useEffect(() => {
+    loadData()
+
+    // Realtime subscription for petty_cash_topups
+    const channel = supabase
+      .channel('leader-petty-cash-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_topups' }, () => {
+        loadData()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
   async function loadData() {
-    // Load topups
-    const { data: topupData } = await supabase
-      .from('petty_cash_topups')
-      .select(`
-        *,
-        outlets!petty_cash_topups_outlet_id_fkey(name, bank_name, bank_account_number, bank_account_name)
-      `)
-      .order('created_at', { ascending: false })
+    try {
+      // Parallelize topups fetch and user authentication fetch
+      const [topupsRes, userRes] = await Promise.all([
+        supabase
+          .from('petty_cash_topups')
+          .select(`
+            *,
+            outlets!petty_cash_topups_outlet_id_fkey(name, bank_name, bank_account_number, bank_account_name)
+          `)
+          .order('created_at', { ascending: false }),
+        supabase.auth.getUser()
+      ])
 
-    if (topupData) {
-      setRequests(topupData.map((r: any) => ({
-        ...r,
-        outlet: r.outlets ? { name: r.outlets.name } : null
-      })))
-    }
-
-    // Load accessible outlets for current Leader
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    let staff: any = null
-    if (user) {
-      const { data: staffData } = await supabase
-        .from('outlet_staff')
-        .select('id, role, outlet_id')
-        .eq('id', user.id)
-        .maybeSingle()
-      staff = staffData
-    }
-
-    if (!staff) {
-      const { data: leaderStaff } = await supabase
-        .from('outlet_staff')
-        .select('id, role, outlet_id')
-        .eq('role', 'leader')
-        .limit(1)
-        .maybeSingle()
-      staff = leaderStaff
-    }
-
-    let accessibleOutletIds: string[] = []
-    if (staff && !['admin', 'admin_finance', 'owner'].includes(staff.role)) {
-      const { data: mapped } = await supabase
-        .from('staff_outlets')
-        .select('outlet_id')
-        .eq('staff_id', staff.id)
-
-      const ids = new Set<string>()
-      if (staff.outlet_id) ids.add(staff.outlet_id)
-      if (mapped) mapped.forEach((m: any) => ids.add(m.outlet_id))
-      accessibleOutletIds = Array.from(ids)
-    }
-
-    let outletQuery = supabase.from('outlets').select('*').eq('is_active', true).order('name', { ascending: true })
-    if (accessibleOutletIds.length > 0) {
-      outletQuery = outletQuery.in('id', accessibleOutletIds)
-    }
-
-    const { data: outletData } = await outletQuery
-
-    if (outletData && outletData.length > 0) {
-      setOutlets(outletData)
-      if (!selectedOutletId) {
-        setSelectedOutletId(outletData[0].id)
-        if (outletData[0].bank_name) setBankName(outletData[0].bank_name)
-        if (outletData[0].bank_account_number) setBankAccountNumber(outletData[0].bank_account_number)
-        if (outletData[0].bank_account_name) setBankAccountName(outletData[0].bank_account_name)
+      if (topupsRes.data) {
+        setRequests(topupsRes.data.map((r: any) => ({
+          ...r,
+          outlet: r.outlets ? { name: r.outlets.name } : null
+        })))
       }
+
+      const user = userRes.data?.user
+      let staff: any = null
+      if (user) {
+        const { data: staffData } = await supabase
+          .from('outlet_staff')
+          .select('id, role, outlet_id')
+          .eq('id', user.id)
+          .maybeSingle()
+        staff = staffData
+      }
+
+      if (!staff) {
+        const { data: leaderStaff } = await supabase
+          .from('outlet_staff')
+          .select('id, role, outlet_id')
+          .eq('role', 'leader')
+          .limit(1)
+          .maybeSingle()
+        staff = leaderStaff
+      }
+
+      let accessibleOutletIds: string[] = []
+      if (staff && !['admin', 'admin_finance', 'owner'].includes(staff.role)) {
+        const { data: mapped } = await supabase
+          .from('staff_outlets')
+          .select('outlet_id')
+          .eq('staff_id', staff.id)
+
+        const ids = new Set<string>()
+        if (staff.outlet_id) ids.add(staff.outlet_id)
+        if (mapped) mapped.forEach((m: any) => ids.add(m.outlet_id))
+        accessibleOutletIds = Array.from(ids)
+      }
+
+      let outletQuery = supabase.from('outlets').select('*').eq('is_active', true).order('name', { ascending: true })
+      if (accessibleOutletIds.length > 0) {
+        outletQuery = outletQuery.in('id', accessibleOutletIds)
+      }
+
+      const { data: outletData } = await outletQuery
+      if (outletData && outletData.length > 0) {
+        setOutlets(outletData)
+        if (!selectedOutletId) {
+          setSelectedOutletId(outletData[0].id)
+          if (outletData[0].bank_name) setBankName(outletData[0].bank_name)
+          if (outletData[0].bank_account_number) setBankAccountNumber(outletData[0].bank_account_number)
+          if (outletData[0].bank_account_name) setBankAccountName(outletData[0].bank_account_name)
+        }
+      }
+    } catch (err) {
+      console.warn('Error loading leader petty cash data:', err)
     }
   }
 

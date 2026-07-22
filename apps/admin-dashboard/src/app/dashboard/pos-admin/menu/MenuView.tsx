@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useEffect } from 'react'
+import { useState, useRef, useMemo, useEffect, useDeferredValue } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
@@ -14,7 +14,6 @@ import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
-import MenuSearch from './MenuSearch'
 import { MenuPicker } from './MenuPicker'
 import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
 
@@ -195,12 +194,15 @@ export default function MenuView({
 
   const selectedChannelOption = channelOptions.find(o => o.key === activeChannelFilter) ?? channelOptions[0]
 
+  const [searchVal, setSearchVal] = useState(searchQuery)
+  const deferredSearch = useDeferredValue(searchVal)
+
   const sortedItems = useMemo(() => {
     let sortableItems = [...initialItems];
 
-    if (searchQuery) {
+    if (deferredSearch) {
       sortableItems = sortableItems.filter(item => 
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        item.name.toLowerCase().includes(deferredSearch.toLowerCase())
       );
     }
 
@@ -474,7 +476,18 @@ export default function MenuView({
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Search Input */}
-          <MenuSearch />
+          <div className="relative w-full sm:w-auto sm:min-w-[220px]">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-2xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-sm"
+              placeholder="Cari menu..."
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
+            />
+          </div>
 
           <button
             onClick={() => setShowZipModal(true)}

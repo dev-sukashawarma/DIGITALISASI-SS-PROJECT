@@ -180,14 +180,38 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         if (err.code === err.PERMISSION_DENIED) {
           errMsg = "Izin lokasi ditolak. Harap izinkan akses lokasi pada browser Anda.";
         } else if (err.code === err.POSITION_UNAVAILABLE) {
-          errMsg = "Sinyal GPS/lokasi tidak terdeteksi. Silakan coba lagi.";
+          errMsg = "Sinyal GPS/lokasi tidak terdeteksi. Silakan aktifkan GPS HP Anda dan coba lagi.";
         } else if (err.code === err.TIMEOUT) {
-          errMsg = "Waktu pemindaian lokasi habis (Timeout). Coba lagi.";
+          // Bila High Accuracy timeout (misal indoor), coba panggil getCurrentPosition sekali lagi
+          if (typeof navigator !== "undefined" && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (fallbackPos) => {
+                const currentCoords = { lat: fallbackPos.coords.latitude, lng: fallbackPos.coords.longitude };
+                const accuracy = fallbackPos.coords.accuracy;
+                setDeviceCoords(currentCoords);
+                setDeviceAccuracy(accuracy);
+                if (coords) {
+                  const dist = haversineMeters(coords, currentCoords);
+                  setGpsDistance(dist);
+                  const adjustedDist = Math.max(0, dist - accuracy);
+                  if (adjustedDist <= GEOFENCE_RADIUS_M) {
+                    locationLockedRef.current = true;
+                    setPhase("idle");
+                    setResult(null);
+                    return;
+                  }
+                }
+              },
+              () => {},
+              { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 }
+            );
+          }
+          errMsg = "Waktu pemindaian lokasi habis (Timeout). Pastikan lokasi/GPS HP aktif dan coba lagi.";
         }
         setResult({ ok: false, message: errMsg });
         setPhase("location_invalid");
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
     );
   }, [outletId, outletCoords, supabase]);
   const [who, setWho] = useState<{ id: string; name: string } | null>(null);

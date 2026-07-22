@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import { toast } from 'sonner'
 
+import { getAreaManagerPettyCashTopups } from './actions'
+
 interface TopupRequest {
   id: string
   outlet_id: string
@@ -32,19 +34,12 @@ export default function AreaManagerPettyCashPage() {
   async function loadRequests() {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('petty_cash_topups')
-        .select(`
-          *,
-          outlets!petty_cash_topups_outlet_id_fkey(name, region)
-        `)
-        .order('created_at', { ascending: false })
+      const res = await getAreaManagerPettyCashTopups()
+      if (!res.success) throw new Error(res.error)
 
-      if (error) throw error
-
-      if (data) {
+      if (res.data) {
         // Filter in JS to strictly show BOGOR region outlets (or null/unassigned HQ)
-        const bogorRequests = data
+        const bogorRequests = res.data
           .filter((r: any) => {
             const reg = r.outlets?.region
             return !reg || reg.toUpperCase() === 'BOGOR'

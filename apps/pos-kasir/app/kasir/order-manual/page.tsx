@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useMemo, useState, useCallback, useDeferredValue } from 'react'
 import Link from 'next/link'
 import {

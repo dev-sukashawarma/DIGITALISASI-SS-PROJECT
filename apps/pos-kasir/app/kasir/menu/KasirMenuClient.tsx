@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useState, useCallback, useMemo, useDeferredValue } from 'react'
 import Image from 'next/image'
 import {

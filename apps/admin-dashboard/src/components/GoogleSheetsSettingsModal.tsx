@@ -25,22 +25,49 @@ interface GoogleSheetsSettingsModalProps {
 
 const APPS_SCRIPT_CODE = `function doPost(e) {
   try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     var data = JSON.parse(e.postData.contents);
     
-    // 1. Tentukan tanggal (1 - 31) dari timestamp order
+    // 1. Pilih Tab / Sheet berdasarkan Nama Cabang (Outlet Name)
+    var outletName = (data.outlet_name || '').trim();
+    var sheet = null;
+    
+    if (outletName) {
+      var sheets = spreadsheet.getSheets();
+      for (var i = 0; i < sheets.length; i++) {
+        var sName = sheets[i].getName().toLowerCase();
+        var oName = outletName.toLowerCase();
+        if (sName.includes(oName) || oName.includes(sName)) {
+          sheet = sheets[i];
+          break;
+        }
+      }
+    }
+    if (!sheet) {
+      sheet = spreadsheet.getActiveSheet();
+    }
+
+    // 2. Tentukan tanggal (1 - 31) dari timestamp order
     var dateObj = new Date(data.timestamp || new Date());
     var dayOfMonth = dateObj.getDate(); // 1 - 31
     var targetCol = 4 + (dayOfMonth - 1); // Kolom D = Tanggal 1 (Index 4)
 
-    // 2. Tentukan Seksi Channel (OFFLINE, FOOD APPS, TIKTOK GO)
+    // 3. Tentukan Channel (OFFLINE, FOOD APPS, TIKTOK GO)
     var channel = (data.channel || '').toLowerCase();
     var isFoodApps = channel.includes('food') || channel.includes('gofood') || channel.includes('grabfood') || channel.includes('shopeefood');
     var isTikTok = channel.includes('tiktok');
 
-    // 3. Baca seluruh nama menu di Kolom A
+    // 4. Pindai seluruh Kolom A untuk menemukan posisi seksi OFFLINE, FOOD APPS, TIKTOK GO
     var lastRow = sheet.getLastRow();
     var menuColumnValues = sheet.getRange(1, 1, lastRow, 1).getValues();
+
+    var offlineStart = -1, foodAppsStart = -1, tiktokStart = -1;
+    for (var r = 0; r < menuColumnValues.length; r++) {
+      var val = String(menuColumnValues[r][0] || '').trim().toUpperCase();
+      if (val === 'OFFLINE' || val.startsWith('OFFLINE')) offlineStart = r + 1;
+      else if (val === 'FOOD APPS' || val.startsWith('FOOD APPS')) foodAppsStart = r + 1;
+      else if (val === 'TIKTOK GO' || val.startsWith('TIKTOK')) tiktokStart = r + 1;
+    }
 
     if (data.items && data.items.length > 0) {
       data.items.forEach(function(item) {
@@ -51,27 +78,27 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
 
         var matchedRow = -1;
 
-        // Cari di seksi sesuai channel (Baris persis berdasarkan Sheet Anda)
-        for (var r = 0; r < menuColumnValues.length; r++) {
+        // Tentukan batas pencarian baris berdasarkan seksi channel
+        var startR = 1, endR = lastRow;
+        if (isFoodApps && foodAppsStart > 0) {
+          startR = foodAppsStart;
+          endR = (tiktokStart > foodAppsStart) ? tiktokStart : lastRow;
+        } else if (isTikTok && tiktokStart > 0) {
+          startR = tiktokStart;
+          endR = lastRow;
+        } else if (!isFoodApps && !isTikTok && offlineStart > 0) {
+          startR = offlineStart;
+          endR = (foodAppsStart > offlineStart) ? foodAppsStart : lastRow;
+        }
+
+        // Cari baris nama menu
+        for (var r = startR - 1; r < endR; r++) {
+          if (r >= menuColumnValues.length) break;
           var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
           var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
-          var rowNum = r + 1;
-
-          if (isFoodApps && rowNum >= 42 && rowNum <= 57) {
-            if (cellVal && (cleanCellVal === cleanName || cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
-              matchedRow = rowNum;
-              break;
-            }
-          } else if (isTikTok && rowNum >= 63 && rowNum <= 75) {
-            if (cellVal && (cleanCellVal === cleanName || cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
-              matchedRow = rowNum;
-              break;
-            }
-          } else if (!isFoodApps && !isTikTok && rowNum >= 11 && rowNum <= 36) {
-            if (cellVal && (cleanCellVal === cleanName || cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
-              matchedRow = rowNum;
-              break;
-            }
+          if (cellVal && (cleanCellVal === cleanName || cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
+            matchedRow = r + 1;
+            break;
           }
         }
 
@@ -87,7 +114,7 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
           }
         }
 
-        // Jika baris menu ditemukan, tambahkan qty (PCS) pada tanggal bersangkutan
+        // Jika baris menu ditemukan, tambahkan qty (PCS) pada sel tanggal bersangkutan
         if (matchedRow > 0) {
           var cellRange = sheet.getRange(matchedRow, targetCol);
           var currentVal = Number(cellRange.getValue()) || 0;

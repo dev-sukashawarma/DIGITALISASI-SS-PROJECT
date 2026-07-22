@@ -29,9 +29,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Store,
     roles: ['AREA_MANAGER'],
     items: [
-      { href: '/dashboard/area-manager', label: 'Ringkasan Wilayah', shortLabel: 'Overview', icon: LayoutDashboard, roles: ['AREA_MANAGER'] },
       { href: '/dashboard/area-manager/petty-cash', label: 'Approval Petty Cash', shortLabel: 'Petty Cash', icon: Banknote, roles: ['AREA_MANAGER'] },
-      { href: '/dashboard/area-manager/monitoring', label: 'Monitoring Cabang', shortLabel: 'Monitoring', icon: Target, roles: ['AREA_MANAGER'] },
     ],
   },
   {

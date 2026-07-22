@@ -82,6 +82,15 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     }
   }, [role, pathname, router])
 
+  // Route-guard: AREA_MANAGER may ONLY access /dashboard/area-manager/petty-cash
+  useEffect(() => {
+    if (role !== 'AREA_MANAGER') return
+    const allowed = ['/dashboard/area-manager/petty-cash']
+    if (!allowed.some((a) => pathname === a || pathname.startsWith(a + '/'))) {
+      router.replace('/dashboard/area-manager/petty-cash')
+    }
+  }, [role, pathname, router])
+
   if (loading || !role) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-suka-cream">

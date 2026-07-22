@@ -228,8 +228,12 @@ export default function ShiftPage() {
           supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('updated_at', fetchStartTime)
         ])
 
-        snapExpenses = await fetchCreators(expRes.data || [])
-        snapTopups = await fetchCreators(topRes.data || [])
+        const [processedExpenses, processedTopups] = await Promise.all([
+          fetchCreators(expRes.data || []),
+          fetchCreators(topRes.data || [])
+        ])
+        snapExpenses = processedExpenses
+        snapTopups = processedTopups
         snapCashOrders = (ordRes.data || []).filter(o => o.payment_method === 'cash')
         setExpenses(snapExpenses)
         setTopups(snapTopups)

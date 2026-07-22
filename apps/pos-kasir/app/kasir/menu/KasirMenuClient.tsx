@@ -94,19 +94,25 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
       });
     }
 
-    // Update dexie cache
+    // Update dexie cache in background without blocking UI render
     const now = Date.now()
-    if (filteredItems.length > 0) {
-      await db.menu_items.bulkPut(filteredItems.map((it: any) => ({ ...it, synced_at: now })))
-    }
-    if (c) {
-      await db.categories.bulkPut(c.map((cat: any) => ({ ...cat, synced_at: now })))
-    }
-    if (settings) {
-      await db.kiosk_settings.put({ id: 'unavailable_menu_ids', settings_data: manualIds, synced_at: now })
-      await db.kiosk_settings.put({ id: 'auto_unavailable_menu_ids', settings_data: autoIds, synced_at: now })
-      await db.kiosk_settings.put({ id: 'force_available_menu_ids', settings_data: forceIds, synced_at: now })
-    }
+    setTimeout(async () => {
+      try {
+        if (filteredItems.length > 0) {
+          await db.menu_items.bulkPut(filteredItems.map((it: any) => ({ ...it, synced_at: now })))
+        }
+        if (c) {
+          await db.categories.bulkPut(c.map((cat: any) => ({ ...cat, synced_at: now })))
+        }
+        if (settings) {
+          await db.kiosk_settings.put({ id: 'unavailable_menu_ids', settings_data: manualIds, synced_at: now })
+          await db.kiosk_settings.put({ id: 'auto_unavailable_menu_ids', settings_data: autoIds, synced_at: now })
+          await db.kiosk_settings.put({ id: 'force_available_menu_ids', settings_data: forceIds, synced_at: now })
+        }
+      } catch (err) {
+        console.warn('Background Dexie cache error:', err)
+      }
+    }, 0)
 
     return {
       items: filteredItems,

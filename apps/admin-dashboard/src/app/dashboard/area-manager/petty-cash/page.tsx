@@ -16,7 +16,7 @@ interface TopupRequest {
   bank_name?: string | null
   bank_account_number?: string | null
   bank_account_name?: string | null
-  outlet?: { name: string } | null
+  outlet?: { name: string; region?: string | null } | null
 }
 
 export default function AreaManagerPettyCashPage() {
@@ -36,18 +36,25 @@ export default function AreaManagerPettyCashPage() {
         .from('petty_cash_topups')
         .select(`
           *,
-          outlets!petty_cash_topups_outlet_id_fkey!inner(name, region)
+          outlets!petty_cash_topups_outlet_id_fkey(name, region)
         `)
-        .ilike('outlets.region', 'BOGOR')
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
       if (data) {
-        setRequests(data.map((r: any) => ({
-          ...r,
-          outlet: r.outlets ? { name: r.outlets.name } : null
-        })))
+        // Filter in JS to strictly show BOGOR region outlets (or null/unassigned HQ)
+        const bogorRequests = data
+          .filter((r: any) => {
+            const reg = r.outlets?.region
+            return !reg || reg.toUpperCase() === 'BOGOR'
+          })
+          .map((r: any) => ({
+            ...r,
+            outlet: r.outlets ? { name: r.outlets.name, region: r.outlets.region } : null
+          }))
+
+        setRequests(bogorRequests)
       }
     } catch (err: any) {
       console.error(err)
@@ -114,12 +121,14 @@ export default function AreaManagerPettyCashPage() {
   }
 
   const reviewRequests = requests.filter(r => 
+    r.status === 'pending' ||
     r.status === 'forwarded_to_area_manager' || 
     r.status === 'approved_by_finance' || 
     r.status === 'forwarded_by_finance'
   )
   
   const historyRequests = requests.filter(r => 
+    r.status !== 'pending' &&
     r.status !== 'forwarded_to_area_manager' && 
     r.status !== 'approved_by_finance' && 
     r.status !== 'forwarded_by_finance'
@@ -130,9 +139,9 @@ export default function AreaManagerPettyCashPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
           <ShieldCheck className="w-7 h-7 text-indigo-600" />
-          Dashboard Area Manager - Approval Petty Cash
+          Dashboard Area Manager - Approval Petty Cash (Wilayah BOGOR)
         </h1>
-        <p className="text-sm text-slate-500 mt-1">Review pengajuan dana dari cabang-cabang dan kelola serah terima ke Leader (Data Real Supabase).</p>
+        <p className="text-sm text-slate-500 mt-1">Review pengajuan dana dari cabang Wilayah Bogor dan kelola serah terima ke Leader.</p>
       </div>
 
       {/* Review Section */}
@@ -158,7 +167,7 @@ export default function AreaManagerPettyCashPage() {
                       <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
                         <Store className="w-3.5 h-3.5 text-slate-400" /> {req.outlet?.name || 'Unknown Outlet'}
                       </span>
-                      {req.status === 'forwarded_to_area_manager' && (
+                      {(req.status === 'pending' || req.status === 'forwarded_to_area_manager') && (
                         <span className="text-xs font-bold px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md">
                           MENUNGGU ACC AM
                         </span>
@@ -190,7 +199,7 @@ export default function AreaManagerPettyCashPage() {
                     </div>
 
                     <div className="flex gap-2">
-                      {req.status === 'forwarded_to_area_manager' && (
+                      {(req.status === 'pending' || req.status === 'forwarded_to_area_manager') && (
                         <>
                           <button
                             onClick={() => handleReject(req.id)}

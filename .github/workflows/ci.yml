@@ -38,7 +38,8 @@ jobs:
         with:
           node-version: '24'
       - name: Determine newly added migration files
-        id: diff
+        # Data flows to later steps via /tmp/added.txt on the shared runner
+        # filesystem, not via step outputs — no `id:` needed here.
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="${{ github.event.pull_request.base.sha }}"
@@ -48,7 +49,7 @@ jobs:
               BASE="HEAD~1"
             fi
           fi
-          if ! git diff --diff-filter=A --name-only "$BASE" "${{ github.sha }}" -- 'supabase/migrations/*.sql' > /tmp/added.txt; then
+          if ! git diff --diff-filter=AR --name-only "$BASE" "${{ github.sha }}" -- 'supabase/migrations/*.sql' > /tmp/added.txt; then
             echo "::error::git diff gagal (base=$BASE) — tidak bisa menentukan file migration baru. Cek fetch-depth/base SHA, JANGAN anggap 'tidak ada migration baru'." >&2
             exit 1
           fi
@@ -58,7 +59,8 @@ jobs:
       - name: Lint new migration timestamps
         run: |
           if [ -s /tmp/added.txt ]; then
-            node scripts/migration-timestamp-lint.mjs $(cat /tmp/added.txt)
+            mapfile -t files < /tmp/added.txt
+            node scripts/migration-timestamp-lint.mjs "${files[@]}"
           else
             echo "Tidak ada migration baru, skip."
           fi

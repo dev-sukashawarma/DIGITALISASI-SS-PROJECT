@@ -1198,23 +1198,54 @@ export default function MenuView({
                         {upsells.includes(item.id) && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">Menu Ekstra</span>}
 
                         {/* Channel Badges */}
-                        <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold">POS Kasir</span>
-                        {item.is_available_online !== false && (
-                          <>
-                            {(!item.available_online_channels || item.available_online_channels.includes('gofood') || item.channel_prices?.gofood) && (
-                              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">GoFood</span>
-                            )}
-                            {(!item.available_online_channels || item.available_online_channels.includes('grabfood') || item.channel_prices?.grabfood) && (
-                              <span className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded font-bold">GrabFood</span>
-                            )}
-                            {(!item.available_online_channels || item.available_online_channels.includes('shopeefood') || item.channel_prices?.shopeefood) && (
-                              <span className="text-[10px] bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-bold">ShopeeFood</span>
-                            )}
-                            {(!item.available_online_channels || item.available_online_channels.includes('tiktokgo') || item.available_online_channels.includes('tiktok_go') || item.channel_prices?.tiktokgo || item.channel_prices?.tiktok_go) && (
-                              <span className="text-[10px] bg-slate-900 text-white px-1.5 py-0.5 rounded font-bold">TikTok Go</span>
-                            )}
-                          </>
-                        )}
+                        {(() => {
+                          const activeSlug = activeChannelFilter ? getSlug(activeChannelFilter) : '';
+                          const isSpecificFoodApp = Boolean(activeSlug && !['pos_kasir', 'all_food_apps'].includes(activeSlug));
+
+                          const hasSpecificChannelPrice = (slug: string) => {
+                            if (!item.channel_prices) return false;
+                            const val = item.channel_prices[slug] || (slug === 'tiktokgo' ? item.channel_prices.tiktok_go : undefined);
+                            return val !== undefined && val !== null && Number(val) > 0;
+                          };
+
+                          const hasExplicitChannel = (slug: string) => {
+                            if (!item.available_online_channels || !Array.isArray(item.available_online_channels)) return false;
+                            return item.available_online_channels.some(
+                              c => c.toLowerCase().replace(/\s+/g, '') === slug || (slug === 'tiktokgo' && (c === 'tiktokgo' || c === 'tiktok_go'))
+                            );
+                          };
+
+                          const isRealInChannel = (slug: string) => {
+                            return hasSpecificChannelPrice(slug) || hasExplicitChannel(slug);
+                          };
+
+                          const showPosKasirBadge = !isSpecificFoodApp && activeSlug !== 'all_food_apps' && item.is_available !== false;
+
+                          return (
+                            <>
+                              {showPosKasirBadge && (
+                                <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold">POS Kasir</span>
+                              )}
+
+                              {item.is_available_online !== false && activeSlug !== 'pos_kasir' && (
+                                <>
+                                  {(isSpecificFoodApp ? activeSlug === 'gofood' : isRealInChannel('gofood')) && (
+                                    <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">GoFood</span>
+                                  )}
+                                  {(isSpecificFoodApp ? activeSlug === 'grabfood' : isRealInChannel('grabfood')) && (
+                                    <span className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded font-bold">GrabFood</span>
+                                  )}
+                                  {(isSpecificFoodApp ? activeSlug === 'shopeefood' : isRealInChannel('shopeefood')) && (
+                                    <span className="text-[10px] bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-bold">ShopeeFood</span>
+                                  )}
+                                  {(isSpecificFoodApp ? activeSlug === 'tiktokgo' : isRealInChannel('tiktokgo')) && (
+                                    <span className="text-[10px] bg-slate-900 text-white px-1.5 py-0.5 rounded font-bold">TikTok Go</span>
+                                  )}
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                       
                       {openDropdownId === item.id && (

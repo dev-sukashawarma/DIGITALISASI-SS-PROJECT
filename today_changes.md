@@ -1,3 +1,11 @@
+# Ringkasan Perubahan (22 Juli 2026)
+
+## Perbaikan UI Modal Persetujuan Permintaan (App Stok)
+- **Z-index Modal:** Mengubah `z-index` dari `z-50` menjadi `z-[60]` pada `ApprovalModal.tsx` agar posisi modal selalu berada di atas navigasi bawah (bottom navbar).
+- **Responsive Scrolling:** Menambahkan `max-h-[95vh]` dan `overflow-y-auto` agar modal bisa di-*scroll* dengan baik saat ukurannya melebihi tinggi layar (khususnya pada perangkat berukuran layar kecil), mencegah konten terpotong.
+
+---
+
 # Ringkasan Perubahan (9 Juli 2026)
 
 ## 1. Fitur Auto-Populate Item Purchase Order (PO)

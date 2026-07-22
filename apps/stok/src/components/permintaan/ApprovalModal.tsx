@@ -150,12 +150,12 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
   return (
     <div
       ref={dialogRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 border border-[#d9c2b2]/40 space-y-5"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 border border-[#d9c2b2]/40 space-y-5 max-h-[95vh] overflow-y-auto flex flex-col"
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
         aria-modal="true"
         aria-labelledby="approval-modal-title"

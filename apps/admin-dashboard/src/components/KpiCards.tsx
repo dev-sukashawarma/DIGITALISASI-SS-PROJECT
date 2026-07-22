@@ -105,7 +105,7 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
   ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {cards.map((c) => {
         const Icon = c.icon
         const hasDelta = c.delta !== null && c.delta !== 0 && c.delta !== undefined
@@ -114,21 +114,21 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
         return (
           <div 
             key={c.label} 
-            className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition duration-200 hover:shadow-md"
+            className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-0.5 transition duration-200 hover:shadow-md min-w-0"
           >
-            <div className="flex justify-between items-start">
-              <div>
+            <div className="flex justify-between items-start gap-2">
+              <div className="min-w-0">
                 <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">{c.label}</p>
-                <p className="text-[10px] text-suka-gray-400 font-semibold mt-0.5">{c.subtext}</p>
+                <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">{c.subtext}</p>
               </div>
-              <div className="p-2 rounded-xl" style={{ backgroundColor: `${c.color}10` }}>
+              <div className="p-2 rounded-xl shrink-0" style={{ backgroundColor: `${c.color}10` }}>
                 <Icon className="w-5 h-5" style={{ color: c.color }} />
               </div>
             </div>
 
-            <div className="mt-6 flex items-baseline justify-between gap-2">
-              <div className="truncate">
-                <h3 className="text-2xl font-extrabold text-suka-brown tracking-tight tabular-nums truncate">
+            <div className="mt-5 flex items-baseline justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <h3 className="text-xl sm:text-2xl font-black text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
                   {c.isString ? (
                     c.value
                   ) : (
@@ -149,7 +149,7 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
               
               {hasDelta && (
                 <span 
-                  className={`text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 ${
+                  className={`text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 ${
                     isPositive 
                       ? 'text-suka-green bg-green-50' 
                       : 'text-red-700 bg-red-50'

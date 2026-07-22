@@ -486,85 +486,88 @@ export default function ReportsPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 no-print">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 no-print">
           {[1,2,3,4,5,6].map(i => <div key={i} className="card h-28 animate-pulse bg-gray-50" />)}
         </div>
       ) : (
         <>
-          {/* ── KPI Cards (6 Cards) ── */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          {/* ── KPI Cards (6 Spacious Cards) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Total Revenue (Omzet Kotor) */}
-            <div className="card p-4 bg-amber-500 text-white relative overflow-hidden flex flex-col justify-between">
+            <div className="card p-5 bg-amber-500 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
               <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
-              <div>
+              <div className="min-w-0">
                 <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-2">
                   <Banknote className="w-4 h-4 text-white" strokeWidth={1.5} />
                 </div>
-                <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest">Omzet Kotor</p>
-                <p className="text-lg font-black mt-0.5 leading-tight">{formatRupiah(analytics.totalRevenue)}</p>
+                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet Kotor</p>
+                <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalRevenue)}</p>
               </div>
-              <p className="text-[9px] text-white/70 mt-1 font-medium">*Sebelum potongan</p>
+              <p className="text-[10px] text-white/70 mt-2 font-medium">*Sebelum potongan promo/diskon</p>
             </div>
 
             {/* Total Deductions (Potongan Promo & Diskon) */}
-            <div className="card p-4 bg-rose-500 text-white relative overflow-hidden flex flex-col justify-between">
+            <div className="card p-5 bg-rose-500 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
               <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
-              <div>
+              <div className="min-w-0">
                 <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-2">
                   <Minus className="w-4 h-4 text-white" strokeWidth={2} />
                 </div>
-                <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest">Total Potongan</p>
-                <p className="text-lg font-black mt-0.5 leading-tight">-{formatRupiah(analytics.totalDeductions)}</p>
+                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Total Potongan</p>
+                <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">-{formatRupiah(analytics.totalDeductions)}</p>
               </div>
-              <p className="text-[9px] text-white/70 mt-1 font-medium">*Promo Apps & Diskon</p>
+              <p className="text-[10px] text-white/70 mt-2 font-medium">*Promo Food Apps & Diskon</p>
             </div>
 
             {/* Net Revenue (Pendapatan Bersih) */}
-            <div className="card p-4 bg-emerald-600 text-white relative overflow-hidden flex flex-col justify-between">
+            <div className="card p-5 bg-emerald-600 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
               <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
-              <div>
+              <div className="min-w-0">
                 <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-2">
                   <TrendingUp className="w-4 h-4 text-white" strokeWidth={2} />
                 </div>
-                <p className="text-[10px] font-bold text-white/90 uppercase tracking-widest">Pendapatan Bersih</p>
-                <p className="text-lg font-black mt-0.5 leading-tight">{formatRupiah(analytics.netRevenue)}</p>
+                <p className="text-xs font-bold text-white/90 uppercase tracking-wider">Pendapatan Bersih</p>
+                <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.netRevenue)}</p>
               </div>
-              <p className="text-[9px] text-white/80 mt-1 font-bold">✓ Bebas biaya potongan</p>
+              <p className="text-[10px] text-white/90 mt-2 font-bold">✓ Bebas biaya potongan</p>
             </div>
 
             {/* Total Orders */}
-            <div className="card p-4 flex flex-col justify-between">
-              <div>
+            <div className="card p-5 flex flex-col justify-between min-w-0">
+              <div className="min-w-0">
                 <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center mb-2">
                   <ShoppingBag className="w-4 h-4 text-blue-500" strokeWidth={1.5} />
                 </div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pesanan Sukses</p>
-                <p className="text-2xl font-black text-gray-900 mt-0.5">{analytics.totalOrders}</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Pesanan Sukses</p>
+                <p className="text-2xl sm:text-3xl font-black text-gray-900 mt-1">{analytics.totalOrders}</p>
               </div>
+              <p className="text-[10px] text-gray-400 mt-2 font-medium">Transaksi berhasil diproses</p>
             </div>
 
             {/* Average Order */}
-            <div className="card p-4 flex flex-col justify-between">
-              <div>
+            <div className="card p-5 flex flex-col justify-between min-w-0">
+              <div className="min-w-0">
                 <div className="w-8 h-8 bg-purple-50 rounded-xl flex items-center justify-center mb-2">
                   <TrendingUp className="w-4 h-4 text-purple-500" strokeWidth={1.5} />
                 </div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Rata-rata / Order</p>
-                <p className="text-base font-black text-gray-900 mt-0.5">{formatRupiah(analytics.avgOrderValue)}</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Rata-rata / Order</p>
+                <p className="text-xl sm:text-2xl font-black text-gray-900 mt-1 whitespace-nowrap">{formatRupiah(analytics.avgOrderValue)}</p>
               </div>
+              <p className="text-[10px] text-gray-400 mt-2 font-medium">Rata-rata belanja per pesanan</p>
             </div>
 
             {/* Peak Hour */}
-            <div className="card p-4 flex flex-col justify-between">
-              <div>
+            <div className="card p-5 flex flex-col justify-between min-w-0">
+              <div className="min-w-0">
                 <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center mb-2">
                   <Clock className="w-4 h-4 text-indigo-500" strokeWidth={1.5} />
                 </div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Jam Tersibuk</p>
-                <p className="text-2xl font-black text-gray-900 mt-0.5">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Jam Tersibuk</p>
+                <p className="text-2xl sm:text-3xl font-black text-gray-900 mt-1">
                   {analytics.totalOrders > 0 && analytics.peakHour != null ? `${String(analytics.peakHour).padStart(2, '0')}:00` : '—'}
                 </p>
               </div>
+              <p className="text-[10px] text-gray-400 mt-2 font-medium">Jam dengan pesanan terbanyak</p>
             </div>
           </div>
 

@@ -270,9 +270,9 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                         style={{ width: `${pctClamped}%` }}
                       />
                     </div>
-                    <div className="flex items-center justify-between mt-1.5 text-[10px] font-bold text-suka-gray-500">
-                      <span className={colorText}>{rupiahCompact(r.omzet_today)}</span>
-                      <span>/ {rupiahCompact(r.target_amount)}</span>
+                    <div className="flex items-center justify-between mt-1.5 text-[10px] font-bold text-suka-gray-500 whitespace-nowrap gap-1">
+                      <span className={`${colorText} truncate`}>{rupiahCompact(r.omzet_today)}</span>
+                      <span className="shrink-0">/ {rupiahCompact(r.target_amount)}</span>
                     </div>
                   </div>
                 )

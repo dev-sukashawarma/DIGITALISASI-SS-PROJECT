@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { CheckCircle2, Clock, Store, ShieldCheck, Send, History, Filter, XCircle, ArrowRight } from 'lucide-react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { CheckCircle2, Clock, Store, ShieldCheck, Send, History, Filter, XCircle, ArrowRight, Loader2, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import { toast } from 'sonner'
@@ -24,6 +24,7 @@ export default function AreaManagerPettyCashPage() {
   const supabase = createClient()
   const [requests, setRequests] = useState<TopupRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isProcessing, setIsProcessing] = useState<string | null>(null)
 
   // Tabs: 'review' | 'history'
@@ -33,41 +34,67 @@ export default function AreaManagerPettyCashPage() {
   const [reviewFilter, setReviewFilter] = useState<'all' | 'unapproved' | 'ready_handover'>('all')
   const [historyFilter, setHistoryFilter] = useState<'all' | 'acc_finance' | 'forwarded_leader' | 'completed' | 'rejected'>('all')
 
-  useEffect(() => {
-    loadRequests()
-  }, [])
+  const loadRequests = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true)
+    else setIsRefreshing(true)
 
-  async function loadRequests() {
-    setLoading(true)
     try {
       const res = await getAreaManagerPettyCashTopups()
       if (!res.success) throw new Error(res.error)
 
       if (res.data) {
-        // Filter in JS to strictly show BOGOR region outlets (or null/unassigned HQ)
-        const bogorRequests = res.data
-          .filter((r: any) => {
-            const reg = r.outlets?.region
-            return !reg || reg.toUpperCase() === 'BOGOR'
-          })
-          .map((r: any) => ({
-            ...r,
-            outlet: r.outlets ? { name: r.outlets.name, region: r.outlets.region } : null
-          }))
+        const bogorRequests = res.data.map((r: any) => ({
+          ...r,
+          outlet: r.outlets ? { name: r.outlets.name, region: r.outlets.region } : null
+        }))
 
         setRequests(bogorRequests)
       }
     } catch (err: any) {
       console.error(err)
-      toast.error('Gagal memuat data petty cash: ' + err.message)
+      if (!isSilent) toast.error('Gagal memuat data petty cash: ' + err.message)
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
-  }
+  }, [])
 
+  // Initial load + Realtime subscription
+  useEffect(() => {
+    loadRequests()
+
+    // Realtime channel for instant updates across outlets
+    const channel = supabase
+      .channel('am-petty-cash-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'petty_cash_topups' },
+        () => {
+          loadRequests(true) // Silent background reload
+        }
+      )
+      .subscribe()
+
+    // 15s fallback polling for network resiliency
+    const interval = setInterval(() => {
+      loadRequests(true)
+    }, 15000)
+
+    return () => {
+      clearInterval(interval)
+      supabase.removeChannel(channel)
+    }
+  }, [loadRequests, supabase])
+
+  // OPTIMISTIC APPROVE
   async function handleApprove(id: string) {
-    if (!confirm('Setujui pengajuan ini dan terusan ke Finance?')) return
+    if (!confirm('Setujui pengajuan ini dan teruskan ke Finance?')) return
     setIsProcessing(id)
+
+    // Optimistic UI update (0ms lag)
+    const prevRequests = [...requests]
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'forwarded_to_finance' } : r))
+
     try {
       const { error } = await supabase.rpc('area_manager_process_petty_cash', {
         p_topup_id: id,
@@ -76,17 +103,25 @@ export default function AreaManagerPettyCashPage() {
       if (error) throw error
 
       toast.success('Pengajuan disetujui & diteruskan ke Finance!')
-      await loadRequests()
     } catch (err: any) {
+      // Rollback on error
+      setRequests(prevRequests)
       toast.error('Gagal menyetujui pengajuan: ' + err.message)
     } finally {
       setIsProcessing(null)
+      loadRequests(true)
     }
   }
 
+  // OPTIMISTIC REJECT
   async function handleReject(id: string) {
     if (!confirm('Tolak pengajuan ini? Status akan menjadi Ditolak.')) return
     setIsProcessing(id)
+
+    // Optimistic UI update (0ms lag)
+    const prevRequests = [...requests]
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'rejected' } : r))
+
     try {
       const { error } = await supabase.rpc('area_manager_process_petty_cash', {
         p_topup_id: id,
@@ -95,17 +130,25 @@ export default function AreaManagerPettyCashPage() {
       if (error) throw error
 
       toast.error('Pengajuan telah ditolak.')
-      await loadRequests()
     } catch (err: any) {
+      // Rollback on error
+      setRequests(prevRequests)
       toast.error('Gagal menolak pengajuan: ' + err.message)
     } finally {
       setIsProcessing(null)
+      loadRequests(true)
     }
   }
 
+  // OPTIMISTIC FORWARD TO LEADER
   async function handleForwardToLeader(id: string) {
     if (!confirm('Teruskan penyerahan dana ke Leader Cabang?')) return
     setIsProcessing(id)
+
+    // Optimistic UI update (0ms lag)
+    const prevRequests = [...requests]
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'forwarded_by_area_manager' } : r))
+
     try {
       const { error } = await supabase.rpc('area_manager_forward_funds', {
         p_topup_id: id
@@ -113,11 +156,13 @@ export default function AreaManagerPettyCashPage() {
       if (error) throw error
 
       toast.success('Dana berhasil diserahkan ke Leader!')
-      await loadRequests()
     } catch (err: any) {
+      // Rollback on error
+      setRequests(prevRequests)
       toast.error('Gagal penyerahan dana: ' + err.message)
     } finally {
       setIsProcessing(null)
+      loadRequests(true)
     }
   }
 
@@ -167,12 +212,24 @@ export default function AreaManagerPettyCashPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 font-sans">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
-          <ShieldCheck className="w-7 h-7 text-indigo-600" />
-          Dashboard Area Manager - Approval Petty Cash (Wilayah BOGOR)
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">Review pengajuan dana dari cabang Wilayah Bogor dan kelola serah terima ke Leader.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+            <ShieldCheck className="w-7 h-7 text-indigo-600" />
+            Dashboard Area Manager - Approval Petty Cash (Wilayah BOGOR)
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">Review pengajuan dana dari cabang Wilayah Bogor dan kelola serah terima ke Leader.</p>
+        </div>
+
+        <button
+          onClick={() => loadRequests(false)}
+          disabled={loading || isRefreshing}
+          className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer disabled:opacity-50"
+          title="Refresh Data"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-indigo-600' : ''}`} />
+          {isRefreshing ? 'Memperbarui...' : 'Refresh Realtime'}
+        </button>
       </div>
 
       {/* TABS NAVIGATION */}
@@ -204,7 +261,7 @@ export default function AreaManagerPettyCashPage() {
       {/* TAB 1: REVIEW / ACTION NEEDED */}
       {activeTab === 'review' && (
         <section className="space-y-4">
-          {/* Sub-filter chips for Review (No Emojis) */}
+          {/* Sub-filter chips for Review */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mr-1">
               <Filter className="w-3.5 h-3.5" /> Filter:
@@ -245,7 +302,17 @@ export default function AreaManagerPettyCashPage() {
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             {loading ? (
-              <div className="p-12 text-center text-slate-400 font-medium">Memuat data...</div>
+              <div className="p-8 space-y-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="p-4 bg-slate-50 rounded-xl animate-pulse flex items-center justify-between">
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 bg-slate-200 rounded w-1/4" />
+                      <div className="h-5 bg-slate-200 rounded w-1/2" />
+                    </div>
+                    <div className="h-10 bg-slate-200 rounded w-28 shrink-0" />
+                  </div>
+                ))}
+              </div>
             ) : filteredReviewRequests.length === 0 ? (
               <div className="p-12 text-center text-slate-400">
                 Tidak ada pengajuan pada kategori ini.
@@ -296,16 +363,16 @@ export default function AreaManagerPettyCashPage() {
                             <button
                               onClick={() => handleReject(req.id)}
                               disabled={isProcessing === req.id}
-                              className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs transition-colors disabled:opacity-50"
+                              className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs transition-colors disabled:opacity-50 cursor-pointer"
                             >
                               Tolak
                             </button>
                             <button
                               onClick={() => handleApprove(req.id)}
                               disabled={isProcessing === req.id}
-                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm disabled:opacity-50"
+                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
                             >
-                              <CheckCircle2 className="w-4 h-4" />
+                              {isProcessing === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                               Acc & Ke Finance
                             </button>
                           </>
@@ -315,9 +382,9 @@ export default function AreaManagerPettyCashPage() {
                           <button
                             onClick={() => handleForwardToLeader(req.id)}
                             disabled={isProcessing === req.id}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
                           >
-                            <Send className="w-4 h-4" />
+                            {isProcessing === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                             Serahkan ke Leader
                           </button>
                         )}
@@ -334,7 +401,7 @@ export default function AreaManagerPettyCashPage() {
       {/* TAB 2: RIWAYAT PENGAJUAN AREA MANAGER */}
       {activeTab === 'history' && (
         <section className="space-y-4">
-          {/* Sub-filter chips for History (No Emojis) */}
+          {/* Sub-filter chips for History */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mr-1">
               <Filter className="w-3.5 h-3.5" /> Filter Riwayat:

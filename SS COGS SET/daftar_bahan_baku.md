@@ -11,7 +11,7 @@
 | 7 | ES BATU | minuman | Bal | - | Gram (1000) |
 | 8 | FOIL | kemasan | Dus | Roll (24) | cm (18240) |
 | 9 | GARAM | bumbu | Bal | Pack (20) | Gram (5000) |
-| 10 | GAS 3Kg | item core | pcs | - | gram (3000) |
+| 10 | GAS 3Kg | item core | tabung | - | gram (3000) |
 | 11 | JINTEN | bumbu | Karung | - | gram (1000) |
 | 12 | KAYU MANIS | bumbu | kg | - | gram (1000) |
 | 13 | KEJU | item core | Dus | Pack (24) | lembar (240) |

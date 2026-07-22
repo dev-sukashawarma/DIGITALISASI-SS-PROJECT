@@ -4,10 +4,12 @@ import { BottomNav } from '@/components/layout/BottomNav'
 import { Header } from '@/components/layout/Header'
 import { SwipeableLayout } from '@/components/layout/SwipeableLayout'
 import { RealtimeMount } from '@/components/RealtimeMount'
+import { CommandMenu } from '@/components/layout/CommandMenu'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-suka-cream">
+      <CommandMenu />
       <RealtimeMount />
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">

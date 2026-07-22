@@ -1,0 +1,14 @@
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const G = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90';
+const AYAM = 'c06138d3-75d0-450a-a731-aa6957284e20';
+const { data: bal, error: e1 } = await s.from('stok_balance').select('bahan_baku_id,saldo,updated_at').eq('outlet_id', G).in('bahan_baku_id',[AYAM]);
+console.log('stok_balance AYAM:', bal, e1?.message??'');
+const { count } = await s.from('stok_balance').select('*',{count:'exact',head:true}).eq('outlet_id', G);
+console.log('stok_balance rows for gudang:', count);
+const { data: mv, error: e2 } = await s.from('monitoring_view_spv').select('*').eq('outlet_id', G).limit(3);
+console.log('monitoring_view_spv:', mv, e2?.message??'');
+const { data: out } = await s.from('outlets').select('id,nama').eq('id', G);
+console.log('outlet:', out);

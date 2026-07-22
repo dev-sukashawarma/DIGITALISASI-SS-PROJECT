@@ -26,6 +26,7 @@
     "@tiptap/pm": "^3.27.1",
     "@tiptap/react": "^3.27.1",
     "@tiptap/starter-kit": "^3.27.1",
+    "cmdk": "^1.1.1",
     "date-fns": "^3.0.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.300.0",

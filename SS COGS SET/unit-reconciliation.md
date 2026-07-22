@@ -1,4 +1,4 @@
-﻿# Rekonsiliasi Satuan — Resep (pemakaian) vs `bahan_baku.satuan` (stok)
+# Rekonsiliasi Satuan — Resep (pemakaian) vs `bahan_baku.satuan` (stok)
 
 **Masalah inti:** kartu COGS mencatat pemakaian dalam **gram/lembar/cm/pcs**, sedangkan master `bahan_baku.satuan` memakai **satuan stok** (kg/pack/crt/pcs/kompan). Trigger `bom_automation` (`trg_process_bom_stok`) memotong `qty_per_porsi * quantity` **langsung ke `ledger_stok` tanpa konversi**.
 
@@ -20,7 +20,7 @@ Dua opsi:
 | DUS PACKING | pcs | lembar | 1 pcs = 1 lembar |
 | ES BATU | pcs | pcs | 1 pcs = 1 pcs (kemasan 62 pcs) |
 | FOIL | crt | cm | 1 crt = 750 cm |
-| GAS 3Kg | pcs | gram | 1 pcs = 3000 gram |
+| GAS 3Kg | tabung | gram | 1 tabung = 3000 gram |
 | KEJU | crt | lembar | 1 crt = 10 lembar |
 | KENTANG | pack | gram | 1 pack = 1000 gram |
 | KULIT 25 | pack | lembar | 1 pack = 20 lembar |

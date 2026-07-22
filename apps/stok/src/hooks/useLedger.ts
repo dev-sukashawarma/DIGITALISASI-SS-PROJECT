@@ -128,6 +128,14 @@ export interface ManualEntryInput {
   qtyAbs: number; catatan: string; createdBy: string
 }
 
+export interface ManualEntryBatchItem {
+  bahanBakuId: string
+  tipe: Extract<LedgerTipe, 'waste' | 'adjustment' | 'transfer_keluar'>
+  qtyAbs: number
+  catatan?: string
+  signedOverride?: number
+}
+
 export function useLedgerActions() {
   const supabase = createClient()
   const addManual = useCallback(async (input: ManualEntryInput, signedOverride?: number) => {
@@ -138,5 +146,27 @@ export function useLedgerActions() {
     })
     if (error) throw new Error(error.message)
   }, [])
-  return { addManual }
+
+  const addManualBatch = useCallback(async (
+    outletId: string,
+    createdBy: string,
+    catatanGlobal: string,
+    items: ManualEntryBatchItem[]
+  ) => {
+    const records = items.map(item => {
+      const qty = item.signedOverride ?? (item.tipe === 'adjustment' ? item.qtyAbs : -Math.abs(item.qtyAbs))
+      return {
+        outlet_id: outletId,
+        bahan_baku_id: item.bahanBakuId,
+        tipe: item.tipe,
+        qty,
+        catatan: item.catatan || catatanGlobal,
+        created_by: createdBy,
+      }
+    })
+    const { error } = await supabase.from('ledger_stok').insert(records)
+    if (error) throw new Error(error.message)
+  }, [])
+
+  return { addManual, addManualBatch }
 }

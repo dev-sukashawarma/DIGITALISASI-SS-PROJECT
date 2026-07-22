@@ -2,7 +2,7 @@
 
 import { Button } from '@suka/design-system'
 import { useAuth } from '@suka/auth'
-import { LogOut, User } from 'lucide-react'
+import { LogOut, User, Search } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { labelForPath } from './navConfig'
 
@@ -34,6 +34,19 @@ export const Header = () => {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+        {/* Command Menu Trigger */}
+        <button
+          onClick={() => {
+            const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true })
+            document.dispatchEvent(event)
+          }}
+          className="hidden md:flex items-center gap-2 bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 transition-colors text-xs font-medium"
+        >
+          <Search className="w-3.5 h-3.5" />
+          <span>Cari...</span>
+          <kbd className="bg-white px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold border border-gray-200 text-gray-400">⌘K</kbd>
+        </button>
+
         {/* User profile capsule */}
         {outletStaff && (
           <div className="hidden sm:flex items-center gap-2 bg-suka-cream px-3 py-1.5 rounded-full border border-suka-brown/5">

@@ -42,19 +42,20 @@ describe('google-sheets-webhook', () => {
       expect(result).toEqual({
         event: 'ORDER_COMPLETED',
         timestamp: '2026-07-22T10:00:00.000Z',
+        day_of_month: 22, // 22 in Asia/Jakarta local time
         order_number: '1001',
         outlet_name: 'Outlet Dipatiukur',
         channel: 'POS',
         payment_method: 'QRIS',
         items: [
           {
-            menu_item_name: 'Shawarma Chicken',
+            menu_item_name: 'SHAWARMA CHICKEN',
             quantity: 2,
             unit_price: 25000,
             subtotal: 50000
           },
           {
-            menu_item_name: 'Ice Tea',
+            menu_item_name: 'ICE TEA',
             quantity: 1,
             unit_price: 5000,
             subtotal: 5000
@@ -82,7 +83,7 @@ describe('google-sheets-webhook', () => {
       expect(result.channel).toBe('POS')
       expect(result.payment_method).toBe('CASH')
       expect(result.items[0]).toEqual({
-        menu_item_name: 'Kebab Beef',
+        menu_item_name: 'KEBAB BEEF',
         quantity: 1,
         unit_price: 30000,
         subtotal: 30000

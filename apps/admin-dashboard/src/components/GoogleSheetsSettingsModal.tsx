@@ -47,8 +47,7 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
     }
 
     // 2. Tentukan tanggal (1 - 31) dari timestamp order
-    var dateObj = new Date(data.timestamp || new Date());
-    var dayOfMonth = dateObj.getDate(); // 1 - 31
+    var dayOfMonth = data.day_of_month || new Date(data.timestamp || new Date()).getDate(); // 1 - 31
     var targetCol = 4 + (dayOfMonth - 1); // Kolom D = Tanggal 1 (Index 4)
 
     // 3. Tentukan Channel (OFFLINE, FOOD APPS, TIKTOK GO)

@@ -45,12 +45,14 @@ interface OrderRow {
   outlet_id: string
   channel: string | null
   sales_source: string | null
+  customer_name?: string | null
   order_items: {
     id: string
     menu_item_name: string
     quantity: number
     unit_price: number
     subtotal: number
+    package_choices?: Record<string, string> | string | null
   }[]
 }
 
@@ -69,12 +71,52 @@ interface ReportsViewProps {
   initialOutlets: Outlet[]
 }
 
+// ─── Helper for extracting packages/combos ───
+function extractOrderPackages(order: OrderRow) {
+  const pkgs: { name: string; qty: number; choices?: Record<string, string> }[] = []
+  
+  order.order_items.forEach(item => {
+    let isPackage = false
+    let choicesObj: Record<string, string> = {}
+    
+    // Fallback: check if 'package_choices' is set and has keys
+    if (item.package_choices) {
+      if (typeof item.package_choices === 'object') {
+        choicesObj = item.package_choices as Record<string, string>
+      } else if (typeof item.package_choices === 'string') {
+        try {
+          choicesObj = JSON.parse(item.package_choices)
+        } catch (e) {
+          // ignore
+        }
+      }
+      if (Object.keys(choicesObj).length > 0) isPackage = true
+    }
+
+    const nameLower = item.menu_item_name.toLowerCase()
+    if (nameLower.includes('paket') || nameLower.includes('combo') || nameLower.includes('bundle')) {
+      isPackage = true
+    }
+
+    if (isPackage) {
+      pkgs.push({
+        name: cleanItemName(item.menu_item_name),
+        qty: item.quantity,
+        choices: choicesObj
+      })
+    }
+  })
+
+  return pkgs
+}
+
 export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [shifts, setShifts] = useState<ShiftRow[]>([])
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
   const [selectedChannel, setSelectedChannel] = useState<string>('all')
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [showGoogleSheetsModal, setShowGoogleSheetsModal] = useState(false)
   
@@ -328,18 +370,44 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     unknown: { label: 'Lainnya', color: '#6b7280', bg: 'bg-gray-50', icon: Package },
   }
 
+  // ─── Available Payment Methods ───
+  const availablePaymentMethods = useMemo(() => {
+    const map = new Map<string, string>()
+    map.set('cash', 'Tunai (Cash)')
+    map.set('qris', 'QRIS')
+    map.set('card', 'Kartu (Card)')
+
+    orders.forEach(o => {
+      if (o.payment_method) {
+        const key = o.payment_method.toLowerCase()
+        if (!map.has(key)) {
+          const meta = PAYMENT_META[key]
+          map.set(key, meta ? meta.label : key.toUpperCase())
+        }
+      }
+    })
+    return Array.from(map.entries()).map(([key, label]) => ({ key, label }))
+  }, [orders])
+
   // Table filtering and pagination
   const filteredTableData = useMemo(() => {
     let result = analytics.completedOrders
+    if (selectedPaymentMethod !== 'all') {
+      result = result.filter(o => (o.payment_method || 'unknown').toLowerCase() === selectedPaymentMethod.toLowerCase())
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       result = result.filter(o => 
         o.order_number.toString().includes(q) || 
-        o.order_items.some(i => i.menu_item_name.toLowerCase().includes(q))
+        (o.customer_name && o.customer_name.toLowerCase().includes(q)) ||
+        o.order_items.some(i => 
+          i.menu_item_name.toLowerCase().includes(q) ||
+          (i.package_choices && JSON.stringify(i.package_choices).toLowerCase().includes(q))
+        )
       )
     }
     return result
-  }, [analytics.completedOrders, searchQuery])
+  }, [analytics.completedOrders, selectedPaymentMethod, searchQuery])
 
   const paginatedData = filteredTableData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
   const totalPages = Math.ceil(filteredTableData.length / itemsPerPage)
@@ -762,24 +830,35 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                     <button
                       type="button"
                       onClick={() => { setSelectedChannel('all'); setCurrentPage(1); }}
-                      className="inline-flex items-center gap-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold px-2.5 py-1 rounded-full transition-all shadow-xs"
+                      className="inline-flex items-center gap-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold px-2.5 py-1 rounded-full transition-all shadow-xs cursor-pointer"
                       title="Klik untuk hapus filter sumber"
                     >
                       <span>Sumber: <strong className="font-bold">{availableChannels.find(c => c.key === selectedChannel)?.label || selectedChannel}</strong></span>
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
+                  {selectedPaymentMethod !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedPaymentMethod('all'); setCurrentPage(1); }}
+                      className="inline-flex items-center gap-1.5 text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold px-2.5 py-1 rounded-full transition-all shadow-xs cursor-pointer"
+                      title="Klik untuk hapus filter metode bayar"
+                    >
+                      <span>Metode: <strong className="font-bold">{availablePaymentMethods.find(m => m.key === selectedPaymentMethod)?.label || selectedPaymentMethod.toUpperCase()}</strong></span>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <p className="text-gray-400 text-xs mt-0.5">
-                  {selectedChannel === 'all' 
+                  {selectedChannel === 'all' && selectedPaymentMethod === 'all'
                     ? 'Semua transaksi sukses pada periode ini' 
-                    : `Menampilkan transaksi khusus sumber ${availableChannels.find(c => c.key === selectedChannel)?.label || selectedChannel}`}
+                    : `Menampilkan transaksi terfilter (${filteredTableData.length} transaksi)`}
                 </p>
               </div>
               
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 {/* Dropdown Select Sumber */}
-                <div className="relative flex-1 sm:flex-none min-w-[170px]">
+                <div className="relative flex-1 sm:flex-none min-w-[150px]">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                     <Filter className="h-4 w-4 text-amber-500" />
                   </div>
@@ -799,15 +878,35 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                   </select>
                 </div>
 
+                {/* Dropdown Select Metode Bayar */}
+                <div className="relative flex-1 sm:flex-none min-w-[160px]">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Wallet className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <select
+                    value={selectedPaymentMethod}
+                    onChange={(e) => {
+                      setSelectedPaymentMethod(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                    className="block w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 text-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors text-sm cursor-pointer shadow-2xs"
+                  >
+                    <option value="all">Semua Metode Bayar</option>
+                    {availablePaymentMethods.map(pm => (
+                      <option key={pm.key} value={pm.key}>{pm.label}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Input Cari */}
-                <div className="relative flex-1 sm:flex-none min-w-[200px]">
+                <div className="relative flex-1 sm:flex-none min-w-[180px]">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Search className="h-4 w-4 text-gray-400" />
                   </div>
                   <input
                     type="text"
                     className="block w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors text-sm font-medium shadow-2xs"
-                    placeholder="Cari no antrian / item..."
+                    placeholder="Cari no antrian / nama / item..."
                     value={searchQuery}
                     onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                   />
@@ -821,26 +920,34 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                   <tr>
                     <th className="px-5 py-4">No. Antrian</th>
                     <th className="px-5 py-4">Waktu</th>
+                    <th className="px-5 py-4">Nama</th>
                     <th className="px-5 py-4">Nama Item</th>
+                    <th className="px-5 py-4">Paket / Combo</th>
                     <th className="px-5 py-4">
                       <div className="flex items-center gap-1.5">
                         <span>Sumber</span>
                         <Filter className={`w-3.5 h-3.5 ${selectedChannel !== 'all' ? 'text-amber-600' : 'text-gray-400 opacity-50'}`} />
                       </div>
                     </th>
-                    <th className="px-5 py-4">Metode Bayar</th>
+                    <th className="px-5 py-4">
+                      <div className="flex items-center gap-1.5">
+                        <span>Metode Bayar</span>
+                        <Filter className={`w-3.5 h-3.5 ${selectedPaymentMethod !== 'all' ? 'text-blue-600' : 'text-gray-400 opacity-50'}`} />
+                      </div>
+                    </th>
                     <th className="px-5 py-4 text-right">Total Transaksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-5 py-10 text-center text-gray-400 font-medium">Data tidak ditemukan</td>
+                      <td colSpan={8} className="px-5 py-10 text-center text-gray-400 font-medium">Data tidak ditemukan</td>
                     </tr>
                   ) : (
                     paginatedData.map((order) => {
                       const orderSubtotal = order.order_items.reduce((sum, i) => sum + (i.subtotal || 0), 0);
                       const discount = orderSubtotal - order.total_amount;
+                      const pkgs = extractOrderPackages(order);
                       
                       return (
                         <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
@@ -852,6 +959,13 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                               day: 'numeric', month: 'short', year: 'numeric',
                               hour: '2-digit', minute: '2-digit'
                             })}
+                          </td>
+                          <td className="px-5 py-4 font-semibold text-gray-800 text-xs">
+                            {order.customer_name ? (
+                              <span className="bg-gray-50 text-gray-700 px-2 py-1 rounded-md border border-gray-200/60 inline-block font-medium">{order.customer_name}</span>
+                            ) : (
+                              <span className="text-gray-400 font-normal italic">-</span>
+                            )}
                           </td>
                           <td className="px-5 py-4 text-gray-600 font-medium">
                             <div className="flex flex-col gap-1.5">
@@ -869,6 +983,35 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                               )}
                             </div>
                           </td>
+                          <td className="px-5 py-4 font-medium text-gray-700">
+                            {pkgs.length === 0 ? (
+                              <span className="text-gray-400 font-normal italic">-</span>
+                            ) : (
+                              <div className="flex flex-col gap-1.5">
+                                {pkgs.map((pkg, idx) => (
+                                  <div key={idx} className="flex flex-col gap-0.5">
+                                    <div className="inline-flex items-center gap-1.5 whitespace-normal leading-tight text-[12px]">
+                                      <span className="font-bold text-amber-900 bg-amber-100/90 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">
+                                        {pkg.qty}x
+                                      </span>
+                                      <span className="font-semibold text-amber-950 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80">
+                                        {pkg.name}
+                                      </span>
+                                    </div>
+                                    {pkg.choices && Object.keys(pkg.choices).length > 0 && (
+                                      <div className="pl-6 flex flex-wrap gap-1 text-[10px] text-gray-500 mt-0.5">
+                                        {Object.entries(pkg.choices).map(([k, v]) => (
+                                          <span key={k} className="bg-gray-100 text-gray-600 px-1.5 py-0.2 rounded border border-gray-200/50">
+                                            {k}: <strong className="text-gray-800">{v}</strong>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-5 py-4">
                             <button
                               type="button"
@@ -884,11 +1027,27 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                             </button>
                           </td>
                           <td className="px-5 py-4">
-                            <span className="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold rounded-lg uppercase">
-                              {order.payment_method || '-'}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const pm = (order.payment_method || 'unknown').toLowerCase()
+                                setSelectedPaymentMethod(prev => prev === pm ? 'all' : pm)
+                                setCurrentPage(1)
+                              }}
+                              className="hover:scale-105 active:scale-95 transition-all text-left inline-flex focus:outline-none cursor-pointer"
+                              title="Klik untuk memfilter transaksi berdasarkan metode bayar ini"
+                            >
+                              <span className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 text-[10px] font-bold rounded-lg uppercase transition-colors">
+                                {order.payment_method || '-'}
+                              </span>
+                            </button>
                           </td>
                           <td className="px-5 py-4 text-right">
+                            {discount > 0 && (
+                              <div className="text-gray-400 text-[11px] font-medium line-through mb-0.5" title="Harga awal sebelum diskon">
+                                {formatRupiah(orderSubtotal)}
+                              </div>
+                            )}
                             <div className="font-bold text-gray-900 text-base">{formatRupiah(order.total_amount)}</div>
                             {discount > 0 && (
                               <div className="text-[11px] font-medium text-red-500 mt-1">
@@ -901,20 +1060,54 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                     })
                   )}
                 </tbody>
-                <tfoot className="bg-amber-50/50 font-bold text-gray-900 border-t border-amber-200">
-                  <tr>
-                    <td colSpan={4} className="px-5 py-4 text-right uppercase tracking-wider text-xs text-amber-800">
-                      Total Keseluruhan
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md text-xs">
-                        {filteredTableData.length} Transaksi
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right text-base text-amber-700">
-                      {formatRupiah(filteredTableData.reduce((acc, curr) => acc + curr.total_amount, 0))}
-                    </td>
-                  </tr>
+                <tfoot className="bg-amber-50/50">
+                  {(() => {
+                    const totalNet = filteredTableData.reduce((acc, curr) => acc + curr.total_amount, 0);
+                    const totalGross = filteredTableData.reduce((acc, curr) => {
+                      const currSubtotal = curr.order_items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+                      return acc + currSubtotal;
+                    }, 0);
+                    const totalDiscount = totalGross - totalNet;
+                    const totalItems = filteredTableData.reduce((acc, curr) => {
+                      return acc + curr.order_items.reduce((sum, item) => sum + item.quantity, 0);
+                    }, 0);
+                    
+                    return (
+                      <>
+                        <tr className="border-t border-amber-200">
+                          <td colSpan={6} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-amber-900">
+                            Total Harga Kotor
+                          </td>
+                          <td className="px-5 py-3 text-left">
+                            <span className="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md text-xs font-bold whitespace-nowrap">
+                              {totalItems} Item
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-right text-sm font-bold text-amber-800">
+                            {formatRupiah(totalGross)}
+                          </td>
+                        </tr>
+                        {totalDiscount > 0 && (
+                          <tr>
+                            <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-red-600">
+                              Potongan Diskon / Promo
+                            </td>
+                            <td className="px-5 py-3 text-right text-sm font-bold text-red-600 whitespace-nowrap">
+                              - {formatRupiah(totalDiscount)}
+                            </td>
+                          </tr>
+                        )}
+                        <tr className="border-t border-amber-200 bg-amber-50">
+                          <td colSpan={7} className="px-5 py-4 text-right uppercase tracking-wider text-sm font-extrabold text-gray-900">
+                            Total Pendapatan Bersih
+                          </td>
+                          <td className="px-5 py-4 text-right text-base font-extrabold text-emerald-600 whitespace-nowrap">
+                            {formatRupiah(totalNet)}
+                          </td>
+                        </tr>
+                      </>
+                    );
+                  })()}
                 </tfoot>
               </table>
             </div>

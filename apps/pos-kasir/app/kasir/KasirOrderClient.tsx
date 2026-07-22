@@ -23,6 +23,7 @@ import { useStockAlerts } from '@/lib/useStockAlerts'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { postToNative } from '@suka/design-system'
 import { useDialogStore } from '@/lib/dialogStore'
+import { triggerGoogleSheetsSyncIfActive } from '@/lib/google-sheets/google-sheets-webhook'
 import { fetchWithTimeout } from '@/lib/offline-utils'
 import { TimeAgo } from '@/components/kasir/TimeAgo'
 import { parseOrderData, ParsedOrder } from '@/lib/order-utils'
@@ -963,6 +964,17 @@ export default function KasirOrderClient({
     if (!success) return false
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
     queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
+
+    // Trigger Google Sheets Real-Time Sync
+    const orderObj = orders?.find(o => o.id === id)
+    if (orderObj) {
+      triggerGoogleSheetsSyncIfActive(
+        supabase, 
+        orderObj, 
+        orderObj.order_items || [], 
+        outletName || ''
+      )
+    }
 
     // Kalau order ini berasal dari website order online, teruskan notifikasi
     // ke order-system supaya WA "pesanan siap diambil" terkirim ke customer.

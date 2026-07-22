@@ -28,34 +28,68 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     var data = JSON.parse(e.postData.contents);
     
-    // Buat header otomatis jika sheet masih kosong
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow([
-        "Waktu", 
-        "No Order", 
-        "Cabang", 
-        "Channel", 
-        "Metode Bayar", 
-        "Nama Item", 
-        "Qty", 
-        "Harga Satuan", 
-        "Subtotal"
-      ]);
-    }
+    // 1. Tentukan tanggal (1 - 31) dari timestamp order
+    var dateObj = new Date(data.timestamp || new Date());
+    var dayOfMonth = dateObj.getDate(); // 1 - 31
+    var targetCol = 4 + (dayOfMonth - 1); // Kolom D = Tanggal 1 (Index 4)
+
+    // 2. Tentukan Channel (OFFLINE, FOOD APPS, TIKTOK GO)
+    var channel = (data.channel || '').toLowerCase();
+    var isFoodApps = channel.includes('food') || channel.includes('gofood') || channel.includes('grabfood') || channel.includes('shopeefood');
+    var isTikTok = channel.includes('tiktok');
+
+    // 3. Baca seluruh nama menu di Kolom A
+    var lastRow = sheet.getLastRow();
+    var menuColumnValues = sheet.getRange(1, 1, lastRow, 1).getValues();
 
     if (data.items && data.items.length > 0) {
       data.items.forEach(function(item) {
-        sheet.appendRow([
-          data.timestamp || new Date().toISOString(),
-          data.order_number || '',
-          data.outlet_name || '',
-          data.channel || '',
-          data.payment_method || '',
-          item.menu_item_name || '',
-          item.quantity || 0,
-          item.unit_price || 0,
-          item.subtotal || 0
-        ]);
+        var itemName = (item.menu_item_name || '').trim().toLowerCase();
+        var qty = Number(item.quantity) || 0;
+        if (qty <= 0) return;
+
+        var matchedRow = -1;
+
+        // Cari di seksi sesuai channel
+        for (var r = 0; r < menuColumnValues.length; r++) {
+          var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
+          var rowNum = r + 1;
+
+          if (isFoodApps && rowNum >= 32 && rowNum <= 51) {
+            if (cellVal && (cellVal === itemName || cellVal.includes(itemName) || itemName.includes(cellVal))) {
+              matchedRow = rowNum;
+              break;
+            }
+          } else if (isTikTok && rowNum >= 53 && rowNum <= 70) {
+            if (cellVal && (cellVal === itemName || cellVal.includes(itemName) || itemName.includes(cellVal))) {
+              matchedRow = rowNum;
+              break;
+            }
+          } else if (!isFoodApps && !isTikTok && rowNum >= 2 && rowNum <= 30) {
+            if (cellVal && (cellVal === itemName || cellVal.includes(itemName) || itemName.includes(cellVal))) {
+              matchedRow = rowNum;
+              break;
+            }
+          }
+        }
+
+        // Fallback: cari di seluruh Kolom A jika belum cocok di seksi spesifik
+        if (matchedRow === -1) {
+          for (var r = 0; r < menuColumnValues.length; r++) {
+            var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
+            if (cellVal && (cellVal === itemName || cellVal.includes(itemName) || itemName.includes(cellVal))) {
+              matchedRow = r + 1;
+              break;
+            }
+          }
+        }
+
+        // Jika baris menu ditemukan, tambahkan qty pada tanggal bersangkutan
+        if (matchedRow > 0) {
+          var cellRange = sheet.getRange(matchedRow, targetCol);
+          var currentVal = Number(cellRange.getValue()) || 0;
+          cellRange.setValue(currentVal + qty);
+        }
       });
     }
 

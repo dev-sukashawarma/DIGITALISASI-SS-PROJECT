@@ -19,7 +19,12 @@ ALTER TABLE public.petty_cash_topups
   ADD COLUMN IF NOT EXISTS leader_forwarded_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS proof_of_transfer_url TEXT;
 
--- 3. Update status check constraint on petty_cash_topups
+-- 3. Update existing old status 'approved' to 'completed' so check constraint won't fail on legacy data
+UPDATE public.petty_cash_topups
+SET status = 'completed'
+WHERE status = 'approved';
+
+-- 4. Update status check constraint on petty_cash_topups
 DO $$
 DECLARE
     r record;
@@ -47,10 +52,20 @@ ALTER TABLE public.petty_cash_topups
     'forwarded_by_area_manager', 
     'forwarded_by_leader', 
     'completed', 
-    'rejected'
+    'rejected',
+    'approved'
   ));
 
--- 4. RPC: Create Petty Cash Topup (Leader creates, updates outlet bank if provided)
+-- DROP OLD FUNCTIONS FIRST TO PREVENT PARAMETER NAME CONFLICTS
+DROP FUNCTION IF EXISTS public.create_petty_cash_topup CASCADE;
+DROP FUNCTION IF EXISTS public.area_manager_process_petty_cash CASCADE;
+DROP FUNCTION IF EXISTS public.finance_process_petty_cash CASCADE;
+DROP FUNCTION IF EXISTS public.finance_forward_funds CASCADE;
+DROP FUNCTION IF EXISTS public.area_manager_forward_funds CASCADE;
+DROP FUNCTION IF EXISTS public.leader_forward_funds CASCADE;
+DROP FUNCTION IF EXISTS public.crew_receive_funds CASCADE;
+
+-- 5. RPC: Create Petty Cash Topup (Leader creates, updates outlet bank if provided)
 CREATE OR REPLACE FUNCTION public.create_petty_cash_topup(
   p_outlet_id UUID,
   p_amount NUMERIC,
@@ -111,7 +126,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.create_petty_cash_topup(UUID, NUMERIC, TEXT, TEXT, TEXT, TEXT) TO authenticated;
 
--- 5. RPC: Area Manager Process (Approve to Finance / Reject)
+-- 6. RPC: Area Manager Process (Approve to Finance / Reject)
 CREATE OR REPLACE FUNCTION public.area_manager_process_petty_cash(
   p_topup_id UUID,
   p_action TEXT
@@ -154,7 +169,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.area_manager_process_petty_cash(UUID, TEXT) TO authenticated;
 
--- 6. RPC: Finance Process (Approve with Transfer/Cash / Reject)
+-- 7. RPC: Finance Process (Approve with Transfer/Cash / Reject)
 CREATE OR REPLACE FUNCTION public.finance_process_petty_cash(
   p_topup_id UUID,
   p_action TEXT,
@@ -227,7 +242,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.finance_process_petty_cash(UUID, TEXT, TEXT, UUID, TEXT) TO authenticated;
 
--- 7. RPC: Finance Forward Funds to Area Manager
+-- 8. RPC: Finance Forward Funds to Area Manager
 CREATE OR REPLACE FUNCTION public.finance_forward_funds(
   p_topup_id UUID
 )
@@ -258,7 +273,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.finance_forward_funds(UUID) TO authenticated;
 
--- 8. RPC: Area Manager Forward Funds to Leader
+-- 9. RPC: Area Manager Forward Funds to Leader
 CREATE OR REPLACE FUNCTION public.area_manager_forward_funds(
   p_topup_id UUID
 )
@@ -296,7 +311,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.area_manager_forward_funds(UUID) TO authenticated;
 
--- 9. RPC: Leader Forward Funds to Crew (Increases Petty Cash Balance!)
+-- 10. RPC: Leader Forward Funds to Crew (Increases Petty Cash Balance!)
 CREATE OR REPLACE FUNCTION public.leader_forward_funds(
   p_topup_id UUID
 )
@@ -332,7 +347,6 @@ BEGIN
   WHERE id = p_topup_id;
 
   -- Increase Petty Cash balance of the outlet
-  -- Check if petty_cash table / ledger exists
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'petty_cash_transactions') THEN
     INSERT INTO public.petty_cash_transactions (
       outlet_id,
@@ -354,7 +368,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.leader_forward_funds(UUID) TO authenticated;
 
--- 10. RPC: Crew Receive Funds (Completes flow)
+-- 11. RPC: Crew Receive Funds (Completes flow)
 CREATE OR REPLACE FUNCTION public.crew_receive_funds(
   p_topup_id UUID
 )

@@ -149,16 +149,23 @@ export function CreateTopupModal({ isOpen, onClose }: CreateTopupModalProps) {
               <label className="block text-xs font-semibold text-suka-gray-700 uppercase tracking-wider mb-1">
                 Nominal Top Up (Rp)
               </label>
-              <input
-                type="number"
-                min="1000"
-                step="1000"
-                placeholder="Contoh: 500000"
-                className="w-full border border-suka-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-suka-brown"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-suka-gray-400 font-bold text-xs">Rp</span>
+                </div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  className="w-full border border-suka-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-suka-brown"
+                  value={amount ? Number(amount).toLocaleString('id-ID') : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '')
+                    setAmount(raw)
+                  }}
+                  required
+                />
+              </div>
             </div>
 
             <div>

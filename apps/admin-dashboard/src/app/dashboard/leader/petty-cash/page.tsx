@@ -231,16 +231,23 @@ export default function LeaderPettyCashPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Nominal Top Up (Rp)
                 </label>
-                <input 
-                  type="number" 
-                  min="1000"
-                  step="1000"
-                  placeholder="Contoh: 500000" 
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500"
-                  required 
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <span className="text-slate-500 font-bold text-sm">Rp</span>
+                  </div>
+                  <input 
+                    type="text" 
+                    inputMode="numeric"
+                    placeholder="0" 
+                    value={amount ? Number(amount).toLocaleString('id-ID') : ''}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '')
+                      setAmount(raw)
+                    }}
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500"
+                    required 
+                  />
+                </div>
               </div>
 
               <div>

@@ -2,6 +2,8 @@
 // Cek migration timestamp tak wajar (cegah ranjau seperti insiden 2026-07-21,
 // lihat docs/superpowers/specs/2026-07-22-migration-timestamp-lint-design.md).
 
+import { fileURLToPath } from 'node:url';
+
 const FILENAME_PATTERN = /^(\d{14})_.+\.sql$/;
 const PAST_WINDOW_DAYS = 30;
 const FUTURE_WINDOW_DAYS = 2;
@@ -68,4 +70,40 @@ export function checkTimestamp(filename, now = new Date()) {
   }
 
   return { ok: true };
+}
+
+export function lintFiles(filenames, now = new Date()) {
+  const violations = [];
+  for (const filename of filenames) {
+    const basename = filename.split(/[\\/]/).pop();
+    const result = checkTimestamp(basename, now);
+    if (!result.ok) {
+      violations.push(result.reason);
+    }
+  }
+  return { ok: violations.length === 0, violations };
+}
+
+function main() {
+  const files = process.argv.slice(2);
+  if (files.length === 0) {
+    console.log('Tidak ada file migration untuk dicek.');
+    process.exit(0);
+  }
+
+  const { ok, violations } = lintFiles(files);
+  if (ok) {
+    console.log(`✓ ${files.length} migration file timestamp wajar.`);
+    process.exit(0);
+  }
+
+  console.error(`✗ Ditemukan ${violations.length} migration dengan timestamp tak wajar:\n`);
+  for (const reason of violations) {
+    console.error(reason + '\n');
+  }
+  process.exit(1);
+}
+
+if (fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
 }

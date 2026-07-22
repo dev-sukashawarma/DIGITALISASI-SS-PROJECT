@@ -1,6 +1,4 @@
-'use client'
-
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useDeferredValue } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Plus, Minus, Trash2, ShoppingBag, Loader2,
@@ -54,6 +52,7 @@ export default function OrderManualPage() {
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
+  const deferredSearch = useDeferredValue(search)
   const [activeCat, setActiveCat] = useState<string>('all')
 
   // Keranjang lokal (terisolasi dari cart kiosk pelanggan)
@@ -333,7 +332,7 @@ export default function OrderManualPage() {
 
     return items.filter((it) => {
       if (activeCat !== 'all' && it.category_id !== activeCat) return false
-      if (search.trim() && !it.name.toLowerCase().includes(search.trim().toLowerCase())) return false
+      if (deferredSearch.trim() && !it.name.toLowerCase().includes(deferredSearch.trim().toLowerCase())) return false
       if (isOnlineChannel) {
         if (it.is_available_online === false) return false
         if (it.available_online_channels && !it.available_online_channels.includes(channel || '')) return false
@@ -357,7 +356,7 @@ export default function OrderManualPage() {
 
       return { ...it, price, strike_price, isDisabled }
     })
-  }, [items, unavailableIds, autoUnavailableIds, forceAvailableIds, activeCat, search, channel, mode])
+  }, [items, unavailableIds, autoUnavailableIds, forceAvailableIds, activeCat, deferredSearch, channel, mode])
 
   const upsellItems = useMemo(() => {
     return items.filter(it => upsellIds.includes(it.id) && it.is_available !== false).map(it => {

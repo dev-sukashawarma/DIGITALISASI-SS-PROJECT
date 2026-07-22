@@ -17,12 +17,14 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const reviewRequests = allRequests?.filter(r => 
+    r.status === 'pending' ||
     r.status === 'forwarded_to_area_manager' || 
     r.status === 'approved_by_finance' || 
     r.status === 'forwarded_by_finance'
   ) || []
 
   const historyRequests = allRequests?.filter(r => 
+    r.status !== 'pending' &&
     r.status !== 'forwarded_to_area_manager' && 
     r.status !== 'approved_by_finance' && 
     r.status !== 'forwarded_by_finance'

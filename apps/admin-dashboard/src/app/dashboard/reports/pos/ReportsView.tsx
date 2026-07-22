@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote,
-  QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet
+  QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import { resolveOrderSource } from '@/lib/order-source'
+import GoogleSheetsSettingsModal from '@/components/GoogleSheetsSettingsModal'
 import dynamic from 'next/dynamic'
 
 const CategoryPieChart = dynamic(() => import('./CategoryPieChart'), {
@@ -75,6 +76,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
   const [selectedChannel, setSelectedChannel] = useState<string>('all')
   const [loading, setLoading] = useState(true)
+  const [showGoogleSheetsModal, setShowGoogleSheetsModal] = useState(false)
   
   // Date Range State
   const [range, setRange] = useState<DateRangeType>('today')
@@ -194,6 +196,18 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   // ─── Available Channels ───
   const availableChannels = useMemo(() => {
     const map = new Map<string, { key: string; label: string }>()
+    
+    // Channel standar agar user dapat selalu memilih sumber utama
+    const defaults = [
+      { key: 'pos', label: 'POS Kasir' },
+      { key: 'shopeefood', label: 'ShopeeFood' },
+      { key: 'gofood', label: 'GoFood' },
+      { key: 'grabfood', label: 'GrabFood' },
+      { key: 'tiktok', label: 'TikTok Shop' },
+      { key: 'online', label: 'Website Online' },
+    ]
+    defaults.forEach(d => map.set(d.key, d))
+
     orders.forEach(o => {
       const src = resolveOrderSource(o.channel, o.sales_source)
       if (!map.has(src.key)) {
@@ -432,6 +446,15 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setShowGoogleSheetsModal(true)}
+              className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer"
+              title="Pengaturan Integrasi Google Sheets"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+              <span>Integrasi Google Sheets</span>
+            </button>
+
             <BranchFilter 
               outlets={outlets} 
               selectedOutlet={selectedOutlet} 
@@ -721,27 +744,66 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           
           {/* Advanced Data Table Transaksi */}
           <div className="card p-6 shadow-sm border border-gray-100 mt-6 overflow-hidden no-print">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-                <div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 border-b border-gray-100/80 pb-4">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="font-bold text-gray-900 text-lg">Histori Transaksi Detail</h2>
-                  <p className="text-gray-400 text-xs mt-0.5">Semua transaksi sukses pada periode ini</p>
+                  {selectedChannel !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedChannel('all'); setCurrentPage(1); }}
+                      className="inline-flex items-center gap-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold px-2.5 py-1 rounded-full transition-all shadow-xs"
+                      title="Klik untuk hapus filter sumber"
+                    >
+                      <span>Sumber: <strong className="font-bold">{availableChannels.find(c => c.key === selectedChannel)?.label || selectedChannel}</strong></span>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-                
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <div className="relative flex-1 sm:flex-none">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Search className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      className="block w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors text-sm font-medium"
-                      placeholder="Cari no antrian / item..."
-                      value={searchQuery}
-                      onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                    />
+                <p className="text-gray-400 text-xs mt-0.5">
+                  {selectedChannel === 'all' 
+                    ? 'Semua transaksi sukses pada periode ini' 
+                    : `Menampilkan transaksi khusus sumber ${availableChannels.find(c => c.key === selectedChannel)?.label || selectedChannel}`}
+                </p>
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                {/* Dropdown Select Sumber */}
+                <div className="relative flex-1 sm:flex-none min-w-[170px]">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Filter className="h-4 w-4 text-amber-500" />
                   </div>
+                  <select
+                    value={selectedChannel}
+                    onChange={(e) => {
+                      setSelectedChannel(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                    className="block w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 text-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors text-sm cursor-pointer shadow-2xs"
+                  >
+                    <option value="all">Semua Sumber</option>
+                    <option value="food_apps">Semua Food Apps</option>
+                    {availableChannels.map(ch => (
+                      <option key={ch.key} value={ch.key}>{ch.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Input Cari */}
+                <div className="relative flex-1 sm:flex-none min-w-[200px]">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    className="block w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors text-sm font-medium shadow-2xs"
+                    placeholder="Cari no antrian / item..."
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                  />
                 </div>
               </div>
+            </div>
 
             <div className="overflow-x-auto rounded-xl border border-gray-100">
               <table className="w-full text-left text-sm whitespace-nowrap">
@@ -750,7 +812,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                     <th className="px-5 py-4">No. Antrian</th>
                     <th className="px-5 py-4">Waktu</th>
                     <th className="px-5 py-4">Nama Item</th>
-                    <th className="px-5 py-4">Sumber</th>
+                    <th className="px-5 py-4">
+                      <div className="flex items-center gap-1.5">
+                        <span>Sumber</span>
+                        <Filter className={`w-3.5 h-3.5 ${selectedChannel !== 'all' ? 'text-amber-600' : 'text-gray-400 opacity-50'}`} />
+                      </div>
+                    </th>
                     <th className="px-5 py-4">Metode Bayar</th>
                     <th className="px-5 py-4 text-right">Total Transaksi</th>
                   </tr>
@@ -793,7 +860,18 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                             </div>
                           </td>
                           <td className="px-5 py-4">
-                            <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} size="sm" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const srcKey = resolveOrderSource(order.channel, order.sales_source).key
+                                setSelectedChannel(prev => prev === srcKey ? 'all' : srcKey)
+                                setCurrentPage(1)
+                              }}
+                              className="hover:scale-105 active:scale-95 transition-all text-left inline-flex focus:outline-none cursor-pointer"
+                              title="Klik untuk memfilter transaksi berdasarkan sumber ini"
+                            >
+                              <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} size="sm" />
+                            </button>
                           </td>
                           <td className="px-5 py-4">
                             <span className="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold rounded-lg uppercase">
@@ -1249,6 +1327,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           </div>
         </div>
       )}
+
+      {/* Google Sheets Settings Modal */}
+      <GoogleSheetsSettingsModal
+        isOpen={showGoogleSheetsModal}
+        onClose={() => setShowGoogleSheetsModal(false)}
+      />
     </div>
   )
 }

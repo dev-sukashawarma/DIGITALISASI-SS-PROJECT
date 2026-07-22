@@ -1,0 +1,405 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import {
+  FileSpreadsheet,
+  X,
+  Copy,
+  Check,
+  Send,
+  Save,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  HelpCircle,
+  ExternalLink
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase'
+import { getGoogleSheetsConfig, saveGoogleSheetsConfig } from '@/lib/google-sheets-config'
+import { sendOrderToGoogleSheets } from '@/lib/google-sheets-webhook'
+
+interface GoogleSheetsSettingsModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+const APPS_SCRIPT_CODE = `function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var data = JSON.parse(e.postData.contents);
+    
+    // Buat header otomatis jika sheet masih kosong
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        "Waktu", 
+        "No Order", 
+        "Cabang", 
+        "Channel", 
+        "Metode Bayar", 
+        "Nama Item", 
+        "Qty", 
+        "Harga Satuan", 
+        "Subtotal"
+      ]);
+    }
+
+    if (data.items && data.items.length > 0) {
+      data.items.forEach(function(item) {
+        sheet.appendRow([
+          data.timestamp || new Date().toISOString(),
+          data.order_number || '',
+          data.outlet_name || '',
+          data.channel || '',
+          data.payment_method || '',
+          item.menu_item_name || '',
+          item.quantity || 0,
+          item.unit_price || 0,
+          item.subtotal || 0
+        ]);
+      });
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ result: "success" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ result: "error", error: error.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`
+
+export default function GoogleSheetsSettingsModal({ isOpen, onClose }: GoogleSheetsSettingsModalProps) {
+  const [url, setUrl] = useState('')
+  const [enabled, setEnabled] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    let isMounted = true
+    async function loadSettings() {
+      setLoading(true)
+      setAlert(null)
+      try {
+        const supabase = createClient()
+        const config = await getGoogleSheetsConfig(supabase)
+        if (isMounted) {
+          setUrl(config.url || '')
+          setEnabled(config.enabled ?? false)
+        }
+      } catch (err) {
+        if (isMounted) {
+          setAlert({
+            type: 'error',
+            message: 'Gagal memuat konfigurasi Google Sheets.'
+          })
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadSettings()
+    return () => {
+      isMounted = false
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
+
+  const handleSave = async () => {
+    setSaving(true)
+    setAlert(null)
+    try {
+      const supabase = createClient()
+      const res = await saveGoogleSheetsConfig(supabase, { url: url.trim(), enabled })
+      if (res.error) {
+        setAlert({
+          type: 'error',
+          message: `Gagal menyimpan: ${res.error.message || 'Terjadi kesalahan'}`
+        })
+      } else {
+        setAlert({
+          type: 'success',
+          message: 'Pengaturan Google Sheets berhasil disimpan!'
+        })
+      }
+    } catch (err: any) {
+      setAlert({
+        type: 'error',
+        message: `Terjadi kesalahan: ${err.message || 'Gagal menyimpan'}`
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleTestConnection = async () => {
+    if (!url.trim()) {
+      setAlert({
+        type: 'error',
+        message: 'Masukkan URL Webhook Google Apps Script terlebih dahulu.'
+      })
+      return
+    }
+
+    setTesting(true)
+    setAlert(null)
+
+    const dummyOrder = {
+      order_number: 'TEST-001',
+      channel: 'POS',
+      payment_method: 'QRIS',
+      created_at: new Date().toISOString()
+    }
+
+    const dummyItems = [
+      {
+        menu_item_name: 'Tes Suka Shawarma Ayam (Dummy)',
+        quantity: 2,
+        unit_price: 25000,
+        subtotal: 50000
+      }
+    ]
+
+    try {
+      const success = await sendOrderToGoogleSheets(
+        url.trim(),
+        dummyOrder,
+        dummyItems,
+        'Cabang Uji Coba'
+      )
+
+      if (success) {
+        setAlert({
+          type: 'success',
+          message: 'Koneksi Berhasil! Data dummy pengujian telah dikirimkan ke Google Sheets.'
+        })
+      } else {
+        setAlert({
+          type: 'error',
+          message: 'Gagal terhubung ke Webhook Google Sheets. Pastikan URL benar & Web App diset akses "Anyone" (Siapa saja).'
+        })
+      }
+    } catch (err: any) {
+      setAlert({
+        type: 'error',
+        message: `Koneksi gagal: ${err.message || 'Kesalahan jaringan atau CORS'}`
+      })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(APPS_SCRIPT_CODE)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto animate-fade-in">
+      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
+        
+        {/* Header Modal */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-emerald-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
+              <FileSpreadsheet className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 leading-tight">
+                Integrasi Real-time Google Sheets
+              </h2>
+              <p className="text-xs text-gray-500 font-medium">
+                Sinkronkan penjualan item menu ke Google Spreadsheet secara otomatis
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="overflow-y-auto p-6 space-y-6 flex-1">
+          {loading ? (
+            <div className="py-12 flex flex-col items-center justify-center text-gray-400 gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+              <p className="text-sm font-medium">Memuat pengaturan Google Sheets...</p>
+            </div>
+          ) : (
+            <>
+              {/* Alert Feedback */}
+              {alert && (
+                <div
+                  className={`p-4 rounded-xl border flex items-start gap-3 text-sm ${
+                    alert.type === 'success'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-red-50 border-red-200 text-red-800'
+                  }`}
+                >
+                  {alert.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 font-medium leading-relaxed">{alert.message}</div>
+                </div>
+              )}
+
+              {/* Toggle Enable/Disable */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200/80">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold text-gray-900 block">
+                    Status Sinkronisasi Otomatis
+                  </label>
+                  <p className="text-xs text-gray-500">
+                    Kirim data transaksi ke Google Sheets setiap kali transaksi selesai di POS.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEnabled(!enabled)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      enabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Input Webhook URL & Connection Test */}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-900 flex items-center justify-between">
+                  <span>URL Webhook Google Apps Script</span>
+                  <span className="text-xs font-normal text-gray-500">Wajib diisi</span>
+                </label>
+                <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                  <input
+                    type="url"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="https://script.google.com/macros/s/.../exec"
+                    className="flex-1 px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-sm font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all placeholder:text-gray-400 placeholder:font-sans"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    disabled={testing || !url.trim()}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-sm rounded-xl border border-emerald-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >
+                    {testing ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                    ) : (
+                      <Send className="w-4 h-4 text-emerald-600" />
+                    )}
+                    <span>Tes Koneksi</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Step-by-step Setup Guide */}
+              <div className="space-y-4 pt-2 border-t border-gray-100">
+                <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                  <HelpCircle className="w-4 h-4 text-amber-500" />
+                  <span>Panduan Setup Google Apps Script (5 Langkah Mudan)</span>
+                </div>
+
+                <ol className="space-y-2.5 text-xs text-gray-600 list-decimal list-inside font-medium leading-relaxed bg-amber-50/40 p-4 rounded-xl border border-amber-100">
+                  <li>
+                    Buka <strong className="text-gray-900">Google Sheets</strong> baru atau spreadsheet yang sudah ada.
+                  </li>
+                  <li>
+                    Klik menu <strong className="text-gray-900">Ekstensi (Extensions) &gt; Apps Script</strong> pada bilah menu atas.
+                  </li>
+                  <li>
+                    Hapus seluruh isi kode default, lalu tempelkan skrip di bawah ini ke file <code className="bg-gray-100 text-amber-800 px-1 py-0.5 rounded font-mono">Code.gs</code>.
+                  </li>
+                  <li>
+                    Klik <strong className="text-gray-900">Terapkan (Deploy) &gt; Penyebaran baru (New deployment)</strong>:
+                    <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5 text-gray-500">
+                      <li>Jenis: <strong className="text-gray-700">Aplikasi Web (Web app)</strong></li>
+                      <li>Jalankan sebagai: <strong className="text-gray-700">Saya (Me)</strong></li>
+                      <li>Siapa yang memiliki akses: <strong className="text-gray-700">Siapa saja (Anyone)</strong></li>
+                    </ul>
+                  </li>
+                  <li>
+                    Klik <strong className="text-gray-900">Deploy</strong>, izinkan otorisasi Google, lalu salin <strong className="text-gray-900">URL Web App</strong> dan tempel di kolom di atas.
+                  </li>
+                </ol>
+
+                {/* Code Block box with copy button */}
+                <div className="relative rounded-xl bg-gray-900 border border-gray-800 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-gray-800/80 border-b border-gray-700/60 text-xs text-gray-300 font-mono">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                      Code.gs (Google Apps Script Template)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyCode}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 font-sans text-xs transition-colors"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400 font-bold">Tersalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Salin Kode</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <pre className="p-4 text-xs font-mono text-emerald-300/90 overflow-x-auto max-h-56 leading-relaxed">
+                    {APPS_SCRIPT_CODE}
+                  </pre>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 text-sm font-semibold text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-colors"
+          >
+            Tutup
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            <span>Simpan Pengaturan</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  )
+}

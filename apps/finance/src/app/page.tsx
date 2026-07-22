@@ -10,12 +10,12 @@ export default async function DashboardPage() {
     redirect('/leader/petty-cash')
   }
   
-  if (staff?.role === 'area_manager' || staff?.role === 'korlap') {
+  if ((staff?.role as string) === 'area_manager' || (staff?.role as string) === 'korlap') {
     redirect('/area-manager/petty-cash')
   }
 
   if (staff?.role === 'admin' || staff?.role === 'admin_finance' || staff?.role === 'owner') {
-    redirect('/finance/petty-cash')
+    redirect('/petty-cash')
   }
 
   return <DashboardClient />

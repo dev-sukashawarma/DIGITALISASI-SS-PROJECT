@@ -2,6 +2,7 @@ import React from 'react'
 import { FinancePettyCashList } from './components/FinancePettyCashList'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
+import { Wallet } from 'lucide-react'
 import type { PettyCashTopup } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -35,8 +36,11 @@ export default async function FinancePettyCashPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-suka-brown">Pencairan Petty Cash</h1>
-        <p className="text-suka-gray-500 mt-1">Daftar pengajuan petty cash yang sudah disetujui Leader dan siap dicairkan.</p>
+        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+          <Wallet className="w-7 h-7 text-indigo-600" />
+          Pencairan Petty Cash (Treasury Finance)
+        </h1>
+        <p className="text-sm text-slate-500 mt-1">Review pengajuan dana dari cabang-cabang dan proses pencairan via Transfer Bank atau Kas Pusat.</p>
       </div>
 
       <FinancePettyCashList initialRequests={initialRequests} />

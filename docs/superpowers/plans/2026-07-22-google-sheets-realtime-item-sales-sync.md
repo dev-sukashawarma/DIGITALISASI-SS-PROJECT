@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Integrasi real-time pengiriman item penjualan per transaksi POS ke Google Sheets via Google Apps Script Webhook dengan saklar ON/OFF dan input Webhook URL di Admin Dashboard.
+**Goal:** Integrasi real-time pengiriman item penjualan per transaksi POS ke Google Sheets via Google Apps Script Webhook. Data penjualan akan langsung **diakumulasi (ditambahkan) ke dalam sel rekapan spesifik (pivot)** berdasarkan Cabang, Nama Menu, dan Tanggal di Spreadsheet, dilengkapi dengan saklar ON/OFF dan input Webhook URL di Admin Dashboard.
 
-**Architecture:** Modul helper asynchronous (`lib/google-sheets-webhook.ts`) mengambil data `global_settings` (`google_sheets_webhook_url`, `google_sheets_sync_enabled`) dari Supabase. Ketika transaksi POS diselesaikan, helper mengirimkan payload JSON ke Google Apps Script tanpa memblokir UI kasir (*fire-and-forget*). Di Dashboard Admin, pengguna dapat mengonfigurasi Webhook URL, menguji koneksi, serta menyalin templat kode Google Apps Script.
+**Architecture:** Modul helper asynchronous (`lib/google-sheets-webhook.ts`) mengambil data `global_settings` (`google_sheets_webhook_url`, `google_sheets_sync_enabled`) dari Supabase. Ketika transaksi POS diselesaikan, helper mengirimkan payload JSON ke Google Apps Script tanpa memblokir UI kasir (*fire-and-forget*). Di Dashboard Admin, pengguna dapat mengonfigurasi Webhook URL, menguji koneksi, serta menyalin templat kode Google Apps Script (yang sudah disesuaikan dengan format tabel Rekapan/Pivot otomatis).
 
 **Tech Stack:** Next.js 16 (App Router), TypeScript, Supabase Client (`@supabase/supabase-js`), Vitest, Lucide React, TailwindCSS.
 
@@ -108,6 +108,7 @@ export interface GoogleSheetsItem {
 export interface GoogleSheetsPayload {
   event: string
   timestamp: string
+  day_of_month: number
   order_number: string
   outlet_name: string
   channel: string
@@ -131,15 +132,20 @@ export function formatGoogleSheetsPayload(
   }[],
   outletName: string
 ): GoogleSheetsPayload {
+  const dateObj = new Date(order.created_at || new Date().toISOString())
+  // Dapatkan tanggal (1-31) waktu lokal Asia/Jakarta
+  const dayOfMonth = Number(new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric' }).format(dateObj))
+
   return {
     event: 'ORDER_COMPLETED',
     timestamp: order.created_at || new Date().toISOString(),
+    day_of_month: dayOfMonth,
     order_number: String(order.order_number),
     outlet_name: outletName || 'Utama',
     channel: order.channel || order.sales_source || 'POS Kasir',
     payment_method: order.payment_method || 'Tunai',
     items: items.map(item => ({
-      menu_item_name: item.menu_item_name,
+      menu_item_name: item.menu_item_name.split('|')[0].trim().toUpperCase(),
       quantity: Number(item.quantity) || 0,
       unit_price: Number(item.unit_price) || 0,
       subtotal: Number(item.subtotal) || 0
@@ -350,36 +356,69 @@ interface Props {
 const APPS_SCRIPT_TEMPLATE = `function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     
-    // Auto add headers jika sheet masih kosong
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow([
-        "Waktu Transaksi", 
-        "Cabang/Outlet", 
-        "No Nota", 
-        "Channel/Sumber", 
-        "Nama Menu Item", 
-        "Jumlah (Qty)", 
-        "Harga Satuan", 
-        "Subtotal", 
-        "Metode Pembayaran"
-      ]);
+    // Pemetaan nama cabang ke nama Sheet (Tab)
+    // Sesuaikan mapping ini dengan nama tab di Spreadsheet Anda
+    var outletSheetMap = {
+      "SUKA SHAWARMA EMPANG": "SS EMPANG",
+      "SUKA SHAWARMA PAJAJARAN": "SS PAJAJARAN",
+      "SUKA SHAWARMA DRAMAGA": "SS DRAMAGA",
+      "SUKA SHAWARMA CIMANGGU": "SS CIMANGGU",
+      "SUKA SHAWARMA BNR": "SS BNR",
+      "MITRA PALEDANG": "MITRA PALEDANG"
+      // Tambahkan cabang lain jika perlu...
+    };
+    
+    var sheetName = outletSheetMap[data.outlet_name] || data.outlet_name;
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
+    
+    if (!sheet) {
+      throw new Error("Tab sheet dengan nama '" + sheetName + "' tidak ditemukan.");
     }
     
-    // Append setiap item penjualan
+    // Baris header tanggal (kolom 1, 2, 3... 31). Sesuaikan dengan baris di sheet Anda.
+    var HEADER_ROW_INDEX = 2; // Misal header angka tanggal ada di baris 2
+    var MENU_COL_INDEX = 1;   // Kolom A untuk nama menu
+    
+    // Ambil semua nama menu di kolom A (dimulai dari baris 3 ke bawah)
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 3) lastRow = 3;
+    var menuData = sheet.getRange(3, MENU_COL_INDEX, lastRow - 2, 1).getValues();
+    var menuMap = {};
+    for (var i = 0; i < menuData.length; i++) {
+      var m = String(menuData[i][0]).trim().toUpperCase();
+      if (m) menuMap[m] = i + 3; // Simpan baris (i + 3 karena data mulai baris 3)
+    }
+    
+    // Ambil header tanggal di baris 2 (mulai dari kolom D misalnya, atau kolom 4)
+    var lastCol = sheet.getLastColumn();
+    if (lastCol < 4) lastCol = 35;
+    var dateHeaderData = sheet.getRange(HEADER_ROW_INDEX, 1, 1, lastCol).getValues()[0];
+    var dateMap = {};
+    for (var c = 0; c < dateHeaderData.length; c++) {
+      var d = String(dateHeaderData[c]).trim();
+      if (d) dateMap[d] = c + 1; // Simpan kolom (c + 1)
+    }
+    
+    var targetDate = String(data.day_of_month); // "22"
+    var targetCol = dateMap[targetDate];
+    
+    if (!targetCol) {
+      throw new Error("Kolom tanggal '" + targetDate + "' tidak ditemukan di baris " + HEADER_ROW_INDEX);
+    }
+    
+    // Proses penambahan (akumulasi) tiap item
     data.items.forEach(function(item) {
-      sheet.appendRow([
-        data.timestamp,
-        data.outlet_name,
-        data.order_number,
-        data.channel,
-        item.menu_item_name,
-        item.quantity,
-        item.unit_price,
-        item.subtotal,
-        data.payment_method
-      ]);
+      var menuName = String(item.menu_item_name).trim().toUpperCase();
+      var targetRow = menuMap[menuName];
+      
+      if (targetRow) {
+        var cell = sheet.getRange(targetRow, targetCol);
+        var currentQty = Number(cell.getValue()) || 0;
+        cell.setValue(currentQty + Number(item.quantity));
+      }
+      // Jika menu tidak ditemukan di kolom A, item tersebut dilewati (atau bisa dicatat di log)
     });
     
     return ContentService.createTextOutput(JSON.stringify({ result: "success" }))

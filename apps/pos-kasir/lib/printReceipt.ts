@@ -6,7 +6,7 @@
 
 import { formatRupiah } from '@/lib/validations'
 import { usePrinterStore } from './printerStore'
-import { printViaBluetooth } from './bluetooth-printer'
+import { printViaBluetooth, printViaRawBT } from './bluetooth-printer'
 import { createClient } from '@/lib/supabase/client'
 import { fetchPrintLayout, DEFAULT_PRINT_LAYOUT, type CustomerLayout, type KitchenLayout, type FontFamily } from './printLayout'
 
@@ -199,19 +199,32 @@ export function printReceipt(data: ReceiptData): Promise<void> {
       const layout = await fetchPrintLayout(createClient()).catch(() => DEFAULT_PRINT_LAYOUT)
       const tpl = data.receiptType === 'kitchen' ? layout.struk_dapur : layout.struk_customer
 
-      // Cek apakah printer Bluetooth terkoneksi
+      // 1. Cek mode printer RawBT (Android Gateway Instant)
+      if (typeof window !== 'undefined' && localStorage.getItem('printer_mode') === 'rawbt') {
+        printViaRawBT(data, tpl)
+        resolve()
+        return
+      }
+
+      // 2. Cek apakah printer Bluetooth Web Bluetooth terkoneksi
       const store = usePrinterStore.getState();
       if (store.characteristic) {
         printViaBluetooth(data, tpl)
           .then(() => resolve())
           .catch(err => {
-            console.error('Print Bluetooth gagal, fallback ke window.print', err);
-            fallbackPrint(data, resolve, tpl);
+            console.error('Print Bluetooth gagal, mencoba RawBT atau fallback window.print', err);
+            // Fallback ke RawBT jika di Android, atau ke window.print
+            const printedRaw = printViaRawBT(data, tpl)
+            if (!printedRaw) {
+              fallbackPrint(data, resolve, tpl);
+            } else {
+              resolve()
+            }
           });
         return;
       }
 
-      // Jika tidak terkoneksi, gunakan fallback HTML iframe window.print()
+      // 3. Jika tidak terkoneksi, gunakan fallback HTML iframe window.print()
       fallbackPrint(data, resolve, tpl);
     })();
   });

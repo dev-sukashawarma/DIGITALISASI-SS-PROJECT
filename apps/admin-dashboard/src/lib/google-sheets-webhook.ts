@@ -1,0 +1,114 @@
+export interface GoogleSheetsItemPayload {
+  menu_item_name: string
+  quantity: number
+  unit_price: number
+  subtotal: number
+}
+
+export interface GoogleSheetsPayload {
+  event: string
+  timestamp: string
+  order_number: string
+  outlet_name: string
+  channel: string
+  payment_method: string
+  items: GoogleSheetsItemPayload[]
+}
+
+export interface WebhookOrderInput {
+  order_number: string | number
+  channel?: string
+  sales_channel?: string
+  source?: string
+  payment_method?: string
+  payment_type?: string
+  created_at?: string
+  timestamp?: string
+}
+
+export interface WebhookOrderItemInput {
+  menu_item_name?: string
+  name?: string
+  menu_name?: string
+  item_name?: string
+  quantity?: number
+  qty?: number
+  unit_price?: number
+  price?: number
+  subtotal?: number
+  total?: number
+}
+
+/**
+ * Formats order data into GoogleSheetsPayload schema for Google Sheets real-time sync
+ */
+export function formatGoogleSheetsPayload(
+  order: WebhookOrderInput,
+  items: WebhookOrderItemInput[],
+  outletName: string
+): GoogleSheetsPayload {
+  const timestamp =
+    order.created_at || order.timestamp || new Date().toISOString()
+  const orderNumber = String(order.order_number ?? '')
+  const channel =
+    order.channel || order.sales_channel || order.source || 'POS'
+  const paymentMethod =
+    order.payment_method || order.payment_type || 'CASH'
+
+  const formattedItems: GoogleSheetsItemPayload[] = (items || []).map((item) => {
+    const name =
+      item.menu_item_name || item.name || item.menu_name || item.item_name || ''
+    const quantity = item.quantity ?? item.qty ?? 0
+    const unitPrice = item.unit_price ?? item.price ?? 0
+    const subtotal =
+      item.subtotal ?? item.total ?? quantity * unitPrice
+
+    return {
+      menu_item_name: name,
+      quantity,
+      unit_price: unitPrice,
+      subtotal
+    }
+  })
+
+  return {
+    event: 'ORDER_COMPLETED',
+    timestamp,
+    order_number: orderNumber,
+    outlet_name: outletName,
+    channel,
+    payment_method: paymentMethod,
+    items: formattedItems
+  }
+}
+
+/**
+ * Sends order details to Google Sheets App Script / Webhook URL
+ */
+export async function sendOrderToGoogleSheets(
+  webhookUrl: string,
+  order: WebhookOrderInput,
+  items: WebhookOrderItemInput[],
+  outletName: string,
+  customFetch: typeof fetch = fetch
+): Promise<boolean> {
+  if (!webhookUrl) {
+    return false
+  }
+
+  try {
+    const payload = formatGoogleSheetsPayload(order, items, outletName)
+    const response = await customFetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    return response.ok
+  } catch (error) {
+    console.error('Failed to send order to Google Sheets webhook:', error)
+    return false
+  }
+}

@@ -289,8 +289,14 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     const cancelled = filteredOrders.filter(o => o.status === 'cancelled').length
     const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
 
-    // Deductions calculation
-    const totalDeductions = completed.reduce((s, o) => s + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0), 0)
+    // Deductions calculation (Meliputi diskon order, diskon item menu POS Kasir, dan subsidi promo Food Apps di semua channel)
+    const totalDeductions = completed.reduce((s, o) => {
+      const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
+      const itemDiscount = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
+      const orderDeduction = Math.max(Number((o as any).discount_amount) || 0, itemDiscount) + (Number((o as any).promo_subsidy) || 0)
+      return s + orderDeduction
+    }, 0)
+
     const netRevenue = Math.max(0, totalRevenue - totalDeductions)
 
     return {

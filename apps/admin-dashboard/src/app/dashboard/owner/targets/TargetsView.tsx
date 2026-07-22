@@ -4,10 +4,10 @@ import { useCallback, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
 import { rupiah } from '@/lib/format'
-import { PageHeader } from '@/components/ui'
 import {
   Save, RotateCcw, Store, Globe, CheckCircle2, Loader2, Search, Send,
   Target as TargetIcon, Sparkles, Info, AlertTriangle, Clock, Eye, Power,
+  ChevronDown, ChevronUp, MessageSquare
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -35,10 +35,34 @@ export interface OverviewRow {
   outlet_ids: string[]
 }
 
-const KINDS: { key: Kind; label: string; icon: typeof Info; color: string }[] = [
-  { key: 'motivasi', label: 'Motivasi', icon: Sparkles, color: '#f29744' },
-  { key: 'info', label: 'Info', icon: Info, color: '#0a7d2c' },
-  { key: 'peringatan', label: 'Peringatan', icon: AlertTriangle, color: '#dc2626' },
+const KINDS: { key: Kind; label: string; icon: typeof Info; color: string; bg: string; border: string; desc: string }[] = [
+  { 
+    key: 'motivasi', 
+    label: 'Motivasi', 
+    icon: Sparkles, 
+    color: '#ea580c', 
+    bg: 'bg-orange-50', 
+    border: 'border-orange-200',
+    desc: 'Semangat & dorongan performa tim kasir' 
+  },
+  { 
+    key: 'info', 
+    label: 'Informasi', 
+    icon: Info, 
+    color: '#15803d', 
+    bg: 'bg-green-50', 
+    border: 'border-green-200',
+    desc: 'Pengumuman operasional atau SOP penting' 
+  },
+  { 
+    key: 'peringatan', 
+    label: 'Peringatan', 
+    icon: AlertTriangle, 
+    color: '#b91c1c', 
+    bg: 'bg-red-50', 
+    border: 'border-red-200',
+    desc: 'Instruksi mendesak atau hal kritis' 
+  },
 ]
 
 const QUOTES = [
@@ -52,11 +76,11 @@ const QUOTES = [
 const EXPIRY_PRESETS: { key: string; label: string; ms: number | 'custom' | 'forever' }[] = [
   { key: '1h', label: '1 Jam', ms: 60 * 60 * 1000 },
   { key: '6h', label: '6 Jam', ms: 6 * 60 * 60 * 1000 },
-  { key: '1d', label: '1 Hari', ms: 24 * 60 * 60 * 1000 },
+  { key: '1d', label: '1 Hari (24 Jam)', ms: 24 * 60 * 60 * 1000 },
   { key: '3d', label: '3 Hari', ms: 3 * 24 * 60 * 60 * 1000 },
   { key: '7d', label: '1 Minggu', ms: 7 * 24 * 60 * 60 * 1000 },
   { key: 'forever', label: 'Selamanya', ms: 'forever' },
-  { key: 'custom', label: 'Kustom', ms: 'custom' },
+  { key: 'custom', label: 'Atur Jam Sendiri', ms: 'custom' },
 ]
 
 function cleanName(name: string) {
@@ -79,8 +103,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
   const [globalDefaultBonus, setGlobalDefaultBonus] = useState<number>(initialGlobalDefaultBonus)
   const [history, setHistory] = useState<OverviewRow[]>(initialHistory)
 
-  // ── Compose (target + pesan) ────────────────────────────────────────────
-  const [audienceAll, setAudienceAll] = useState(false)
+  const [audienceAll, setAudienceAll] = useState(true)
   const [selectedOutlets, setSelectedOutlets] = useState<Set<string>>(new Set())
   const [outletSearch, setOutletSearch] = useState('')
   const [targetInput, setTargetInput] = useState('')
@@ -93,15 +116,13 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
 
-  // ── Per-outlet quick edit ───────────────────────────────────────────────
   const [overrideInputs, setOverrideInputs] = useState<Record<string, string>>({})
   const [overrideBonusInputs, setOverrideBonusInputs] = useState<Record<string, string>>({})
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [savedKey, setSavedKey] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
-  // ── UI State ────────────────────────────────────────────────────────────
-  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isFormOpen, setIsFormOpen] = useState(true)
 
   const loadTargets = useCallback(async () => {
     const [{ data: targets, error: e1 }, { data: globalRow }] = await Promise.all([
@@ -130,13 +151,11 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     else setHistory((data ?? []) as OverviewRow[])
   }, [supabase])
 
-
   const flashSaved = (key: string) => {
     setSavedKey(key)
     setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 1800)
   }
 
-  // ── Compose helpers ───────────────────────────────────────────────────────
   const toggleOutlet = (id: string) => {
     setSelectedOutlets((prev) => {
       const next = new Set(prev)
@@ -179,24 +198,23 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
   const submit = async () => {
     if (sending) return
     if (!audienceValid) {
-      toast.error('Silakan pilih minimal satu outlet terlebih dahulu.')
+      toast.error('Silakan pilih minimal satu cabang outlet penerima terlebih dahulu.')
       return
     }
     if (hasBonus && !hasTarget) {
-      toast.error('Nominal target harian harus diisi jika ingin mengatur bonus harian.')
+      toast.error('Silakan isi nominal target harian terlebih dahulu sebelum menentukan bonus.')
       return
     }
     if (title.trim().length > 0 && body.trim().length === 0) {
-      toast.error('Isi pesan tidak boleh kosong jika Anda menulis judul pesan.')
+      toast.error('Isi pesan tidak boleh kosong jika Anda mengisi judul pesan.')
       return
     }
     if (!hasTarget && !hasMessage) {
-      toast.error('Silakan isi nominal target harian ATAU tulis pesan untuk kasir.')
+      toast.error('Silakan isi nominal target harian ATAU tulis pesan motivasi untuk kasir.')
       return
     }
     setSending(true)
     try {
-      // Dapatkan userId untuk mode bypass RPC
       const { data: { session } } = await supabase.auth.getSession()
       const userId = session?.user?.id
 
@@ -210,7 +228,6 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
           })
           if (error) throw error
 
-          // Clear all per-outlet overrides so ALL outlets follow the new global target
           await supabase.from('daily_sales_targets').delete().not('outlet_id', 'is', null)
         } else {
           for (const id of selectedOutlets) {
@@ -233,10 +250,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
             target_type: 'all',
             expires_at: computeExpiry()
           })
-          if (error) {
-            alert(`Error insert message all: ${JSON.stringify(error)}`)
-            throw error
-          }
+          if (error) throw error
         } else {
           const { error } = await supabase.rpc('send_owner_message', {
             p_kind: kind,
@@ -246,20 +260,18 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
             p_outlet_ids: Array.from(selectedOutlets),
             p_expires_at: computeExpiry(),
           })
-          if (error) {
-            alert(`Error RPC message outlets: ${JSON.stringify(error)}`)
-            throw error
-          }
+          if (error) throw error
         }
       }
       setSent(true)
+      toast.success('Target & Pesan berhasil dikirimkan ke layar kasir!')
       setTimeout(() => setSent(false), 2000)
       setTargetInput('')
       setBonusInput('')
       setTitle('')
       setBody('')
       setSelectedOutlets(new Set())
-      setAudienceAll(false)
+      setAudienceAll(true)
       await Promise.all([loadTargets(), loadHistory()])
     } catch (e: any) {
       console.error(e)
@@ -269,7 +281,6 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     }
   }
 
-  // ── Per-outlet quick edit ─────────────────────────────────────────────────
   const saveOverride = async (outletId: string) => {
     const row = rows.find((x) => x.outlet_id === outletId)
     if (!row) return
@@ -295,15 +306,18 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     if (error) { toast.error(error.message); return; }
     setOverrideInputs((m) => ({ ...m, [outletId]: '' }))
     setOverrideBonusInputs((m) => ({ ...m, [outletId]: '' }))
+    toast.success(`Target khusus cabang ${cleanName(row.outlet_name)} berhasil diperbarui.`)
     flashSaved(outletId)
     await loadTargets()
   }
 
   const clearOverride = async (outletId: string) => {
+    const row = rows.find((x) => x.outlet_id === outletId)
     setSavingKey(outletId)
     const { error } = await supabase.rpc('clear_daily_target_override', { p_outlet: outletId })
     setSavingKey(null)
     if (error) { toast.error(error.message); return; }
+    toast.success(`Cabang ${row ? cleanName(row.outlet_name) : ''} kini kembali mengikuti Target Global.`)
     flashSaved(outletId)
     await loadTargets()
   }
@@ -311,6 +325,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
   const deactivateMessage = async (id: string) => {
     const { error } = await supabase.from('owner_messages').update({ is_active: false }).eq('id', id)
     if (error) { toast.error(error.message); return; }
+    toast.success('Pesan telah dinonaktifkan dari layar kasir.')
     await loadHistory()
   }
 
@@ -329,215 +344,277 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Target & Pesan" description="Atur target penjualan harian dan kirim pesan ke kasir — sekaligus atau salah satu.">
-        <span className="text-xs font-bold text-suka-orange bg-suka-cream px-3 py-1.5 rounded-full border border-suka-brown/5">
-          {overrideCount} outlet di-override
-        </span>
-      </PageHeader>
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="bg-white/20 text-white font-bold text-xs px-3 py-1 rounded-full border border-white/30 backdrop-blur-md">
+                🎯 Layar Kasir & Target Penjualan
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Target Omzet & Pesan Kasir</h1>
+            <p className="text-amber-100 text-sm mt-1 max-w-2xl leading-relaxed font-medium">
+              Atur target omzet harian cabang, bonus insentif per porsi, serta kirim pengumuman atau pesan motivasi langsung ke layar kasir.
+            </p>
+          </div>
 
-        <>
-          {/* ── Compose: target + pesan (owner/admin) ── */}
-          {!isReadOnly && (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-              <div className="lg:col-span-3 bg-white p-5 sm:p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-5">
-                <button
-                  onClick={() => setIsFormOpen(!isFormOpen)}
-                  className="w-full flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-2">
-                    <Send className="w-4 h-4 text-suka-brown" />
-                    <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Kirim ke Kasir</h3>
-                  </div>
-                  <span className="text-xs font-bold text-suka-orange group-hover:text-amber-600 transition-colors">
-                    {isFormOpen ? 'Tutup' : 'Buat Baru'}
-                  </span>
-                </button>
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            <div className="bg-white/15 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/25 text-right">
+              <p className="text-[11px] font-bold text-amber-100 uppercase tracking-widest">Target Global</p>
+              <p className="text-lg font-black">{rupiah(globalDefault)} <span className="text-xs font-semibold">/hari</span></p>
+            </div>
+            {overrideCount > 0 && (
+              <div className="bg-white/15 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/25 text-center">
+                <p className="text-[11px] font-bold text-amber-100 uppercase tracking-widest">Override</p>
+                <p className="text-base font-black">{overrideCount} Cabang</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
-                {isFormOpen && (
-                  <div className="space-y-5 pt-2 border-t border-suka-gray-100 mt-3">
-                    {/* Audience */}
+      {!isReadOnly && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-7 bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden flex flex-col justify-between">
+            <div className="p-5 sm:p-6 bg-gradient-to-b from-amber-50/50 to-white border-b border-amber-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-md shadow-amber-500/20">
+                  <Send className="w-5 h-5" />
+                </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider mb-2">Kirim Ke</label>
-                  <div className="flex gap-2 mb-3">
+                  <h2 className="font-extrabold text-gray-900 text-lg leading-tight">Form Buat Target & Pesan</h2>
+                  <p className="text-gray-400 text-xs">Ikuti langkah sederhana di bawah untuk mengirim ke kasir</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(!isFormOpen)}
+                className="text-xs font-bold text-amber-700 bg-amber-100/80 hover:bg-amber-200/80 px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
+              >
+                {isFormOpen ? <>Tutup Form <ChevronUp className="w-4 h-4" /></> : <>Buka Form <ChevronDown className="w-4 h-4" /></>}
+              </button>
+            </div>
+
+            {isFormOpen && (
+              <div className="p-5 sm:p-6 space-y-6">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center">1</span>
+                    <h3 className="font-bold text-gray-900 text-sm">Pilih Cabang / Outlet Penerima</h3>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
                     <button
+                      type="button"
                       onClick={() => setAudienceAll(true)}
-                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 border ${
-                        audienceAll ? 'bg-suka-brown text-white border-transparent' : 'text-suka-gray-500 border-suka-gray-200 hover:border-suka-brown/20'
+                      className={`p-3.5 rounded-2xl border text-left transition-all active:scale-[.98] flex items-center gap-3 ${
+                        audienceAll
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-amber-300'
                       }`}
                     >
-                      <Globe className="w-4 h-4" /> Semua Outlet
+                      <Globe className={`w-5 h-5 shrink-0 ${audienceAll ? 'text-white' : 'text-amber-500'}`} />
+                      <div>
+                        <p className="font-bold text-xs leading-tight">Semua Outlet</p>
+                        <p className={`text-[10px] mt-0.5 ${audienceAll ? 'text-amber-100' : 'text-gray-400'}`}>Terkirim ke seluruh cabang</p>
+                      </div>
                     </button>
+
                     <button
+                      type="button"
                       onClick={() => setAudienceAll(false)}
-                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 border ${
-                        !audienceAll ? 'bg-suka-brown text-white border-transparent' : 'text-suka-gray-500 border-suka-gray-200 hover:border-suka-brown/20'
+                      className={`p-3.5 rounded-2xl border text-left transition-all active:scale-[.98] flex items-center gap-3 ${
+                        !audienceAll
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-amber-300'
                       }`}
                     >
-                      <Store className="w-4 h-4" /> Pilih Outlet
+                      <Store className={`w-5 h-5 shrink-0 ${!audienceAll ? 'text-white' : 'text-amber-500'}`} />
+                      <div>
+                        <p className="font-bold text-xs leading-tight">Pilih Spesifik</p>
+                        <p className={`text-[10px] mt-0.5 ${!audienceAll ? 'text-amber-100' : 'text-gray-400'}`}>
+                          {selectedOutlets.size > 0 ? `${selectedOutlets.size} cabang dipilih` : 'Pilih outlet tertentu'}
+                        </p>
+                      </div>
                     </button>
                   </div>
+
                   {!audienceAll && (
-                    <>
-                      <div className="flex items-center gap-2 mb-2">
+                    <div className="p-3 bg-amber-50/50 rounded-2xl border border-amber-200/60 space-y-2 mt-2">
+                      <div className="flex items-center gap-2">
                         <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-gray-400" />
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                           <input
                             value={outletSearch}
                             onChange={(e) => setOutletSearch(e.target.value)}
-                            placeholder="Cari outlet..."
-                            className="w-full pl-9 pr-3 py-2 rounded-xl text-xs font-bold text-suka-brown bg-suka-cream/40 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 placeholder:text-suka-gray-400 placeholder:font-medium"
+                            placeholder="Cari nama cabang..."
+                            className="w-full pl-9 pr-3 py-2 rounded-xl text-xs font-bold text-gray-800 bg-white border border-gray-200 outline-none focus:border-amber-500"
                           />
                         </div>
                         <button
+                          type="button"
                           onClick={toggleAllPicker}
                           disabled={filteredPickerOutlets.length === 0}
-                          className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold border border-suka-gray-200 text-suka-brown hover:border-suka-brown/20 disabled:opacity-40 transition-colors"
+                          className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
                         >
-                          {allPickerSelected ? 'Hapus semua' : 'Pilih semua'}
+                          {allPickerSelected ? 'Batal Semua' : 'Pilih Semua'}
                         </button>
                       </div>
-                      <div className="border border-suka-gray-200 rounded-xl p-2 max-h-44 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-1">
-                        {filteredPickerOutlets.length === 0 ? (
-                          <p className="col-span-full px-2 py-3 text-xs text-suka-gray-400 text-center">Outlet tidak ditemukan.</p>
-                        ) : (
-                          filteredPickerOutlets.map((o) => {
-                            const checked = selectedOutlets.has(o.outlet_id)
-                            return (
-                              <button
-                                key={o.outlet_id}
-                                onClick={() => toggleOutlet(o.outlet_id)}
-                                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-bold text-left transition-colors ${
-                                  checked ? 'bg-suka-orange/10 text-suka-orange' : 'text-suka-brown hover:bg-suka-cream/60'
-                                }`}
-                              >
-                                <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-suka-orange border-suka-orange' : 'border-suka-gray-300'}`}>
-                                  {checked && <CheckCircle2 className="w-3 h-3 text-white" />}
-                                </span>
-                                <span className="truncate">{cleanName(o.outlet_name)}</span>
-                              </button>
-                            )
-                          })
-                        )}
+
+                      <div className="max-h-40 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-1.5 pr-1">
+                        {filteredPickerOutlets.map((o) => {
+                          const checked = selectedOutlets.has(o.outlet_id)
+                          return (
+                            <button
+                              key={o.outlet_id}
+                              type="button"
+                              onClick={() => toggleOutlet(o.outlet_id)}
+                              className={`flex items-center gap-2 p-2 rounded-xl text-xs font-bold text-left transition-all ${
+                                checked ? 'bg-amber-500 text-white shadow-xs' : 'bg-white text-gray-700 border border-gray-100 hover:bg-amber-50'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 ${checked ? 'bg-white text-amber-600' : 'border-gray-300'}`}>
+                                {checked && <CheckCircle2 className="w-3 h-3" />}
+                              </div>
+                              <span className="truncate">{cleanName(o.outlet_name)}</span>
+                            </button>
+                          )
+                        })}
                       </div>
-                      <p className="text-[10px] text-suka-gray-400 font-semibold mt-1.5">{selectedOutlets.size} outlet dipilih</p>
-                    </>
+                    </div>
                   )}
                 </div>
 
-                {/* Target (opsional) */}
-                <div>
-                  <label className="block text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider mb-2">
-                    <TargetIcon className="w-3 h-3 inline mr-1" /> Target Harian (opsional)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-sm font-bold">Rp</span>
-                    <input
-                      inputMode="numeric"
-                      value={targetInput ? Number(targetInput).toLocaleString('id-ID') : ''}
-                      onChange={(e) => setTargetInput(e.target.value.replace(/\D/g, ''))}
-                      placeholder="mis. 5.000.000"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
-                    />
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center">2</span>
+                    <h3 className="font-bold text-gray-900 text-sm">Target Omzet & Bonus Sales <span className="text-gray-400 font-normal">(Opsional)</span></h3>
                   </div>
-                  <p className="text-[10px] text-suka-gray-400 font-semibold mt-1.5">
-                    {audienceAll
-                      ? <>Jadi <b>target global baru</b> (kini {rupiah(globalDefault)}/hari). Seluruh outlet (termasuk yang di-override) akan langsung mengikuti target ini.</>
-                      : <>Jadi <b>override</b> untuk {selectedOutlets.size || 0} outlet terpilih.</>}
-                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                        <TargetIcon className="w-4 h-4 text-amber-600" /> Target Omzet Harian
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-extrabold text-xs">Rp</span>
+                        <input
+                          inputMode="numeric"
+                          value={targetInput ? Number(targetInput).toLocaleString('id-ID') : ''}
+                          onChange={(e) => setTargetInput(e.target.value.replace(/\D/g, ''))}
+                          placeholder="misal: 5.000.000"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50/50 border border-gray-200 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-amber-600" /> Bonus Per Item Terjual
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-extrabold text-xs">Rp</span>
+                        <input
+                          inputMode="numeric"
+                          value={bonusInput ? Number(bonusInput).toLocaleString('id-ID') : ''}
+                          onChange={(e) => setBonusInput(e.target.value.replace(/\D/g, ''))}
+                          placeholder="misal: 150.000"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50/50 border border-gray-200 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Bonus Harian (opsional) */}
-                <div>
-                  <label className="block text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider mb-2">
-                    <Sparkles className="w-3 h-3 inline mr-1" /> Nominal Bonus Per Item (opsional)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-sm font-bold">Rp</span>
-                    <input
-                      inputMode="numeric"
-                      value={bonusInput ? Number(bonusInput).toLocaleString('id-ID') : ''}
-                      onChange={(e) => setBonusInput(e.target.value.replace(/\D/g, ''))}
-                      placeholder="mis. 150.000"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
-                    />
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center">3</span>
+                      <h3 className="font-bold text-gray-900 text-sm">Pesan Pengumuman & Motivasi <span className="text-gray-400 font-normal">(Opsional)</span></h3>
+                    </div>
                   </div>
-                  <p className="text-[10px] text-suka-gray-400 font-semibold mt-1.5">
-                    {audienceAll
-                      ? <>Jadi <b>bonus global baru</b> (kini {rupiah(globalDefaultBonus)}/item). Seluruh outlet (termasuk yang di-override) akan langsung mengikuti bonus ini.</>
-                      : <>Jadi <b>override</b> untuk {selectedOutlets.size || 0} outlet terpilih.</>}
-                  </p>
-                </div>
 
-                {/* Pesan (opsional) */}
-                <div className="pt-1 border-t border-suka-gray-100 space-y-4">
-                  <label className="block text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider">
-                    Pesan (opsional)
-                  </label>
-
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {KINDS.map((k) => {
                       const Icon = k.icon
                       const active = kind === k.key
                       return (
                         <button
                           key={k.key}
+                          type="button"
                           onClick={() => setKind(k.key)}
-                          className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 border ${
-                            active ? 'text-white border-transparent shadow-sm' : 'text-suka-gray-500 border-suka-gray-200 hover:border-suka-brown/20'
+                          className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                            active
+                              ? `${k.bg} ${k.border} font-bold shadow-xs`
+                              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                           }`}
-                          style={active ? { backgroundColor: k.color } : undefined}
+                          style={active ? { color: k.color } : undefined}
                         >
-                          <Icon className="w-4 h-4" />
-                          {k.label}
+                          <Icon className="w-5 h-5" />
+                          <span className="text-xs font-bold">{k.label}</span>
                         </button>
                       )
                     })}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {QUOTES.map((q, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setBody(q)}
-                        className="text-[11px] font-semibold text-suka-brown/80 bg-suka-cream hover:bg-suka-orange/10 border border-suka-brown/5 px-3 py-1.5 rounded-full transition-colors text-left max-w-full truncate"
-                        title={q}
-                      >
-                        {q.length > 38 ? q.slice(0, 38) + '…' : q}
-                      </button>
-                    ))}
-                  </div>
-
-                  <input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Judul (opsional), mis. Semangat Pagi!"
-                    maxLength={80}
-                    className="w-full px-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
-                  />
-
-                  <div>
-                    <textarea
-                      value={body}
-                      onChange={(e) => setBody(e.target.value)}
-                      rows={3}
-                      placeholder={title.trim().length > 0 ? "Wajib diisi jika Anda menulis judul pesan..." : "Tulis pesan untuk kasir... (kosongkan jika hanya set target)"}
-                      maxLength={500}
-                      className="w-full px-3 py-2.5 rounded-xl text-sm font-medium text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 resize-none"
-                    />
-                    <p className="text-[10px] text-suka-gray-400 font-semibold mt-1 text-right">{body.length}/500</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider mb-2">
-                      <Clock className="w-3 h-3 inline mr-1" /> Pesan kadaluarsa
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                      💡 Pilih Template Pesan Cepat (1 Klik):
                     </label>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {QUOTES.map((q, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setBody(q)}
+                          className="w-full text-left p-2.5 rounded-xl text-xs font-medium text-gray-700 bg-amber-50/40 hover:bg-amber-100/60 border border-amber-100/80 transition-colors flex items-center justify-between gap-2"
+                        >
+                          <span className="line-clamp-1">{q}</span>
+                          <span className="text-[10px] font-bold text-amber-700 bg-white px-2 py-0.5 rounded-md shrink-0 border border-amber-200/50">Pakai</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Judul Pesan (Opsional), contoh: Semangat Pagi!"
+                      maxLength={80}
+                      className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-900 bg-gray-50/50 border border-gray-200 outline-none focus:border-amber-500 focus:bg-white"
+                    />
+
+                    <div>
+                      <textarea
+                        value={body}
+                        onChange={(e) => setBody(e.target.value)}
+                        rows={3}
+                        placeholder={title.trim() ? 'Tulis isi pesan lengkap di sini...' : 'Tulis pesan untuk kasir... (Kosongkan jika hanya mengatur target omzet)'}
+                        maxLength={500}
+                        className="w-full p-3 rounded-xl text-xs font-medium text-gray-900 bg-gray-50/50 border border-gray-200 outline-none focus:border-amber-500 focus:bg-white resize-none"
+                      />
+                      <p className="text-[10px] text-gray-400 font-semibold text-right mt-1">{body.length}/500 Karakter</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-amber-600" /> Masa Berlaku Tampil Pesan
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
                       {EXPIRY_PRESETS.map((p) => (
                         <button
                           key={p.key}
+                          type="button"
                           onClick={() => setExpiryKey(p.key)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 border ${
-                            expiryKey === p.key ? 'bg-suka-orange text-white border-transparent' : 'text-suka-gray-500 border-suka-gray-200 hover:border-suka-brown/20'
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                            expiryKey === p.key
+                              ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                           }`}
                         >
                           {p.label}
@@ -549,13 +626,14 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                         type="datetime-local"
                         value={customExpiry}
                         onChange={(e) => setCustomExpiry(e.target.value)}
-                        className="mt-2 w-full px-3 py-2 rounded-xl text-sm font-medium text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange"
+                        className="mt-2 w-full px-3 py-2 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 border border-gray-200 outline-none focus:border-amber-500"
                       />
                     )}
                   </div>
                 </div>
 
                 <button
+                  type="button"
                   onClick={submit}
                   disabled={
                     sending || 
@@ -563,175 +641,231 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                     (hasBonus && !hasTarget) || 
                     (!hasTarget && body.trim().length === 0)
                   }
-                  className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-suka-orange hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm transition-all active:scale-95 shadow-sm shadow-suka-orange/20"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-sm shadow-md shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[.99] flex items-center justify-center gap-2 mt-4"
                 >
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : sent ? <CheckCircle2 className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-                  {sent ? 'Terkirim!' : (title.trim().length > 0 && body.trim().length === 0) ? 'Isi Pesan Wajib Diisi' : (hasBonus && !hasTarget) ? 'Isi Target Harian' : (!hasTarget && body.trim().length === 0) ? 'Isi Target atau Pesan' : hasTarget && hasMessage ? 'Kirim Target & Pesan' : hasMessage ? 'Kirim Pesan' : 'Simpan Target'}
+                  {sending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : sent ? (
+                    <CheckCircle2 className="w-5 h-5" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                  {sent
+                    ? 'Berhasil Terkirim!'
+                    : (title.trim().length > 0 && body.trim().length === 0)
+                    ? 'Isi Pesan Wajib Diisi (Judul Terisi)'
+                    : (hasBonus && !hasTarget)
+                    ? 'Isi Target Omzet Terlebih Dahulu'
+                    : (!hasTarget && body.trim().length === 0)
+                    ? 'Isi Target Omzet ATAU Tulis Pesan'
+                    : '🚀 Kirim Target & Pesan ke Kasir'}
                 </button>
-                  </div>
-                )}
+              </div>
+            )}
+          </div>
+
+          <div className="lg:col-span-5 bg-white rounded-3xl border border-amber-100 shadow-sm p-5 sm:p-6 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-amber-600" />
+                  <h3 className="font-extrabold text-gray-900 text-base">Riwayat Pesan Kasir</h3>
+                </div>
+                <span className="text-xs font-bold text-gray-400">{history.length} Terkirim</span>
               </div>
 
-              {/* History */}
-              <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm">
-                <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase mb-4">Riwayat Pesan</h3>
-                {history.length === 0 ? (
-                  <p className="text-sm text-suka-gray-400 text-center py-8">Belum ada pesan terkirim.</p>
-                ) : (
-                  <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1">
-                    {history.map((m) => {
-                      const meta = KINDS.find((k) => k.key === m.kind) ?? KINDS[0]
-                      const Icon = meta.icon
-                      return (
-                        <div key={m.id} className="border border-suka-gray-100 rounded-xl p-3 space-y-2">
-                          <div className="flex items-start gap-2">
-                            <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${meta.color}1a` }}>
-                              <Icon className="w-3.5 h-3.5" style={{ color: meta.color }} />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              {m.title && <p className="text-xs font-extrabold text-suka-brown truncate">{m.title}</p>}
-                              <p className="text-xs text-suka-gray-600 font-medium line-clamp-2">{m.body}</p>
+              {history.length === 0 ? (
+                <div className="h-64 flex flex-col items-center justify-center text-gray-400 text-center p-4">
+                  <MessageSquare className="w-8 h-8 text-gray-300 mb-2" />
+                  <p className="text-xs font-bold">Belum Ada Pesan Terkirim</p>
+                  <p className="text-[11px] text-gray-400 mt-1">Pesan motivasi/pengumuman yang Anda kirim akan tampil di sini.</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
+                  {history.map((m) => {
+                    const meta = KINDS.find((k) => k.key === m.kind) ?? KINDS[0]
+                    const Icon = meta.icon
+                    return (
+                      <div key={m.id} className="p-4 rounded-2xl border border-gray-100 bg-gray-50/50 hover:bg-amber-50/20 transition-colors space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${meta.color}1a` }}>
+                              <Icon className="w-4 h-4" style={{ color: meta.color }} />
                             </div>
-                            {m.is_live ? (
-                              <span className="text-[9px] font-bold text-suka-green bg-suka-green/10 px-2 py-0.5 rounded-full uppercase shrink-0">Aktif</span>
-                            ) : (
-                              <span className="text-[9px] font-bold text-suka-gray-400 bg-suka-gray-100 px-2 py-0.5 rounded-full uppercase shrink-0">Selesai</span>
+                            <div>
+                              <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</span>
+                              {m.title && <h4 className="text-xs font-bold text-gray-900 leading-tight">{m.title}</h4>}
+                            </div>
+                          </div>
+
+                          {m.is_live ? (
+                            <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full shrink-0">🟢 AKTIF</span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">SELESAI</span>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-gray-700 leading-relaxed font-medium bg-white p-2.5 rounded-xl border border-gray-100">{m.body}</p>
+
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-gray-400 pt-1">
+                          <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1">
+                              {m.target_type === 'all' ? <><Globe className="w-3.5 h-3.5 text-amber-600" /> Semua Cabang</> : <><Store className="w-3.5 h-3.5 text-amber-600" /> {m.outlet_ids.length} Cabang</>}
+                            </span>
+                            <span className="flex items-center gap-1 text-gray-500">
+                              <Eye className="w-3.5 h-3.5 text-gray-400" /> {m.read_count} Dibaca
+                            </span>
+                          </div>
+                          <span>{new Date(m.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+
+                        {m.target_type === 'outlets' && m.outlet_ids && m.outlet_ids.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {m.outlet_ids.slice(0, 4).map((id) => (
+                              <span key={id} className="text-[10px] font-bold text-amber-900 bg-amber-100/70 px-2 py-0.5 rounded-md">
+                                {outletNameById.get(id) ?? id}
+                              </span>
+                            ))}
+                            {m.outlet_ids.length > 4 && (
+                              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-md">
+                                +{m.outlet_ids.length - 4} lagi
+                              </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-[10px] font-bold text-suka-gray-400">
-                            <span className="flex items-center gap-1">
-                              {m.target_type === 'all' ? <><Globe className="w-3 h-3" /> Semua</> : <><Store className="w-3 h-3" /> {m.outlet_ids.length} outlet</>}
-                            </span>
-                            <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {m.read_count} dibaca</span>
-                            <span className="ml-auto">{new Date(m.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
-                          {m.target_type === 'outlets' && m.outlet_ids.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {m.outlet_ids.slice(0, 4).map((id) => (
-                                <span key={id} className="text-[9px] font-bold text-suka-brown/70 bg-suka-cream px-1.5 py-0.5 rounded">{outletNameById.get(id) ?? '—'}</span>
-                              ))}
-                              {m.outlet_ids.length > 4 && <span className="text-[9px] font-bold text-suka-gray-400">+{m.outlet_ids.length - 4}</span>}
-                            </div>
-                          )}
-                          {m.is_live && (
-                            <button
-                              onClick={() => deactivateMessage(m.id)}
-                              className="flex items-center gap-1.5 text-[10px] font-bold text-red-500 hover:text-red-600 transition-colors"
-                            >
-                              <Power className="w-3 h-3" /> Nonaktifkan
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+                        )}
 
-          {/* ── Per-outlet target table ── */}
-          <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-suka-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Store className="w-4 h-4 text-suka-brown" />
-                <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Target Per Outlet</h3>
-                {!isReadOnly && (
-                  <span className="text-[10px] font-bold text-suka-gray-400">· Default global: Target {rupiah(globalDefault)} & Bonus {rupiah(globalDefaultBonus)} / item</span>
-                )}
-              </div>
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-gray-400" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Cari outlet..."
-                  className="w-full pl-9 pr-3 py-2 rounded-xl text-xs font-bold text-suka-brown bg-suka-cream/40 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 placeholder:text-suka-gray-400 placeholder:font-medium"
-                />
-              </div>
-            </div>
-            <div className="divide-y divide-suka-gray-100">
-              {filteredRows.length === 0 && (
-                <p className="px-5 py-6 text-sm text-suka-gray-400 text-center">Outlet tidak ditemukan.</p>
+                        {m.is_live && (
+                          <button
+                            type="button"
+                            onClick={() => deactivateMessage(m.id)}
+                            className="w-full py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <Power className="w-3.5 h-3.5" /> Matikan Pesan Ini Dari Kasir
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-b from-gray-50/50 to-white">
+          <div>
+            <div className="flex items-center gap-2">
+              <Store className="w-5 h-5 text-amber-600" />
+              <h3 className="font-extrabold text-gray-900 text-base">Daftar Target Omzet Per Cabang</h3>
+            </div>
+            <p className="text-gray-400 text-xs mt-0.5">
+              Default Global: <b>{rupiah(globalDefault)}</b>/hari · Bonus <b>{rupiah(globalDefaultBonus)}</b>/item
+            </p>
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari nama cabang..."
+              className="w-full pl-9 pr-3.5 py-2 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 border border-gray-200 outline-none focus:border-amber-500 focus:bg-white"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-amber-50/40 text-gray-500 uppercase tracking-wider font-extrabold border-b border-gray-100">
+              <tr>
+                <th className="py-3.5 px-5">Nama Cabang / Outlet</th>
+                <th className="py-3.5 px-4">Status Target</th>
+                <th className="py-3.5 px-4">Target Omzet Harian</th>
+                <th className="py-3.5 px-4">Bonus Per Item</th>
+                {!isReadOnly && <th className="py-3.5 px-5 text-right">Aksi Edit Khusus</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 font-medium">
               {filteredRows.map((r) => {
+                const targetVal = overrideInputs[r.outlet_id] ?? ''
+                const bonusVal = overrideBonusInputs[r.outlet_id] ?? ''
                 const isSaving = savingKey === r.outlet_id
                 const isSaved = savedKey === r.outlet_id
+
                 return (
-                  <div key={r.outlet_id} className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
-                    <div className="flex items-center gap-3 sm:w-56 shrink-0">
-                      <span className="font-bold text-suka-ink text-sm truncate">{cleanName(r.outlet_name)}</span>
+                  <tr key={r.outlet_id} className="hover:bg-amber-50/20 transition-colors">
+                    <td className="py-3.5 px-5 font-bold text-gray-900">{cleanName(r.outlet_name)}</td>
+                    <td className="py-3.5 px-4">
                       {r.is_override ? (
-                        <span className="text-[9px] font-bold text-suka-orange bg-suka-orange/10 px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0">Override</span>
+                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-full">
+                          Target Khusus
+                        </span>
                       ) : (
-                        <span className="text-[9px] font-bold text-suka-gray-400 bg-suka-gray-100 px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0">Default</span>
+                        <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
+                          Ikut Global
+                        </span>
                       )}
-                    </div>
-                    <div className="text-xs font-bold text-suka-gray-500 sm:w-64 shrink-0 flex flex-col md:flex-row md:gap-3">
-                      <div>Target: <span className="text-suka-brown">{rupiah(r.target_amount)}</span></div>
-                      <div>Bonus/item: <span className="text-suka-orange">{rupiah(r.per_item_bonus)}</span></div>
-                    </div>
-                    {isReadOnly ? (
-                      <div className="flex flex-1 items-center gap-4">
-                        <div>
-                          <span className="text-sm font-extrabold text-suka-brown">{rupiah(r.target_amount)}</span>
-                          <span className="ml-1 text-[10px] font-bold text-suka-gray-400 uppercase">Target</span>
-                        </div>
-                        <div>
-                          <span className="text-sm font-extrabold text-suka-orange">{rupiah(r.per_item_bonus)}</span>
-                          <span className="ml-1 text-[10px] font-bold text-suka-gray-400 uppercase">Bonus/Item</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-1 flex-col md:flex-row gap-2">
-                        <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-xs font-bold">Rp</span>
-                          <input
-                            inputMode="numeric"
-                            value={overrideInputs[r.outlet_id] ? Number(overrideInputs[r.outlet_id]).toLocaleString('id-ID') : ''}
-                            onChange={(e) => setOverrideInputs((m) => ({ ...m, [r.outlet_id]: e.target.value.replace(/\D/g, '') }))}
-                            placeholder="target override..."
-                            className="w-full pl-8 pr-3 py-2 rounded-xl text-xs font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
-                          />
-                        </div>
-                        <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-xs font-bold">Rp</span>
-                          <input
-                            inputMode="numeric"
-                            value={overrideBonusInputs[r.outlet_id] ? Number(overrideBonusInputs[r.outlet_id]).toLocaleString('id-ID') : ''}
-                            onChange={(e) => setOverrideBonusInputs((m) => ({ ...m, [r.outlet_id]: e.target.value.replace(/\D/g, '') }))}
-                            placeholder="bonus override..."
-                            className="w-full pl-8 pr-3 py-2 rounded-xl text-xs font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
-                          />
-                        </div>
-                        <div className="flex gap-2">
+                    </td>
+                    <td className="py-3.5 px-4 font-black text-gray-900">
+                      {rupiah(r.target_amount)}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-gray-700">
+                      {rupiah(r.per_item_bonus)}
+                    </td>
+
+                    {!isReadOnly && (
+                      <td className="py-3.5 px-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              inputMode="numeric"
+                              placeholder="Target baru"
+                              value={targetVal ? Number(targetVal).toLocaleString('id-ID') : ''}
+                              onChange={(e) => setOverrideInputs({ ...overrideInputs, [r.outlet_id]: e.target.value.replace(/\D/g, '') })}
+                              className="w-24 px-2 py-1 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 outline-none focus:border-amber-500"
+                            />
+                            <input
+                              inputMode="numeric"
+                              placeholder="Bonus"
+                              value={bonusVal ? Number(bonusVal).toLocaleString('id-ID') : ''}
+                              onChange={(e) => setOverrideBonusInputs({ ...overrideBonusInputs, [r.outlet_id]: e.target.value.replace(/\D/g, '') })}
+                              className="w-20 px-2 py-1 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 outline-none focus:border-amber-500"
+                            />
+                          </div>
+
                           <button
+                            type="button"
                             onClick={() => saveOverride(r.outlet_id)}
-                            disabled={isSaving || (!(overrideInputs[r.outlet_id] ?? '').trim() && !(overrideBonusInputs[r.outlet_id] ?? '').trim())}
-                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-suka-orange hover:bg-amber-600 disabled:opacity-40 text-white font-bold text-xs transition-all active:scale-95 shrink-0"
+                            disabled={isSaving || (!targetVal.trim() && !bonusVal.trim())}
+                            className="p-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-30 text-white font-bold transition-all shrink-0"
+                            title="Simpan Target Khusus Cabang Ini"
                           >
                             {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isSaved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                            <span className="hidden sm:inline">Simpan</span>
                           </button>
+
                           {r.is_override && (
                             <button
+                              type="button"
                               onClick={() => clearOverride(r.outlet_id)}
                               disabled={isSaving}
-                              title="Hapus override (ikut default)"
-                              className="flex items-center justify-center px-2.5 py-2 rounded-xl border border-suka-gray-200 text-suka-gray-500 hover:text-suka-brown hover:border-suka-brown/20 transition-all active:scale-95 shrink-0"
+                              className="p-1.5 rounded-lg bg-gray-100 hover:bg-red-50 text-gray-500 hover:text-red-600 font-bold transition-all shrink-0"
+                              title="Reset Kembali ke Target Global"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
-                      </div>
+                      </td>
                     )}
-                  </div>
+                  </tr>
                 )
               })}
-            </div>
-          </div>
-        </>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }

@@ -149,6 +149,7 @@ export function isItemActive(href: string, pathname: string): boolean {
     href === '/dashboard/hr' ||
     href === '/dashboard/owner' ||
     href === '/dashboard/leader' ||
+    href === '/dashboard/area-manager' ||
     href === '/dashboard' ||
     href === '/dashboard/owner/expenses' ||
     href === '/dashboard/pos-admin' ||

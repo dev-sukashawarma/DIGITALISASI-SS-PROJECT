@@ -9,6 +9,9 @@ const ROLE_HOME: Record<string, string> = {
   MITRA: '/dashboard/mitra',
   ADMIN_HR: '/dashboard/hr',
   ADMIN: '/dashboard/system-health',
+  AREA_MANAGER: '/dashboard/area-manager',
+  KORLAP: '/dashboard/area-manager',
+  LEADER: '/dashboard/leader',
 }
 const FALLBACK_HOME = '/dashboard/hr'
 

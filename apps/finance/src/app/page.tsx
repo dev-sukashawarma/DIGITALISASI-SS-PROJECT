@@ -7,11 +7,15 @@ export default async function DashboardPage() {
   const staff = parseStaffHeader((await headers()).get(STAFF_HEADER))
   
   if (staff?.role === 'leader') {
-    redirect('/leader')
+    redirect('/leader/petty-cash')
   }
   
-  if (staff?.role === 'area_manager') {
-    redirect('/area-manager')
+  if (staff?.role === 'area_manager' || staff?.role === 'korlap') {
+    redirect('/area-manager/petty-cash')
+  }
+
+  if (staff?.role === 'admin' || staff?.role === 'admin_finance' || staff?.role === 'owner') {
+    redirect('/finance/petty-cash')
   }
 
   return <DashboardClient />

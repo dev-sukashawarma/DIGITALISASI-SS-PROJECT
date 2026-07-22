@@ -174,7 +174,7 @@ export default function CloseShiftPage() {
 
         snapExpenses = expRes.data || []
         snapTopups = topRes.data || []
-        snapCashOrders = (ordRes.data || []).filter(o => o.payment_method === 'cash' || o.channel != null)
+        snapCashOrders = (ordRes.data || []).filter(o => o.payment_method === 'cash')
         setExpenses(snapExpenses)
         setTopups(snapTopups)
         setCashOrders(snapCashOrders)

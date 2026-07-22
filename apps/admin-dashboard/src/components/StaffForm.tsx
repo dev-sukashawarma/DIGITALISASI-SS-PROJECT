@@ -9,7 +9,7 @@ import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role } from '@/lib/types'
 import { generateTempPassword } from '@/lib/generatePassword'
 
-const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance', 'korlap']
+const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance', 'area_manager']
 
 const getStaffFormSchema = (isEditing: boolean) => z.object({
   name: z.string().min(1, 'Nama Lengkap wajib diisi'),
@@ -17,7 +17,7 @@ const getStaffFormSchema = (isEditing: boolean) => z.object({
     ? z.string().optional().or(z.literal('')) 
     : z.string().min(1, 'Username wajib diisi').regex(/^[a-z0-9_]*$/, 'Username hanya boleh huruf kecil, angka, dan underscore'),
   password: isEditing ? z.string().optional() : z.string().min(1, 'Password Sementara wajib diisi'),
-  role: z.enum(['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance', 'korlap']),
+  role: z.enum(['admin', 'admin_hr', 'owner', 'spv', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance', 'area_manager']),
   outlet_id: z.string().min(1, 'Outlet Home wajib diisi'),
   outlet_ids: z.array(z.string()).default([]),
   nip: z.string().nullable().optional(),

@@ -48,7 +48,7 @@ export default function LoginPage() {
       return
     }
 
-    if (['admin', 'owner', 'mitra'].includes(staff.role)) {
+    if (['admin', 'owner', 'mitra', 'area_manager', 'korlap'].includes(staff.role)) {
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || process.env.NODE_ENV === 'development'
       const adminUrl = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || (isLocal ? 'http://localhost:3005' : 'https://admin.sukashawarma.com')
       window.location.href = adminUrl

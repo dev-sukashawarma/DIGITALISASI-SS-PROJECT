@@ -58,9 +58,9 @@ export function CashLayout({ children }: { children: ReactNode }) {
   }
 
   // Prevent leader/area-manager from seeing the finance dashboard if they manually navigate to /setoran etc.
-  if (outletStaff && (outletStaff.role === 'leader' || outletStaff.role === 'area_manager') && pathname !== '/') {
+  if (outletStaff && (outletStaff.role === 'leader' || outletStaff.role === 'area_manager' || outletStaff.role === 'korlap') && pathname !== '/') {
     if (typeof window !== 'undefined') {
-      window.location.href = `/${outletStaff.role}`
+      window.location.href = `/${outletStaff.role === 'korlap' ? 'area-manager' : outletStaff.role}`
     }
     return null
   }

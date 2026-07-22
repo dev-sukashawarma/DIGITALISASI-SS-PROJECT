@@ -20,6 +20,10 @@ vi.mock('@suka/auth', () => ({
       status: 'active',
     },
   }),
+  createSupabaseBrowserClient: () => ({
+    channel: () => ({ on: () => ({ subscribe: () => ({}) }) }),
+    removeChannel: () => ({}),
+  }),
 }));
 vi.mock('../CrewList', () => ({
   CrewList: ({ items, onItemClick: _onItemClick }: any) => (

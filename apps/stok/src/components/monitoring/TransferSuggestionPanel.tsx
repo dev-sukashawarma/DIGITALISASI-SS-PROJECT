@@ -15,7 +15,7 @@ interface TransferSuggestionPanelProps {
 
 export function TransferSuggestionPanel({
   items,
-  
+  onTransfer,
 }: TransferSuggestionPanelProps) {
   const suggestions = useMemo(
     () => computeTransferSuggestions(items),
@@ -58,6 +58,7 @@ export function TransferSuggestionPanel({
           </div>
           <Link
             href={`/stok/mutasi/new?tujuan=${s.recipientOutletId}&bahan=${s.bahan_baku_id}&qty=${s.qty}`}
+            onClick={() => onTransfer?.(s)}
             className="shrink-0 px-4 py-2 text-sm font-semibold rounded-xl bg-suka-orange text-white hover:opacity-90 transition-opacity block text-center"
           >
             Ajukan Mutasi

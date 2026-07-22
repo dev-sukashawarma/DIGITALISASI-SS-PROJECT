@@ -6,8 +6,8 @@ describe('formatCompositeSaldo', () => {
     expect(formatCompositeSaldo(2.5, 'kompan', 'liter', 16)).toBe('2 kompan + 8 liter')
   })
 
-  it('sisa 0 tetap tampil eksplisit', () => {
-    expect(formatCompositeSaldo(2, 'kompan', 'liter', 16)).toBe('2 kompan + 0 liter')
+  it('sisa 0 tetap tampil sebagai unit utama', () => {
+    expect(formatCompositeSaldo(2, 'kompan', 'liter', 16)).toBe('2 kompan')
   })
 
   it('sisa mendekati batas dibulatkan 2 desimal', () => {
@@ -19,9 +19,9 @@ describe('formatCompositeSaldo', () => {
     expect(formatCompositeSaldo(-0.5, 'kompan', 'liter', 16)).toBe('0 kompan - 8 liter')
   })
 
-  it('saldo negatif integer: tampil dengan sisa 0', () => {
+  it('saldo negatif integer: tampil tanpa sisa 0', () => {
     // -2 kompan: whole = -2, remainder = 0
-    expect(formatCompositeSaldo(-2, 'kompan', 'liter', 16)).toBe('-2 kompan + 0 liter')
+    expect(formatCompositeSaldo(-2, 'kompan', 'liter', 16)).toBe('-2 kompan')
   })
 
   it('saldo negatif pecahan: -33.1 pcs -> "-33 pcs - 0.3 kg" (intuitif, bukan "-34 pcs + 2.7 kg")', () => {
@@ -37,7 +37,7 @@ describe('formatCompositeSaldo', () => {
   })
 
   it('carry: qty mendekati batas integer akibat floating-point drift', () => {
-    expect(formatCompositeSaldo(2.9999999999, 'roll', 'cm', 760)).toBe('3 roll + 0 cm')
+    expect(formatCompositeSaldo(2.9999999999, 'roll', 'cm', 760)).toBe('3 roll')
   })
 })
 

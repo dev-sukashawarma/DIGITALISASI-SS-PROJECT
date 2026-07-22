@@ -51,7 +51,7 @@ describe('TransferSuggestionPanel', () => {
       makeItem({ outlet_id: 'b', outlet_name: 'KITCHEN', current_qty: 30, threshold: 10, status: 'ok' }),
     ]
     render(<TransferSuggestionPanel items={items} onTransfer={onTransfer} />)
-    fireEvent.click(screen.getByRole('button', { name: /transfer/i }))
+    fireEvent.click(screen.getByRole('link', { name: /Ajukan Mutasi/i }))
     expect(onTransfer).toHaveBeenCalledWith(
       expect.objectContaining({ donorOutletId: 'b', recipientOutletId: 'a', qty: 8 })
     )

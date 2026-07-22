@@ -99,8 +99,14 @@ export default function MenuView({
   const fileRef = useRef<HTMLInputElement>(null)
 
   const getSlug = (channelId: string) => {
-    const ch = initialChannels.find(c => c.id === channelId)
-    return ch ? ch.name.toLowerCase().replace(/\s+/g, '') : ''
+    if (!channelId) return ''
+    if (channelId === 'pos_kasir') return 'pos_kasir'
+    if (channelId === 'all_food_apps') return 'all_food_apps'
+    const ch = initialChannels.find(c => c.id === channelId || c.name.toLowerCase().replace(/\s+/g, '') === channelId.toLowerCase().replace(/\s+/g, ''))
+    const raw = ch ? ch.name : channelId
+    const slug = raw.toLowerCase().replace(/\s+/g, '')
+    if (slug === 'tiktokgo' || slug === 'tiktok_go') return 'tiktokgo'
+    return slug
   }
 
   const sortedItems = useMemo(() => {
@@ -114,13 +120,22 @@ export default function MenuView({
 
     if (activeChannelFilter) {
       const slug = getSlug(activeChannelFilter);
-      sortableItems = sortableItems.filter(item => {
-        if (item.is_available_online === false) return false;
-        if (item.available_online_channels !== null && Array.isArray(item.available_online_channels)) {
-          return item.available_online_channels.includes(slug);
-        }
-        return true;
-      });
+      if (slug === 'pos_kasir') {
+        sortableItems = sortableItems.filter(item => item.is_available !== false);
+      } else if (slug === 'all_food_apps') {
+        sortableItems = sortableItems.filter(item => item.is_available_online !== false);
+      } else {
+        sortableItems = sortableItems.filter(item => {
+          if (item.is_available_online === false) return false;
+          if (item.available_online_channels !== null && Array.isArray(item.available_online_channels)) {
+            const matchInChannels = item.available_online_channels.some(
+              c => c.toLowerCase().replace(/\s+/g, '') === slug || (slug === 'tiktokgo' && (c === 'tiktokgo' || c === 'tiktok_go'))
+            );
+            if (!matchInChannels) return false;
+          }
+          return true;
+        });
+      }
     }
 
     if (sortConfig !== null) {
@@ -135,7 +150,7 @@ export default function MenuView({
           aValue = a.categories?.name?.toLowerCase() || '';
           bValue = b.categories?.name?.toLowerCase() || '';
         } else if (sortConfig.key === 'price') {
-          if (activeChannelFilter) {
+          if (activeChannelFilter && !['pos_kasir', 'all_food_apps'].includes(activeChannelFilter)) {
             const slug = getSlug(activeChannelFilter);
             aValue = a.channel_prices?.[slug] || a.price;
             bValue = b.channel_prices?.[slug] || b.price;
@@ -385,23 +400,9 @@ export default function MenuView({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Manajemen Menu</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{initialItems.length} item ditemukan</p>
+          <p className="text-gray-400 text-sm mt-0.5">{sortedItems.length} menu ditampilkan ({initialItems.length} total)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Channel Filter */}
-          {initialChannels.length > 0 && (
-            <select
-              value={activeChannelFilter}
-              onChange={(e) => setActiveChannelFilter(e.target.value)}
-              className="py-2.5 px-4 text-sm font-medium rounded-2xl border border-gray-200 bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all cursor-pointer text-gray-700"
-            >
-              <option value="">Harga Dasar</option>
-              {initialChannels.map(ch => (
-                <option key={ch.id} value={ch.id}>Harga {ch.name}</option>
-              ))}
-            </select>
-          )}
-
           {/* Search Input */}
           <MenuSearch />
 
@@ -431,6 +432,87 @@ export default function MenuView({
             Tambah Menu
           </button>
         </div>
+      </div>
+
+      {/* Interactive Channel Filter Chips Bar */}
+      <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex flex-wrap items-center gap-2 overflow-x-auto">
+        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider px-2">Filter Channel:</span>
+
+        <button
+          type="button"
+          onClick={() => setActiveChannelFilter('')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeChannelFilter === ''
+              ? 'bg-gray-900 text-white shadow-xs'
+              : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+          }`}
+        >
+          🍽️ Semua Menu ({initialItems.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveChannelFilter('pos_kasir')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeChannelFilter === 'pos_kasir'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100'
+          }`}
+        >
+          🏪 POS Kasir Toko
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveChannelFilter('all_food_apps')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeChannelFilter === 'all_food_apps'
+              ? 'bg-orange-600 text-white shadow-xs'
+              : 'bg-orange-50 text-orange-800 border border-orange-200/80 hover:bg-orange-100'
+          }`}
+        >
+          🛵 Semua Food Apps
+        </button>
+
+        {initialChannels.map(ch => {
+          const slug = ch.name.toLowerCase().replace(/\s+/g, '')
+          const isSelected = activeChannelFilter === ch.id || activeChannelFilter === slug
+          
+          let badgeStyle = 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
+          let selectedStyle = 'bg-gray-900 text-white shadow-xs'
+          let icon = '📱'
+
+          if (slug.includes('tiktok')) {
+            icon = '🎵'
+            badgeStyle = 'bg-slate-100 text-slate-900 border border-slate-300 hover:bg-slate-200'
+            selectedStyle = 'bg-slate-950 text-white shadow-xs'
+          } else if (slug.includes('gofood')) {
+            icon = '🟢'
+            badgeStyle = 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+            selectedStyle = 'bg-emerald-600 text-white shadow-xs'
+          } else if (slug.includes('grabfood')) {
+            icon = '🟢'
+            badgeStyle = 'bg-green-50 text-green-800 border border-green-200 hover:bg-green-100'
+            selectedStyle = 'bg-green-600 text-white shadow-xs'
+          } else if (slug.includes('shopee')) {
+            icon = '🧡'
+            badgeStyle = 'bg-orange-50 text-orange-800 border border-orange-200 hover:bg-orange-100'
+            selectedStyle = 'bg-orange-500 text-white shadow-xs'
+          }
+
+          return (
+            <button
+              key={ch.id}
+              type="button"
+              onClick={() => setActiveChannelFilter(ch.id)}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                isSelected ? selectedStyle : badgeStyle
+              }`}
+            >
+              {icon} Khusus {ch.name}
+            </button>
+          )
+        })}
       </div>
 
       {showForm && (
@@ -1069,6 +1151,25 @@ export default function MenuView({
                         {bestsellers.includes(item.id) && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">Best Seller</span>}
                         {recommendations.includes(item.id) && <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-bold">Rekomendasi</span>}
                         {upsells.includes(item.id) && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">Menu Ekstra</span>}
+
+                        {/* Channel Badges */}
+                        <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold">POS Kasir</span>
+                        {item.is_available_online !== false && (
+                          <>
+                            {(!item.available_online_channels || item.available_online_channels.includes('gofood') || item.channel_prices?.gofood) && (
+                              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">GoFood</span>
+                            )}
+                            {(!item.available_online_channels || item.available_online_channels.includes('grabfood') || item.channel_prices?.grabfood) && (
+                              <span className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded font-bold">GrabFood</span>
+                            )}
+                            {(!item.available_online_channels || item.available_online_channels.includes('shopeefood') || item.channel_prices?.shopeefood) && (
+                              <span className="text-[10px] bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-bold">ShopeeFood</span>
+                            )}
+                            {(!item.available_online_channels || item.available_online_channels.includes('tiktokgo') || item.available_online_channels.includes('tiktok_go') || item.channel_prices?.tiktokgo || item.channel_prices?.tiktok_go) && (
+                              <span className="text-[10px] bg-slate-900 text-white px-1.5 py-0.5 rounded font-bold">TikTok Go</span>
+                            )}
+                          </>
+                        )}
                       </div>
                       
                       {openDropdownId === item.id && (
@@ -1092,8 +1193,11 @@ export default function MenuView({
                             {formatRupiah(item.strike_price)}
                           </span>
                         )}
-                        {activeChannelFilter && item.channel_prices?.[getSlug(activeChannelFilter)] ? (
-                          <span className="font-bold text-amber-600">{formatRupiah(item.channel_prices[getSlug(activeChannelFilter)])}</span>
+                        {activeChannelFilter && !['pos_kasir', 'all_food_apps'].includes(activeChannelFilter) && item.channel_prices?.[getSlug(activeChannelFilter)] ? (
+                          <>
+                            <span className="font-bold text-amber-600">{formatRupiah(item.channel_prices[getSlug(activeChannelFilter)])}</span>
+                            <span className="text-[10px] text-gray-400 font-medium">Dasar: {formatRupiah(item.price)}</span>
+                          </>
                         ) : (
                           <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
                         )}

@@ -113,6 +113,21 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         setDeviceCoords(currentCoords);
         setDeviceAccuracy(accuracy);
 
+        // Deteksi sinyal mock location / Fake GPS pada level browser client
+        const isMockSignal = 
+          Boolean((pos.coords as any).isMock || (pos.coords as any).mocked) ||
+          (accuracy === 1.0 || accuracy === 0.0) ||
+          (accuracy < 15 && pos.coords.altitude === null && pos.coords.altitudeAccuracy === null && pos.coords.heading === null && pos.coords.speed === null);
+
+        if (isMockSignal) {
+          setResult({
+            ok: false,
+            message: "Lokasi Fake GPS / Mock Location Terdeteksi! Harap matikan aplikasi pemalsu lokasi di HP Anda dan gunakan GPS asli.",
+          });
+          setPhase("location_invalid");
+          return;
+        }
+
         // Akurasi GPS terlalu rendah → tolak tegas (jangan loloskan ke idle).
         if (!isGpsAccuracyAcceptable(accuracy)) {
           setResult({
@@ -415,6 +430,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       gps_lat: deviceCoords?.lat ?? null,
       gps_lng: deviceCoords?.lng ?? null,
       gps_accuracy: deviceAccuracy ?? null,
+      is_mock: (deviceAccuracy === 1.0 || deviceAccuracy === 0.0),
       match_distance: 0,
       selfie_path: null,
       ts_client: new Date().toISOString(),

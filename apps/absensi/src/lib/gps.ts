@@ -74,8 +74,10 @@ export function formatDistanceMeters(meters: number, shortForm: boolean = false)
 export interface GpsMetaSignal {
   accuracy: number;
   altitude?: number | null;
+  altitudeAccuracy?: number | null;
   speed?: number | null;
   isMock?: boolean;
+  sampleVariance?: number;
 }
 
 export interface AntiFakeGpsResult {
@@ -85,7 +87,7 @@ export interface AntiFakeGpsResult {
 
 /**
  * Analisis pola sinyal meta lokasi untuk mendeteksi penggunaan Fake GPS.
- * Aplikasi Fake GPS umumnya menyuplai nilai akurasi statis yang tidak wajar (1.0m/0.0m).
+ * Aplikasi Fake GPS umumnya menyuplai nilai akurasi statis (1.0m/0.0m) atau 0 variansi jitter satelit.
  */
 export function detectFakeGpsSignals(meta: GpsMetaSignal): AntiFakeGpsResult {
   if (meta.isMock === true) {
@@ -96,6 +98,10 @@ export function detectFakeGpsSignals(meta: GpsMetaSignal): AntiFakeGpsResult {
     if (meta.accuracy === 1.0 || meta.accuracy === 0.0) {
       return { isFakeGps: true, reason: "static_fake_accuracy" };
     }
+  }
+
+  if (meta.sampleVariance !== undefined && meta.sampleVariance === 0) {
+    return { isFakeGps: true, reason: "zero_satellite_jitter" };
   }
 
   return { isFakeGps: false };

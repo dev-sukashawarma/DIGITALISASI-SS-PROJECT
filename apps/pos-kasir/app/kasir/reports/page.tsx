@@ -421,27 +421,33 @@ export default function ReportsPage() {
   }, [justClosedShift, loadingShifts, shifts.length])
 
   const analytics = useMemo(() => {
-    const base = analyticsData || {
-      totalRevenue: 0, totalDeductions: 0, netRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
-      paymentBreakdown: {}, hourly: Array(24).fill(0), dailyEntries: [], bestSellers: [], categoryData: []
-    }
+    const base = analyticsData || {}
     
     // Hitung total selisih laci (variance) dari tutup shift
-    const totalCashVariance = shifts.reduce((s, shift) => s + (shift.variance || 0), 0)
+    const totalCashVariance = (shifts || []).reduce((s, shift) => s + (shift.variance || 0), 0)
 
     let totalRevenue = base.totalRevenue || 0
     let totalDeductions = base.totalDeductions || 0
     let netRevenue = Math.max(0, totalRevenue - totalDeductions)
-    let avgOrderValue = base.totalOrders > 0 ? Math.round(totalRevenue / base.totalOrders) : 0
+    let totalOrders = base.totalOrders || 0
+    let pendingCount = base.pendingCount || 0
+    let canceledCount = base.canceledCount || 0
+    let avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
+
+    let hourly = Array.isArray(base.hourly) && base.hourly.length === 24 ? base.hourly : Array(24).fill(0)
+    let dailyEntries = Array.isArray(base.dailyEntries) ? base.dailyEntries : []
+    let bestSellers = Array.isArray(base.bestSellers) ? base.bestSellers : []
+    let categoryData = Array.isArray(base.categoryData) ? base.categoryData : []
+    let paymentBreakdown = base.paymentBreakdown || {}
 
     // Kalkulasi Jam Tersibuk (Peak Hour) jika API tidak menyediakannya
     let peakHour = base.peakHour;
-    if (peakHour == null && base.hourly && Array.isArray(base.hourly)) {
+    if (peakHour == null && hourly && Array.isArray(hourly)) {
       let maxCount = 0;
       let peakIndex = null;
-      for (let i = 0; i < base.hourly.length; i++) {
-        if (base.hourly[i] > maxCount) {
-          maxCount = base.hourly[i];
+      for (let i = 0; i < hourly.length; i++) {
+        if (hourly[i] > maxCount) {
+          maxCount = hourly[i];
           peakIndex = i;
         }
       }
@@ -451,20 +457,26 @@ export default function ReportsPage() {
     }
 
     return {
-      ...base,
       totalRevenue,
       totalDeductions,
       netRevenue,
-      paymentBreakdown: base.paymentBreakdown,
+      totalOrders,
+      pendingCount,
+      canceledCount,
+      paymentBreakdown,
+      hourly,
+      dailyEntries,
+      bestSellers,
+      categoryData,
       avgOrderValue,
       totalCashVariance,
       peakHour
     }
   }, [analyticsData, shifts])
 
-  const maxHourly = Math.max(...analytics.hourly, 1)
-  const maxDaily = analytics.dailyEntries.length > 0
-    ? Math.max(...analytics.dailyEntries.map((e: [string, number]) => e[1]), 1)
+  const maxHourly = Math.max(...(analytics.hourly || Array(24).fill(0)), 1)
+  const maxDaily = (analytics.dailyEntries && analytics.dailyEntries.length > 0)
+    ? Math.max(...analytics.dailyEntries.map((e: [string, number]) => e[1] || 0), 1)
     : 1
 
   const PAYMENT_META: Record<string, { label: string; color: string; bg: string; icon: any }> = {

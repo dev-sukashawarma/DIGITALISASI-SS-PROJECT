@@ -12,7 +12,7 @@ type ReportTab = {
 }
 
 const REPORT_TABS: ReportTab[] = [
-  { href: '/dashboard/reports/pos', label: 'Shift POS', roles: ['ADMIN'] },
+  { href: '/dashboard/reports/pos', label: 'Rangkuman Penjualan', roles: ['OWNER', 'ADMIN'] },
   { href: '/dashboard/reports/voids', label: 'Batal & Kecurangan', roles: ['OWNER', 'ADMIN'] },
   { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', roles: ['OWNER', 'ADMIN'] },
   { href: '/dashboard/reports/target-harian', label: 'Target Harian', roles: ['OWNER', 'ADMIN'] },

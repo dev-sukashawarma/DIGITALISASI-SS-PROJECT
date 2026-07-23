@@ -11,6 +11,7 @@ import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import { resolveOrderSource } from '@/lib/order-source'
 import GoogleSheetsSettingsModal from '@/components/GoogleSheetsSettingsModal'
+import { useHppByChannel } from '@/hooks/useHppByChannel'
 
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
@@ -51,13 +52,14 @@ interface OrderRow {
   }[]
 }
 
-type DateRangeType = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom'
+type DateRangeType = 'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all' | 'custom'
 
 const RANGE_LABELS: Record<DateRangeType, string> = {
   today: 'Hari Ini',
   yesterday: 'Kemarin',
   '7days': '7 Hari Terakhir',
   '30days': '30 Hari Terakhir',
+  thisMonth: 'Bulan Ini',
   all: 'Semua Waktu',
   custom: 'Kustom Tanggal',
 }
@@ -116,10 +118,46 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   const [showGoogleSheetsModal, setShowGoogleSheetsModal] = useState(false)
   
   // Date Range State
-  const [range, setRange] = useState<DateRangeType>('today')
+  const [range, setRange] = useState<DateRangeType>('thisMonth')
   const [showRangePicker, setShowRangePicker] = useState(false)
   const [customStartDate, setCustomStartDate] = useState<string>('')
   const [customEndDate, setCustomEndDate] = useState<string>('')
+
+  const dateStrRange = useMemo(() => {
+    const fmt = (d: Date) => {
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${d.getFullYear()}-${m}-${day}`
+    }
+    const today = new Date()
+    if (range === 'today') return { from: fmt(today), to: fmt(today) }
+    if (range === 'yesterday') {
+      const y = new Date()
+      y.setDate(y.getDate() - 1)
+      return { from: fmt(y), to: fmt(y) }
+    }
+    if (range === '7days') {
+      const s = new Date()
+      s.setDate(s.getDate() - 7)
+      return { from: fmt(s), to: fmt(today) }
+    }
+    if (range === '30days') {
+      const s = new Date()
+      s.setDate(s.getDate() - 30)
+      return { from: fmt(s), to: fmt(today) }
+    }
+    if (range === 'thisMonth') {
+      const s = new Date()
+      s.setDate(1)
+      return { from: fmt(s), to: fmt(today) }
+    }
+    if (range === 'custom' && customStartDate && customEndDate) {
+      return { from: customStartDate, to: customEndDate }
+    }
+    return { from: '2000-01-01', to: fmt(today) }
+  }, [range, customStartDate, customEndDate])
+
+  const { rows: hppRows } = useHppByChannel(dateStrRange.from, dateStrRange.to)
 
   // Table State
   const [searchQuery, setSearchQuery] = useState('')
@@ -184,6 +222,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       d.setDate(d.getDate() - 30)
       d.setHours(0, 0, 0, 0)
       q = q.gte('created_at', d.toISOString())
+    } else if (range === 'thisMonth') {
+      const d = new Date()
+      d.setDate(1)
+      d.setHours(0, 0, 0, 0)
+      q = q.gte('created_at', d.toISOString())
     } else if (range === 'custom' && customStartDate && customEndDate) {
       const start = new Date(customStartDate)
       start.setHours(0, 0, 0, 0)
@@ -215,6 +258,9 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       qShifts = qShifts.gte('end_time', d.toISOString())
     } else if (range === '30days') {
       const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0, 0, 0, 0)
+      qShifts = qShifts.gte('end_time', d.toISOString())
+    } else if (range === 'thisMonth') {
+      const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0)
       qShifts = qShifts.gte('end_time', d.toISOString())
     } else if (range === 'custom' && customStartDate && customEndDate) {
       const start = new Date(customStartDate); start.setHours(0, 0, 0, 0)
@@ -337,9 +383,25 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       return s + itemDiff
     }, 0)
 
-    // Gross Revenue (Omzet Kotor) = Net Revenue + Total Potongan
-    const totalRevenue = actualNetRevenue + totalDeductions
+    // Calculate Total HPP
+    const totalHPP = hppRows
+      .filter(r => {
+        if (selectedOutlet !== 'all' && r.outlet_id !== selectedOutlet) return false
+        if (selectedChannel === 'all') return true
+        
+        const srcKey = resolveOrderSource(r.sales_source, r.sales_source).key.toLowerCase()
+        const target = selectedChannel.toLowerCase()
+        if (target === 'food_apps') return isFoodApp(srcKey)
+        if (target === 'tiktokgo' || target === 'tiktok') {
+          return ['tiktokgo', 'tiktok', 'tiktok_go'].includes(srcKey)
+        }
+        return srcKey === target
+      })
+      .reduce((sum, r) => sum + r.hpp, 0)
+
     const netRevenue = actualNetRevenue
+    const grossRevenue = netRevenue + totalDeductions
+    const grossProfit = netRevenue - totalHPP
 
     return {
       completedOrders: completed,
@@ -349,11 +411,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       totalOrders,
       successRate,
       cancelledCount: cancelled,
-      totalRevenue,
+      grossRevenue,
       totalDeductions,
-      netRevenue
+      netRevenue,
+      grossProfit
     }
-  }, [orders, shifts, selectedChannel])
+  }, [orders, shifts, selectedChannel, hppRows])
 
   const selectedOutletName = selectedOutlet === 'all' 
     ? 'Semua Cabang' 
@@ -612,13 +675,14 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
         </div>
       ) : (
         <>
-          {/* ── KPI Cards (Omzet Kotor, Potongan, Pendapatan Bersih) ── */}
+          {/* ── KPI Cards (Omzet Kotor, Pendapatan Bersih, Laba Kotor) ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* 1. Omzet Kotor */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Omzet Kotor</p>
-                <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRevenue)}</p>
+                <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossRevenue)}</p>
               </div>
               <div className="relative z-10 mt-8 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
@@ -626,27 +690,29 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-rose-400 to-rose-600 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-rose-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
-              <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total Potongan</p>
-                <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">-{formatRupiah(analytics.totalDeductions)}</p>
-              </div>
-              <div className="relative z-10 mt-8 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                <p className="text-[11px] text-white/80 font-medium tracking-wide">*Promo Food Apps & Diskon Menu</p>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            {/* 2. Pendapatan Bersih */}
+            <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-blue-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Pendapatan Bersih</p>
                 <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.netRevenue)}</p>
               </div>
+              <div className="relative z-10 mt-8 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
+                <p className="text-[11px] text-white/80 font-medium tracking-wide">*Setelah dipotong diskon & aplikasi ({formatRupiah(analytics.totalDeductions)})</p>
+              </div>
+            </div>
+
+            {/* 3. Laba Kotor */}
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+              <div className="relative z-10">
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Laba Kotor</p>
+                <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossProfit)}</p>
+              </div>
               <div className="relative z-10 mt-8 flex items-center gap-2 bg-black/10 w-fit px-3 py-1.5 rounded-full">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-300"></div>
-                <p className="text-[11px] text-white font-bold tracking-wide">✓ Bebas biaya potongan</p>
+                <p className="text-[11px] text-white font-bold tracking-wide">✓ Setelah dikurangi HPP (Modal)</p>
               </div>
             </div>
           </div>

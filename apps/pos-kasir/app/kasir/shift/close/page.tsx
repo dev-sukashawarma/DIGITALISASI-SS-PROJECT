@@ -245,13 +245,24 @@ export default function CloseShiftPage() {
       if (isNaN(cash) || cash < 0) throw new Error('Hitungan kas laci tidak valid')
       if (isNaN(pc) || pc < 0) throw new Error('Hitungan asli dana operasional tidak valid')
 
-      const { error } = await supabase.rpc('close_shift_blind', {
-        p_shift_id: activeShift.id,
-        p_actual_cash: cash,
-        p_actual_petty_cash: pc
+      const userRes = await supabase.auth.getUser()
+      const userId = userRes.data.user?.id
+
+      const res = await fetch('/api/kasir/close-shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shiftId: activeShift.id,
+          actualCash: cash,
+          expectedCash: currentDrawerBalance,
+          actualPettyCash: pc,
+          expectedPettyCash: pettyCashBalance,
+          closedBy: userId
+        })
       })
 
-      if (error) throw error
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Gagal menutup shift di server')
 
       router.push('/kasir/reports?shift=closed')
     } catch (err: any) {

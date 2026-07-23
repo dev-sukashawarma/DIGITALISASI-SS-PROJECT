@@ -156,14 +156,10 @@ export default function CloseShiftPage() {
       if (shiftError) throw shiftError
       setActiveShift(shiftData || null)
 
-      // Get Petty Cash Balance
-      const { data: pcData } = await supabase.rpc('get_petty_cash_balance', { p_outlet_id: outletId })
-      const balance = Number(pcData) || 0
-      setPettyCashBalance(balance)
-
       let snapExpenses: Expense[] = []
       let snapTopups: PettyCashTopup[] = []
       let snapCashOrders: CashOrder[] = []
+      let calculatedBalance = 0
 
       if (shiftData) {
         const startOfToday = new Date()
@@ -182,7 +178,18 @@ export default function CloseShiftPage() {
         setExpenses(snapExpenses)
         setTopups(snapTopups)
         setCashOrders(snapCashOrders)
+
+        const startPetty = Number(shiftData.starting_petty_cash) || 0
+        const topupsTotal = snapTopups
+          .filter(t => ['completed', 'approved', 'approved_by_finance', 'forwarded_by_leader'].includes(t.status))
+          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+        const expensesTotalLocal = snapExpenses
+          .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+
+        calculatedBalance = startPetty + topupsTotal - expensesTotalLocal
+        setPettyCashBalance(calculatedBalance)
       } else {
+        setPettyCashBalance(0)
         setExpenses([])
         setTopups([])
         setCashOrders([])
@@ -193,7 +200,7 @@ export default function CloseShiftPage() {
         key: `pettycash:${outletId}`,
         value: {
           shift: shiftData || null,
-          balance,
+          balance: calculatedBalance,
           expenses: snapExpenses,
           topups: snapTopups,
           cashOrders: snapCashOrders,

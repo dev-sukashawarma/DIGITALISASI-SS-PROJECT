@@ -287,13 +287,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       paymentBreakdown[method].revenue += o.total_amount
     })
 
-    // Koreksi pendapatan tunai dengan selisih fisik laci (Opsi B: Source of truth = Fisik Kasir)
-    if (paymentBreakdown['cash']) {
-      paymentBreakdown['cash'].revenue += totalCashVariance
-    }
-    
-    // Sesuaikan juga Total Pendapatan
-    totalRevenue += totalCashVariance
+    // Kerugian/selisih kasir (variance) TIDAK BOLEH memotong Omzet Kotor (Gross Revenue)
+    // karena Omzet adalah murni dari total nilai barang yang terjual.
+    // Jika ingin menampilkan selisih kasir, sebaiknya ditampilkan di laporan terpisah atau pengeluaran.
+    // Dihapus baris kode yang mengurangi totalRevenue dengan totalCashVariance.
+
 
     // Best sellers & Category Breakdown
     const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {}

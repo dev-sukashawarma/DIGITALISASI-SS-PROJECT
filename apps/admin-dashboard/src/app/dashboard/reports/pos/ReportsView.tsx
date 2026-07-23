@@ -273,7 +273,8 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
     const completed = filteredOrders.filter(o => o.status === 'completed')
     const totalOrders = completed.length
-    let totalRevenue = completed.reduce((s, o) => s + o.total_amount, 0)
+    // o.total_amount adalah nilai net yang dibayarkan customer setelah diskon
+    const actualNetRevenue = completed.reduce((s, o) => s + Number(o.total_amount), 0)
 
     // Hitung total selisih laci (variance) dari tutup shift
     const totalCashVariance = shifts.reduce((s, shift) => s + (shift.variance || 0), 0)
@@ -336,7 +337,9 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       return s + itemDiff
     }, 0)
 
-    const netRevenue = Math.max(0, totalRevenue - totalDeductions)
+    // Gross Revenue (Omzet Kotor) = Net Revenue + Total Potongan
+    const totalRevenue = actualNetRevenue + totalDeductions
+    const netRevenue = actualNetRevenue
 
     return {
       completedOrders: completed,

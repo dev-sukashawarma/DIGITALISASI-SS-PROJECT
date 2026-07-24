@@ -1006,31 +1006,31 @@ export default function MenuView({
                         Pengaturan Ketersediaan
                       </h3>
 
-                      {/* Availability toggle (Offline Kasir Toko) */}
+                      {/* Availability toggle (Status Stok Menu) */}
                       <button type="button"
                         onClick={() => setForm({ ...form, is_available: !form.is_available })}
                         className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300
                           ${form.is_available
-                            ? 'border-green-200 bg-green-50/40 hover:bg-green-50'
-                            : 'border-amber-200 bg-amber-50/30 hover:bg-amber-50/50'}`}>
+                            ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50'
+                            : 'border-red-200 bg-red-50/40 hover:bg-red-50'}`}>
                         <div className="flex items-center gap-4">
                           <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
-                            ${form.is_available ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600 border border-amber-200'}`}>
+                            ${form.is_available ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
                             {form.is_available
                               ? <ToggleRight className="w-7 h-7" />
                               : <ToggleLeft  className="w-7 h-7" />}
                           </div>
                           <div className="text-left">
-                            <p className={`text-sm font-bold leading-none mb-1.5 ${form.is_available ? 'text-green-800' : 'text-amber-900'}`}>
-                              {form.is_available ? 'Tersedia di Kasir Offline' : 'Nonaktif di Kasir Offline (Khusus Online)'}
+                            <p className={`text-sm font-bold leading-none mb-1.5 ${form.is_available ? 'text-emerald-800' : 'text-red-800'}`}>
+                              {form.is_available ? 'Status Stok: Tersedia (In Stock)' : 'Status Stok: Habis (Out of Stock)'}
                             </p>
                             <p className="text-xs font-medium text-gray-500">
-                              {form.is_available ? 'Pelanggan dapat memesan langsung di Kasir Toko' : 'Menu ini TIDAK dijual di Kasir Toko (Hanya di Food Apps)'}
+                              {form.is_available ? 'Stok menu ada dan siap dipesan pelanggan' : 'Tandai menu sebagai stok habis'}
                             </p>
                           </div>
                         </div>
                         <div className={`w-14 h-7 rounded-full transition-all duration-300 relative flex-shrink-0 shadow-inner
-                          ${form.is_available ? 'bg-green-500' : 'bg-amber-500'}`}>
+                          ${form.is_available ? 'bg-emerald-500' : 'bg-red-400'}`}>
                           <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm
                             transition-transform duration-300 ${form.is_available ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
                         </div>
@@ -1184,7 +1184,7 @@ export default function MenuView({
                           <div className="p-5 rounded-[1.25rem] border border-indigo-100 bg-indigo-50/30 ml-4 animate-in fade-in slide-in-from-top-2 duration-300">
                             <p className="text-[11px] font-bold text-indigo-800/70 uppercase tracking-widest mb-4 flex items-center gap-2.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_4px_rgba(99,102,241,0.5)]"></span>
-                              Platform Online Tersedia:
+                              Platform Online & Channel Tersedia:
                             </p>
                             <div className="space-y-3">
                               <label className="flex items-center gap-3.5 cursor-pointer group">
@@ -1198,25 +1198,47 @@ export default function MenuView({
                                     <div className="w-2 h-2 rounded-full bg-white"></div>
                                   </div>
                                 </div>
-                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Semua Platform Food Apps</span>
+                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Semua Platform (Offline Toko + Food Apps)</span>
                               </label>
                               <label className="flex items-center gap-3.5 cursor-pointer group">
                                 <div className="relative flex items-center">
                                   <input type="radio" 
                                     checked={form.available_online_channels !== null} 
-                                    onChange={() => setForm({ ...form, available_online_channels: [] })}
+                                    onChange={() => setForm({ ...form, available_online_channels: ['pos_kasir'] })}
                                     className="peer sr-only" />
                                   <div className="w-5 h-5 rounded-full border-[2.5px] border-gray-300 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 transition-colors shadow-sm"></div>
                                   <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
                                     <div className="w-2 h-2 rounded-full bg-white"></div>
                                   </div>
                                 </div>
-                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Pilih Platform Spesifik</span>
+                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Pilih Channel Spesifik</span>
                               </label>
                             </div>
                             
                             {form.available_online_channels !== null && (
                               <div className="mt-5 pl-8 pt-5 border-t border-indigo-100/60 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-300">
+                                {/* Checkbox Kasir Toko (Offline) */}
+                                <label className="flex items-center gap-3 cursor-pointer hover:bg-white p-2.5 rounded-xl transition-all duration-200 border border-transparent hover:border-amber-100 hover:shadow-sm">
+                                  <div className="relative flex items-center">
+                                    <input type="checkbox" 
+                                      checked={form.available_online_channels.includes('pos_kasir')}
+                                      onChange={(e) => {
+                                        const curr = form.available_online_channels || [];
+                                        if (e.target.checked) {
+                                          setForm({ ...form, available_online_channels: [...curr, 'pos_kasir'] });
+                                        } else {
+                                          setForm({ ...form, available_online_channels: curr.filter(c => c !== 'pos_kasir') });
+                                        }
+                                      }}
+                                      className="peer sr-only" />
+                                    <div className="w-5 h-5 rounded-[6px] border-[2px] border-amber-400 peer-checked:border-amber-500 peer-checked:bg-amber-500 transition-colors shadow-sm"></div>
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
+                                      <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
+                                    </div>
+                                  </div>
+                                  <span className="text-sm font-bold text-slate-800">Kasir Toko (Offline)</span>
+                                </label>
+
                                 {initialChannels.map(ch => {
                                   const slug = getSlug(ch.id);
                                   const isChecked = form.available_online_channels!.includes(slug);

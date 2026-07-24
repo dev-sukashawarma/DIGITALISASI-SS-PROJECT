@@ -123,7 +123,6 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Settings,
     roles: ['OWNER', 'ADMIN'],
     items: [
-      { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/monitoring', label: 'Monitoring Aktivitas', shortLabel: 'Monitoring', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/panduan', label: 'Panduan Sistem', shortLabel: 'Panduan', icon: BookOpen, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
@@ -138,6 +137,8 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['OWNER', 'ADMIN'],
     items: [
       { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: UploadCloud, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/pawoon-import/synced', label: 'Data Tersinkron', shortLabel: 'Tersinkron', icon: Activity, roles: ['ADMIN', 'OWNER'] },
+      { href: '/dashboard/pawoon-import/mapping', label: 'Mapping Menu Pawoon', shortLabel: 'Mapping', icon: ArrowRightLeft, roles: ['ADMIN', 'OWNER'] },
     ],
   },
 ]

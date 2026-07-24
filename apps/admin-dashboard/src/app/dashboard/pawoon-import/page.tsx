@@ -159,30 +159,24 @@ export default function PawoonImportPage() {
                     </div>
                     
                     <div className="p-6 pt-0 border-b border-gray-100">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 mt-4">
-                            <div className="bg-blue-50 p-4 rounded-xl">
-                                <p className="text-blue-600 text-sm font-medium mb-1">Omset Kotor (Gross) {selectedDate !== 'ALL' && `(${selectedDate})`}</p>
-                                <p className="text-2xl font-bold text-blue-900">
-                                    Rp {displayedSummary.totalOmsetGross.toLocaleString('id-ID')}
-                                </p>
-                            </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mt-4">
                             <div className="bg-green-50 p-4 rounded-xl">
-                                <p className="text-green-600 text-sm font-medium mb-1">Omset Bersih (Net) {selectedDate !== 'ALL' && `(${selectedDate})`}</p>
-                                <p className="text-2xl font-bold text-green-900">
+                                <p className="text-green-600 text-sm font-medium mb-1">Total Omset {selectedDate !== 'ALL' && `(${selectedDate})`}</p>
+                                <p className="text-3xl font-bold text-green-900">
                                     Rp {displayedSummary.totalOmset.toLocaleString('id-ID')}
                                 </p>
                             </div>
                             <div className="bg-purple-50 p-4 rounded-xl">
                                 <p className="text-purple-600 text-sm font-medium mb-1">Total Struk (File)</p>
-                                <p className="text-2xl font-bold text-purple-900">
+                                <p className="text-3xl font-bold text-purple-900">
                                     {selectedDate === 'ALL' ? displayedSummary.totalTransactionsParsed : displayedSummary.transactionsCount}
                                 </p>
                             </div>
                             <div className="bg-orange-50 p-4 rounded-xl">
                                 <p className="text-orange-600 text-sm font-medium mb-1">
-                                    {selectedDate === 'ALL' ? 'Duplikat Terdeteksi (Di-skip)' : 'Status Filter'}
+                                    {selectedDate === 'ALL' ? 'Duplikat (Di-skip)' : 'Status Filter'}
                                 </p>
-                                <p className="text-2xl font-bold text-orange-900 mt-1">
+                                <p className="text-3xl font-bold text-orange-900 mt-1">
                                     {selectedDate === 'ALL' ? displayedSummary.duplicatesSkipped : 'Melihat Harian'}
                                 </p>
                             </div>
@@ -198,6 +192,7 @@ export default function PawoonImportPage() {
                                         <th className="p-3 border-b font-medium text-center">Food Apps</th>
                                         <th className="p-3 border-b font-medium text-center">TikTok Go</th>
                                         <th className="p-3 border-b font-medium text-center bg-gray-100">Total Kuantitas</th>
+                                        <th className="p-3 border-b font-medium text-right bg-blue-50">Total Penjualan (Kotor)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -208,6 +203,9 @@ export default function PawoonImportPage() {
                                             <td className="p-3 text-center">{item.food_apps > 0 ? item.food_apps : '-'}</td>
                                             <td className="p-3 text-center">{item.tiktok > 0 ? item.tiktok : '-'}</td>
                                             <td className="p-3 text-center font-bold bg-gray-50">{item.offline + item.food_apps + item.tiktok}</td>
+                                            <td className="p-3 text-right font-bold text-blue-700 bg-blue-50/50">
+                                                Rp {item.totalRevenue?.toLocaleString('id-ID') || 0}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

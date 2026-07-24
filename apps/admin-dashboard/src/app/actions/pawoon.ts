@@ -141,8 +141,7 @@ export async function previewPawoonFile(formData: FormData) {
                     source: 'PAWOON',
                     channel: channel,
                     sales_source: channel === 'pos' ? 'walk_in' : channel,
-                    order_status: orderStatus,
-                    payment_status: statusLower === 'void' ? 'refunded' : 'paid',
+                    status: orderStatus,
                     payment_method: row[colIdx.payment] ? row[colIdx.payment].toString() : 'Cash',
                     total_amount: orderTotal, 
                     gross_amount: price * qty,
@@ -174,11 +173,13 @@ export async function previewPawoonFile(formData: FormData) {
             // Tracker logic
             const systemName = mapConfig.name || mapConfig.system_name || productName;
             if (!itemSalesTracker[systemName]) {
-                itemSalesTracker[systemName] = { systemName, offline: 0, food_apps: 0, tiktok: 0 };
+                itemSalesTracker[systemName] = { systemName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0 };
             }
             if (channel === 'pos') itemSalesTracker[systemName].offline += qty;
             else if (channel === 'food_apps') itemSalesTracker[systemName].food_apps += qty;
             else if (channel === 'tiktok') itemSalesTracker[systemName].tiktok += qty;
+            
+            itemSalesTracker[systemName].totalRevenue += (qty * price);
         }
 
         if (unmappedItems.size > 0 || unmappedOutlets.size > 0) {
@@ -217,7 +218,7 @@ export async function previewPawoonFile(formData: FormData) {
             transactionsCount: number,
             totalOmset: number,
             totalOmsetGross: number,
-            itemSalesTrackerMap: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number }>
+            itemSalesTrackerMap: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number, totalRevenue: number }>
         }> = {};
 
         ordersMap.forEach((order, receipt) => {
@@ -241,11 +242,13 @@ export async function previewPawoonFile(formData: FormData) {
             order.items.forEach((item: any) => {
                 const sName = item._systemName;
                 if (!summaryByDate[dateKey].itemSalesTrackerMap[sName]) {
-                    summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0 };
+                    summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0 };
                 }
                 if (order.channel === 'pos') summaryByDate[dateKey].itemSalesTrackerMap[sName].offline += item.quantity;
                 else if (order.channel === 'food_apps') summaryByDate[dateKey].itemSalesTrackerMap[sName].food_apps += item.quantity;
                 else if (order.channel === 'tiktok') summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktok += item.quantity;
+                
+                summaryByDate[dateKey].itemSalesTrackerMap[sName].totalRevenue += item.subtotal;
             });
 
             if (!existingReceipts.has(receipt)) {

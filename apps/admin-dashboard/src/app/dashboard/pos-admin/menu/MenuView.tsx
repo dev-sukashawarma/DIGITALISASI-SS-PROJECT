@@ -254,7 +254,9 @@ export default function MenuView({
 
       // 2. Check if item explicitly lists this channel in available_online_channels
       let hasExplicitChannel = false
-      if (item.available_online_channels !== null && Array.isArray(item.available_online_channels)) {
+      if (item.available_online_channels === null || item.available_online_channels === undefined) {
+        hasExplicitChannel = true // null means available on all online channels
+      } else if (Array.isArray(item.available_online_channels)) {
         hasExplicitChannel = item.available_online_channels.some(
           c => c.toLowerCase().replace(/\s+/g, '') === targetSlug || (targetSlug === 'tiktokgo' && (c === 'tiktokgo' || c === 'tiktok_go'))
         )
@@ -1367,7 +1369,8 @@ export default function MenuView({
                           };
 
                           const hasExplicitChannel = (slug: string) => {
-                            if (!item.available_online_channels || !Array.isArray(item.available_online_channels)) return false;
+                            if (item.available_online_channels === null || item.available_online_channels === undefined) return true;
+                            if (!Array.isArray(item.available_online_channels)) return false;
                             return item.available_online_channels.some(
                               c => c.toLowerCase().replace(/\s+/g, '') === slug || (slug === 'tiktokgo' && (c === 'tiktokgo' || c === 'tiktok_go'))
                             );

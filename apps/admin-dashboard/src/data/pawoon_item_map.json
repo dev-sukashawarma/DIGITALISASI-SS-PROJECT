@@ -3,107 +3,133 @@
   "mapping": {
     "BEST SELLER - ORI SAPI JUMBO": {
       "system_id": "df2d06dc-1326-4139-aa95-5bc66a0a332b",
-      "system_name": "Original Sapi Jumbo"
+      "system_name": "Original Sapi Jumbo",
+      "pawoon_price": 34000
     },
     "SAPI BESAR": {
       "system_id": "fe01e7d3-ed72-45e9-9b74-2017522a2b64",
-      "system_name": "Original Sapi Besar"
+      "system_name": "Original Sapi Besar",
+      "pawoon_price": 32000
     },
     "SAPI SEDANG": {
       "system_id": "4adb4426-0d1f-4962-a5d9-2b9dfbb29ecd",
-      "system_name": "Original Sapi Sedang"
+      "system_name": "Original Sapi Sedang",
+      "pawoon_price": 27000
     },
     "AYAM BESAR": {
       "system_id": "a80b91f8-e5dd-4f83-9c94-ebeba6b2da80",
-      "system_name": "Original Ayam Besar"
+      "system_name": "Original Ayam Besar",
+      "pawoon_price": 29000
     },
     "SAPI JUMBO": {
       "system_id": "df2d06dc-1326-4139-aa95-5bc66a0a332b",
-      "system_name": "Original Sapi Jumbo"
+      "system_name": "Original Sapi Jumbo",
+      "pawoon_price": 42000
     },
     "AYAM JUMBO": {
       "system_id": "e85983b6-7e5f-4e78-b3c8-501cf21e39e4",
-      "system_name": "Original Ayam Jumbo"
+      "system_name": "Original Ayam Jumbo",
+      "pawoon_price": 34000
     },
     "AYAM SEDANG": {
       "system_id": "a2c9433d-2525-4096-a28f-6e6f29dcf6df",
-      "system_name": "Original Ayam Sedang"
+      "system_name": "Original Ayam Sedang",
+      "pawoon_price": 24000
     },
     "MIX BESAR": {
       "system_id": "df8b5f68-a6fb-4dc8-9bad-f8f02aaff0d7",
-      "system_name": "Original Mix Besar"
+      "system_name": "Original Mix Besar",
+      "pawoon_price": 37000
     },
     "FOOD APPS ORIGINAL MIX JUMBO": {
       "system_id": "82751882-7f37-4b47-9f85-c2b3fca4f939",
-      "system_name": "Original Mix Jumbo"
+      "system_name": "Original Mix Jumbo",
+      "pawoon_price": 57000
     },
     "FOOD APPS EXTRA KENTANG": {
       "system_id": "120f9317-1628-4c8c-999c-a82945f017b2",
-      "system_name": "Extra Kentang"
+      "system_name": "Extra Kentang",
+      "pawoon_price": 11000
     },
     "FOOD APPS ORIGINAL SAPI SEDANG": {
       "system_id": "4adb4426-0d1f-4962-a5d9-2b9dfbb29ecd",
-      "system_name": "Original Sapi Sedang"
+      "system_name": "Original Sapi Sedang",
+      "pawoon_price": 33000
     },
     "FOOD APPS ORIGINAL SAPI JUMBO": {
       "system_id": "df2d06dc-1326-4139-aa95-5bc66a0a332b",
-      "system_name": "Original Sapi Jumbo"
+      "system_name": "Original Sapi Jumbo",
+      "pawoon_price": 51000
     },
     "FOOD APPS SUKA BEEF": {
       "system_id": "fea982b2-e172-4bfd-8fc6-1fa6de830c19",
-      "system_name": "Suka Beef"
+      "system_name": "Suka Beef",
+      "pawoon_price": 39000
     },
     "SUKA DUO FAVORITE": {
       "system_id": "0b77dc6e-6d5d-4302-89d7-d2535ba56821",
-      "system_name": "Suka duo Favorite"
+      "system_name": "Suka duo Favorite",
+      "pawoon_price": 49000
     },
     "MIX JUMBO": {
       "system_id": "82751882-7f37-4b47-9f85-c2b3fca4f939",
-      "system_name": "Original Mix Jumbo"
+      "system_name": "Original Mix Jumbo",
+      "pawoon_price": 47000
     },
     "SUKA CHICKEN": {
       "system_id": "4bb4210d-1f5f-4cd8-a0e4-c9c90b04bbde",
-      "system_name": "Suka Chicken"
+      "system_name": "Suka Chicken",
+      "pawoon_price": 29000
     },
     "FOOD APPS ORIGINAL AYAM SEDANG": {
       "system_id": "a2c9433d-2525-4096-a28f-6e6f29dcf6df",
-      "system_name": "Original Ayam Sedang"
+      "system_name": "Original Ayam Sedang",
+      "pawoon_price": 29000
     },
     "FOOD APPS ORIGINAL SAPI BESAR": {
       "system_id": "fe01e7d3-ed72-45e9-9b74-2017522a2b64",
-      "system_name": "Original Sapi Besar"
+      "system_name": "Original Sapi Besar",
+      "pawoon_price": 39000
     },
     "FOOD APPS ORIGINAL AYAM JUMBO": {
       "system_id": "e85983b6-7e5f-4e78-b3c8-501cf21e39e4",
-      "system_name": "Original Ayam Jumbo"
+      "system_name": "Original Ayam Jumbo",
+      "pawoon_price": 41000
     },
     "FOOD APPS SUKA SAMYANG": {
       "system_id": "3c665d2b-ba92-49e9-8ced-bce946c90a2b",
-      "system_name": "Suka Samyang"
+      "system_name": "Suka Samyang",
+      "pawoon_price": 36000
     },
     "BEST SELLER - ORI MIX JUMBO": {
       "system_id": "82751882-7f37-4b47-9f85-c2b3fca4f939",
-      "system_name": "Original Mix Jumbo"
+      "system_name": "Original Mix Jumbo",
+      "pawoon_price": 38000
     },
     "FOOD APPS EXTRA KEJU": {
       "system_id": "78bb6a49-1540-4a05-9d78-38311f471e01",
-      "system_name": "Extra Keju"
+      "system_name": "Extra Keju",
+      "pawoon_price": 9000
     },
     "FOOD APPS ORIGINAL MIX BESAR": {
       "system_id": "df8b5f68-a6fb-4dc8-9bad-f8f02aaff0d7",
-      "system_name": "Original Mix Besar"
+      "system_name": "Original Mix Besar",
+      "pawoon_price": 45000
     },
     "ORI DUO COMBO": {
       "system_id": "424ddbec-0a35-48bc-bf93-cd45e6b78c58",
-      "system_name": "SHAWARMA DUO COMBO"
+      "system_name": "SHAWARMA DUO COMBO",
+      "pawoon_price": 41000
     },
     "FOOD APPS SUKA FRIED CHICKEN": {
       "system_id": "410e8f2d-6bbf-4acd-a88a-8d291d78365d",
-      "system_name": "Suka Fried Chicken"
+      "system_name": "Suka Fried Chicken",
+      "pawoon_price": 36000
     },
     "FOOD APPS ORIGINAL AYAM BESAR": {
       "system_id": "a80b91f8-e5dd-4f83-9c94-ebeba6b2da80",
-      "system_name": "Original Ayam Besar"
+      "system_name": "Original Ayam Besar",
+      "pawoon_price": 35000
     },
     "ORI TRIPLE COMBO": {
       "system_id": "0fca2a16-74da-43a7-bd06-455693dce3cb",
@@ -156,6 +182,46 @@
     "SUKA PREMIUM CRISPY": {
       "system_id": "80ccdb39-5a87-4826-a71b-218f3e1b0eac",
       "name": "SUKA PREMIUS KRISPY"
+    },
+    "PAKET NONGKI 1": {
+      "system_id": "436ab88c-f7cd-48f9-97d7-99b756fa08b9",
+      "system_name": "PAKET NONGKI 1"
+    },
+    "PAKET NONGKI 2": {
+      "system_id": "ea9714b8-6c97-4ca5-803e-1f7876c376fb",
+      "system_name": "PAKET NONGKI 2"
+    },
+    "PAKET SPESIAL SUKA LOVERS": {
+      "system_id": "99b7647b-b3b0-4fa9-9ab0-103530166b97",
+      "system_name": "PAKET SPESIAL SUKA LOVERS"
+    },
+    "DOUBLE SUKA": {
+      "system_id": "b6ca49b1-3802-4ef3-a8ed-07a3cdd6509f",
+      "system_name": "DOUBLE SUKA"
+    },
+    "MEGABITE COMBO": {
+      "system_id": "07a7b8c2-e818-4094-8971-80d25a8be40c",
+      "system_name": "MEGABITE COMBO"
+    },
+    "SUKA TRIPLE FAVORIT": {
+      "system_id": "efff8232-dfc9-4f7d-bd58-8d9630f424f8",
+      "system_name": "SUKA TRIPLE FAVORIT"
+    },
+    "PAKET MOOD": {
+      "system_id": "9641372a-c164-41e6-95d0-dd3ddfdb953d",
+      "system_name": "PAKET MOOD"
+    },
+    "TRIPLE SERU": {
+      "system_id": "baa653b9-257f-476c-8639-279fee2db560",
+      "system_name": "TRIPLE SERU"
+    },
+    "PAKET NIKMAT": {
+      "system_id": "3795846d-5f0f-42ce-9ba4-dab3a6e7feb5",
+      "system_name": "PAKET NIKMAT"
+    },
+    "PAKET COUPLE": {
+      "system_id": "21f243b0-be1f-445a-a9f5-f480807fb410",
+      "system_name": "PAKET COUPLE"
     }
   }
 }

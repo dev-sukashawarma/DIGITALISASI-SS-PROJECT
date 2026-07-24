@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue, SalesSource, SalesSummaryRow, Outlet } from '@/lib/types'
 import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
+import type { PettyCashTransaction, DailyPettyCashSummary } from '@/components/owner/PettyCashReportView'
+import type { AttendanceRecordExt } from '@/components/owner/AttendanceReportView'
 
 export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: Outlet[]) {
   const cookieStore = await cookies()
@@ -109,4 +111,310 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     kpiRows,
     hourlyRows,
   }
+}
+
+/* ── Fetch REAL Petty Cash (Expenses + Shifts Starting Cash) ─────────── */
+
+export async function getPettyCashData(
+  filter: PeriodFilterValue,
+  outlets: Outlet[]
+): Promise<{
+  transactions: PettyCashTransaction[]
+  dailySummaries: DailyPettyCashSummary[]
+}> {
+  const cookieStore = await cookies()
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: () => {}
+  })
+
+  // 1. Fetch Staff & User Mapping for Real Crew Names
+  const [{ data: staffList }, { data: userList }] = await Promise.all([
+    supabase.from('outlet_staff').select('id, name, role, outlet_id'),
+    supabase.from('users').select('id, name, username')
+  ])
+
+  const staffMap = new Map((staffList || []).map((s) => [s.id, s.name]))
+  const userMap = new Map((userList || []).map((u) => [u.id, u.name || u.username]))
+
+  const staffByOutlet = new Map<string, string[]>()
+  for (const s of staffList || []) {
+    if (s.outlet_id && s.name) {
+      const existing = staffByOutlet.get(s.outlet_id) || []
+      existing.push(s.name)
+      staffByOutlet.set(s.outlet_id, existing)
+    }
+  }
+
+  // 2. Query REAL table `shifts` for Starting Petty Cash (Modal Diserahkan)
+  let shiftQuery = supabase
+    .from('shifts')
+    .select('*, outlets(name)')
+    .order('end_time', { ascending: false })
+
+  if (filter.outletId && filter.outletId !== 'all') {
+    shiftQuery = shiftQuery.eq('outlet_id', filter.outletId)
+  }
+
+  // 3. Query REAL table `petty_cash_expenses` for Kas Keluar
+  let expenseQuery = supabase
+    .from('petty_cash_expenses')
+    .select('*, outlets(name)')
+    .order('created_at', { ascending: false })
+
+  if (filter.from) {
+    expenseQuery = expenseQuery.gte('expense_date', filter.from)
+  }
+  if (filter.to) {
+    expenseQuery = expenseQuery.lte('expense_date', filter.to)
+  }
+  if (filter.outletId && filter.outletId !== 'all') {
+    expenseQuery = expenseQuery.eq('outlet_id', filter.outletId)
+  }
+
+  const [{ data: shiftRows }, { data: expenseRows }] = await Promise.all([
+    shiftQuery,
+    expenseQuery,
+  ])
+
+  // Map starting cash from shifts as Kas Masuk
+  const shiftEntries: PettyCashTransaction[] = (shiftRows || [])
+    .filter((s: any) => {
+      if (Number(s.starting_petty_cash) <= 0) return false
+      const dateStr = s.end_time ? s.end_time.split('T')[0] : s.start_time ? s.start_time.split('T')[0] : ''
+      if (filter.from && dateStr < filter.from) return false
+      if (filter.to && dateStr > filter.to) return false
+      return true
+    })
+    .map((s: any) => {
+      let resolvedStaffName = staffMap.get(s.staff_id) || staffMap.get(s.closed_by) || userMap.get(s.staff_id)
+      if (!resolvedStaffName && s.outlet_id) {
+        const candidates = staffByOutlet.get(s.outlet_id)
+        if (candidates && candidates.length > 0) resolvedStaffName = candidates[0]
+      }
+      return {
+        id: `shift-start-${s.id}`,
+        outlet_id: s.outlet_id || '',
+        outlet_name: s.outlets?.name || 'Outlet Utama',
+        transaction_date: s.start_time || s.created_at,
+        type: 'in' as const,
+        category: 'Modal Awal Kasir',
+        description: 'Modal awal kas kecil diserahkan per shift',
+        amount: Number(s.starting_petty_cash) || 0,
+        staff_name: resolvedStaffName || 'Kasir Staff',
+        receipt_url: null,
+      }
+    })
+
+  // Map expenses from petty_cash_expenses as Kas Keluar
+  const expenseEntries: PettyCashTransaction[] = (expenseRows || []).map((r: any) => {
+    let resolvedStaffName = staffMap.get(r.created_by) || userMap.get(r.created_by)
+    if (!resolvedStaffName && r.outlet_id) {
+      const candidates = staffByOutlet.get(r.outlet_id)
+      if (candidates && candidates.length > 0) resolvedStaffName = candidates[0]
+    }
+    if (!resolvedStaffName) resolvedStaffName = 'Staff Kasir'
+
+    return {
+      id: r.id,
+      outlet_id: r.outlet_id || outlets[0]?.id || '',
+      outlet_name: r.outlets?.name || 'Global Outlet',
+      transaction_date: r.expense_date || r.created_at,
+      type: (r.type as 'in' | 'out') || 'out',
+      category: r.category || 'Operasional',
+      description: r.description || 'Pengeluaran petty cash kasir',
+      amount: Number(r.amount) || 0,
+      staff_name: resolvedStaffName,
+      receipt_url: r.receipt_url || null,
+    }
+  })
+
+  // Combine and sort all transactions by transaction_date DESC
+  const allTransactions = [...shiftEntries, ...expenseEntries].sort((a, b) =>
+    b.transaction_date.localeCompare(a.transaction_date)
+  )
+
+  // Compute Daily Summaries
+  const dailyMap = new Map<string, DailyPettyCashSummary>()
+
+  for (const t of allTransactions) {
+    const dateKey = t.transaction_date.slice(0, 10)
+    const existing = dailyMap.get(dateKey) || {
+      date: dateKey,
+      total_in: 0,
+      total_out: 0,
+      ending_balance: 0,
+      shift_count: 0,
+    }
+
+    if (t.type === 'in') {
+      existing.total_in += t.amount
+      existing.shift_count++
+    } else {
+      existing.total_out += t.amount
+    }
+    existing.ending_balance = existing.total_in - existing.total_out
+    dailyMap.set(dateKey, existing)
+  }
+
+  const dailySummaries = Array.from(dailyMap.values()).sort((a, b) => b.date.localeCompare(a.date))
+
+  return {
+    transactions: allTransactions,
+    dailySummaries,
+  }
+}
+
+/* ── Fetch REAL Attendance Rekap & Stealth Photos from `attendance` ──── */
+
+export async function getAttendanceReportData(
+  filter: PeriodFilterValue,
+  outlets: Outlet[]
+): Promise<AttendanceRecordExt[]> {
+  const cookieStore = await cookies()
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: () => {}
+  })
+
+  // 1. Fetch Staff & Outlets for Mapping
+  const [{ data: staffList }, { data: outletsList }] = await Promise.all([
+    supabase.from('outlet_staff').select('id, name, role'),
+    supabase.from('outlets').select('id, name')
+  ])
+
+  const staffMap = new Map((staffList || []).map((s) => [s.id, s]))
+  const outletMap = new Map((outletsList || []).map((o) => [o.id, o.name]))
+
+  // Helper function to generate Signed URL from `selfies` bucket
+  const photoCache = new Map<string, string | null>()
+  async function getSignedStealthPhoto(path?: string | null): Promise<string | null> {
+    if (!path) return null
+    if (path.startsWith('http://') || path.startsWith('https://')) return path
+    if (photoCache.has(path)) return photoCache.get(path)!
+
+    // Create signed URL for stealth photo from selfies bucket
+    const { data: selfieSigned } = await supabase.storage.from('selfies').createSignedUrl(path, 3600)
+    if (selfieSigned?.signedUrl) {
+      photoCache.set(path, selfieSigned.signedUrl)
+      return selfieSigned.signedUrl
+    }
+
+    return null
+  }
+
+  // 2. Query REAL table `attendance` (singular) where all stealth camera photos are recorded
+  let query = supabase
+    .from('attendance')
+    .select('*')
+    .order('ts_server', { ascending: false })
+
+  if (filter.from) {
+    query = query.gte('ts_server', `${filter.from}T00:00:00.000Z`)
+  }
+  if (filter.to) {
+    query = query.lte('ts_server', `${filter.to}T23:59:59.999Z`)
+  }
+  if (filter.outletId && filter.outletId !== 'all') {
+    query = query.eq('outlet_id', filter.outletId)
+  }
+
+  const { data: attRows, error } = await query
+
+  if (error || !attRows) {
+    console.error('Error querying table attendance from DB:', error?.message)
+    return []
+  }
+
+  // Group attendance entries by `${outlet_staff_id}|${outlet_id}|${date}`
+  const grouped = new Map<string, {
+    id: string
+    staff_id: string
+    staff_name: string
+    staff_role: string
+    outlet_id: string
+    outlet_name: string
+    date: string
+    clock_in: string | null
+    clock_out: string | null
+    raw_photo_in: string | null
+    raw_photo_out: string | null
+    status: string
+    late_minutes: number
+    out_status: string | null
+    out_minutes: number | null
+    notes: string | null
+  }>()
+
+  for (const r of attRows) {
+    const dateStr = r.ts_server ? r.ts_server.split('T')[0] : ''
+    const key = `${r.outlet_staff_id}|${r.outlet_id}|${dateStr}`
+    const st = staffMap.get(r.outlet_staff_id)
+    const outletName = outletMap.get(r.outlet_id)
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        id: r.id,
+        staff_id: r.outlet_staff_id || '',
+        staff_name: st?.name || 'Kasir Staff',
+        staff_role: (st?.role || 'CREW').toUpperCase(),
+        outlet_id: r.outlet_id || '',
+        outlet_name: outletName || 'Outlet Utama',
+        date: dateStr,
+        clock_in: null,
+        clock_out: null,
+        raw_photo_in: null,
+        raw_photo_out: null,
+        status: 'hadir',
+        late_minutes: 0,
+        out_status: null,
+        out_minutes: null,
+        notes: null,
+      })
+    }
+
+    const item = grouped.get(key)!
+    if (r.type === 'in') {
+      item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      item.raw_photo_in = r.selfie_url || null
+      if (r.status === 'telat' || r.status === 'terlambat') {
+        item.status = 'terlambat'
+        item.late_minutes = r.telat_menit || 0
+      }
+    } else if (r.type === 'out') {
+      item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      item.raw_photo_out = r.selfie_url || null
+      item.out_status = r.status || 'tepat'
+      item.out_minutes = r.telat_menit || 0
+    }
+  }
+
+  // Convert grouped items to AttendanceRecordExt with Signed Stealth Photo URLs & Out Status
+  const result: AttendanceRecordExt[] = await Promise.all(
+    Array.from(grouped.values()).map(async (item) => {
+      const signedIn = await getSignedStealthPhoto(item.raw_photo_in)
+      const signedOut = await getSignedStealthPhoto(item.raw_photo_out)
+
+      return {
+        id: item.id,
+        staff_id: item.staff_id,
+        staff_name: item.staff_name,
+        staff_role: item.staff_role,
+        outlet_id: item.outlet_id,
+        outlet_name: item.outlet_name,
+        date: item.date,
+        clock_in: item.clock_in,
+        clock_out: item.clock_out,
+        status: item.status,
+        late_minutes: item.late_minutes,
+        out_status: item.out_status,
+        out_minutes: item.out_minutes,
+        notes: item.notes,
+        stealth_photo_in_url: signedIn,
+        stealth_photo_out_url: signedOut,
+      }
+    })
+  )
+
+  return result.sort((a, b) => b.date.localeCompare(a.date))
 }

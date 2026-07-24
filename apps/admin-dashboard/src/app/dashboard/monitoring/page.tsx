@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
 import type { PeriodFilterValue } from '@/lib/types'
-import { presetRange, type Preset } from '@/lib/period'
-import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation, Calendar } from 'lucide-react'
+import { presetRange } from '@/lib/period'
+import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const LiveLocationMap = dynamic(() => import('./LiveLocationMap'), { 
@@ -18,6 +18,67 @@ type Outlet = { id: string; name: string; is_active: boolean; region?: string | 
 type Staff = { id: string; name: string; outlet_id: string; role: string; is_active: boolean }
 type Attendance = { outlet_id: string; outlet_staff_id: string; type: 'in' | 'out'; ts_server: string }
 type Opname = { id: string; outlet_id: string; created_at: string }
+
+// ── Date & Time Format Helpers ─────────────────────────────────────
+function getWIBDateStr(tsServerStr: string): string {
+  try {
+    const d = new Date(tsServerStr)
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    return formatter.format(d)
+  } catch {
+    return tsServerStr ? tsServerStr.slice(0, 10) : ''
+  }
+}
+
+function formatWIBTime(tsServerStr: string): string {
+  try {
+    const d = new Date(tsServerStr)
+    return d.toLocaleTimeString('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).replace(':', '.') + ' WIB'
+  } catch {
+    return ''
+  }
+}
+
+function formatIndonesianDate(dateStr: string): string {
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const dateObj = new Date(Date.UTC(y, m - 1, d))
+    return dateObj.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    })
+  } catch {
+    return dateStr
+  }
+}
+
+function getDatesInRange(fromStr: string, toStr: string): string[] {
+  const dates: string[] = []
+  try {
+    let curr = new Date(fromStr + 'T00:00:00Z')
+    const last = new Date(toStr + 'T00:00:00Z')
+    while (curr <= last) {
+      dates.push(curr.toISOString().slice(0, 10))
+      curr.setUTCDate(curr.getUTCDate() + 1)
+    }
+  } catch {
+    dates.push(fromStr)
+  }
+  return dates.reverse() // Terbaru dulu
+}
 
 function CustomDateRangePopover({
   from, to, onChange, isActive
@@ -137,7 +198,7 @@ export default function MonitoringPage() {
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [staffList, setStaffList] = useState<Staff[]>([])
   const [attendances, setAttendances] = useState<Attendance[]>([])
-  const [opnamesToday, setOpnamesToday] = useState<Opname[]>([])
+  const [opnames, setOpnames] = useState<Opname[]>([])
   const [connectedPrinters, setConnectedPrinters] = useState<Set<string>>(new Set())
   const [crewLocations, setCrewLocations] = useState<any[]>([])
   
@@ -167,6 +228,13 @@ export default function MonitoringPage() {
 
   const currentPreset = activePreset()
 
+  // Lista tanggal dalam rentang terpilih
+  const dateListInRange = useMemo(() => {
+    return getDatesInRange(periodFilter.from, periodFilter.to)
+  }, [periodFilter.from, periodFilter.to])
+
+  const isMultiDay = dateListInRange.length > 1
+
   const fetchData = async () => {
     try {
       const fromDate = periodFilter.from
@@ -174,7 +242,6 @@ export default function MonitoringPage() {
       const start = new Date(`${fromDate}T00:00:00+07:00`).toISOString()
       const end = new Date(`${toDate}T23:59:59+07:00`).toISOString()
 
-      // Fetch independent queries in parallel for instant updates based on selected period
       const [outRes, stfRes, attRes, catRes, recRes, opnRes] = await Promise.all([
         supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
         supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader']),
@@ -187,7 +254,7 @@ export default function MonitoringPage() {
           .select('id, outlet_id, checklist_items(id, is_required)')
           .eq('phase', 'buka'),
         supabase.from('daily_checklist_records')
-          .select('id, outlet_id')
+          .select('id, outlet_id, date')
           .gte('date', fromDate)
           .lte('date', toDate),
         supabase.from('opname')
@@ -227,7 +294,7 @@ export default function MonitoringPage() {
       setAttendances((attRes.data || []) as Attendance[])
       setChecklistReq(reqMap)
       setChecklistTicks(ticksMap)
-      setOpnamesToday((opnRes.data || []) as Opname[])
+      setOpnames((opnRes.data || []) as Opname[])
       
     } catch (err) {
       console.error(err)
@@ -239,36 +306,19 @@ export default function MonitoringPage() {
   useEffect(() => {
     fetchData()
 
-    // Setup Subscriptions for Realtime dengan unique channel id agar aman dari React Strict Mode
     const channelId = `monitoring_${Math.random().toString(36).substring(7)}`
     const sub = supabase.channel(channelId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, (payload) => {
-        console.log('[Realtime] Attendance changed', payload)
-        fetchData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_ticks' }, (payload) => {
-        console.log('[Realtime] Checklist tick changed', payload)
-        fetchData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_records' }, (payload) => {
-        console.log('[Realtime] Checklist record changed', payload)
-        fetchData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'opname' }, (payload) => {
-        console.log('[Realtime] Opname changed', payload)
-        fetchData()
-      })
-      .subscribe((status) => {
-        console.log(`[Realtime] Monitoring channel status: ${status}`)
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_ticks' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_records' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'opname' }, () => fetchData())
+      .subscribe()
 
-    // Setup Realtime Presence for Printer status
     const presenceRoom = supabase.channel('room:printer_status')
     presenceRoom
       .on('presence', { event: 'sync' }, () => {
         const state = presenceRoom.presenceState()
         const activeOutlets = new Set<string>()
-        
         for (const id in state) {
           const presences = state[id] as any[]
           for (const presence of presences) {
@@ -281,7 +331,6 @@ export default function MonitoringPage() {
       })
       .subscribe()
 
-    // Setup Realtime Presence for Crew Location
     const locationRoom = supabase.channel('room:crew_location')
     locationRoom
       .on('presence', { event: 'sync' }, () => {
@@ -322,18 +371,13 @@ export default function MonitoringPage() {
     return acc
   }, {} as Record<string, Outlet[]>)
 
-  // Combine live crews with offline crews (who are present today)
   const allCrewsForMap = [...crewLocations]
-  
-  // Find staffs who have attendance today but are not currently live
   const presentStaffIds = new Set(attendances.map(a => a.outlet_staff_id))
   
   staffList.forEach(staff => {
-    // Only show offline staff if they have clocked in today
     if (presentStaffIds.has(staff.id)) {
       const isLive = crewLocations.some(c => c.staff_id === staff.id)
       if (!isLive) {
-        // Get outlet coordinates as fallback
         const outlet = outlets.find(o => o.id === staff.outlet_id)
         if (outlet && outlet.lat && outlet.lng) {
           allCrewsForMap.push({
@@ -355,7 +399,170 @@ export default function MonitoringPage() {
     }
   })
 
-  const opnameOutletIds = new Set(opnamesToday.map(o => o.outlet_id))
+  // Helper render per outlet card for a specific date
+  const renderOutletCardForDate = (outlet: Outlet, targetDateStr: string) => {
+    const outletStaff = staffList.filter(s => s.outlet_id === outlet.id)
+    
+    // Filter attendance for this outlet on targetDateStr
+    const outletAttDate = attendances.filter(a => a.outlet_id === outlet.id && getWIBDateStr(a.ts_server) === targetDateStr)
+    
+    // Check opname on targetDateStr
+    const hasOpnameOnDate = opnames.some(o => o.outlet_id === outlet.id && getWIBDateStr(o.created_at) === targetDateStr)
+
+    // Last attendance record & timestamp per staff on targetDateStr
+    const staffState = new Map<string, { type: 'in' | 'out'; timeStr: string }>()
+    outletAttDate.forEach(a => {
+      staffState.set(a.outlet_staff_id, {
+        type: a.type,
+        timeStr: formatWIBTime(a.ts_server)
+      })
+    })
+
+    let posStatus = 'Terkunci - Menunggu Absen'
+    let posColor = 'bg-red-50 text-red-700 border-red-200'
+    let PosIcon = Lock
+    
+    const hasAnyoneIn = Array.from(staffState.values()).some(s => s.type === 'in')
+    const isEveryoneOut = staffState.size > 0 && Array.from(staffState.values()).every(s => s.type === 'out')
+
+    if (isEveryoneOut) {
+      posStatus = 'Terkunci - Tutup'
+      posColor = 'bg-slate-100 text-slate-600 border-slate-200'
+    } else if (hasAnyoneIn) {
+      const reqIds = checklistReq[outlet.id] || []
+      const tickIds = new Set(checklistTicks[outlet.id] || [])
+      const total = reqIds.length
+      const done = reqIds.filter(id => tickIds.has(id)).length
+
+      if (total > 0 && done < total) {
+        posStatus = `Terkunci - Checklist Belum Selesai (${done}/${total})`
+        posColor = 'bg-orange-50 text-orange-700 border-orange-200'
+      } else {
+        posStatus = 'Terbuka - Siap Transaksi'
+        posColor = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        PosIcon = Unlock
+      }
+    }
+
+    // Filter staff for crewStatusFilter
+    const visibleStaff = outletStaff.filter(staff => {
+      const lastAtt = staffState.get(staff.id)
+      const isPresent = lastAtt?.type === 'in'
+      if (crewStatusFilter === 'PRESENT' && !isPresent) return false
+      if (crewStatusFilter === 'NOT_PRESENT' && isPresent) return false
+      return true
+    })
+
+    // Apply POS status filter
+    const isOpen = posStatus === 'Terbuka - Siap Transaksi'
+    if (posStatusFilter === 'OPEN' && !isOpen) return null
+    if (posStatusFilter === 'LOCKED' && isOpen) return null
+
+    if (crewStatusFilter !== 'ALL' && visibleStaff.length === 0) return null
+
+    // Multi-day filter: if multi-day view, only show crew who actually attended on that day (unless single day)
+    const displayedStaff = isMultiDay 
+      ? visibleStaff.filter(s => staffState.has(s.id)) 
+      : visibleStaff
+
+    if (isMultiDay && displayedStaff.length === 0) return null
+
+    return (
+      <div key={`${outlet.id}-${targetDateStr}`} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col h-full group">
+        {/* Card Header */}
+        <div className={`p-4 border-b flex flex-col gap-3 flex-shrink-0 relative ${hasOpnameOnDate ? 'border-blue-50 bg-blue-50/20' : 'border-slate-50'}`}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <Store className={`w-5 h-5 shrink-0 mt-0.5 ${hasOpnameOnDate ? 'text-blue-500' : 'text-slate-400'}`} />
+              <div>
+                <h3 className="font-bold text-slate-900 leading-tight" title={outlet.name}>{outlet.name}</h3>
+                {isMultiDay && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 mt-0.5">
+                    <Calendar size={10} /> {formatIndonesianDate(targetDateStr)}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 items-end">
+              {hasOpnameOnDate ? (
+                <span title="Telah melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-700 border border-blue-200 animate-pulse">
+                  <ClipboardCheck className="w-3 h-3 mr-1" />
+                  Opname
+                </span>
+              ) : (
+                <span title="Belum melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-slate-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 border border-slate-200">
+                  Belum Opname
+                </span>
+              )}
+              <span title={connectedPrinters.has(outlet.id) ? "Printer Bluetooth Terhubung" : "Printer Bluetooth Terputus"} className={`flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${connectedPrinters.has(outlet.id) ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
+                {connectedPrinters.has(outlet.id) ? <BluetoothConnected className="w-3 h-3 mr-1" /> : <Bluetooth className="w-3 h-3 mr-1" />}
+                Printer
+              </span>
+            </div>
+          </div>
+          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold self-start w-full sm:w-auto ${posColor}`}>
+            <PosIcon className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{posStatus}</span>
+          </div>
+        </div>
+
+        {/* Card Body - Crew List with exact date & time */}
+        <div className="p-2 flex-grow">
+          {displayedStaff.length === 0 ? (
+            <div className="py-8 px-4 flex flex-col items-center justify-center text-center">
+              <Users className="w-8 h-8 text-slate-200 mb-2" />
+              <span className="text-xs text-slate-400 font-medium">Tidak ada crew aktif pada tanggal ini</span>
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {displayedStaff.map(staff => {
+                const attData = staffState.get(staff.id)
+                let attLabel = 'Belum Absen'
+                let attColor = 'bg-red-100 text-red-700 border border-red-100'
+                let attDot = 'bg-red-500'
+
+                if (attData?.type === 'in') {
+                  attLabel = 'Hadir'
+                  attColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  attDot = 'bg-emerald-500'
+                } else if (attData?.type === 'out') {
+                  attLabel = 'Pulang'
+                  attColor = 'bg-slate-100 text-slate-700 border border-slate-200'
+                  attDot = 'bg-slate-400'
+                }
+
+                return (
+                  <li key={`${staff.id}-${targetDateStr}`} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-2 pr-2 min-w-0">
+                      <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-100/50 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5 text-indigo-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-800 truncate block" title={staff.name}>{staff.name}</span>
+                        <span className="text-[9px] uppercase font-bold text-suka-orange block">{staff.role}</span>
+                      </div>
+                    </div>
+
+                    <div className={`flex flex-col items-end shrink-0`}>
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold ${attColor}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${attDot}`} />
+                        <span className="whitespace-nowrap uppercase">{attLabel}</span>
+                      </div>
+                      {attData?.timeStr && (
+                        <span className="text-[9px] font-mono font-bold text-slate-500 flex items-center gap-0.5 mt-0.5">
+                          <Clock size={9} /> {attData.timeStr}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto">
@@ -464,194 +671,59 @@ export default function MonitoringPage() {
             </div>
           </div>
 
-          <div className="space-y-10">
-            {Object.keys(groupedOutlets).sort().map(regionName => {
-              const regionOutlets = groupedOutlets[regionName].filter(outlet => selectedOutletId === 'ALL' || outlet.id === selectedOutletId)
+          {/* ── Multi-Day vs Single-Day Render Layout ───────────────────── */}
+          <div className="space-y-12">
+            {dateListInRange.map((dateStr) => {
+              // Group outlets for this date
+              const regionKeys = Object.keys(groupedOutlets).sort()
               
-              if (regionOutlets.length === 0) return null
-
-              // Pre-filter region outlets based on pos/crew status to see if we should render the region at all
-              const visibleRegionOutlets = regionOutlets.filter(outlet => {
-                const outletStaff = staffList.filter(s => s.outlet_id === outlet.id)
-                const outletAtt = attendances.filter(a => a.outlet_id === outlet.id)
-                
-                let posStatus = 'Terkunci - Menunggu Absen'
-                const staffState = new Map<string, string>()
-                outletAtt.forEach(a => staffState.set(a.outlet_staff_id, a.type))
-
-                const hasAnyoneIn = Array.from(staffState.values()).some(t => t === 'in')
-                const isEveryoneOut = staffState.size > 0 && Array.from(staffState.values()).every(t => t === 'out')
-
-                if (isEveryoneOut) {
-                  posStatus = 'Terkunci - Tutup'
-                } else if (hasAnyoneIn) {
-                  const reqIds = checklistReq[outlet.id] || []
-                  const tickIds = new Set(checklistTicks[outlet.id] || [])
-                  const total = reqIds.length
-                  const done = reqIds.filter(id => tickIds.has(id)).length
-
-                  if (total > 0 && done < total) {
-                    posStatus = `Terkunci - Checklist Belum Selesai (${done}/${total})`
-                  } else {
-                    posStatus = 'Terbuka - Siap Transaksi'
-                  }
-                }
-
-                const isOpen = posStatus === 'Terbuka - Siap Transaksi'
-                if (posStatusFilter === 'OPEN' && !isOpen) return false
-                if (posStatusFilter === 'LOCKED' && isOpen) return false
-
-                const visibleStaff = outletStaff.filter(staff => {
-                  const lastAttType = staffState.get(staff.id)
-                  const isPresent = lastAttType === 'in'
-                  if (crewStatusFilter === 'PRESENT' && !isPresent) return false
-                  if (crewStatusFilter === 'NOT_PRESENT' && isPresent) return false
-                  return true
+              // Count total rendered cards for this date to avoid empty date headers
+              let dateCardCount = 0
+              regionKeys.forEach(regionName => {
+                const regionOutlets = groupedOutlets[regionName].filter(outlet => selectedOutletId === 'ALL' || outlet.id === selectedOutletId)
+                regionOutlets.forEach(o => {
+                  if (renderOutletCardForDate(o, dateStr) !== null) dateCardCount++
                 })
-
-                if (crewStatusFilter !== 'ALL' && visibleStaff.length === 0) return false
-
-                return true
               })
 
-              if (visibleRegionOutlets.length === 0) return null
+              if (dateCardCount === 0) return null
 
               return (
-                <div key={regionName} className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-suka-orange" />
-                      {regionName}
+                <div key={dateStr} className="space-y-6">
+                  {/* Date Header Section */}
+                  <div className="flex items-center gap-3 bg-slate-100/80 px-4 py-2.5 rounded-2xl border border-slate-200/80 backdrop-blur-sm">
+                    <Calendar className="w-5 h-5 text-suka-orange shrink-0" />
+                    <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
+                      {formatIndonesianDate(dateStr)}
                     </h2>
-                    <div className="h-px bg-gray-200 flex-1"></div>
+                    <span className="ml-auto text-xs font-bold text-slate-600 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+                      {dateCardCount} Outlet Beraktivitas
+                    </span>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {visibleRegionOutlets.map(outlet => {
-                      // Find staff for this outlet
-                      const outletStaff = staffList.filter(s => s.outlet_id === outlet.id)
+
+                  {/* Regions & Outlet Cards for dateStr */}
+                  <div className="space-y-8 pl-1 sm:pl-2">
+                    {regionKeys.map(regionName => {
+                      const regionOutlets = groupedOutlets[regionName].filter(outlet => selectedOutletId === 'ALL' || outlet.id === selectedOutletId)
                       
-                      // Get attendance for this outlet within selected period
-                      const outletAtt = attendances.filter(a => a.outlet_id === outlet.id)
+                      const renderedCards = regionOutlets
+                        .map(outlet => renderOutletCardForDate(outlet, dateStr))
+                        .filter(card => card !== null)
 
-                      // Determine POS Status
-                      let posStatus = 'Terkunci - Menunggu Absen'
-                      let posColor = 'bg-red-50 text-red-700 border-red-200'
-                      let PosIcon = Lock
-                      
-                      // Staff attendance state (last record)
-                      const staffState = new Map<string, string>()
-                      outletAtt.forEach(a => {
-                         staffState.set(a.outlet_staff_id, a.type)
-                      })
-
-                      const hasAnyoneIn = Array.from(staffState.values()).some(t => t === 'in')
-                      const isEveryoneOut = staffState.size > 0 && Array.from(staffState.values()).every(t => t === 'out')
-
-                      if (isEveryoneOut) {
-                        posStatus = 'Terkunci - Tutup'
-                        posColor = 'bg-gray-100 text-gray-600 border-gray-200'
-                      } else if (hasAnyoneIn) {
-                        // Check checklist progress
-                        const reqIds = checklistReq[outlet.id] || []
-                        const tickIds = new Set(checklistTicks[outlet.id] || [])
-                        const total = reqIds.length
-                        const done = reqIds.filter(id => tickIds.has(id)).length
-
-                        if (total > 0 && done < total) {
-                          posStatus = `Terkunci - Checklist Belum Selesai (${done}/${total})`
-                          posColor = 'bg-orange-50 text-orange-700 border-orange-200'
-                        } else {
-                          posStatus = 'Terbuka - Siap Transaksi'
-                          posColor = 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          PosIcon = Unlock
-                        }
-                      }
-
-                      const visibleStaff = outletStaff.filter(staff => {
-                        const lastAttType = staffState.get(staff.id)
-                        const isPresent = lastAttType === 'in'
-                        if (crewStatusFilter === 'PRESENT' && !isPresent) return false
-                        if (crewStatusFilter === 'NOT_PRESENT' && isPresent) return false
-                        return true
-                      })
-                      
-                      const hasOpnameToday = opnameOutletIds.has(outlet.id)
+                      if (renderedCards.length === 0) return null
 
                       return (
-                        <div key={outlet.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col h-full group">
-                          {/* Card Header */}
-                          <div className={`p-4 border-b flex flex-col gap-3 flex-shrink-0 relative ${hasOpnameToday ? 'border-blue-50 bg-blue-50/20' : 'border-gray-50'}`}>
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-2">
-                                <Store className={`w-5 h-5 shrink-0 mt-0.5 ${hasOpnameToday ? 'text-blue-500' : 'text-gray-400'}`} />
-                                <h3 className="font-bold text-gray-900 leading-tight" title={outlet.name}>{outlet.name}</h3>
-                              </div>
-                              <div className="flex flex-col gap-1.5 items-end">
-                                {hasOpnameToday ? (
-                                  <span title="Telah melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-700 border border-blue-200 animate-pulse">
-                                    <ClipboardCheck className="w-3 h-3 mr-1" />
-                                    Opname
-                                  </span>
-                                ) : (
-                                  <span title="Belum melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-gray-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-gray-200">
-                                    Belum Opname
-                                  </span>
-                                )}
-                                <span title={connectedPrinters.has(outlet.id) ? "Printer Bluetooth Terhubung" : "Printer Bluetooth Terputus"} className={`flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${connectedPrinters.has(outlet.id) ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
-                                  {connectedPrinters.has(outlet.id) ? <BluetoothConnected className="w-3 h-3 mr-1" /> : <Bluetooth className="w-3 h-3 mr-1" />}
-                                  Printer
-                                </span>
-                              </div>
-                            </div>
-                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold self-start w-full sm:w-auto ${posColor}`}>
-                              <PosIcon className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate">{posStatus}</span>
-                            </div>
+                        <div key={`${regionName}-${dateStr}`} className="space-y-3">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-sm font-extrabold text-slate-700 flex items-center gap-1.5">
+                              <MapPin className="w-4 h-4 text-suka-orange" />
+                              {regionName}
+                            </h3>
+                            <div className="h-px bg-slate-200 flex-1"></div>
                           </div>
-
-                          {/* Card Body - Crew List */}
-                          <div className="p-2 flex-grow">
-                            {visibleStaff.length === 0 ? (
-                              <div className="py-8 px-4 flex flex-col items-center justify-center text-center">
-                                <Users className="w-8 h-8 text-gray-200 mb-2" />
-                                <span className="text-xs text-gray-400 font-medium">Tidak ada crew aktif / sesuai filter</span>
-                              </div>
-                            ) : (
-                              <ul className="space-y-1">
-                                {visibleStaff.map(staff => {
-                                  const lastAttType = staffState.get(staff.id)
-                                  let attLabel = 'Belum Absen'
-                                  let attColor = 'bg-red-100 text-red-700 border border-red-100'
-                                  let attDot = 'bg-red-500'
-
-                                  if (lastAttType === 'in') {
-                                    attLabel = 'Hadir'
-                                    attColor = 'bg-emerald-100 text-emerald-700 border border-emerald-100'
-                                    attDot = 'bg-emerald-500'
-                                  } else if (lastAttType === 'out') {
-                                    attLabel = 'Pulang'
-                                    attColor = 'bg-gray-100 text-gray-600 border border-gray-200'
-                                    attDot = 'bg-gray-400'
-                                  }
-
-                                  return (
-                                    <li key={staff.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition-colors">
-                                      <div className="flex items-center gap-2.5 truncate pr-2">
-                                        <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-100/50 flex items-center justify-center shrink-0">
-                                          <User className="w-3.5 h-3.5 text-indigo-500" />
-                                        </div>
-                                        <span className="text-sm font-semibold text-gray-700 truncate" title={staff.name}>{staff.name}</span>
-                                      </div>
-                                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold shrink-0 ${attColor}`}>
-                                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${attDot}`} />
-                                        <span className="whitespace-nowrap tracking-wide uppercase">{attLabel}</span>
-                                      </div>
-                                    </li>
-                                  )
-                                })}
-                              </ul>
-                            )}
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                            {renderedCards}
                           </div>
                         </div>
                       )

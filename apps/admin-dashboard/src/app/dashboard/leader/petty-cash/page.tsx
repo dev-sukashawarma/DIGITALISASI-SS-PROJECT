@@ -42,14 +42,14 @@ function formatDateTime(iso: string) {
 function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
   if (!imageUrl) return null
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
-      <div className="relative bg-white rounded-3xl overflow-hidden shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col border border-slate-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
+      <div className="relative bg-white rounded-2xl overflow-hidden shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col border border-slate-200">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
               <Camera className="w-4 h-4" />
             </div>
-            <h3 className="font-extrabold text-slate-800 text-sm">Foto Bukti Transfer Finance</h3>
+            <h3 className="font-bold text-slate-900 text-sm">Foto Bukti Transfer Finance</h3>
           </div>
           <button
             type="button"
@@ -60,16 +60,16 @@ function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; on
           </button>
         </div>
         <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-slate-50">
-          <img src={imageUrl} alt="Bukti Transfer" className="max-h-[65vh] w-auto object-contain rounded-2xl shadow-md border border-slate-200" />
+          <img src={imageUrl} alt="Bukti Transfer" className="max-h-[65vh] w-auto object-contain rounded-xl shadow-sm border border-slate-200" />
         </div>
         <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0 text-xs">
-          <span className="text-slate-500 font-semibold">Lampiran Bukti Transfer Resmi</span>
+          <span className="text-slate-500 font-medium">Lampiran Bukti Transfer Resmi</span>
           <a
             href={imageUrl}
             target="_blank"
             rel="noreferrer"
             download="Bukti_Transfer_Petty_Cash.jpg"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm"
           >
             <Download className="w-3.5 h-3.5" /> Unduh Foto Utuh
           </a>
@@ -106,7 +106,6 @@ export default function LeaderPettyCashPage() {
   useEffect(() => {
     loadData()
 
-    // Realtime subscription for petty_cash_topups
     const channel = supabase
       .channel('leader-petty-cash-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_topups' }, () => {
@@ -121,7 +120,6 @@ export default function LeaderPettyCashPage() {
 
   async function loadData() {
     try {
-      // Parallelize topups fetch and user authentication fetch
       const [topupsRes, userRes] = await Promise.all([
         supabase
           .from('petty_cash_topups')
@@ -221,7 +219,6 @@ export default function LeaderPettyCashPage() {
       return
     }
 
-    // VALIDASI WAJIB UNTUK REKENING BANK OUTLET
     if (!bankName.trim() || !bankAccountNumber.trim() || !bankAccountName.trim()) {
       toast.error('Rekening Bank Outlet (Nama Bank, No. Rekening, dan Atas Nama) wajib diisi lengkap sebelum mengajukan top up!')
       return
@@ -229,7 +226,6 @@ export default function LeaderPettyCashPage() {
 
     setIsSubmitting(true)
     try {
-      // 1. Simpan/update otomatis ke tabel outlets agar permanen
       await supabase
         .from('outlets')
         .update({
@@ -239,7 +235,6 @@ export default function LeaderPettyCashPage() {
         })
         .eq('id', selectedOutletId)
 
-      // 2. Buat pengajuan top up petty cash
       const { error } = await supabase.rpc('create_petty_cash_topup', {
         p_outlet_id: selectedOutletId,
         p_amount: parseFloat(amount),
@@ -274,17 +269,14 @@ export default function LeaderPettyCashPage() {
     }
   }
 
-  // Filtered requests
   const filteredRequests = useMemo(() => {
     return requests.filter(r => {
-      // Status filter
       if (statusFilter === 'pending' && !(r.status === 'pending' || r.status === 'forwarded_to_area_manager')) return false
       if (statusFilter === 'finance' && !(r.status === 'forwarded_to_finance' || r.status === 'approved_by_finance' || r.status === 'forwarded_by_finance')) return false
       if (statusFilter === 'action_needed' && r.status !== 'forwarded_by_area_manager') return false
       if (statusFilter === 'completed' && !(r.status === 'completed' || r.status === 'forwarded_by_leader')) return false
       if (statusFilter === 'rejected' && r.status !== 'rejected') return false
 
-      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase()
         const outletName = (r.outlet?.name || '').toLowerCase()
@@ -301,7 +293,6 @@ export default function LeaderPettyCashPage() {
     })
   }, [requests, statusFilter, searchQuery])
 
-  // Summary counts
   const countPending = requests.filter(r => r.status === 'pending' || r.status === 'forwarded_to_area_manager').length
   const countActionNeeded = requests.filter(r => r.status === 'forwarded_by_area_manager').length
   const countCompleted = requests.filter(r => r.status === 'completed' || r.status === 'forwarded_by_leader').length
@@ -309,71 +300,71 @@ export default function LeaderPettyCashPage() {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 font-sans">
       
-      {/* HEADER BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+      {/* HEADER BAR - Solid, Clean Design */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-600 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center shrink-0">
             <Wallet className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Top Up Petty Cash Outlet</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Top Up Petty Cash Outlet</h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium">Kelola & pantau status pengajuan dana operasional cabang.</p>
           </div>
         </div>
         <button 
           onClick={() => setShowForm(!showForm)}
-          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-sm shadow-orange-500/20 shrink-0 cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
           {showForm ? 'Sembunyikan Form' : '+ Form Pengajuan Baru'}
         </button>
       </div>
 
-      {/* FORM SECTION */}
+      {/* FORM SECTION - Solid Fills, Clean Inputs */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-orange-500/30 p-5 sm:p-7 shadow-sm space-y-6 animate-in fade-in duration-200">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-xs space-y-6 animate-in fade-in duration-200">
           
           {/* STEP 1: OUTLET SELECTION CARDS */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <Store className="w-4 h-4 text-orange-500" />
+              <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Store className="w-4 h-4 text-blue-600" />
                 Langkah 1: Pilih Outlet Tujuan Top Up
               </label>
               <span className="text-xs text-slate-500 font-medium">Pilih salah satu outlet cabang</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               {outlets.map((o) => {
                 const isSelected = o.id === selectedOutletId
                 return (
                   <div
                     key={o.id}
                     onClick={() => handleOutletSelect(o.id)}
-                    className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex flex-col justify-between relative ${
+                    className={`cursor-pointer p-4 rounded-xl border transition-all flex flex-col justify-between relative ${
                       isSelected
-                        ? 'border-orange-500 bg-orange-50/60 shadow-xs'
-                        : 'border-slate-200 bg-slate-50/40 hover:bg-slate-100/70 hover:border-slate-300'
+                        ? 'border-2 border-blue-600 bg-blue-50/40 shadow-xs'
+                        : 'border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300'
                     }`}
                   >
                     {isSelected && (
-                      <div className="absolute top-3 right-3 w-5 h-5 bg-orange-500 text-white rounded-full flex items-center justify-center">
+                      <div className="absolute top-3 right-3 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-xs">
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                       </div>
                     )}
                     <div>
-                      <h4 className={`text-sm font-extrabold ${isSelected ? 'text-orange-950' : 'text-slate-800'}`}>
+                      <h4 className={`text-sm font-bold ${isSelected ? 'text-blue-950' : 'text-slate-900'}`}>
                         {o.name}
                       </h4>
                       <p className="text-[11px] text-slate-500 mt-1 font-mono">{o.slug}</p>
                     </div>
-                    <div className="mt-3 pt-2 border-t border-slate-200/60 text-[10px] text-slate-600">
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 text-[11px] text-slate-600 font-medium">
                       {o.bank_name && o.bank_account_number ? (
-                        <span>Bank: <b className="text-slate-800">{o.bank_name}</b> ({o.bank_account_number})</span>
+                        <span>Bank: <b className="text-slate-900 font-bold">{o.bank_name}</b> ({o.bank_account_number})</span>
                       ) : (
-                        <span className="text-red-600 font-extrabold italic flex items-center gap-1">
+                        <span className="text-red-600 font-bold italic flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                          Belum ada rekening (Wajib diisi)
+                          Belum ada rekening
                         </span>
                       )}
                     </div>
@@ -383,16 +374,16 @@ export default function LeaderPettyCashPage() {
             </div>
           </div>
 
-          {/* STEP 2: DETAILS & BANK INFO */}
+          {/* STEP 2: DETAILS & BANK INFO (Clean UI Refactor) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Nominal Top Up (Rp) <span className="text-red-500 font-black">*</span>
+                  Nominal Top Up (Rp) <span className="text-red-500 font-bold">*</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <span className="text-slate-500 font-bold text-sm">Rp</span>
+                    <span className="text-slate-400 font-bold text-sm">Rp</span>
                   </div>
                   <input 
                     type="text" 
@@ -403,7 +394,7 @@ export default function LeaderPettyCashPage() {
                       const raw = e.target.value.replace(/\D/g, '')
                       setAmount(raw)
                     }}
-                    className="w-full pl-10 pr-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-black focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all outline-none"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
                     required 
                   />
                 </div>
@@ -411,71 +402,71 @@ export default function LeaderPettyCashPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Alasan / Keperluan Operasional <span className="text-red-500 font-black">*</span>
+                  Alasan / Keperluan Operasional <span className="text-red-500 font-bold">*</span>
                 </label>
                 <textarea 
-                  rows={3} 
+                  rows={4} 
                   placeholder="Pembelian bahan baku es kristal, kantong plastik & perlengkapan kasir..." 
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all outline-none"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
                   required
                 />
               </div>
             </div>
 
-            <div className="bg-amber-50/70 p-5 rounded-2xl border-2 border-amber-300/80 space-y-3 shadow-2xs">
-              <div className="flex items-center justify-between">
+            {/* Clean Bank Account Card (NO yellow box / overlapping text) */}
+            <div className="bg-slate-50 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
                 <div className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-amber-700" />
-                  <h3 className="text-sm font-bold text-amber-900">Rekening Bank Outlet (Tersimpan)</h3>
+                  <Building2 className="w-5 h-5 text-slate-700" />
+                  <h3 className="text-sm font-bold text-slate-900">Rekening Bank Outlet (Tersimpan)</h3>
                 </div>
-                <span className="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded shadow-2xs">Wajib Diisi *</span>
+                <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">Wajib Diisi</span>
               </div>
-              <p className="text-xs text-amber-800 font-medium">Rekening ini <span className="font-bold underline">wajib diisi lengkap</span> dan otomatis tersimpan permanen untuk outlet cabang yang Anda pilih.</p>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                Data rekening ini otomatis tersimpan secara permanen untuk outlet cabang yang Anda pilih.
+              </p>
 
-              <div className="space-y-3 pt-1">
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-900 uppercase mb-0.5 flex items-center justify-between">
-                    <span>Nama Bank</span>
-                    <span className="text-red-600 font-black text-[10px]">* Wajib</span>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Nama Bank
                   </label>
                   <input
                     type="text"
                     placeholder="Contoh: BCA / Mandiri / BRI"
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none shadow-2xs"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-xs"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-900 uppercase mb-0.5 flex items-center justify-between">
-                    <span>No. Rekening</span>
-                    <span className="text-red-600 font-black text-[10px]">* Wajib</span>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    No. Rekening
                   </label>
                   <input
                     type="text"
                     placeholder="Contoh: 1234567890"
                     value={bankAccountNumber}
                     onChange={(e) => setBankAccountNumber(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none shadow-2xs"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-xs"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-900 uppercase mb-0.5 flex items-center justify-between">
-                    <span>Atas Nama Rekening</span>
-                    <span className="text-red-600 font-black text-[10px]">* Wajib</span>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Atas Nama Rekening
                   </label>
                   <input
                     type="text"
                     placeholder="Contoh: Nama Pemilik Rekening / Outlet"
                     value={bankAccountName}
                     onChange={(e) => setBankAccountName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none shadow-2xs"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-xs"
                     required
                   />
                 </div>
@@ -487,7 +478,7 @@ export default function LeaderPettyCashPage() {
             <button
               type="submit"
               disabled={isSubmitting || !selectedOutletId}
-              className="inline-flex items-center gap-2 px-6 py-3 text-xs sm:text-sm font-extrabold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition-all shadow-sm shadow-orange-500/20 disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-6 py-3 text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
             >
               <Send className="w-4 h-4" />
               {isSubmitting ? 'Mengirim...' : 'Kirim Pengajuan Top Up'}
@@ -496,27 +487,27 @@ export default function LeaderPettyCashPage() {
         </form>
       )}
 
-      {/* REAL DATA TABLE & CARDS SECTION */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden space-y-0">
+      {/* DATA TABLE & CARDS SECTION */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         
         {/* TABLE HEADER & FILTER BAR */}
         <div className="p-5 border-b border-slate-100 bg-slate-50/50 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 Daftar Pengajuan Top Up Petty Cash
               </h2>
               <p className="text-xs text-slate-500 font-medium mt-0.5">Riwayat & pemantauan status persetujuan berjenjang</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-extrabold text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
-                Total: <span className="text-orange-600">{filteredRequests.length}</span> / {requests.length} data
+              <span className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
+                Total: <span className="text-blue-600">{filteredRequests.length}</span> / {requests.length} data
               </span>
             </div>
           </div>
 
           {/* SEARCH & FILTER CONTROLS */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 pt-2">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 pt-1">
             
             {/* Search Input */}
             <div className="relative flex-1">
@@ -526,7 +517,7 @@ export default function LeaderPettyCashPage() {
                 placeholder="Cari nama outlet, alasan, bank, atau nominal..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all shadow-2xs"
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all shadow-xs"
               />
               {searchQuery && (
                 <button 
@@ -542,9 +533,9 @@ export default function LeaderPettyCashPage() {
             <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
               <button
                 onClick={() => setStatusFilter('all')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                   statusFilter === 'all'
-                    ? 'bg-slate-800 text-white shadow-xs'
+                    ? 'bg-slate-900 text-white shadow-xs'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
@@ -554,54 +545,54 @@ export default function LeaderPettyCashPage() {
               {countActionNeeded > 0 && (
                 <button
                   onClick={() => setStatusFilter('action_needed')}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all ${
+                  className={`flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                     statusFilter === 'action_needed'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
                   }`}
                 >
-                  <Send className="w-3 h-3" /> Action Leader ({countActionNeeded})
+                  <Send className="w-3.5 h-3.5" /> Action Leader ({countActionNeeded})
                 </button>
               )}
 
               <button
                 onClick={() => setStatusFilter('pending')}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                   statusFilter === 'pending'
-                    ? 'bg-amber-600 text-white shadow-xs'
+                    ? 'bg-amber-500 text-white shadow-xs'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                <Clock className="w-3 h-3 text-amber-500" /> Menunggu AM ({countPending})
+                <Clock className="w-3.5 h-3.5 text-amber-500" /> Menunggu AM ({countPending})
               </button>
 
               <button
                 onClick={() => setStatusFilter('completed')}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                   statusFilter === 'completed'
                     ? 'bg-emerald-700 text-white shadow-xs'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Selesai ({countCompleted})
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Selesai ({countCompleted})
               </button>
             </div>
 
           </div>
         </div>
 
-        {/* DESKTOP TABLE VIEW (md:block) */}
+        {/* DESKTOP TABLE VIEW */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/80 text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-200">
-                <th className="px-5 py-3.5 font-extrabold w-[160px]">Tanggal & Waktu</th>
-                <th className="px-5 py-3.5 font-extrabold w-[200px]">Outlet Cabang</th>
-                <th className="px-5 py-3.5 font-extrabold w-[200px]">Rekening Tujuan</th>
-                <th className="px-5 py-3.5 font-extrabold w-[140px]">Nominal Top Up</th>
-                <th className="px-5 py-3.5 font-extrabold">Alasan / Keperluan</th>
-                <th className="px-5 py-3.5 font-extrabold w-[230px]">Status Hirarki</th>
-                <th className="px-5 py-3.5 font-extrabold text-right w-[160px]">Bukti / Aksi</th>
+              <tr className="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-200">
+                <th className="px-5 py-3.5 font-bold w-[160px]">Tanggal & Waktu</th>
+                <th className="px-5 py-3.5 font-bold w-[200px]">Outlet Cabang</th>
+                <th className="px-5 py-3.5 font-bold w-[200px]">Rekening Tujuan</th>
+                <th className="px-5 py-3.5 font-bold w-[140px]">Nominal Top Up</th>
+                <th className="px-5 py-3.5 font-bold">Alasan / Keperluan</th>
+                <th className="px-5 py-3.5 font-bold w-[230px]">Status Hirarki</th>
+                <th className="px-5 py-3.5 font-bold text-right w-[160px]">Bukti / Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
@@ -609,7 +600,7 @@ export default function LeaderPettyCashPage() {
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-slate-400 space-y-2">
                     <AlertCircle className="w-8 h-8 mx-auto text-slate-300" />
-                    <p className="font-bold text-slate-600 text-sm">Tidak ada pengajuan ditemukan.</p>
+                    <p className="font-bold text-slate-700 text-sm">Tidak ada pengajuan ditemukan.</p>
                     <p className="text-xs text-slate-400">Coba ubah kata kunci pencarian atau filter status di atas.</p>
                   </td>
                 </tr>
@@ -617,7 +608,6 @@ export default function LeaderPettyCashPage() {
                 filteredRequests.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                     
-                    {/* Tanggal */}
                     <td className="px-5 py-4 whitespace-nowrap">
                       <div className="font-bold text-slate-800 flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -625,86 +615,81 @@ export default function LeaderPettyCashPage() {
                       </div>
                     </td>
 
-                    {/* Outlet */}
-                    <td className="px-5 py-4 font-extrabold text-slate-900">
+                    <td className="px-5 py-4 font-bold text-slate-900">
                       <div className="flex items-center gap-2">
-                        <Store className="w-4 h-4 text-orange-500 shrink-0" />
+                        <Store className="w-4 h-4 text-blue-600 shrink-0" />
                         <span>{row.outlet?.name || '-'}</span>
                       </div>
                     </td>
 
-                    {/* Rekening Tujuan */}
                     <td className="px-5 py-4 text-xs">
                       {row.bank_name ? (
-                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-200/70 space-y-0.5">
-                          <div className="font-extrabold text-slate-800 flex items-center gap-1">
-                            <Building2 className="w-3.5 h-3.5 text-orange-500" />
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-0.5">
+                          <div className="font-bold text-slate-900 flex items-center gap-1">
+                            <Building2 className="w-3.5 h-3.5 text-blue-600" />
                             {row.bank_name} - <span className="font-mono text-slate-900">{row.bank_account_number}</span>
                           </div>
-                          <div className="text-[10px] text-slate-500 font-medium">a.n {row.bank_account_name || '-'}</div>
+                          <div className="text-[11px] text-slate-500 font-medium">a.n {row.bank_account_name || '-'}</div>
                         </div>
                       ) : (
                         <span className="text-slate-400 italic text-[11px] bg-slate-100 px-2 py-1 rounded-md">Belum diisi</span>
                       )}
                     </td>
 
-                    {/* Nominal */}
-                    <td className="px-5 py-4 font-black text-orange-600 text-sm whitespace-nowrap">
+                    <td className="px-5 py-4 font-black text-blue-600 text-sm whitespace-nowrap">
                       {formatRupiah(row.amount)}
                     </td>
 
-                    {/* Alasan */}
                     <td className="px-5 py-4 text-slate-800 font-medium max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed text-xs">
                       {row.description}
                     </td>
 
-                    {/* Status Hirarki - FULL RESPONSIVE BADGES */}
                     <td className="px-5 py-4">
                       <div className="flex flex-col items-start gap-1">
                         {(row.status === 'pending' || row.status === 'forwarded_to_area_manager') && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                             <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                             <span>Menunggu Area Manager</span>
                           </span>
                         )}
 
                         {row.status === 'forwarded_to_finance' && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-blue-50 text-blue-800 border border-blue-200 shadow-2xs">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
                             <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                             <span>Menunggu Finance</span>
                           </span>
                         )}
 
                         {(row.status === 'approved_by_finance' || row.status === 'forwarded_by_finance') && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-orange-50 text-orange-800 border border-orange-200 shadow-2xs">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                             <span>Disetujui Finance (Pencairan)</span>
                           </span>
                         )}
 
                         {row.status === 'forwarded_by_area_manager' && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-black bg-emerald-600 text-white shadow-2xs animate-pulse">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-emerald-600 text-white animate-pulse">
                             <Send className="w-3.5 h-3.5 shrink-0" />
                             <span>Siap Serahkan ke Crew</span>
                           </span>
                         )}
 
                         {row.status === 'forwarded_by_leader' && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span>Diserahkan ke Crew (Saldo +)</span>
+                            <span>Diserahkan ke Crew</span>
                           </span>
                         )}
 
                         {row.status === 'completed' && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-emerald-600 text-white shadow-2xs">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-emerald-600 text-white">
                             <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                             <span>Selesai (Crew Terima)</span>
                           </span>
                         )}
 
                         {row.status === 'rejected' && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-red-50 text-red-700 border border-red-200 shadow-2xs">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
                             <XCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
                             <span>Ditolak</span>
                           </span>
@@ -712,12 +697,11 @@ export default function LeaderPettyCashPage() {
                       </div>
                     </td>
 
-                    {/* Bukti / Aksi */}
                     <td className="px-5 py-4 text-right whitespace-nowrap space-y-1">
                       {row.status === 'forwarded_by_area_manager' && (
                         <button
                           onClick={() => handleLeaderForwardToCrew(row.id)}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
                         >
                           <Send className="w-3.5 h-3.5" /> Serahkan ke Crew
                         </button>
@@ -728,7 +712,7 @@ export default function LeaderPettyCashPage() {
                           <button
                             type="button"
                             onClick={() => setSelectedProofUrl(row.proof_of_transfer_url || null)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold text-xs rounded-xl border border-emerald-200 transition-colors cursor-pointer shadow-2xs"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl border border-emerald-200 transition-colors cursor-pointer"
                           >
                             <Camera className="w-3.5 h-3.5 text-emerald-600" />
                             <span>Lihat Bukti</span>
@@ -744,25 +728,23 @@ export default function LeaderPettyCashPage() {
           </table>
         </div>
 
-        {/* MOBILE CARD VIEW (md:hidden) */}
+        {/* MOBILE CARD VIEW */}
         <div className="block md:hidden divide-y divide-slate-100">
           {filteredRequests.length === 0 ? (
             <div className="p-8 text-center text-slate-400 space-y-2">
               <AlertCircle className="w-8 h-8 mx-auto text-slate-300" />
-              <p className="font-bold text-slate-600 text-sm">Tidak ada pengajuan ditemukan.</p>
+              <p className="font-bold text-slate-700 text-sm">Tidak ada pengajuan ditemukan.</p>
             </div>
           ) : (
             filteredRequests.map((row) => (
               <div key={row.id} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
                 
-                {/* Card Header: Outlet & Status */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Store className="w-4 h-4 text-orange-500 shrink-0" />
-                    <span className="font-black text-slate-900 text-sm">{row.outlet?.name || '-'}</span>
+                    <Store className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span className="font-bold text-slate-900 text-sm">{row.outlet?.name || '-'}</span>
                   </div>
                   
-                  {/* Status Badge */}
                   <div>
                     {(row.status === 'pending' || row.status === 'forwarded_to_area_manager') && (
                       <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
@@ -775,12 +757,12 @@ export default function LeaderPettyCashPage() {
                       </span>
                     )}
                     {(row.status === 'approved_by_finance' || row.status === 'forwarded_by_finance') && (
-                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-orange-50 text-orange-800 border border-orange-200">
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                         Acc Finance
                       </span>
                     )}
                     {row.status === 'forwarded_by_area_manager' && (
-                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black bg-emerald-600 text-white animate-pulse">
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-600 text-white animate-pulse">
                         Siap Serahkan
                       </span>
                     )}
@@ -802,52 +784,41 @@ export default function LeaderPettyCashPage() {
                   </div>
                 </div>
 
-                {/* Amount & Time */}
                 <div className="flex items-baseline justify-between pt-1">
-                  <span className="text-lg font-black text-orange-600">{formatRupiah(row.amount)}</span>
-                  <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-slate-400" />
-                    {formatDateTime(row.created_at)}
-                  </span>
+                  <span className="text-xs text-slate-500 font-medium">{formatDateTime(row.created_at)}</span>
+                  <span className="text-base font-black text-blue-600">{formatRupiah(row.amount)}</span>
                 </div>
 
-                {/* Description */}
-                <p className="text-xs text-slate-700 font-medium bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                <p className="text-xs text-slate-800 font-medium bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
                   {row.description}
                 </p>
 
-                {/* Bank Info & Actions */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                  <div>
-                    {row.bank_name ? (
-                      <span className="text-[11px] text-slate-600 font-bold">
-                        {row.bank_name} ({row.bank_account_number})
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-slate-400 italic">Belum ada rekening</span>
-                    )}
+                {row.bank_name && (
+                  <div className="text-[11px] text-slate-600 font-medium flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>{row.bank_name} - {row.bank_account_number} (a.n {row.bank_account_name || '-'})</span>
                   </div>
+                )}
 
-                  <div className="flex items-center gap-2">
-                    {row.proof_of_transfer_url && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedProofUrl(row.proof_of_transfer_url || null)}
-                        className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-extrabold text-[11px] rounded-lg border border-emerald-200"
-                      >
-                        📷 Bukti
-                      </button>
-                    )}
+                <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                  {row.status === 'forwarded_by_area_manager' && (
+                    <button
+                      onClick={() => handleLeaderForwardToCrew(row.id)}
+                      className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all text-center"
+                    >
+                      Serahkan ke Crew
+                    </button>
+                  )}
 
-                    {row.status === 'forwarded_by_area_manager' && (
-                      <button
-                        onClick={() => handleLeaderForwardToCrew(row.id)}
-                        className="px-3 py-1.5 bg-emerald-600 text-white font-black text-[11px] rounded-xl shadow-xs"
-                      >
-                        Serahkan ke Crew
-                      </button>
-                    )}
-                  </div>
+                  {row.proof_of_transfer_url && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProofUrl(row.proof_of_transfer_url || null)}
+                      className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1"
+                    >
+                      <Camera className="w-3.5 h-3.5" /> Bukti
+                    </button>
+                  )}
                 </div>
 
               </div>

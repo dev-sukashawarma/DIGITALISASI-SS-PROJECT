@@ -25,14 +25,14 @@ interface TopupRequest {
 function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
   if (!imageUrl) return null
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
-      <div className="relative bg-white rounded-3xl overflow-hidden shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col border border-slate-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
+      <div className="relative bg-white rounded-2xl overflow-hidden shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col border border-slate-200">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center">
               <Camera className="w-4 h-4" />
             </div>
-            <h3 className="font-extrabold text-slate-800 text-sm">Foto Bukti Transfer Finance</h3>
+            <h3 className="font-bold text-slate-900 text-sm">Foto Bukti Transfer Finance</h3>
           </div>
           <button
             type="button"
@@ -43,10 +43,10 @@ function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; on
           </button>
         </div>
         <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-slate-50">
-          <img src={imageUrl} alt="Bukti Transfer" className="max-h-[65vh] w-auto object-contain rounded-2xl shadow-md border border-slate-200" />
+          <img src={imageUrl} alt="Bukti Transfer" className="max-h-[65vh] w-auto object-contain rounded-xl shadow-sm border border-slate-200" />
         </div>
         <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0 text-xs">
-          <span className="text-slate-500 font-semibold">Lampiran Bukti Transfer Resmi</span>
+          <span className="text-slate-500 font-medium">Lampiran Bukti Transfer Resmi</span>
           <a
             href={imageUrl}
             target="_blank"
@@ -54,7 +54,7 @@ function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; on
             download="Bukti_Transfer_Petty_Cash.jpg"
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm"
           >
-            <Download className="w-3.5 h-3.5" /> Unduh / Foto Utuh
+            <Download className="w-3.5 h-3.5" /> Unduh Foto Utuh
           </a>
         </div>
       </div>
@@ -102,23 +102,20 @@ export default function AreaManagerPettyCashPage() {
     }
   }, [])
 
-  // Initial load + Realtime subscription
   useEffect(() => {
     loadRequests()
 
-    // Realtime channel for instant updates across outlets
     const channel = supabase
       .channel('am-petty-cash-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'petty_cash_topups' },
         () => {
-          loadRequests(true) // Silent background reload
+          loadRequests(true)
         }
       )
       .subscribe()
 
-    // 15s fallback polling for network resiliency
     const interval = setInterval(() => {
       loadRequests(true)
     }, 15000)
@@ -129,12 +126,10 @@ export default function AreaManagerPettyCashPage() {
     }
   }, [loadRequests, supabase])
 
-  // OPTIMISTIC APPROVE
   async function handleApprove(id: string) {
     if (!confirm('Setujui pengajuan ini dan teruskan ke Finance?')) return
     setIsProcessing(id)
 
-    // Optimistic UI update (0ms lag)
     const prevRequests = [...requests]
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'forwarded_to_finance' } : r))
 
@@ -147,7 +142,6 @@ export default function AreaManagerPettyCashPage() {
 
       toast.success('Pengajuan disetujui & diteruskan ke Finance!')
     } catch (err: any) {
-      // Rollback on error
       setRequests(prevRequests)
       toast.error('Gagal menyetujui pengajuan: ' + err.message)
     } finally {
@@ -156,12 +150,10 @@ export default function AreaManagerPettyCashPage() {
     }
   }
 
-  // OPTIMISTIC REJECT
   async function handleReject(id: string) {
     if (!confirm('Tolak pengajuan ini? Status akan menjadi Ditolak.')) return
     setIsProcessing(id)
 
-    // Optimistic UI update (0ms lag)
     const prevRequests = [...requests]
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'rejected' } : r))
 
@@ -174,7 +166,6 @@ export default function AreaManagerPettyCashPage() {
 
       toast.error('Pengajuan telah ditolak.')
     } catch (err: any) {
-      // Rollback on error
       setRequests(prevRequests)
       toast.error('Gagal menolak pengajuan: ' + err.message)
     } finally {
@@ -183,12 +174,10 @@ export default function AreaManagerPettyCashPage() {
     }
   }
 
-  // OPTIMISTIC FORWARD TO LEADER
   async function handleForwardToLeader(id: string) {
     if (!confirm('Teruskan penyerahan dana ke Leader Cabang?')) return
     setIsProcessing(id)
 
-    // Optimistic UI update (0ms lag)
     const prevRequests = [...requests]
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'forwarded_by_area_manager' } : r))
 
@@ -200,7 +189,6 @@ export default function AreaManagerPettyCashPage() {
 
       toast.success('Dana berhasil diserahkan ke Leader!')
     } catch (err: any) {
-      // Rollback on error
       setRequests(prevRequests)
       toast.error('Gagal penyerahan dana: ' + err.message)
     } finally {
@@ -209,7 +197,6 @@ export default function AreaManagerPettyCashPage() {
     }
   }
 
-  // Categories
   const allReviewRequests = requests.filter(r => 
     r.status === 'pending' ||
     r.status === 'forwarded_to_area_manager' || 
@@ -224,7 +211,6 @@ export default function AreaManagerPettyCashPage() {
     r.status !== 'forwarded_by_finance'
   )
 
-  // Sub-filtered Review
   const filteredReviewRequests = allReviewRequests.filter(r => {
     if (reviewFilter === 'unapproved') {
       return r.status === 'pending' || r.status === 'forwarded_to_area_manager'
@@ -235,7 +221,6 @@ export default function AreaManagerPettyCashPage() {
     return true
   })
 
-  // Sub-filtered History
   const filteredHistoryRequests = allHistoryRequests.filter(r => {
     if (historyFilter === 'acc_finance') return r.status === 'forwarded_to_finance'
     if (historyFilter === 'forwarded_leader') return r.status === 'forwarded_by_area_manager'
@@ -244,7 +229,6 @@ export default function AreaManagerPettyCashPage() {
     return true
   })
 
-  // Counts for Sub-filters
   const unapprovedCount = allReviewRequests.filter(r => r.status === 'pending' || r.status === 'forwarded_to_area_manager').length
   const readyHandoverCount = allReviewRequests.filter(r => r.status === 'approved_by_finance' || r.status === 'forwarded_by_finance').length
 
@@ -254,20 +238,26 @@ export default function AreaManagerPettyCashPage() {
   const rejectedCount = allHistoryRequests.filter(r => r.status === 'rejected').length
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6 font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
-            <ShieldCheck className="w-7 h-7 text-indigo-600" />
-            Dashboard Area Manager - Approval Petty Cash (Wilayah BOGOR)
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">Review pengajuan dana dari cabang Wilayah Bogor dan kelola serah terima ke Leader.</p>
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6 font-sans">
+      
+      {/* HEADER BAR - Solid Clean UI */}
+      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              Dashboard Area Manager - Approval Petty Cash
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium">Review pengajuan dana dari cabang Wilayah Bogor & kelola serah terima ke Leader.</p>
+          </div>
         </div>
 
         <button
           onClick={() => loadRequests(false)}
           disabled={loading || isRefreshing}
-          className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer disabled:opacity-50"
           title="Refresh Data"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-indigo-600' : ''}`} />
@@ -275,14 +265,14 @@ export default function AreaManagerPettyCashPage() {
         </button>
       </div>
 
-      {/* TABS NAVIGATION */}
-      <div className="flex border-b border-slate-200 gap-2">
+      {/* TABS NAVIGATION - Solid Pills */}
+      <div className="flex border-b border-slate-200 gap-2 overflow-x-auto pb-1">
         <button
           onClick={() => setActiveTab('review')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'review'
-              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
           }`}
         >
           <Clock className="w-4 h-4" />
@@ -290,10 +280,10 @@ export default function AreaManagerPettyCashPage() {
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'history'
-              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
           }`}
         >
           <History className="w-4 h-4" />
@@ -304,27 +294,26 @@ export default function AreaManagerPettyCashPage() {
       {/* TAB 1: REVIEW / ACTION NEEDED */}
       {activeTab === 'review' && (
         <section className="space-y-4">
-          {/* Sub-filter chips for Review */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mr-1">
               <Filter className="w-3.5 h-3.5" /> Filter:
             </span>
             <button
               onClick={() => setReviewFilter('all')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 reviewFilter === 'all'
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >
               Semua ({allReviewRequests.length})
             </button>
             <button
               onClick={() => setReviewFilter('unapproved')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 reviewFilter === 'unapproved'
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                  ? 'bg-amber-500 text-white shadow-xs'
+                  : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
@@ -332,10 +321,10 @@ export default function AreaManagerPettyCashPage() {
             </button>
             <button
               onClick={() => setReviewFilter('ready_handover')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 reviewFilter === 'ready_handover'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100'
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -343,7 +332,7 @@ export default function AreaManagerPettyCashPage() {
             </button>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
             {loading ? (
               <div className="p-8 space-y-4">
                 {[1, 2, 3].map(i => (
@@ -357,42 +346,41 @@ export default function AreaManagerPettyCashPage() {
                 ))}
               </div>
             ) : filteredReviewRequests.length === 0 ? (
-              <div className="p-12 text-center text-slate-400">
+              <div className="p-12 text-center text-slate-400 font-medium">
                 Tidak ada pengajuan pada kategori ini.
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
                 {filteredReviewRequests.map((req) => (
                   <div key={req.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/60 transition-colors">
-                    <div className="space-y-1.5 flex-1">
+                    <div className="space-y-2 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
-                          <Store className="w-3.5 h-3.5 text-slate-400" /> {req.outlet?.name || 'Unknown Outlet'}
+                        <span className="text-xs font-bold text-slate-800 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                          <Store className="w-3.5 h-3.5 text-slate-500" /> {req.outlet?.name || 'Unknown Outlet'}
                         </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200" title={formatDateTime(req.created_at)}>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200" title={formatDateTime(req.created_at)}>
                           <Clock className="w-3 h-3 text-slate-400" />
                           {formatRelativeTime(req.created_at)}
                         </span>
                         {(req.status === 'pending' || req.status === 'forwarded_to_area_manager') && (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md">
-                            <Clock className="w-3.5 h-3.5" /> BELUM DI-ACC (MENUNGGU AM)
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" /> BELUM DI-ACC (MENUNGGU AM)
                           </span>
                         )}
                         {(req.status === 'approved_by_finance' || req.status === 'forwarded_by_finance') && (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" /> SUDAH DICAIRKAN FINANCE (SERAHKAN KE LEADER)
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" /> DICAIRKAN FINANCE (SERAHKAN KE LEADER)
                           </span>
                         )}
                       </div>
 
                       <p className="font-bold text-slate-900 text-base">{req.description}</p>
                       
-                      {/* Bank Info */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200 inline-block">
-                          <span className="font-bold text-slate-700">Rekening Tujuan: </span>
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <div className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200 inline-block font-medium">
+                          <span className="font-bold text-slate-900">Rekening Tujuan: </span>
                           {req.bank_name ? (
-                            <span>{req.bank_name} - <b>{req.bank_account_number}</b> (a.n {req.bank_account_name || '-'})</span>
+                            <span>{req.bank_name} - <b className="font-mono text-slate-900">{req.bank_account_number}</b> (a.n {req.bank_account_name || '-'})</span>
                           ) : (
                             <span className="italic text-slate-400">Belum ada</span>
                           )}
@@ -402,7 +390,7 @@ export default function AreaManagerPettyCashPage() {
                           <button
                             type="button"
                             onClick={() => setSelectedProofUrl(req.proof_of_transfer_url || null)}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-xl border border-emerald-200 transition-colors shadow-sm cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-xl border border-emerald-200 transition-colors shadow-xs cursor-pointer"
                           >
                             <Camera className="w-4 h-4 text-emerald-600" />
                             <span>Lihat Bukti Transfer Finance</span>
@@ -411,8 +399,8 @@ export default function AreaManagerPettyCashPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 shrink-0">
-                      <div className="text-right">
+                    <div className="flex items-center gap-4 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
+                      <div className="text-left md:text-right">
                         <p className="text-[10px] text-slate-400 font-bold uppercase">Nominal</p>
                         <p className="text-xl font-black text-blue-600">{formatRupiah(req.amount)}</p>
                       </div>
@@ -423,14 +411,14 @@ export default function AreaManagerPettyCashPage() {
                             <button
                               onClick={() => handleReject(req.id)}
                               disabled={isProcessing === req.id}
-                              className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs transition-colors disabled:opacity-50 cursor-pointer"
+                              className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs transition-colors disabled:opacity-50 cursor-pointer border border-red-200"
                             >
                               Tolak
                             </button>
                             <button
                               onClick={() => handleApprove(req.id)}
                               disabled={isProcessing === req.id}
-                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl font-bold text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                             >
                               {isProcessing === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                               Acc & Ke Finance
@@ -442,7 +430,7 @@ export default function AreaManagerPettyCashPage() {
                           <button
                             onClick={() => handleForwardToLeader(req.id)}
                             disabled={isProcessing === req.id}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl font-bold text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                           >
                             {isProcessing === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                             Serahkan ke Leader
@@ -461,27 +449,26 @@ export default function AreaManagerPettyCashPage() {
       {/* TAB 2: RIWAYAT PENGAJUAN AREA MANAGER */}
       {activeTab === 'history' && (
         <section className="space-y-4">
-          {/* Sub-filter chips for History */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mr-1">
               <Filter className="w-3.5 h-3.5" /> Filter Riwayat:
             </span>
             <button
               onClick={() => setHistoryFilter('all')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 historyFilter === 'all'
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >
               Semua ({allHistoryRequests.length})
             </button>
             <button
               onClick={() => setHistoryFilter('acc_finance')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 historyFilter === 'acc_finance'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
@@ -489,10 +476,10 @@ export default function AreaManagerPettyCashPage() {
             </button>
             <button
               onClick={() => setHistoryFilter('forwarded_leader')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 historyFilter === 'forwarded_leader'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
               }`}
             >
               <ArrowRight className="w-3.5 h-3.5" />
@@ -500,10 +487,10 @@ export default function AreaManagerPettyCashPage() {
             </button>
             <button
               onClick={() => setHistoryFilter('completed')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 historyFilter === 'completed'
-                  ? 'bg-emerald-700 text-white shadow-sm'
-                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -511,9 +498,9 @@ export default function AreaManagerPettyCashPage() {
             </button>
             <button
               onClick={() => setHistoryFilter('rejected')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 historyFilter === 'rejected'
-                  ? 'bg-red-600 text-white shadow-sm'
+                  ? 'bg-red-600 text-white shadow-xs'
                   : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
               }`}
             >
@@ -522,16 +509,16 @@ export default function AreaManagerPettyCashPage() {
             </button>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
-                    <th className="px-6 py-3 font-semibold">Waktu / Tanggal</th>
-                    <th className="px-6 py-3 font-semibold">Outlet</th>
-                    <th className="px-6 py-3 font-semibold">Nominal</th>
-                    <th className="px-6 py-3 font-semibold">Alasan / Keperluan</th>
-                    <th className="px-6 py-3 font-semibold">Status Progress</th>
+                    <th className="px-6 py-3.5 font-bold">Waktu / Tanggal</th>
+                    <th className="px-6 py-3.5 font-bold">Outlet</th>
+                    <th className="px-6 py-3.5 font-bold">Nominal</th>
+                    <th className="px-6 py-3.5 font-bold">Alasan / Keperluan</th>
+                    <th className="px-6 py-3.5 font-bold">Status Progress</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
@@ -543,7 +530,7 @@ export default function AreaManagerPettyCashPage() {
                     </tr>
                   ) : filteredHistoryRequests.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
+                      <td colSpan={5} className="px-6 py-8 text-center text-slate-400 font-medium">
                         Tidak ada riwayat pengajuan pada kategori ini.
                       </td>
                     </tr>
@@ -551,40 +538,40 @@ export default function AreaManagerPettyCashPage() {
                     filteredHistoryRequests.map((r) => (
                       <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-slate-600" title={formatDateTime(r.created_at)}>
-                          <div className="font-bold text-slate-800">{formatRelativeTime(r.created_at)}</div>
+                          <div className="font-bold text-slate-900">{formatRelativeTime(r.created_at)}</div>
                           <div className="text-[11px] text-slate-400 font-normal">{formatDateTime(r.created_at)}</div>
                         </td>
-                        <td className="px-6 py-4 font-bold text-slate-800">
+                        <td className="px-6 py-4 font-bold text-slate-900">
                           <div className="flex items-center gap-1.5">
                             <Store className="w-4 h-4 text-slate-400" />
                             {r.outlet?.name || '-'}
                           </div>
                         </td>
                         <td className="px-6 py-4 font-black text-blue-600">{formatRupiah(r.amount)}</td>
-                        <td className="px-6 py-4 text-slate-600 max-w-xs truncate">{r.description}</td>
+                        <td className="px-6 py-4 text-slate-800 max-w-xs truncate font-medium">{r.description}</td>
                         <td className="px-6 py-4">
                           {r.status === 'forwarded_to_finance' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 font-bold text-xs rounded-md border border-blue-200">
-                              <Clock className="w-3.5 h-3.5" /> Sudah di-ACC AM (Menunggu Finance)
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-800 font-bold text-xs rounded-lg border border-blue-200">
+                              <Clock className="w-3.5 h-3.5" /> ACC AM (Menunggu Finance)
                             </span>
                           )}
                           {r.status === 'forwarded_by_area_manager' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-md border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 font-bold text-xs rounded-lg border border-emerald-200">
                               <ArrowRight className="w-3.5 h-3.5" /> Diserahkan ke Leader
                             </span>
                           )}
                           {r.status === 'forwarded_by_leader' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-md border border-emerald-300">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Diserahkan ke Crew (Saldo +)
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 font-bold text-xs rounded-lg border border-emerald-200">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Diserahkan ke Crew
                             </span>
                           )}
                           {r.status === 'completed' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white font-bold text-xs rounded-md">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white font-bold text-xs rounded-lg">
                               <CheckCircle2 className="w-3.5 h-3.5" /> Selesai (Crew Terima)
                             </span>
                           )}
                           {r.status === 'rejected' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 font-bold text-xs rounded-md border border-red-200">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 font-bold text-xs rounded-lg border border-red-200">
                               <XCircle className="w-3.5 h-3.5" /> Ditolak
                             </span>
                           )}

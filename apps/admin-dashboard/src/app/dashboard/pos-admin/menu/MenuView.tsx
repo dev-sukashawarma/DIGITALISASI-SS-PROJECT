@@ -860,22 +860,24 @@ export default function MenuView({
                         </span>
                       </div>
 
-                      {/* Base Price, Strike Price & Category Grid */}
+                      {/* Price & Category Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider">
-                            Harga Dasar (Base) <span className="text-red-500">*</span>
+                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider flex items-center gap-1.5">
+                            <Store className="w-3.5 h-3.5 text-amber-600" />
+                            Harga Offline <span className="text-red-500">*</span>
                           </label>
                           <CurrencyInput value={form.price}
                             onChange={(v) => {
                               const valStr = String(v)
-                              setForm(prev => {
-                                const updated = { ...prev, price: valStr }
-                                if (!prev.channel_prices['pos_kasir']) {
-                                  updated.channel_prices = { ...updated.channel_prices, pos_kasir: valStr }
+                              setForm(prev => ({
+                                ...prev,
+                                price: valStr,
+                                channel_prices: {
+                                  ...prev.channel_prices,
+                                  pos_kasir: valStr
                                 }
-                                return updated
-                              })
+                              }))
                             }}
                             required className="input bg-gray-50 focus:bg-white font-bold text-gray-900 text-base py-2.5" />
                         </div>
@@ -901,39 +903,8 @@ export default function MenuView({
                         </div>
                       </div>
 
-                      {/* CONTAINER PENGATURAN HARGA OFFLINE & ONLINE */}
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
-                        
-                        {/* 1. HARGA OFFLINE (POS KASIR TOKO) */}
-                        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-2">
-                          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
-                            <span className="flex items-center gap-2">
-                              <Store className="w-4 h-4 text-amber-600" />
-                              Harga Offline (Kasir Toko)
-                            </span>
-                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                              POS Kasir
-                            </span>
-                          </label>
-                          <CurrencyInput
-                            value={form.channel_prices['pos_kasir'] || form.price}
-                            onChange={(v) => {
-                              const valStr = String(v)
-                              setForm(prev => ({
-                                ...prev,
-                                channel_prices: {
-                                  ...prev.channel_prices,
-                                  pos_kasir: valStr
-                                }
-                              }))
-                            }}
-                            placeholder={form.price || '0'}
-                            className="input bg-slate-50 focus:bg-white font-bold text-slate-900 text-sm py-2"
-                          />
-                          <p className="text-[11px] text-slate-500 font-medium">Harga saat transaksi langsung di Kasir Outlet (Offline).</p>
-                        </div>
-
-                        {/* 2. HARGA ONLINE (FOOD APPS) */}
+                      {/* CONTAINER PENGATURAN HARGA ONLINE (FOOD APPS) */}
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
                         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                             <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
@@ -1035,8 +1006,8 @@ export default function MenuView({
                             </div>
                           )}
                         </div>
-
                       </div>
+                    </div>
 
                       {/* Menu Type Toggle */}
                       <div>
@@ -1439,7 +1410,6 @@ export default function MenuView({
                       </div>
                     </div>
                   </div>
-                </div>
 
               </div>
 

@@ -4,6 +4,9 @@ const nextConfig = {
   transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/realtime'],
   experimental: {
     optimizePackageImports: ['recharts', 'lucide-react', 'react-icons', 'date-fns'],
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
   },
   typescript: {
     tsconfigPath: './tsconfig.json',

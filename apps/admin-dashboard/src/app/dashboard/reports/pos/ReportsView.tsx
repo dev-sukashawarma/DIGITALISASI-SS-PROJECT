@@ -676,7 +676,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
         </div>
       ) : (
         <>
+<<<<<<< HEAD
           {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
+=======
+          {/* ── KPI Cards (Gross Revenue, Net Revenue, COGS, Gross Profit) ── */}
+>>>>>>> feat/role-purchase-pengadaan
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-6">
             {/* 1. Gross Revenue */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">

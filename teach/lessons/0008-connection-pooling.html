@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 08 — Connection Pooling: Menghemat Batas Koneksi</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" style="width: 80%"></div></div>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📚 Backend Maintenance</span>
+    <span>Lesson 08 / 10</span>
+    <span>⏱ ~15 menit</span>
+    <span>🟡 Menengah</span>
+  </div>
+  <h1 class="lesson-title">Connection Pooling: Menghemat Batas Koneksi</h1>
+  <p style="color: var(--text-muted)">Next.js server di cPanel sering membuat database kehabisan batas koneksi (Too many connections). Mari kita pelajari cara menyembuhkannya menggunakan Pooler.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🎯 Tujuan Lesson Ini</h2>
+<ul>
+  <li>Memahami masalah **Connection Churn** pada server Node.js / Serverless</li>
+  <li>Memahami perbedaan koneksi langsung (port **5432**) dengan pooled connection (port **6543**)</li>
+  <li>Mengetahui perbedaan mode **Session** dan **Transaction** pada Supavisor</li>
+  <li>Bisa mengonfigurasi database URL yang aman dan efisien di file <code>.env.local</code></li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>1. Mengapa Database Kehabisan Koneksi?</h2>
+
+<p>Setiap kali Next.js memproses request server-side, aplikasi harus membuat koneksi ke PostgreSQL. Pembuatan koneksi ini membutuhkan jabat tangan (handshake) SSL/TLS yang lambat dan memakan RAM database.</p>
+
+<p>Jika server Next.js di cPanel melayani banyak request secara bersamaan, ia akan membuka banyak koneksi ke database.
+Di Supabase Free Plan, batas maksimal koneksi langsung adalah **60 koneksi**. Jika melebihi batas ini, database akan crash dan mengembalikan error:</p>
+<pre><code>FATAL: remaining connection slots are reserved for non-replication superuser jobs</code></pre>
+
+<div class="arch">
+Tanpa Pooler: [Next.js Server] ─── (Buka 50+ Koneksi Langsung) ───▶ [PostgreSQL (Limit 60)] 💥 CRASH
+Dengan Pooler:  [Next.js Server] ─── (Buka 50+ Koneksi) ───▶ [ Supavisor Pooler ] ─── (Reuse 5 Koneksi) ───▶ [PostgreSQL]
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>2. Apa itu Connection Pooling (Supavisor)?</h2>
+
+<p>Supabase menyediakan **Supavisor** — sebuah proxy khusus di depan database yang bertugas mengelola koneksi.
+Alih-alih membiarkan Next.js terhubung langsung ke Postgres, Next.js diarahkan ke Supavisor. Supavisor akan menahan koneksi-koneksi tersebut dan membagikannya secara bergantian (reuse) ke database utama.</p>
+
+<p>Kamu hanya perlu mengganti **Port** pada database connection string di file <code>.env.local</code>:</p>
+<ul>
+  <li>Direct Connection (Langsung): Port **5432** (Gunakan hanya untuk migration script).</li>
+  <li>Pooled Connection (Pooler): Port **6543** (Gunakan untuk aplikasi Next.js/cPanel).</li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>3. Mode Pooler: Session vs Transaction</h2>
+
+<p>Supavisor (port 6543) menyediakan dua mode utama yang disetel lewat string koneksi:</p>
+
+<div class="card">
+  <div class="card-title">🔌 1. Session Mode</div>
+  <p>
+    Satu koneksi diberikan penuh ke client dari awal login sampai logout/diskonet.
+    Mirip dengan koneksi langsung. Kurang efisien untuk ribuan user, namun mendukung fitur Postgres penuh.
+  </p>
+</div>
+
+<div class="card">
+  <div class="card-title">⚡ 2. Transaction Mode (Paling Direkomendasikan)</div>
+  <p>
+    Koneksi ke database hanya diberikan saat client sedang mengeksekusi satu transaksi SQL (misal query <code>SELECT</code>), lalu **langsung dicabut** begitu query selesai untuk diberikan ke client lain.
+    Sangat efisien! 5 koneksi fisik PostgreSQL bisa melayani 500+ client sekaligus.
+  </p>
+  <p><em>Batasan:</em> Mode ini tidak mendukung fitur session-level seperti <code>PREPARE statements</code> atau temporary tables.</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🛠️ Konfigurasi Terbaik di Project SS Digital</h2>
+<p>Buka file <code>.env.local</code> kamu, pastikan konfigurasinya mengikuti format ini:</p>
+
+<pre><code><span class="cmt"># URL untuk aplikasi Next.js (Menggunakan Pooler port 6543 + mode=transaction)</span>
+DATABASE_URL="postgres://postgres.ref:password@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10"
+
+<span class="cmt"># URL khusus untuk migrasi (Direct Connection port 5432)</span>
+DIRECT_URL="postgres://postgres.ref:password@db.ref.supabase.co:5432/postgres"</code></pre>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="quiz-section" id="quiz">
+  <div class="quiz-title">🧪 Cek Pemahaman</div>
+
+  <div class="quiz-q" id="q1">
+    <p>1. Kapan kamu wajib menggunakan port **6543** (Connection Pooler) alih-alih port standar **5432**?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q1" value="a"> Saat ingin melakukan restore backup database</label>
+      <label><input type="radio" name="q1" value="b"> Pada koneksi aplikasi Next.js produksi di cPanel untuk mencegah error "Too many connections"</label>
+      <label><input type="radio" name="q1" value="c"> Saat menjalankan local migration script</label>
+      <label><input type="radio" name="q1" value="d"> Tidak pernah, port 5432 selalu lebih baik</label>
+    </div>
+    <div class="quiz-feedback" id="q1-feedback"></div>
+  </div>
+
+  <div class="quiz-q" id="q2">
+    <p>2. Mengapa Transaction Mode sangat efisien dalam menghemat batas koneksi database?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q2" value="a"> Karena mematikan enkripsi data</label>
+      <label><input type="radio" name="q2" value="b"> Karena mencabut koneksi fisik segera setelah satu query SQL selesai, untuk dipakai client lain secara bergantian</label>
+      <label><input type="radio" name="q2" value="c"> Karena membatasi user agar tidak bisa men-download gambar</label>
+      <label><input type="radio" name="q2" value="d"> Karena menghapus tabel-tabel log otomatis</label>
+    </div>
+    <div class="quiz-feedback" id="q2-feedback"></div>
+  </div>
+
+  <button class="quiz-check" onclick="checkQuiz()">Cek Jawaban</button>
+  <div class="quiz-feedback" id="quiz-result" style="margin-top: 1rem;"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="callout callout-tip">
+  <div class="callout-label">📖 Sumber Bacaan Utama</div>
+  <p>Baca dokumentasi Supabase Supavisor:
+  <a href="https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler" target="_blank">supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler</a>
+  — pelajari cara mendapatkan connection string pooler di dashboard. (≈5 menit)</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="lesson-nav">
+  <a href="0007-storage-dan-bucket-policies.html" class="btn">← Lesson 07: Storage Bucket</a>
+  <a href="0009-migration-hygiene.html" class="btn btn-primary">Lesson 09: Migration Hygiene →</a>
+</div>
+
+<script>
+const answers = { q1: 'b', q2: 'b' };
+const explanations = {
+  q1: {
+    correct: '✅ Benar! cPanel Next.js yang menangani request concurrent wajib menggunakan Pooler (6543) agar koneksi tidak tersumbat.',
+    wrong:   '❌ Salah. Port 6543 (Pooler) wajib digunakan oleh aplikasi Next.js server-side di production agar tidak memakan seluruh slot koneksi database.'
+  },
+  q2: {
+    correct: '✅ Tepat! Transaction mode membagikan koneksi secara mikro (per query/transaksi), bukan makro (per session), sehingga sedikit koneksi fisik bisa melayani ratusan user.',
+    wrong:   '❌ Salah. Efisiensi transaction mode lahir dari pelepasan koneksi fisik segera setelah query selesai, bukan dengan membatasi fitur user.'
+  }
+};
+
+function checkQuiz() {
+  let score = 0;
+  ['q1','q2'].forEach(q => {
+    const chosen = document.querySelector(`input[name="${q}"]:checked`);
+    const fb = document.getElementById(`${q}-feedback`);
+    if (!chosen) { fb.className = 'quiz-feedback wrong'; fb.innerHTML = '⚠️ Pilih salah satu jawaban.'; return; }
+    const isCorrect = chosen.value === answers[q];
+    if (isCorrect) score++;
+    fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+    fb.innerHTML = isCorrect ? explanations[q].correct : explanations[q].wrong;
+  });
+  const result = document.getElementById('quiz-result');
+  if (score === 2) {
+    result.className = 'quiz-feedback correct';
+    result.innerHTML = '🎉 Sempurna! Kamu sudah menguasai cara kerja Connection Pooling. Lanjut ke Migration Hygiene!';
+  } else {
+    result.className = 'quiz-feedback wrong';
+    result.innerHTML = `Skor ${score}/2. Silakan baca ulang penjelasan perbedaan Session & Transaction mode ya!`;
+  }
+}
+</script>
+
+</body>
+</html>

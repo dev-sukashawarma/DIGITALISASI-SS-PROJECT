@@ -31,9 +31,9 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
   const [savedKey, setSavedKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 9
+  // Show More Toggle
+  const [showAll, setShowAll] = useState(false)
+  const previewCount = 3
 
   // Local Filter
   const [localOutletFilter, setLocalOutletFilter] = useState<string>('all')
@@ -143,14 +143,8 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
 
   const achieved = withTarget.filter((r) => r.pct >= 100).length
   
-  const totalPages = Math.ceil(withTarget.length / itemsPerPage)
-  const paginatedItems = withTarget.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages)
-    }
-  }, [totalPages, currentPage])
+  const displayedItems = showAll ? withTarget : withTarget.slice(0, previewCount)
+  const hasMore = withTarget.length > previewCount
 
 
   if (loading) {
@@ -166,7 +160,7 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
 
   return (
     <>
-      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-suka-gray-200 shadow-sm relative">
+      <div className="bg-white/60 backdrop-blur-xl p-5 sm:p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2">
             <Target className="w-4 h-4 text-suka-orange" />
@@ -186,7 +180,7 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                   }))}
                   onChange={(id) => {
                     setLocalOutletFilter(id);
-                    setCurrentPage(1);
+                    setShowAll(false);
                   }}
                 />
               </div>
@@ -221,19 +215,15 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {paginatedItems.map((r, i) => {
+              {displayedItems.map((r, i) => {
                 const pct = r.pct
                 const pctClamped = Math.min(pct, 100)
                 const isGreen = pct >= 100
                 const isYellow = pct >= 30 && pct < 100
                 
-                const colorText = isGreen ? 'text-suka-green' : isYellow ? 'text-suka-orange' : 'text-red-500'
-                const colorBg = isGreen ? 'bg-suka-green' : isYellow ? 'bg-suka-orange' : 'bg-red-500'
-                const cardStyle = isGreen 
-                  ? 'border-suka-green/30 bg-suka-green/5' 
-                  : isYellow 
-                    ? 'border-suka-orange/30 bg-suka-orange/5' 
-                    : 'border-red-500/30 bg-red-500/5'
+                const colorText = isGreen ? 'text-green-700' : isYellow ? 'text-amber-700' : 'text-rose-600'
+                const dotBg = isGreen ? 'bg-green-500' : isYellow ? 'bg-amber-500' : 'bg-rose-500'
+                const barGradient = isGreen ? 'bg-gradient-to-r from-green-400 to-green-500' : isYellow ? 'bg-gradient-to-r from-amber-400 to-orange-500' : 'bg-gradient-to-r from-rose-400 to-rose-500'
 
                 return (
                   <div
@@ -243,13 +233,13 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                       setTargetScope(r.outlet_id)
                       setModalOpen(true)
                     }}
-                    className={`rounded-xl border p-3 transition-all cursor-pointer hover:shadow-md ${cardStyle}`}
+                    className="bg-white/80 backdrop-blur-md border border-white/60 p-3 rounded-2xl shadow-sm transition-all cursor-pointer hover:shadow-[0_8px_20px_rgb(0,0,0,0.06)] hover:-translate-y-1 group"
                   >
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-1.5 truncate">
                         <div className="relative flex items-center justify-center w-3 h-3 shrink-0 ml-0.5 mr-1">
-                          <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 ${colorBg} ${isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
-                          <div className={`relative w-2 h-2 rounded-full ${colorBg} shadow-sm ${isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
+                          <div className={`absolute inset-0 rounded-full blur-[3px] opacity-60 ${dotBg} ${isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
+                          <div className={`relative w-2 h-2 rounded-full ${dotBg} shadow-sm ${isGreen ? '' : isYellow ? 'animate-pulse' : 'manual-blink-fast'}`}></div>
                         </div>
                         <span className="text-xs font-extrabold text-suka-ink truncate">
                           {r.outlet_name}
@@ -264,39 +254,28 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                         {Math.round(r.pct)}%
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-suka-gray-200/70 overflow-hidden">
+                    <div className="h-2 rounded-full bg-suka-gray-100/80 overflow-hidden shadow-inner">
                       <div
-                        className={`h-full rounded-full transition-all duration-700 ${colorBg}`}
+                        className={`h-full rounded-full transition-all duration-700 ${barGradient}`}
                         style={{ width: `${pctClamped}%` }}
                       />
                     </div>
-                    <div className="flex items-center justify-between mt-1.5 text-[10px] font-bold text-suka-gray-500 whitespace-nowrap gap-1">
+                    <div className="flex items-center justify-between mt-2 text-[10px] font-bold text-suka-gray-500 whitespace-nowrap gap-1">
                       <span className={`${colorText} truncate`}>{rupiahCompact(r.omzet_today)}</span>
-                      <span className="shrink-0">/ {rupiahCompact(r.target_amount)}</span>
+                      <span className="shrink-0 text-suka-gray-400">/ {rupiahCompact(r.target_amount)}</span>
                     </div>
                   </div>
                 )
               })}
             </div>
             
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-suka-gray-100">
+            {hasMore && (
+              <div className="flex justify-center mt-4 pt-3 border-t border-suka-gray-100">
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-suka-gray-500 hover:text-suka-brown disabled:opacity-30 disabled:hover:text-suka-gray-500 transition-colors"
+                  onClick={() => setShowAll(!showAll)}
+                  className="text-xs font-bold text-suka-orange hover:text-suka-brown transition-colors hover:underline px-4 py-2"
                 >
-                  <ChevronLeft className="w-4 h-4" /> Prev
-                </button>
-                <span className="text-xs font-bold text-suka-gray-400">
-                  Hal {currentPage} dari {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-suka-gray-500 hover:text-suka-brown disabled:opacity-30 disabled:hover:text-suka-gray-500 transition-colors"
-                >
-                  Next <ChevronRight className="w-4 h-4" />
+                  {showAll ? 'Tampilkan Lebih Sedikit' : `Tampilkan Semua (${withTarget.length})`}
                 </button>
               </div>
             )}

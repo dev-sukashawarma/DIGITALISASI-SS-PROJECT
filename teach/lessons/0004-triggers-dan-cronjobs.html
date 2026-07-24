@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 04 — Triggers & Cron Jobs: Otomasi & Titik Kegagalan</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" style="width: 44%"></div></div>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📚 Backend Maintenance</span>
+    <span>Lesson 04 / 10</span>
+    <span>⏱ ~20 menit</span>
+    <span>🟡 Menengah</span>
+  </div>
+  <h1 class="lesson-title">Triggers & Cron Jobs: Otomasi & Titik Kegagalan</h1>
+  <p style="color: var(--text-muted)">Otomasi database membuat hidup kita mudah. Tapi jika mereka gagal di latar belakang, efeknya bisa fatal. Mari kita pelajari cara kerjanya di SS Digital.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🎯 Tujuan Lesson Ini</h2>
+<ul>
+  <li>Memahami perbedaan peran antara <strong>Database Trigger</strong> dan <strong>Cron Job (pg_cron)</strong></li>
+  <li>Mengetahui arsitektur sinkronisasi data POS menggunakan <code>pg_net</code></li>
+  <li>Memahami bahaya trigger gagal yang dapat memblokir seluruh aplikasi (Blocking Transaction)</li>
+  <li>Bisa mendeteksi kegagalan cron job menggunakan tabel <code>cron.job_run_details</code></li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>1. Database Triggers: Pemicu Instan</h2>
+
+<p><strong>Trigger</strong> adalah aksi otomatis yang dijalankan oleh database *seketika sebelum atau setelah* operasi <code>INSERT</code>, <code>UPDATE</code>, atau <code>DELETE</code> terjadi pada sebuah tabel.</p>
+
+<h3>Contoh Nyata: Auto-isi Nomor Order POS Kasir</h3>
+<p>Dari file migrasi <code>20260626160000_pos_sales_sync.sql</code>, kita memiliki trigger berikut:</p>
+
+<pre><code><span class="cmt">-- 1. Fungsi trigger: jika order_number kosong, isi dari sequence</span>
+<span class="kw">CREATE OR REPLACE FUNCTION</span> public.<span class="fn">fill_order_number</span>()
+<span class="kw">RETURNS</span> trigger <span class="kw">LANGUAGE</span> plpgsql <span class="kw">AS</span> $$
+<span class="kw">BEGIN</span>
+  <span class="kw">IF</span> NEW.order_number <span class="kw">IS NULL THEN</span>
+    NEW.order_number := <span class="fn">nextval</span>(<span class="str">'public.pos_sync_order_number_seq'</span>);
+  <span class="kw">END</span> IF;
+  <span class="kw">RETURN</span> NEW;
+<span class="kw">END</span> $$;
+
+<span class="cmt">-- 2. Trigger pemicu: jalan BEFORE INSERT pada tabel orders</span>
+<span class="kw">CREATE TRIGGER</span> trg_fill_order_number
+  <span class="kw">BEFORE INSERT ON</span> public.orders
+  <span class="kw">FOR EACH ROW EXECUTE FUNCTION</span> public.<span class="fn">fill_order_number</span>();</code></pre>
+
+<div class="callout callout-danger">
+  <div class="callout-label">🚨 Titik Kegagalan: Blocking Trigger</div>
+  <p>Trigger <code>BEFORE INSERT</code> bertindak sebagai pintu gerbang. Jika fungsi trigger <code>fill_order_number()</code> mengalami error (misalnya sequence <code>pos_sync_order_number_seq</code> tidak sengaja terhapus), operasi insert akan <strong>gagal total</strong>. Kasir tidak akan bisa memasukkan pesanan baru sama sekali!</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>2. Cron Jobs (pg_cron): Penjadwalan Latar Belakang</h2>
+
+<p>Berbeda dengan trigger yang bereaksi langsung terhadap perubahan data, <strong>Cron Job</strong> berjalan berdasarkan **waktu** yang dijadwalkan (misalnya setiap menit, setiap hari jam 12 malam, dsb.).</p>
+<p>Supabase menyediakan ekstensi <code>pg_cron</code> untuk menjalankan SQL terjadwal langsung di dalam database.</p>
+
+<h3>Contoh Nyata: Pemicu Sinkronisasi POS Sales</h3>
+<p>Dari file migrasi <code>20260627100000_schedule_sync_pos_sales.sql</code>, kita menjadwalkan sinkronisasi data POS dari server eksternal setiap 1 menit:</p>
+
+<pre><code><span class="kw">SELECT</span> cron.<span class="fn">schedule</span>(
+  <span class="str">'sync-pos-sales'</span>,   <span class="cmt">-- Nama job</span>
+  <span class="str">'* * * * *'</span>,         <span class="cmt">-- Jadwal (setiap 1 menit)</span>
+  $$
+    <span class="cmt">-- Memanggil Edge Function via HTTP POST menggunakan ekstensi pg_net</span>
+    <span class="kw">SELECT</span> net.<span class="fn">http_post</span>(
+      url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url')
+             || '/functions/v1/sync-pos-sales',
+      headers := jsonb_build_object(
+        'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key'),
+        'Content-Type', 'application/json'
+      ),
+      body := '{}'::jsonb
+    ) AS request_id;
+  $$
+);</code></pre>
+
+<div class="analogy">
+  <div class="analogy-label">🤝 Kerja Sama pg_cron + pg_net</div>
+  <p>
+    <strong>pg_cron</strong> bertindak sebagai alarm jam dinding yang berdering setiap 1 menit.<br>
+    <strong>pg_net</strong> bertindak sebagai kurir yang pergi mengirimkan surat (HTTP Request) ke luar database (Edge Function) begitu alarm berdering.
+  </p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🩺 Cara Diagnosa Kegagalan Cron Job</h2>
+
+<p>Karena cron job berjalan di latar belakang, kamu tidak akan melihat error di console browser atau terminal.
+Jika data POS tiba-tiba berhenti mengalir (dashboard kosong), kamu wajib memeriksa log cron dengan query berikut di SQL Editor:</p>
+
+<pre><code><span class="cmt">-- Cek 20 riwayat jalannya cron job terbaru</span>
+<span class="kw">SELECT</span>
+  jobid,
+  jobname,
+  status,           <span class="cmt">-- 'succeeded' atau 'failed'</span>
+  start_time,
+  return_message,   <span class="cmt">-- Pesan error jika gagal</span>
+  database
+<span class="kw">FROM</span> cron.job_run_details
+<span class="kw">ORDER BY</span> start_time <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> 20;</code></pre>
+
+<div class="callout callout-warn">
+  <div class="callout-label">⚠️ Penyebab Umum Kegagalan Cron di Supabase</div>
+  <ul>
+    <li><strong>HTTP Timeout (504)</strong>: Edge Function yang dipanggil terlalu lambat merespons (lebih dari 10-30 detik).</li>
+    <li><strong>Secret Kunci Dekripsi Hilang</strong>: Kunci <code>project_url</code> atau <code>service_role_key</code> di Vault terhapus atau kedaluwarsa.</li>
+    <li><strong>Beban CPU Tinggi</strong>: Database sedang sibuk memproses query lain sehingga pg_cron terlewati (skipped).</li>
+  </ul>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="quiz-section" id="quiz">
+  <div class="quiz-title">🧪 Cek Pemahaman</div>
+
+  <!-- Q1 -->
+  <div class="quiz-q" id="q1">
+    <p>1. Apa perbedaan utama antara pemicu (trigger) dengan cron job?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q1" value="a"> Trigger dijadwalkan oleh waktu, Cron dipicu oleh aksi data</label>
+      <label><input type="radio" name="q1" value="b"> Trigger berjalan seketika saat data berubah, Cron berjalan berdasarkan jadwal waktu</label>
+      <label><input type="radio" name="q1" value="c"> Trigger hanya bisa jalan di server Next.js, Cron hanya di Supabase</label>
+      <label><input type="radio" name="q1" value="d"> Tidak ada perbedaan, keduanya sama saja</label>
+    </div>
+    <div class="quiz-feedback" id="q1-feedback"></div>
+  </div>
+
+  <!-- Q2 -->
+  <div class="quiz-q" id="q2">
+    <p>2. Jika trigger <code>BEFORE INSERT</code> pada tabel orders mengalami error, apa efeknya terhadap aplikasi kasir POS?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q2" value="a"> Data tetap masuk, tapi nomor order kosong</label>
+      <label><input type="radio" name="q2" value="b"> Transaksi insert gagal total dan kasir tidak bisa menyimpan order baru</label>
+      <label><input type="radio" name="q2" value="c"> Aplikasi otomatis melakukan refresh halaman</label>
+      <label><input type="radio" name="q2" value="d"> Database langsung restart otomatis</label>
+    </div>
+    <div class="quiz-feedback" id="q2-feedback"></div>
+  </div>
+
+  <!-- Q3 -->
+  <div class="quiz-q" id="q3">
+    <p>3. Di mana tabel log tempat kita bisa memeriksa apakah tugas sync-pos-sales setiap menit berjalan sukses atau gagal?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q3" value="a"> public.orders</label>
+      <label><input type="radio" name="q3" value="b"> cron.job_run_details</label>
+      <label><input type="radio" name="q3" value="c"> realtime.list_changes</label>
+      <label><input type="radio" name="q3" value="d"> public.system_health_log</label>
+    </div>
+    <div class="quiz-feedback" id="q3-feedback"></div>
+  </div>
+
+  <button class="quiz-check" onclick="checkQuiz()">Cek Jawaban</button>
+  <div class="quiz-feedback" id="quiz-result" style="margin-top: 1rem;"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="callout callout-tip">
+  <div class="callout-label">📖 Sumber Bacaan Utama</div>
+  <p>Baca dokumentasi Supabase pg_cron:
+  <a href="https://supabase.com/docs/guides/database/extensions/pg_cron" target="_blank">supabase.com/docs/guides/database/extensions/pg_cron</a>
+  — pelajari opsi penjadwalan dan sintaks penulisan cron job SQL. (≈5 menit)</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="lesson-nav">
+  <a href="0003-rls-keamanan-dan-performa.html" class="btn">← Lesson 03: RLS Keamanan</a>
+  <a href="0005-edge-functions-dan-errors.html" class="btn btn-primary">Lesson 05: Edge Functions →</a>
+</div>
+
+<div class="ask-teacher">
+  <p>💬 <strong>Coba jalankan query cron.job_run_details di database kamu!</strong> Berapa banyak record job sync yang sukses hari ini? Tulis reaksimu di chat!</p>
+</div>
+
+<script>
+const answers = { q1: 'b', q2: 'b', q3: 'b' };
+const explanations = {
+  q1: {
+    correct: '✅ Benar! Trigger terikat langsung pada event mutasi data (INSERT/UPDATE/DELETE), sedangkan Cron terikat pada waktu penjadwalan (* * * * *).',
+    wrong:   '❌ Salah. Kebalik! Trigger merespons perubahan data secara instan, sedangkan Cron berjalan terjadwal berdasarkan format waktu.'
+  },
+  q2: {
+    correct: '✅ Tepat! Karena trigger BEFORE INSERT bertindak dalam satu transaksi ACID yang sama, error di dalam trigger akan membatalkan (ROLLBACK) seluruh proses insert.',
+    wrong:   '❌ Salah. Karena berjalan dalam transaksi ACID yang sama, kegagalan trigger akan memicu kegagalan insert order secara keseluruhan.'
+  },
+  q3: {
+    correct: '✅ Benar! PostgreSQL pg_cron mencatat histori eksekusi di tabel <code>cron.job_run_details</code> pada skema sistem <code>cron</code>.',
+    wrong:   '❌ Salah. <code>cron.job_run_details</code> adalah tempat penyimpanan log status eksekusi job pg_cron di Supabase.'
+  }
+};
+
+function checkQuiz() {
+  let score = 0;
+  ['q1','q2','q3'].forEach(q => {
+    const chosen = document.querySelector(`input[name="${q}"]:checked`);
+    const fb = document.getElementById(`${q}-feedback`);
+    if (!chosen) { fb.className = 'quiz-feedback wrong'; fb.innerHTML = '⚠️ Pilih salah satu jawaban.'; return; }
+    const isCorrect = chosen.value === answers[q];
+    if (isCorrect) score++;
+    fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+    fb.innerHTML = isCorrect ? explanations[q].correct : explanations[q].wrong;
+  });
+  const result = document.getElementById('quiz-result');
+  if (score === 3) {
+    result.className = 'quiz-feedback correct';
+    result.innerHTML = '🎉 Sempurna! Kamu sudah menguasai cara kerja trigger dan cron job serta cara melacak kegagalannya. Lanjut ke Lesson 05!';
+  } else {
+    result.className = 'quiz-feedback wrong';
+    result.innerHTML = `Skor ${score}/3. Baca kembali perbedaan cara kerja trigger yang memicu blocking transaksi!`;
+  }
+}
+</script>
+
+</body>
+</html>

@@ -90,7 +90,7 @@ export function SourceBreakdown({ rows }: { rows: SalesSummaryRow[] }) {
   }).sort((a, b) => b.revenue - a.revenue)
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-6">
+    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-6">
       <div>
         <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Kontribusi Saluran Penjualan</h3>
         <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">Sumber transaksi pemesanan menu makanan</p>

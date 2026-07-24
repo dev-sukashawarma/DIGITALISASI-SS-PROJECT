@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 05 — Edge Functions: Cold Starts & Serverless Errors</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" style="width: 50%"></div></div>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📚 Backend Maintenance</span>
+    <span>Lesson 05 / 10</span>
+    <span>⏱ ~15 menit</span>
+    <span>🟡 Menengah</span>
+  </div>
+  <h1 class="lesson-title">Edge Functions: Cold Starts & Serverless Errors</h1>
+  <p style="color: var(--text-muted)">Edge Functions menjalankan logic rahasia di server terdekat dengan user. Mari kita pelajari cara deploy, troubleshoot, dan log fungsinya.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🎯 Tujuan Lesson Ini</h2>
+<ul>
+  <li>Memahami apa itu <strong>Deno Runtime</strong> dan serverless architecture</li>
+  <li>Memahami konsep <strong>Cold Start</strong> dan cara meminimalkannya</li>
+  <li>Bisa membaca log error Edge Function di dashboard Supabase</li>
+  <li>Bisa men-deploy Edge Function baru secara aman</li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>1. Apa itu Edge Functions?</h2>
+
+<p>Edge Functions di Supabase adalah fungsi serverless yang berjalan di atas <strong>Deno</strong> (runtime JavaScript/TypeScript modern yang sangat cepat) di jaringan CDN global.
+Artinya, kode kamu dieksekusi di server fisik terdekat dengan karyawan outlet yang sedang mengakses aplikasi.</p>
+
+<h3>Fungsi yang Ada di SS Digital</h3>
+<p>Kamu memiliki 14 fungsi di folder <code>supabase/functions/</code>. Contoh kunci:</p>
+<ul>
+  <li><code>submit-attendance</code>: Memproses absensi selfie crew, memverifikasi koordinat GPS, dan mencocokkan wajah.</li>
+  <li><code>send-push</code>: Mengirim notifikasi push ke handphone manager/owner saat ada pengajuan kasbon atau stok menipis.</li>
+  <li><code>webhook-sync-order</code>: Menangkap sinyal order masuk dari sistem Ecosystem luar untuk dimasukkan ke database utama.</li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>2. Fenomena "Cold Start"</h2>
+
+<p>Karena arsitekturnya *serverless* (tanpa server tetap), Supabase akan "mematikan" kontainer fungsimu jika tidak ada yang memanggilnya selama beberapa menit untuk menghemat memori.</p>
+
+<p>Saat fungsi dipanggil kembali setelah lama menganggur, akan terjadi **Cold Start**:
+Kontainer Deno harus dinyalakan kembali, mendownload library dependency, baru mengeksekusi request.</p>
+
+<div class="arch">
+[User Klik Absen] ──▶ [Edge Function (Tidur)] ──▶ Menyalakan Kontainer (Cold Start: 1-3 detik)
+                                            ──▶ Eksekusi (Warm Run: 50-100ms)
+</div>
+
+<div class="callout callout-tip">
+  <div class="callout-label">💡 Tips Mengurangi Latency Cold Start</div>
+  <p>Jangan meng-import dependency yang terlalu besar di awal file jika tidak dibutuhkan. Gunakan file <code>import_map.json</code> terpusat untuk memetakan dependency versi spesifik agar Deno bisa men-cache dependency tersebut dengan efisien.</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🩺 Cara Membaca Log & Mengatasi Error</h2>
+
+<p>Saat Edge Function gagal (misalnya notifikasi push tidak terkirim), kamu tidak akan melihat errornya di browser kasir. Kamu harus memeriksanya di dashboard:</p>
+
+<div class="card">
+  <div class="card-title">📍 Cara Buka Log Edge Functions</div>
+  <ol style="padding-left: 1.25rem; line-height: 2">
+    <li>Buka Supabase Dashboard → <strong>Edge Functions</strong></li>
+    <li>Pilih fungsi yang bermasalah (misalnya <code>send-push</code>)</li>
+    <li>Klik tab <strong>Logs</strong></li>
+    <li>Gunakan filter level <strong>Error</strong> untuk langsung melompat ke tumpukan crash log</li>
+  </ol>
+</div>
+
+<div class="callout callout-warn">
+  <div class="callout-label">⚠️ CORS Errors: Masalah Paling Klasik</div>
+  <p>Jika konsol browser menampilkan error merah <code>CORS policy blocked...</code>, itu bukan masalah jaringan, melainkan Edge Function kamu crash di tengah jalan sebelum sempat mengirimkan HTTP Response Header (headers CORS). Selalu bungkus logic Edge Function kamu dalam blok <code>try { ... } catch (err) { ... }</code> dan kembalikan response header CORS yang tepat pada blok catch agar browser tidak memblokir pesan error aslinya!</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🚀 Cara Deploy Update Edge Function</h2>
+
+<p>Jika kamu melakukan perubahan pada kode fungsi lokal di komputermu, jalankan command berikut di terminal untuk memperbaruinya di cloud:</p>
+
+<pre><code><span class="cmt"># Deploy satu fungsi spesifik (disarankan)</span>
+supabase functions deploy [nama-folder-fungsi]
+
+<span class="cmt"># Contoh:</span>
+supabase functions deploy send-push
+
+<span class="cmt"># Catatan: Pastikan kamu sudah login CLI menggunakan `supabase login`</span></code></pre>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="quiz-section" id="quiz">
+  <div class="quiz-title">🧪 Cek Pemahaman</div>
+
+  <div class="quiz-q" id="q1">
+    <p>1. Mengapa pemanggilan pertama pada Edge Function yang sudah lama tidak dipakai terasa sedikit lambat (1-3 detik)?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q1" value="a"> Karena koneksi internet outlet sedang lambat</label>
+      <label><input type="radio" name="q1" value="b"> Terjadi "Cold Start" di mana platform harus menyalakan kontainer serverless dari keadaan mati</label>
+      <label><input type="radio" name="q1" value="c"> Karena database secara otomatis melakukan backup data terlebih dahulu</label>
+      <label><input type="radio" name="q1" value="d"> Karena browser Next.js harus mengunduh ulang aset gambar</label>
+    </div>
+    <div class="quiz-feedback" id="q1-feedback"></div>
+  </div>
+
+  <div class="quiz-q" id="q2">
+    <p>2. Jika browser Next.js kasir menampilkan error CORS saat memanggil submit-attendance, apa kemungkinan penyebab di sisi backend?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q2" value="a"> Domain cPanel diblokir oleh Supabase</label>
+      <label><input type="radio" name="q2" value="b"> Edge Function crash/error di tengah jalan sebelum sempat membalas header HTTP CORS</label>
+      <label><input type="radio" name="q2" value="c"> Kru outlet belum login</label>
+      <label><input type="radio" name="q2" value="d"> Kuota storage selfie sudah habis</label>
+    </div>
+    <div class="quiz-feedback" id="q2-feedback"></div>
+  </div>
+
+  <button class="quiz-check" onclick="checkQuiz()">Cek Jawaban</button>
+  <div class="quiz-feedback" id="quiz-result" style="margin-top: 1rem;"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="lesson-nav">
+  <a href="0004-triggers-dan-cronjobs.html" class="btn">← Lesson 04: Triggers & Cron</a>
+  <a href="0006-realtime-dan-websockets.html" class="btn btn-primary">Lesson 06: Realtime WS →</a>
+</div>
+
+<script>
+const answers = { q1: 'b', q2: 'b' };
+const explanations = {
+  q1: {
+    correct: '✅ Benar! Kontainer serverless dimatikan jika tidak dipakai. Saat dipanggil lagi, ia butuh waktu booting awal (Cold Start).',
+    wrong:   '❌ Salah. Fenomena ini disebut "Cold Start" — waktu tunggu booting awal platform serverless setelah fungsi lama menganggur.'
+  },
+  q2: {
+    correct: '✅ Tepat! Jika Deno crash parah sebelum mengirim header CORS, browser mendeteksi itu sebagai pelanggaran keamanan CORS. Solusinya: cek error log fungsi di Supabase dashboard.',
+    wrong:   '❌ Salah. Error CORS di serverless paling sering terjadi karena fungsi crash total sebelum sempat membalas dengan header CORS standar.'
+  }
+};
+
+function checkQuiz() {
+  let score = 0;
+  ['q1','q2'].forEach(q => {
+    const chosen = document.querySelector(`input[name="${q}"]:checked`);
+    const fb = document.getElementById(`${q}-feedback`);
+    if (!chosen) { fb.className = 'quiz-feedback wrong'; fb.innerHTML = '⚠️ Pilih salah satu jawaban.'; return; }
+    const isCorrect = chosen.value === answers[q];
+    if (isCorrect) score++;
+    fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+    fb.innerHTML = isCorrect ? explanations[q].correct : explanations[q].wrong;
+  });
+  const result = document.getElementById('quiz-result');
+  if (score === 2) {
+    result.className = 'quiz-feedback correct';
+    result.innerHTML = '🎉 Sempurna! Kamu sudah memahami arsitektur Edge Functions dan cara mengatasinya. Lanjut ke Realtime!';
+  } else {
+    result.className = 'quiz-feedback wrong';
+    result.innerHTML = `Skor ${score}/2. Review kembali bagian CORS error dan Cold Start ya!`;
+  }
+}
+</script>
+
+</body>
+</html>

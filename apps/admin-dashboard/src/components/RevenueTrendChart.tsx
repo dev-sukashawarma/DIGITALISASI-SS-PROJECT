@@ -16,15 +16,17 @@ export function RevenueTrendChart({
   let data: any[] = []
 
   if (isHourly) {
-    // rows are SalesHourlyRow
-    data = rows.map((r) => {
-      const hourStr = r.sales_hour.toString().padStart(2, '0') + ':00'
-      return {
-        date: hourStr,
-        fullDate: `Jam ${hourStr}`,
-        omzet: r.omzet
-      }
-    })
+    // rows are SalesHourlyRow (filter jam 13.00 - 23.00)
+    data = rows
+      .filter((r) => r.sales_hour >= 13 && r.sales_hour <= 23)
+      .map((r) => {
+        const hourStr = r.sales_hour.toString().padStart(2, '0') + ':00'
+        return {
+          date: hourStr,
+          fullDate: `Jam ${hourStr}`,
+          omzet: r.omzet
+        }
+      })
   } else {
     // rows are SalesSummaryRow
     const byDate = new Map<string, number>()
@@ -49,7 +51,7 @@ export function RevenueTrendChart({
   const actuallyHasData = hasData && (!isHourly || totalOmzet > 0)
 
   return (
-    <div className={className || "bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4"}>
+    <div className={className || "bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4"}>
       {!className && (
         <div>
           <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">

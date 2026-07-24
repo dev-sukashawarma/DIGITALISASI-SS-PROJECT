@@ -15,6 +15,7 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
   const [isActive, setIsActive] = useState(existingRecipe?.is_active ?? true)
   const [catatan, setCatatan] = useState<string>(existingRecipe?.catatan ?? '')
   const [hargaJual, setHargaJual] = useState<number>(Number(menu.price) || 0)
+  const [hppOverride, setHppOverride] = useState<string>(menu.hpp_override !== null && menu.hpp_override !== undefined ? menu.hpp_override.toString() : '')
   const [isSaving, setIsSaving] = useState(false)
 
   const buffer = Number(existingRecipe?.buffer_amount) || 0
@@ -43,8 +44,13 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
     [items, bahanById, hargaJual, buffer],
   )
 
+  const activeHpp = useMemo(() => {
+    const overrideNum = Number(hppOverride)
+    return hppOverride.trim() !== '' && !isNaN(overrideNum) ? overrideNum : hpp.totalHpp
+  }, [hppOverride, hpp.totalHpp])
+
   const rupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
-  const marginPct = hpp.marginPct
+  const marginPct = hargaJual > 0 ? ((hargaJual - activeHpp) / hargaJual) * 100 : null
   const marginBadge =
     marginPct === null
       ? { label: '—', cls: 'bg-gray-200 text-gray-600' }
@@ -66,8 +72,6 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
     setItems(items.map((item) => {
       if (item.id !== id) return item
       const updated = { ...item, [field]: value }
-      // Saat bahan dipilih, otomatis isi satuan dari kemasan_satuan bahan tersebut
-      // (jika satuan item belum diset secara manual).
       if (field === 'bahan_baku_id' && value) {
         const bb = bahanBakuList.find((b: any) => b.id === value)
         if (bb?.kemasan_satuan) {
@@ -112,8 +116,6 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
       if (items.length > 0) {
         const itemsPayload = items.map((i) => {
           const bb = bahanBakuList.find((b: any) => b.id === i.bahan_baku_id)
-          // Gunakan satuan dari state item (diload dari DB atau saat bahan baru dipilih).
-          // Fallback ke kemasan_satuan hanya jika item.satuan belum ter-set (item baru).
           const satuan = i.satuan || bb?.kemasan_satuan || ''
           return {
             resep_id: resepId,
@@ -126,9 +128,13 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
         if (insError) throw insError
       }
 
-      // Update Harga Jual in menu_items
-      if (hargaJual !== Number(menu.price)) {
-        const { error: menuError } = await supabase.from('menu_items').update({ price: hargaJual }).eq('id', menu.id)
+      // Update Harga Jual and HPP Override in menu_items
+      const overrideVal = hppOverride.trim() === '' ? null : Number(hppOverride)
+      if (hargaJual !== Number(menu.price) || overrideVal !== menu.hpp_override) {
+        const { error: menuError } = await supabase
+          .from('menu_items')
+          .update({ price: hargaJual, hpp_override: overrideVal })
+          .eq('id', menu.id)
         if (menuError) throw menuError
       }
 
@@ -145,28 +151,47 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
   return (
     <div className="space-y-6">
       {/* Header & Status */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 border rounded-xl shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 border rounded-xl shadow-sm">
         <div className="flex items-center gap-4">
           <span className="text-xs uppercase tracking-wider text-gray-400">Produk</span>
           <span className="text-lg font-bold text-gray-900">{menu.name}</span>
         </div>
-        <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 bg-gray-50 px-3 py-1.5 rounded-lg border">
-          <input
-            type="checkbox"
-            checked={isActive}
-            onChange={(e) => setIsActive(e.target.checked)}
-            className="rounded text-suka-primary focus:ring-suka-primary"
-          />
-          Resep Aktif (Memotong Stok)
-        </label>
+        <div className="flex flex-wrap items-center gap-4">
+          {/* HPP Override input field */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-500 uppercase">HPP Override (Manual):</span>
+            <div className="relative inline-block w-32">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">Rp</span>
+              <input
+                type="number"
+                value={hppOverride}
+                onChange={(e) => setHppOverride(e.target.value)}
+                placeholder={hpp.totalHpp.toString()}
+                className="w-full text-xs rounded-md border-gray-300 shadow-sm focus:border-suka-primary focus:ring-suka-primary pl-7 pr-2 py-1.5"
+              />
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 bg-gray-50 px-3 py-1.5 rounded-lg border">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="rounded text-suka-primary focus:ring-suka-primary"
+            />
+            Resep Aktif (Memotong Stok)
+          </label>
+        </div>
       </div>
 
       {/* Ringkasan hitam */}
       <div className="rounded-xl bg-suka-ink text-white p-6 grid grid-cols-1 sm:grid-cols-3 gap-6 shadow-md">
         <div>
           <div className="text-[11px] uppercase tracking-wider text-gray-400">COGS per unit</div>
-          <div className="text-3xl font-extrabold">{rupiah(hpp.totalHpp)}</div>
-          <div className="text-xs text-gray-400 mt-1">per piece</div>
+          <div className="text-3xl font-extrabold text-suka-orange">{rupiah(activeHpp)}</div>
+          <div className="text-xs text-gray-400 mt-1">
+            {hppOverride.trim() !== '' ? `Manual (BOM: ${rupiah(hpp.totalHpp)})` : 'BOM Terhitung'}
+          </div>
         </div>
         <div>
           <div className="text-[11px] uppercase tracking-wider text-gray-400">Harga jual</div>
@@ -184,7 +209,7 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
         </div>
         <div>
           <div className="text-[11px] uppercase tracking-wider text-gray-400">Profit per piece</div>
-          <div className="text-3xl font-extrabold text-suka-orange">{rupiah(hpp.marginRp)}</div>
+          <div className="text-3xl font-extrabold text-suka-orange">{rupiah(hargaJual - activeHpp)}</div>
           <div className="text-xs text-gray-400 mt-1">
             margin {marginPct !== null ? `${marginPct.toFixed(1)}%` : '—'}
           </div>
@@ -212,11 +237,11 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
             max="95"
             step="1"
             value={marginPct !== null ? Math.round(marginPct) : 0}
-            disabled={hpp.totalHpp <= 0}
+            disabled={activeHpp <= 0}
             onChange={(e) => {
               const newMarginPct = Number(e.target.value)
-              if (newMarginPct >= 100 || hpp.totalHpp <= 0) return
-              const calculatedPrice = hpp.totalHpp / (1 - (newMarginPct / 100))
+              if (newMarginPct >= 100 || activeHpp <= 0) return
+              const calculatedPrice = activeHpp / (1 - (newMarginPct / 100))
               // Bulatkan ke kelipatan 500 terdekat agar harga jual masuk akal
               const roundedPrice = Math.ceil(calculatedPrice / 500) * 500
               setHargaJual(roundedPrice)

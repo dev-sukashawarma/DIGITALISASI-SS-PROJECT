@@ -86,7 +86,7 @@ export async function previewPawoonFile(formData: FormData) {
             
             const receipt = row[colIdx.receipt].toString().trim();
             const status = row[colIdx.status] ? row[colIdx.status].toString() : '';
-            if (status.toLowerCase() !== 'success') continue; 
+            // We now process ALL statuses, especially 'Void' which contains negative values
             
             let productName = row[colIdx.product] ? row[colIdx.product].toString().trim() : '';
             if (!productName || productName.startsWith('+')) continue; 

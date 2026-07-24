@@ -2,7 +2,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { Menu, X, ArrowLeft } from 'lucide-react'
+import { Menu, X, ArrowLeft, LogOut } from 'lucide-react'
+import { useAuth } from '@suka/auth'
 import { useRole } from './RoleContext'
 import { NAV_GROUPS, accessibleItems, isItemActive, resolvePortalUrl } from './navConfig'
 import { useLeaveNotifications } from '@/hooks/useLeaveNotifications'
@@ -17,6 +18,12 @@ export const BottomNav = () => {
   // Show up to 4 primary items inline; the rest live in the "Menu" sheet.
   const inline = items.slice(0, 4)
   const resolvedPortalUrl = resolvePortalUrl()
+  const { signOut } = useAuth()
+
+  const handleLogout = async () => {
+    await signOut()
+    window.location.href = resolvedPortalUrl
+  }
 
   return (
     <>
@@ -142,13 +149,13 @@ export const BottomNav = () => {
                 )
               })}
 
-              <a
-                href={resolvedPortalUrl}
-                className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl font-bold text-sm text-suka-brown/80 bg-white border border-suka-gray-200 active:scale-95 transition-transform"
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-2xl font-bold text-sm text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 active:scale-95 transition-transform"
               >
-                <ArrowLeft size={16} className="text-suka-brown/60" />
-                Kembali ke Portal
-              </a>
+                <LogOut size={16} className="text-red-500" />
+                Logout
+              </button>
             </div>
           </div>
         </div>

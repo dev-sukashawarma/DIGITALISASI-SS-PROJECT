@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reference: Backend Maintenance Cheat Sheet — SS Digital</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+  <style>
+    @media print {
+      body { background: white; color: black; max-width: 100%; }
+      .card { border: 1px solid #ccc; }
+      pre { border: 1px solid #ccc; background: #f5f5f5; }
+      a { color: #333; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📋 Reference Sheet</span>
+    <span>Backend Maintenance</span>
+    <span>🖨️ Print-friendly</span>
+  </div>
+  <h1 class="lesson-title">Backend Maintenance Cheat Sheet</h1>
+  <p style="color: var(--text-muted)">Referensi cepat untuk maintain backend SS Digital. Bookmark atau print ini.</p>
+</header>
+
+<h2>🗺️ Arsitektur Ringkas</h2>
+<div class="arch">Client (Next.js) → Edge Functions (Deno) → PostgreSQL (Supabase) → Storage/External</div>
+
+<h2>🔴 Troubleshooting Cepat</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Gejala</th><th>Kemungkinan Penyebab</th><th>Cara Cek</th></tr></thead>
+    <tbody>
+      <tr><td>App lambat, data lama muncul</td><td>Query Seq Scan tanpa index</td><td>EXPLAIN ANALYZE + Query Performance dashboard</td></tr>
+      <tr><td>Data tidak muncul untuk user tertentu</td><td>RLS policy salah</td><td>Cek policy di Table Editor → Policies</td></tr>
+      <tr><td>Stok tidak update otomatis</td><td>Trigger gagal atau BOM error</td><td>Supabase Logs → Functions → filter error</td></tr>
+      <tr><td>Push notif tidak sampai</td><td>Edge Function <code>send-push</code> error</td><td>Supabase Logs → Edge Functions</td></tr>
+      <tr><td>Data realtime tidak live update</td><td>Realtime publication tidak aktif</td><td>Cek migration <code>*_realtime*</code> sudah di-push</td></tr>
+      <tr><td>pg_cron job tidak jalan</td><td>Jadwal salah atau function error</td><td><code>SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 20;</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>⚡ Query Diagnostik Penting</h2>
+
+<pre><code><span class="cmt">── 1. Query paling lambat (top 10) ──────────────────</span>
+<span class="kw">SELECT</span> query, calls, mean_exec_time, total_exec_time
+<span class="kw">FROM</span> pg_stat_statements
+<span class="kw">ORDER BY</span> mean_exec_time <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> 10;
+
+<span class="cmt">── 2. Diagnosa query spesifik ───────────────────────</span>
+<span class="kw">EXPLAIN ANALYZE</span> [tulis query kamu di sini];
+
+<span class="cmt">── 3. Semua index yang ada ──────────────────────────</span>
+<span class="kw">SELECT</span> tablename, indexname, indexdef
+<span class="kw">FROM</span> pg_indexes <span class="kw">WHERE</span> schemaname = <span class="str">'public'</span>
+<span class="kw">ORDER BY</span> tablename;
+
+<span class="cmt">── 4. Index tidak pernah dipakai (kandidat hapus) ───</span>
+<span class="kw">SELECT</span> relname, indexrelname, idx_scan
+<span class="kw">FROM</span> pg_stat_user_indexes
+<span class="kw">WHERE</span> idx_scan = 0 <span class="kw">ORDER BY</span> relname;
+
+<span class="cmt">── 5. Ukuran tabel terbesar ─────────────────────────</span>
+<span class="kw">SELECT</span> relname, pg_size_pretty(<span class="fn">pg_total_relation_size</span>(relid))
+<span class="kw">FROM</span> pg_stat_user_tables
+<span class="kw">ORDER BY</span> pg_total_relation_size(relid) <span class="kw">DESC LIMIT</span> 10;
+
+<span class="cmt">── 6. Cron job history ──────────────────────────────</span>
+<span class="kw">SELECT</span> jobname, status, start_time, return_message
+<span class="kw">FROM</span> cron.job_run_details
+<span class="kw">ORDER BY</span> start_time <span class="kw">DESC LIMIT</span> 20;
+
+<span class="cmt">── 7. Jumlah koneksi aktif ──────────────────────────</span>
+<span class="kw">SELECT</span> count(*), state
+<span class="kw">FROM</span> pg_stat_activity
+<span class="kw">GROUP BY</span> state;</code></pre>
+
+<h2>📊 Ambang Batas Performa</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Metric</th><th>🟢 OK</th><th>🟡 Perhatikan</th><th>🔴 Action Required</th></tr></thead>
+    <tbody>
+      <tr><td>Query execution time</td><td>&lt;50ms</td><td>50-200ms</td><td>&gt;200ms</td></tr>
+      <tr><td>Rows Removed by Filter</td><td>&lt;1000</td><td>1k-10k</td><td>&gt;10k</td></tr>
+      <tr><td>Database connections</td><td>&lt;50</td><td>50-80</td><td>&gt;80 dari limit</td></tr>
+      <tr><td>Edge Function latency</td><td>&lt;300ms</td><td>300ms-1s</td><td>&gt;1s atau timeout</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>🛠️ Command Maintenance</h2>
+
+<pre><code><span class="cmt"># Push migration baru ke Supabase</span>
+supabase db push
+
+<span class="cmt"># Kalau ada konflik history (riwayat migration tidak sinkron)</span>
+supabase migration repair --status applied [timestamp_migration]
+
+<span class="cmt"># Buat index tanpa lock tabel (SELALU pakai ini di production)</span>
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_[nama_deskriptif]
+  ON [tabel] ([kolom]);
+
+<span class="cmt"># Reset statistik query (setelah optimasi, agar statistik fresh)</span>
+SELECT pg_stat_statements_reset();</code></pre>
+
+<h2>🔐 RLS Quick Reference</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Role</th><th>Scope Data</th><th>Via</th></tr></thead>
+    <tbody>
+      <tr><td>crew, kasir, kiosk, mitra</td><td>1 outlet saja (<code>outlet_staff.outlet_id</code>)</td><td>accessible_outlet_ids()</td></tr>
+      <tr><td>leader, area_manager</td><td>Outlet yang dibina (<code>staff_outlets</code> M2M)</td><td>accessible_outlet_ids()</td></tr>
+      <tr><td>spv, admin, owner, kitchen, admin_finance, admin_hr</td><td>Semua outlet</td><td>accessible_outlet_ids()</td></tr>
+      <tr><td>korlap</td><td>Semua outlet non-Bogor + yang di staff_outlets</td><td>accessible_outlet_ids()</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top: .75rem; font-size:.85rem; color: var(--text-muted)">
+    ⚠️ <strong>Aturan emas RLS</strong>: Selalu gunakan <code>accessible_outlet_ids()</code> — JANGAN hardcode daftar outlet.
+  </p>
+</div>
+
+<h2>📁 File Penting Backend</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>File / Folder</th><th>Fungsi</th></tr></thead>
+    <tbody>
+      <tr><td><code>supabase/migrations/</code></td><td>Semua perubahan database (307 files). Jangan edit yang sudah di-push!</td></tr>
+      <tr><td><code>supabase/functions/</code></td><td>14 Edge Functions. Deploy via <code>supabase functions deploy [nama]</code></td></tr>
+      <tr><td><code>*_rls.sql</code></td><td>Keamanan akses data per tabel</td></tr>
+      <tr><td><code>*_schedule*.sql</code></td><td>pg_cron jobs (sync harian, health check, dll)</td></tr>
+      <tr><td><code>*_realtime*.sql</code></td><td>Konfigurasi live update WebSocket</td></tr>
+      <tr><td><code>perf_indexes.sql</code></td><td>Index performa yang sudah ditambahkan</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div style="margin-top: 2rem; text-align: center; color: var(--text-muted); font-size: .8rem">
+  SS Digital Backend Reference Sheet • Diperbarui Juli 2026 • <a href="../lessons/0001-peta-backend-ss-digital.html">Kembali ke Lessons</a>
+</div>
+
+</body>
+</html>

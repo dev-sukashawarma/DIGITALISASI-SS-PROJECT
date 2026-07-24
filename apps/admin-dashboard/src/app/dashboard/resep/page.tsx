@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
-import Link from 'next/link'
+import ResepTabView from './ResepTabView'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,110 +11,140 @@ export default async function ResepPage() {
     setAll: () => {},
   })
 
-  // Fetch all menu items (category lives in the joined `categories` table)
-  const { data: menuItems, error } = await supabase
-    .from('menu_items')
-    .select('id, name, price, is_available, sort_order, categories(name, sort_order)')
-    .order('name')
+  // Fetch all menu items with categories, channel prices, and package info
+  const [menuRes, recipesRes, channelsRes] = await Promise.all([
+    supabase
+      .from('menu_items')
+      .select('id, name, price, hpp_override, channel_prices, is_available, is_available_online, available_online_channels, is_package, sort_order, categories(name, sort_order), package_items:menu_packages!package_id(id, menu_item_id, quantity)')
+      .order('sort_order'),
+    supabase
+      .from('resep')
+      .select('menu_item_ref, is_active, buffer_amount, resep_item(id, bahan_baku_id, qty_per_porsi, bahan_baku:bahan_baku_id(id, bahan_baku_sku(harga_beli, qty_isi, is_default, is_active), bahan_baku_harga(harga_beli_display, kemasan_qty)))')
+      .eq('scope', 'global'),
+    supabase
+      .from('sales_channels')
+      .select('id, name, color')
+      .eq('is_active', true)
+      .order('name'),
+  ])
 
-  if (error) {
-    console.error('Error fetching menu items:', error)
+  const menuItems = menuRes.data || []
+  const recipes = recipesRes.data || []
+  const channels = channelsRes.data || []
+
+  // Build HPP per menu_item from resep_item
+  function calcHppFromRecipe(recipe: any): number {
+    const items = recipe?.resep_item || []
+    let total = 0
+    for (const item of items) {
+      const bb = item.bahan_baku as any
+      if (!bb) continue
+      // Find best price from SKU
+      const skus: any[] = Array.isArray(bb.bahan_baku_sku) ? bb.bahan_baku_sku.filter((s: any) => s.is_active) : []
+      let harga = 0
+      let qty = 0
+      if (skus.length > 0) {
+        const def = skus.find((s: any) => s.is_default) || skus[0]
+        harga = Number(def.harga_beli) || 0
+        qty = Number(def.qty_isi) || 0
+      } else {
+        const h = Array.isArray(bb.bahan_baku_harga) ? bb.bahan_baku_harga[0] : bb.bahan_baku_harga
+        harga = Number(h?.harga_beli_display) || 0
+        qty = Number(h?.kemasan_qty) || 0
+      }
+      if (harga > 0 && qty > 0) {
+        total += (harga / qty) * Number(item.qty_per_porsi || 0)
+      }
+    }
+    const safeBuffer = Math.max(0, Number(recipe.buffer_amount) || 0)
+    return Math.round(total + safeBuffer)
   }
 
-  // Fetch existing recipes to know which ones have a BOM
-  const { data: recipes } = await supabase
-    .from('resep')
-    .select('menu_item_ref, is_active, resep_item(count)')
-    .eq('scope', 'global')
+  // Map recipe HPP by menu_item_ref
+  const recipeHppMap: Record<string, number> = {}
+  for (const r of recipes) {
+    recipeHppMap[r.menu_item_ref] = calcHppFromRecipe(r)
+  }
+  const recipeSet = new Set(recipes.map((r: any) => r.menu_item_ref))
 
-  // Map BOM status
-  const menuWithBOM = menuItems?.map((menu) => {
-    const bom = recipes?.find((r) => r.menu_item_ref === menu.id)
-    const categoryInfo = (menu as any).categories || {}
+  // Build HPP table items
+  const hppItems = menuItems.map((menu: any) => {
+    const categoryInfo = menu.categories || {}
+    const isPackage = !!menu.is_package
+    let hpp: number | null = null
+    let isPartial = false
+
+    if (isPackage) {
+      // Combo: sum HPP of each component × qty
+      const components: any[] = menu.package_items || []
+      let total = 0
+      let allResolved = true
+      for (const comp of components) {
+        // Resolve component HPP (prioritize its hpp_override, then recipe HPP)
+        const compMenu = menuItems.find((m: any) => m.id === comp.menu_item_id)
+        const compHpp = compMenu?.hpp_override !== null && compMenu?.hpp_override !== undefined
+          ? Number(compMenu.hpp_override)
+          : recipeHppMap[comp.menu_item_id]
+
+        if (compHpp !== undefined && compHpp !== null) {
+          total += compHpp * Number(comp.quantity || 1)
+        } else {
+          allResolved = false
+        }
+      }
+      if (components.length === 0) {
+        hpp = null
+      } else if (!allResolved) {
+        hpp = total > 0 ? Math.round(total) : null
+        isPartial = true
+      } else {
+        hpp = Math.round(total)
+      }
+    } else {
+      // Single item HPP from recipe
+      hpp = recipeSet.has(menu.id) ? (recipeHppMap[menu.id] ?? null) : null
+    }
+
+    return {
+      id: menu.id,
+      name: menu.name,
+      category: categoryInfo.name || '—',
+      categoryOrder: categoryInfo.sort_order || 999,
+      sortOrder: menu.sort_order || 0,
+      price: Number(menu.price) || 0,
+      hppOverride: menu.hpp_override !== null && menu.hpp_override !== undefined ? Number(menu.hpp_override) : null,
+      channelPrices: (menu.channel_prices as Record<string, number>) || {},
+      isAvailableOnline: !!menu.is_available_online,
+      availableOnlineChannels: (menu.available_online_channels as string[] | null) ?? null,
+      isPackage,
+      hpp,
+      isPartial,
+    }
+  })
+
+  // BOM list data (existing tab)
+  const menuWithBOM = menuItems.map((menu: any) => {
+    const bom = recipes?.find((r: any) => r.menu_item_ref === menu.id)
+    const categoryInfo = menu.categories || {}
     return {
       ...menu,
       category: categoryInfo.name || '—',
       categoryOrder: categoryInfo.sort_order || 999,
       hasBOM: !!bom,
       bomActive: bom?.is_active,
-      itemCount: bom?.resep_item?.[0]?.count || 0
+      itemCount: bom?.resep_item?.length || 0,
     }
-  }) || []
-
-  // Sort by Category Order -> Menu Order -> Menu Name
-  menuWithBOM.sort((a, b) => {
-    if (a.categoryOrder !== b.categoryOrder) {
-      return a.categoryOrder - b.categoryOrder
-    }
-    const aMenuOrder = (a as any).sort_order || 0
-    const bMenuOrder = (b as any).sort_order || 0
-    if (aMenuOrder !== bMenuOrder) {
-      return aMenuOrder - bMenuOrder
-    }
+  }).sort((a: any, b: any) => {
+    if (a.categoryOrder !== b.categoryOrder) return a.categoryOrder - b.categoryOrder
+    if ((a.sort_order || 0) !== (b.sort_order || 0)) return (a.sort_order || 0) - (b.sort_order || 0)
     return a.name.localeCompare(b.name)
   })
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-suka-brown">Manajemen Resep (BOM)</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Pilih menu untuk mengatur Bill of Materials. Menu dengan BOM akan memotong stok otomatis saat terjual di Kasir.
-        </p>
-      </div>
-
-      <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 border-b text-gray-600 font-medium">
-              <tr>
-                <th className="px-6 py-4">Kategori</th>
-                <th className="px-6 py-4">Nama Menu</th>
-                <th className="px-6 py-4">Status BOM</th>
-                <th className="px-6 py-4 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {menuWithBOM.map((menu: any) => (
-                <tr key={menu.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 text-gray-500 uppercase text-xs tracking-wider font-semibold">
-                    {menu.category}
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">
-                    {menu.name}
-                  </td>
-                  <td className="px-6 py-4">
-                    {menu.hasBOM ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Aktif ({menu.itemCount} bahan)
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        Belum Diatur
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <Link
-                      href={`/dashboard/resep/${menu.id}`}
-                      className="text-suka-primary hover:text-suka-primary/80 font-medium"
-                    >
-                      {menu.hasBOM ? 'Edit Resep' : 'Buat Resep'}
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {menuWithBOM.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                    Tidak ada menu ditemukan.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <ResepTabView
+      menuWithBOM={menuWithBOM}
+      hppItems={hppItems}
+      channels={channels}
+    />
   )
 }

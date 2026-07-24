@@ -2,7 +2,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { ArrowLeft, ChevronDown } from 'lucide-react'
+import { ArrowLeft, ChevronDown, LogOut } from 'lucide-react'
+import { useAuth } from '@suka/auth'
 import { useRole } from './RoleContext'
 import { accessibleGroups, isItemActive, resolvePortalUrl } from './navConfig'
 import { useLeaveNotifications } from '@/hooks/useLeaveNotifications'
@@ -12,6 +13,12 @@ export const Sidebar = () => {
   const { role } = useRole()
   const { pendingCount } = useLeaveNotifications()
   const resolvedPortalUrl = resolvePortalUrl()
+  const { signOut } = useAuth()
+
+  const handleLogout = async () => {
+    await signOut()
+    window.location.href = resolvedPortalUrl
+  }
 
   const groups = accessibleGroups(role)
   // Pintu yang sedang dibuka: default pintu yang memuat halaman aktif.
@@ -105,13 +112,13 @@ export const Sidebar = () => {
       </div>
 
       <div className="p-4 border-t border-suka-gray-100 space-y-2">
-        <a
-          href={resolvedPortalUrl}
-          className="flex items-center gap-3 px-3 py-2 rounded-xl font-bold text-xs text-suka-brown/70 hover:bg-suka-cream hover:text-suka-brown border border-suka-gray-200 hover:border-suka-brown/20 transition-all active:scale-95"
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all active:scale-95 shadow-sm"
         >
-          <ArrowLeft size={16} className="text-suka-brown/60" />
-          Kembali ke Portal
-        </a>
+          <LogOut size={16} className="text-red-500" />
+          Logout
+        </button>
       </div>
     </aside>
   )

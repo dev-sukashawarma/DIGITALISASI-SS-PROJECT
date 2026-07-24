@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 07 — Supabase Storage & Bucket Security</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" style="width: 70%"></div></div>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📚 Backend Maintenance</span>
+    <span>Lesson 07 / 10</span>
+    <span>⏱ ~15 menit</span>
+    <span>🟡 Menengah</span>
+  </div>
+  <h1 class="lesson-title">Supabase Storage & Bucket Security</h1>
+  <p style="color: var(--text-muted)">Aplikasi kita menyimpan banyak file gambar: foto selfie absen, foto verif kiriman bahan baku, dan gambar menu. Pelajari cara mengamankan bucket storage kamu di sini.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🎯 Tujuan Lesson Ini</h2>
+<ul>
+  <li>Memahami perbedaan antara bucket **Public** dan **Private**</li>
+  <li>Bisa menulis policy RLS khusus untuk objek di Supabase Storage</li>
+  <li>Memahami konsep **Signed URL** untuk file privat sensitif</li>
+  <li>Menyadari pentingnya optimasi ukuran gambar sebelum di-upload</li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>1. Jenis Bucket: Public vs Private</h2>
+
+<p>Supabase Storage membagi penyimpanan ke dalam wadah bernama **Bucket**. Wadah ini bisa disetel menjadi:</p>
+
+<div class="card">
+  <div class="card-title">🌐 1. Public Bucket (Misal: <code>menu_images</code>)</div>
+  <p>
+    File di dalam bucket ini bisa diakses langsung oleh siapa saja di internet lewat URL publik permanen.
+    Cocok untuk aset publik yang tidak rahasia seperti gambar menu shawarma di kasir/kiosk.
+  </p>
+</div>
+
+<div class="card">
+  <div class="card-title">🔒 2. Private Bucket (Misal: <code>selfies</code>, <code>po_invoices</code>)</div>
+  <p>
+    File di dalam bucket ini tidak memiliki URL publik. Database menolak akses langsung kecuali user lolos dari aturan **Storage RLS Policies** atau memiliki **Signed URL** (token akses sementara berdurasi beberapa menit).
+    Wajib digunakan untuk foto selfie absen karyawan dan struk nota belanja.
+  </p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>2. RLS Khusus Storage: Mengamankan Upload</h2>
+
+<p>Sama seperti tabel biasa, bucket storage di Supabase dilindungi oleh RLS pada tabel internal <code>storage.objects</code>.
+Mari kita lihat contoh pembuatannya dari file migrasi <code>20260711100300_finance_rls_storage.sql</code>:</p>
+
+<pre><code><span class="cmt">-- Hanya staff dengan role 'admin' atau 'admin_finance' yang boleh membaca invoice PO</span>
+<span class="kw">CREATE POLICY</span> "Finance can read invoices" <span class="kw">ON</span> storage.objects
+  <span class="kw">FOR SELECT TO</span> authenticated
+  <span class="kw">USING</span> (
+    bucket_id = <span class="str">'po_invoices'</span> <span class="kw">AND</span>
+    (public.is_admin() <span class="kw">OR</span> EXISTS (
+      SELECT 1 FROM public.outlet_staff
+      WHERE id = auth.uid() AND role = 'admin_finance'
+    ))
+  );
+
+<span class="cmt">-- Mengizinkan upload ke bucket po_invoices</span>
+<span class="kw">CREATE POLICY</span> "Staff can upload invoices" <span class="kw">ON</span> storage.objects
+  <span class="kw">FOR INSERT TO</span> authenticated
+  <span class="kw">WITH CHECK</span> (
+    bucket_id = <span class="str">'po_invoices'</span>
+  );</code></pre>
+
+<div class="callout callout-danger">
+  <div class="callout-label">🚨 Bahaya RLS Storage Terbuka</div>
+  <p>Jika kamu lupa menulis policy <code>FOR SELECT</code> pada bucket private, file akan tersimpan aman namun tidak akan pernah bisa dirender di halaman Next.js (browser mendapat error <code>403 Forbidden</code>). Sebaliknya, jika policy INSERT tidak disaring berdasarkan <code>bucket_id</code>, user nakal bisa meng-upload file apa saja ke bucket mana saja!</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>3. Signed URL: Kunci Sementara</h2>
+
+<p>Untuk merender gambar dari bucket **Private** (seperti foto selfie absensi crew) secara aman di dashboard Next.js, backend Next.js memanggil Supabase API untuk membuat **Signed URL**:</p>
+
+<pre><code><span class="cmt">// Next.js API server-side:</span>
+const { data, error } = await supabase.storage
+  .from(<span class="str">'selfies'</span>)
+  .createSignedUrl(<span class="str">'selfie_kru_bogor.jpg'</span>, 60) <span class="cmt">// Berlaku hanya 60 detik!</span>
+
+<span class="cmt">// Hasilnya: https://.../selfies/selfie_kru_bogor.jpg?token=abcdef123456...</span></code></pre>
+
+<p>Signed URL memiliki token kadaluwarsa. Setelah 60 detik, link tersebut mati dan tidak bisa diakses lagi oleh siapa pun di internet.</p>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>⚠️ Optimasi Gambar: Hemat Kuota Storage</h2>
+<p>Kamera handphone crew saat ini menghasilkan foto selfie dengan resolusi tinggi (4-8 MB per foto).
+Jika crew absen 2x sehari × 19 outlet × puluhan crew, kuota storage Supabase Free Plan (1 GB) akan **penuh dalam hitungan minggu**.</p>
+<p><strong>Solusi di Frontend:</strong> Selalu kompres dan perkecil ukuran gambar di sisi client (browser handphone crew) sebelum di-upload. Batasi lebar maksimal gambar menjadi 800px dan ubah kualitasnya menjadi 70-80% JPEG. Ini akan mereduksi ukuran file dari 5 MB menjadi **hanya 80 KB saja** tanpa kehilangan kejelasan visual!</p>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="quiz-section" id="quiz">
+  <div class="quiz-title">🧪 Cek Pemahaman</div>
+
+  <div class="quiz-q" id="q1">
+    <p>1. Aset apa di bawah ini yang WAJIB disimpan di dalam bucket Private?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q1" value="a"> Foto menu shawarma daging untuk halaman Kiosk</label>
+      <label><input type="radio" name="q1" value="b"> Foto selfie kehadiran crew saat melakukan clock-in absensi</label>
+      <label><input type="radio" name="q1" value="c"> Logo Suka Shawarma untuk navbar aplikasi</label>
+      <label><input type="radio" name="q1" value="d"> File CSS shared styling</label>
+    </div>
+    <div class="quiz-feedback" id="q1-feedback"></div>
+  </div>
+
+  <div class="quiz-q" id="q2">
+    <p>2. MengapaSigned URL disarankan untuk menampilkan gambar berstatus sensitif di dashboard Next.js?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q2" value="a"> Karena file akan diunduh dengan kecepatan lebih tinggi</label>
+      <label><input type="radio" name="q2" value="b"> Karena link hanya berlaku sementara (misal 60 detik) sehingga tidak bisa disebarluaskan secara bebas</label>
+      <label><input type="radio" name="q2" value="c"> Karena otomatis memperkecil ukuran file gambar</label>
+      <label><input type="radio" name="q2" value="d"> Agar file bisa diedit langsung dari browser</label>
+    </div>
+    <div class="quiz-feedback" id="q2-feedback"></div>
+  </div>
+
+  <button class="quiz-check" onclick="checkQuiz()">Cek Jawaban</button>
+  <div class="quiz-feedback" id="quiz-result" style="margin-top: 1rem;"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="lesson-nav">
+  <a href="0006-realtime-dan-websockets.html" class="btn">← Lesson 06: Realtime WS</a>
+  <a href="0008-connection-pooling.html" class="btn btn-primary">Lesson 08: Connection Pool →</a>
+</div>
+
+<script>
+const answers = { q1: 'b', q2: 'b' };
+const explanations = {
+  q1: {
+    correct: '✅ Benar! Foto selfie wajah crew adalah data privasi sensitif. Wajib masuk bucket Private agar tidak bisa diakses publik secara bebas.',
+    wrong:   '❌ Salah. Gambar menu dan logo adalah aset publik yang boleh dilihat siapa saja. Foto selfie absen crew adalah data pribadi sensitif yang harus aman.'
+  },
+  q2: {
+    correct: '✅ Tepat! Signed URL menyematkan token keamanan berdurasi pendek. Setelah lewat batas waktu, link akan kadaluwarsa (403 Forbidden).',
+    wrong:   '❌ Salah. Signed URL tidak mempengaruhi kecepatan atau kompresi, melainkan bertindak sebagai token akses sementara untuk keamanan.'
+  }
+};
+
+function checkQuiz() {
+  let score = 0;
+  ['q1','q2'].forEach(q => {
+    const chosen = document.querySelector(`input[name="${q}"]:checked`);
+    const fb = document.getElementById(`${q}-feedback`);
+    if (!chosen) { fb.className = 'quiz-feedback wrong'; fb.innerHTML = '⚠️ Pilih salah satu jawaban.'; return; }
+    const isCorrect = chosen.value === answers[q];
+    if (isCorrect) score++;
+    fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+    fb.innerHTML = isCorrect ? explanations[q].correct : explanations[q].wrong;
+  });
+  const result = document.getElementById('quiz-result');
+  if (score === 2) {
+    result.className = 'quiz-feedback correct';
+    result.innerHTML = '🎉 Sempurna! Kamu sudah memahami cara kerja Supabase Storage dan kebijakan keamanannya. Lanjut ke Connection Pooling!';
+  } else {
+    result.className = 'quiz-feedback wrong';
+    result.innerHTML = `Skor ${score}/2. Review kembali penjelasan perbedaan bucket Public & Private ya!`;
+  }
+}
+</script>
+
+</body>
+</html>

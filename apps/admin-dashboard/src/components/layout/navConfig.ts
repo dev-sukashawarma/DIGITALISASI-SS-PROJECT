@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, AlertTriangle, UserCheck
 } from 'lucide-react'
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER'
@@ -32,22 +32,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Bisnis',
-    icon: Wallet,
-    roles: ['OWNER', 'ADMIN'],
-    items: [
-      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/petty-cash', label: 'Petty Cash (Khusus)', shortLabel: 'Petty Cash', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/profit', label: 'Untung Rugi', shortLabel: 'Untung Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/targets', label: 'Target & Pesan', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/waste', label: 'Kerugian Waste', shortLabel: 'Waste', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/rekap-bulanan', label: 'Rekap Bulanan', shortLabel: 'Rekap', icon: Table2, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/kelola-mitra', label: 'Kelola Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['OWNER', 'ADMIN'] },
-    ],
-  },
-  {
+
     title: 'Portal Mitra',
     icon: HeartHandshake,
     roles: ['MITRA'],
@@ -58,6 +43,67 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/mitra/investasi', label: 'Laporan Investasi', shortLabel: 'Investasi', icon: DollarSign, roles: ['MITRA'] },
       { href: '/dashboard/mitra/transfer', label: 'Transfer Bagi Hasil', shortLabel: 'Transfer', icon: ArrowRightLeft, roles: ['MITRA'] },
       { href: '/dashboard/mitra/saran', label: 'Saran & Kritik', shortLabel: 'Saran', icon: MessageSquare, roles: ['MITRA'] },
+    ],
+  },
+  {
+    title: 'Bisnis',
+    icon: Wallet,
+    roles: ['OWNER', 'ADMIN'],
+    items: [
+      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/petty-cash', label: 'Petty Cash (Khusus)', shortLabel: 'Petty Cash', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/profit', label: 'Untung Rugi', shortLabel: 'Untung Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/targets', label: 'Target & Pesan', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
+    ],
+  },
+  {
+    title: 'Pusat Laporan',
+    icon: FileText,
+    roles: ['OWNER', 'ADMIN'],
+    items: [
+      { href: '/dashboard/reports/pos', label: 'Rangkuman Penjualan', shortLabel: 'Penjualan', icon: PieChart, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/voids', label: 'Batal & Kecurangan', shortLabel: 'Batal', icon: AlertTriangle, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', shortLabel: 'Selisih', icon: Package, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/target-harian', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/crew-bonus', label: 'Bonus Crew', shortLabel: 'Bonus', icon: UserCheck, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/waste', label: 'Kerugian Waste', shortLabel: 'Waste', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/rekap-bulanan', label: 'Rekap Bulanan', shortLabel: 'Rekap', icon: Table2, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/pembelian', label: 'Pembelian', shortLabel: 'Pembelian', icon: ShoppingCart, roles: ['ADMIN'] },
+    ],
+  },
+  {
+    title: 'Produk & Stok',
+    icon: Package,
+    roles: ['ADMIN'],
+    items: [
+      { href: '/dashboard/bahan-baku', label: 'Master Bahan Baku', shortLabel: 'Bahan Baku', icon: Tags, roles: ['ADMIN'] },
+      { href: '/dashboard/resep', label: 'Manajemen Resep', shortLabel: 'Resep', icon: BookOpen, roles: ['ADMIN'] },
+      { href: '/dashboard/outlets', label: 'Manajemen Outlet', shortLabel: 'Outlet', icon: Store, roles: ['ADMIN'] },
+    ],
+  },
+  {
+    title: 'Pengadaan',
+    icon: ShoppingCart,
+    roles: ['ADMIN'],
+    items: [
+      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['ADMIN'] },
+      { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN'] },
+    ],
+  },
+  {
+    title: 'Manajemen POS',
+    icon: Store,
+    roles: ['ADMIN'],
+    items: [
+      { href: '/dashboard/pos-admin', label: 'Ringkasan POS', shortLabel: 'Ringkasan', icon: LayoutDashboard, roles: ['ADMIN'] },
+      { href: '/dashboard/pos-admin/menu', label: 'Daftar Menu POS', shortLabel: 'Menu', icon: Package, roles: ['ADMIN'] },
+      { href: '/dashboard/pos-admin/categories', label: 'Kategori Menu POS', shortLabel: 'Kategori', icon: Tags, roles: ['ADMIN'] },
+      { href: '/dashboard/pos-admin/promo', label: 'Manajemen Promo POS', shortLabel: 'Promo', icon: Banknote, roles: ['ADMIN'] },
+      { href: '/dashboard/pos-admin/users', label: 'Pengguna POS', shortLabel: 'Pengguna', icon: Users, roles: ['ADMIN'] },
+      { href: '/dashboard/pos-admin/settings', label: 'Pengaturan POS', shortLabel: 'Pengaturan', icon: Settings, roles: ['ADMIN'] },
+      { href: '/dashboard/bukti-qris', label: 'Bukti QRIS', shortLabel: 'Bukti QRIS', icon: FileText, roles: ['ADMIN'] },
     ],
   },
   {
@@ -73,56 +119,17 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Pengadaan',
-    icon: ShoppingCart,
-    roles: ['ADMIN'],
-    items: [
-      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['ADMIN'] },
-      { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN'] },
-    ],
-  },
-  {
-    title: 'Produk & Stok',
-    icon: Package,
-    roles: ['ADMIN'],
-    items: [
-      { href: '/dashboard/bahan-baku', label: 'Master Bahan Baku', shortLabel: 'Bahan Baku', icon: Tags, roles: ['ADMIN'] },
-      { href: '/dashboard/resep', label: 'Manajemen Resep', shortLabel: 'Resep', icon: BookOpen, roles: ['ADMIN'] },
-      { href: '/dashboard/outlets', label: 'Manajemen Outlet', shortLabel: 'Outlet', icon: Store, roles: ['ADMIN'] },
-    ],
-  },
-  {
-    title: 'Laporan',
-    icon: FileText,
-    roles: ['OWNER', 'ADMIN'],
-    items: [
-      { href: '/dashboard/reports', label: 'Pusat Laporan', shortLabel: 'Laporan', icon: FileText, roles: ['OWNER', 'ADMIN'] },
-    ],
-  },
-  {
     title: 'Sistem',
     icon: Settings,
     roles: ['OWNER', 'ADMIN'],
     items: [
+      { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/monitoring', label: 'Monitoring Aktivitas', shortLabel: 'Monitoring', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/panduan', label: 'Panduan Sistem', shortLabel: 'Panduan', icon: BookOpen, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
       { href: '/dashboard/system-health', label: 'Kesehatan Sistem', shortLabel: 'Sistem', icon: Activity, roles: ['ADMIN'] },
       { href: '/dashboard/printer', label: 'Pengaturan Printer', shortLabel: 'Printer', icon: Printer, roles: ['ADMIN'] },
-    ],
-  },
-  {
-    title: 'Manajemen POS',
-    icon: Store,
-    roles: ['ADMIN'],
-    items: [
-      { href: '/dashboard/pos-admin', label: 'Ringkasan POS', shortLabel: 'Ringkasan', icon: LayoutDashboard, roles: ['ADMIN'] },
-      { href: '/dashboard/pos-admin/menu', label: 'Daftar Menu POS', shortLabel: 'Menu', icon: Package, roles: ['ADMIN'] },
-      { href: '/dashboard/pos-admin/categories', label: 'Kategori Menu POS', shortLabel: 'Kategori', icon: Tags, roles: ['ADMIN'] },
-      { href: '/dashboard/pos-admin/promo', label: 'Manajemen Promo POS', shortLabel: 'Promo', icon: Banknote, roles: ['ADMIN'] },
-      { href: '/dashboard/pos-admin/users', label: 'Pengguna POS', shortLabel: 'Pengguna', icon: Users, roles: ['ADMIN'] },
-      { href: '/dashboard/pos-admin/settings', label: 'Pengaturan POS', shortLabel: 'Pengaturan', icon: Settings, roles: ['ADMIN'] },
-      { href: '/dashboard/bukti-qris', label: 'Bukti QRIS', shortLabel: 'Bukti QRIS', icon: FileText, roles: ['ADMIN'] },
+      { href: '/dashboard/owner/kelola-mitra', label: 'Kelola Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {

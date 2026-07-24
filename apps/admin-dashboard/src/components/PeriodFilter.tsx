@@ -151,9 +151,9 @@ export function PeriodFilter({
   const currentPreset = activePreset()
 
   return (
-    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center">
-      {/* 1. Date Range Presets (Segmented control) — equal-width on mobile, inline on desktop */}
-      <div className="bg-suka-cream p-1 rounded-xl border border-suka-brown/5 flex items-stretch gap-1 text-xs font-bold shadow-inner w-full sm:w-auto">
+    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center w-full">
+      {/* 1. Date Range Presets (Segmented control) — scrollable on mobile, inline on desktop */}
+      <div className="bg-white/60 backdrop-blur-xl p-1.5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-stretch gap-1 text-xs font-bold w-full sm:w-auto overflow-x-auto scrollbar-hide [&::-webkit-scrollbar]:hidden" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
         {(['kemarin', 'today', '7d', '30d'] as const).map((pOrKemarin) => {
           const p = pOrKemarin === 'kemarin' ? 'yesterday' : pOrKemarin;
           const isActive = currentPreset === p
@@ -183,7 +183,7 @@ export function PeriodFilter({
       {/* 2 & 3. Dropdowns — stack to full width on mobile, inline on larger screens */}
       <div className="flex flex-col sm:flex-row gap-3">
         {lockedOutletId ? (
-          <div className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-4 py-2.5 sm:py-2 bg-suka-cream/30 border border-suka-gray-200 rounded-xl text-xs font-bold text-suka-brown relative sm:min-w-[180px]">
+          <div className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-4 py-2.5 sm:py-2 bg-white/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-xs font-bold text-suka-brown relative sm:min-w-[180px]">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50">
               <Store className="w-4 h-4" />
             </span>
@@ -259,7 +259,7 @@ function SourceCombobox({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-8 py-2.5 sm:py-2 bg-suka-cream/30 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative sm:min-w-[160px]"
+        className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-8 py-2.5 sm:py-2 bg-white/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus:ring-2 focus:ring-suka-orange/20 text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative sm:min-w-[160px]"
       >
         <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center justify-center">
           {renderIcon(value)}

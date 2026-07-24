@@ -33,15 +33,71 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         if (page.length < PAGE_SIZE) break
         offset += PAGE_SIZE
       }
-      return all.map((r: any) => ({
-        outlet_id: r.outlet_id,
-        outlet_name: '',
-        sales_source: r.sales_source as SalesSource,
-        sales_date: r.sales_date,
-        omzet: Number(r.omzet),
-        jumlah_order_completed: Number(r.jumlah_order_completed),
-        jumlah_order_all: Number(r.jumlah_order_completed),
-      }))
+      // 2. Fetch orders for deductions (discount_amount + promo_subsidy + platform_fee)
+      // Fix timezone bounds for +07:00
+      const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
+      const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
+      
+      let ordersQ = supabase
+        .from('orders')
+        .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, total_amount, order_items(subtotal)')
+        .eq('status', 'completed')
+        .gte('created_at', fromStart.toISOString())
+        .lte('created_at', toEnd.toISOString())
+        
+      if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
+      
+      const { data: ordersData, error: ordersErr } = await ordersQ
+      if (ordersErr) console.error("Error fetching orders for deductions", ordersErr)
+      
+      const deductionsMap = new Map<string, { discount: number, platformFee: number }>()
+      for (const o of ordersData || []) {
+        const d = new Date(o.created_at)
+        const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
+        const dateStr = localDate.toISOString().split('T')[0]
+        
+        const srcKey = String(o.sales_source || 'pos').toLowerCase()
+        
+        if (filter.source !== 'all' && srcKey !== filter.source.toLowerCase()) continue;
+        
+        const key = `${o.outlet_id}|${srcKey}|${dateStr}`
+        
+        let discount = 0
+        const disc = Number(o.discount_amount) || 0
+        const promo = Number(o.promo_subsidy) || 0
+        if (disc > 0 || promo > 0) {
+          discount = disc + promo
+        } else {
+          const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
+          const totalAmt = Number(o.total_amount) || 0
+          discount = itemSubtotal > totalAmt ? itemSubtotal - totalAmt : 0
+        }
+        
+        let platformFee = 0 // Removed 20% estimation to match ReportsView and ownerDashboard logic
+        
+        const existing = deductionsMap.get(key) || { discount: 0, platformFee: 0 }
+        existing.discount += discount
+        existing.platformFee += platformFee
+        deductionsMap.set(key, existing)
+      }
+
+      return all.map((r: any) => {
+        const src = (r.sales_source || 'pos').toLowerCase()
+        const key = `${r.outlet_id}|${src}|${r.sales_date}`
+        const ded = deductionsMap.get(key) || { discount: 0, platformFee: 0 }
+
+        return {
+          outlet_id: r.outlet_id,
+          outlet_name: '',
+          sales_source: r.sales_source as SalesSource,
+          sales_date: r.sales_date,
+          omzet: Number(r.omzet),
+          jumlah_order_completed: Number(r.jumlah_order_completed),
+          jumlah_order_all: Number(r.jumlah_order_completed),
+          total_deductions: ded.discount,
+          platform_fee: ded.platformFee,
+        }
+      })
     },
   })
 

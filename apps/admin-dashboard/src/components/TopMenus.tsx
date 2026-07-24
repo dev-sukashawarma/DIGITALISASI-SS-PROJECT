@@ -18,9 +18,9 @@ export function TopMenus({ rows }: { rows: AggregatedMenuSales[] }) {
   }, [list, mode])
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4 flex flex-col">
+    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4 flex flex-col h-full">
       <div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Menu Terlaris</h3>
           
           {/* Custom segmented control switcher */}

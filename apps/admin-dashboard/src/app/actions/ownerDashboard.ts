@@ -33,12 +33,13 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   if (filter.source !== 'all') q = q.eq('sales_source', filter.source)
 
   // 2. Fetch orders to calculate exact total_deductions (discount_amount + promo_subsidy)
-  const fromStart = new Date(`${filter.from}T00:00:00.000Z`)
-  const toEnd = new Date(`${filter.to}T23:59:59.999Z`)
+  // Fix: filter.from/to is YYYY-MM-DD. Use +07:00 timezone to get exactly 00:00 to 23:59 local time.
+  const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
+  const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
 
   let ordersQ = supabase
     .from('orders')
-    .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source')
+    .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, total_amount, order_items(subtotal)')
     .eq('status', 'completed')
     .gte('created_at', fromStart.toISOString())
     .lte('created_at', toEnd.toISOString())
@@ -55,16 +56,29 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     // Convert UTC created_at to local date YYYY-MM-DD (Asia/Jakarta +7)
     const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
     const dateStr = localDate.toISOString().split('T')[0]
-    const src = (o.channel || o.sales_source || 'pos').toLowerCase()
-    const key = `${o.outlet_id}|${src}|${dateStr}`
-    const deduction = (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0)
+    
+    const srcKey = String(o.sales_source || 'pos').toLowerCase()
+    const key = `${o.outlet_id}|${srcKey}|${dateStr}`
+    
+    let deduction = 0
+    const disc = Number(o.discount_amount) || 0
+    const promo = Number(o.promo_subsidy) || 0
+    if (disc > 0 || promo > 0) {
+      deduction = disc + promo
+    } else {
+      const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
+      const totalAmt = Number(o.total_amount) || 0
+      const itemDiff = itemSubtotal > totalAmt ? itemSubtotal - totalAmt : 0
+      deduction = itemDiff
+    }
     deductionsMap.set(key, (deductionsMap.get(key) || 0) + deduction)
   }
 
   // Aggregate for Summary (KPI)
   const acc = new Map<string, SalesSummaryRow & { total_deductions?: number }>()
   for (const r of data || []) {
-    const key = `${r.outlet_id}|${r.sales_source}|${r.sales_date}`
+    const rSrcKey = String(r.sales_source || 'pos').toLowerCase()
+    const key = `${r.outlet_id}|${rSrcKey}|${r.sales_date}`
     const existing = acc.get(key)
     const deductionCell = deductionsMap.get(key) || 0
 
@@ -72,9 +86,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
       existing.omzet += Number(r.omzet)
       existing.jumlah_order_completed += Number(r.jumlah_order_completed)
       existing.jumlah_order_all += Number(r.jumlah_order_completed)
-      if ((existing as any).total_deductions !== undefined) {
-        (existing as any).total_deductions += deductionCell
-      }
+      // Fix: DO NOT add deductionCell again here, because it's already the total deduction for the entire day.
     } else {
       acc.set(key, {
         outlet_id: r.outlet_id,

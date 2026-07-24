@@ -11,7 +11,7 @@ export function BottomMenus({ rows }: { rows: AggregatedMenuSales[] }) {
   if (data.length === 0) return null
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4">
+    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
       <div className="flex items-start gap-3">
         <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-600 shrink-0 mt-0.5">
           <AlertCircle className="w-5 h-5" />

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analisis Query Performance — SS Digital Database</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>🔬 Real-world Case Study</span>
+    <span>SS Digital Project</span>
+    <span>⚡ Query Performance</span>
+  </div>
+  <h1 class="lesson-title">Analisis Query Performance Database Kamu</h1>
+  <p style="color: var(--text-muted)">Berdasarkan data statistik <code>pg_stat_statements</code> yang kamu kirimkan, ini analisis riil ke mana performa databasemu pergi.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>⚠️ Ringkasan 4 Bottleneck Terbesar</h2>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Peringkat</th><th>Query / Komponen</th><th>Porsi Waktu DB</th><th>Status</th><th>Rekomendasi Tindakan</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1 🔴</td>
+        <td><code>realtime.list_changes</code> (Websocket engine)</td>
+        <td><strong>73.48%</strong></td>
+        <td>Bypassable</td>
+        <td>Audit & matikan realtime di tabel yang tidak butuh live update.</td>
+      </tr>
+      <tr>
+        <td>2 🔴</td>
+        <td><code>system_health_latest</code> (View status)</td>
+        <td><strong>1.20%</strong> (872ms/query)</td>
+        <td>Sakit</td>
+        <td>Buat index composite baru pada target_name dan checked_at.</td>
+      </tr>
+      <tr>
+        <td>3 🟡</td>
+        <td><code>daily_checklist_ticks</code> (Checklist ticks)</td>
+        <td><strong>8.85%</strong> (59ms/query)</td>
+        <td>Degraded</td>
+        <td>Optimasi RLS Policy atau gunakan service_role untuk server-side.</td>
+      </tr>
+      <tr>
+        <td>4 🟡</td>
+        <td><code>pg_timezone_names</code> (Connection Churn)</td>
+        <td><strong>5.07%</strong> (670ms/query)</td>
+        <td>Sistem</td>
+        <td>Aktifkan Supabase Connection Pooling (port 6543) di Next.js.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>1. Supabase Realtime: <code>realtime.list_changes</code> (73.48%)</h2>
+<p>
+  Fungsi ini memproses log replikasi (WAL) database setiap ada operasi <code>INSERT</code>, <code>UPDATE</code>, atau <code>DELETE</code> pada tabel yang diaktifkan realtimenya.
+</p>
+<div class="callout callout-info">
+  <div class="callout-label">ℹ️ Kenapa ini memakan 73% database?</div>
+  <p>
+    Sebab fungsi ini dipanggil <strong>2.115.899 kali</strong>. Per query sangat cepat (8.8ms), namun karena dipanggil jutaan kali, ia menjadi konsumen CPU terbesar.
+    Hal ini normal di Supabase jika kamu mengaktifkan publikasi realtime pada tabel dengan frekuensi update tinggi (seperti log, target, atau transaksi POS).
+  </p>
+</div>
+<p><strong>Rekomendasi:</strong> Audit tabel yang terdaftar di <code>supabase_realtime</code> publication. Jika ada tabel yang tidak pernah dibaca secara realtime di frontend, hapus dari publication.</p>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>2. Riwayat System Health: <code>system_health_latest</code> (872.24 ms)</h2>
+<p>
+  Query ini sangat lambat karena menggunakan <code>DISTINCT ON (target_name) ... ORDER BY target_name, checked_at DESC</code>.
+</p>
+<div class="callout callout-danger">
+  <div class="callout-label">🚨 Penyebab Utama</div>
+  <p>
+    Index yang kamu miliki saat ini adalah <code>(target_type, target_name, checked_at DESC)</code>. Karena diawali oleh <code>target_type</code>, index ini <strong>tidak dapat digunakan</strong> untuk mengoptimalkan urutan berdasarkan <code>target_name</code> terlebih dahulu. Database terpaksa melakukan sequential scan seluruh tabel dan sort manual.
+  </p>
+</div>
+<p><strong>Solusi:</strong> Jalankan perintah ini di SQL Editor untuk membuat index yang tepat secara aman tanpa me-lock tabel:</p>
+<pre><code><span class="kw">CREATE INDEX CONCURRENTLY IF NOT EXISTS</span> idx_system_health_log_distinct_latest
+  <span class="kw">ON</span> system_health_log (target_name, checked_at <span class="kw">DESC</span>);</code></pre>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>3. Checklist Ticks: <code>daily_checklist_ticks</code> (59.06 ms)</h2>
+<p>
+  Query ini dipanggil 38.000 kali. Rata-rata 59ms untuk sekadar mengambil <code>item_id</code> tergolong lambat.
+</p>
+<div class="analogy">
+  <div class="analogy-label">🔒 Overhead RLS</div>
+  <p>
+    Setiap kali kita memanggil query ini, RLS policy memaksa PostgreSQL untuk mencocokkan outlet staff:
+    <code>JOIN daily_checklist_records r JOIN outlet_staff s WHERE s.id = auth.uid()</code>.
+    Join berulang ini menurunkan kecepatan database secara drastis saat di-query puluhan ribu kali.
+  </p>
+</div>
+<p><strong>Solusi:</strong> Jika pemanggilan ini murni dari server-side Next.js, pastikan Next.js terhubung menggunakan <code>service_role</code> client (yang mem-bypass RLS secara bawaan) daripada token user biasa jika memang aman untuk dibaca secara global oleh server.</p>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>4. Query Sistem PostgreSQL: <code>pg_timezone_names</code> (670.64 ms)</h2>
+<p>
+  Query ini dipanggil 1.929 kali dengan durasi 670ms per query. Ini adalah query deteksi metadata bawaan PostgreSQL.
+</p>
+<p><strong>Mengapa Terjadi?</strong> Koneksi database baru sering dibuka-tutup oleh server Next.js di cPanel (Connection Churn). Setiap koneksi baru memicu query metadata ini.</p>
+<p><strong>Solusi:</strong></p>
+<ul>
+  <li>Gunakan port **6543** (Connection Pooler Supabase) di konfigurasi database aplikasi Next.js kamu.</li>
+  <li>Matikan auto-detect timezone pada driver database (misal Prisma / Kysely / Drizzle) dan set timezone secara manual di connection string: <code>?options=-c%20timezone=Asia/Jakarta</code>.</li>
+</ul>
+
+<div style="margin-top: 3rem; text-align: center; color: var(--text-muted); font-size: .8rem">
+  SS Digital Backend Case Study • <a href="../lessons/0002-query-lambat-dan-cara-deteksi.html">Kembali ke Lesson 02</a>
+</div>
+
+</body>
+</html>

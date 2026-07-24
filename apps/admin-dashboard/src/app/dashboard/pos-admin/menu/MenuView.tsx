@@ -975,7 +975,7 @@ export default function MenuView({
                           ) : (
                             <div className="space-y-2 pt-1">
                               <p className="text-[11px] font-bold text-indigo-900">Masukkan harga spesifik per aplikasi online:</p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              <div className="grid grid-cols-1 gap-2.5">
                                 {initialChannels.filter(c => c.id.toLowerCase() !== 'pos_kasir').map(ch => {
                                   const slug = getSlug(ch.id)
                                   const val = form.channel_prices[slug] || form.price

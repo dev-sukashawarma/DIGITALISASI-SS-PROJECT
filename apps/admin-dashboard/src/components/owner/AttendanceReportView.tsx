@@ -201,8 +201,8 @@ export function AttendanceReportView({
               <tr>
                 <th className="p-3.5">Nama &amp; Role Karyawan</th>
                 <th className="p-3.5">Outlet &amp; Tanggal</th>
-                <th className="p-3.5 text-center">Clock In &amp; Foto Stealth</th>
-                <th className="p-3.5 text-center">Clock Out &amp; Foto Stealth</th>
+                <th className="p-3.5 text-center">Jam Masuk &amp; Foto Kamera</th>
+                <th className="p-3.5 text-center">Jam Pulang &amp; Foto Kamera</th>
                 <th className="p-3.5">Status Masuk</th>
                 <th className="p-3.5">Status Pulang &amp; Durasi</th>
               </tr>
@@ -234,7 +234,7 @@ export function AttendanceReportView({
                       </div>
                     </td>
 
-                    {/* Clock In & Foto Stealth */}
+                    {/* Jam Masuk & Foto Kamera */}
                     <td className="p-3.5 text-center">
                       <div className="font-mono font-bold text-slate-800 text-sm">
                         {row.clock_in ? row.clock_in.slice(0, 5) : '-'}
@@ -244,11 +244,11 @@ export function AttendanceReportView({
                           onClick={() =>
                             setActivePhoto({
                               url: row.stealth_photo_in_url!,
-                              title: `Foto Presensi Clock In - ${row.staff_name}`,
-                              timestamp: `${formatDate(row.date)} ${row.clock_in ? row.clock_in.slice(0, 5) : ''}`,
+                              title: `Foto Presensi Masuk - ${row.staff_name}`,
+                              timestamp: `${formatDate(row.date)} Jam ${row.clock_in ? row.clock_in.slice(0, 5) : ''} WIB`,
                               staffName: row.staff_name,
                               outletName: row.outlet_name,
-                              actionType: 'Absensi Clock In (Masuk Shift)',
+                              actionType: 'Presensi Masuk (Awal Shift)',
                               notes: row.notes ?? undefined,
                             })
                           }
@@ -256,25 +256,25 @@ export function AttendanceReportView({
                         >
                           <img
                             src={row.stealth_photo_in_url}
-                            alt="Clock In Stealth"
+                            alt="Foto Presensi Masuk"
                             className="h-10 w-10 object-cover"
                           />
                           <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
                             <Camera size={12} />
                           </div>
-                          <span className="absolute bottom-0 right-0 bg-emerald-600 p-0.5 text-[7px] text-white font-bold">
-                            IN
+                          <span className="absolute bottom-0 right-0 bg-emerald-600 px-1 py-0.2 text-[7px] text-white font-extrabold uppercase">
+                            MASUK
                           </span>
                         </button>
                       ) : (
                         <div className="mt-1 flex flex-col items-center justify-center text-slate-400">
                           <ImageOff size={14} />
-                          <span className="text-[9px] font-semibold italic text-slate-400 mt-0.5">Tanpa Foto In</span>
+                          <span className="text-[9px] font-semibold italic text-slate-400 mt-0.5">Tanpa Foto Masuk</span>
                         </div>
                       )}
                     </td>
 
-                    {/* Clock Out & Foto Stealth */}
+                    {/* Jam Pulang & Foto Kamera */}
                     <td className="p-3.5 text-center">
                       <div className="font-mono font-bold text-slate-800 text-sm">
                         {row.clock_out ? row.clock_out.slice(0, 5) : '-'}
@@ -284,11 +284,11 @@ export function AttendanceReportView({
                           onClick={() =>
                             setActivePhoto({
                               url: row.stealth_photo_out_url!,
-                              title: `Foto Presensi Clock Out - ${row.staff_name}`,
-                              timestamp: `${formatDate(row.date)} ${row.clock_out ? row.clock_out.slice(0, 5) : ''}`,
+                              title: `Foto Presensi Pulang - ${row.staff_name}`,
+                              timestamp: `${formatDate(row.date)} Jam ${row.clock_out ? row.clock_out.slice(0, 5) : ''} WIB`,
                               staffName: row.staff_name,
                               outletName: row.outlet_name,
-                              actionType: 'Absensi Clock Out (Selesai Shift)',
+                              actionType: 'Presensi Pulang (Selesai Shift)',
                               notes: row.notes ?? undefined,
                             })
                           }
@@ -296,20 +296,20 @@ export function AttendanceReportView({
                         >
                           <img
                             src={row.stealth_photo_out_url}
-                            alt="Clock Out Stealth"
+                            alt="Foto Presensi Pulang"
                             className="h-10 w-10 object-cover"
                           />
                           <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
                             <Camera size={12} />
                           </div>
-                          <span className="absolute bottom-0 right-0 bg-blue-600 p-0.5 text-[7px] text-white font-bold">
-                            OUT
+                          <span className="absolute bottom-0 right-0 bg-blue-600 px-1 py-0.2 text-[7px] text-white font-extrabold uppercase">
+                            PULANG
                           </span>
                         </button>
                       ) : (
                         <div className="mt-1 flex flex-col items-center justify-center text-slate-400">
                           <ImageOff size={14} />
-                          <span className="text-[9px] font-semibold italic text-slate-400 mt-0.5">Tanpa Foto Out</span>
+                          <span className="text-[9px] font-semibold italic text-slate-400 mt-0.5">Tanpa Foto Pulang</span>
                         </div>
                       )}
                     </td>

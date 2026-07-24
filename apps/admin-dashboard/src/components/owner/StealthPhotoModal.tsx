@@ -37,10 +37,10 @@ export function StealthPhotoModal({ photo, onClose }: StealthPhotoModalProps) {
                   {photo.title}
                 </h3>
                 <span className="shrink-0 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                  <ShieldCheck size={10} /> Stealth Verified
+                  <ShieldCheck size={10} /> Foto Otomatis Terverifikasi
                 </span>
               </div>
-              <p className="text-[10px] sm:text-xs font-semibold text-slate-500 truncate mt-0.5">Audit Presensi System Kamera Tersembunyi</p>
+              <p className="text-[10px] sm:text-xs font-semibold text-slate-500 truncate mt-0.5">Audit Presensi & Bukti Foto Otomatis</p>
             </div>
           </div>
 
@@ -115,7 +115,7 @@ export function StealthPhotoModal({ photo, onClose }: StealthPhotoModalProps) {
                   <Clock size={14} className="sm:w-4 sm:h-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-extrabold tracking-wider truncate">Waktu WJB</p>
+                  <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-extrabold tracking-wider truncate">Waktu Presensi</p>
                   <p className="font-black text-slate-900 text-xs sm:text-sm mt-0.5 truncate">{photo.timestamp}</p>
                 </div>
               </div>

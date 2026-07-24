@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator, Lock, X, Camera } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -12,6 +12,7 @@ import { useDialogStore } from '@/lib/dialogStore'
 import { db } from '@/lib/db'
 import { useNetworkStatus } from '@/lib/useNetworkStatus'
 import { postToNative, isRunningInWebView, compressImageToWebP } from '@suka/design-system'
+import PettyCashSpotlightTour from '@/components/PettyCashSpotlightTour'
 
 interface Shift {
   id: string
@@ -92,6 +93,7 @@ export default function ShiftPage() {
   const { outletId, outletRegion } = useMyOutlet()
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const isOnline = useNetworkStatus()
   
   const [loading, setLoading] = useState(true)
@@ -102,6 +104,10 @@ export default function ShiftPage() {
   const [cashOrders, setCashOrders] = useState<CashOrder[]>([])
   const [pettyCashBalance, setPettyCashBalance] = useState<number>(0)
   
+  // Spotlight Tour state
+  const [showSpotlightTour, setShowSpotlightTour] = useState(false)
+  const [tourTopupInfo, setTourTopupInfo] = useState<{ amount?: number; description?: string }>({})
+
   // Forms
   const [startingPettyCash, setStartingPettyCash] = useState<string>('')
   const [pettyCashLocked, setPettyCashLocked] = useState(false)
@@ -121,6 +127,26 @@ export default function ShiftPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const tourParam = searchParams.get('tour')
+    if (tourParam === 'terima-dana') {
+      const timer = setTimeout(() => {
+        setShowSpotlightTour(true)
+      }, 600)
+      return () => clearTimeout(timer)
+    }
+
+    const handleCustomTourEvent = (e: any) => {
+      if (e.detail) {
+        setTourTopupInfo({ amount: e.detail.amount, description: e.detail.description })
+      }
+      setShowSpotlightTour(true)
+    }
+
+    window.addEventListener('start-petty-cash-tour', handleCustomTourEvent)
+    return () => window.removeEventListener('start-petty-cash-tour', handleCustomTourEvent)
+  }, [searchParams])
 
   const shiftSalesTotal = useMemo(
     () => cashOrders.reduce((s, o) => s + Number(o.total_amount), 0),
@@ -239,10 +265,10 @@ export default function ShiftPage() {
         setTopups(snapTopups)
         setCashOrders(snapCashOrders)
 
-        // Saldo Petty Cash Shift Ini: Modal Awal + TopUp Diterima - Pengeluaran Shift Ini
+        // Saldo Petty Cash Shift Ini: Modal Awal + TopUp Diterima (Sudah Tekan Terima Dana) - Pengeluaran Shift Ini
         const startPetty = Number(shiftData.starting_petty_cash) || 0
         const topupsTotal = snapTopups
-          .filter(t => ['completed', 'approved', 'approved_by_finance', 'forwarded_by_leader'].includes(t.status))
+          .filter(t => t.status === 'completed' || t.status === 'approved')
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
         const expensesTotal = snapExpenses
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
@@ -800,9 +826,10 @@ export default function ShiftPage() {
                               )}
                               {top.status === 'forwarded_by_leader' && (
                                 <button
+                                  data-tour="terima-dana-btn"
                                   onClick={() => handleReceiveFunds(top.id)}
                                   disabled={isSubmitting}
-                                  className="text-[10px] font-bold text-white bg-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                  className="text-[10px] font-bold text-white bg-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 relative z-[10001]"
                                 >
                                   Terima Dana
                                 </button>
@@ -910,6 +937,16 @@ export default function ShiftPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Spotlight Tour for Terima Dana button */}
+      {showSpotlightTour && (
+        <PettyCashSpotlightTour
+          targetSelector='[data-tour="terima-dana-btn"]'
+          amount={tourTopupInfo.amount}
+          description={tourTopupInfo.description}
+          onClose={() => setShowSpotlightTour(false)}
+        />
       )}
     </div>
   )

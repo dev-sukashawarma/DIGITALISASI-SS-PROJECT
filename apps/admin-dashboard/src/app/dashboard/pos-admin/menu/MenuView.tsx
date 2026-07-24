@@ -1504,6 +1504,10 @@ export default function MenuView({
                           }
 
                           // 2. Skenario Filter Khusus Channel Online Tertentu (GoFood, GrabFood, ShopeeFood, TikTok Go)
+                          const isAvailableOffline = item.available_online_channels === null ||
+                            !Array.isArray(item.available_online_channels) ||
+                            item.available_online_channels.includes('pos_kasir');
+
                           if (activeSlug && !['pos_kasir', 'all_food_apps', ''].includes(activeSlug)) {
                             if (onlineDisplay) {
                               return (
@@ -1512,14 +1516,18 @@ export default function MenuView({
                                     <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">{onlineChannelLabel}:</span>
                                     <span className="text-xs font-black text-emerald-950 font-mono">{onlineDisplay}</span>
                                   </div>
-                                  <span className="text-[10px] font-medium text-slate-400">Offline: {formatRupiah(offlinePrice)}</span>
+                                  {isAvailableOffline && (
+                                    <span className="text-[10px] font-medium text-slate-400">Offline: {formatRupiah(offlinePrice)}</span>
+                                  )}
                                 </div>
                               );
                             } else {
                               return (
                                 <div className="flex flex-col items-end gap-1">
                                   <span className="text-xs font-bold text-slate-400 font-mono">—</span>
-                                  <span className="text-[10px] font-medium text-slate-400">Offline: {formatRupiah(offlinePrice)}</span>
+                                  {isAvailableOffline && (
+                                    <span className="text-[10px] font-medium text-slate-400">Offline: {formatRupiah(offlinePrice)}</span>
+                                  )}
                                 </div>
                               );
                             }

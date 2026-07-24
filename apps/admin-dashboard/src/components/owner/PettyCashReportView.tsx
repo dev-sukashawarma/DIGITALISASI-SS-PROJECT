@@ -238,11 +238,11 @@ export function PettyCashReportView({
     <div className="space-y-6">
       {/* ── KPI Summary Cards ────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Total Kas Masuk */}
+        {/* Total Modal Kas Masuk */}
         <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-              TOTAL KAS MASUK (MODAL)
+              TOTAL MODAL KAS MASUK
             </span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-200">
               <TrendingUp size={20} />
@@ -251,14 +251,14 @@ export function PettyCashReportView({
           <p className="mt-3 text-2xl font-black tabular-nums text-emerald-600">
             {formatRp(summary.totalIn)}
           </p>
-          <p className="mt-1 text-xs text-slate-500">Pemasukan modal kas kecil disetujui</p>
+          <p className="mt-1 text-xs text-slate-500">Pengisian modal kas kecil disetujui</p>
         </div>
 
-        {/* Total Kas Keluar */}
+        {/* Total Pengeluaran Kas */}
         <div className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-red-700">
-              TOTAL KAS KELUAR (PENGELUARAN)
+              TOTAL PENGELUARAN KAS
             </span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/10 text-red-600 border border-red-200">
               <TrendingDown size={20} />
@@ -284,19 +284,21 @@ export function PettyCashReportView({
             {formatRp(summary.balance)}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Selisih arus kas ({summary.totalTx} transaksi riil)
+            Sisa saldo kas kecil ({summary.totalTx} transaksi riil)
           </p>
         </div>
       </div>
 
-      {/* ── Table Saldo Per Hari (Summary Daily Petty Cash) ───────────── */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
+      {/* ── Table Rekap Saldo Per Hari ───────────────────────────────── */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
             <Calendar size={18} className="text-suka-orange" />
-            <h3 className="font-extrabold text-slate-800 text-sm">Rekap Saldo Petty Cash Per Hari</h3>
+            <h3 className="font-extrabold text-sm text-slate-900">Rekap Saldo Petty Cash Per Hari</h3>
           </div>
-          <span className="text-xs text-slate-400 font-semibold">{computedDailySummaries.length} hari tercatat</span>
+          <span className="text-xs text-slate-500 font-semibold">
+            {computedDailySummaries.length} hari tercatat
+          </span>
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-slate-100">
@@ -305,8 +307,8 @@ export function PettyCashReportView({
               <tr>
                 <th className="p-3">Tanggal</th>
                 <th className="p-3 text-center">Jumlah Shift / Modal</th>
-                <th className="p-3 text-right">Kas Masuk (Modal)</th>
-                <th className="p-3 text-right">Kas Keluar (Pengeluaran)</th>
+                <th className="p-3 text-right">Modal Kas Masuk</th>
+                <th className="p-3 text-right">Pengeluaran Kas</th>
                 <th className="p-3 text-right">Saldo Akhir Per Hari</th>
               </tr>
             </thead>
@@ -361,8 +363,8 @@ export function PettyCashReportView({
               className="rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-suka-orange focus:bg-white focus:outline-none"
             >
               <option value="all">Semua Tipe (Masuk &amp; Keluar)</option>
-              <option value="in">Kas Masuk saja</option>
-              <option value="out">Kas Keluar saja</option>
+              <option value="in">Modal Kas Masuk saja</option>
+              <option value="out">Pengeluaran Kas saja</option>
             </select>
           </div>
 
@@ -371,7 +373,7 @@ export function PettyCashReportView({
             <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Cari keterangan / staff..."
+              placeholder="Cari deskripsi / pembuat..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-suka-orange focus:bg-white focus:outline-none"
@@ -380,35 +382,43 @@ export function PettyCashReportView({
         </div>
       </div>
 
-      {/* ── Table Log Transaksi ─────────────────────────────────────── */}
+      {/* ── Table Rincian Transaksi ────────────────────────────────── */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-700">
             <thead className="bg-slate-900 text-white font-bold uppercase text-[10px] tracking-wider">
               <tr>
-                <th className="p-3.5">Waktu &amp; Outlet</th>
-                <th className="p-3.5">Tipe</th>
+                <th className="p-3.5">Tanggal &amp; Waktu</th>
+                <th className="p-3.5">Outlet</th>
+                <th className="p-3.5">Tipe Transaksi</th>
                 <th className="p-3.5">Kategori &amp; Keterangan</th>
                 <th className="p-3.5 text-right">Nominal</th>
-                <th className="p-3.5">Staff / Pencatat</th>
+                <th className="p-3.5">Pembuat Kas</th>
                 <th className="p-3.5 text-center">Bukti Nota</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
+                  <td colSpan={7} className="p-8 text-center text-slate-400">
                     Tidak ada transaksi petty cash yang sesuai filter.
                   </td>
                 </tr>
               ) : (
                 filteredData.map((t) => (
                   <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                    {/* Tanggal & Outlet */}
+                    {/* Tanggal & Waktu */}
                     <td className="p-3.5">
                       <div className="font-bold text-slate-900">{formatDate(t.transaction_date)}</div>
-                      <div className="text-[11px] text-slate-500 font-semibold flex items-center gap-1 mt-0.5">
-                        <Building2 size={12} className="text-suka-orange" />
+                      <div className="text-[11px] text-slate-500 font-mono">
+                        {t.transaction_date.includes('T') ? t.transaction_date.split('T')[1].slice(0, 5) : '00:00'} WIB
+                      </div>
+                    </td>
+
+                    {/* Outlet */}
+                    <td className="p-3.5">
+                      <div className="font-bold text-slate-800 flex items-center gap-1">
+                        <Building2 size={13} className="text-suka-orange" />
                         {t.outlet_name}
                       </div>
                     </td>
@@ -417,11 +427,11 @@ export function PettyCashReportView({
                     <td className="p-3.5">
                       {t.type === 'in' ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-extrabold text-emerald-800 border border-emerald-300">
-                          <TrendingUp size={11} /> Kas Masuk
+                          <TrendingUp size={11} /> Modal Kas Masuk
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-extrabold text-red-800 border border-red-300">
-                          <TrendingDown size={11} /> Kas Keluar
+                          <TrendingDown size={11} /> Pengeluaran Kas
                         </span>
                       )}
                     </td>
@@ -442,35 +452,28 @@ export function PettyCashReportView({
                       </span>
                     </td>
 
-                    {/* Staff */}
-                    <td className="p-3.5 font-bold text-slate-800">{t.staff_name}</td>
+                    {/* Pembuat Kas */}
+                    <td className="p-3.5 font-semibold text-slate-800">
+                      {t.staff_name}
+                    </td>
 
-                    {/* Bukti Nota Thumbnail */}
+                    {/* Bukti Nota */}
                     <td className="p-3.5 text-center">
                       {t.receipt_url ? (
                         <button
                           onClick={() =>
                             openReceiptModal(
                               t.receipt_url!,
-                              `Bukti Nota: ${t.category} - ${t.staff_name}`
+                              `Nota Petty Cash - ${t.category} (${formatRp(t.amount)})`
                             )
                           }
-                          className="relative inline-block overflow-hidden rounded-xl border border-slate-200 shadow-sm hover:scale-105 transition-transform group"
+                          className="inline-flex items-center gap-1 rounded-xl bg-orange-50 border border-orange-200 px-2.5 py-1 text-[11px] font-bold text-suka-orange hover:bg-suka-orange hover:text-white transition-colors shadow-sm"
                         >
-                          <img
-                            src={t.receipt_url}
-                            alt="Bukti Nota"
-                            className="h-10 w-10 object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Receipt size={14} />
-                          </div>
+                          <Receipt size={12} />
+                          Lihat Nota
                         </button>
                       ) : (
-                        <div className="flex flex-col items-center justify-center text-slate-400">
-                          <Receipt size={14} />
-                          <span className="text-[9px] font-semibold italic mt-0.5">Tanpa Nota</span>
-                        </div>
+                        <span className="text-slate-400 text-[11px] italic font-normal">Tanpa Nota</span>
                       )}
                     </td>
                   </tr>
@@ -481,7 +484,7 @@ export function PettyCashReportView({
         </div>
       </div>
 
-      {/* Modal Bukti Nota Lightbox */}
+      {/* Modal Popup Bukti Nota */}
       <ReceiptModal
         isOpen={!!activeReceiptUrl}
         imageUrl={activeReceiptUrl}

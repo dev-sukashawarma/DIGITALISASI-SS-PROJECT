@@ -235,7 +235,21 @@ export default function MenuView({
       if (!channelKey || channelKey === 'all') return true
       
       if (channelKey === 'pos_kasir') {
-        return item.is_available !== false
+        if (item.is_available === false) return false
+        const chs = item.available_online_channels
+        if (chs && Array.isArray(chs) && chs.length > 0) {
+          return chs.some(c => c.toLowerCase().replace(/\s+/g, '') === 'pos_kasir')
+        }
+        return true
+      }
+
+      if (channelKey === 'online_only') {
+        if (item.is_available_online === false) return false
+        const chs = item.available_online_channels
+        if (chs && Array.isArray(chs) && chs.length > 0) {
+          return !chs.some(c => c.toLowerCase().replace(/\s+/g, '') === 'pos_kasir')
+        }
+        return false
       }
 
       if (channelKey === 'all_food_apps') {
@@ -271,6 +285,7 @@ export default function MenuView({
     const opts: Array<{ key: string; label: string; count: number; icon: React.ReactNode; theme: string }> = [
       { key: '', label: 'Semua Menu', count: initialItems.length, icon: <ChannelLogoIcon channelKey="" />, theme: 'gray' },
       { key: 'pos_kasir', label: 'Offline (Kasir Toko)', count: initialItems.filter(i => isItemInChannel(i, 'pos_kasir')).length, icon: <ChannelLogoIcon channelKey="pos_kasir" />, theme: 'amber' },
+      { key: 'online_only', label: 'Khusus Online (Tidak Dijual Offline)', count: initialItems.filter(i => isItemInChannel(i, 'online_only')).length, icon: <Globe className="w-4 h-4 text-emerald-600" />, theme: 'emerald' },
       { key: 'all_food_apps', label: 'Semua Food Apps', count: initialItems.filter(i => isItemInChannel(i, 'all_food_apps')).length, icon: <ChannelLogoIcon channelKey="all_food_apps" />, theme: 'orange' },
     ]
 
@@ -1339,6 +1354,7 @@ export default function MenuView({
                       {(() => {
                         if (!activeChannelFilter || activeChannelFilter === 'all') return 'Informasi Harga';
                         if (activeChannelFilter === 'pos_kasir') return 'Harga Offline (Kasir Toko)';
+                        if (activeChannelFilter === 'online_only') return 'Harga Khusus Online (Non-Offline)';
                         if (activeChannelFilter === 'all_food_apps') return 'Harga Online Food Apps';
                         const ch = initialChannels.find(c => c.id === activeChannelFilter || c.name.toLowerCase().replace(/\s+/g, '') === activeChannelFilter.toLowerCase().replace(/\s+/g, ''));
                         if (ch) return `Harga ${ch.name}`;

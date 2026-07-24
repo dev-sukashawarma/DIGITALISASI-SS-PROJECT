@@ -330,17 +330,33 @@ export default function OrderManualPage() {
 
   // ── Menu terfilter (tersedia + kategori + pencarian) ──────────────────────
   const visibleItems = useMemo(() => {
-    const isOnlineChannel = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '')
+    const isOnlineChannel = Boolean(channel && ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'tiktok_go'].includes(channel.toLowerCase()))
+    const activeChannelSlug = channel ? channel.toLowerCase().replace(/\s+/g, '') : ''
 
     return items.filter((it) => {
       if (activeCat !== 'all' && it.category_id !== activeCat) return false
       if (deferredSearch.trim() && !it.name.toLowerCase().includes(deferredSearch.trim().toLowerCase())) return false
+
       if (isOnlineChannel) {
         if (it.is_available_online === false) return false
-        if (it.available_online_channels && !it.available_online_channels.includes(channel || '')) return false
+        if (it.available_online_channels && Array.isArray(it.available_online_channels) && it.available_online_channels.length > 0) {
+          const match = it.available_online_channels.some((c) => {
+            const normalizedC = c.toLowerCase().replace(/\s+/g, '')
+            if (activeChannelSlug === 'tiktokgo' || activeChannelSlug === 'tiktok') {
+              return normalizedC === 'tiktokgo' || normalizedC === 'tiktok' || normalizedC === 'tiktok_go'
+            }
+            return normalizedC === activeChannelSlug
+          })
+          if (!match) return false
+        }
       } else if (mode === 'walkin' || mode === 'endorse') {
-        if (it.available_online_channels && it.available_online_channels.length > 0) return false
+        // Mode Walk-in Kasir / Offline: HANYA tampilkan menu yang tersedia di Offline (pos_kasir)
+        if (it.available_online_channels && Array.isArray(it.available_online_channels) && it.available_online_channels.length > 0) {
+          const isPosAvailable = it.available_online_channels.some(c => c.toLowerCase().replace(/\s+/g, '') === 'pos_kasir')
+          if (!isPosAvailable) return false
+        }
       }
+
       return true
     }).map(it => {
       const isManualUnav = unavailableIds.has(it.id)

@@ -1456,8 +1456,8 @@ export default function MenuView({
           }}
         />
       ) : (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="card overflow-hidden transition-all duration-300">
+          <div className={`overflow-x-auto transition-all duration-300 ${openDropdownId ? 'pb-32' : ''}`}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -1693,7 +1693,7 @@ export default function MenuView({
                             </div>
                             {onlineDisplay && (
                               <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50/90 border border-emerald-200/80 shadow-2xs" title="Harga Jual Online Food Apps">
-                                <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Online:</span>
+                                <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Food Apps:</span>
                                 <span className="text-xs font-black text-emerald-950 font-mono">{onlineDisplay}</span>
                               </div>
                             )}

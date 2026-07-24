@@ -8,11 +8,7 @@ const ACCENT: Record<Accent, { icon: string; iconBg: string; sub: string }> = {
   green: { icon: 'text-suka-green', iconBg: 'bg-suka-green/10', sub: 'text-suka-green' },
   brown: { icon: 'text-suka-brown', iconBg: 'bg-suka-brown/10', sub: 'text-suka-brown' },
   red: { icon: 'text-red-600', iconBg: 'bg-red-500/10', sub: 'text-red-600' },
-<<<<<<< HEAD
   blue: { icon: 'text-blue-600', iconBg: 'bg-blue-500/10', sub: 'text-blue-600' },
-=======
-  blue: { icon: 'text-blue-600', iconBg: 'bg-blue-600/10', sub: 'text-blue-600' },
->>>>>>> feat/role-purchase-pengadaan
 }
 
 /**

@@ -1599,6 +1599,18 @@ export default function KasirOrderClient({
                   </div>
 
                   {renderOrderNotes(order.notes)}
+
+                  {/* Cetak Struk Ulang */}
+                  <div className="mt-3 pt-2.5 border-t border-dashed border-[#d9c2b2] flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setReprintTargetOrder(order)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#fff8f1] hover:bg-orange-100 text-orange-950 font-bold text-xs rounded-xl transition-all border border-orange-200 cursor-pointer shadow-2xs"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-orange-600" />
+                      <span>Cetak Struk Ulang</span>
+                    </button>
+                  </div>
                 </div>
               ))
             )}

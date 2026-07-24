@@ -26,9 +26,12 @@ export default function GlobalBlockerMount() {
   }, [])
 
   function handleBypass() {
-    const newTypes = [...bypassedTypes, blockType]
-    sessionStorage.setItem('pos_gate_bypassed_types', JSON.stringify(newTypes))
+    const newTypes = [...bypassedTypes, blockType, 'all', 'attendance', 'checklist', 'closed']
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('pos_gate_bypassed_types', JSON.stringify(newTypes))
+    }
     setBypassedTypes(newTypes)
+    setIsBlocked(false)
   }
 
   // Simpan outlet_id kasir agar bisa filter event attendance per outlet
@@ -42,6 +45,17 @@ export default function GlobalBlockerMount() {
       if (!currentUid) {
         setIsBlocked(false)
         return
+      }
+
+      // Check session storage first
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = JSON.parse(sessionStorage.getItem('pos_gate_bypassed_types') || '[]')
+          if (stored.includes('all') || stored.includes(blockType)) {
+            setIsBlocked(false)
+            return
+          }
+        } catch (e) {}
       }
 
       const { data: profile } = await supabase.from('outlet_staff')
@@ -85,7 +99,7 @@ export default function GlobalBlockerMount() {
     // Lihat CONTEXT.md bagian "Operasional Harian Outlet & Gate Kasir"
     async function checkKasirGate(outletId: string) {
       try {
-        // Use formatting that strictly outputs YYYY-MM-DD to avoid locale parsing issues
+        // Strict YYYY-MM-DD format
         const now = new Date()
         const formatter = new Intl.DateTimeFormat('en-CA', { 
           timeZone: 'Asia/Jakarta', 
@@ -103,15 +117,16 @@ export default function GlobalBlockerMount() {
         const end = new Date(`${todayStr}T23:59:59+07:00`).toISOString()
 
         // Cek apakah ada pengajuan bypass yang disetujui (status = 'approved') untuk outlet ini hari ini
+        // Gunakan limit(1) agar tidak error jika ada multiple approved rows
         const { data: approvedBypass } = await supabase
           .from('bypass_requests')
           .select('id')
           .eq('outlet_id', outletId)
           .eq('status', 'approved')
           .gte('created_at', start)
-          .maybeSingle()
+          .limit(1)
 
-        if (approvedBypass) {
+        if (approvedBypass && approvedBypass.length > 0) {
           setIsBlocked(false)
           setChecklistProgress(undefined)
           return
@@ -202,8 +217,7 @@ export default function GlobalBlockerMount() {
         }
       } catch (err) {
         console.error('[POS-Blocker] Failed to check status:', err)
-        // Jika error, jangan block — biarkan terbuka
-        // agar tidak mengganggu operasional
+        // Jika error, jangan block — biarkan terbuka agar tidak mengganggu operasional
         setIsBlocked(false)
         setChecklistProgress(undefined)
       }
@@ -219,10 +233,10 @@ export default function GlobalBlockerMount() {
       checkStatus()
     })
 
-    // Polling setiap 10 detik sebagai safety net
-    const interval = setInterval(checkStatus, 10000)
+    // Polling setiap 5 detik sebagai safety net
+    const interval = setInterval(checkStatus, 5000)
 
-    // Realtime listener untuk perubahan outlet_staff/outlets (nonaktif/aktif)
+    // Realtime listener untuk perubahan outlet_staff/outlets
     const channel = supabase.channel('global_blocker')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'outlet_staff' }, () => {
         checkStatus()
@@ -232,9 +246,15 @@ export default function GlobalBlockerMount() {
       })
       .subscribe()
 
-    // Realtime listener untuk attendance — filter berdasarkan outlet_id
-    // Ketika ada perubahan di tabel attendance (masuk ATAU pulang ATAU hapus manual),
-    // langsung re-check status operasional outlet kasir ini
+    // Realtime listener untuk bypass_requests (langsung tangkap ketika SPV klik setujui)
+    const bypassChannel = supabase.channel('bypass_requests_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bypass_requests' }, () => {
+        console.log('[POS-Blocker] Bypass request change detected, re-checking...')
+        checkStatus()
+      })
+      .subscribe()
+
+    // Realtime listener untuk attendance
     const attendanceChannel = supabase.channel('attendance_outlet_changes')
       .on(
         'postgres_changes',
@@ -242,89 +262,33 @@ export default function GlobalBlockerMount() {
           event: '*',
           schema: 'public',
           table: 'attendance',
-          // Filter hanya event dari outlet kasir ini
           filter: outletIdRef.current ? `outlet_id=eq.${outletIdRef.current}` : undefined
         },
-        () => {
-          console.log('[POS-Blocker] Attendance event received, re-checking...')
-          checkStatus()
-        }
-      )
-      .subscribe((status) => {
-        console.log('[POS-Blocker] Attendance channel status:', status)
-      })
-
-    // Realtime listener untuk checklist — tidak ada kolom outlet_id langsung di
-    // daily_checklist_ticks/records, jadi subscribe tanpa filter & re-check via RPC
-    const checklistChannel = supabase.channel('checklist_progress_changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'daily_checklist_ticks' },
-        () => {
-          console.log('[POS-Blocker] Checklist tick event received, re-checking...')
-          checkStatus()
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'daily_checklist_records' },
         () => {
           checkStatus()
         }
       )
       .subscribe()
 
-    // Re-subscribe attendance channel setelah outlet_id diketahui
-    // karena saat pertama kali mount, outletIdRef mungkin masih null
-    const resubscribeTimer = setTimeout(async () => {
-      if (outletIdRef.current) {
-        await supabase.removeChannel(attendanceChannel)
+    // Realtime listener untuk checklist
+    const checklistChannel = supabase.channel('checklist_progress_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_ticks' }, () => checkStatus())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_records' }, () => checkStatus())
+      .subscribe()
 
-        const filteredChannel = supabase.channel('attendance_outlet_filtered')
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'attendance',
-              filter: `outlet_id=eq.${outletIdRef.current}`
-            },
-            () => {
-              console.log('[POS-Blocker] Filtered attendance event for outlet:', outletIdRef.current)
-              checkStatus()
-            }
-          )
-          .subscribe((status) => {
-            console.log('[POS-Blocker] Filtered attendance channel status:', status)
-          })
-
-        // Update cleanup to include new channel
-        cleanupRef.current = () => {
-          sub.subscription.unsubscribe()
-          clearInterval(interval)
-          supabase.removeChannel(channel)
-          supabase.removeChannel(filteredChannel)
-          supabase.removeChannel(checklistChannel)
-        }
-      }
-    }, 3000) // Tunggu 3 detik agar profile sudah di-fetch
-
-    // Cleanup ref untuk dynamic cleanup
-    const cleanupRef = { current: () => {
+    return () => {
       sub.subscription.unsubscribe()
       clearInterval(interval)
-      clearTimeout(resubscribeTimer)
       supabase.removeChannel(channel)
+      supabase.removeChannel(bypassChannel)
       supabase.removeChannel(attendanceChannel)
       supabase.removeChannel(checklistChannel)
-    }}
-
-    return () => cleanupRef.current()
-  }, [])
+    }
+  }, [bypassedTypes, blockType])
 
   if (isBlocked) {
-    // Jika tipe blokir adalah karena absen/checklist/tutup, dan user sudah melakukan bypass untuk tipe ini
-    if ((blockType === 'attendance' || blockType === 'checklist' || blockType === 'closed') && bypassedTypes.includes(blockType)) {
+    // Jika tipe blokir telah di-bypass oleh user/SPV
+    if (bypassedTypes.includes('all') || bypassedTypes.includes(blockType) || (['attendance', 'checklist', 'closed'].includes(blockType) && bypassedTypes.includes(blockType))) {
       return null
     }
     

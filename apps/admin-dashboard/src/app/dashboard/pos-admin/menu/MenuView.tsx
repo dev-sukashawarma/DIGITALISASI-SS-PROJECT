@@ -1006,31 +1006,31 @@ export default function MenuView({
                         Pengaturan Ketersediaan
                       </h3>
 
-                      {/* Availability toggle */}
+                      {/* Availability toggle (Offline Kasir Toko) */}
                       <button type="button"
                         onClick={() => setForm({ ...form, is_available: !form.is_available })}
                         className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300
                           ${form.is_available
                             ? 'border-green-200 bg-green-50/40 hover:bg-green-50'
-                            : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}>
+                            : 'border-amber-200 bg-amber-50/30 hover:bg-amber-50/50'}`}>
                         <div className="flex items-center gap-4">
                           <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
-                            ${form.is_available ? 'bg-green-100 text-green-600' : 'bg-white border border-gray-200 text-gray-400'}`}>
+                            ${form.is_available ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600 border border-amber-200'}`}>
                             {form.is_available
                               ? <ToggleRight className="w-7 h-7" />
                               : <ToggleLeft  className="w-7 h-7" />}
                           </div>
                           <div className="text-left">
-                            <p className={`text-sm font-bold leading-none mb-1.5 ${form.is_available ? 'text-green-800' : 'text-gray-600'}`}>
-                              {form.is_available ? 'Tersedia' : 'Tidak Tersedia'}
+                            <p className={`text-sm font-bold leading-none mb-1.5 ${form.is_available ? 'text-green-800' : 'text-amber-900'}`}>
+                              {form.is_available ? 'Tersedia di Kasir Offline' : 'Nonaktif di Kasir Offline (Khusus Online)'}
                             </p>
                             <p className="text-xs font-medium text-gray-500">
-                              {form.is_available ? 'Pelanggan dapat memesan' : 'Ditandai sebagai habis'}
+                              {form.is_available ? 'Pelanggan dapat memesan langsung di Kasir Toko' : 'Menu ini TIDAK dijual di Kasir Toko (Hanya di Food Apps)'}
                             </p>
                           </div>
                         </div>
                         <div className={`w-14 h-7 rounded-full transition-all duration-300 relative flex-shrink-0 shadow-inner
-                          ${form.is_available ? 'bg-green-500' : 'bg-gray-300'}`}>
+                          ${form.is_available ? 'bg-green-500' : 'bg-amber-500'}`}>
                           <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm
                             transition-transform duration-300 ${form.is_available ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
                         </div>
@@ -1504,14 +1504,22 @@ export default function MenuView({
                           }
 
                           // 3. Skenario Filter "Semua Menu" atau "Semua Food Apps"
-                          // Tampilkan Offline, dan JIKA ADA harga online -> tampilkan Online
+                          const isAvailableOffline = item.is_available !== false;
                           return (
                             <div className="flex flex-col items-end gap-1">
-                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50/90 border border-amber-200/80 shadow-2xs" title="Harga Jual Offline Kasir Toko">
-                                <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Offline:</span>
-                                <span className="text-xs font-black text-amber-950 font-mono">{formatRupiah(offlinePrice)}</span>
-                              </div>
+                              {/* Offline Price Badge */}
+                              {isAvailableOffline ? (
+                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50/90 border border-amber-200/80 shadow-2xs" title="Harga Jual Offline Kasir Toko">
+                                  <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Offline:</span>
+                                  <span className="text-xs font-black text-amber-950 font-mono">{formatRupiah(offlinePrice)}</span>
+                                </div>
+                              ) : (
+                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-200/80" title="Nonaktif di Kasir Toko (Khusus Online)">
+                                  <span className="text-[10px] font-bold text-slate-400">Offline: Nonaktif</span>
+                                </div>
+                              )}
 
+                              {/* Online Price Badge */}
                               {onlineDisplay && (
                                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50/90 border border-emerald-200/80 shadow-2xs" title="Harga Jual Online Food Apps">
                                   <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Online:</span>

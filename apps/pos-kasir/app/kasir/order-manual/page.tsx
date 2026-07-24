@@ -824,22 +824,22 @@ export default function OrderManualPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-gray-900 leading-tight">
-            {mode === 'walkin' ? 'Order Manual — Pesanan Baru' : mode === 'endorse' ? 'Order Endorse' : 'Input Food Apps'}
+            {mode === 'walkin' ? 'Order Offline — Pesanan Baru' : mode === 'endorse' ? 'Order Endorse' : 'Input Food Apps'}
           </h1>
           <p className="text-sm text-gray-500 leading-tight">
-            {mode === 'walkin' ? 'Catat pesanan pelanggan secara manual' : mode === 'endorse' ? 'Catat pesanan endorse dengan harga Rp 0' : 'Input pesanan dari aplikasi makanan'}
+            {mode === 'walkin' ? 'Catat pesanan pelanggan secara offline / langsung' : mode === 'endorse' ? 'Catat pesanan endorse dengan harga Rp 0' : 'Input pesanan dari aplikasi makanan'}
           </p>
         </div>
       </div>
 
-      {/* Tab switch: Order Manual / Food Apps */}
+      {/* Tab switch: Order Offline / Food Apps */}
       <div className="flex flex-col gap-3 mb-5">
         <div className="inline-flex bg-gray-100 rounded-xl p-1 self-start">
           <button
             onClick={() => handleSwitchMode('walkin')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'walkin' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            <Store className="w-4 h-4" /> Order Manual
+            <Store className="w-4 h-4" /> Order Offline
           </button>
           <button
             onClick={() => handleSwitchMode('online')}
@@ -859,7 +859,7 @@ export default function OrderManualPage() {
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-3 relative animate-[popIn_.2s_ease-out]">
             <span className="shrink-0 bg-blue-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">i</span>
             <div className="text-sm text-blue-800 pr-6">
-              <b>Order Manual</b> digunakan untuk pelanggan yang datang langsung atau memesan manual tanpa perantara aplikasi. <br/>
+              <b>Order Offline</b> digunakan untuk pelanggan yang datang langsung atau memesan offline di kasir toko tanpa perantara aplikasi. <br/>
               <b>Food Apps</b> digunakan untuk mencatat pesanan yang masuk dari aplikasi pihak ketiga seperti GrabFood, GoFood, dll. <br/>
               <b>Endorse</b> digunakan untuk mencatat pesanan endorsement atau gratis (Rp 0). Stok menu akan tetap berkurang secara normal.
             </div>

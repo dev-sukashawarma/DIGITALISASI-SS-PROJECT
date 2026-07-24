@@ -202,6 +202,8 @@ export default function MenuView({
   const [bestsellers, setBestsellers] = useState<string[]>(initialBestsellers || [])
   const [recommendations, setRecommendations] = useState<string[]>(initialRecommendations || [])
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+  const [dropdownPos, setDropdownPos] = useState<{ top: number, right: number } | null>(null)
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all')
   const [activeChannelFilter, setActiveChannelFilter] = useState<string>('')
   const [channelDropdownOpen, setChannelDropdownOpen] = useState(false)
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
@@ -219,6 +221,17 @@ export default function MenuView({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    function handleScroll() {
+      if (openDropdownId) {
+        setOpenDropdownId(null)
+        setDropdownPos(null)
+      }
+    }
+    window.addEventListener('scroll', handleScroll, true)
+    return () => window.removeEventListener('scroll', handleScroll, true)
+  }, [openDropdownId])
 
   const getSlug = (channelId: string) => {
     if (!channelId) return ''
@@ -329,6 +342,10 @@ export default function MenuView({
   const sortedItems = useMemo(() => {
     let sortableItems = [...initialItems];
 
+    if (activeCategoryFilter !== 'all') {
+      sortableItems = sortableItems.filter(item => item.category_id === activeCategoryFilter);
+    }
+
     if (deferredSearch && deferredSearch.trim()) {
       const q = deferredSearch.trim().toLowerCase();
       const keywords = q.split(/\s+/).filter(Boolean);
@@ -385,7 +402,7 @@ export default function MenuView({
       });
     }
     return sortableItems;
-  }, [initialItems, sortConfig, activeChannelFilter, deferredSearch, isItemInChannel]);
+  }, [initialItems, sortConfig, activeChannelFilter, activeCategoryFilter, deferredSearch, isItemInChannel]);
 
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -672,7 +689,7 @@ export default function MenuView({
             <span>Pencarian: &quot;<strong className="text-amber-950">{deferredSearch}</strong>&quot; — <strong>{sortedItems.length}</strong> dari {initialItems.length} menu ditemukan</span>
           </div>
           <button
-            onClick={() => setSearchVal('')}
+            onClick={() => { setSearchVal(''); setActiveCategoryFilter('all'); }}
             className="text-amber-700 hover:text-amber-950 underline font-extrabold cursor-pointer shrink-0"
           >
             Reset Filter
@@ -680,8 +697,10 @@ export default function MenuView({
         </div>
       )}
 
-      {/* Channel Filter Dropdown (custom, non-native) */}
-      <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex flex-wrap items-center gap-3">
+      {/* Filters Container */}
+      <div className="flex flex-col gap-3">
+        {/* Channel Filter Dropdown (custom, non-native) */}
+        <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex flex-wrap items-center gap-3">
         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider px-2">Filter Channel:</span>
 
         <div className="relative" ref={channelDropdownRef}>
@@ -734,6 +753,26 @@ export default function MenuView({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Category Filter Pills */}
+      <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-hide">
+        <button
+          onClick={() => setActiveCategoryFilter('all')}
+          className={`px-3.5 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeCategoryFilter === 'all' ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+        >
+          Semua Kategori
+        </button>
+        {initialCategories.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setActiveCategoryFilter(c.id)}
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeCategoryFilter === c.id ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+          >
+            {c.name}
+          </button>
+        ))}
+      </div>
       </div>
 
       {showForm && (
@@ -1452,12 +1491,13 @@ export default function MenuView({
           channelLabel={selectedChannelOption.label}
           onReset={() => {
             setSearchVal('')
+            setActiveCategoryFilter('all')
             setActiveChannelFilter('')
           }}
         />
       ) : (
-        <div className="card overflow-hidden transition-all duration-300">
-          <div className={`overflow-x-auto transition-all duration-300 ${openDropdownId ? 'pb-32' : ''}`}>
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -1734,12 +1774,24 @@ export default function MenuView({
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                         <div className="relative">
-                          <button onClick={() => setOpenDropdownId(openDropdownId === item.id ? null : item.id)}
+                          <button onClick={(e) => {
+                            if (openDropdownId === item.id) {
+                              setOpenDropdownId(null);
+                              setDropdownPos(null);
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setDropdownPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                              setOpenDropdownId(item.id);
+                            }
+                          }}
                             className="w-8 h-8 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-xl flex items-center justify-center transition-all">
                             <MoreVertical className="w-3.5 h-3.5" />
                           </button>
-                          {openDropdownId === item.id && (
-                            <div className="absolute right-0 top-10 z-50 w-52 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] border border-gray-100 p-2 text-left origin-top-right">
+                          {openDropdownId === item.id && dropdownPos && (
+                            <div 
+                              className="fixed z-[100] w-52 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-100 p-2 text-left origin-top-right animate-in fade-in zoom-in-95 duration-100"
+                              style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                            >
                               <button onClick={() => { toggleSetting('upsell', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between transition-colors">
                                 <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Ekstra</span>
                                 {upsells.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}

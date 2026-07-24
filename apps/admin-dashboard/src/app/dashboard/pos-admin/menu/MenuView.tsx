@@ -197,13 +197,44 @@ export default function MenuView({
   const [searchVal, setSearchVal] = useState(searchQuery)
   const deferredSearch = useDeferredValue(searchVal)
 
+  // Sync searchVal with prop if searchQuery changes externally
+  useEffect(() => {
+    setSearchVal(searchQuery)
+  }, [searchQuery])
+
+  // Keyboard shortcut Esc to clear search
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && searchVal) {
+        setSearchVal('')
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [searchVal])
+
   const sortedItems = useMemo(() => {
     let sortableItems = [...initialItems];
 
-    if (deferredSearch) {
-      sortableItems = sortableItems.filter(item => 
-        item.name.toLowerCase().includes(deferredSearch.toLowerCase())
-      );
+    if (deferredSearch && deferredSearch.trim()) {
+      const q = deferredSearch.trim().toLowerCase();
+      const keywords = q.split(/\s+/).filter(Boolean);
+
+      sortableItems = sortableItems.filter(item => {
+        const name = (item.name || '').toLowerCase();
+        const category = (item.categories?.name || '').toLowerCase();
+        const desc = (item.description || '').toLowerCase();
+        const priceStr = String(item.price);
+        const typeStr = item.is_package ? 'paket combo package' : 'satuan';
+
+        return keywords.every(kw => 
+          name.includes(kw) || 
+          category.includes(kw) || 
+          desc.includes(kw) || 
+          priceStr.includes(kw) ||
+          typeStr.includes(kw)
+        );
+      });
     }
 
     if (activeChannelFilter) {
@@ -241,7 +272,7 @@ export default function MenuView({
       });
     }
     return sortableItems;
-  }, [initialItems, sortConfig, activeChannelFilter, searchQuery, isItemInChannel]);
+  }, [initialItems, sortConfig, activeChannelFilter, deferredSearch, isItemInChannel]);
 
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -476,17 +507,26 @@ export default function MenuView({
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Search Input */}
-          <div className="relative w-full sm:w-auto sm:min-w-[220px]">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
+          <div className="relative w-full sm:w-auto sm:min-w-[280px]">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <Search className="h-4 w-4" />
             </div>
             <input
               type="text"
-              className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-2xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-sm"
-              placeholder="Cari menu..."
+              className="block w-full pl-9 pr-9 py-2.5 border border-slate-200 rounded-2xl text-sm bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all font-semibold shadow-xs text-slate-900"
+              placeholder="Cari menu, kategori, deskripsi..."
               value={searchVal}
               onChange={(e) => setSearchVal(e.target.value)}
             />
+            {searchVal && (
+              <button
+                onClick={() => setSearchVal('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                title="Hapus pencarian (Esc)"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
           <button
@@ -516,6 +556,22 @@ export default function MenuView({
           </button>
         </div>
       </div>
+
+      {/* Active Search Result Banner */}
+      {deferredSearch.trim() && (
+        <div className="flex items-center justify-between gap-3 bg-amber-50/90 border border-amber-200/80 text-amber-900 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-xs animate-in fade-in duration-150">
+          <div className="flex items-center gap-2">
+            <Search size={14} className="text-amber-600 shrink-0" />
+            <span>Pencarian: &quot;<strong className="text-amber-950">{deferredSearch}</strong>&quot; — <strong>{sortedItems.length}</strong> dari {initialItems.length} menu ditemukan</span>
+          </div>
+          <button
+            onClick={() => setSearchVal('')}
+            className="text-amber-700 hover:text-amber-950 underline font-extrabold cursor-pointer shrink-0"
+          >
+            Reset Filter
+          </button>
+        </div>
+      )}
 
       {/* Channel Filter Dropdown (custom, non-native) */}
       <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex flex-wrap items-center gap-3">

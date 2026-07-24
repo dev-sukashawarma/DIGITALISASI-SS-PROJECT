@@ -206,22 +206,52 @@ export default function LeaderPettyCashPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedOutletId || !amount || !description) return
+    if (!selectedOutletId) {
+      toast.error('Pilih outlet tujuan top up terlebih dahulu!')
+      return
+    }
+
+    if (!amount || parseFloat(amount) <= 0) {
+      toast.error('Nominal Top Up (Rp) wajib diisi dengan angka positif!')
+      return
+    }
+
+    if (!description.trim()) {
+      toast.error('Alasan / Keperluan Operasional wajib diisi!')
+      return
+    }
+
+    // VALIDASI WAJIB UNTUK REKENING BANK OUTLET
+    if (!bankName.trim() || !bankAccountNumber.trim() || !bankAccountName.trim()) {
+      toast.error('Rekening Bank Outlet (Nama Bank, No. Rekening, dan Atas Nama) wajib diisi lengkap sebelum mengajukan top up!')
+      return
+    }
 
     setIsSubmitting(true)
     try {
+      // 1. Simpan/update otomatis ke tabel outlets agar permanen
+      await supabase
+        .from('outlets')
+        .update({
+          bank_name: bankName.trim(),
+          bank_account_number: bankAccountNumber.trim(),
+          bank_account_name: bankAccountName.trim()
+        })
+        .eq('id', selectedOutletId)
+
+      // 2. Buat pengajuan top up petty cash
       const { error } = await supabase.rpc('create_petty_cash_topup', {
         p_outlet_id: selectedOutletId,
         p_amount: parseFloat(amount),
-        p_description: description,
-        p_bank_name: bankName || null,
-        p_bank_account_number: bankAccountNumber || null,
-        p_bank_account_name: bankAccountName || null
+        p_description: description.trim(),
+        p_bank_name: bankName.trim(),
+        p_bank_account_number: bankAccountNumber.trim(),
+        p_bank_account_name: bankAccountName.trim()
       })
 
       if (error) throw error
 
-      toast.success('Pengajuan Top Up Petty Cash berhasil dikirim ke Area Manager!')
+      toast.success('Pengajuan Top Up Petty Cash & Data Rekening berhasil disimpan!')
       setAmount('')
       setDescription('')
       await loadData()
@@ -338,10 +368,13 @@ export default function LeaderPettyCashPage() {
                       <p className="text-[11px] text-slate-500 mt-1 font-mono">{o.slug}</p>
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-200/60 text-[10px] text-slate-600">
-                      {o.bank_name ? (
+                      {o.bank_name && o.bank_account_number ? (
                         <span>Bank: <b className="text-slate-800">{o.bank_name}</b> ({o.bank_account_number})</span>
                       ) : (
-                        <span className="text-amber-700 italic">Belum ada rekening</span>
+                        <span className="text-red-600 font-extrabold italic flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                          Belum ada rekening (Wajib diisi)
+                        </span>
                       )}
                     </div>
                   </div>
@@ -355,7 +388,7 @@ export default function LeaderPettyCashPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Nominal Top Up (Rp)
+                  Nominal Top Up (Rp) <span className="text-red-500 font-black">*</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -378,7 +411,7 @@ export default function LeaderPettyCashPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Alasan / Keperluan Operasional
+                  Alasan / Keperluan Operasional <span className="text-red-500 font-black">*</span>
                 </label>
                 <textarea 
                   rows={3} 
@@ -391,49 +424,58 @@ export default function LeaderPettyCashPage() {
               </div>
             </div>
 
-            <div className="bg-amber-50/70 p-5 rounded-2xl border border-amber-200 space-y-3">
+            <div className="bg-amber-50/70 p-5 rounded-2xl border-2 border-amber-300/80 space-y-3 shadow-2xs">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Building2 className="w-5 h-5 text-amber-700" />
                   <h3 className="text-sm font-bold text-amber-900">Rekening Bank Outlet (Tersimpan)</h3>
                 </div>
-                <span className="text-[10px] font-bold text-amber-700 bg-amber-200/60 px-2 py-0.5 rounded">Auto-save</span>
+                <span className="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded shadow-2xs">Wajib Diisi *</span>
               </div>
-              <p className="text-xs text-amber-700">Rekening ini otomatis tersimpan untuk outlet yang Anda pilih di atas.</p>
+              <p className="text-xs text-amber-800 font-medium">Rekening ini <span className="font-bold underline">wajib diisi lengkap</span> dan otomatis tersimpan permanen untuk outlet cabang yang Anda pilih.</p>
 
               <div className="space-y-3 pt-1">
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-800 uppercase mb-0.5">Nama Bank</label>
+                  <label className="block text-[11px] font-bold text-amber-900 uppercase mb-0.5 flex items-center justify-between">
+                    <span>Nama Bank</span>
+                    <span className="text-red-600 font-black text-[10px]">* Wajib</span>
+                  </label>
                   <input
                     type="text"
-                    placeholder="BCA / Mandiri / BRI"
+                    placeholder="Contoh: BCA / Mandiri / BRI"
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-amber-500"
+                    className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none shadow-2xs"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-800 uppercase mb-0.5">No. Rekening</label>
+                  <label className="block text-[11px] font-bold text-amber-900 uppercase mb-0.5 flex items-center justify-between">
+                    <span>No. Rekening</span>
+                    <span className="text-red-600 font-black text-[10px]">* Wajib</span>
+                  </label>
                   <input
                     type="text"
-                    placeholder="1234567890"
+                    placeholder="Contoh: 1234567890"
                     value={bankAccountNumber}
                     onChange={(e) => setBankAccountNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-amber-500"
+                    className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none shadow-2xs"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-800 uppercase mb-0.5">Atas Nama Rekening</label>
+                  <label className="block text-[11px] font-bold text-amber-900 uppercase mb-0.5 flex items-center justify-between">
+                    <span>Atas Nama Rekening</span>
+                    <span className="text-red-600 font-black text-[10px]">* Wajib</span>
+                  </label>
                   <input
                     type="text"
-                    placeholder="Nama Pemilik Rekening"
+                    placeholder="Contoh: Nama Pemilik Rekening / Outlet"
                     value={bankAccountName}
                     onChange={(e) => setBankAccountName(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-amber-500"
+                    className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none shadow-2xs"
                     required
                   />
                 </div>

@@ -140,7 +140,14 @@ export default function MappingTable({ mappingList, outletMap }: { mappingList: 
                                     </td>
                                     <td className="p-4 font-bold text-green-700">{item.systemName}</td>
                                     <td className="p-4 text-green-800 bg-green-50/30">
-                                        <div className="font-semibold">{item.targetLabel}: Rp {item.targetPrice ? item.targetPrice.toLocaleString('id-ID') : '0'}</div>
+                                        <div className={`${item.targetLabel === 'Offline' ? 'font-bold text-green-700' : 'text-gray-600'}`}>
+                                            Offline: Rp {item.priceOffline.toLocaleString('id-ID')}
+                                        </div>
+                                        {item.priceOnline && item.priceOnline.map((op: any, i: number) => (
+                                            <div key={i} className={`text-xs mt-1 ${item.targetLabel === op.label ? 'font-bold text-green-700' : 'text-gray-500'}`}>
+                                                {op.label}: Rp {op.price.toLocaleString('id-ID')}
+                                            </div>
+                                        ))}
                                     </td>
                                     <td className="p-4 text-orange-800 bg-orange-50/30">
                                         {item.channels.split(', ').map((c: string) => (

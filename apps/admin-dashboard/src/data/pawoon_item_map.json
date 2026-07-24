@@ -2,9 +2,8 @@
   "_unmatched": [],
   "mapping": {
     "BEST SELLER - ORI SAPI JUMBO": {
-      "system_id": "df2d06dc-1326-4139-aa95-5bc66a0a332b",
-      "system_name": "Original Sapi Jumbo",
-      "pawoon_price": 34000
+      "system_id": "8657f72e-d1a2-4829-a5cf-33535f7b293c",
+      "system_name": "Best Seller 2"
     },
     "SAPI BESAR": {
       "system_id": "fe01e7d3-ed72-45e9-9b74-2017522a2b64",
@@ -102,9 +101,8 @@
       "pawoon_price": 36000
     },
     "BEST SELLER - ORI MIX JUMBO": {
-      "system_id": "82751882-7f37-4b47-9f85-c2b3fca4f939",
-      "system_name": "Original Mix Jumbo",
-      "pawoon_price": 38000
+      "system_id": "c698603b-7f43-415c-986c-b883445e783c",
+      "system_name": "Best Seller (Mix Jumbo)"
     },
     "FOOD APPS EXTRA KEJU": {
       "system_id": "78bb6a49-1540-4a05-9d78-38311f471e01",

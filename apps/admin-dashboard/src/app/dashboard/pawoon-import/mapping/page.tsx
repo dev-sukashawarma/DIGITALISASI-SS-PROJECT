@@ -67,22 +67,15 @@ export default async function PawoonMappingPage() {
         
         channels = Array.from(chSet).join(', ');
 
-        let onlinePrices = '';
+        const onlinePrices = [];
         if (dbItem?.channel_prices) {
             const cp = dbItem.channel_prices;
-            const prices = [];
-            
-            // Group Food Apps
             if (cp.gofood || cp.grabfood || cp.shopeefood) {
-                const faPrice = cp.gofood || cp.grabfood || cp.shopeefood;
-                prices.push(`Food Apps: Rp${faPrice.toLocaleString('id-ID')}`);
+                onlinePrices.push({ label: 'Food Apps', price: cp.gofood || cp.grabfood || cp.shopeefood });
             }
-            
             if (cp.tiktokgo) {
-                prices.push(`TikTok Go: Rp${cp.tiktokgo.toLocaleString('id-ID')}`);
+                onlinePrices.push({ label: 'TikTok Go', price: cp.tiktokgo });
             }
-            
-            onlinePrices = prices.join(', ');
         }
 
         const pawoonPrice = sysData.pawoon_price || 0;
@@ -96,19 +89,24 @@ export default async function PawoonMappingPage() {
             notes = '❌ Harga Pawoon Rp 0';
         } else if (pawoonName.includes('FOOD APPS')) {
             const cp = dbItem?.channel_prices || {};
-            targetPrice = cp.gofood || cp.grabfood || cp.shopeefood || 0;
+            targetPrice = cp.gofood || cp.grabfood || cp.shopeefood || dbItem?.price || 0;
             targetLabel = 'Food Apps';
             isMatch = (pawoonPrice === targetPrice);
             notes = isMatch ? '✅ Sesuai (Food Apps)' : '❌ Beda Harga';
         } else if (pawoonName.includes('BEST SELLER')) {
             const cp = dbItem?.channel_prices || {};
-            targetPrice = cp.tiktokgo || 0;
+            targetPrice = cp.tiktokgo || dbItem?.price || 0;
             targetLabel = 'TikTok Go';
             isMatch = (pawoonPrice === targetPrice);
             notes = isMatch ? '✅ Sesuai (TikTok Go)' : '❌ Beda Harga';
         } else {
             isMatch = (pawoonPrice === targetPrice);
             notes = isMatch ? '✅ Sesuai (Offline)' : '❌ Beda Harga';
+        }
+
+        // If targetLabel is online but not in the onlinePrices array, inject it with targetPrice
+        if (targetLabel !== 'Offline' && !onlinePrices.find(p => p.label === targetLabel)) {
+            onlinePrices.push({ label: targetLabel, price: targetPrice });
         }
 
         return {

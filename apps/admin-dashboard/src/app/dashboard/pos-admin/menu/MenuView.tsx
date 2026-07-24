@@ -6,13 +6,12 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, X, Loader2, Copy,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  FileArchive, Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown
+  Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput, compressImageToWebP } from '@suka/design-system'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
-import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
 import { MenuPicker } from './MenuPicker'
 import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
@@ -95,7 +94,6 @@ export default function MenuView({
   const [error, setError]         = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [preview, setPreview]     = useState<string | null>(null)
-  const [showZipModal, setShowZipModal] = useState(false)
   const [deletingAll, setDeletingAll]   = useState(false)
   const [upsells, setUpsells] = useState<string[]>(initialUpsells || [])
   const [bestsellers, setBestsellers] = useState<string[]>(initialBestsellers || [])
@@ -529,15 +527,6 @@ export default function MenuView({
             )}
           </div>
 
-          <button
-            onClick={() => setShowZipModal(true)}
-            className="py-2.5 px-5 text-sm font-semibold rounded-2xl flex items-center gap-2
-              bg-violet-600 text-white hover:bg-violet-700
-              transition-all duration-200 active:scale-[.98]"
-          >
-            <FileArchive className="w-4 h-4" />
-            Import ZIP
-          </button>
           <button
             onClick={deleteAllItems}
             disabled={deletingAll || initialItems.length === 0}
@@ -1177,15 +1166,6 @@ export default function MenuView({
             </form>
           </div>
         </div>
-      )}
-
-      {/* ── ZIP Upload Modal ─────────────────────────────── */}
-      {showZipModal && (
-        <ZipUploadModal
-          categories={initialCategories}
-          onClose={() => setShowZipModal(false)}
-          onComplete={() => router.refresh()}
-        />
       )}
 
       {/* ── Menu Grid / Table ────────────────────────────── */}

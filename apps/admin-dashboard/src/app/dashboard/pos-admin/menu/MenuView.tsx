@@ -424,15 +424,9 @@ export default function MenuView({
       })
     }
     
-    let displayPrice = String(item.price)
-    if (activeChannelFilter) {
-      const slug = getSlug(activeChannelFilter)
-      displayPrice = formattedChannelPrices[slug] || String(item.price)
-    }
-    
     setForm({
       id: item.id, name: item.name, description: item.description ?? '',
-      price: displayPrice, 
+      price: String(item.price), 
       strike_price: item.strike_price ? String(item.strike_price) : '',
       base_price: String(item.price),
       channel_prices: formattedChannelPrices,
@@ -518,7 +512,7 @@ export default function MenuView({
       if (!imgUrl) { setSaving(false); return }
     }
 
-    let finalBasePrice = parseFloat(form.base_price) || price
+    let finalBasePrice = price
     const parsedChannelPrices: Record<string, number> = {}
     
     Object.entries(form.channel_prices).forEach(([k, v]) => {
@@ -528,15 +522,16 @@ export default function MenuView({
       }
     })
 
-    if (activeChannelFilter) {
-      const slug = getSlug(activeChannelFilter)
-      if (price === finalBasePrice || price <= 0) {
-        delete parsedChannelPrices[slug]
-      } else {
-        parsedChannelPrices[slug] = price
-      }
-    } else {
-      finalBasePrice = price
+    // Jika menu memiliki channel online spesifik (misal TikTok Go), pastikan channel_prices tersinkron dengan Harga Dasar
+    if (form.available_online_channels && Array.isArray(form.available_online_channels)) {
+      form.available_online_channels.forEach(ch => {
+        const slug = ch.toLowerCase().replace(/\s+/g, '')
+        if (slug !== 'pos_kasir') {
+          if (!parsedChannelPrices[slug] || parsedChannelPrices[slug] <= 0 || !activeChannelFilter) {
+            parsedChannelPrices[slug] = finalBasePrice
+          }
+        }
+      })
     }
 
     const payload = {

@@ -1470,109 +1470,107 @@ export default function MenuView({
 
                     {/* Price (Offline & Online) */}
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex flex-col items-end gap-1">
-                        {item.strike_price && (
-                          <span className="text-xs text-gray-400 line-through decoration-gray-400/50 mb-0.5">
-                            {formatRupiah(item.strike_price)}
-                          </span>
-                        )}
+                      {(() => {
+                        const offlinePrice = item.price;
+                        const pricesObj = item.channel_prices || {};
+                        const activeSlug = activeChannelFilter ? getSlug(activeChannelFilter) : '';
 
-                        {(() => {
-                          const offlinePrice = item.price;
-                          const pricesObj = item.channel_prices || {};
-                          const activeSlug = activeChannelFilter ? getSlug(activeChannelFilter) : '';
+                        const isChannelOffline = item.available_online_channels === null ||
+                          !Array.isArray(item.available_online_channels) ||
+                          item.available_online_channels.includes('pos_kasir');
 
-                          // 1. Skenario Filter Khusus Offline ("pos_kasir")
-                          if (activeSlug === 'pos_kasir') {
-                            return (
-                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50/90 border border-amber-200/80 shadow-2xs" title="Harga Jual Offline Kasir Toko">
-                                <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Offline:</span>
-                                <span className="text-xs font-black text-amber-950 font-mono">{formatRupiah(offlinePrice)}</span>
-                              </div>
-                            );
-                          }
+                        // Calculate Online Price
+                        let onlineDisplay: string | null = null;
+                        let targetNumericPrice: number | null = null;
 
-                          // Calculate Online Price
-                          let onlineDisplay: string | null = null;
-                          let onlineChannelLabel = 'Online';
-
-                          if (item.is_available_online !== false) {
-                            if (activeSlug && !['pos_kasir', 'all_food_apps', ''].includes(activeSlug)) {
-                              const chPrice = pricesObj[activeSlug] || (activeSlug === 'tiktokgo' ? pricesObj['tiktok_go'] : undefined);
-                              if (chPrice && Number(chPrice) > 0) {
-                                onlineDisplay = formatRupiah(Number(chPrice));
-                                const chName = initialChannels.find(c => c.id === activeChannelFilter || c.name.toLowerCase().replace(/\s+/g, '') === activeSlug)?.name;
-                                onlineChannelLabel = chName || activeSlug;
-                              }
-                            } else {
-                              const validPrices = Object.values(pricesObj)
-                                .map(p => Number(p))
-                                .filter(p => !isNaN(p) && p > 0);
-
-                              if (validPrices.length > 0) {
-                                const minP = Math.min(...validPrices);
-                                const maxP = Math.max(...validPrices);
-                                if (minP === maxP) {
-                                  onlineDisplay = formatRupiah(minP);
-                                } else {
-                                  onlineDisplay = `${formatRupiah(minP)} - ${formatRupiah(maxP)}`;
-                                }
-                              }
-                            }
-                          }
-
-                          // 2. Skenario Filter Khusus Channel Online Tertentu (GoFood, GrabFood, ShopeeFood, TikTok Go)
-                          const isChannelOffline = item.available_online_channels === null ||
-                            !Array.isArray(item.available_online_channels) ||
-                            item.available_online_channels.includes('pos_kasir');
-
+                        if (item.is_available_online !== false) {
                           if (activeSlug && !['pos_kasir', 'all_food_apps', ''].includes(activeSlug)) {
-                            if (onlineDisplay) {
-                              return (
-                                <div className="flex flex-col items-end gap-1">
-                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50/90 border border-emerald-200/80 shadow-2xs" title={`Harga ${onlineChannelLabel}`}>
-                                    <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">{onlineChannelLabel}:</span>
-                                    <span className="text-xs font-black text-emerald-950 font-mono">{onlineDisplay}</span>
-                                  </div>
-                                  {isChannelOffline && (
-                                    <span className="text-[10px] font-medium text-slate-400">Offline: {formatRupiah(offlinePrice)}</span>
-                                  )}
-                                </div>
-                              );
-                            } else {
-                              return (
-                                <div className="flex flex-col items-end gap-1">
-                                  <span className="text-xs font-bold text-slate-400 font-mono">—</span>
-                                  {isChannelOffline && (
-                                    <span className="text-[10px] font-medium text-slate-400">Offline: {formatRupiah(offlinePrice)}</span>
-                                  )}
-                                </div>
-                              );
+                            const chPrice = pricesObj[activeSlug] || (activeSlug === 'tiktokgo' ? pricesObj['tiktok_go'] : undefined);
+                            if (chPrice && Number(chPrice) > 0) {
+                              targetNumericPrice = Number(chPrice);
+                              onlineDisplay = formatRupiah(targetNumericPrice);
+                            }
+                          } else {
+                            const validPrices = Object.values(pricesObj)
+                              .map(p => Number(p))
+                              .filter(p => !isNaN(p) && p > 0);
+
+                            if (validPrices.length > 0) {
+                              const minP = Math.min(...validPrices);
+                              const maxP = Math.max(...validPrices);
+                              targetNumericPrice = minP;
+                              if (minP === maxP) {
+                                onlineDisplay = formatRupiah(minP);
+                              } else {
+                                onlineDisplay = `${formatRupiah(minP)} - ${formatRupiah(maxP)}`;
+                              }
                             }
                           }
+                        }
 
-                          // 3. Skenario Filter "Semua Menu" atau "Semua Food Apps"
+                        // 1. Skenario Filter Channel Spesifik (GoFood, GrabFood, ShopeeFood, TikTok Go, Offline)
+                        if (activeSlug && !['all_food_apps', ''].includes(activeSlug)) {
+                          const displayPrice = activeSlug === 'pos_kasir' ? formatRupiah(offlinePrice) : onlineDisplay;
+                          const numericP = activeSlug === 'pos_kasir' ? offlinePrice : targetNumericPrice;
+
+                          if (!displayPrice) {
+                            return <span className="text-xs font-bold text-slate-400 font-mono">—</span>;
+                          }
+
                           return (
-                            <div className="flex flex-col items-end gap-1">
-                              {/* Offline Price Badge */}
-                              {isChannelOffline && (
-                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50/90 border border-amber-200/80 shadow-2xs" title="Harga Jual Offline Kasir Toko">
-                                  <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Offline:</span>
-                                  <span className="text-xs font-black text-amber-950 font-mono">{formatRupiah(offlinePrice)}</span>
-                                </div>
+                            <div className="flex flex-col items-end gap-0.5">
+                              {item.strike_price && numericP && item.strike_price > numericP && (
+                                <span className="text-xs text-gray-400 line-through decoration-gray-400/50">
+                                  {formatRupiah(item.strike_price)}
+                                </span>
                               )}
-
-                              {/* Online Price Badge */}
-                              {onlineDisplay && (
-                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50/90 border border-emerald-200/80 shadow-2xs" title="Harga Jual Online Food Apps">
-                                  <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Online:</span>
-                                  <span className="text-xs font-black text-emerald-950 font-mono">{onlineDisplay}</span>
-                                </div>
-                              )}
+                              <span className="text-sm font-bold text-gray-900 font-mono">
+                                {displayPrice}
+                              </span>
                             </div>
                           );
-                        })()}
-                      </div>
+                        }
+
+                        // 2. Skenario Menu Khusus Online (Tidak dijual offline)
+                        if (!isChannelOffline) {
+                          const displayPrice = onlineDisplay || formatRupiah(offlinePrice);
+                          const numericP = targetNumericPrice || offlinePrice;
+
+                          return (
+                            <div className="flex flex-col items-end gap-0.5">
+                              {item.strike_price && numericP && item.strike_price > numericP && (
+                                <span className="text-xs text-gray-400 line-through decoration-gray-400/50">
+                                  {formatRupiah(item.strike_price)}
+                                </span>
+                              )}
+                              <span className="text-sm font-bold text-gray-900 font-mono">
+                                {displayPrice}
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        // 3. Skenario Umum (Dijual Offline & Online)
+                        return (
+                          <div className="flex flex-col items-end gap-1">
+                            {item.strike_price && item.strike_price > offlinePrice && (
+                              <span className="text-xs text-gray-400 line-through decoration-gray-400/50">
+                                {formatRupiah(item.strike_price)}
+                              </span>
+                            )}
+                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50/90 border border-amber-200/80 shadow-2xs" title="Harga Jual Offline Kasir Toko">
+                              <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Offline:</span>
+                              <span className="text-xs font-black text-amber-950 font-mono">{formatRupiah(offlinePrice)}</span>
+                            </div>
+                            {onlineDisplay && (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50/90 border border-emerald-200/80 shadow-2xs" title="Harga Jual Online Food Apps">
+                                <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Online:</span>
+                                <span className="text-xs font-black text-emerald-950 font-mono">{onlineDisplay}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Status toggle */}

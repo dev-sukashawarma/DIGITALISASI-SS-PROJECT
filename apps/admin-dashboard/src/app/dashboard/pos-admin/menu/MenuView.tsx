@@ -1545,7 +1545,7 @@ export default function MenuView({
                           };
 
                           const isRealInChannel = (slug: string) => {
-                            return hasSpecificChannelPrice(slug) || hasExplicitChannel(slug);
+                            return hasExplicitChannel(slug);
                           };
 
                           const isOfflineAvailable = item.is_available !== false && (

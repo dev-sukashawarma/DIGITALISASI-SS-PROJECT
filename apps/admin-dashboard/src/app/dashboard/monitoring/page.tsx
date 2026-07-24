@@ -406,8 +406,23 @@ export default function MonitoringPage() {
     // Filter attendance for this outlet on targetDateStr
     const outletAttDate = attendances.filter(a => a.outlet_id === outlet.id && getWIBDateStr(a.ts_server) === targetDateStr)
     
-    // Check opname on targetDateStr
-    const hasOpnameOnDate = opnames.some(o => o.outlet_id === outlet.id && getWIBDateStr(o.created_at) === targetDateStr)
+    // Check opname record & timestamp on targetDateStr
+    const opnameRecord = opnames.find(o => o.outlet_id === outlet.id && getWIBDateStr(o.created_at) === targetDateStr)
+    const opnameTimeStr = opnameRecord ? formatWIBTime(opnameRecord.created_at) : null
+
+    // Extract Buka Shift (first IN) and Tutup Shift (last OUT) timestamps
+    const inAtts = outletAttDate.filter(a => a.type === 'in')
+    const outAtts = outletAttDate.filter(a => a.type === 'out')
+
+    const firstIn = inAtts.length > 0
+      ? inAtts.reduce((earliest, curr) => new Date(curr.ts_server) < new Date(earliest.ts_server) ? curr : earliest)
+      : null
+    const openingTimeStr = firstIn ? formatWIBTime(firstIn.ts_server) : null
+
+    const lastOut = outAtts.length > 0
+      ? outAtts.reduce((latest, curr) => new Date(curr.ts_server) > new Date(latest.ts_server) ? curr : latest)
+      : null
+    const closingTimeStr = lastOut ? formatWIBTime(lastOut.ts_server) : null
 
     // Last attendance record & timestamp per staff on targetDateStr
     const staffState = new Map<string, { type: 'in' | 'out'; timeStr: string }>()
@@ -426,8 +441,8 @@ export default function MonitoringPage() {
     const isEveryoneOut = staffState.size > 0 && Array.from(staffState.values()).every(s => s.type === 'out')
 
     if (isEveryoneOut) {
-      posStatus = 'Terkunci - Tutup'
-      posColor = 'bg-slate-100 text-slate-600 border-slate-200'
+      posStatus = closingTimeStr ? `Terkunci - Tutup Shift (${closingTimeStr})` : 'Terkunci - Tutup'
+      posColor = 'bg-slate-100 text-slate-700 border-slate-200'
     } else if (hasAnyoneIn) {
       const reqIds = checklistReq[outlet.id] || []
       const tickIds = new Set(checklistTicks[outlet.id] || [])
@@ -454,7 +469,7 @@ export default function MonitoringPage() {
     })
 
     // Apply POS status filter
-    const isOpen = posStatus === 'Terbuka - Siap Transaksi'
+    const isOpen = posStatus.startsWith('Terbuka')
     if (posStatusFilter === 'OPEN' && !isOpen) return null
     if (posStatusFilter === 'LOCKED' && isOpen) return null
 
@@ -470,10 +485,10 @@ export default function MonitoringPage() {
     return (
       <div key={`${outlet.id}-${targetDateStr}`} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col h-full group">
         {/* Card Header */}
-        <div className={`p-4 border-b flex flex-col gap-3 flex-shrink-0 relative ${hasOpnameOnDate ? 'border-blue-50 bg-blue-50/20' : 'border-slate-50'}`}>
+        <div className={`p-4 border-b flex flex-col gap-3 flex-shrink-0 relative ${opnameTimeStr ? 'border-blue-50 bg-blue-50/20' : 'border-slate-50'}`}>
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-2">
-              <Store className={`w-5 h-5 shrink-0 mt-0.5 ${hasOpnameOnDate ? 'text-blue-500' : 'text-slate-400'}`} />
+              <Store className={`w-5 h-5 shrink-0 mt-0.5 ${opnameTimeStr ? 'text-blue-500' : 'text-slate-400'}`} />
               <div>
                 <h3 className="font-bold text-slate-900 leading-tight" title={outlet.name}>{outlet.name}</h3>
                 {isMultiDay && (
@@ -484,10 +499,10 @@ export default function MonitoringPage() {
               </div>
             </div>
             <div className="flex flex-col gap-1.5 items-end">
-              {hasOpnameOnDate ? (
-                <span title="Telah melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-700 border border-blue-200 animate-pulse">
-                  <ClipboardCheck className="w-3 h-3 mr-1" />
-                  Opname
+              {opnameTimeStr ? (
+                <span title={`Telah melakukan Opname harian pada ${opnameTimeStr}`} className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-800 border border-blue-300/80 shadow-xs animate-pulse">
+                  <ClipboardCheck className="w-3 h-3 mr-1 text-blue-600" />
+                  Opname {opnameTimeStr}
                 </span>
               ) : (
                 <span title="Belum melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-slate-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 border border-slate-200">
@@ -500,10 +515,36 @@ export default function MonitoringPage() {
               </span>
             </div>
           </div>
+
+          {/* Status Kuncian POS */}
           <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold self-start w-full sm:w-auto ${posColor}`}>
             <PosIcon className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">{posStatus}</span>
           </div>
+
+          {/* Jam Operasional Shift & Opname Sub-Bar */}
+          {(openingTimeStr || closingTimeStr || opnameTimeStr) && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] font-bold border-t border-slate-100">
+              {openingTimeStr && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/70" title="Waktu Buka Shift (Kru Pertama Masuk)">
+                  <Clock size={10} className="text-emerald-600 shrink-0" />
+                  <span>Buka: {openingTimeStr}</span>
+                </span>
+              )}
+              {closingTimeStr && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200/80" title="Waktu Tutup Shift (Kru Terakhir Pulang)">
+                  <Lock size={10} className="text-slate-600 shrink-0" />
+                  <span>Tutup Shift: {closingTimeStr}</span>
+                </span>
+              )}
+              {opnameTimeStr && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 border border-blue-200/80" title="Waktu Input Opname Harian">
+                  <ClipboardCheck size={10} className="text-blue-600 shrink-0" />
+                  <span>Opname: {opnameTimeStr}</span>
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Card Body - Crew List with exact date & time */}
@@ -572,7 +613,7 @@ export default function MonitoringPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Monitoring Aktivitas</h1>
-            <p className="text-sm font-semibold text-slate-500 mt-1">Pantau status POS, absensi kru, dan lokasi secara real-time</p>
+            <p className="text-sm font-semibold text-slate-500 mt-1">Pantau status POS, absensi kru, jam opname, dan waktu tutup shift secara real-time</p>
           </div>
         </div>
 

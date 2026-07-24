@@ -654,7 +654,7 @@ export default function LeaderPettyCashPage() {
                     </td>
 
                     {/* Alasan */}
-                    <td className="px-5 py-4 text-slate-700 max-w-xs truncate font-medium">
+                    <td className="px-5 py-4 text-slate-800 font-medium max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed text-xs">
                       {row.description}
                     </td>
 

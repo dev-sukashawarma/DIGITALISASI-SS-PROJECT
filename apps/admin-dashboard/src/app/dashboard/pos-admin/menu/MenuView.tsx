@@ -841,40 +841,193 @@ export default function MenuView({
 
                   {/* Right Column */}
                   <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm space-y-6">
-                      {/* Price & Category */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm space-y-5">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                          <Sandwich className="w-4 h-4 text-amber-500" />
+                          Pengaturan Harga (Offline & Food Apps)
+                        </h3>
+                        <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/60">
+                          Multi-Channel Price
+                        </span>
+                      </div>
+
+                      {/* Base Price, Strike Price & Category Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="input-label text-gray-700 font-bold mb-2 block">
-                            {activeChannelFilter 
-                              ? `Harga ${initialChannels.find(c => c.id === activeChannelFilter)?.name || ''}` 
-                              : 'Harga Dasar'}
-                            <span className="text-red-500 ml-1">*</span>
+                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider">
+                            Harga Dasar (Base) <span className="text-red-500">*</span>
                           </label>
                           <CurrencyInput value={form.price}
-                            onChange={(v) => setForm({ ...form, price: String(v) })}
-                            required className="input bg-gray-50 focus:bg-white font-bold text-gray-900 text-base py-3" />
+                            onChange={(v) => {
+                              const valStr = String(v)
+                              setForm(prev => {
+                                const updated = { ...prev, price: valStr }
+                                if (!prev.channel_prices['pos_kasir']) {
+                                  updated.channel_prices = { ...updated.channel_prices, pos_kasir: valStr }
+                                }
+                                return updated
+                              })
+                            }}
+                            required className="input bg-gray-50 focus:bg-white font-bold text-gray-900 text-base py-2.5" />
                         </div>
                         <div>
-                          <label className="input-label text-gray-700 font-bold mb-2 block">
-                            Harga Coret
-                            <span className="text-gray-400 font-medium text-xs ml-2 bg-gray-100 px-2 py-0.5 rounded-md">Opsional</span>
+                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider flex items-center justify-between">
+                            <span>Harga Coret</span>
+                            <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Opsional</span>
                           </label>
                           <CurrencyInput value={form.strike_price}
                             onChange={(v) => setForm({ ...form, strike_price: String(v) })}
-                            className="input bg-gray-50 focus:bg-white text-gray-900 text-base py-3" />
+                            className="input bg-gray-50 focus:bg-white text-gray-900 text-base py-2.5" />
                         </div>
-                        <div>
-                          <label className="input-label text-gray-700 font-bold mb-2 block">Kategori</label>
+                        <div className="sm:col-span-2">
+                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider">Kategori Menu</label>
                           <select value={form.category_id}
                             onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                            className="input bg-gray-50 focus:bg-white text-base py-3 font-medium">
+                            className="input bg-gray-50 focus:bg-white text-sm py-2.5 font-medium">
                             <option value="">-- Pilih Kategori --</option>
                             {initialCategories.map((c) => (
                               <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
                           </select>
                         </div>
+                      </div>
+
+                      {/* CONTAINER PENGATURAN HARGA OFFLINE & ONLINE */}
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+                        
+                        {/* 1. HARGA OFFLINE (POS KASIR TOKO) */}
+                        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                              <Store className="w-4 h-4 text-amber-600" />
+                              Harga Offline (Kasir Toko)
+                            </span>
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              POS Kasir
+                            </span>
+                          </label>
+                          <CurrencyInput
+                            value={form.channel_prices['pos_kasir'] || form.price}
+                            onChange={(v) => {
+                              const valStr = String(v)
+                              setForm(prev => ({
+                                ...prev,
+                                channel_prices: {
+                                  ...prev.channel_prices,
+                                  pos_kasir: valStr
+                                }
+                              }))
+                            }}
+                            placeholder={form.price || '0'}
+                            className="input bg-slate-50 focus:bg-white font-bold text-slate-900 text-sm py-2"
+                          />
+                          <p className="text-[11px] text-slate-500 font-medium">Harga saat transaksi langsung di Kasir Outlet (Offline).</p>
+                        </div>
+
+                        {/* 2. HARGA ONLINE (FOOD APPS) */}
+                        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                            <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+                              <Globe className="w-4 h-4 text-indigo-600" />
+                              Harga Online (Food Apps)
+                            </label>
+
+                            {/* OPSI: Satu Harga Semua VS Pilih Per Channel */}
+                            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-bold">
+                              <button
+                                type="button"
+                                onClick={() => setOnlinePriceMode('unified')}
+                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                                  onlinePriceMode === 'unified'
+                                    ? 'bg-indigo-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:bg-slate-200'
+                                }`}
+                              >
+                                Semua Food Apps (Satu Harga)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setOnlinePriceMode('per_channel')}
+                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                                  onlinePriceMode === 'per_channel'
+                                    ? 'bg-indigo-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:bg-slate-200'
+                                }`}
+                              >
+                                Pilih Salah Satu / Per App
+                              </button>
+                            </div>
+                          </div>
+
+                          {onlinePriceMode === 'unified' ? (
+                            <div className="space-y-1.5">
+                              <CurrencyInput
+                                value={
+                                  form.channel_prices['gofood'] ||
+                                  form.channel_prices['grabfood'] ||
+                                  form.channel_prices['shopeefood'] ||
+                                  form.channel_prices['tiktok_go'] ||
+                                  form.channel_prices['all_food_apps'] ||
+                                  form.price
+                                }
+                                onChange={(v) => {
+                                  const valStr = String(v)
+                                  setForm(prev => {
+                                    const newPrices = { ...prev.channel_prices }
+                                    const slugs = ['gofood', 'grabfood', 'shopeefood', 'tiktok_go', 'all_food_apps', 'online']
+                                    slugs.forEach(s => { newPrices[s] = valStr })
+                                    if (initialChannels && initialChannels.length > 0) {
+                                      initialChannels.forEach(ch => {
+                                        const slug = ch.id.toLowerCase().replace(/\s+/g, '')
+                                        if (slug !== 'pos_kasir') newPrices[slug] = valStr
+                                      })
+                                    }
+                                    return { ...prev, channel_prices: newPrices }
+                                  })
+                                }}
+                                placeholder={form.price || '0'}
+                                className="input bg-slate-50 focus:bg-white font-bold text-slate-900 text-sm py-2"
+                              />
+                              <p className="text-[11px] text-slate-500 font-medium">
+                                Harga online ini otomatis berlaku seragam untuk semua aplikasi (GoFood, GrabFood, ShopeeFood, TikTok Go, dsb).
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2 pt-1">
+                              <p className="text-[11px] font-bold text-indigo-900">Masukkan harga spesifik per aplikasi online:</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                {initialChannels.filter(c => c.id.toLowerCase() !== 'pos_kasir').map(ch => {
+                                  const slug = getSlug(ch.id)
+                                  const val = form.channel_prices[slug] || form.price
+                                  return (
+                                    <div key={ch.id} className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 shrink-0">
+                                        <ChannelLogoIcon channelKey={ch.id} />
+                                        <span>{ch.name}</span>
+                                      </span>
+                                      <CurrencyInput
+                                        value={val}
+                                        onChange={(v) => {
+                                          const valStr = String(v)
+                                          setForm(prev => ({
+                                            ...prev,
+                                            channel_prices: {
+                                              ...prev.channel_prices,
+                                              [slug]: valStr
+                                            }
+                                          }))
+                                        }}
+                                        className="input bg-white text-xs font-bold text-slate-900 py-1.5 px-2.5 w-28 text-right"
+                                      />
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
                       </div>
 
                       {/* Menu Type Toggle */}

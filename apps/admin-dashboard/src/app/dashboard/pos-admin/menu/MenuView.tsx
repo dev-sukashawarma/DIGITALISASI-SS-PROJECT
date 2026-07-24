@@ -1504,7 +1504,7 @@ export default function MenuView({
                           }
 
                           // 2. Skenario Filter Khusus Channel Online Tertentu (GoFood, GrabFood, ShopeeFood, TikTok Go)
-                          const isAvailableOffline = item.available_online_channels === null ||
+                          const isChannelOffline = item.available_online_channels === null ||
                             !Array.isArray(item.available_online_channels) ||
                             item.available_online_channels.includes('pos_kasir');
 
@@ -1516,7 +1516,7 @@ export default function MenuView({
                                     <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">{onlineChannelLabel}:</span>
                                     <span className="text-xs font-black text-emerald-950 font-mono">{onlineDisplay}</span>
                                   </div>
-                                  {isAvailableOffline && (
+                                  {isChannelOffline && (
                                     <span className="text-[10px] font-medium text-slate-400">Offline: {formatRupiah(offlinePrice)}</span>
                                   )}
                                 </div>
@@ -1525,7 +1525,7 @@ export default function MenuView({
                               return (
                                 <div className="flex flex-col items-end gap-1">
                                   <span className="text-xs font-bold text-slate-400 font-mono">—</span>
-                                  {isAvailableOffline && (
+                                  {isChannelOffline && (
                                     <span className="text-[10px] font-medium text-slate-400">Offline: {formatRupiah(offlinePrice)}</span>
                                   )}
                                 </div>
@@ -1534,11 +1534,10 @@ export default function MenuView({
                           }
 
                           // 3. Skenario Filter "Semua Menu" atau "Semua Food Apps"
-                          const isAvailableOffline = item.is_available !== false;
                           return (
                             <div className="flex flex-col items-end gap-1">
                               {/* Offline Price Badge */}
-                              {isAvailableOffline ? (
+                              {isChannelOffline ? (
                                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50/90 border border-amber-200/80 shadow-2xs" title="Harga Jual Offline Kasir Toko">
                                   <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Offline:</span>
                                   <span className="text-xs font-black text-amber-950 font-mono">{formatRupiah(offlinePrice)}</span>

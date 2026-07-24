@@ -973,6 +973,12 @@ export default function KasirOrderClient({
 
   // Mark as Completed
   async function markAsCompleted(id: string) {
+    const targetOrder = orders?.find(o => o.id === id)
+    if (targetOrder && !targetOrder.customer_receipt_printed) {
+      showAlert('Pesanan belum dapat diselesaikan! Struk Pelanggan WAJIB dicetak terlebih dahulu.')
+      return false
+    }
+
     postToNative({ type: 'haptic', style: 'success' })
     const success = await applyStatusChange(id, { status: 'completed' })
     if (!success) return false
@@ -980,12 +986,11 @@ export default function KasirOrderClient({
     queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
 
     // Trigger Google Sheets Real-Time Sync
-    const orderObj = orders?.find(o => o.id === id)
-    if (orderObj) {
+    if (targetOrder) {
       triggerGoogleSheetsSyncIfActive(
         supabase, 
-        orderObj, 
-        orderObj.order_items || [], 
+        targetOrder, 
+        targetOrder.order_items || [], 
         outletName || ''
       )
     }
@@ -1002,9 +1007,6 @@ export default function KasirOrderClient({
 
   // Handle completion and print receipt
   async function handlePrintCustomerOnly(order: ParsedOrder) {
-    const success = await applyStatusChange(order.id, { customer_receipt_printed: true })
-    if (!success) return
-    
     // Generate and print receipt
     const receiptData: ReceiptData = {
       outletName: outletName || 'SUKA SHAWARMA',
@@ -1012,7 +1014,7 @@ export default function KasirOrderClient({
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
       items: buildReceiptItems(order),
-      subtotal: order.total_amount, // Asumsikan no discount at pos-kasir board level, or use subtotal logic
+      subtotal: order.total_amount,
       discount: 0,
       total: order.total_amount,
       paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
@@ -1024,12 +1026,19 @@ export default function KasirOrderClient({
 
     try {
       await printReceipt(receiptData)
+      const success = await applyStatusChange(order.id, { customer_receipt_printed: true })
+      if (success) {
+        queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
+      }
     } catch (err: any) {
       console.error('Print error:', err)
-      // Tampilkan error jika printer bermasalah
-      useDialogStore.getState().showAlert(
-        `Gagal Mencetak: ${err.message || 'Pastikan bluetooth menyala dan printer terhubung.'}`
+      const confirmManual = await showConfirm(
+        `Printer Terputus: ${err.message || 'Gagal mengirim data ke printer'}. Apakah Anda ingin menandai Struk Pelanggan sudah dicetak secara manual?`
       )
+      if (confirmManual) {
+        await applyStatusChange(order.id, { customer_receipt_printed: true })
+        queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
+      }
     }
   }
 

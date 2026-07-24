@@ -55,14 +55,9 @@ export default function GlobalBlockerMount() {
         const outletName = (profile.outlets as any)?.name || ''
         const isDramaga = outletName.toLowerCase().includes('dramaga')
         
-        // Bypass khusus development untuk user empang_tes@ss.com HANYA untuk hari ini (22 Juli 2026)
-        const currentDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
-        const isEmpangTes = (profile as any).name === 'empang_tes' || (profile as any).email === 'empang_tes@ss.com' || (profile as any).name?.includes('empang_tes')
-        if (process.env.NODE_ENV === 'development' && isEmpangTes && currentDateStr === '2026-07-22') {
-          setIsBlocked(false)
-          return
-        }
-        if (process.env.NODE_ENV === 'development' && isDramaga && currentDateStr === '2026-07-17') {
+        // Bypass khusus development untuk Outlet BNR / testing
+        const isBnr = outletName.toLowerCase().includes('bnr')
+        if (process.env.NODE_ENV === 'development' && isBnr) {
           setIsBlocked(false)
           return
         }
@@ -106,6 +101,21 @@ export default function GlobalBlockerMount() {
         
         const start = new Date(`${todayStr}T00:00:00+07:00`).toISOString()
         const end = new Date(`${todayStr}T23:59:59+07:00`).toISOString()
+
+        // Cek apakah ada pengajuan bypass yang disetujui (status = 'approved') untuk outlet ini hari ini
+        const { data: approvedBypass } = await supabase
+          .from('bypass_requests')
+          .select('id')
+          .eq('outlet_id', outletId)
+          .eq('status', 'approved')
+          .gte('created_at', start)
+          .maybeSingle()
+
+        if (approvedBypass) {
+          setIsBlocked(false)
+          setChecklistProgress(undefined)
+          return
+        }
 
         const { data: attendances, error: attErr } = await supabase
           .from('attendance')

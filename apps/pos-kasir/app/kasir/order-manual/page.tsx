@@ -353,10 +353,9 @@ export default function OrderManualPage() {
           })
           if (!matchChannel) return false
         } else {
-          // Jika available_online_channels null/kosong, WAJIB memiliki harga spesifik untuk channel ini
-          const chPrice = pricesObj[activeChannelSlug] || ((activeChannelSlug === 'tiktokgo' || activeChannelSlug === 'tiktok') ? (pricesObj['tiktok_go'] || pricesObj['tiktokgo']) : undefined)
-          const hasPrice = chPrice !== undefined && chPrice !== null && Number(chPrice) > 0
-          if (!hasPrice) return false
+          // Jika available_online_channels null/kosong, artinya berlaku untuk semua channel online.
+          // Harga akan otomatis jatuh ke harga dasar (base price) jika tidak ada harga spesifik.
+          return true;
         }
       } else if (mode === 'walkin' || mode === 'endorse') {
         // Mode Walk-in Kasir / Offline: HANYA tampilkan menu yang tersedia di Offline (pos_kasir)

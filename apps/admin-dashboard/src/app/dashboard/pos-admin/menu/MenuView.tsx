@@ -523,12 +523,12 @@ export default function MenuView({
       }
     })
 
-    // Jika menu memiliki channel online spesifik (misal TikTok Go), pastikan channel_prices tersinkron dengan Harga Dasar
+    // Jika menu memiliki channel online spesifik (misal TikTok Go), pastikan channel_prices tersinkron jika belum diset
     if (form.available_online_channels && Array.isArray(form.available_online_channels)) {
       form.available_online_channels.forEach(ch => {
         const slug = ch.toLowerCase().replace(/\s+/g, '')
         if (slug !== 'pos_kasir') {
-          if (!parsedChannelPrices[slug] || parsedChannelPrices[slug] <= 0 || !activeChannelFilter) {
+          if (!parsedChannelPrices[slug] || parsedChannelPrices[slug] <= 0) {
             parsedChannelPrices[slug] = finalBasePrice
           }
         }

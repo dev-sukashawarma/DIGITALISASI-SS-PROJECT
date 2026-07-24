@@ -310,18 +310,32 @@ const renderOrderNotes = (notes: string | null) => {
           <div className="h-px bg-slate-100 w-full my-3"></div>
 
           {/* Customer / Source */}
-          <div className="flex items-center gap-3 mb-4 bg-white/60 p-2.5 rounded-xl border border-slate-100/50">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPending ? 'bg-amber-100' : 'bg-blue-100'}`}>
-              <User size={16} className={iconColor} />
+          <div className="flex items-center gap-3 mb-4 bg-white/80 p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isPending ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+              <User size={20} />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <p className="text-xs text-slate-400 font-medium leading-tight">{order.source === 'online' ? 'Online' : 'Offline'}</p>
-                {order.channel && <ChannelBadge channel={order.channel} />}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                <span className="font-black text-slate-900 text-base leading-tight truncate">
+                  {order.customer_name || 'Pelanggan'}
+                </span>
               </div>
-              <p className="font-bold text-slate-800 text-sm truncate max-w-[140px] leading-tight">
-                {order.payment_method?.toUpperCase()}
-              </p>
+              <div className="flex items-center gap-2 text-xs flex-wrap">
+                {order.source === 'online' ? (
+                  <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-blue-50 px-1.5 py-0.5 rounded text-blue-600">
+                    <Globe className="w-2.5 h-2.5" /> Online
+                  </span>
+                ) : order.channel ? (
+                  <ChannelBadge channel={order.channel} />
+                ) : (
+                  <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                    <Store className="w-2.5 h-2.5" /> Offline
+                  </span>
+                )}
+                <span className="uppercase font-bold text-[9px] tracking-wider bg-slate-200/80 px-2 py-0.5 rounded text-slate-800">
+                  {order.payment_method?.toUpperCase() || 'CASH'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1475,7 +1489,10 @@ export default function KasirOrderClient({
                         <span className="font-bold text-[#0a7d2c] text-xl leading-none">#{order.order_number}</span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-bold text-slate-800">{formatRupiah(order.total_amount)}</p>
+                        <div className="flex items-baseline justify-between gap-2 flex-wrap mb-0.5">
+                          <p className="font-black text-slate-900 text-base leading-tight truncate">{order.customer_name || 'Pelanggan'}</p>
+                          <p className="font-extrabold text-[#0a7d2c] text-sm">{formatRupiah(order.total_amount)}</p>
+                        </div>
                         <p className="text-xs text-slate-500/60 mt-1 flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-[#0a7d2c]"><TimeAgo date={order.created_at} /></span>
                           <span className="w-1 h-1 bg-[#d9c2b2] rounded-full" />

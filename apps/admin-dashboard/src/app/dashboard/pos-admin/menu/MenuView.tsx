@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect, useDeferredValue } from 'react'
+import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
@@ -1787,24 +1788,28 @@ export default function MenuView({
                             className="w-8 h-8 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-xl flex items-center justify-center transition-all">
                             <MoreVertical className="w-3.5 h-3.5" />
                           </button>
-                          {openDropdownId === item.id && dropdownPos && (
-                            <div 
-                              className="fixed z-[100] w-52 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-100 p-2 text-left origin-top-right animate-in fade-in zoom-in-95 duration-100"
-                              style={{ top: dropdownPos.top, right: dropdownPos.right }}
-                            >
-                              <button onClick={() => { toggleSetting('upsell', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between transition-colors">
-                                <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Ekstra</span>
-                                {upsells.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                              </button>
-                              <button onClick={() => { toggleSetting('bestseller', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between mt-1 transition-colors">
-                                <span className={bestsellers.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Best Seller</span>
-                                {bestsellers.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                              </button>
-                              <button onClick={() => { toggleSetting('recommendation', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between mt-1 transition-colors">
-                                <span className={recommendations.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Rekomendasi</span>
-                                {recommendations.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                              </button>
-                            </div>
+                          {openDropdownId === item.id && dropdownPos && typeof document !== 'undefined' && createPortal(
+                            <>
+                              <div className="fixed inset-0 z-[90]" onClick={() => { setOpenDropdownId(null); setDropdownPos(null); }} />
+                              <div 
+                                className="fixed z-[100] w-52 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-100 p-2 text-left origin-top-right animate-in fade-in zoom-in-95 duration-100"
+                                style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                              >
+                                <button onClick={() => { toggleSetting('upsell', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between transition-colors">
+                                  <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Ekstra</span>
+                                  {upsells.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                                </button>
+                                <button onClick={() => { toggleSetting('bestseller', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between mt-1 transition-colors">
+                                  <span className={bestsellers.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Best Seller</span>
+                                  {bestsellers.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                                </button>
+                                <button onClick={() => { toggleSetting('recommendation', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between mt-1 transition-colors">
+                                  <span className={recommendations.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Rekomendasi</span>
+                                  {recommendations.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                                </button>
+                              </div>
+                            </>,
+                            document.body
                           )}
                         </div>
                       </div>

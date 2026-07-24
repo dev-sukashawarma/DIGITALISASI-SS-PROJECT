@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
-import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation } from 'lucide-react'
+import type { PeriodFilterValue } from '@/lib/types'
+import { presetRange, type Preset } from '@/lib/period'
+import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation, Calendar } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const LiveLocationMap = dynamic(() => import('./LiveLocationMap'), { 
@@ -17,12 +19,121 @@ type Staff = { id: string; name: string; outlet_id: string; role: string; is_act
 type Attendance = { outlet_id: string; outlet_staff_id: string; type: 'in' | 'out'; ts_server: string }
 type Opname = { id: string; outlet_id: string; created_at: string }
 
+function CustomDateRangePopover({
+  from, to, onChange, isActive
+}: {
+  from: string
+  to: string
+  onChange: (range: { from: string; to: string }) => void
+  isActive: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  
+  const [localFrom, setLocalFrom] = useState(from)
+  const [localTo, setLocalTo] = useState(to)
+
+  useEffect(() => {
+    if (open) {
+      setLocalFrom(from)
+      setLocalTo(to)
+    }
+  }, [open, from, to])
+
+  useEffect(() => {
+    if (!open) return
+    const onClickOutside = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  const handleApply = () => {
+    if (localFrom && localTo) {
+      onChange({ from: localFrom, to: localTo })
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div ref={rootRef} className="relative flex">
+      <button
+        onClick={() => setOpen(!open)}
+        className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs cursor-pointer ${
+          isActive || open
+            ? 'bg-suka-orange text-white shadow-sm font-extrabold'
+            : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 font-bold'
+        }`}
+        title="Rentang tanggal kustom"
+      >
+        <Calendar className="w-3.5 h-3.5" />
+        <span>Kustom</span>
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 p-4 w-[280px] max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200">
+          <h4 className="text-sm font-bold text-slate-900 mb-3">Pilih Rentang Tanggal</h4>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Dari Tanggal</label>
+              <input 
+                type="date" 
+                value={localFrom} 
+                onChange={(e) => setLocalFrom(e.target.value)} 
+                className="w-full px-3 py-2 border border-slate-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs outline-none transition-all text-slate-800 font-semibold"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Sampai Tanggal</label>
+              <input 
+                type="date" 
+                value={localTo} 
+                onChange={(e) => setLocalTo(e.target.value)} 
+                min={localFrom}
+                className="w-full px-3 py-2 border border-slate-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs outline-none transition-all text-slate-800 font-semibold"
+              />
+            </div>
+            <button 
+              onClick={handleApply}
+              disabled={!localFrom || !localTo || localTo < localFrom}
+              className="w-full mt-2 bg-suka-orange hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold py-2.5 rounded-xl text-xs transition-all shadow-sm active:scale-95"
+            >
+              Terapkan Filter
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function MonitoringPage() {
   const [activeTab, setActiveTab] = useState<'POS' | 'LOCATION'>('POS')
   const [selectedOutletId, setSelectedOutletId] = useState<string>('ALL')
   const [posStatusFilter, setPosStatusFilter] = useState<string>('ALL')
   const [crewStatusFilter, setCrewStatusFilter] = useState<string>('ALL')
   
+  // Period filter (Kemarin, Hari Ini, 7 Hari, 30 Hari, Kustom)
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>(() => {
+    const today = presetRange('today')
+    return {
+      from: today.from,
+      to: today.to,
+      outletId: 'all',
+      source: 'all',
+    }
+  })
+
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [staffList, setStaffList] = useState<Staff[]>([])
   const [attendances, setAttendances] = useState<Attendance[]>([])
@@ -37,28 +148,33 @@ export default function MonitoringPage() {
 
   const supabase = createClient()
 
-  // helper to get today in YYYY-MM-DD
-  const getTodayStr = () => {
-    const formatter = new Intl.DateTimeFormat('en-CA', { 
-      timeZone: 'Asia/Jakarta', 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit' 
-    })
-    const parts = formatter.formatToParts(new Date())
-    const y = parts.find(p => p.type === 'year')?.value
-    const m = parts.find(p => p.type === 'month')?.value
-    const d = parts.find(p => p.type === 'day')?.value
-    return `${y}-${m}-${d}`
+  // Active preset helper
+  const activePreset = () => {
+    const pToday = presetRange('today')
+    if (periodFilter.from === pToday.from && periodFilter.to === pToday.to) return 'today'
+    
+    const pYesterday = presetRange('yesterday')
+    if (periodFilter.from === pYesterday.from && periodFilter.to === pYesterday.to) return 'yesterday'
+
+    const p7d = presetRange('7d')
+    if (periodFilter.from === p7d.from && periodFilter.to === p7d.to) return '7d'
+
+    const p30d = presetRange('30d')
+    if (periodFilter.from === p30d.from && periodFilter.to === p30d.to) return '30d'
+
+    return null
   }
+
+  const currentPreset = activePreset()
 
   const fetchData = async () => {
     try {
-      const todayStr = getTodayStr()
-      const start = new Date(`${todayStr}T00:00:00+07:00`).toISOString()
-      const end = new Date(`${todayStr}T23:59:59+07:00`).toISOString()
+      const fromDate = periodFilter.from
+      const toDate = periodFilter.to
+      const start = new Date(`${fromDate}T00:00:00+07:00`).toISOString()
+      const end = new Date(`${toDate}T23:59:59+07:00`).toISOString()
 
-      // Fetch independent queries in parallel for instant updates
+      // Fetch independent queries in parallel for instant updates based on selected period
       const [outRes, stfRes, attRes, catRes, recRes, opnRes] = await Promise.all([
         supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
         supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader']),
@@ -72,10 +188,12 @@ export default function MonitoringPage() {
           .eq('phase', 'buka'),
         supabase.from('daily_checklist_records')
           .select('id, outlet_id')
-          .eq('date', todayStr),
+          .gte('date', fromDate)
+          .lte('date', toDate),
         supabase.from('opname')
           .select('id, outlet_id, created_at')
           .gte('created_at', start)
+          .lte('created_at', end)
       ])
 
       const validOutlets = (outRes.data || []) as Outlet[]
@@ -186,7 +304,7 @@ export default function MonitoringPage() {
       supabase.removeChannel(presenceRoom)
       supabase.removeChannel(locationRoom)
     }
-  }, [])
+  }, [periodFilter.from, periodFilter.to])
 
   if (isLoading) {
     return (
@@ -246,25 +364,25 @@ export default function MonitoringPage() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Monitoring Aktivitas</h1>
-            <p className="text-sm text-gray-500 mt-1">Pantau status POS, absensi kru, dan lokasi secara real-time</p>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Monitoring Aktivitas</h1>
+            <p className="text-sm font-semibold text-slate-500 mt-1">Pantau status POS, absensi kru, dan lokasi secara real-time</p>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
           <button
             onClick={() => setActiveTab('POS')}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-2
-              ${activeTab === 'POS' ? 'bg-[#1e1b15] text-[#fff8f1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+            className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-colors flex items-center gap-2
+              ${activeTab === 'POS' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
           >
             <Monitor className="w-4 h-4" />
-            POS & Crew
+            POS &amp; Crew
           </button>
           <button
             onClick={() => setActiveTab('LOCATION')}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-2
-              ${activeTab === 'LOCATION' ? 'bg-[#1e1b15] text-[#fff8f1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+            className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-colors flex items-center gap-2
+              ${activeTab === 'LOCATION' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
           >
             <Navigation className="w-4 h-4" />
             Live Location
@@ -278,16 +396,44 @@ export default function MonitoringPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-6 animate-fade-in">
-          {/* Filter Bar */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 relative z-20">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto p-1.5 bg-gray-50/80 rounded-xl border border-gray-100/80 backdrop-blur-sm shadow-sm">
+          {/* Unified Clean Filter Toolbar Bar */}
+          <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 relative z-20">
+            {/* Sleek Modern Date Presets */}
+            <div className="bg-slate-100/90 p-1 rounded-xl border border-slate-200/60 flex items-center gap-1 text-xs font-bold overflow-x-auto">
+              {(['yesterday', 'today', '7d', '30d'] as const).map((p) => {
+                const isActive = currentPreset === p
+                const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : '30 Hari'
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPeriodFilter({ ...periodFilter, ...presetRange(p) })}
+                    className={`px-3 py-1.5 rounded-lg whitespace-nowrap text-xs transition-all active:scale-95 cursor-pointer ${
+                      isActive
+                        ? 'bg-suka-orange text-white shadow-sm font-extrabold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 font-bold'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+              <CustomDateRangePopover
+                from={periodFilter.from}
+                to={periodFilter.to}
+                onChange={(range) => setPeriodFilter({ ...periodFilter, from: range.from, to: range.to })}
+                isActive={currentPreset === null}
+              />
+            </div>
+
+            {/* Status Dropdowns */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <Select 
                 value={posStatusFilter}  
                 onChange={setPosStatusFilter}
                 placeholder="Status POS..."
-                className="w-full sm:min-w-[170px]"
+                className="w-full sm:w-[170px]"
                 options={[
-                  { label: 'Semua Status POS', value: 'ALL', icon: <Monitor className="w-4 h-4 text-gray-500" /> },
+                  { label: 'Semua Status POS', value: 'ALL', icon: <Monitor className="w-4 h-4 text-slate-400" /> },
                   { label: 'POS Terbuka', value: 'OPEN', icon: <Unlock className="w-4 h-4 text-emerald-500" /> },
                   { label: 'POS Terkunci', value: 'LOCKED', icon: <Lock className="w-4 h-4 text-red-500" /> }
                 ]}
@@ -296,9 +442,9 @@ export default function MonitoringPage() {
                 value={crewStatusFilter} 
                 onChange={setCrewStatusFilter}
                 placeholder="Status Crew..."
-                className="w-full sm:min-w-[170px]"
+                className="w-full sm:w-[170px]"
                 options={[
-                  { label: 'Semua Status Crew', value: 'ALL', icon: <Users className="w-4 h-4 text-gray-500" /> },
+                  { label: 'Semua Status Crew', value: 'ALL', icon: <Users className="w-4 h-4 text-slate-400" /> },
                   { label: 'Hadir', value: 'PRESENT', icon: <UserCheck className="w-4 h-4 text-emerald-500" /> },
                   { label: 'Belum / Pulang', value: 'NOT_PRESENT', icon: <UserX className="w-4 h-4 text-red-500" /> }
                 ]}
@@ -309,9 +455,9 @@ export default function MonitoringPage() {
                 searchable
                 placeholder="Pilih Outlet..."
                 searchPlaceholder="Cari outlet..."
-                className="w-full sm:min-w-[220px]"
+                className="w-full sm:w-[220px]"
                 options={[
-                  { label: 'Semua Cabang', value: 'ALL', icon: <MapPin className="w-4 h-4 text-gray-500" /> },
+                  { label: 'Semua Cabang', value: 'ALL', icon: <MapPin className="w-4 h-4 text-slate-400" /> },
                   ...outlets.map(o => ({ label: o.name, value: o.id, icon: <Store className="w-4 h-4 text-indigo-500" /> }))
                 ]}
               />
@@ -385,7 +531,7 @@ export default function MonitoringPage() {
                       // Find staff for this outlet
                       const outletStaff = staffList.filter(s => s.outlet_id === outlet.id)
                       
-                      // Get today's attendance for this outlet
+                      // Get attendance for this outlet within selected period
                       const outletAtt = attendances.filter(a => a.outlet_id === outlet.id)
 
                       // Determine POS Status

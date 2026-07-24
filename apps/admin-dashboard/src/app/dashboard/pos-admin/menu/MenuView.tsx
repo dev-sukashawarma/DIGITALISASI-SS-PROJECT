@@ -206,6 +206,7 @@ export default function MenuView({
   const [channelDropdownOpen, setChannelDropdownOpen] = useState(false)
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [outletSearch, setOutletSearch] = useState('')
+  const [onlinePriceMode, setOnlinePriceMode] = useState<'unified' | 'per_channel'>('unified')
   const fileRef = useRef<HTMLInputElement>(null)
   const channelDropdownRef = useRef<HTMLDivElement>(null)
 

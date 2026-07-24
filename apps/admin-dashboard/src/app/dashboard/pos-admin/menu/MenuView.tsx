@@ -1419,7 +1419,14 @@ export default function MenuView({
                             return hasSpecificChannelPrice(slug) || hasExplicitChannel(slug);
                           };
 
-                          const showPosKasirBadge = !isSpecificFoodApp && activeSlug !== 'all_food_apps' && item.is_available !== false;
+                          const isOfflineAvailable = item.is_available !== false && (
+                            item.available_online_channels === null ||
+                            item.available_online_channels === undefined ||
+                            !Array.isArray(item.available_online_channels) ||
+                            item.available_online_channels.includes('pos_kasir')
+                          );
+
+                          const showPosKasirBadge = !isSpecificFoodApp && activeSlug !== 'all_food_apps' && isOfflineAvailable;
 
                           return (
                             <>

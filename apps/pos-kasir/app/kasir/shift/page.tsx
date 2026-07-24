@@ -574,13 +574,6 @@ export default function ShiftPage() {
         </div>
         {activeShift && (
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            <button
-              onClick={() => setShowTopupModal(true)}
-              className="flex items-center justify-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2.5 sm:py-2 rounded-lg font-bold text-sm transition-colors border border-blue-200 w-full sm:w-auto"
-            >
-              <ArrowDownToLine className="w-4 h-4" />
-              Ajukan Top Up Petty Cash
-            </button>
             <Link
               href="/kasir/shift/close"
               className="flex items-center justify-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 sm:py-2 rounded-lg font-bold text-sm transition-colors border border-red-200 w-full sm:w-auto"
@@ -869,44 +862,7 @@ export default function ShiftPage() {
         </div>
       )}
 
-      {/* Topup Modal */}
-      {showTopupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <ArrowDownToLine className="w-5 h-5 text-blue-500" />
-                Pengajuan Top Up Petty Cash
-              </h3>
-              <button onClick={() => setShowTopupModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button>
-            </div>
-            <form onSubmit={handleAddTopup} className="p-6 space-y-4">
-              <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm mb-4">
-                Pengajuan top up akan berstatus <b>Pending</b> dan menunggu persetujuan Leader/SPV di Dasbor Admin sebelum masuk ke saldo.
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Nominal Tambahan (Rp)</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-400 font-semibold text-sm">Rp</span>
-                  </div>
-                  <input inputMode="numeric" required placeholder="50.000" value={topupAmount ? Number(topupAmount).toLocaleString('id-ID') : ''} onChange={e => setTopupAmount(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting} className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-bold" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Keterangan / Alasan Pengajuan</label>
-                <input type="text" required placeholder="Contoh: Butuh tambahan uang receh untuk kembalian" value={topupDesc} onChange={e => setTopupDesc(e.target.value)} disabled={isSubmitting} className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowTopupModal(false)} disabled={isSubmitting} className="flex-1 py-2.5 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">Batal</button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
 
       {/* Receipt Image Modal */}
       {selectedReceiptUrl && (

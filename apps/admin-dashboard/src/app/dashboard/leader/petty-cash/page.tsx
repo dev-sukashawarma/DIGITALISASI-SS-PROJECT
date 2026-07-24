@@ -39,6 +39,20 @@ function formatDateTime(iso: string) {
   }
 }
 
+function formatRole(role?: string) {
+  if (!role) return 'Staff'
+  const map: Record<string, string> = {
+    leader: 'Leader',
+    area_manager: 'Area Manager',
+    admin_finance: 'Finance',
+    crew: 'Crew',
+    admin: 'Admin',
+    owner: 'Owner',
+    spv: 'Supervisor'
+  }
+  return map[role] || role.replace('_', ' ').toUpperCase()
+}
+
 function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
   if (!imageUrl) return null
   return (
@@ -87,6 +101,7 @@ export default function LeaderPettyCashPage() {
   const [outlets, setOutlets] = useState<any[]>([])
   const [selectedOutletId, setSelectedOutletId] = useState<string>('')
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<{ name: string; role: string } | null>(null)
   
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('')
@@ -143,16 +158,17 @@ export default function LeaderPettyCashPage() {
       if (user) {
         const { data: staffData } = await supabase
           .from('outlet_staff')
-          .select('id, role, outlet_id')
+          .select('id, name, role, outlet_id')
           .eq('id', user.id)
           .maybeSingle()
+        if (staffData) setUserProfile(staffData)
         staff = staffData
       }
 
       if (!staff) {
         const { data: leaderStaff } = await supabase
           .from('outlet_staff')
-          .select('id, role, outlet_id')
+          .select('id, name, role, outlet_id')
           .eq('role', 'leader')
           .limit(1)
           .maybeSingle()
@@ -308,7 +324,14 @@ export default function LeaderPettyCashPage() {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Top Up Petty Cash Outlet</h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium">Kelola & pantau status pengajuan dana operasional cabang.</p>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+              {userProfile && (
+                <span className="font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md mr-2">
+                  USER: {userProfile.name} ({formatRole(userProfile.role)})
+                </span>
+              )}
+              Kelola & pantau status pengajuan dana operasional cabang.
+            </p>
           </div>
         </div>
         <button 
@@ -320,7 +343,7 @@ export default function LeaderPettyCashPage() {
         </button>
       </div>
 
-      {/* FORM SECTION - Solid Fills, Clean Inputs */}
+      {/* FORM SECTION */}
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-7 shadow-xs space-y-6 animate-in fade-in duration-200">
           
@@ -374,7 +397,7 @@ export default function LeaderPettyCashPage() {
             </div>
           </div>
 
-          {/* STEP 2: DETAILS & BANK INFO (Clean UI Refactor) */}
+          {/* STEP 2: DETAILS & BANK INFO */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
             <div className="space-y-4">
               <div>
@@ -415,7 +438,7 @@ export default function LeaderPettyCashPage() {
               </div>
             </div>
 
-            {/* Clean Bank Account Card (NO yellow box / overlapping text) */}
+            {/* Clean Bank Account Card */}
             <div className="bg-slate-50 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
                 <div className="flex items-center gap-2">
@@ -508,8 +531,6 @@ export default function LeaderPettyCashPage() {
 
           {/* SEARCH & FILTER CONTROLS */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 pt-1">
-            
-            {/* Search Input */}
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
@@ -529,7 +550,6 @@ export default function LeaderPettyCashPage() {
               )}
             </div>
 
-            {/* Status Filter Chips */}
             <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
               <button
                 onClick={() => setStatusFilter('all')}

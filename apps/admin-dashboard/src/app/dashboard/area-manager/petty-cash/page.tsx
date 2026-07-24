@@ -62,6 +62,20 @@ function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; on
   )
 }
 
+function formatRole(role?: string) {
+  if (!role) return 'Staff'
+  const map: Record<string, string> = {
+    leader: 'Leader',
+    area_manager: 'Area Manager',
+    admin_finance: 'Finance',
+    crew: 'Crew',
+    admin: 'Admin',
+    owner: 'Owner',
+    spv: 'Supervisor'
+  }
+  return map[role] || role.replace('_', ' ').toUpperCase()
+}
+
 export default function AreaManagerPettyCashPage() {
   const supabase = createClient()
   const [requests, setRequests] = useState<TopupRequest[]>([])
@@ -69,6 +83,7 @@ export default function AreaManagerPettyCashPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isProcessing, setIsProcessing] = useState<string | null>(null)
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<{ name: string; role: string } | null>(null)
 
   // Tabs: 'review' | 'history'
   const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')
@@ -82,7 +97,20 @@ export default function AreaManagerPettyCashPage() {
     else setIsRefreshing(true)
 
     try {
-      const res = await getAreaManagerPettyCashTopups()
+      const [res, { data: authUser }] = await Promise.all([
+        getAreaManagerPettyCashTopups(),
+        supabase.auth.getUser()
+      ])
+
+      if (authUser?.user && !userProfile) {
+        const { data: staff } = await supabase
+          .from('outlet_staff')
+          .select('name, role')
+          .eq('id', authUser.user.id)
+          .maybeSingle()
+        if (staff) setUserProfile(staff)
+      }
+
       if (!res.success) throw new Error(res.error)
 
       if (res.data) {
@@ -100,7 +128,7 @@ export default function AreaManagerPettyCashPage() {
       setLoading(false)
       setIsRefreshing(false)
     }
-  }, [])
+  }, [supabase, userProfile])
 
   useEffect(() => {
     loadRequests()
@@ -250,7 +278,14 @@ export default function AreaManagerPettyCashPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               Dashboard Area Manager - Approval Petty Cash
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium">Review pengajuan dana dari cabang Wilayah Bogor & kelola serah terima ke Leader.</p>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+              {userProfile && (
+                <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md mr-2">
+                  USER: {userProfile.name} ({formatRole(userProfile.role)})
+                </span>
+              )}
+              Review pengajuan dana dari cabang Wilayah Bogor & kelola serah terima ke Leader.
+            </p>
           </div>
         </div>
 
@@ -265,7 +300,7 @@ export default function AreaManagerPettyCashPage() {
         </button>
       </div>
 
-      {/* TABS NAVIGATION - Solid Pills */}
+      {/* TABS NAVIGATION */}
       <div className="flex border-b border-slate-200 gap-2 overflow-x-auto pb-1">
         <button
           onClick={() => setActiveTab('review')}

@@ -6,6 +6,24 @@ import { LogOut, User, Search } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { labelForPath } from './navConfig'
 
+function formatRoleName(role?: string) {
+  if (!role) return 'Staff'
+  const map: Record<string, string> = {
+    leader: 'Leader',
+    area_manager: 'Area Manager',
+    admin_finance: 'Finance',
+    admin_hr: 'HR Admin',
+    staff_pusat: 'Staff Pusat',
+    owner: 'Owner',
+    spv: 'Supervisor',
+    crew: 'Crew',
+    admin: 'Admin',
+    kitchen: 'Kitchen',
+    mitra: 'Mitra',
+  }
+  return map[role] || role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
+
 export const Header = () => {
   const { outletStaff, signOut } = useAuth()
   const pathname = usePathname()
@@ -23,12 +41,12 @@ export const Header = () => {
   }
 
   return (
-    <header className="bg-white border-b border-suka-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center gap-3 shadow-sm flex-shrink-0 print:hidden">
+    <header className="bg-white border-b border-suka-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center gap-3 shadow-xs flex-shrink-0 print:hidden font-sans">
       <div className="min-w-0">
         <h1 className="text-base sm:text-lg font-extrabold text-suka-brown tracking-tight truncate">{title}</h1>
         {outletStaff && (
           <p className="text-[10px] sm:text-xs font-bold text-suka-orange mt-0.5 uppercase tracking-wider truncate">
-            User: {outletStaff.name}
+            USER: {outletStaff.name} ({formatRoleName(outletStaff.role)})
           </p>
         )}
       </div>
@@ -44,16 +62,18 @@ export const Header = () => {
         >
           <Search className="w-3.5 h-3.5" />
           <span>Cari...</span>
-          <kbd className="bg-white px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold border border-gray-200 text-gray-400">⌘K</kbd>
+          <kbd className="bg-white px-1.5 py-0.5 rounded shadow-xs text-[10px] font-bold border border-gray-200 text-gray-400">⌘K</kbd>
         </button>
 
-        {/* User profile capsule */}
+        {/* User profile capsule with Name & Role */}
         {outletStaff && (
-          <div className="hidden sm:flex items-center gap-2 bg-suka-cream px-3 py-1.5 rounded-full border border-suka-brown/5">
+          <div className="hidden sm:flex items-center gap-2 bg-suka-cream px-3 py-1.5 rounded-full border border-suka-brown/10">
             <div className="w-5 h-5 rounded-full bg-suka-brown/10 flex items-center justify-center">
               <User className="w-3.5 h-3.5 text-suka-brown" />
             </div>
-            <span className="text-xs font-bold text-suka-brown">{outletStaff.name}</span>
+            <span className="text-xs font-bold text-suka-brown">
+              {outletStaff.name} <span className="opacity-75 font-semibold text-[11px]">({formatRoleName(outletStaff.role)})</span>
+            </span>
           </div>
         )}
 

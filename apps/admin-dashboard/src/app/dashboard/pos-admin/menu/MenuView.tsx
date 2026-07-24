@@ -553,7 +553,15 @@ export default function MenuView({
       await saveMenuItem(payload as any)
       closeForm()
     } catch (err: any) {
-      setError(err.message)
+      const errMsg = err?.message || String(err || '')
+      if (errMsg.includes('Server Action') || errMsg.includes('not found on the server') || err?.digest?.includes('ACTION_NOT_FOUND')) {
+        setError('Versi aplikasi di browser Anda usang. Memuat ulang halaman...')
+        setTimeout(() => {
+          window.location.reload()
+        }, 600)
+        return
+      }
+      setError(errMsg)
     }
     setSaving(false)
   }

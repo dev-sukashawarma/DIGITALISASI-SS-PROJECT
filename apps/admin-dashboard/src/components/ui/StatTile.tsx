@@ -1,13 +1,14 @@
 import React from 'react'
 import { LucideIcon, HelpCircle } from 'lucide-react'
 
-type Accent = 'orange' | 'green' | 'brown' | 'red'
+type Accent = 'orange' | 'green' | 'brown' | 'red' | 'blue'
 
 const ACCENT: Record<Accent, { icon: string; iconBg: string; sub: string }> = {
   orange: { icon: 'text-suka-orange', iconBg: 'bg-suka-orange/10', sub: 'text-suka-orange' },
   green: { icon: 'text-suka-green', iconBg: 'bg-suka-green/10', sub: 'text-suka-green' },
   brown: { icon: 'text-suka-brown', iconBg: 'bg-suka-brown/10', sub: 'text-suka-brown' },
   red: { icon: 'text-red-600', iconBg: 'bg-red-500/10', sub: 'text-red-600' },
+  blue: { icon: 'text-blue-600', iconBg: 'bg-blue-500/10', sub: 'text-blue-600' },
 }
 
 /**

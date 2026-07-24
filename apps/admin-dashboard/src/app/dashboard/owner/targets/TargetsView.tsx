@@ -355,7 +355,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
         title="Target & Pesan Kasir"
         description="Atur target omzet harian cabang, bonus insentif per porsi, serta kirim pengumuman atau pesan motivasi langsung ke layar kasir."
       >
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 mt-3 sm:mt-0">
           <span className="text-xs font-bold text-suka-brown bg-suka-cream px-3 py-1.5 rounded-full border border-suka-brown/10">
             Target Global: {rupiah(globalDefault)} / hari
           </span>
@@ -372,9 +372,9 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
           {/* ── Form Utama (Langkah 1, 2, 3) ── */}
           <div className="lg:col-span-7 bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden flex flex-col justify-between">
             {/* Form Header */}
-            <div className="p-5 sm:p-6 bg-white border-b border-suka-gray-100 flex items-center justify-between">
+            <div className="p-4 sm:p-6 bg-white border-b border-suka-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-suka-brown text-white flex items-center justify-center font-black shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-suka-brown text-white flex items-center justify-center font-black shadow-sm shrink-0">
                   <Send className="w-5 h-5" />
                 </div>
                 <div>
@@ -386,7 +386,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
               <button
                 type="button"
                 onClick={() => setIsFormOpen(!isFormOpen)}
-                className="text-xs font-bold text-suka-brown bg-suka-cream hover:bg-suka-orange/10 px-3.5 py-1.5 rounded-xl transition-all border border-suka-brown/10 flex items-center gap-1.5"
+                className="w-full sm:w-auto justify-center text-xs font-bold text-suka-brown bg-suka-cream hover:bg-suka-orange/10 px-3.5 py-2 sm:py-1.5 rounded-xl transition-all border border-suka-brown/10 flex items-center gap-1.5"
               >
                 {isFormOpen ? <>Tutup Form <ChevronUp className="w-4 h-4" /></> : <>Buka Form <ChevronDown className="w-4 h-4" /></>}
               </button>
@@ -396,44 +396,50 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
               <div className="p-5 sm:p-6 space-y-6">
                 {/* ── LANGKAH 1: PILIH PENERIMA ── */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-suka-brown text-white font-black text-xs flex items-center justify-center">1</span>
-                    <h3 className="font-bold text-suka-brown text-sm">Pilih Cabang / Outlet Penerima</h3>
+                  <div className="flex items-center gap-2.5">
+                    <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-suka-orange font-black text-[10px] uppercase tracking-widest border border-orange-200 shadow-[0_2px_4px_rgba(234,88,12,0.1)]">Langkah 1</span>
+                    <h3 className="font-extrabold text-suka-brown text-sm">Pilih Cabang / Outlet Penerima</h3>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setAudienceAll(true)}
-                      className={`p-3.5 rounded-2xl border text-left transition-all active:scale-[.98] flex items-center gap-3 ${
+                      className={`p-3.5 rounded-2xl border text-left transition-all active:scale-[.98] flex items-center gap-3 relative overflow-hidden ${
                         audienceAll
-                          ? 'bg-suka-brown text-white border-suka-brown shadow-sm'
-                          : 'bg-white text-suka-gray-700 border-suka-gray-200 hover:border-suka-brown/30'
+                          ? 'bg-orange-50/60 text-suka-brown border-suka-orange shadow-[0_4px_16px_rgba(234,88,12,0.08)]'
+                          : 'bg-white text-suka-gray-600 border-suka-gray-200 hover:border-suka-brown/20 hover:bg-suka-cream/30'
                       }`}
                     >
-                      <Globe className={`w-5 h-5 shrink-0 ${audienceAll ? 'text-white' : 'text-suka-brown'}`} />
-                      <div>
-                        <p className="font-bold text-xs leading-tight">Semua Outlet</p>
-                        <p className={`text-[10px] mt-0.5 ${audienceAll ? 'text-suka-cream/80' : 'text-suka-gray-400'}`}>Terkirim ke seluruh cabang</p>
+                      <div className={`p-2 rounded-xl shrink-0 transition-colors ${audienceAll ? 'bg-white text-suka-orange shadow-sm border border-orange-100' : 'bg-suka-gray-50 text-suka-gray-400'}`}>
+                        <Globe className="w-4 h-4" />
                       </div>
+                      <div className="flex-1 z-10">
+                        <p className={`font-extrabold text-xs leading-tight ${audienceAll ? 'text-suka-brown' : ''}`}>Semua Outlet</p>
+                        <p className={`text-[10px] mt-0.5 font-medium ${audienceAll ? 'text-suka-orange' : 'text-suka-gray-400'}`}>Terkirim ke seluruh cabang</p>
+                      </div>
+                      {audienceAll && <CheckCircle2 className="w-8 h-8 text-suka-orange absolute -right-2 -bottom-2 opacity-10" />}
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setAudienceAll(false)}
-                      className={`p-3.5 rounded-2xl border text-left transition-all active:scale-[.98] flex items-center gap-3 ${
+                      className={`p-3.5 rounded-2xl border text-left transition-all active:scale-[.98] flex items-center gap-3 relative overflow-hidden ${
                         !audienceAll
-                          ? 'bg-suka-brown text-white border-suka-brown shadow-sm'
-                          : 'bg-white text-suka-gray-700 border-suka-gray-200 hover:border-suka-brown/30'
+                          ? 'bg-orange-50/60 text-suka-brown border-suka-orange shadow-[0_4px_16px_rgba(234,88,12,0.08)]'
+                          : 'bg-white text-suka-gray-600 border-suka-gray-200 hover:border-suka-brown/20 hover:bg-suka-cream/30'
                       }`}
                     >
-                      <Store className={`w-5 h-5 shrink-0 ${!audienceAll ? 'text-white' : 'text-suka-brown'}`} />
-                      <div>
-                        <p className="font-bold text-xs leading-tight">Pilih Spesifik</p>
-                        <p className={`text-[10px] mt-0.5 ${!audienceAll ? 'text-suka-cream/80' : 'text-suka-gray-400'}`}>
-                          {selectedOutlets.size > 0 ? `${selectedOutlets.size} cabang dipilih` : 'Pilih outlet tertentu'}
+                      <div className={`p-2 rounded-xl shrink-0 transition-colors ${!audienceAll ? 'bg-white text-suka-orange shadow-sm border border-orange-100' : 'bg-suka-gray-50 text-suka-gray-400'}`}>
+                        <Store className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 z-10">
+                        <p className={`font-extrabold text-xs leading-tight ${!audienceAll ? 'text-suka-brown' : ''}`}>Pilih Spesifik</p>
+                        <p className={`text-[10px] mt-0.5 font-medium ${!audienceAll ? 'text-suka-orange' : 'text-suka-gray-400'}`}>
+                          {selectedOutlets.size > 0 ? `${selectedOutlets.size} cabang dipilih` : 'Pilih cabang tertentu'}
                         </p>
                       </div>
+                      {!audienceAll && <CheckCircle2 className="w-8 h-8 text-suka-orange absolute -right-2 -bottom-2 opacity-10" />}
                     </button>
                   </div>
 
@@ -485,46 +491,46 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
 
                 {/* ── LANGKAH 2: TARGET & BONUS SALES ── */}
                 <div className="space-y-3 pt-4 border-t border-suka-gray-100">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-suka-brown text-white font-black text-xs flex items-center justify-center">2</span>
-                    <h3 className="font-bold text-suka-brown text-sm">Target Omzet & Bonus Sales <span className="text-suka-gray-400 font-normal">(Opsional)</span></h3>
+                  <div className="flex items-center gap-2.5">
+                    <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-suka-orange font-black text-[10px] uppercase tracking-widest border border-orange-200 shadow-[0_2px_4px_rgba(234,88,12,0.1)]">Langkah 2</span>
+                    <h3 className="font-extrabold text-suka-brown text-sm">Target Omzet & Bonus Sales <span className="text-suka-gray-400 font-normal">(Opsional)</span></h3>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Target Amount */}
                     <div className="space-y-1">
-                      <label className="block text-xs font-bold text-suka-brown flex items-center gap-1.5">
+                      <label className="block text-[11px] font-extrabold text-suka-brown uppercase tracking-widest flex items-center gap-1.5">
                         <TargetIcon className="w-4 h-4 text-suka-brown" /> Target Omzet Harian
                       </label>
-                      <div className="relative">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs">Rp</span>
+                      <div className="relative group">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs group-focus-within:text-suka-orange transition-colors">Rp</span>
                         <input
                           inputMode="numeric"
                           value={targetInput ? Number(targetInput).toLocaleString('id-ID') : ''}
                           onChange={(e) => setTargetInput(e.target.value.replace(/\D/g, ''))}
                           placeholder="misal: 5.000.000"
-                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown focus:bg-white transition-all"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-black text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
                         />
                       </div>
-                      <p className="text-[11px] text-suka-gray-400 font-medium">Target omzet penjualan harian untuk kasir</p>
+                      <p className="text-[10px] text-suka-gray-400 font-medium">Target omzet penjualan harian untuk kasir</p>
                     </div>
 
                     {/* Bonus per Item */}
                     <div className="space-y-1">
-                      <label className="block text-xs font-bold text-suka-brown flex items-center gap-1.5">
+                      <label className="block text-[11px] font-extrabold text-suka-brown uppercase tracking-widest flex items-center gap-1.5">
                         <Sparkles className="w-4 h-4 text-suka-brown" /> Bonus Per Item Terjual
                       </label>
-                      <div className="relative">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs">Rp</span>
+                      <div className="relative group">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs group-focus-within:text-suka-orange transition-colors">Rp</span>
                         <input
                           inputMode="numeric"
                           value={bonusInput ? Number(bonusInput).toLocaleString('id-ID') : ''}
                           onChange={(e) => setBonusInput(e.target.value.replace(/\D/g, ''))}
                           placeholder="misal: 150.000"
-                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown focus:bg-white transition-all"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-black text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
                         />
                       </div>
-                      <p className="text-[11px] text-suka-gray-400 font-medium">Nominal bonus tambahan per item terjual</p>
+                      <p className="text-[10px] text-suka-gray-400 font-medium">Nominal bonus tambahan per item terjual</p>
                     </div>
                   </div>
                 </div>
@@ -532,14 +538,14 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                 {/* ── LANGKAH 3: TULIS PESAN KASIR ── */}
                 <div className="space-y-3 pt-4 border-t border-suka-gray-100">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-suka-brown text-white font-black text-xs flex items-center justify-center">3</span>
-                      <h3 className="font-bold text-suka-brown text-sm">Pesan Pengumuman & Motivasi <span className="text-suka-gray-400 font-normal">(Opsional)</span></h3>
+                    <div className="flex items-center gap-2.5">
+                      <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-suka-orange font-black text-[10px] uppercase tracking-widest border border-orange-200 shadow-[0_2px_4px_rgba(234,88,12,0.1)]">Langkah 3</span>
+                      <h3 className="font-extrabold text-suka-brown text-sm">Pesan Pengumuman & Motivasi <span className="text-suka-gray-400 font-normal">(Opsional)</span></h3>
                     </div>
                   </div>
 
                   {/* Jenis Pesan */}
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {KINDS.map((k) => {
                       const Icon = k.icon
                       const active = kind === k.key
@@ -548,34 +554,37 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                           key={k.key}
                           type="button"
                           onClick={() => setKind(k.key)}
-                          className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                          className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 relative overflow-hidden ${
                             active
-                              ? 'bg-suka-brown text-white border-suka-brown font-bold shadow-xs'
-                              : 'bg-white border-suka-gray-200 text-suka-gray-600 hover:bg-suka-cream/50'
+                              ? 'bg-white shadow-[0_4px_16px_rgba(0,0,0,0.06)]'
+                              : 'bg-suka-gray-50/50 border-suka-gray-200 hover:bg-white hover:shadow-sm'
                           }`}
+                          style={{ borderColor: active ? k.color : undefined }}
                         >
-                          <Icon className="w-5 h-5" style={{ color: active ? '#ffffff' : k.color }} />
-                          <span className="text-xs font-bold">{k.label}</span>
+                          <div className={`p-2 rounded-xl transition-colors ${active ? 'bg-white' : 'bg-white shadow-xs'}`} style={{ color: active ? k.color : '#9ca3af' }}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <span className={`text-[11px] font-extrabold uppercase tracking-widest ${active ? 'text-suka-ink' : 'text-suka-gray-400'}`}>{k.label}</span>
+                          {active && <div className="absolute top-0 left-0 w-full h-1" style={{ backgroundColor: k.color }} />}
                         </button>
                       )
                     })}
                   </div>
 
                   {/* Template Pesan Cepat */}
-                  <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold text-suka-gray-400 uppercase tracking-wider">
-                      💡 Pilih Template Pesan Cepat (1 Klik):
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-suka-gray-400 uppercase tracking-widest">
+                      💡 Template Cepat:
                     </label>
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1">
                       {QUOTES.map((q, idx) => (
                         <button
                           key={idx}
                           type="button"
                           onClick={() => setBody(q)}
-                          className="w-full text-left p-2.5 rounded-xl text-xs font-medium text-suka-brown bg-suka-cream hover:bg-suka-orange/10 border border-suka-brown/10 transition-colors flex items-center justify-between gap-2"
+                          className="text-left px-3 py-1.5 rounded-full text-[11px] font-bold text-suka-brown bg-suka-cream hover:bg-orange-50 border border-suka-brown/10 hover:border-orange-200 transition-colors flex items-center gap-1.5"
                         >
-                          <span className="line-clamp-1">{q}</span>
-                          <span className="text-[10px] font-bold text-suka-brown bg-white px-2 py-0.5 rounded-md shrink-0 border border-suka-brown/20">Pakai</span>
+                          <span className="line-clamp-1 max-w-[200px]">{q}</span>
                         </button>
                       ))}
                     </div>
@@ -589,7 +598,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Judul Pesan (Opsional), contoh: Semangat Pagi!"
                       maxLength={80}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown focus:bg-white"
+                      className="w-full px-4 py-3 rounded-xl text-xs font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
                     />
 
                     <div>
@@ -599,7 +608,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                         rows={3}
                         placeholder={title.trim() ? 'Tulis isi pesan lengkap di sini...' : 'Tulis pesan untuk kasir... (Kosongkan jika hanya mengatur target omzet)'}
                         maxLength={500}
-                        className="w-full p-3 rounded-xl text-xs font-medium text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown focus:bg-white resize-none"
+                        className="w-full p-4 rounded-xl text-xs font-medium text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all resize-none"
                       />
                       <p className="text-[10px] text-suka-gray-400 font-semibold text-right mt-1">{body.length}/500 Karakter</p>
                     </div>
@@ -607,7 +616,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
 
                   {/* Masa Berlaku Pesan */}
                   <div className="space-y-2 pt-2">
-                    <label className="block text-xs font-bold text-suka-brown flex items-center gap-1.5">
+                    <label className="block text-[11px] font-extrabold text-suka-brown uppercase tracking-widest flex items-center gap-1.5">
                       <Clock className="w-4 h-4 text-suka-brown" /> Masa Berlaku Tampil Pesan
                     </label>
                     <div className="flex flex-wrap gap-1.5">
@@ -616,10 +625,10 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                           key={p.key}
                           type="button"
                           onClick={() => setExpiryKey(p.key)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
                             expiryKey === p.key
-                              ? 'bg-suka-brown text-white border-suka-brown shadow-xs'
-                              : 'bg-white text-suka-gray-600 border-suka-gray-200 hover:bg-suka-cream/50'
+                              ? 'bg-orange-50 text-suka-orange border-orange-200'
+                              : 'bg-white text-suka-gray-500 border-suka-gray-200 hover:bg-suka-gray-50'
                           }`}
                         >
                           {p.label}
@@ -631,13 +640,13 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                         type="datetime-local"
                         value={customExpiry}
                         onChange={(e) => setCustomExpiry(e.target.value)}
-                        className="mt-2 w-full px-3 py-2 rounded-xl text-xs font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown"
+                        className="mt-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
                       />
                     )}
                   </div>
                 </div>
 
-                {/* ── TOMBOL SUBMIT EKSPLISIT (Solid Color, No Gradient) ── */}
+                {/* ── TOMBOL SUBMIT EKSPLISIT ── */}
                 <button
                   type="button"
                   onClick={submit}
@@ -647,7 +656,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                     (hasBonus && !hasTarget) || 
                     (!hasTarget && body.trim().length === 0)
                   }
-                  className="w-full py-3.5 px-6 rounded-2xl bg-suka-brown hover:bg-suka-ink text-white font-extrabold text-sm shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[.99] flex items-center justify-center gap-2 mt-4"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white font-extrabold text-sm shadow-[0_8px_20px_rgba(44,24,16,0.15)] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[.99] flex items-center justify-center gap-2 mt-4"
                 >
                   {sending ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -673,12 +682,12 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
           {/* ── Riwayat Pesan Terkirim ── */}
           <div className="lg:col-span-5 bg-white rounded-2xl border border-suka-gray-200 shadow-sm p-5 sm:p-6 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-suka-gray-100">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-suka-gray-100">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-suka-brown" />
                   <h3 className="font-extrabold text-suka-brown text-base uppercase tracking-tight">Riwayat Pesan Kasir</h3>
                 </div>
-                <span className="text-xs font-bold text-suka-gray-400">{history.length} Terkirim</span>
+                <span className="text-[10px] font-black text-suka-brown bg-suka-cream border border-suka-brown/10 px-3 py-1.5 rounded-full">{history.length} Terkirim</span>
               </div>
 
               {history.length === 0 ? (
@@ -693,26 +702,28 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                     const meta = KINDS.find((k) => k.key === m.kind) ?? KINDS[0]
                     const Icon = meta.icon
                     return (
-                      <div key={m.id} className="p-4 rounded-2xl border border-suka-gray-100 bg-suka-cream/30 hover:bg-suka-cream/80 transition-colors space-y-2.5">
+                      <div key={m.id} className="p-4 rounded-2xl border border-suka-gray-200/60 bg-white/40 backdrop-blur-xl hover:bg-white/80 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] transition-all duration-300 space-y-3 relative overflow-hidden group">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${meta.color}1a` }}>
-                              <Icon className="w-4 h-4" style={{ color: meta.color }} />
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
+                              <Icon className="w-4 h-4" />
                             </div>
                             <div>
-                              <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</span>
-                              {m.title && <h4 className="text-xs font-bold text-suka-brown leading-tight">{m.title}</h4>}
+                              <span className="text-[9px] font-black uppercase tracking-widest opacity-80" style={{ color: meta.color }}>{meta.label}</span>
+                              {m.title && <h4 className="text-xs font-extrabold text-suka-ink leading-tight mt-0.5">{m.title}</h4>}
                             </div>
                           </div>
 
                           {m.is_live ? (
-                            <span className="text-[10px] font-bold text-suka-green bg-suka-green/10 px-2 py-0.5 rounded-full shrink-0">🟢 AKTIF</span>
+                            <span className="text-[9px] font-black text-suka-green border border-suka-green/20 px-2.5 py-1 rounded-full shrink-0 flex items-center gap-1 shadow-[0_2px_8px_rgba(34,197,94,0.15)]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-suka-green animate-pulse" /> AKTIF
+                            </span>
                           ) : (
-                            <span className="text-[10px] font-bold text-suka-gray-400 bg-suka-gray-100 px-2 py-0.5 rounded-full shrink-0">SELESAI</span>
+                            <span className="text-[9px] font-bold text-suka-gray-400 border border-suka-gray-200 px-2 py-0.5 rounded-full shrink-0">SELESAI</span>
                           )}
                         </div>
 
-                        <p className="text-xs text-suka-brown leading-relaxed font-medium bg-white p-2.5 rounded-xl border border-suka-gray-100">{m.body}</p>
+                        <p className="text-xs text-suka-gray-600 leading-relaxed font-medium bg-white/60 p-3 rounded-xl shadow-inner border border-white">{m.body}</p>
 
                         <div className="flex items-center justify-between text-[11px] font-semibold text-suka-gray-400 pt-1">
                           <div className="flex items-center gap-3">
@@ -784,8 +795,8 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="overflow-x-auto pb-2">
+          <table className="w-full min-w-[800px] text-left text-xs whitespace-nowrap">
             <thead className="bg-suka-cream/50 text-suka-gray-500 uppercase tracking-wider font-extrabold border-b border-suka-gray-100">
               <tr>
                 <th className="py-3.5 px-5">Nama Cabang / Outlet</th>

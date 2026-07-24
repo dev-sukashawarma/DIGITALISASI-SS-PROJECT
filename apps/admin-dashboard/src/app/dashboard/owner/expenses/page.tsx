@@ -8,7 +8,7 @@ import { useRole } from '@/components/layout/RoleContext'
 import { PageHeader, StatTile, Section, StatTilesSkeleton } from '@/components/ui'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import CountUp from 'react-countup'
-import { Wallet, TrendingDown } from 'lucide-react'
+import { Wallet, TrendingDown, Search, Award } from 'lucide-react'
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import dynamic from 'next/dynamic'
 
@@ -61,6 +61,7 @@ export default function ExpensesPage() {
   const amountBulanan = useMemo(() => filteredRows.filter(r => r.source === 'monthly').reduce((s, r) => s + r.amount, 0), [filteredRows])
   const amountPettyCash = useMemo(() => filteredRows.filter(r => r.source === 'petty_cash').reduce((s, r) => s + r.amount, 0), [filteredRows])
   const totalWaste = useMemo(() => wasteRows.reduce((s, r) => s + r.nilai_waste, 0), [wasteRows])
+  const totalTransaksi = filteredRows.length
 
   const byCategory = useMemo(() => {
     const map = new Map<string, number>()
@@ -72,6 +73,8 @@ export default function ExpensesPage() {
       categoryKey: category
     })).sort((a, b) => b.value - a.value)
   }, [filteredRows])
+
+  const topCategory = byCategory.length > 0 ? byCategory[0].name : '-'
 
   const selectOptions = [
     { label: '🏪 Semua Outlet', value: 'all' },
@@ -106,13 +109,27 @@ export default function ExpensesPage() {
         <StatTilesSkeleton count={3} />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatTile
               label="Total Pengeluaran"
               value={<><span className="text-lg align-top">Rp </span><CountUp end={totalAmount} duration={1} separator="." /></>}
               sub={titleText + ` (Bulanan: Rp ${(amountBulanan/1000).toLocaleString('id-ID')}k | Kas Kecil: Rp ${(amountPettyCash/1000).toLocaleString('id-ID')}k)`}
               icon={Wallet}
               accent="brown"
+            />
+            <StatTile
+              label="Total Transaksi"
+              value={<><CountUp end={totalTransaksi} duration={1} separator="." /></>}
+              sub="Frekuensi pencatatan pengeluaran"
+              icon={Search}
+              accent="blue"
+            />
+            <StatTile
+              label="Kategori Terbesar"
+              value={<span className="text-xl leading-tight">{topCategory}</span>}
+              sub={byCategory.length > 0 ? `Total: Rp ${(byCategory[0].value/1000).toLocaleString('id-ID')}k` : 'Belum ada data'}
+              icon={Award}
+              accent="orange"
             />
             {!isPusat && (
               <StatTile

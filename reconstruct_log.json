@@ -1,0 +1,226 @@
+{
+  "pawoon.ts": [
+    {
+      "name": "write_to_file",
+      "args": {
+        "CodeContent": "'use server';\n\nimport { createClient } from '@supabase/supabase-js';\nimport * as xlsx from 'xlsx';\nimport { v4 as uuidv4 } from 'uuid';\nimport fs from 'fs';\nimport path from 'path';\n\n// Setup Supabase (Server side)\nconst supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;\nconst supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;\nconst supabase = createClient(supabaseUrl, supabaseKey);\n\nexport async function previewPawoonFile(formData: FormData) {\n    try {\n        const file = formData.get('file') as File;\n        if (!file) {\n            return { success: false, error: \"No file provided\" };\n        }\n\n        const buffer = await file.arrayBuffer();\n        const workbook = xlsx.read(buffer, { type: 'buffer' });\n        const sheetName = workbook.SheetNames[0];\n        const sheet = workbook.Sheets[sheetName];\n        const data = xlsx.utils.sheet_to_json<any[]>(sheet, { header: 1 });\n\n        // Load mapping\n        const mapPath = path.join(process.cwd(), 'src', 'data', 'pawoon_item_map.json');\n        let itemMap = { mapping: {} as Record<string, { system_id: string, name: string }> };\n        if (fs.existsSync(mapPath)) {\n            itemMap = JSON.parse(fs.readFileSync(mapPath, 'utf8'));\n        } else {\n            return { success: false, error: \"Mapping file not found\" };\n        }\n\n        // Load outlets\n        const { data: outletsData, error: outletsError } = await supabase.from('outlets').select('id, name');\n        if (outletsError) {\n            return { success: false, error: \"Failed to fetch outlets\" };\n        }\n        \n        const outletIdMap: Record<string, string> = {};\n        outletsData.forEach(o => {\n            const normalName = o.name.toLowerCase().replace('suka shawarma ', '').trim();\n            outletIdMap[normalName] = o.id;\n            outletIdMap[o.name.toLowerCase()] = o.id;\n        });\n\n        let headerRowIdx = -1;\n        for (let i = 0; i < 20; i++) {\n            const rowStr = (data[i] || []).join(' ').toLowerCase();\n            if (rowStr.includes('id struk') || rowStr.includes('nama produk')) {\n                headerRowIdx = i;\n                break;\n            }\n        }\n\n        if (headerRowIdx === -1) {\n            return { success: false, error: \"Format Excel tidak dikenali (Header ID Struk tidak ditemukan)\" };\n        }\n\n        const headers = (data[headerRowIdx] as string[]).map(h => typeof h === 'string' ? h.toLowerCase() : '');\n        const colIdx = {\n            date: headers.findIndex(h => h.includes('waktu')),\n            receipt: headers.findIndex(h => h.includes('id struk')),\n            outlet: headers.findIndex(h => h === 'outlet'),\n            product: headers.findIndex(h => h.includes('nama produk')),\n            qty: headers.findIndex(h => h.includes('jumlah produk')),\n            price: headers.findIndex(h => h.includes('harga produk')),\n            cat: headers.findIndex(h => h === 'kategori'),\n            status: headers.findIndex(h => h.includes('status pembayaran')),\n            total: headers.findIndex(h => h === 'total'),\n            payment: headers.findIndex(h => h === 'metode pembayaran')\n        };\n\n        const ordersMap = new Map<string, any>();\n        let unmappedItems = new Set<string>();\n        let unmappedOutlets = new Set<string>();\n        \n        // Items Sales Tracker\n        const itemSalesTracker: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number }> = {};\n\n        for (let i = headerRowIdx + 1; i < data.length; i++) {\n            const row = data[i];\n            if (!row || !row[colIdx.receipt]) continue;\n            \n            const receipt = row[colIdx.receipt].toString().trim();\n            const status = row[colIdx.status] ? row[colIdx.status].toString() : '';\n            if (status.toLowerCase() !== 'success') continue; \n            \n            let productName = row[colIdx.product] ? row[colIdx.product].toString().trim() : '';\n            if (!productName || productName.startsWith('+')) continue; \n\n            const rawOutlet = row[colIdx.outlet] ? row[colIdx.outlet].toString().trim() : '';\n            const normalOutlet = rawOutlet.toLowerCase().replace('suka shawarma ', '').trim();\n            const outletId = outletIdMap[normalOutlet] || outletIdMap[rawOutlet.toLowerCase()];\n            \n            if (!outletId) {\n                unmappedOutlets.add(rawOutlet);\n                continue;\n            }\n\n            const mapConfig = itemMap.mapping[productName];\n            if (!mapConfig) {\n                unmappedItems.add(productName);\n                continue;\n            }\n\n            const qty = parseInt(row[colIdx.qty]) || 1;\n            const price = parseFloat(row[colIdx.price]) || 0;\n            const category = row[colIdx.cat] ? row[colIdx.cat].toString() : '';\n            const orderTotal = parseFloat(row[colIdx.total]) || (price * qty); \n            const dateStr = row[colIdx.date] ? row[colIdx.date].toString() : '';\n            \n            let isoDate = new Date().toISOString();\n            if (dateStr) {\n                const parts = dateStr.split(' ');\n                if (parts.length === 2) {\n                    const dparts = parts[0].split('-');\n                    if (dparts.length === 3) {\n                        isoDate = `${dparts[2]}-${dparts[1]}-${dparts[0]}T${parts[1]}+07:00`;\n                    }\n                }\n            }\n\n            let channel = 'pos';\n            if (productName.includes('FOOD APPS') || category === 'FOOD APPS') channel = 'food_apps';\n            else if (productName.includes('BEST SELLER - ') || category === 'SS TIKTOK GO') channel = 'tiktok';\n\n            if (!ordersMap.has(receipt)) {\n                ordersMap.set(receipt, {\n                    id: uuidv4(),\n                    external_order_id: receipt,\n                    outlet_id: outletId,\n                    source: 'PAWOON',\n                    channel: channel,\n                    sales_source: channel === 'pos' ? 'walk_in' : channel,\n                    order_status: 'completed',\n                    payment_status: 'paid',\n                    payment_method: row[colIdx.payment] ? row[colIdx.payment].toString() : 'Cash',\n                    total_amount: orderTotal, \n                    customer_name: 'Pawoon Import',\n                    created_at: isoDate,\n                    items: []\n                });\n            }\n            \n            const order = ordersMap.get(receipt);\n            if (channel !== 'pos') {\n                order.channel = channel;\n                order.sales_source = channel;\n            }\n\n            order.items.push({\n                id: uuidv4(),\n                order_id: order.id,\n                menu_item_id: mapConfig.system_id,\n                quantity: qty,\n                unit_price: price,\n                subtotal: qty * price\n            });\n            \n            // Tracker logic\n            const systemName = mapConfig.name;\n            if (!itemSalesTracker[systemName]) {\n                itemSalesTracker[systemName] = { systemName, offline: 0, food_apps: 0, tiktok: 0 };\n            }\n            if (channel === 'pos') itemSalesTracker[systemName].offline += qty;\n            else if (channel === 'food_apps') itemSalesTracker[systemName].food_apps += qty;\n            else if (channel === 'tiktok') itemSalesTracker[systemName].tiktok += qty;\n        }\n\n        if (unmappedItems.size > 0 || unmappedOutlets.size > 0) {\n            return {\n                success: false,\n                error: \"Ditemukan Item/Outlet yang belum di-map\",\n                unmappedItems: Array.from(unmappedItems),\n                unmappedOutlets: Array.from(unmappedOutlets)\n            };\n        }\n        \n        // Find existing orders to skip\n        let existingReceipts = new Set<string>();\n        const batchSize = 100;\n        const receiptsArr = Array.from(ordersMap.keys());\n        \n        for (let i = 0; i < receiptsArr.length; i += batchSize) {\n            const batch = receiptsArr.slice(i, i + batchSize);\n            const { data: existing } = await supabase.from('orders')\n                .select('external_order_id')\n                .in('external_order_id', batch);\n            if (existing) {\n                existing.forEach(o => existingReceipts.add(o.external_order_id));\n            }\n        }\n\n        const ordersToInsert: any[] = [];\n        const itemsToInsert: any[] = [];\n        let totalOmset = 0;\n        let duplicateCount = 0;\n\n        ordersMap.forEach((order, receipt) => {\n            if (!existingReceipts.has(receipt)) {\n                const { items, ...orderData } = order;\n                ordersToInsert.push(orderData);\n                itemsToInsert.push(...items);\n                totalOmset += orderData.total_amount;\n            } else {\n                duplicateCount++;\n            }\n        });\n\n        return {\n            success: true,\n            summary: {\n                totalTransactionsParsed: ordersMap.size,\n                duplicatesSkipped: duplicateCount,\n                transactionsToInsert: ordersToInsert.length,\n                totalOmset: totalOmset,\n                itemSalesTracker: Object.values(itemSalesTracker)\n            },\n            data: {\n                orders: ordersToInsert,\n                items: itemsToInsert\n            }\n        };\n\n    } catch (err: any) {\n        return { success: false, error: err.message || \"Unknown error\" };\n    }\n}\n\nexport async function syncPawoonData(orders: any[], items: any[]) {\n    try {\n        if (orders.length === 0) return { success: true, message: \"No data to insert\" };\n\n        const { error: errOrders } = await supabase.from('orders').insert(orders);\n        if (errOrders) throw new Error(\"Failed to insert orders: \" + errOrders.message);\n        \n        const { error: errItems } = await supabase.from('order_items').insert(items);\n        if (errItems) throw new Error(\"Failed to insert items: \" + errItems.message);\n        \n        return { success: true, insertedOrders: orders.length };\n    } catch (err: any) {\n        return { success: false, error: err.message };\n    }\n}\n",
+        "Description": "Server actions for Pawoon Migration",
+        "Overwrite": true,
+        "TargetFile": "d:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\admin-dashboard\\src\\app\\actions\\pawoon.ts",
+        "toolAction": "Creating pawoon server actions",
+        "toolSummary": "Create pawoon.ts"
+      }
+    },
+    {
+      "name": "multi_replace_file_content",
+      "args": {
+        "ArtifactMetadata": {
+          "RequestFeedback": false,
+          "Summary": "Added daily filter to Pawoon preview",
+          "UserFacing": false
+        },
+        "Description": "Add date grouping to pawoon.ts",
+        "Instruction": "Add summaryByDate to the returned preview result",
+        "ReplacementChunks": [
+          {
+            "AllowMultiple": false,
+            "EndLine": 220,
+            "ReplacementContent": "        const ordersToInsert: any[] = [];\n        const itemsToInsert: any[] = [];\n        let totalOmset = 0;\n        let duplicateCount = 0;\n        \n        // --- Added for Date Filtering ---\n        const summaryByDate: Record<string, {\n            date: string,\n            transactionsToInsert: number,\n            totalOmset: number,\n            itemSalesTrackerMap: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number }>\n        }> = {};\n        // --------------------------------\n\n        ordersMap.forEach((order, receipt) => {\n            if (!existingReceipts.has(receipt)) {\n                const { items, ...orderData } = order;\n                ordersToInsert.push(orderData);\n                itemsToInsert.push(...items);\n                totalOmset += orderData.total_amount;\n                \n                // Track by date\n                const dateKey = orderData.created_at.split('T')[0];\n                if (!summaryByDate[dateKey]) {\n                    summaryByDate[dateKey] = {\n                        date: dateKey,\n                        transactionsToInsert: 0,\n                        totalOmset: 0,\n                        itemSalesTrackerMap: {}\n                    };\n                }\n                summaryByDate[dateKey].transactionsToInsert++;\n                summaryByDate[dateKey].totalOmset += orderData.total_amount;\n                \n                // we need to find the systemName for these items. \n                // We can use itemSalesTracker from earlier which was built with all data,\n                // but to do it accurately for *inserted* data, we can lookup mapConfig again or pass systemName in items temporarily.\n            } else {\n                duplicateCount++;\n            }\n        });",
+            "StartLine": 197,
+            "TargetContent": "        const ordersToInsert: any[] = [];\n        const itemsToInsert: any[] = [];\n        let totalOmset = 0;\n        let duplicateCount = 0;\n\n        ordersMap.forEach((order, receipt) => {\n            if (!existingReceipts.has(receipt)) {\n                const { items, ...orderData } = order;\n                ordersToInsert.push(orderData);\n                itemsToInsert.push(...items);\n                totalOmset += orderData.total_amount;\n            } else {\n                duplicateCount++;\n            }\n        });"
+          }
+        ],
+        "TargetFile": "d:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\admin-dashboard\\src\\app\\actions\\pawoon.ts",
+        "toolAction": "Updating pawoon.ts",
+        "toolSummary": "Update pawoon.ts"
+      }
+    },
+    {
+      "name": "multi_replace_file_content",
+      "args": {
+        "ArtifactMetadata": {
+          "RequestFeedback": false,
+          "Summary": "Added daily filter logic",
+          "UserFacing": false
+        },
+        "Description": "Update pawoon.ts to build summaryByDate",
+        "Instruction": "Add _systemName temporarily, build date summary, then delete _systemName",
+        "ReplacementChunks": [
+          {
+            "AllowMultiple": false,
+            "EndLine": 161,
+            "ReplacementContent": "            order.items.push({\n                id: uuidv4(),\n                order_id: order.id,\n                menu_item_id: mapConfig.system_id,\n                quantity: qty,\n                unit_price: price,\n                subtotal: qty * price,\n                _systemName: mapConfig.name\n            });",
+            "StartLine": 155,
+            "TargetContent": "            order.items.push({\n                id: uuidv4(),\n                order_id: order.id,\n                menu_item_id: mapConfig.system_id,\n                quantity: qty,\n                unit_price: price,\n                subtotal: qty * price\n            });"
+          },
+          {
+            "AllowMultiple": false,
+            "EndLine": 222,
+            "ReplacementContent": "                // Track by date\n                const dateKey = orderData.created_at.split('T')[0];\n                if (!summaryByDate[dateKey]) {\n                    summaryByDate[dateKey] = {\n                        date: dateKey,\n                        transactionsToInsert: 0,\n                        totalOmset: 0,\n                        itemSalesTrackerMap: {}\n                    };\n                }\n                summaryByDate[dateKey].transactionsToInsert++;\n                summaryByDate[dateKey].totalOmset += orderData.total_amount;\n                \n                // Track items for this date\n                items.forEach((item: any) => {\n                    const sName = item._systemName;\n                    if (!summaryByDate[dateKey].itemSalesTrackerMap[sName]) {\n                        summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0 };\n                    }\n                    if (orderData.channel === 'pos') summaryByDate[dateKey].itemSalesTrackerMap[sName].offline += item.quantity;\n                    else if (orderData.channel === 'food_apps') summaryByDate[dateKey].itemSalesTrackerMap[sName].food_apps += item.quantity;\n                    else if (orderData.channel === 'tiktok') summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktok += item.quantity;\n                    \n                    // clean up\n                    delete item._systemName;\n                });\n            } else {",
+            "StartLine": 208,
+            "TargetContent": "                // Track by date\n                const dateKey = orderData.created_at.split('T')[0];\n                if (!summaryByDate[dateKey]) {\n                    summaryByDate[dateKey] = {\n                        date: dateKey,\n                        transactionsToInsert: 0,\n                        totalOmset: 0,\n                        itemSalesTrackerMap: {}\n                    };\n                }\n                summaryByDate[dateKey].transactionsToInsert++;\n                summaryByDate[dateKey].totalOmset += orderData.total_amount;\n                \n                // we need to find the systemName for these items. \n                // We can use itemSalesTracker from earlier which was built with all data,\n                // but to do it accurately for *inserted* data, we can lookup mapConfig again or pass systemName in items temporarily.\n            } else {"
+          },
+          {
+            "AllowMultiple": false,
+            "EndLine": 242,
+            "ReplacementContent": "        return {\n            success: true,\n            summary: {\n                totalTransactionsParsed: ordersMap.size,\n                duplicatesSkipped: duplicateCount,\n                transactionsToInsert: ordersToInsert.length,\n                totalOmset: totalOmset,\n                itemSalesTracker: Object.values(itemSalesTracker),\n                byDate: Object.values(summaryByDate).map(s => ({\n                    ...s,\n                    itemSalesTracker: Object.values(s.itemSalesTrackerMap)\n                }))\n            },\n            data: {",
+            "StartLine": 232,
+            "TargetContent": "        return {\n            success: true,\n            summary: {\n                totalTransactionsParsed: ordersMap.size,\n                duplicatesSkipped: duplicateCount,\n                transactionsToInsert: ordersToInsert.length,\n                totalOmset: totalOmset,\n                itemSalesTracker: Object.values(itemSalesTracker)\n            },\n            data: {"
+          }
+        ],
+        "TargetFile": "d:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\admin-dashboard\\src\\app\\actions\\pawoon.ts",
+        "toolAction": "Updating pawoon.ts",
+        "toolSummary": "Update pawoon.ts"
+      }
+    },
+    {
+      "name": "multi_replace_file_content",
+      "args": {
+        "ArtifactMetadata": {
+          "RequestFeedback": false,
+          "Summary": "Calculate UI summary based on all raw data from file",
+          "UserFacing": false
+        },
+        "Description": "Update pawoon.ts to calculate summary based on all data in excel file, not just non-duplicates",
+        "Instruction": "Move the itemSalesTrackerMap logic to the first loop so it tracks all items, and calculate rawTotalOmset from ordersMap",
+        "ReplacementChunks": [
+          {
+            "AllowMultiple": false,
+            "EndLine": 147,
+            "ReplacementContent": "            if (!ordersMap.has(receipt)) {\n                ordersMap.set(receipt, {\n                    id: uuidv4(),\n                    external_order_id: receipt,\n                    outlet_id: outletId,\n                    source: 'PAWOON',\n                    channel: channel,\n                    sales_source: channel === 'pos' ? 'walk_in' : channel,\n                    order_status: 'completed',\n                    payment_status: 'paid',\n                    payment_method: row[colIdx.payment] ? row[colIdx.payment].toString() : 'Cash',\n                    total_amount: orderTotal, \n                    customer_name: 'Pawoon Import',\n                    created_at: isoDate,\n                    items: []\n                });\n            } else {\n                // Check if total needs update (if Pawoon puts total at the end, though usually it's on the first line)\n                const existingOrder = ordersMap.get(receipt);\n                if (orderTotal > existingOrder.total_amount) {\n                    existingOrder.total_amount = orderTotal;\n                }\n            }",
+            "StartLine": 130,
+            "TargetContent": "            if (!ordersMap.has(receipt)) {\n                ordersMap.set(receipt, {\n                    id: uuidv4(),\n                    external_order_id: receipt,\n                    outlet_id: outletId,\n                    source: 'PAWOON',\n                    channel: channel,\n                    sales_source: channel === 'pos' ? 'walk_in' : channel,\n                    order_status: 'completed',\n                    payment_status: 'paid',\n                    payment_method: row[colIdx.payment] ? row[colIdx.payment].toString() : 'Cash',\n                    total_amount: orderTotal, \n                    customer_name: 'Pawoon Import',\n                    created_at: isoDate,\n                    items: []\n                });\n            }"
+          },
+          {
+            "AllowMultiple": false,
+            "EndLine": 237,
+            "ReplacementContent": "        const ordersToInsert: any[] = [];\n        const itemsToInsert: any[] = [];\n        let duplicateCount = 0;\n        \n        // --- Calculate Summary for ALL DATA (Raw Excel File) ---\n        let totalOmset = 0;\n        const summaryByDate: Record<string, {\n            date: string,\n            transactionsCount: number,\n            totalOmset: number,\n            itemSalesTrackerMap: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number }>\n        }> = {};\n\n        ordersMap.forEach((order, receipt) => {\n            totalOmset += order.total_amount;\n            const dateKey = order.created_at.split('T')[0];\n            \n            if (!summaryByDate[dateKey]) {\n                summaryByDate[dateKey] = {\n                    date: dateKey,\n                    transactionsCount: 0,\n                    totalOmset: 0,\n                    itemSalesTrackerMap: {}\n                };\n            }\n            summaryByDate[dateKey].transactionsCount++;\n            summaryByDate[dateKey].totalOmset += order.total_amount;\n            \n            order.items.forEach((item: any) => {\n                const sName = item._systemName;\n                if (!summaryByDate[dateKey].itemSalesTrackerMap[sName]) {\n                    summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0 };\n                }\n                if (order.channel === 'pos') summaryByDate[dateKey].itemSalesTrackerMap[sName].offline += item.quantity;\n                else if (order.channel === 'food_apps') summaryByDate[dateKey].itemSalesTrackerMap[sName].food_apps += item.quantity;\n                else if (order.channel === 'tiktok') summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktok += item.quantity;\n            });\n\n            if (!existingReceipts.has(receipt)) {\n                const { items, ...orderData } = order;\n                ordersToInsert.push(orderData);\n                // Remove _systemName before insert\n                items.forEach((i: any) => delete i._systemName);\n                itemsToInsert.push(...items);\n            } else {\n                duplicateCount++;\n            }\n        });",
+            "StartLine": 198,
+            "TargetContent": "        const ordersToInsert: any[] = [];\n        const itemsToInsert: any[] = [];\n        let totalOmset = 0;\n        let duplicateCount = 0;\n        \n        // --- Added for Date Filtering ---\n        const summaryByDate: Record<string, {\n            date: string,\n            transactionsToInsert: number,\n            totalOmset: number,\n            itemSalesTrackerMap: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number }>\n        }> = {};\n        // --------------------------------\n\n        ordersMap.forEach((order, receipt) => {\n            if (!existingReceipts.has(receipt)) {\n                const { items, ...orderData } = order;\n                ordersToInsert.push(orderData);\n                itemsToInsert.push(...items);\n                totalOmset += orderData.total_amount;\n                \n                // Track by date\n                const dateKey = orderData.created_at.split('T')[0];\n                if (!summaryByDate[dateKey]) {\n                    summaryByDate[dateKey] = {\n                        date: dateKey,\n                        transactionsToInsert: 0,\n                        totalOmset: 0,\n                        itemSalesTrackerMap: {}\n                    };\n                }\n                summaryByDate[dateKey].transactionsToInsert++;\n                summaryByDate[dateKey].totalOmset += orderData.total_amount;\n                \n                // Track items for this date\n                items.forEach((item: any) => {\n                    const sName = item._systemName;\n                    if (!summaryByDate[dateKey].itemSalesTrackerMap[sName]) {\n                        summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0 };\n                    }\n                    if (orderData.channel === 'pos') summaryByDate[dateKey].itemSalesTrackerMap[sName].offline += item.quantity;\n                    else if (orderData.channel === 'food_apps') summaryByDate[dateKey].itemSalesTrackerMap[sName].food_apps += item.quantity;\n                    else if (orderData.channel === 'tiktok') summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktok += item.quantity;\n                    \n                    // clean up\n                    delete item._systemName;\n                });\n            } else {\n                duplicateCount++;\n            }\n        });"
+          }
+        ],
+        "TargetFile": "d:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\admin-dashboard\\src\\app\\actions\\pawoon.ts",
+        "toolAction": "Updating pawoon.ts",
+        "toolSummary": "Update pawoon.ts"
+      }
+    },
+    {
+      "name": "multi_replace_file_content",
+      "args": {
+        "ArtifactMetadata": {
+          "RequestFeedback": false,
+          "Summary": "Fixed item sales grouping",
+          "UserFacing": false
+        },
+        "Description": "Fix undefined systemName in pawoon.ts",
+        "Instruction": "Use mapConfig.system_name or mapConfig.name",
+        "ReplacementChunks": [
+          {
+            "AllowMultiple": false,
+            "EndLine": 165,
+            "ReplacementContent": "            order.items.push({\n                id: uuidv4(),\n                order_id: order.id,\n                menu_item_id: mapConfig.system_id,\n                quantity: qty,\n                unit_price: price,\n                subtotal: qty * price,\n                _systemName: mapConfig.name || mapConfig.system_name || productName\n            });\n            \n            // Tracker logic\n            const systemName = mapConfig.name || mapConfig.system_name || productName;",
+            "StartLine": 154,
+            "TargetContent": "            order.items.push({\n                id: uuidv4(),\n                order_id: order.id,\n                menu_item_id: mapConfig.system_id,\n                quantity: qty,\n                unit_price: price,\n                subtotal: qty * price,\n                _systemName: mapConfig.name\n            });\n            \n            // Tracker logic\n            const systemName = mapConfig.name;"
+          }
+        ],
+        "TargetFile": "d:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\admin-dashboard\\src\\app\\actions\\pawoon.ts",
+        "toolAction": "Updating pawoon.ts",
+        "toolSummary": "Update pawoon.ts"
+      }
+    },
+    {
+      "name": "multi_replace_file_content",
+      "args": {
+        "ArtifactMetadata": {
+          "RequestFeedback": false,
+          "Summary": "Track both gross and net sales",
+          "UserFacing": false
+        },
+        "Description": "Update pawoon.ts to track and return both gross_amount and total_amount",
+        "Instruction": "Add gross_amount to orders, track totalOmsetGross, and remove dangerous total_amount overwrite",
+        "ReplacementChunks": [
+          {
+            "AllowMultiple": false,
+            "EndLine": 141,
+            "ReplacementContent": "                    payment_status: 'paid',\n                    payment_method: row[colIdx.payment] ? row[colIdx.payment].toString() : 'Cash',\n                    total_amount: orderTotal, \n                    gross_amount: price * qty,\n                    customer_name: 'Pawoon Import',\n                    created_at: isoDate,\n                    items: []\n                });\n            } else {\n                const existingOrder = ordersMap.get(receipt);\n                existingOrder.gross_amount += (price * qty);\n            }",
+            "StartLine": 137,
+            "TargetContent": "                    payment_status: 'paid',\n                    payment_method: row[colIdx.payment] ? row[colIdx.payment].toString() : 'Cash',\n                    total_amount: orderTotal, \n                    customer_name: 'Pawoon Import',\n                    created_at: isoDate,\n                    items: []\n                });\n            } else {\n                // Check if total needs update (if Pawoon puts total at the end, though usually it's on the first line)\n                const existingOrder = ordersMap.get(receipt);\n                if (orderTotal > existingOrder.total_amount) {\n                    existingOrder.total_amount = orderTotal;\n                }\n            }"
+          },
+          {
+            "AllowMultiple": false,
+            "EndLine": 222,
+            "ReplacementContent": "        // --- Calculate Summary for ALL DATA (Raw Excel File) ---\n        let totalOmset = 0;\n        let totalOmsetGross = 0;\n        const summaryByDate: Record<string, {\n            date: string,\n            transactionsCount: number,\n            totalOmset: number,\n            totalOmsetGross: number,\n            itemSalesTrackerMap: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number }>\n        }> = {};\n\n        ordersMap.forEach((order, receipt) => {\n            totalOmset += order.total_amount;\n            totalOmsetGross += order.gross_amount;\n            const dateKey = order.created_at.split('T')[0];\n            \n            if (!summaryByDate[dateKey]) {\n                summaryByDate[dateKey] = {\n                    date: dateKey,\n                    transactionsCount: 0,\n                    totalOmset: 0,\n                    totalOmsetGross: 0,\n                    itemSalesTrackerMap: {}\n                };\n            }\n            summaryByDate[dateKey].transactionsCount++;\n            summaryByDate[dateKey].totalOmset += order.total_amount;\n            summaryByDate[dateKey].totalOmsetGross += order.gross_amount;",
+            "StartLine": 199,
+            "TargetContent": "        // --- Calculate Summary for ALL DATA (Raw Excel File) ---\n        let totalOmset = 0;\n        const summaryByDate: Record<string, {\n            date: string,\n            transactionsCount: number,\n            totalOmset: number,\n            itemSalesTrackerMap: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number }>\n        }> = {};\n\n        ordersMap.forEach((order, receipt) => {\n            totalOmset += order.total_amount;\n            const dateKey = order.created_at.split('T')[0];\n            \n            if (!summaryByDate[dateKey]) {\n                summaryByDate[dateKey] = {\n                    date: dateKey,\n                    transactionsCount: 0,\n                    totalOmset: 0,\n                    itemSalesTrackerMap: {}\n                };\n            }\n            summaryByDate[dateKey].transactionsCount++;\n            summaryByDate[dateKey].totalOmset += order.total_amount;"
+          },
+          {
+            "AllowMultiple": false,
+            "EndLine": 252,
+            "ReplacementContent": "        return {\n            success: true,\n            summary: {\n                totalTransactionsParsed: ordersMap.size,\n                duplicatesSkipped: duplicateCount,\n                transactionsToInsert: ordersToInsert.length,\n                totalOmset: totalOmset,\n                totalOmsetGross: totalOmsetGross,\n                itemSalesTracker: Object.values(itemSalesTracker),",
+            "StartLine": 245,
+            "TargetContent": "        return {\n            success: true,\n            summary: {\n                totalTransactionsParsed: ordersMap.size,\n                duplicatesSkipped: duplicateCount,\n                transactionsToInsert: ordersToInsert.length,\n                totalOmset: totalOmset,\n                itemSalesTracker: Object.values(itemSalesTracker),"
+          }
+        ],
+        "TargetFile": "d:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\admin-dashboard\\src\\app\\actions\\pawoon.ts",
+        "toolAction": "Updating pawoon.ts",
+        "toolSummary": "Update pawoon.ts"
+      }
+    },
+    {
+      "name": "multi_replace_file_content",
+      "args": {
+        "ArtifactMetadata": {
+          "RequestFeedback": false,
+          "Summary": "Included void transactions in pawoon parsing",
+          "UserFacing": false
+        },
+        "Description": "Update pawoon.ts to include Void and Refund transactions, mapping to cancelled status",
+        "Instruction": "Remove the 'if (status !== 'success')' check, and map order_status appropriately",
+        "ReplacementChunks": [
+          {
+            "AllowMultiple": false,
+            "EndLine": 103,
+            "ReplacementContent": "        for (let i = headerRowIdx + 1; i < data.length; i++) {\n            const row = data[i];\n            if (!row || !row[colIdx.receipt]) continue;\n            \n            const receipt = row[colIdx.receipt].toString().trim();\n            const status = row[colIdx.status] ? row[colIdx.status].toString() : '';\n            // We now process ALL statuses, especially 'Void' which contains negative values\n            \n            let productName = row[colIdx.product] ? row[colIdx.product].toString().trim() : '';\n            if (!productName || productName.startsWith('+')) continue; // skip modifiers/empty",
+            "StartLine": 93,
+            "TargetContent": "        for (let i = headerRowIdx + 1; i < data.length; i++) {\n            const row = data[i];\n            if (!row || !row[colIdx.receipt]) continue;\n            \n            const receipt = row[colIdx.receipt].toString().trim();\n            const status = row[colIdx.status] ? row[colIdx.status].toString() : '';\n            if (status.toLowerCase() !== 'success') continue; // Only process successful orders\n            \n            let productName = row[colIdx.product] ? row[colIdx.product].toString().trim() : '';\n            if (!productName || productName.startsWith('+')) continue; // skip modifiers/empty"
+          },
+          {
+            "AllowMultiple": false,
+            "EndLine": 143,
+            "ReplacementContent": "            let orderStatus = 'completed';\n            const statusLower = status.toLowerCase();\n            if (statusLower === 'void' || statusLower === 'refund') {\n                orderStatus = 'cancelled';\n            }\n\n            if (!ordersMap.has(receipt)) {\n                ordersMap.set(receipt, {\n                    id: uuidv4(),\n                    external_order_id: receipt,\n                    outlet_id: outletId,\n                    source: 'PAWOON',\n                    channel: channel,\n                    sales_source: channel === 'pos' ? 'walk_in' : channel,\n                    order_status: orderStatus,\n                    payment_status: statusLower === 'void' ? 'refunded' : 'paid',\n                    payment_method: row[colIdx.payment] ? row[colIdx.payment].toString() : 'Cash',\n                    total_amount: orderTotal, \n                    gross_amount: price * qty,\n                    customer_name: 'Pawoon Import',\n                    created_at: isoDate,\n                    items: []\n                });\n            } else {",
+            "StartLine": 129,
+            "TargetContent": "            if (!ordersMap.has(receipt)) {\n                ordersMap.set(receipt, {\n                    id: uuidv4(),\n                    external_order_id: receipt,\n                    outlet_id: outletId,\n                    source: 'PAWOON',\n                    channel: channel,\n                    sales_source: channel === 'pos' ? 'walk_in' : channel,\n                    order_status: 'completed',\n                    payment_status: 'paid',\n                    payment_method: row[colIdx.payment] ? row[colIdx.payment].toString() : 'Cash',\n                    total_amount: orderTotal, \n                    gross_amount: price * qty,\n                    customer_name: 'Pawoon Import',\n                    created_at: isoDate,\n                    items: []\n                });\n            } else {"
+          }
+        ],
+        "TargetFile": "d:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\admin-dashboard\\src\\app\\actions\\pawoon.ts",
+        "toolAction": "Updating pawoon.ts",
+        "toolSummary": "Update pawoon.ts"
+      }
+    },
+    {
+      "name": "multi_replace_file_content",
+      "args": {
+        "ArtifactMetadata": {
+          "RequestFeedback": false,
+          "Summary": "Fixed schema cache error for gross_amount",
+          "UserFacing": false
+        },
+        "Description": "Remove gross_amount before inserting to Supabase",
+        "Instruction": "Exclude gross_amount when building ordersToInsert",
+        "ReplacementChunks": [
+          {
+            "AllowMultiple": false,
+            "EndLine": 238,
+            "ReplacementContent": "            if (!existingReceipts.has(receipt)) {\n                const { items, gross_amount, ...orderData } = order;\n                ordersToInsert.push(orderData);\n                // Remove _systemName before insert",
+            "StartLine": 235,
+            "TargetContent": "            if (!existingReceipts.has(receipt)) {\n                const { items, ...orderData } = order;\n                ordersToInsert.push(orderData);\n                // Remove _systemName before insert"
+          }
+        ],
+        "TargetFile": "d:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\admin-dashboard\\src\\app\\actions\\pawoon.ts",
+        "toolAction": "Updating pawoon.ts",
+        "toolSummary": "Update pawoon.ts"
+      }
+    }
+  ],
+  "page.tsx": null
+}

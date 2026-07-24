@@ -1022,7 +1022,7 @@ export default function MenuView({
                                   return (
                                     <div key={ch.id} className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
                                       <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 shrink-0">
-                                        <ChannelLogoIcon channelKey={ch.id} />
+                                        <ChannelLogoIcon channelKey={slug} />
                                         <span>{ch.name}</span>
                                       </span>
                                       <div className="w-28 sm:w-32 shrink-0">

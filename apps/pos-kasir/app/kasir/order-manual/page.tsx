@@ -339,15 +339,24 @@ export default function OrderManualPage() {
 
       if (isOnlineChannel) {
         if (it.is_available_online === false) return false
-        if (it.available_online_channels && Array.isArray(it.available_online_channels) && it.available_online_channels.length > 0) {
-          const match = it.available_online_channels.some((c) => {
+
+        const chs = it.available_online_channels
+        const pricesObj = it.channel_prices || {}
+
+        if (Array.isArray(chs) && chs.length > 0) {
+          const matchChannel = chs.some((c) => {
             const normalizedC = c.toLowerCase().replace(/\s+/g, '')
             if (activeChannelSlug === 'tiktokgo' || activeChannelSlug === 'tiktok') {
               return normalizedC === 'tiktokgo' || normalizedC === 'tiktok' || normalizedC === 'tiktok_go'
             }
             return normalizedC === activeChannelSlug
           })
-          if (!match) return false
+          if (!matchChannel) return false
+        } else {
+          // Jika available_online_channels null/kosong, WAJIB memiliki harga spesifik untuk channel ini
+          const chPrice = pricesObj[activeChannelSlug] || ((activeChannelSlug === 'tiktokgo' || activeChannelSlug === 'tiktok') ? (pricesObj['tiktok_go'] || pricesObj['tiktokgo']) : undefined)
+          const hasPrice = chPrice !== undefined && chPrice !== null && Number(chPrice) > 0
+          if (!hasPrice) return false
         }
       } else if (mode === 'walkin' || mode === 'endorse') {
         // Mode Walk-in Kasir / Offline: HANYA tampilkan menu yang tersedia di Offline (pos_kasir)

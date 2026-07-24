@@ -262,22 +262,17 @@ export default function MenuView({
       const targetSlug = getSlug(channelKey)
       if (item.is_available_online === false) return false
 
-      // 1. Check if item has a channel price set for this channel
-      const channelPrice = item.channel_prices?.[targetSlug] || (targetSlug === 'tiktokgo' ? item.channel_prices?.tiktok_go : undefined)
-      const hasSpecificPrice = channelPrice !== undefined && channelPrice !== null && Number(channelPrice) > 0
+      const chs = item.available_online_channels
+      const pricesObj = item.channel_prices || {}
 
-      // 2. Check if item explicitly lists this channel in available_online_channels
-      let hasExplicitChannel = false
-      if (item.available_online_channels === null || item.available_online_channels === undefined) {
-        hasExplicitChannel = true // null means available on all online channels
-      } else if (Array.isArray(item.available_online_channels)) {
-        hasExplicitChannel = item.available_online_channels.some(
-          c => c.toLowerCase().replace(/\s+/g, '') === targetSlug || (targetSlug === 'tiktokgo' && (c === 'tiktokgo' || c === 'tiktok_go'))
+      if (Array.isArray(chs) && chs.length > 0) {
+        return chs.some(
+          c => c.toLowerCase().replace(/\s+/g, '') === targetSlug || ((targetSlug === 'tiktokgo' || targetSlug === 'tiktok') && (c === 'tiktokgo' || c === 'tiktok_go' || c === 'tiktok'))
         )
+      } else {
+        const channelPrice = pricesObj[targetSlug] || ((targetSlug === 'tiktokgo' || targetSlug === 'tiktok') ? (pricesObj['tiktok_go'] || pricesObj['tiktokgo']) : undefined)
+        return channelPrice !== undefined && channelPrice !== null && Number(channelPrice) > 0
       }
-
-      // STRICT FILTER: If specific food app (e.g. TikTok Go), MUST have specific price or explicit channel assignment!
-      return hasSpecificPrice || hasExplicitChannel
     }
   }, [initialChannels])
 

@@ -159,25 +159,47 @@ export default function PawoonImportPage() {
                     </div>
                     
                     <div className="p-6 pt-0 border-b border-gray-100">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mt-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 mt-4">
                             <div className="bg-green-50 p-4 rounded-xl">
-                                <p className="text-green-600 text-sm font-medium mb-1">Total Omset {selectedDate !== 'ALL' && `(${selectedDate})`}</p>
-                                <p className="text-3xl font-bold text-green-900">
-                                    Rp {displayedSummary.totalOmset.toLocaleString('id-ID')}
+                                <p className="text-green-600 text-sm font-medium mb-1 leading-tight">Total Omset (Kotor) {selectedDate !== 'ALL' && `(${selectedDate})`}</p>
+                                <p className="text-2xl font-bold text-green-900 mt-1">
+                                    Rp {(displayedSummary.totalOmsetGross || displayedSummary.totalOmset).toLocaleString('id-ID')}
                                 </p>
                             </div>
+                            
+                            <div className="bg-orange-50 p-4 rounded-xl">
+                                <p className="text-orange-600 text-sm font-medium mb-1">Total Void</p>
+                                <p className="text-2xl font-bold text-orange-900">
+                                    {displayedSummary.totalVoids || 0}
+                                </p>
+                                <p className="text-xs font-medium text-orange-600 mt-1">
+                                    Rp {new Intl.NumberFormat('id-ID').format(displayedSummary.totalOmsetVoid || 0)}
+                                </p>
+                            </div>
+
+                            <div className="bg-blue-50 p-4 rounded-xl">
+                                <p className="text-blue-600 text-sm font-medium mb-1">Grand Total Excel</p>
+                                <p className="text-2xl font-bold text-blue-900 mt-1">
+                                    Rp {displayedSummary.totalOmset.toLocaleString('id-ID')}
+                                </p>
+                                {selectedDate === 'ALL' && displayedSummary.fileGrandTotal > 0 && (
+                                    <p className="text-[10px] text-blue-700 mt-1 font-medium leading-tight">
+                                        (Validasi: Rp {displayedSummary.fileGrandTotal.toLocaleString('id-ID')})
+                                    </p>
+                                )}
+                            </div>
+
                             <div className="bg-purple-50 p-4 rounded-xl">
-                                <p className="text-purple-600 text-sm font-medium mb-1">Total Struk (File)</p>
-                                <p className="text-3xl font-bold text-purple-900">
+                                <p className="text-purple-600 text-sm font-medium mb-1">Total Struk</p>
+                                <p className="text-2xl font-bold text-purple-900 mt-1">
                                     {selectedDate === 'ALL' ? displayedSummary.totalTransactionsParsed : displayedSummary.transactionsCount}
                                 </p>
                             </div>
-                            <div className="bg-orange-50 p-4 rounded-xl">
-                                <p className="text-orange-600 text-sm font-medium mb-1">
-                                    {selectedDate === 'ALL' ? 'Duplikat (Di-skip)' : 'Status Filter'}
-                                </p>
-                                <p className="text-3xl font-bold text-orange-900 mt-1">
-                                    {selectedDate === 'ALL' ? displayedSummary.duplicatesSkipped : 'Melihat Harian'}
+
+                            <div className="bg-gray-50 p-4 rounded-xl">
+                                <p className="text-gray-600 text-sm font-medium mb-1">Duplikat (Skip)</p>
+                                <p className="text-2xl font-bold text-gray-900 mt-1">
+                                    {displayedSummary.duplicatesSkipped}
                                 </p>
                             </div>
                         </div>

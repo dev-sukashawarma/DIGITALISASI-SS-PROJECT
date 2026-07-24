@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, X, Loader2, Copy,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown
+  Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown, Store, Sparkles
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput, compressImageToWebP } from '@suka/design-system'
@@ -15,6 +15,109 @@ import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { MenuPicker } from './MenuPicker'
 import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
+import { getChannel } from '@/lib/channels'
+
+function ChannelLogoIcon({ channelKey }: { channelKey: string }) {
+  const norm = channelKey.toLowerCase()
+
+  if (norm === '' || norm === 'all') {
+    return (
+      <span className="w-5 h-5 rounded-md bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-xs">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+          <path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.46 3.9 3.45 4.38l-.95 7.62H7.5l.75-6H11V9zm7-7v18h2V2h-2zm-3 0v8h2V2h-2z"/>
+        </svg>
+      </span>
+    )
+  }
+
+  if (norm === 'pos_kasir') {
+    return (
+      <span className="w-5 h-5 rounded-md bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+        <Store size={12} strokeWidth={2.5} />
+      </span>
+    )
+  }
+
+  if (norm === 'all_food_apps') {
+    return (
+      <span className="w-5 h-5 rounded-md bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+          <path d="M19 7c0-1.1-.9-2-2-2h-3v2h3v2.65L13.52 14H10V9H6c-2.21 0-4 1.79-4 4v3h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4.48L19 10.35V7zM7 17c-.55 0-1-.45-1-1h2c0 .55-.45 1-1 1zm12.5-4c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5-1.5-.67-1.5-1.5.67-1.5 1.5-1.5z"/>
+        </svg>
+      </span>
+    )
+  }
+
+  const ch = getChannel(norm)
+  if (ch && ch.logoPath) {
+    return (
+      <span 
+        className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 shadow-xs"
+        style={{ backgroundColor: ch.bg }}
+      >
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-white">
+          <path d={ch.logoPath} />
+        </svg>
+      </span>
+    )
+  }
+
+  return (
+    <span className="w-5 h-5 rounded-md bg-slate-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+      <Store size={12} />
+    </span>
+  )
+}
+
+function SearchEmptyVector({ 
+  query, 
+  channelLabel, 
+  onReset 
+}: { 
+  query: string
+  channelLabel?: string
+  onReset: () => void 
+}) {
+  return (
+    <div className="bg-white rounded-3xl border border-slate-100 p-12 sm:p-16 flex flex-col items-center justify-center text-center shadow-xs animate-in fade-in zoom-in-95 duration-200 my-4">
+      {/* Animated Vector Illustration */}
+      <div className="relative w-28 h-28 mb-6 flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-tr from-amber-100 to-orange-100 rounded-full blur-xl opacity-60 animate-pulse"></div>
+        <div className="absolute inset-2 border-2 border-dashed border-amber-300/60 rounded-full animate-spin-slow"></div>
+        
+        <div className="relative w-20 h-20 bg-gradient-to-b from-white to-amber-50 rounded-2xl border border-amber-200/80 shadow-md flex items-center justify-center">
+          <Search className="w-10 h-10 text-amber-500 stroke-[1.75]" />
+          <span className="absolute -top-2 -right-2 bg-suka-orange text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm">
+            0 Hasil
+          </span>
+        </div>
+      </div>
+
+      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight mb-2">
+        Menu Tidak Ditemukan
+      </h3>
+      <p className="text-sm font-medium text-slate-500 max-w-md mb-6 leading-relaxed">
+        {query ? (
+          <>Tidak ada menu yang cocok dengan kata kunci <strong className="text-amber-600 font-bold">&quot;{query}&quot;</strong>.</>
+        ) : (
+          <>Tidak ada menu yang terdaftar pada filter <strong className="text-amber-600 font-bold">{channelLabel || 'ini'}</strong>.</>
+        )}
+        <br />Silakan periksa ejaan kata kunci atau ubah filter pencarian Anda.
+      </p>
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <button
+          onClick={onReset}
+          className="px-5 py-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-xs font-extrabold transition-all shadow-xs active:scale-95 flex items-center gap-2 cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+          Reset Filter &amp; Pencarian
+        </button>
+      </div>
+    </div>
+  )
+}
 
 const BUCKET = 'menu-images'
 
@@ -163,26 +266,25 @@ export default function MenuView({
   }, [initialChannels])
 
   const channelOptions = useMemo(() => {
-    const opts: Array<{ key: string; label: string; count: number; icon: string; theme: string }> = [
-      { key: '', label: 'Semua Menu', count: initialItems.length, icon: '🍽️', theme: 'gray' },
-      { key: 'pos_kasir', label: 'POS Kasir Toko', count: initialItems.filter(i => isItemInChannel(i, 'pos_kasir')).length, icon: '🏪', theme: 'amber' },
-      { key: 'all_food_apps', label: 'Semua Food Apps', count: initialItems.filter(i => isItemInChannel(i, 'all_food_apps')).length, icon: '🛵', theme: 'orange' },
+    const opts: Array<{ key: string; label: string; count: number; icon: React.ReactNode; theme: string }> = [
+      { key: '', label: 'Semua Menu', count: initialItems.length, icon: <ChannelLogoIcon channelKey="" />, theme: 'gray' },
+      { key: 'pos_kasir', label: 'POS Kasir Toko', count: initialItems.filter(i => isItemInChannel(i, 'pos_kasir')).length, icon: <ChannelLogoIcon channelKey="pos_kasir" />, theme: 'amber' },
+      { key: 'all_food_apps', label: 'Semua Food Apps', count: initialItems.filter(i => isItemInChannel(i, 'all_food_apps')).length, icon: <ChannelLogoIcon channelKey="all_food_apps" />, theme: 'orange' },
     ]
 
     initialChannels.forEach(ch => {
       const slug = ch.name.toLowerCase().replace(/\s+/g, '')
-      let icon = '📱'
       let theme = 'gray'
-      if (slug.includes('tiktok')) { icon = '🎵'; theme = 'slate' }
-      else if (slug.includes('gofood')) { icon = '🟢'; theme = 'emerald' }
-      else if (slug.includes('grabfood')) { icon = '🟢'; theme = 'green' }
-      else if (slug.includes('shopee')) { icon = '🧡'; theme = 'orange' }
+      if (slug.includes('tiktok')) { theme = 'slate' }
+      else if (slug.includes('gofood')) { theme = 'emerald' }
+      else if (slug.includes('grabfood')) { theme = 'green' }
+      else if (slug.includes('shopee')) { theme = 'orange' }
 
       opts.push({
         key: ch.id,
         label: `Khusus ${ch.name}`,
         count: initialItems.filter(i => isItemInChannel(i, ch.id)).length,
-        icon,
+        icon: <ChannelLogoIcon channelKey={ch.id} />,
         theme,
       })
     })
@@ -1170,19 +1272,26 @@ export default function MenuView({
 
       {/* ── Menu Grid / Table ────────────────────────────── */}
       {initialItems.length === 0 ? (
-        <div className="card p-16 flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
-            <Sandwich className="w-8 h-8 text-amber-200" strokeWidth={1} />
+        <div className="bg-white rounded-3xl border border-slate-100 p-12 sm:p-16 flex flex-col items-center justify-center text-center shadow-xs animate-in fade-in duration-200 my-4">
+          <div className="w-20 h-20 bg-gradient-to-b from-amber-50 to-orange-100 rounded-3xl border border-amber-200/60 flex items-center justify-center mb-4 shadow-sm">
+            <Sandwich className="w-10 h-10 text-amber-500" strokeWidth={1.5} />
           </div>
-          <p className="font-semibold text-gray-500">Belum ada menu</p>
-          <p className="text-sm text-gray-400 mt-1">Tambahkan menu pertamamu</p>
+          <h3 className="text-xl font-extrabold text-slate-900 tracking-tight mb-1">Belum Ada Menu POS</h3>
+          <p className="text-sm font-medium text-slate-500 max-w-sm mb-6">Daftar menu POS Anda masih kosong. Mulai tambahkan menu makanan &amp; minuman pertama Anda.</p>
+          <button onClick={openAdd} className="btn-primary py-2.5 px-6 text-sm font-bold shadow-md">
+            <Plus className="w-4 h-4" />
+            Tambah Menu Pertama
+          </button>
         </div>
-      ) : initialItems.length === 0 ? (
-        <div className="card p-16 flex flex-col items-center text-center">
-          <Search className="w-10 h-10 text-gray-200 mb-3" />
-          <p className="font-semibold text-gray-500">Menu tidak ditemukan</p>
-          <p className="text-sm text-gray-400 mt-1">Coba kata kunci lain</p>
-        </div>
+      ) : sortedItems.length === 0 ? (
+        <SearchEmptyVector
+          query={deferredSearch}
+          channelLabel={selectedChannelOption.label}
+          onReset={() => {
+            setSearchVal('')
+            setActiveChannelFilter('')
+          }}
+        />
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">

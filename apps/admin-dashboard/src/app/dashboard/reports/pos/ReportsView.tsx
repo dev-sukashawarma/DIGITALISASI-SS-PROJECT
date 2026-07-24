@@ -414,6 +414,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       grossRevenue,
       totalDeductions,
       netRevenue,
+      totalHPP,
       grossProfit
     }
   }, [orders, shifts, selectedChannel, hppRows])
@@ -675,44 +676,57 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
         </div>
       ) : (
         <>
-          {/* ── KPI Cards (Omzet Kotor, Pendapatan Bersih, Laba Kotor) ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* 1. Omzet Kotor */}
-            <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+          {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-6">
+            {/* 1. Gross Revenue */}
+            <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Omzet Kotor</p>
-                <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossRevenue)}</p>
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Revenue</p>
+                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossRevenue)}</p>
               </div>
-              <div className="relative z-10 mt-8 flex items-center gap-2">
+              <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                <p className="text-[11px] text-white/80 font-medium tracking-wide">*Sebelum potongan promo/diskon</p>
+                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Total nilai jual murni</p>
               </div>
             </div>
 
-            {/* 2. Pendapatan Bersih */}
-            <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-blue-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            {/* 2. Total COGS */}
+            <div className="bg-gradient-to-br from-rose-400 to-rose-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-rose-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Pendapatan Bersih</p>
-                <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.netRevenue)}</p>
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total COGS</p>
+                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalHPP)}</p>
               </div>
-              <div className="relative z-10 mt-8 flex items-center gap-2">
+              <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                <p className="text-[11px] text-white/80 font-medium tracking-wide">*Setelah dipotong diskon & aplikasi ({formatRupiah(analytics.totalDeductions)})</p>
+                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Total Harga Pokok Penjualan (HPP)</p>
               </div>
             </div>
 
-            {/* 3. Laba Kotor */}
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-6 sm:p-8 rounded-[2rem] shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            {/* 3. Admin Platform */}
+            <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-blue-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Laba Kotor</p>
-                <p className="text-3xl sm:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossProfit)}</p>
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Platform</p>
+                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalDeductions)}</p>
               </div>
-              <div className="relative z-10 mt-8 flex items-center gap-2 bg-black/10 w-fit px-3 py-1.5 rounded-full">
+              <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
+                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Diskon & potongan aplikasi</p>
+              </div>
+            </div>
+
+            {/* 4. Gross Profit */}
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+              <div className="relative z-10">
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Profit</p>
+                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossProfit)}</p>
+              </div>
+              <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2 bg-black/10 w-fit px-3 py-1.5 rounded-full">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-300"></div>
-                <p className="text-[11px] text-white font-bold tracking-wide">✓ Setelah dikurangi HPP (Modal)</p>
+                <p className="text-[10px] xl:text-[11px] text-white font-bold tracking-wide">✓ Profit murni (Laba Kotor)</p>
               </div>
             </div>
           </div>

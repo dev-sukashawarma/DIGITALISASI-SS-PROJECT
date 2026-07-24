@@ -1555,14 +1555,10 @@ export default function MenuView({
                           return (
                             <div className="flex flex-col items-end gap-1">
                               {/* Offline Price Badge */}
-                              {isChannelOffline ? (
+                              {isChannelOffline && (
                                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50/90 border border-amber-200/80 shadow-2xs" title="Harga Jual Offline Kasir Toko">
                                   <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Offline:</span>
                                   <span className="text-xs font-black text-amber-950 font-mono">{formatRupiah(offlinePrice)}</span>
-                                </div>
-                              ) : (
-                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-200/80" title="Nonaktif di Kasir Toko (Khusus Online)">
-                                  <span className="text-[10px] font-bold text-slate-400">Offline: Nonaktif</span>
                                 </div>
                               )}
 

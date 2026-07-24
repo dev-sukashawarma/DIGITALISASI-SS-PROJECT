@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
+import { PeriodFilter } from '@/components/PeriodFilter'
+import type { PeriodFilterValue } from '@/lib/types'
+import { presetRange } from '@/lib/period'
 import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -23,6 +26,17 @@ export default function MonitoringPage() {
   const [posStatusFilter, setPosStatusFilter] = useState<string>('ALL')
   const [crewStatusFilter, setCrewStatusFilter] = useState<string>('ALL')
   
+  // Period filter (Kemarin, Hari Ini, 7 Hari, 30 Hari, Kustom)
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>(() => {
+    const today = presetRange('today')
+    return {
+      from: today.from,
+      to: today.to,
+      outletId: 'all',
+      source: 'all',
+    }
+  })
+
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [staffList, setStaffList] = useState<Staff[]>([])
   const [attendances, setAttendances] = useState<Attendance[]>([])
@@ -37,28 +51,14 @@ export default function MonitoringPage() {
 
   const supabase = createClient()
 
-  // helper to get today in YYYY-MM-DD
-  const getTodayStr = () => {
-    const formatter = new Intl.DateTimeFormat('en-CA', { 
-      timeZone: 'Asia/Jakarta', 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit' 
-    })
-    const parts = formatter.formatToParts(new Date())
-    const y = parts.find(p => p.type === 'year')?.value
-    const m = parts.find(p => p.type === 'month')?.value
-    const d = parts.find(p => p.type === 'day')?.value
-    return `${y}-${m}-${d}`
-  }
-
   const fetchData = async () => {
     try {
-      const todayStr = getTodayStr()
-      const start = new Date(`${todayStr}T00:00:00+07:00`).toISOString()
-      const end = new Date(`${todayStr}T23:59:59+07:00`).toISOString()
+      const fromDate = periodFilter.from
+      const toDate = periodFilter.to
+      const start = new Date(`${fromDate}T00:00:00+07:00`).toISOString()
+      const end = new Date(`${toDate}T23:59:59+07:00`).toISOString()
 
-      // Fetch independent queries in parallel for instant updates
+      // Fetch independent queries in parallel for instant updates based on selected period
       const [outRes, stfRes, attRes, catRes, recRes, opnRes] = await Promise.all([
         supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
         supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader']),
@@ -72,10 +72,12 @@ export default function MonitoringPage() {
           .eq('phase', 'buka'),
         supabase.from('daily_checklist_records')
           .select('id, outlet_id')
-          .eq('date', todayStr),
+          .gte('date', fromDate)
+          .lte('date', toDate),
         supabase.from('opname')
           .select('id, outlet_id, created_at')
           .gte('created_at', start)
+          .lte('created_at', end)
       ])
 
       const validOutlets = (outRes.data || []) as Outlet[]
@@ -186,7 +188,7 @@ export default function MonitoringPage() {
       supabase.removeChannel(presenceRoom)
       supabase.removeChannel(locationRoom)
     }
-  }, [])
+  }, [periodFilter.from, periodFilter.to])
 
   if (isLoading) {
     return (
@@ -280,6 +282,16 @@ export default function MonitoringPage() {
         <div className="flex flex-col gap-6 animate-fade-in">
           {/* Filter Bar */}
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 relative z-20">
+            {/* Period Filter (Kemarin, Hari Ini, 7 Hari, 30 Hari, Kustom) */}
+            <div className="flex flex-wrap items-center gap-3">
+              <PeriodFilter
+                value={periodFilter}
+                onChange={setPeriodFilter}
+                outlets={[]}
+                hideSource={true}
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto p-1.5 bg-gray-50/80 rounded-xl border border-gray-100/80 backdrop-blur-sm shadow-sm">
               <Select 
                 value={posStatusFilter}  
@@ -385,7 +397,7 @@ export default function MonitoringPage() {
                       // Find staff for this outlet
                       const outletStaff = staffList.filter(s => s.outlet_id === outlet.id)
                       
-                      // Get today's attendance for this outlet
+                      // Get attendance for this outlet within selected period
                       const outletAtt = attendances.filter(a => a.outlet_id === outlet.id)
 
                       // Determine POS Status

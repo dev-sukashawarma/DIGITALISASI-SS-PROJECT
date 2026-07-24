@@ -10,38 +10,71 @@ export function ExpenseDistributionChart({ byCategory, totalOutlet }: { byCatego
   }
 
   return (
-    <div className="flex flex-col items-center justify-center">
-      <div className="w-full h-56">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center p-2">
+      {/* Area Pie Chart */}
+      <div className="w-full h-64 lg:col-span-1 relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={byCategory}
               cx="50%"
               cy="50%"
-              innerRadius={60}
-              outerRadius={80}
-              paddingAngle={3}
+              innerRadius={70}
+              outerRadius={100}
+              paddingAngle={4}
               dataKey="value"
+              stroke="none"
+              cornerRadius={6}
             >
               {byCategory.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip formatter={(value) => rupiah(Number(value))} />
+            <Tooltip 
+              formatter={(value) => rupiah(Number(value))} 
+              contentStyle={{ borderRadius: '16px', border: '1px solid #f3f4f6', boxShadow: '0 10px 40px rgba(0,0,0,0.08)' }}
+            />
           </PieChart>
         </ResponsiveContainer>
+        {/* Teks di tengah Donut */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="text-suka-gray-400 text-[10px] font-bold tracking-widest uppercase">Total</span>
+          <span className="text-suka-ink font-extrabold text-sm mt-0.5">{rupiah(totalOutlet, true)}</span>
+        </div>
       </div>
 
-      <div className="w-full mt-4 grid grid-cols-2 gap-2 text-xs">
-        {byCategory.map((entry) => (
-          <div key={entry.name} className="flex items-center gap-2 font-medium">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
-            <span className="truncate text-suka-ink">{entry.name}</span>
-            <span className="ml-auto text-suka-gray-500 font-bold">
-              {pct(entry.value, totalOutlet)}%
-            </span>
-          </div>
-        ))}
+      {/* Area Legend dengan Progress Bar */}
+      <div className="w-full lg:col-span-2 space-y-5">
+        {byCategory.map((entry) => {
+          const percentage = pct(entry.value, totalOutlet)
+          return (
+            <div key={entry.name} className="flex flex-col gap-2 group">
+              <div className="flex justify-between items-end text-sm">
+                <div className="flex items-center gap-2.5">
+                  <span 
+                    className="w-3.5 h-3.5 rounded flex-shrink-0 shadow-sm transition-transform group-hover:scale-110" 
+                    style={{ backgroundColor: entry.color }} 
+                  />
+                  <span className="font-semibold text-suka-ink tracking-tight">{entry.name}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-suka-gray-500 font-medium">{rupiah(entry.value)}</span>
+                  <span className="font-black w-12 text-right" style={{ color: entry.color }}>
+                    {percentage}%
+                  </span>
+                </div>
+              </div>
+              
+              {/* Progress Bar Premium */}
+              <div className="h-2.5 w-full bg-suka-gray-100/80 rounded-full overflow-hidden shadow-inner">
+                <div 
+                  className="h-full rounded-full transition-all duration-1000 ease-out" 
+                  style={{ width: `${percentage}%`, backgroundColor: entry.color, boxShadow: `0 0 10px ${entry.color}40` }} 
+                />
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

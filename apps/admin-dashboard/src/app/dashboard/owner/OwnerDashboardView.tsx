@@ -95,7 +95,7 @@ export default function OwnerDashboardView({
       <div className="space-y-6 print:hidden animate-fade-in">
         <PageHeader title="Ringkasan Bisnis" description="Statistik penjualan riil dari sistem POS Kasir">
           <div className="flex flex-col sm:flex-row items-center gap-2">
-            <PeriodFilter value={filter} onChange={handleFilterChange} outlets={outlets} lockedOutletId={lockedOutletId} />
+            <PeriodFilter value={filter} onChange={handleFilterChange} outlets={outlets} lockedOutletId={lockedOutletId} hideSource />
             <button
               onClick={() => window.print()}
               className="w-full sm:w-auto px-4 py-2 bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-sm transition-colors"
@@ -166,9 +166,11 @@ function PrintReport({ filter, outlets, lockedOutletId, cur, hourly, menu }: any
   const isAllOutlets = !lockedOutletId || outlets.length > 1
   const outletName = isAllOutlets ? 'Semua Outlet' : outlets[0]?.name
 
-  const omzet = cur.rows.reduce((s: number, r: any) => s + r.omzet, 0)
+  const netRevenue = cur.rows.reduce((s: number, r: any) => s + r.omzet, 0)
+  const totalDeductions = cur.rows.reduce((s: number, r: any) => s + (Number(r.total_deductions) || 0), 0)
+  const omzet = netRevenue + totalDeductions
   const completed = cur.rows.reduce((s: number, r: any) => s + r.jumlah_order_completed, 0)
-  const currentAov = completed > 0 ? Math.round(omzet / completed) : 0
+  const currentAov = completed > 0 ? Math.round(netRevenue / completed) : 0
 
   let peakHourStr = '-'
   let peakHourOrders = 0

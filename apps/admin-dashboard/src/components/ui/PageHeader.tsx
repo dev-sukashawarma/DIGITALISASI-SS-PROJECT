@@ -15,9 +15,9 @@ export function PageHeader({
   children?: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm">
-      <div className="min-w-0">
-        <h2 className="text-lg sm:text-xl font-extrabold text-suka-brown tracking-tight truncate">{title}</h2>
+    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between bg-white/40 backdrop-blur-md p-4 sm:p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-6 relative z-50">
+      <div className="flex-1">
+        <h2 className="text-xl sm:text-2xl font-extrabold text-suka-brown tracking-tight leading-tight">{title}</h2>
         {description && (
           <p className="text-xs text-suka-gray-500 font-medium mt-0.5">{description}</p>
         )}

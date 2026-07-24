@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 01 — Peta Backend SS Digital Suite</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" style="width: 8%"></div></div>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📚 Backend Maintenance</span>
+    <span>Lesson 01 / 10</span>
+    <span>⏱ ~15 menit</span>
+    <span>🟢 Fundamental</span>
+  </div>
+  <h1 class="lesson-title">Peta Backend SS Digital Suite</h1>
+  <p style="color: var(--text-muted)">Sebelum bisa maintain backend, kamu harus tahu <em>apa saja yang ada</em> di sana dan bagaimana mereka saling terhubung. Ini petanya.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🎯 Tujuan Lesson Ini</h2>
+<p>Setelah selesai, kamu bisa:</p>
+<ul>
+  <li>Menggambarkan <strong>4 lapisan backend</strong> di project SS Digital dan fungsi masing-masing</li>
+  <li>Menjelaskan peran <strong>Supabase</strong> sebagai backbone</li>
+  <li>Menyebut komponen mana yang paling sering jadi sumber masalah performa</li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🗺️ Peta Besar: 4 Lapisan Backend</h2>
+
+<p>Bayangkan backend seperti restoran — ada dapur, ada kasir, ada pramusaji, ada manajer.
+Masing-masing punya peran berbeda. Di SS Digital, arsitekturnya begini:</p>
+
+<div class="arch">
+┌─────────────────────────────────────────────────────────────────┐
+│  LAPISAN 1: CLIENT (Frontend Apps)                              │
+│  apps/portal, apps/pos-kasir, apps/absensi, apps/stok …         │
+│  → Next.js di cPanel server, diakses browser/HP karyawan        │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │  HTTPS Request
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAPISAN 2: EDGE FUNCTIONS (Serverless)                         │
+│  supabase/functions/  → Deno runtime, jalan di CDN Supabase     │
+│  Contoh: submit-attendance, admin-create-staff, send-push …     │
+│  → Logic yang tidak boleh jalan di browser (rahasia, aman)      │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │  SQL / RPC Calls
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAPISAN 3: DATABASE (PostgreSQL via Supabase)                  │
+│  Tables, Views, RPC (stored procedures), Triggers, pg_cron      │
+│  RLS (Row Level Security) — penjaga akses data                  │
+│  Realtime — WebSocket untuk update live                         │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │  Read/Write
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAPISAN 4: STORAGE + EXTERNAL                                  │
+│  Supabase Storage (foto selfie, struk, gambar menu)             │
+│  Ecosystem DB (Supabase project terpisah — sumber Order Online) │
+│  cPanel cron + Passenger (untuk hosting Next.js)                │
+└─────────────────────────────────────────────────────────────────┘
+</div>
+
+<div class="analogy">
+  <div class="analogy-label">🍔 Analogi Restoran</div>
+  <p><strong>Client</strong> = pramusaji yang memanggil pesanan ke dapur.<br>
+  <strong>Edge Function</strong> = kepala dapur yang memvalidasi pesanan sebelum masuk ke sistem.<br>
+  <strong>Database</strong> = dapur utama — semua masakan (data) disiapkan di sini.<br>
+  <strong>Storage</strong> = gudang bahan baku (gambar, file).</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🔑 Supabase: Inti dari Segalanya</h2>
+
+<p>Supabase bukan cuma "database". Dia adalah <strong>platform backend lengkap</strong> yang kasih kamu:</p>
+
+<div class="card">
+  <div class="card-title">📦 Apa saja yang Supabase kelola untuk project ini:</div>
+  <table>
+    <thead><tr><th>Fitur Supabase</th><th>Fungsinya di SS Digital</th><th>Kamu di mana?</th></tr></thead>
+    <tbody>
+      <tr><td><strong>PostgreSQL DB</strong></td><td>Semua data outlet, staff, stok, order, keuangan</td><td><code>supabase/migrations/</code></td></tr>
+      <tr><td><strong>Auth</strong></td><td>Login staff via email/pseudo-email, JWT token</td><td>Otomatis via SDK</td></tr>
+      <tr><td><strong>Row Level Security</strong></td><td>Outlet A tidak bisa lihat data Outlet B</td><td><code>*_rls.sql</code> migrations</td></tr>
+      <tr><td><strong>Edge Functions</strong></td><td>Logic server-side: kirim push notif, buat staff</td><td><code>supabase/functions/</code></td></tr>
+      <tr><td><strong>Realtime</strong></td><td>Monitor stok, orders, absensi update live di dashboard</td><td>Migrations <code>*_realtime*</code></td></tr>
+      <tr><td><strong>Storage</strong></td><td>Foto selfie absen, foto verif kiriman, gambar menu</td><td>Bucket configs</td></tr>
+      <tr><td><strong>pg_cron</strong></td><td>Job otomatis: sync sales harian, snapshot target, health check</td><td><code>*_schedule*</code> migrations</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="callout callout-info">
+  <div class="callout-label">ℹ️ Info</div>
+  <p>Project SS Digital punya <strong>2 Supabase project</strong> yang berbeda:
+  <br>• <strong>Outlet Suite</strong> — project utama (absensi, stok, POS, keuangan) → <code>khpkoreaaucvyqfhynfq</code>
+  <br>• <strong>Ecosystem</strong> — project lama, sumber data <em>Order Online</em> dari delivery apps. Read-only dari suite baru.</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>⚡ Komponen Mana yang Paling Rawan?</h2>
+
+<p>Bukan semua bagian sama bahayanya. Berdasarkan struktur project ini, ini <strong>ranking risiko performa</strong>:</p>
+
+<div class="card">
+  <div style="display: flex; flex-direction: column; gap: 1rem;">
+
+    <div style="display: flex; gap: 1rem; align-items: flex-start; padding: .75rem; background: rgba(239,68,68,.1); border-radius: 8px; border-left: 3px solid var(--danger);">
+      <span style="font-size: 1.5rem">🔴</span>
+      <div>
+        <strong>Database Queries (PALING SERING jadi masalah)</strong><br>
+        <small>Query lambat = semua app lambat. Apalagi views seperti <code>monitoring_view_spv</code> yang join banyak tabel sekaligus.</small>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; align-items: flex-start; padding: .75rem; background: rgba(245,158,11,.1); border-radius: 8px; border-left: 3px solid var(--warn);">
+      <span style="font-size: 1.5rem">🟡</span>
+      <div>
+        <strong>Row Level Security (RLS) Policies</strong><br>
+        <small>RLS yang buruk bisa bikin setiap query ikut menjalankan subquery tambahan. 19 outlet × banyak tabel = potensi lambat.</small>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; align-items: flex-start; padding: .75rem; background: rgba(59,130,246,.1); border-radius: 8px; border-left: 3px solid var(--info);">
+      <span style="font-size: 1.5rem">🔵</span>
+      <div>
+        <strong>Triggers & pg_cron Jobs</strong><br>
+        <small>Trigger BOM otomatis, sync POS sales, push notification — kalau ada yang gagal, data bisa tidak konsisten.</small>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; align-items: flex-start; padding: .75rem; background: rgba(34,197,94,.1); border-radius: 8px; border-left: 3px solid var(--ok);">
+      <span style="font-size: 1.5rem">🟢</span>
+      <div>
+        <strong>Edge Functions</strong><br>
+        <small>Relatif stabil — dipanggil saat dibutuhkan, tidak terus-menerus. Risiko utama: cold start dan timeout.</small>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>📋 Yang Harus Di-maintain Rutin</h2>
+
+<p>Ini <strong>checklist maintenance backend</strong> yang perlu kamu pahami untuk lesson-lesson berikutnya:</p>
+
+<table>
+  <thead><tr><th>#</th><th>Apa</th><th>Seberapa Sering</th><th>Lesson</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Monitor query lambat (pg_stat_statements)</td><td>Mingguan</td><td>→ Lesson 02</td></tr>
+    <tr><td>2</td><td>Cek & optimasi Index database</td><td>Bulanan / saat ada keluhan lambat</td><td>→ Lesson 03</td></tr>
+    <tr><td>3</td><td>Audit RLS Policies</td><td>Saat tambah fitur/role baru</td><td>→ Lesson 04</td></tr>
+    <tr><td>4</td><td>Review pg_cron & Trigger health</td><td>Mingguan</td><td>→ Lesson 05</td></tr>
+    <tr><td>5</td><td>Monitor Edge Function errors & latency</td><td>Mingguan</td><td>→ Lesson 06</td></tr>
+    <tr><td>6</td><td>Cek storage usage & bucket policies</td><td>Bulanan</td><td>→ Lesson 07</td></tr>
+    <tr><td>7</td><td>Database connection pool monitoring</td><td>Mingguan</td><td>→ Lesson 08</td></tr>
+    <tr><td>8</td><td>Realtime subscription health</td><td>Saat ada laporan data tidak update</td><td>→ Lesson 09</td></tr>
+    <tr><td>9</td><td>Backup strategy & migration hygiene</td><td>Tiap kali push migration baru</td><td>→ Lesson 10</td></tr>
+  </tbody>
+</table>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🧠 Referensi Cepat: Struktur Folder Backend</h2>
+
+<pre><code>SS-DIGITAL-PROJECT/
+├── supabase/
+│   ├── migrations/       ← Semua perubahan database (307 files!)
+│   │   ├── *_rls.sql     ← Keamanan akses data
+│   │   ├── *_realtime*   ← Konfigurasi live update
+│   │   └── *_schedule*   ← Penjadwalan otomatis (pg_cron)
+│   └── functions/        ← Edge Functions (14 functions)
+│       ├── submit-attendance/
+│       ├── admin-create-staff/
+│       ├── send-push/
+│       └── webhook-sync-order/   ← Sync dari Ecosystem
+└── apps/
+    ├── portal/           ← SSO gateway (Next.js SSR)
+    ├── pos-kasir/        ← POS + kiosk (Next.js SSR)
+    ├── absensi/          ← Attendance (Next.js static)
+    └── stok/             ← Stock management (Next.js static)</code></pre>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="quiz-section" id="quiz">
+  <div class="quiz-title">🧪 Cek Pemahaman</div>
+
+  <!-- Q1 -->
+  <div class="quiz-q" id="q1">
+    <p>1. Di SS Digital, komponen apa yang PALING SERING jadi penyebab aplikasi terasa lambat?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q1" value="a"> Edge Functions (Deno serverless)</label>
+      <label><input type="radio" name="q1" value="b"> Database queries yang tidak dioptimasi</label>
+      <label><input type="radio" name="q1" value="c"> File gambar di Supabase Storage</label>
+      <label><input type="radio" name="q1" value="d"> JavaScript bundle di browser</label>
+    </div>
+    <div class="quiz-feedback" id="q1-feedback"></div>
+  </div>
+
+  <!-- Q2 -->
+  <div class="quiz-q" id="q2">
+    <p>2. Apa fungsi <strong>Edge Functions</strong> di arsitektur SS Digital?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q2" value="a"> Menyimpan gambar dan file upload</label>
+      <label><input type="radio" name="q2" value="b"> Menjalankan logic server-side yang tidak boleh ada di browser</label>
+      <label><input type="radio" name="q2" value="c"> Mengelola routing halaman Next.js</label>
+      <label><input type="radio" name="q2" value="d"> Menjadwalkan cron job harian</label>
+    </div>
+    <div class="quiz-feedback" id="q2-feedback"></div>
+  </div>
+
+  <!-- Q3 -->
+  <div class="quiz-q" id="q3">
+    <p>3. Project SS Digital punya 2 Supabase project. Project <strong>Ecosystem</strong> digunakan untuk apa?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q3" value="a"> Database utama absensi dan stok</label>
+      <label><input type="radio" name="q3" value="b"> Sumber data Order Online dari delivery apps (read-only)</label>
+      <label><input type="radio" name="q3" value="c"> Hosting Edge Functions utama</label>
+      <label><input type="radio" name="q3" value="d"> Storage untuk foto selfie absensi</label>
+    </div>
+    <div class="quiz-feedback" id="q3-feedback"></div>
+  </div>
+
+  <button class="quiz-check" onclick="checkQuiz()">Cek Jawaban</button>
+  <div class="quiz-feedback" id="quiz-result" style="margin-top: 1rem;"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="callout callout-tip">
+  <div class="callout-label">📖 Sumber Bacaan Utama</div>
+  <p>Baca overview resmi Supabase Architecture:
+  <a href="https://supabase.com/docs/guides/getting-started/architecture" target="_blank">supabase.com/docs/guides/getting-started/architecture</a>
+  — fokus ke bagian "Database" dan "Edge Functions". (≈5 menit)</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="lesson-nav">
+  <span style="color: var(--text-muted); font-size: .85rem">Lesson 01 / 10</span>
+  <a href="0002-query-lambat-dan-cara-deteksi.html" class="btn btn-primary">Lesson 02: Query Lambat →</a>
+</div>
+
+<div class="ask-teacher">
+  <p>💬 <strong>Ada yang membingungkan?</strong> Tanya langsung ke AI teacher — tulis pertanyaanmu di chat dan saya akan jelaskan lebih dalam.</p>
+</div>
+
+<script>
+const answers = { q1: 'b', q2: 'b', q3: 'b' };
+const explanations = {
+  q1: {
+    correct: '✅ Benar! Database queries adalah bottleneck paling umum. Views seperti <code>monitoring_view_spv</code> yang join banyak tabel bisa sangat lambat kalau tidak ada index yang tepat.',
+    wrong:   '❌ Bukan itu. Database queries adalah komponen paling rawan — satu query lambat bisa bikin semua app yang bergantung padanya ikut lambat.'
+  },
+  q2: {
+    correct: '✅ Tepat! Edge Functions menjalankan logic yang sensitif/rahasia di server — misalnya <code>admin-create-staff</code> yang perlu service_role key yang tidak boleh ada di browser.',
+    wrong:   '❌ Bukan. Edge Functions adalah serverless functions yang jalan di server Supabase (CDN Deno) — untuk logic yang tidak boleh diekspos ke browser.'
+  },
+  q3: {
+    correct: '✅ Benar! Ecosystem adalah Supabase project lama yang menjadi sumber Order Online (delivery apps). Suite baru hanya membaca datanya via <code>webhook-sync-order</code>.',
+    wrong:   '❌ Kurang tepat. Ecosystem adalah project <em>terpisah</em> yang menyimpan data Order Online dari delivery apps — read-only dari sisi Outlet Suite.'
+  }
+};
+
+function checkQuiz() {
+  let score = 0;
+  ['q1','q2','q3'].forEach(q => {
+    const chosen = document.querySelector(`input[name="${q}"]:checked`);
+    const fb = document.getElementById(`${q}-feedback`);
+    if (!chosen) { fb.className = 'quiz-feedback wrong'; fb.innerHTML = '⚠️ Pilih salah satu jawaban.'; return; }
+    const isCorrect = chosen.value === answers[q];
+    if (isCorrect) score++;
+    fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+    fb.innerHTML = isCorrect ? explanations[q].correct : explanations[q].wrong;
+  });
+  const result = document.getElementById('quiz-result');
+  if (score === 3) {
+    result.className = 'quiz-feedback correct';
+    result.innerHTML = '🎉 Sempurna! Kamu sudah punya peta mental yang jelas. Lanjut ke Lesson 02!';
+  } else {
+    result.className = 'quiz-feedback wrong';
+    result.innerHTML = `Skor ${score}/3. Review bagian yang salah, lalu coba lagi!`;
+  }
+}
+</script>
+
+</body>
+</html>

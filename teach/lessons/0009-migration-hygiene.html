@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 09 — Migration Hygiene: Menulis SQL Migrasi yang Aman</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" style="width: 90%"></div></div>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📚 Backend Maintenance</span>
+    <span>Lesson 09 / 10</span>
+    <span>⏱ ~15 menit</span>
+    <span>🟡 Menengah</span>
+  </div>
+  <h1 class="lesson-title">Migration Hygiene: Menulis SQL Migrasi yang Aman</h1>
+  <p style="color: var(--text-muted)">Project kamu sudah memiliki lebih dari 300 file migrasi database. Mari pelajari cara menulis perubahan database yang aman agar tidak merusak data lama.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🎯 Tujuan Lesson Ini</h2>
+<ul>
+  <li>Memahami konsep **Additive Migrations** (Perubahan Aditif)</li>
+  <li>Mengetahui bahaya perintah destruktif seperti <code>DROP COLUMN</code> di database production</li>
+  <li>Bisa menggunakan pertahanan SQL seperti <code>IF NOT EXISTS</code> dan <code>DROP POLICY IF EXISTS</code></li>
+  <li>Tahu cara menangani konflik riwayat migrasi menggunakan perintah <code>migration repair</code></li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>1. Aturan Emas: Additive Migrations</h2>
+
+<p>Di database production yang sedang aktif melayani transaksi 19 outlet, kamu **tidak boleh** mengubah struktur database dengan cara yang destruktif (merusak).</p>
+<p>Gunakan prinsip **Additive Migrations**: buat perubahan database dengan cara menambah (add), bukan menghapus atau mengubah paksa kolom yang sudah ada.</p>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Tindakan Destruktif (Hindari)</th><th>Tindakan Aditif (Gunakan)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>🔴 <code>DROP COLUMN status;</code> (Menghapus kolom lama)</td>
+        <td>🟢 Biarkan kolom lama, atau buat kolom baru <code>is_active BOOLEAN;</code> lalu salin datanya secara bertahap.</td>
+      </tr>
+      <tr>
+        <td>🔴 <code>ALTER COLUMN price SET NOT NULL;</code> (Kolom kosong dipaksa NOT NULL)</td>
+        <td>🟢 Beri nilai default dulu untuk baris kosong, baru set NOT NULL secara terpisah.</td>
+      </tr>
+      <tr>
+        <td>🔴 Mengubah nama tabel langsung</td>
+        <td>🟢 Buat tabel baru, sinkronkan data secara bertahap, lalu hapus tabel lama setelah aplikasi Next.js diganti kodenya.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>2. Menulis SQL dengan Defensif</h2>
+<p>Karena migrasi bisa dijalankan berulang kali (lokal, staging, produksi), pastikan SQL kamu **idempotent** (bisa dijalankan berkali-kali tanpa menghasilkan error).</p>
+
+<h3>Gunakan Pertahanan SQL Ini:</h3>
+
+<pre><code><span class="cmt">── 1. Untuk Tabel Baru ─────────────────────────────────</span>
+<span class="kw">CREATE TABLE IF NOT EXISTS</span> public.nama_tabel ( ... );
+
+<span class="cmt">── 2. Untuk Kolom Baru ─────────────────────────────────</span>
+<span class="kw">ALTER TABLE</span> public.outlet_staff
+  <span class="kw">ADD COLUMN IF NOT EXISTS</span> is_active <span class="kw">boolean DEFAULT</span> true;
+
+<span class="cmt">── 3. Untuk Index Baru ─────────────────────────────────</span>
+<span class="kw">CREATE UNIQUE INDEX IF NOT EXISTS</span> orders_external_order_id_uq
+  <span class="kw">ON</span> public.orders (external_order_id);
+
+<span class="cmt">── 4. Untuk RLS Policy Baru (Selalu drop dulu!) ────────</span>
+<span class="kw">DROP POLICY IF EXISTS</span> "Staff can read categories" <span class="kw">ON</span> public.categories;
+<span class="kw">CREATE POLICY</span> "Staff can read categories" <span class="kw">ON</span> public.categories ...;</code></pre>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>3. Menangani Riwayat Migrasi Konflik (Diverged History)</h2>
+
+<p>Terkadang, database cloud sudah memiliki suatu tabel/fungsi tetapi file migrasi lokal belum tercatat sebagai "sudah dijalankan".
+Saat kamu menjalankan <code>supabase db push</code>, terminal akan menolak dan memunculkan error konflk.</p>
+
+<p><strong>Solusinya:</strong> Gunakan perintah <code>migration repair</code> untuk menandai migrasi tersebut sebagai "sudah diterapkan" di cloud tanpa harus menjalankannya ulang:</p>
+
+<pre><code><span class="cmt"># Tandai file migrasi tertentu sebagai "applied" (sudah dijalankan) di remote</span>
+supabase migration repair --status applied [timestamp_file_migrasi]
+
+<span class="cmt"># Contoh:</span>
+supabase migration repair --status applied 20260723101000
+
+<span class="cmt"># Setelah diperbaiki, jalankan push kembali:</span>
+supabase db push</code></pre>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="quiz-section" id="quiz">
+  <div class="quiz-title">🧪 Cek Pemahaman</div>
+
+  <div class="quiz-q" id="q1">
+    <p>1. Mengapa perintah <code>DROP COLUMN</code> sangat dihindari di database production yang sedang berjalan?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q1" value="a"> Karena database akan otomatis mati jika kolom dihapus</label>
+      <label><input type="radio" name="q1" value="b"> Karena kode aplikasi Next.js yang lama di server (sebelum dideploy baru) masih memanggil kolom tersebut, sehingga app akan crash seketika</label>
+      <label><input type="radio" name="q1" value="c"> Karena Supabase tidak mendukung perintah DROP</label>
+      <label><input type="radio" name="q1" value="d"> Karena index database akan bertambah besar</label>
+    </div>
+    <div class="quiz-feedback" id="q1-feedback"></div>
+  </div>
+
+  <div class="quiz-q" id="q2">
+    <p>2. Perintah apa yang digunakan untuk menyelesaikan masalah di mana file migrasi lokal ditolak saat push karena database cloud menganggap riwayat migrasi tidak sinkron?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q2" value="a"> supabase db reset</label>
+      <label><input type="radio" name="q2" value="b"> supabase migration repair --status applied [timestamp]</label>
+      <label><input type="radio" name="q2" value="c"> supabase functions deploy</label>
+      <label><input type="radio" name="q2" value="d"> git merge main</label>
+    </div>
+    <div class="quiz-feedback" id="q2-feedback"></div>
+  </div>
+
+  <button class="quiz-check" onclick="checkQuiz()">Cek Jawaban</button>
+  <div class="quiz-feedback" id="quiz-result" style="margin-top: 1rem;"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="callout callout-tip">
+  <div class="callout-label">📖 Sumber Bacaan Utama</div>
+  <p>Baca panduan migrasi Supabase CLI:
+  <a href="https://supabase.com/docs/guides/cli/local-development#database-migrations" target="_blank">supabase.com/docs/guides/cli/local-development#database-migrations</a>
+  — pahami siklus local development hingga production deployment. (≈5 menit)</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="lesson-nav">
+  <a href="0008-connection-pooling.html" class="btn">← Lesson 08: Connection Pool</a>
+  <a href="0010-incident-response.html" class="btn btn-primary">Lesson 10: Incident Response →</a>
+</div>
+
+<script>
+const answers = { q1: 'b', q2: 'b' };
+const explanations = {
+  q1: {
+    correct: '✅ Benar! Menghapus kolom sebelum kode aplikasi Next.js diperbarui akan langsung memicu error SELECT/INSERT di server Next.js. Selalu gunakan strategi additive migration.',
+    wrong:   '❌ Salah. Penyebab utamanya adalah kompatibilitas kode aplikasi Next.js di server yang masih berjalan dan membutuhkan kolom tersebut sebelum deploy baru selesai.'
+  },
+  q2: {
+    correct: '✅ Tepat! <code>migration repair</code> digunakan untuk menyinkronkan status daftar riwayat migrasi antara server cloud dan lokal secara manual tanpa merusak data.',
+    wrong:   '❌ Salah. <code>supabase db reset</code> justru akan menghapus seluruh data database cloud kamu! Gunakan <code>migration repair</code> untuk meluruskan riwayat.'
+  }
+};
+
+function checkQuiz() {
+  let score = 0;
+  ['q1','q2'].forEach(q => {
+    const chosen = document.querySelector(`input[name="${q}"]:checked`);
+    const fb = document.getElementById(`${q}-feedback`);
+    if (!chosen) { fb.className = 'quiz-feedback wrong'; fb.innerHTML = '⚠️ Pilih salah satu jawaban.'; return; }
+    const isCorrect = chosen.value === answers[q];
+    if (isCorrect) score++;
+    fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+    fb.innerHTML = isCorrect ? explanations[q].correct : explanations[q].wrong;
+  });
+  const result = document.getElementById('quiz-result');
+  if (score === 2) {
+    result.className = 'quiz-feedback correct';
+    result.innerHTML = '🎉 Sempurna! Kamu sudah memahami konsep kebersihan migrasi (Migration Hygiene). Lanjut ke Lesson Terakhir: Incident Response!';
+  } else {
+    result.className = 'quiz-feedback wrong';
+    result.innerHTML = `Skor ${score}/2. Silakan baca ulang pentingnya prinsip Additive Migration ya!`;
+  }
+}
+</script>
+
+</body>
+</html>

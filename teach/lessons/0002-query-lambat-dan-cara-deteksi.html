@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 02 — Mendeteksi & Memperbaiki Query Lambat</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" style="width: 20%"></div></div>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📚 Backend Maintenance</span>
+    <span>Lesson 02 / 10</span>
+    <span>⏱ ~20 menit</span>
+    <span>🔴 Prioritas Tinggi</span>
+  </div>
+  <h1 class="lesson-title">Mendeteksi & Memperbaiki Query Lambat</h1>
+  <p style="color: var(--text-muted)">Ini skill #1 backend maintenance. Kalau kamu bisa mendeteksi dan memperbaiki query lambat, 80% masalah performa sudah bisa kamu tangani.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🎯 Tujuan Lesson Ini</h2>
+<ul>
+  <li>Tahu cara membuka <strong>Query Performance</strong> di Supabase Dashboard</li>
+  <li>Bisa membaca output <strong>EXPLAIN ANALYZE</strong> untuk tahu query lambat kenapa</li>
+  <li>Tahu kapan harus <strong>tambah index</strong> vs <strong>rewrite query</strong></li>
+  <li>Bisa menerapkan fix ke project SS Digital yang nyata</li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🩺 Step 1: Buka "Dokter" Database</h2>
+
+<p>Supabase punya fitur bawaan bernama <strong>Query Performance</strong> — ini seperti laporan kesehatan database kamu. Buka dari dashboard:</p>
+
+<div class="card">
+  <div class="card-title">📍 Cara Buka Query Performance</div>
+  <ol style="padding-left: 1.25rem; line-height: 2.2">
+    <li>Buka <a href="https://supabase.com/dashboard" target="_blank">supabase.com/dashboard</a></li>
+    <li>Pilih project <strong>Outlet Suite</strong> (bukan Ecosystem)</li>
+    <li>Klik menu kiri: <strong>Database</strong> → <strong>Query Performance</strong></li>
+    <li>Lihat tabel: ini daftar query yang paling lambat / paling sering dijalankan</li>
+  </ol>
+</div>
+
+<div class="analogy">
+  <div class="analogy-label">🏥 Analogi Dokter</div>
+  <p>Query Performance = hasil <em>medical check-up</em> database. Tanpa ini, kamu hanya menebak-nebak. Dengan ini, kamu bisa langsung tahu bagian mana yang "sakit" dan perlu diobati.</p>
+</div>
+
+<div class="callout callout-info">
+  <div class="callout-label">ℹ️ Kenapa bisa ada fitur ini?</div>
+  <p>Project SS Digital sudah mengaktifkan extension <code>pg_stat_statements</code> via migration <code>20260623120000_enable_pg_stat_statements.sql</code>. Extension ini merekam statistik semua query yang pernah dijalankan di database.</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🔬 Step 2: Baca EXPLAIN ANALYZE</h2>
+
+<p>Ketika kamu menemukan query yang lambat, kamu bisa "minta penjelasan" ke PostgreSQL dengan perintah <code>EXPLAIN ANALYZE</code>. Ini memberitahu kamu <em>rencana eksekusi</em> query — apa yang terjadi di balik layar.</p>
+
+<h3>Contoh Nyata dari Project SS Digital</h3>
+<p>Misalnya query monitoring stok yang dipanggil saat buka halaman Live Monitoring:</p>
+
+<pre><code><span class="cmt">-- Query asli (disederhanakan)</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> monitoring_view_spv
+<span class="kw">WHERE</span> outlet_id <span class="kw">IN</span> (<span class="fn">accessible_outlet_ids</span>());
+
+<span class="cmt">-- Untuk diagnosa, tambah EXPLAIN ANALYZE di depannya:</span>
+<span class="kw">EXPLAIN ANALYZE</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> monitoring_view_spv
+<span class="kw">WHERE</span> outlet_id <span class="kw">IN</span> (<span class="fn">accessible_outlet_ids</span>());</code></pre>
+
+<p>Hasilnya kira-kira seperti ini:</p>
+
+<pre><code>Seq Scan on ledger_stok  (cost=0.00..8234.51 rows=1 width=200)
+                         (actual time=42.3..156.7 rows=18 loops=1)
+  Filter: (outlet_id = ANY (...))
+  Rows Removed by Filter: 89432
+
+Planning Time: 0.8 ms
+Execution Time: <span style="color:var(--danger)">157.5 ms</span>   ← ⚠️ Ini lambat!</code></pre>
+
+<h3>Cara Baca Output EXPLAIN</h3>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Kata Kunci</th><th>Artinya</th><th>Baik/Buruk?</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>Seq Scan</code></td>
+        <td><strong>Sequential Scan</strong> — database baca SEMUA baris satu per satu</td>
+        <td>🔴 Buruk kalau tabel besar</td>
+      </tr>
+      <tr>
+        <td><code>Index Scan</code></td>
+        <td>Database pakai index — langsung lompat ke baris yang dibutuhkan</td>
+        <td>🟢 Bagus</td>
+      </tr>
+      <tr>
+        <td><code>Bitmap Heap Scan</code></td>
+        <td>Gabungan index + sequential — untuk banyak hasil</td>
+        <td>🟡 Bisa oke</td>
+      </tr>
+      <tr>
+        <td><code>Rows Removed by Filter</code></td>
+        <td>Berapa baris yang dibaca tapi dibuang</td>
+        <td>🔴 Buruk kalau angkanya besar</td>
+      </tr>
+      <tr>
+        <td><code>actual time=X..Y ms</code></td>
+        <td>Waktu aktual eksekusi</td>
+        <td>🔴 &gt;100ms perlu perhatian</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="analogy">
+  <div class="analogy-label">📚 Analogi Perpustakaan</div>
+  <p><strong>Seq Scan</strong> = petugas cari buku dengan membuka tiap halaman katalog satu per satu dari awal.<br>
+  <strong>Index Scan</strong> = petugas langsung buka indeks di belakang buku, lompat ke halaman yang tepat.<br><br>
+  Kalau perpustakaan punya 100.000 buku, <em>Seq Scan</em> sangat lambat. <em>Index</em> adalah solusinya.</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>⚡ Step 3: Kapan Tambah Index?</h2>
+
+<p>Index adalah "daftar isi" tambahan di database yang mempercepat pencarian. <strong>Tapi tidak semua kolom perlu index</strong> — index juga memperlambat operasi INSERT/UPDATE.</p>
+
+<h3>Aturan Praktis: Tambah Index Kalau…</h3>
+
+<div class="card">
+  <div style="display: flex; flex-direction: column; gap: .75rem;">
+    <div style="padding: .75rem; background: rgba(34,197,94,.08); border-radius: 8px;">
+      ✅ Kolom sering dipakai di <code>WHERE</code>, <code>JOIN ON</code>, atau <code>ORDER BY</code>
+    </div>
+    <div style="padding: .75rem; background: rgba(34,197,94,.08); border-radius: 8px;">
+      ✅ Tabel punya banyak baris (>10.000 rows) dan query sering Seq Scan
+    </div>
+    <div style="padding: .75rem; background: rgba(34,197,94,.08); border-radius: 8px;">
+      ✅ Kolom foreign key yang sering di-JOIN (misalnya <code>outlet_id</code>, <code>bahan_baku_id</code>)
+    </div>
+    <div style="padding: .75rem; background: rgba(239,68,68,.08); border-radius: 8px;">
+      ❌ Jangan index kolom yang bisa berubah sangat sering (update ratusan kali/menit)
+    </div>
+    <div style="padding: .75rem; background: rgba(239,68,68,.08); border-radius: 8px;">
+      ❌ Jangan index tabel kecil (&lt;1000 rows) — Seq Scan lebih cepat untuk tabel kecil
+    </div>
+  </div>
+</div>
+
+<h3>Index yang Sudah Ada di Project SS Digital</h3>
+<p>Migration <code>20260620100000_perf_indexes.sql</code> dan <code>20260722190000_optimize_pos_indexes_and_queries.sql</code> sudah menambahkan index penting. Contoh:</p>
+
+<pre><code><span class="cmt">-- Index pada tabel ledger_stok (tabel paling besar & sering di-query)</span>
+<span class="kw">CREATE INDEX</span> idx_ledger_stok_outlet_id
+  <span class="kw">ON</span> ledger_stok (outlet_id);
+
+<span class="kw">CREATE INDEX</span> idx_ledger_stok_created_at
+  <span class="kw">ON</span> ledger_stok (created_at <span class="kw">DESC</span>);
+
+<span class="cmt">-- Index composite (gabungan 2 kolom) — untuk query outlet + waktu sekaligus</span>
+<span class="kw">CREATE INDEX</span> idx_ledger_outlet_created
+  <span class="kw">ON</span> ledger_stok (outlet_id, created_at <span class="kw">DESC</span>);</code></pre>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🛠️ Step 4: Cara Tambah Index (Praktik)</h2>
+
+<p>Kalau kamu menemukan query lambat dan perlu tambah index, buat migration file baru:</p>
+
+<pre><code><span class="cmt">-- File: supabase/migrations/20260724100000_fix_slow_query_xxx.sql</span>
+
+<span class="cmt">-- SELALU pakai CONCURRENTLY agar tidak lock tabel saat index dibuat</span>
+<span class="cmt">-- (penting untuk production yang sedang dipakai!)</span>
+<span class="kw">CREATE INDEX CONCURRENTLY IF NOT EXISTS</span> idx_nama_yang_deskriptif
+  <span class="kw">ON</span> nama_tabel (nama_kolom);
+
+<span class="cmt">-- Untuk index composite (urutan kolom penting!):</span>
+<span class="cmt">-- Kolom yang paling selective (nilai paling unik) taruh di depan</span>
+<span class="kw">CREATE INDEX CONCURRENTLY IF NOT EXISTS</span> idx_orders_outlet_status
+  <span class="kw">ON</span> orders (outlet_id, status, created_at <span class="kw">DESC</span>);</code></pre>
+
+<div class="callout callout-warn">
+  <div class="callout-label">⚠️ Penting</div>
+  <p>Selalu gunakan <code>CONCURRENTLY</code> saat membuat index di database production. Tanpa itu, PostgreSQL akan <em>lock</em> (memblokir) semua operasi tulis ke tabel tersebut sampai index selesai dibuat — bisa beberapa menit untuk tabel besar!</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🔍 Step 5: Cara Cepat Cek Semua Index yang Ada</h2>
+
+<p>Kamu bisa lihat semua index di database SS Digital dari Supabase SQL Editor:</p>
+
+<pre><code><span class="cmt">-- Lihat semua index yang ada</span>
+<span class="kw">SELECT</span>
+  schemaname,
+  tablename,
+  indexname,
+  indexdef
+<span class="kw">FROM</span> pg_indexes
+<span class="kw">WHERE</span> schemaname = <span class="str">'public'</span>
+<span class="kw">ORDER BY</span> tablename, indexname;
+
+<span class="cmt">-- Cek index yang TIDAK PERNAH dipakai (kandidat untuk dihapus)</span>
+<span class="kw">SELECT</span>
+  relname <span class="kw">AS</span> table_name,
+  indexrelname <span class="kw">AS</span> index_name,
+  idx_scan <span class="kw">AS</span> times_used
+<span class="kw">FROM</span> pg_stat_user_indexes
+<span class="kw">WHERE</span> idx_scan = 0
+<span class="kw">ORDER BY</span> relname;</code></pre>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🏋️ Latihan: Diagnosis Query Views Monitoring</h2>
+
+<p>Coba langkah ini di Supabase SQL Editor project SS Digital kamu:</p>
+
+<div class="card" style="border-color: rgba(255,107,43,.3)">
+  <div class="card-title">🧪 Praktik Nyata</div>
+  <ol style="padding-left: 1.25rem; line-height: 2.5">
+    <li>Buka Supabase Dashboard → SQL Editor</li>
+    <li>Jalankan query ini:
+      <pre style="margin: .5rem 0"><code><span class="kw">EXPLAIN ANALYZE</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> monitoring_view_spv
+<span class="kw">LIMIT</span> 20;</code></pre>
+    </li>
+    <li>Cari baris yang ada kata <code>Seq Scan</code> — itu kandidat masalah</li>
+    <li>Cari baris <code>Execution Time:</code> — kalau &gt;500ms, perlu dioptimasi</li>
+    <li>Lihat <code>Rows Removed by Filter</code> — kalau ribuan, butuh index</li>
+  </ol>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="quiz-section" id="quiz">
+  <div class="quiz-title">🧪 Cek Pemahaman</div>
+
+  <div class="quiz-q" id="q1">
+    <p>1. Kamu lihat output EXPLAIN: <code>Seq Scan ... Rows Removed by Filter: 95,000</code>. Apa artinya?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q1" value="a"> Query berhasil menemukan 95.000 rows yang dibutuhkan</label>
+      <label><input type="radio" name="q1" value="b"> Database membaca 95.000 baris tapi langsung membuangnya — sangat tidak efisien</label>
+      <label><input type="radio" name="q1" value="c"> Ada 95.000 rows yang perlu diindex ulang</label>
+      <label><input type="radio" name="q1" value="d"> Database menggunakan index dengan baik</label>
+    </div>
+    <div class="quiz-feedback" id="q1-feedback"></div>
+  </div>
+
+  <div class="quiz-q" id="q2">
+    <p>2. Kolom <code>outlet_id</code> di tabel <code>ledger_stok</code> (ratusan ribu baris) sering dipakai di <code>WHERE</code>. Apa yang harus dilakukan?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q2" value="a"> Tidak perlu apa-apa, PostgreSQL sudah otomatis</label>
+      <label><input type="radio" name="q2" value="b"> Buat index <code>CREATE INDEX CONCURRENTLY ON ledger_stok (outlet_id)</code></label>
+      <label><input type="radio" name="q2" value="c"> Hapus baris-baris lama agar tabel tidak terlalu besar</label>
+      <label><input type="radio" name="q2" value="d"> Pindahkan ke tabel terpisah per outlet</label>
+    </div>
+    <div class="quiz-feedback" id="q2-feedback"></div>
+  </div>
+
+  <div class="quiz-q" id="q3">
+    <p>3. Mengapa penting menggunakan <code>CONCURRENTLY</code> saat membuat index di production?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q3" value="a"> Agar index dibuat lebih cepat dari biasanya</label>
+      <label><input type="radio" name="q3" value="b"> Agar tabel tidak di-lock dan app tetap bisa dipakai selama index dibuat</label>
+      <label><input type="radio" name="q3" value="c"> Agar index bisa dipakai oleh semua outlet sekaligus</label>
+      <label><input type="radio" name="q3" value="d"> Agar tidak perlu migration file</label>
+    </div>
+    <div class="quiz-feedback" id="q3-feedback"></div>
+  </div>
+
+  <button class="quiz-check" onclick="checkQuiz()">Cek Jawaban</button>
+  <div class="quiz-feedback" id="quiz-result" style="margin-top: 1rem;"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="callout callout-tip">
+  <div class="callout-label">📖 Sumber Bacaan Utama</div>
+  <p>Baca: <a href="https://use-the-index-luke.com/sql/anatomy" target="_blank">Use The Index, Luke — Anatomy of an Index</a> — Penjelasan visual paling bagus tentang cara kerja index. Tidak perlu habiskan semua — cukup bagian "Anatomy" dan "Where Clause". (≈10 menit)</p>
+</div>
+
+<div class="lesson-nav">
+  <a href="0001-peta-backend-ss-digital.html" class="btn">← Lesson 01: Peta Backend</a>
+  <a href="0003-rls-keamanan-dan-performa.html" class="btn btn-primary">Lesson 03: RLS →</a>
+</div>
+
+<div class="ask-teacher">
+  <p>💬 <strong>Setelah coba EXPLAIN ANALYZE, apa yang kamu temukan?</strong> Share hasilnya di chat dan saya akan bantu interpretasi!</p>
+</div>
+
+<script>
+const answers = { q1: 'b', q2: 'b', q3: 'b' };
+const explanations = {
+  q1: {
+    correct: '✅ Benar! Seq Scan dengan Rows Removed yang besar berarti database "kerja keras sia-sia" — baca ribuan baris hanya untuk membuangnya. Ini tanda butuh index.',
+    wrong:   '❌ Bukan. "Rows Removed by Filter: 95,000" artinya 95.000 baris dibaca tapi langsung dibuang karena tidak cocok filter. Ini sangat tidak efisien — butuh index.'
+  },
+  q2: {
+    correct: '✅ Tepat! Kolom yang sering dipakai di WHERE pada tabel besar wajib punya index. CONCURRENTLY penting agar app tidak terganggu saat index dibuat.',
+    wrong:   '❌ Bukan. Untuk kolom yang sering dipakai di WHERE pada tabel besar, kamu perlu membuat index secara eksplisit. PostgreSQL tidak otomatis membuat index kecuali untuk PRIMARY KEY dan UNIQUE constraint.'
+  },
+  q3: {
+    correct: '✅ Benar! Tanpa CONCURRENTLY, PostgreSQL lock tabel — semua INSERT/UPDATE dari app (POS, stok, dsb) akan blocked sampai index selesai. Di production yang aktif 19 outlet, ini berbahaya.',
+    wrong:   '❌ Kurang tepat. CONCURRENTLY mencegah table lock — tanpanya, semua operasi tulis ke tabel itu akan terhenti selama index dibuat (bisa beberapa menit!).'
+  }
+};
+
+function checkQuiz() {
+  let score = 0;
+  ['q1','q2','q3'].forEach(q => {
+    const chosen = document.querySelector(`input[name="${q}"]:checked`);
+    const fb = document.getElementById(`${q}-feedback`);
+    if (!chosen) { fb.className = 'quiz-feedback wrong'; fb.innerHTML = '⚠️ Pilih salah satu jawaban.'; return; }
+    const isCorrect = chosen.value === answers[q];
+    if (isCorrect) score++;
+    fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+    fb.innerHTML = isCorrect ? explanations[q].correct : explanations[q].wrong;
+  });
+  const result = document.getElementById('quiz-result');
+  if (score === 3) {
+    result.className = 'quiz-feedback correct';
+    result.innerHTML = '🎉 Sempurna! Kamu sudah bisa mendeteksi dan mulai memperbaiki query lambat. Lanjut ke RLS!';
+  } else {
+    result.className = 'quiz-feedback wrong';
+    result.innerHTML = `Skor ${score}/3. Review bagian yang salah ya, ini skill yang paling penting!`;
+  }
+}
+</script>
+
+</body>
+</html>

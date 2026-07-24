@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 06 — Realtime Subscriptions & WebSockets</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" style="width: 60%"></div></div>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📚 Backend Maintenance</span>
+    <span>Lesson 06 / 10</span>
+    <span>⏱ ~15 menit</span>
+    <span>🟡 Menengah</span>
+  </div>
+  <h1 class="lesson-title">Realtime Subscriptions & WebSockets</h1>
+  <p style="color: var(--text-muted)">Realtime membuat data di layar berubah sendiri tanpa refresh halaman. Mari pelajari cara kerjanya, batasannya, dan apa itu Replica Identity.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🎯 Tujuan Lesson Ini</h2>
+<ul>
+  <li>Memahami perbedaan request **HTTP** dengan koneksi **WebSocket**</li>
+  <li>Memahami cara menyaring (filter) realtime agar client tidak menerima sampah data</li>
+  <li>Mengetahui pentingnya <code>REPLICA IDENTITY FULL</code> pada operasi UPDATE & DELETE</li>
+  <li>Menyadari batasan kuota koneksi realtime di Supabase</li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>1. HTTP vs WebSocket: Cara Data Mengalir</h2>
+
+<p>Di web biasa (HTTP), client harus bertanya ke server untuk mendapatkan data baru: <em>"Ada order baru?"</em>. Server membalas, lalu koneksi ditutup.
+Jika ingin data baru, browser harus bertanya lagi (Polling).</p>
+
+<p>Di **WebSockets** (Realtime), browser membuka satu gerbang komunikasi permanen.
+Server dan browser terus terhubung. Begitu ada data masuk ke database, server langsung berteriak mengirimkannya ke browser tanpa ditanya.</p>
+
+<div class="arch">
+HTTP Polling:  [Browser] ──── (Tanya data baru?) ───▶ [Server] ── (Balas & Tutup)
+WebSocket:     [Browser] ◀══════ (Gerbang Koneksi Live) ══════▶ [Server] (Siaran Langsung)
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>2. Menyaring Data Realtime (Filter Client)</h2>
+
+<p>Membroadcast data ke semua browser bisa memakan banyak kuota internet dan CPU browser.
+Di SS Digital, kita selalu menggunakan **filter** di sisi client. Contoh di file <code>useStockAlerts.ts</code>:</p>
+
+<pre><code><span class="cmt">-- Hanya dengarkan update tabel stok_balance yang outlet_id-nya sama dengan outlet kasir</span>
+supabase
+  .channel(`stock_balance_${outletId}`)
+  .on(
+    <span class="str">'postgres_changes'</span>,
+    { event: <span class="str">'*'</span>, schema: <span class="str">'public'</span>, table: <span class="str">'stok_balance'</span>, filter: <span class="str">`outlet_id=eq.${outletId}`</span> },
+    (payload) => {
+      <span class="cmt">-- Jalankan aksi refetch</span>
+    }
+  )</code></pre>
+
+<p><strong>Bahayanya</strong>: Jika filter salah tulis (misal UUID outlet tidak valid atau typo nama tabel), koneksi socket tetap terbuka tetapi **tidak akan ada data yang terkirim**.</p>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>3. Apa itu <code>REPLICA IDENTITY FULL</code>?</h2>
+
+<p>Secara default, saat baris data di-update atau di-delete, PostgreSQL hanya mengirimkan primary key (misal kolom <code>id</code>) ke log replikasi untuk menghemat memori.</p>
+<p>Ini masalah untuk RLS Realtime: Jika browser memfilter <code>outlet_id=eq.Bogor</code>, lalu terjadi operasi DELETE, payload default **tidak membawa kolom `outlet_id` lama**. Akibatnya, filter realtime gagal mengenali bahwa baris yang terhapus itu milik outlet Bogor, dan user tidak mendapat update di layarnya!</p>
+
+<p><strong>Solusinya:</strong> Kita menyetel tabel agar mengirimkan seluruh kolom lamanya saat terjadi update/delete:</p>
+
+<pre><code><span class="cmt">-- Disetel di file migrasi kita</span>
+<span class="kw">ALTER TABLE</span> public.ledger_stok <span class="kw">REPLICA IDENTITY FULL</span>;</code></pre>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>⚠️ Batasan Kuota Realtime Supabase</h2>
+<p>Supabase memiliki batasan koneksi WebSocket simultan berdasarkan plan project:</p>
+<ul>
+  <li><strong>Free Plan</strong>: Maksimal **200 koneksi bersamaan** (200 tab browser terbuka sekaligus).</li>
+  <li><strong>Pro Plan</strong>: Maksimal **10.000 koneksi bersamaan**.</li>
+</ul>
+<p>Untuk menghemat koneksi, hindari membuka channel socket baru di setiap component React. Kelompokkan subscription dalam satu file hooks global (seperti <code>useMonitoringRealtime</code> di dashboard) agar satu tab browser hanya memakai <strong>1 koneksi socket saja</strong>.</p>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="quiz-section" id="quiz">
+  <div class="quiz-title">🧪 Cek Pemahaman</div>
+
+  <div class="quiz-q" id="q1">
+    <p>1. Mengapa kita perlu menyetel <code>REPLICA IDENTITY FULL</code> pada tabel di Supabase Realtime?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q1" value="a"> Agar data dienkripsi lebih aman selama pengiriman</label>
+      <label><input type="radio" name="q1" value="b"> Agar data lama (seperti outlet_id) ikut dikirim saat terjadi UPDATE/DELETE untuk evaluasi filter RLS</label>
+      <label><input type="radio" name="q1" value="c"> Agar data secara otomatis tersimpan di Supabase Storage</label>
+      <label><input type="radio" name="q1" value="d"> Agar index database otomatis diperbarui</label>
+    </div>
+    <div class="quiz-feedback" id="q1-feedback"></div>
+  </div>
+
+  <div class="quiz-q" id="q2">
+    <p>2. Bagaimana cara menghemat kuota koneksi realtime Supabase pada aplikasi Next.js?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q2" value="a"> Mematikan database saat malam hari</label>
+      <label><input type="radio" name="q2" value="b"> Membuka channel WebSocket baru di setiap komponen kecil</label>
+      <label><input type="radio" name="q2" value="c"> Mengelompokkan subscription realtime dalam satu hook global per halaman</label>
+      <label><input type="radio" name="q2" value="d"> Menggunakan HTTP biasa tanpa Supabase SDK</label>
+    </div>
+    <div class="quiz-feedback" id="q2-feedback"></div>
+  </div>
+
+  <button class="quiz-check" onclick="checkQuiz()">Cek Jawaban</button>
+  <div class="quiz-feedback" id="quiz-result" style="margin-top: 1rem;"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="lesson-nav">
+  <a href="0005-edge-functions-dan-errors.html" class="btn">← Lesson 05: Edge Functions</a>
+  <a href="0007-storage-dan-bucket-policies.html" class="btn btn-primary">Lesson 07: Storage Bucket →</a>
+</div>
+
+<script>
+const answers = { q1: 'b', q2: 'c' };
+const explanations = {
+  q1: {
+    correct: '✅ Benar! Tanpa REPLICA IDENTITY FULL, PostgreSQL hanya mengirim kolom primary key untuk baris yang dihapus/diubah. Ini membuat filter filter dan RLS di client gagal jalan.',
+    wrong:   '❌ Salah. Tanpanya, database hanya mengirim data ID utama saat data dihapus/diubah, sehingga filter (seperti outlet_id) di client tidak akan mendeteksi perubahan tersebut.'
+  },
+  q2: {
+    correct: '✅ Tepat! Menggabungkan subscription dalam satu hook global per halaman mencegah tab browser membuka banyak channel terpisah (yang memboroskan batas kuota 200 koneksi free tier).',
+    wrong:   '❌ Salah. Membuka channel di setiap komponen kecil justru akan mempercepat habisnya kuota koneksi simultan kamu.'
+  }
+};
+
+function checkQuiz() {
+  let score = 0;
+  ['q1','q2'].forEach(q => {
+    const chosen = document.querySelector(`input[name="${q}"]:checked`);
+    const fb = document.getElementById(`${q}-feedback`);
+    if (!chosen) { fb.className = 'quiz-feedback wrong'; fb.innerHTML = '⚠️ Pilih salah satu jawaban.'; return; }
+    const isCorrect = chosen.value === answers[q];
+    if (isCorrect) score++;
+    fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+    fb.innerHTML = isCorrect ? explanations[q].correct : explanations[q].wrong;
+  });
+  const result = document.getElementById('quiz-result');
+  if (score === 2) {
+    result.className = 'quiz-feedback correct';
+    result.innerHTML = '🎉 Sempurna! Kamu sudah memahami arsitektur realtime WebSocket dan Replica Identity. Lanjut ke Storage!';
+  } else {
+    result.className = 'quiz-feedback wrong';
+    result.innerHTML = `Skor ${score}/2. Silakan baca ulang bagian kegunaan REPLICA IDENTITY FULL ya!`;
+  }
+}
+</script>
+
+</body>
+</html>

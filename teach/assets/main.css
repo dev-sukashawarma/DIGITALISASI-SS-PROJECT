@@ -1,0 +1,245 @@
+/* ==========================================================
+   Suka Shawarma — Backend Learning Course
+   Shared Stylesheet (assets/main.css)
+   ========================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Brand */
+  --brand-orange: #FF6B2B;
+  --brand-dark:   #1A1A2E;
+  --brand-gold:   #E8B84B;
+
+  /* Semantics */
+  --bg:          #0F0F1A;
+  --surface:     #1A1A2E;
+  --surface-alt: #242440;
+  --border:      rgba(255,255,255,0.08);
+  --text:        #E8E8F0;
+  --text-muted:  #8888AA;
+  --accent:      var(--brand-orange);
+
+  /* Status */
+  --ok:      #22C55E;
+  --warn:    #F59E0B;
+  --danger:  #EF4444;
+  --info:    #3B82F6;
+
+  /* Type */
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 6rem;
+}
+
+/* ── Typography ──────────────────────────────────────────── */
+h1 { font-size: 2.2rem; font-weight: 700; line-height: 1.2; margin-bottom: .5rem; }
+h2 { font-size: 1.5rem; font-weight: 600; margin: 2.5rem 0 .75rem; }
+h3 { font-size: 1.15rem; font-weight: 600; margin: 2rem 0 .5rem; color: var(--brand-gold); }
+p  { margin-bottom: 1rem; }
+small { font-size: .8rem; color: var(--text-muted); }
+
+a { color: var(--brand-orange); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Course header ───────────────────────────────────────── */
+.course-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+.lesson-meta {
+  display: flex; gap: 1rem; flex-wrap: wrap;
+  font-size: .8rem; color: var(--text-muted);
+  margin-bottom: .75rem;
+}
+.lesson-meta span { background: var(--surface); padding: .2rem .6rem; border-radius: 999px; }
+.lesson-title { background: linear-gradient(135deg, var(--brand-orange), var(--brand-gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+/* ── Cards ───────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}
+.card-title { font-weight: 600; margin-bottom: .5rem; display: flex; align-items: center; gap: .5rem; }
+
+/* ── Callouts ────────────────────────────────────────────── */
+.callout {
+  border-left: 3px solid;
+  border-radius: 0 8px 8px 0;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  background: var(--surface);
+}
+.callout-tip     { border-color: var(--ok);   }
+.callout-warn    { border-color: var(--warn);  }
+.callout-danger  { border-color: var(--danger);}
+.callout-info    { border-color: var(--info);  }
+.callout-label   { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .5rem; }
+.callout-tip   .callout-label   { color: var(--ok);   }
+.callout-warn  .callout-label   { color: var(--warn); }
+.callout-danger .callout-label  { color: var(--danger);}
+.callout-info  .callout-label   { color: var(--info); }
+
+/* ── Code ────────────────────────────────────────────────── */
+code {
+  font-family: var(--font-mono);
+  background: var(--surface-alt);
+  padding: .1em .4em;
+  border-radius: 4px;
+  font-size: .88em;
+  color: var(--brand-gold);
+}
+pre {
+  font-family: var(--font-mono);
+  background: #0A0A14;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin: 1.25rem 0;
+  font-size: .87rem;
+  line-height: 1.65;
+}
+pre code { background: transparent; padding: 0; color: inherit; }
+
+/* SQL keywords */
+.kw  { color: #7DD3FC; }   /* SELECT, FROM, WHERE … */
+.fn  { color: #A78BFA; }   /* functions */
+.str { color: #86EFAC; }   /* strings */
+.cmt { color: #555577; font-style: italic; }
+
+/* ── Analogy boxes ───────────────────────────────────────── */
+.analogy {
+  background: linear-gradient(135deg, rgba(232,184,75,.08), rgba(255,107,43,.05));
+  border: 1px solid rgba(232,184,75,.2);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0;
+}
+.analogy-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; color: var(--brand-gold); letter-spacing: .06em; margin-bottom: .5rem; }
+
+/* ── Diagram / Architecture box ─────────────────────────── */
+.arch {
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  background: #0A0A14;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  line-height: 1.9;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* ── Quiz ────────────────────────────────────────────────── */
+.quiz-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.75rem;
+  margin: 2.5rem 0;
+}
+.quiz-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1.25rem; }
+.quiz-q     { margin-bottom: 1.5rem; }
+.quiz-q p   { font-weight: 500; margin-bottom: .75rem; }
+.quiz-options { display: flex; flex-direction: column; gap: .5rem; }
+.quiz-options label {
+  display: flex; align-items: center; gap: .75rem;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .75rem 1rem;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.quiz-options label:hover { border-color: var(--brand-orange); }
+.quiz-options input[type=radio] { accent-color: var(--brand-orange); }
+.quiz-check {
+  margin-top: 1.25rem;
+  background: var(--brand-orange);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: .6rem 1.5rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.quiz-check:hover { opacity: .88; }
+.quiz-feedback {
+  margin-top: 1rem;
+  padding: .75rem 1rem;
+  border-radius: 8px;
+  font-size: .9rem;
+  display: none;
+}
+.quiz-feedback.correct { background: rgba(34,197,94,.15); border: 1px solid var(--ok); color: #86EFAC; display: block; }
+.quiz-feedback.wrong   { background: rgba(239,68,68,.12);  border: 1px solid var(--danger); color: #FCA5A5; display: block; }
+
+/* ── Progress bar ────────────────────────────────────────── */
+.progress-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 999px;
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand-orange), var(--brand-gold));
+  border-radius: 999px;
+  transition: width .4s;
+}
+
+/* ── Next lesson nav ─────────────────────────────────────── */
+.lesson-nav {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 3rem; padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+.btn {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: .6rem 1.2rem;
+  font-family: var(--font-body); font-weight: 500; font-size: .9rem;
+  color: var(--text); cursor: pointer; text-decoration: none;
+  transition: border-color .15s, background .15s;
+}
+.btn:hover { border-color: var(--brand-orange); background: var(--surface-alt); text-decoration: none; }
+.btn-primary { background: var(--brand-orange); border-color: var(--brand-orange); color: white; }
+.btn-primary:hover { opacity: .88; }
+
+/* ── Highlight table ─────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; margin: 1.25rem 0; font-size: .9rem; }
+th { background: var(--surface-alt); text-align: left; padding: .6rem 1rem; font-weight: 600; border-bottom: 1px solid var(--border); }
+td { padding: .6rem 1rem; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+
+/* ── Ask your teacher nudge ──────────────────────────────── */
+.ask-teacher {
+  margin-top: 3rem;
+  background: linear-gradient(135deg, rgba(255,107,43,.08), rgba(232,184,75,.06));
+  border: 1px solid rgba(255,107,43,.2);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+}
+.ask-teacher p { margin: 0; font-size: .9rem; }

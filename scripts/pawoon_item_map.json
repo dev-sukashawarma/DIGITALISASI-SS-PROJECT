@@ -1,0 +1,109 @@
+{
+  "_unmatched": [],
+  "mapping": {
+    "BEST SELLER - ORI SAPI JUMBO": {
+      "system_id": "df2d06dc-1326-4139-aa95-5bc66a0a332b",
+      "system_name": "Original Sapi Jumbo"
+    },
+    "SAPI BESAR": {
+      "system_id": "fe01e7d3-ed72-45e9-9b74-2017522a2b64",
+      "system_name": "Original Sapi Besar"
+    },
+    "SAPI SEDANG": {
+      "system_id": "4adb4426-0d1f-4962-a5d9-2b9dfbb29ecd",
+      "system_name": "Original Sapi Sedang"
+    },
+    "AYAM BESAR": {
+      "system_id": "a80b91f8-e5dd-4f83-9c94-ebeba6b2da80",
+      "system_name": "Original Ayam Besar"
+    },
+    "SAPI JUMBO": {
+      "system_id": "df2d06dc-1326-4139-aa95-5bc66a0a332b",
+      "system_name": "Original Sapi Jumbo"
+    },
+    "AYAM JUMBO": {
+      "system_id": "e85983b6-7e5f-4e78-b3c8-501cf21e39e4",
+      "system_name": "Original Ayam Jumbo"
+    },
+    "AYAM SEDANG": {
+      "system_id": "a2c9433d-2525-4096-a28f-6e6f29dcf6df",
+      "system_name": "Original Ayam Sedang"
+    },
+    "MIX BESAR": {
+      "system_id": "df8b5f68-a6fb-4dc8-9bad-f8f02aaff0d7",
+      "system_name": "Original Mix Besar"
+    },
+    "FOOD APPS ORIGINAL MIX JUMBO": {
+      "system_id": "82751882-7f37-4b47-9f85-c2b3fca4f939",
+      "system_name": "Original Mix Jumbo"
+    },
+    "FOOD APPS EXTRA KENTANG": {
+      "system_id": "120f9317-1628-4c8c-999c-a82945f017b2",
+      "system_name": "Extra Kentang"
+    },
+    "FOOD APPS ORIGINAL SAPI SEDANG": {
+      "system_id": "4adb4426-0d1f-4962-a5d9-2b9dfbb29ecd",
+      "system_name": "Original Sapi Sedang"
+    },
+    "FOOD APPS ORIGINAL SAPI JUMBO": {
+      "system_id": "df2d06dc-1326-4139-aa95-5bc66a0a332b",
+      "system_name": "Original Sapi Jumbo"
+    },
+    "FOOD APPS SUKA BEEF": {
+      "system_id": "fea982b2-e172-4bfd-8fc6-1fa6de830c19",
+      "system_name": "Suka Beef"
+    },
+    "SUKA DUO FAVORITE": {
+      "system_id": "0b77dc6e-6d5d-4302-89d7-d2535ba56821",
+      "system_name": "Suka duo Favorite"
+    },
+    "MIX JUMBO": {
+      "system_id": "82751882-7f37-4b47-9f85-c2b3fca4f939",
+      "system_name": "Original Mix Jumbo"
+    },
+    "SUKA CHICKEN": {
+      "system_id": "4bb4210d-1f5f-4cd8-a0e4-c9c90b04bbde",
+      "system_name": "Suka Chicken"
+    },
+    "FOOD APPS ORIGINAL AYAM SEDANG": {
+      "system_id": "a2c9433d-2525-4096-a28f-6e6f29dcf6df",
+      "system_name": "Original Ayam Sedang"
+    },
+    "FOOD APPS ORIGINAL SAPI BESAR": {
+      "system_id": "fe01e7d3-ed72-45e9-9b74-2017522a2b64",
+      "system_name": "Original Sapi Besar"
+    },
+    "FOOD APPS ORIGINAL AYAM JUMBO": {
+      "system_id": "e85983b6-7e5f-4e78-b3c8-501cf21e39e4",
+      "system_name": "Original Ayam Jumbo"
+    },
+    "FOOD APPS SUKA SAMYANG": {
+      "system_id": "3c665d2b-ba92-49e9-8ced-bce946c90a2b",
+      "system_name": "Suka Samyang"
+    },
+    "BEST SELLER - ORI MIX JUMBO": {
+      "system_id": "82751882-7f37-4b47-9f85-c2b3fca4f939",
+      "system_name": "Original Mix Jumbo"
+    },
+    "FOOD APPS EXTRA KEJU": {
+      "system_id": "78bb6a49-1540-4a05-9d78-38311f471e01",
+      "system_name": "Extra Keju"
+    },
+    "FOOD APPS ORIGINAL MIX BESAR": {
+      "system_id": "df8b5f68-a6fb-4dc8-9bad-f8f02aaff0d7",
+      "system_name": "Original Mix Besar"
+    },
+    "ORI DUO COMBO": {
+      "system_id": "424ddbec-0a35-48bc-bf93-cd45e6b78c58",
+      "system_name": "SHAWARMA DUO COMBO"
+    },
+    "FOOD APPS SUKA FRIED CHICKEN": {
+      "system_id": "410e8f2d-6bbf-4acd-a88a-8d291d78365d",
+      "system_name": "Suka Fried Chicken"
+    },
+    "FOOD APPS ORIGINAL AYAM BESAR": {
+      "system_id": "a80b91f8-e5dd-4f83-9c94-ebeba6b2da80",
+      "system_name": "Original Ayam Besar"
+    }
+  }
+}

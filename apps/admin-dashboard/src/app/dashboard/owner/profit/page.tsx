@@ -35,7 +35,14 @@ export default function ProfitPage() {
   const isAllOutlets = filter.outletId === 'all'
 
   // Calculations — pisah pengeluaran outlet (dibebankan ke P&L outlet) vs pusat (company-wide).
-  const totalOmzet = useMemo(() => sales.rows.reduce((sum, r) => sum + r.omzet, 0), [sales.rows])
+  // Note: r.omzet in DB (sales_daily_scoped) is SUM(total_amount), which is actually Net Revenue
+  const actualNetRevenue = useMemo(() => sales.rows.reduce((sum, r) => sum + r.omzet, 0), [sales.rows])
+  const totalPotongan = useMemo(() => sales.rows.reduce((sum, r) => sum + (r.total_deductions || 0), 0), [sales.rows])
+  const totalPlatformFee = useMemo(() => sales.rows.reduce((sum, r) => sum + (r.platform_fee || 0), 0), [sales.rows])
+  const totalDeductions = totalPotongan + totalPlatformFee
+  
+  const actualGrossRevenue = actualNetRevenue + totalDeductions
+
   const pengeluaranOutletBulanan = useMemo(
     () => expenses.rows.filter(r => r.scope === 'outlet' && r.source === 'monthly').reduce((sum, r) => sum + r.amount, 0),
     [expenses.rows])
@@ -48,53 +55,58 @@ export default function ProfitPage() {
     [expenses.rows])
   const totalHpp = useMemo(() => hpp.rows.reduce((sum, r) => sum + r.hpp, 0), [hpp.rows])
   const totalWaste = useMemo(() => waste.rows.reduce((sum, r) => sum + r.nilai_waste, 0), [waste.rows])
-  // Laba outlet: Omzet − HPP − Pengeluaran Outlet. labaBersih di sini = Σ laba outlet saat "Semua Outlet".
-  const { labaKotor, labaBersih, marginKotor } = computeProfit(totalOmzet, totalHpp, pengeluaranOutlet, totalWaste)
+  
+  // Laba outlet: Net Revenue − HPP − Pengeluaran Outlet - Waste.
+  const { netRevenue, labaKotor, labaBersih, marginKotor } = computeProfit(actualGrossRevenue, totalDeductions, totalHpp, pengeluaranOutlet, totalWaste)
+  
   // Saat "Semua Outlet": Laba Perusahaan = Σ laba outlet − Pengeluaran Pusat. Satu outlet: pusat = 0.
   const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat).labaPerusahaan
   const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
-  const displayMargin = totalOmzet > 0 ? (displayLaba / totalOmzet) * 100 : 0
+  const displayMargin = netRevenue > 0 ? (displayLaba / netRevenue) * 100 : 0
 
   // Outlets breakdown
   const outletBreakdown = useMemo(() => {
-    const map = new Map<string, { name: string; omzet: number; expense: number; hpp: number; waste: number }>()
+    const map = new Map<string, { name: string; omzet: number; deductions: number; expense: number; hpp: number; waste: number }>()
 
     outlets.forEach(o => {
-      map.set(o.id, { name: o.name, omzet: 0, expense: 0, hpp: 0, waste: 0 })
+      map.set(o.id, { name: o.name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 })
     })
 
     sales.rows.forEach(s => {
-      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, expense: 0, hpp: 0, waste: 0 }
+      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.omzet += s.omzet
+      cur.deductions += (s.total_deductions || 0) + (s.platform_fee || 0)
       map.set(s.outlet_id, cur)
     })
 
     expenses.rows.forEach(e => {
-      // Pengeluaran Pusat (scope pusat / outlet_id NULL) tak dibebankan ke outlet manapun.
       if (e.scope !== 'outlet' || !e.outlet_id) return
-      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name ?? 'Outlet Tidak Dikenal', omzet: 0, expense: 0, hpp: 0, waste: 0 }
+      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name ?? 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.expense += e.amount
       map.set(e.outlet_id, cur)
     })
 
     hpp.rows.forEach(h => {
-      const cur = map.get(h.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, expense: 0, hpp: 0, waste: 0 }
+      const cur = map.get(h.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.hpp += h.hpp
       map.set(h.outlet_id, cur)
     })
 
     waste.rows.forEach(w => {
-      const cur = map.get(w.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, expense: 0, hpp: 0, waste: 0 }
+      const cur = map.get(w.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.waste += w.nilai_waste
       map.set(w.outlet_id, cur)
     })
 
     return [...map.entries()]
       .map(([id, val]) => {
-        const net = val.omzet - val.hpp - val.expense - val.waste
-        const labaKotor = val.omzet - val.hpp
-        const margin = val.omzet > 0 ? (net / val.omzet) * 100 : 0
-        return { id, name: val.name, omzet: val.omzet, expense: val.expense, hpp: val.hpp, waste: val.waste, labaKotor, net, margin }
+        // Fix: val.omzet is actually Net Revenue
+        const netRev = val.omzet
+        const grossRev = val.omzet + val.deductions
+        const labaKotor = netRev - val.hpp
+        const net = labaKotor - val.expense - val.waste
+        const margin = netRev > 0 ? (net / netRev) * 100 : 0
+        return { id, name: val.name, omzet: grossRev, deductions: val.deductions, netRev, expense: val.expense, hpp: val.hpp, waste: val.waste, labaKotor, net, margin }
       })
       .filter(item => item.omzet > 0 || item.expense > 0 || item.hpp > 0 || item.waste > 0)
       .sort((a, b) => b.net - a.net)
@@ -137,46 +149,72 @@ export default function ProfitPage() {
         <StatTilesSkeleton count={3} />
       ) : (
         <>
-          {/* 3 angka headline — informasi terpenting menonjol */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatTile
-              label="Omzet Penjualan"
-              value={<><span className="text-lg align-top">Rp </span><CountUp end={totalOmzet} duration={1} separator="." /></>}
-              sub="Pemasukan Completed Orders"
-              icon={TrendingUp}
-              accent="green"
-              tooltip="Total uang masuk dari seluruh transaksi penjualan yang berhasil di aplikasi kasir POS."
-            />
-            <StatTile
-              label={isAllOutlets ? 'Laba Bersih Perusahaan' : 'Laba Bersih Outlet'}
-              value={<><span className="text-lg align-top">Rp </span><CountUp end={displayLaba} duration={1} separator="." /></>}
-              sub={isAllOutlets
-                ? (displayLaba >= 0 ? 'Σ Laba Outlet − Biaya Pusat' : 'Defisit Perusahaan')
-                : (displayLaba >= 0 ? 'Surplus Bersih' : 'Defisit Bersih')}
-              icon={ArrowLeftRight}
-              accent={displayLaba >= 0 ? 'orange' : 'red'}
-              tooltip="Hasil keuntungan murni setelah omzet kotor dipotong oleh seluruh beban biaya, HPP, pengeluaran, dan kerugian waste."
-            />
-            <StatTile
-              label="Profit Margin"
-              value={<><CountUp end={displayMargin} duration={1} decimals={1} /> %</>}
-              sub="Efisiensi Profitabilitas"
-              icon={Percent}
-              accent="brown"
-              tooltip="Persentase porsi laba bersih yang didapatkan dari tiap Rp 1 omzet. Dihitung dari (Laba Bersih / Omzet) * 100%."
-            />
-          </div>
-
-          {/* Rincian — angka pendukung disembunyikan agar layar tidak sesak */}
-          <Section title="Rincian Perhitungan">
+          <Section title="Alur Laba Rugi (Profit & Loss)">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatTile label="HPP Bahan Baku" value={<><span className="text-lg align-top">Rp </span><CountUp end={totalHpp} duration={1} separator="." /></>} sub="Biaya Bahan Terjual" icon={Boxes} accent="brown" tooltip="Total biaya/modal bahan baku yang terpakai HANYA untuk porsi yang berhasil laku terjual (berdasarkan resep)." />
-              <StatTile label="Laba Kotor" value={<><span className="text-lg align-top">Rp </span><CountUp end={labaKotor} duration={1} separator="." /></>} sub={`Omzet − HPP · ${marginKotor.toFixed(1)}%`} icon={Layers} accent="green" tooltip="Sisa pendapatan setelah omzet dipotong harga modal bahan baku (HPP). Ini adalah keuntungan kotor penjualan makanan." />
-              <StatTile label="Pengeluaran Outlet" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranOutlet} duration={1} separator="." /></>} sub={`Bulanan: Rp ${(pengeluaranOutletBulanan/1000).toLocaleString('id-ID')}k | Kas Kecil: Rp ${(pengeluaranOutletPettyCash/1000).toLocaleString('id-ID')}k`} icon={TrendingDown} accent="red" tooltip="Total seluruh beban biaya operasional, tagihan bulanan (gaji, listrik, sewa), dan kas kecil di outlet tersebut." />
-              <StatTile label="Kerugian Waste" value={<><span className="text-lg align-top">Rp </span><CountUp end={totalWaste} duration={1} separator="." /></>} sub="Approved, di luar HPP resep" icon={TrendingDown} accent="red" tooltip="Total kerugian dari bahan baku yang rusak, basi, atau terbuang (dilaporkan lewat form Waste dan sudah disetujui)." />
-              {isAllOutlets && (
-                <StatTile label="Biaya Pusat" value={<><span className="text-lg align-top">Rp </span><CountUp end={pengeluaranPusat} duration={1} separator="." /></>} sub="Tak dibebankan ke outlet" icon={Building2} accent="red" tooltip="Beban biaya overhead perusahaan/manajemen pusat yang tidak dipotong dari profit cabang outlet mana pun." />
-              )}
+              <StatTile
+                label="Omzet Kotor (Gross)"
+                value={<><span className="text-lg align-top">Rp </span><CountUp end={actualGrossRevenue} duration={1} separator="." /></>}
+                sub="Harga menu murni sebelum dipotong"
+                icon={TrendingUp}
+                accent="brown"
+                tooltip="Nilai murni dari harga menu sebelum dipotong apa pun. Menunjukkan seberapa besar demand pasar terhadap produk."
+              />
+              <StatTile
+                label="Total Potongan & Fee"
+                value={<><span className="text-lg align-top">-Rp </span><CountUp end={totalDeductions} duration={1} separator="." /></>}
+                sub={`Diskon: ${rupiah(totalPotongan)} | Aplikasi: ${rupiah(totalPlatformFee)}`}
+                icon={TrendingDown}
+                accent="red"
+                tooltip="Berapa uang yang hilang untuk diskon kustomer dan estimasi komisi platform (Grab/GoFood/Tiktok)."
+              />
+              <StatTile
+                label="Pendapatan Bersih (Net)"
+                value={<><span className="text-lg align-top">Rp </span><CountUp end={netRevenue} duration={1} separator="." /></>}
+                sub="Uang riil masuk ke sistem"
+                icon={TrendingUp}
+                accent="green"
+                tooltip="Uang riil yang mendarat di laci kasir atau rekening (Gross Revenue - Total Potongan)."
+              />
+              <StatTile
+                label="Total HPP (COGS)"
+                value={<><span className="text-lg align-top">-Rp </span><CountUp end={totalHpp} duration={1} separator="." /></>}
+                sub="Modal bahan dasar (Resep)"
+                icon={Boxes}
+                accent="brown"
+                tooltip="Modal bahan baku dasar dari menu-menu yang berhasil terjual."
+              />
+              <StatTile
+                label="Waste (Bahan Terbuang)"
+                value={<><span className="text-lg align-top">-Rp </span><CountUp end={totalWaste} duration={1} separator="." /></>}
+                sub="Basi / Rusak (Kerugian Murni)"
+                icon={TrendingDown}
+                accent="red"
+                tooltip="Bahan basi atau rusak adalah kerugian murni yang memotong laba. Dipisah dari HPP reguler untuk evaluasi SOP."
+              />
+              <StatTile
+                label="Laba Kotor (Gross Profit)"
+                value={<><span className="text-lg align-top">Rp </span><CountUp end={labaKotor} duration={1} separator="." /></>}
+                sub={`Margin Kotor: ${marginKotor.toFixed(1)}%`}
+                icon={Layers}
+                accent="green"
+                tooltip="Sisa pendapatan setelah Net Revenue dipotong harga modal bahan baku (HPP) dan Waste."
+              />
+              <StatTile
+                label="Pengeluaran (Opex)"
+                value={<><span className="text-lg align-top">-Rp </span><CountUp end={pengeluaranOutlet + pengeluaranPusat} duration={1} separator="." /></>}
+                sub={isAllOutlets ? `Outlet: ${rupiah(pengeluaranOutlet)} | Pusat: ${rupiah(pengeluaranPusat)}` : `Bulanan: ${rupiah(pengeluaranOutletBulanan)} | Kas: ${rupiah(pengeluaranOutletPettyCash)}`}
+                icon={TrendingDown}
+                accent="red"
+                tooltip="Total seluruh beban biaya operasional, tagihan bulanan (gaji, listrik, sewa), dan kas kecil."
+              />
+              <StatTile
+                label="Laba Bersih (Net Profit)"
+                value={<><span className="text-lg align-top">Rp </span><CountUp end={displayLaba} duration={1} separator="." /></>}
+                sub={`Margin Bersih: ${displayMargin.toFixed(1)}%`}
+                icon={ArrowLeftRight}
+                accent={displayLaba >= 0 ? 'orange' : 'red'}
+                tooltip="Hasil keuntungan murni akhir setelah semua biaya dipotong."
+              />
             </div>
           </Section>
 
@@ -199,11 +237,12 @@ export default function ProfitPage() {
                     <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
                       <th className="py-3 px-6 w-12 text-center">#</th>
                       <th className="py-3 px-6">Nama Outlet</th>
-                      <th className="py-3 px-6 text-right">Omzet</th>
-                      <th className="py-3 px-6 text-right">HPP</th>
+                      <th className="py-3 px-6 text-right">Omzet Kotor</th>
+                      <th className="py-3 px-6 text-right">Potongan</th>
+                      <th className="py-3 px-6 text-right">Net Revenue</th>
+                      <th className="py-3 px-6 text-right">HPP & Waste</th>
                       <th className="py-3 px-6 text-right">Laba Kotor</th>
                       <th className="py-3 px-6 text-right">Pengeluaran</th>
-                      <th className="py-3 px-6 text-right">Kerugian Waste</th>
                       <th className="py-3 px-6 text-right">Laba Bersih</th>
                       <th className="py-3 px-6 text-center">Margin %</th>
                     </tr>
@@ -227,10 +266,11 @@ export default function ProfitPage() {
                             <td className="py-3.5 px-6 text-center text-suka-gray-400 font-bold">{index + 1}</td>
                             <td className="py-3.5 px-6 text-suka-ink font-bold">{row.name.replace('SUKA SHAWARMA ', '')}</td>
                             <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.omzet)}</td>
-                            <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.hpp)}</td>
+                            <td className="py-3.5 px-6 text-right text-suka-gray-600">-{rupiah(row.deductions)}</td>
+                            <td className="py-3.5 px-6 text-right text-suka-gray-700 font-bold">{rupiah(row.netRev)}</td>
+                            <td className="py-3.5 px-6 text-right text-suka-gray-600">-{rupiah(row.hpp + row.waste)}</td>
                             <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.labaKotor)}</td>
-                            <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.expense)}</td>
-                            <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.waste)}</td>
+                            <td className="py-3.5 px-6 text-right text-suka-gray-600">-{rupiah(row.expense)}</td>
                             <td className={`py-3.5 px-6 text-right font-extrabold ${isProfit ? 'text-suka-green' : 'text-red-700'}`}>
                               {rupiah(row.net)}
                             </td>

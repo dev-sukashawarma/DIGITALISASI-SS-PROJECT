@@ -17,7 +17,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SwipeableLayout>
           <main className="flex-1 overflow-y-auto w-full">
             {/* Bottom padding on mobile keeps content clear of the fixed BottomNav. */}
-            <div className="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-8">{children}</div>
+            <div className="w-full p-3 sm:p-6 lg:p-8 pb-24 md:pb-8">{children}</div>
           </main>
         </SwipeableLayout>
       </div>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 03 — Row Level Security (RLS): Keamanan & Performa</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" style="width: 32%"></div></div>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📚 Backend Maintenance</span>
+    <span>Lesson 03 / 10</span>
+    <span>⏱ ~20 menit</span>
+    <span>🟡 Menengah</span>
+  </div>
+  <h1 class="lesson-title">Row Level Security (RLS): Keamanan & Performa</h1>
+  <p style="color: var(--text-muted)">Di Supabase, RLS menjaga agar data outlet tidak bocor ke outlet lain. Tapi RLS yang salah tulis bisa membuat database sangat lambat. Mari kita bahas.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🎯 Tujuan Lesson Ini</h2>
+<ul>
+  <li>Memahami konsep dasar <strong>Row Level Security (RLS)</strong> di PostgreSQL</li>
+  <li>Memahami bahaya <strong>RLS Recursion (Rekursi RLS)</strong> dan cara menghindarinya</li>
+  <li>Menganalisis fungsi kunci di projectmu: <code>accessible_outlet_ids()</code></li>
+  <li>Mengetahui cara menulis policy RLS yang cepat dan efisien</li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🛡️ Apa itu RLS (Row Level Security)?</h2>
+
+<p>Secara default, jika kamu menjalankan query SQL <code>SELECT * FROM orders</code>, database akan mengembalikan <strong>semua</strong> baris data.
+Di aplikasi multi-outlet seperti Suka Shawarma, ini bahaya: staff di Outlet Dramaga tidak boleh melihat data transaksi di Outlet Sudirman.</p>
+
+<p><strong>RLS</strong> adalah fitur di mana database otomatis menempelkan filter keamanan tambahan di setiap query secara transparan.</p>
+
+<div class="arch">
+[Aplikasi Next.js] ── SELECT * FROM orders; ──▶ [ RLS Engine ]
+                                                   │
+                                     (Automated Filter Applied)
+                                     WHERE outlet_id = 'bogor-id'
+                                                   │
+                                                   ▼
+[ Hasil Terfilter: Hanya order outlet Bogor yang dikembalikan ]
+</div>
+
+<p>Di Supabase, RLS diaktifkan dengan perintah:</p>
+<pre><code><span class="kw">ALTER TABLE</span> orders <span class="kw">ENABLE ROW LEVEL SECURITY</span>;
+
+<span class="cmt">-- Dan diatur menggunakan POLICY:</span>
+<span class="kw">CREATE POLICY</span> "Staff can read their own orders" <span class="kw">ON</span> orders
+  <span class="kw">FOR SELECT TO</span> authenticated
+  <span class="kw">USING</span> (outlet_id = <span class="fn">auth.uid()</span>); <span class="cmt">-- Contoh filter otomatis</span></code></pre>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>⚠️ Bahaya Terbesar: Rekursi RLS (Infinite Loop)</h2>
+
+<p>Ini adalah jebakan paling sering bagi developer yang baru belajar Supabase.
+Misalkan kamu membuat policy untuk tabel <code>outlet_staff</code> seperti ini:</p>
+
+<pre><code><span class="cmt">-- ❌ POLICY INI AKAN CRASH (REKURSIF)</span>
+<span class="kw">CREATE POLICY</span> "Staff can view staff in same outlet" <span class="kw">ON</span> outlet_staff
+  <span class="kw">FOR SELECT TO</span> authenticated
+  <span class="kw">USING</span> (
+    outlet_id = (
+      <span class="kw">SELECT</span> outlet_id <span class="kw">FROM</span> outlet_staff <span class="kw">WHERE</span> id = <span class="fn">auth.uid()</span>
+    )
+  );</code></pre>
+
+<h3>Kenapa query di atas crash?</h3>
+<ol style="padding-left: 1.25rem; line-height: 2">
+  <li>Kamu memanggil <code>SELECT * FROM outlet_staff</code>.</li>
+  <li>RLS terpicu, lalu menjalankan subquery: <code>SELECT outlet_id FROM outlet_staff...</code></li>
+  <li>Karena subquery itu membaca tabel <code>outlet_staff</code>, RLS terpicu <strong>lagi</strong> di dalam subquery.</li>
+  <li>Subquery baru memicu RLS lagi... terus menerus sampai database crash karena <em>stack overflow</em>.</li>
+</ol>
+
+<div class="analogy">
+  <div class="analogy-label">🌀 Analogi Cermin Berhadapan</div>
+  <p>Rekursi RLS seperti kamu menaruh cermin di depan cermin lain. Kamu akan melihat bayangan tak terbatas yang masuk ke dalam. Di database, ini akan menghabiskan memori dan mematikan koneksi.</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🔑 Senjata Rahasia SS Digital: <code>accessible_outlet_ids()</code></h2>
+
+<p>Untuk menghindari rekursi dan menjaga performa di 19 outlet dengan 11+ role staff yang berbeda, project SS Digital menggunakan fungsi pembantu <strong>(Helper Function)</strong> bernama <code>accessible_outlet_ids()</code>.</p>
+
+<p>Mari kita bedah kodenya dari file migrasi <code>20260711190000_fix_accessible_outlet_ids_regression.sql</code>:</p>
+
+<pre><code><span class="kw">CREATE OR REPLACE FUNCTION</span> public.<span class="fn">accessible_outlet_ids</span>()
+<span class="kw">RETURNS SETOF</span> uuid
+<span class="kw">LANGUAGE</span> sql <span class="kw">STABLE SECURITY DEFINER</span> <span class="kw">SET</span> search_path = public
+<span class="kw">AS</span> $$
+  <span class="kw">WITH</span> me <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> id, role, outlet_id <span class="kw">FROM</span> public.outlet_staff <span class="kw">WHERE</span> id = <span class="fn">auth.uid()</span>
+  )
+  <span class="cmt">-- 1. Role global (owner, spv, kitchen, dsb) mendapat akses SEMUA outlet</span>
+  <span class="kw">SELECT</span> o.id <span class="kw">FROM</span> public.outlets o, me
+    <span class="kw">WHERE</span> me.role <span class="kw">IN</span> (<span class="str">'admin'</span>, <span class="str">'admin_hr'</span>, <span class="str">'owner'</span>, <span class="str">'spv'</span>, <span class="str">'kitchen'</span>, <span class="str">'admin_finance'</span>)
+  <span class="kw">UNION</span>
+  <span class="cmt">-- 2. Leader / Korlap mendapat akses ke outlet binaannya di tabel pemetaan staff_outlets</span>
+  <span class="kw">SELECT</span> so.outlet_id <span class="kw">FROM</span> public.staff_outlets so, me
+    <span class="kw">WHERE</span> me.role <span class="kw">IN</span> (<span class="str">'leader'</span>, <span class="str">'korlap'</span>) <span class="kw">AND</span> so.staff_id = me.id
+  <span class="kw">UNION</span>
+  <span class="cmt">-- 3. Crew / Kiosk mendapat akses hanya ke outlet tempat dia ditugaskan</span>
+  <span class="kw">SELECT</span> me.outlet_id <span class="kw">FROM</span> me
+    <span class="kw">WHERE</span> me.outlet_id <span class="kw">IS NOT NULL</span>
+      <span class="kw">AND</span> me.role <span class="kw">IN</span> (<span class="str">'crew'</span>, <span class="str">'kiosk'</span>, <span class="str">'mitra'</span>, <span class="str">'staff_pusat'</span>);
+$$;</code></pre>
+
+<h3>Mengapa fungsi ini sangat cepat dan aman dari rekursi?</h3>
+
+<div class="card">
+  <h4>1. Keyword <code>SECURITY DEFINER</code> (Menghindari Rekursi)</h4>
+  <p>Secara default, fungsi berjalan sebagai <code>SECURITY INVOKER</code> (menggunakan hak akses user yang sedang login, sehingga kena aturan RLS).
+  Dengan menyetel <code>SECURITY DEFINER</code>, fungsi ini berjalan menggunakan hak akses <strong>pemilik database (admin/postgres)</strong>.
+  Saat membaca tabel <code>outlet_staff</code>, fungsi ini langsung melewati (bypass) RLS, sehingga **tidak akan pernah terjadi rekursi/infinite loop**.</p>
+</div>
+
+<div class="card">
+  <h4>2. Keyword <code>STABLE</code> (Menghemat CPU)</h4>
+  <p>Dalam PostgreSQL, fungsi <code>STABLE</code> menjamin bahwa jika dipanggil beberapa kali dalam satu query dengan user yang sama, hasilnya pasti sama.
+  Database cukup menjalankan fungsi ini **1 kali saja** di awal query, lalu men-cache hasilnya untuk mencocokkan baris-baris berikutnya.
+  Tanpa <code>STABLE</code>, database harus memanggil fungsi ini berulang-ulang untuk setiap baris yang dibaca (sangat lambat jika tabel berisi ribuan data!).</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🚀 Cara Memakai <code>accessible_outlet_ids()</code> di RLS Policy</h2>
+
+<p>Dengan adanya helper function di atas, menulis policy RLS untuk tabel-tabel transaksional (seperti <code>ledger_stok</code>, <code>orders</code>, atau <code>attendance</code>) menjadi sangat sederhana dan cepat:</p>
+
+<pre><code><span class="cmt">-- Policy RLS SELECT untuk tabel ledger_stok (migration 20260712000000)</span>
+<span class="kw">CREATE POLICY</span> ledger_read <span class="kw">ON</span> ledger_stok
+  <span class="kw">FOR SELECT TO</span> authenticated
+  <span class="kw">USING</span> (
+    outlet_id <span class="kw">IN</span> (<span class="fn">accessible_outlet_ids</span>())
+  );</code></pre>
+
+<p>Saat crew kasir Bogor melakukan query, database secara otomatis hanya mengevaluasi daftar outlet yang berhak ia akses (yaitu hanya ID outlet Bogor). Sangat ringkas dan aman!</p>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="quiz-section" id="quiz">
+  <div class="quiz-title">🧪 Cek Pemahaman</div>
+
+  <!-- Q1 -->
+  <div class="quiz-q" id="q1">
+    <p>1. Apa yang terjadi jika policy RLS men-query tabelnya sendiri tanpa menggunakan helper SECURITY DEFINER?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q1" value="a"> Database akan menolak karena sintaks salah</label>
+      <label><input type="radio" name="q1" value="b"> Terjadi rekursi tak terbatas (infinite loop) yang bisa membuat database crash</label>
+      <label><input type="radio" name="q1" value="c"> Kecepatan query akan meningkat drastis</label>
+      <label><input type="radio" name="q1" value="d"> Semua staff otomatis bisa melihat data pusat</label>
+    </div>
+    <div class="quiz-feedback" id="q1-feedback"></div>
+  </div>
+
+  <!-- Q2 -->
+  <div class="quiz-q" id="q2">
+    <p>2. Apa peran utama dari keyword <code>STABLE</code> pada fungsi <code>accessible_outlet_ids()</code>?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q2" value="a"> Memastikan fungsi tidak bisa dihapus secara tidak sengaja</label>
+      <label><input type="radio" name="q2" value="b"> Memberitahu database agar men-cache hasil query fungsi selama eksekusi berjalan</label>
+      <label><input type="radio" name="q2" value="c"> Mengunci koneksi database agar tidak terputus</label>
+      <label><input type="radio" name="q2" value="d"> Memaksa fungsi berjalan dengan hak akses admin</label>
+    </div>
+    <div class="quiz-feedback" id="q2-feedback"></div>
+  </div>
+
+  <!-- Q3 -->
+  <div class="quiz-q" id="q3">
+    <p>3. Jika role user adalah <code>spv</code> (Supervisor), outlet mana saja yang bisa ia lihat lewat fungsi <code>accessible_outlet_ids()</code>?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q3" value="a"> Hanya outlet tempat ia ditugaskan saja</label>
+      <label><input type="radio" name="q3" value="b"> Seluruh outlet di dalam skema database (all-outlet access)</label>
+      <label><input type="radio" name="q3" value="c"> Hanya outlet di wilayah Bogor</label>
+      <label><input type="radio" name="q3" value="d"> Tidak ada outlet sama sekali</label>
+    </div>
+    <div class="quiz-feedback" id="q3-feedback"></div>
+  </div>
+
+  <button class="quiz-check" onclick="checkQuiz()">Cek Jawaban</button>
+  <div class="quiz-feedback" id="quiz-result" style="margin-top: 1rem;"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="callout callout-tip">
+  <div class="callout-label">📖 Sumber Bacaan Utama</div>
+  <p>Baca panduan optimasi performa RLS dari Supabase:
+  <a href="https://supabase.com/docs/guides/database/postgres/row-level-security#performance-tips" target="_blank">supabase.com/docs/guides/database/postgres/row-level-security#performance-tips</a>
+  — pelajari mengapa disarankan menggunakan helper function dan cara menghindari subquery berulang. (≈10 menit)</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="lesson-nav">
+  <a href="0002-query-lambat-dan-cara-deteksi.html" class="btn">← Lesson 02: Query Lambat</a>
+  <a href="0004-triggers-dan-cronjobs.html" class="btn btn-primary">Lesson 04: Triggers & Cron →</a>
+</div>
+
+<div class="ask-teacher">
+  <p>💬 <strong>Apakah kamu menemukan policy RLS di projectmu yang belum memakai helper ini?</strong> Kirim nama tabelnya di chat dan kita bedah bersama!</p>
+</div>
+
+<script>
+const answers = { q1: 'b', q2: 'b', q3: 'b' };
+const explanations = {
+  q1: {
+    correct: '✅ Benar! RLS yang memanggil dirinya sendiri secara melingkar akan menghasilkan rekursi tanpa akhir (stack overflow). SECURITY DEFINER memecahkan loop ini dengan membypass RLS saat fungsi berjalan.',
+    wrong:   '❌ Salah. PostgreSQL memperbolehkan kodenya disimpan, namun saat query dijalankan, query akan macet dan crash (Infinite Loop) karena RLS memicu dirinya sendiri secara berulang.'
+  },
+  q2: {
+    correct: '✅ Tepat! Dengan STABLE, PostgreSQL tahu bahwa nilai keluaran fungsi tidak akan berubah di tengah-tengah pemindaian baris tabel. Hasilnya di-cache, sehingga database menghemat waktu eksekusi jutaan kali.',
+    wrong:   '❌ Salah. STABLE bertugas sebagai petunjuk caching bagi query planner PostgreSQL agar fungsi tidak dievaluasi berulang kali untuk setiap baris data.'
+  },
+  q3: {
+    correct: '✅ Benar! Berdasarkan baris kode 21 di fungsi <code>accessible_outlet_ids()</code>, role `spv` dikelompokkan ke dalam penerima akses global bersama `admin`, `owner`, dan `kitchen`.',
+    wrong:   '❌ Salah. Supervisor (`spv`) memiliki akses global (seluruh 19 outlet) untuk memudahkan koordinasi operasional lintas outlet.'
+  }
+};
+
+function checkQuiz() {
+  let score = 0;
+  ['q1','q2','q3'].forEach(q => {
+    const chosen = document.querySelector(`input[name="${q}"]:checked`);
+    const fb = document.getElementById(`${q}-feedback`);
+    if (!chosen) { fb.className = 'quiz-feedback wrong'; fb.innerHTML = '⚠️ Pilih salah satu jawaban.'; return; }
+    const isCorrect = chosen.value === answers[q];
+    if (isCorrect) score++;
+    fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+    fb.innerHTML = isCorrect ? explanations[q].correct : explanations[q].wrong;
+  });
+  const result = document.getElementById('quiz-result');
+  if (score === 3) {
+    result.className = 'quiz-feedback correct';
+    result.innerHTML = '🎉 Sempurna! Kamu sudah memahami rahasia keamanan & performa RLS di database SS Digital. Lanjut ke Lesson 04!';
+  } else {
+    result.className = 'quiz-feedback wrong';
+    result.innerHTML = `Skor ${score}/3. Pelajari kembali penjelasan RLS recursion dan helper function ya!`;
+  }
+}
+</script>
+
+</body>
+</html>

@@ -11,11 +11,13 @@ interface KpiCardsProps {
 
 export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps) {
   // Current values
-  const omzet = rows.reduce((s, r) => s + r.omzet, 0)
+  // Note: r.omzet in DB (sales_hourly_scoped) is SUM(total_amount), which is actually Net Revenue
+  const netRevenue = rows.reduce((s, r) => s + r.omzet, 0)
   const totalDeductions = rows.reduce((s, r) => s + (Number((r as any).total_deductions) || 0), 0)
-  const netRevenue = Math.max(0, omzet - totalDeductions)
+  // To get Gross Revenue (Omzet Kotor), we add the deductions back to the Net Revenue
+  const grossRevenue = netRevenue + totalDeductions
   const completed = rows.reduce((s, r) => s + r.jumlah_order_completed, 0)
-  const currentAov = aov(omzet, completed)
+  const currentAov = aov(netRevenue, completed)
 
   // Peak Hour calculation
   let peakHourStr = '-'
@@ -30,42 +32,43 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
   }
 
   // Previous values
-  const prevOmzet = prevRows.reduce((s, r) => s + r.omzet, 0)
+  const prevNetRevenue = prevRows.reduce((s, r) => s + r.omzet, 0)
   const prevCompleted = prevRows.reduce((s, r) => s + r.jumlah_order_completed, 0)
-  const prevAov = aov(prevOmzet, prevCompleted)
+  const prevAov = aov(prevNetRevenue, prevCompleted)
 
   // Deltas
-  const dOmzet = deltaPct(omzet, prevOmzet)
+  const dGross = deltaPct(grossRevenue, prevNetRevenue + prevRows.reduce((s, r) => s + (Number((r as any).total_deductions) || 0), 0)) // We can just approximate delta for Gross or use Net delta
+  const dNet = deltaPct(netRevenue, prevNetRevenue)
   const dCompleted = deltaPct(completed, prevCompleted)
   const dAov = deltaPct(currentAov, prevAov)
 
   const cards = [
     {
       label: 'Omzet Penjualan (Kotor)',
-      value: omzet,
+      value: grossRevenue,
       isString: false,
       isRupiah: true,
-      delta: dOmzet,
+      delta: dGross,
       icon: TrendingUp,
       color: '#f29744', // Suka Orange
       subtext: 'Pemasukan kotor sebelum potongan',
     },
-    {
-      label: 'Total Potongan (Diskon/Promo)',
-      value: totalDeductions,
-      isString: false,
-      isRupiah: true,
-      delta: null,
-      icon: DollarSign,
-      color: '#e11d48', // Rose Red
-      subtext: 'Potongan promo Food Apps & Diskon',
-    },
+    // {
+    //   label: 'Total Potongan (Diskon/Promo)',
+    //   value: totalDeductions,
+    //   isString: false,
+    //   isRupiah: true,
+    //   delta: null,
+    //   icon: DollarSign,
+    //   color: '#e11d48', // Rose Red
+    //   subtext: 'Potongan promo Food Apps & Diskon',
+    // },
     {
       label: 'Pendapatan Bersih (Net)',
       value: netRevenue,
       isString: false,
       isRupiah: true,
-      delta: dOmzet,
+      delta: dNet,
       icon: TrendingUp,
       color: '#0a7d2c', // Suka Green
       subtext: 'Bebas biaya potongan promo/diskon',
@@ -90,23 +93,24 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
       color: '#701604', // Suka Brown
       subtext: 'Rata-rata nilai per belanja',
     },
-    {
-      label: 'Jam Tersibuk',
-      value: peakHourStr,
-      isString: true,
-      isRupiah: false,
-      isPercent: false,
-      isDecimal: false,
-      delta: null,
-      icon: Clock,
-      color: '#4b5563', // Slate Gray
-      subtext: peakHourOrders > 0 ? `${peakHourOrders} order diselesaikan` : 'Belum ada transaksi',
-    },
+    // {
+    //   label: 'Jam Tersibuk',
+    //   value: peakHourStr,
+    //   isString: true,
+    //   isRupiah: false,
+    //   isPercent: false,
+    //   isDecimal: false,
+    //   delta: null,
+    //   icon: Clock,
+    //   color: '#4b5563', // Slate Gray
+    //   subtext: peakHourOrders > 0 ? `${peakHourOrders} order diselesaikan` : 'Belum ada transaksi',
+    // },
   ]
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {cards.map((c) => {
+        if (!c) return null; // In case we want to filter out undefined ones easily
         const Icon = c.icon
         const hasDelta = c.delta !== null && c.delta !== 0 && c.delta !== undefined
         const isPositive = c.delta && c.delta > 0
@@ -114,9 +118,13 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
         return (
           <div 
             key={c.label} 
-            className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between hover:-translate-y-0.5 transition duration-200 hover:shadow-md min-w-0"
+            className="bg-white/80 backdrop-blur-xl p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden group hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-w-0"
           >
-            <div className="flex justify-between items-start gap-2">
+            {/* Aksen Warna Vertikal */}
+            <div className="absolute top-0 left-0 w-2 h-full opacity-50 group-hover:opacity-100 transition-opacity duration-300 rounded-l-3xl" style={{ backgroundColor: c.color }} />
+            
+            <div className="relative z-10 flex flex-col h-full justify-between ml-2">
+              <div className="flex justify-between items-start gap-2">
               <div className="min-w-0">
                 <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">{c.label}</p>
                 <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">{c.subtext}</p>
@@ -149,15 +157,16 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
               
               {hasDelta && (
                 <span 
-                  className={`text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 ${
+                  className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 ${
                     isPositive 
-                      ? 'text-suka-green bg-green-50' 
-                      : 'text-red-700 bg-red-50'
+                      ? 'text-green-700 bg-green-100/80' 
+                      : 'text-rose-500 bg-rose-50'
                   }`}
                 >
                   {isPositive ? '▲' : '▼'} {Math.abs(c.delta as number).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%
                 </span>
               )}
+            </div>
             </div>
           </div>
         )

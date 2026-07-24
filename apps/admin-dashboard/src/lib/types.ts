@@ -137,6 +137,8 @@ export interface SalesSummaryRow {
   omzet: number
   jumlah_order_completed: number
   jumlah_order_all: number
+  total_deductions?: number
+  platform_fee?: number
 }
 
 export interface MenuSalesRow {

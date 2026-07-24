@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 10 — Incident Response: Penanganan Sistem Down</title>
+  <link rel="stylesheet" href="../assets/main.css" />
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" style="width: 100%"></div></div>
+
+<header class="course-header">
+  <div class="lesson-meta">
+    <span>📚 Backend Maintenance</span>
+    <span>Lesson 10 / 10</span>
+    <span>⏱ ~15 menit</span>
+    <span>🔴 Krusial</span>
+  </div>
+  <h1 class="lesson-title">Incident Response: Penanganan Sistem Down</h1>
+  <p style="color: var(--text-muted)">Ini adalah materi terakhir. Ketika aplikasi kasir POS down di tengah jam makan siang yang ramai, ini adalah panduan penyelamat hidupmu. Tetap tenang.</p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>🎯 Tujuan Lesson Ini</h2>
+<ul>
+  <li>Memiliki **Mental Model** yang benar saat menangani insiden sistem mati (down)</li>
+  <li>Mengetahui langkah isolasi masalah (Next.js server cPanel vs Supabase DB)</li>
+  <li>Tahu di mana letak tombol darurat **Database Restore (Point-in-Time Recovery)**</li>
+  <li>Memahami pentingnya audit pasca-insiden (Post-Mortem)</li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>1. Protokol 4 Langkah Penyelamatan</h2>
+<p>Ketika sistem mengalami error massal atau mati total, jangan panik dan jangan langsung mengubah kode secara tergesa-gesa. Ikuti protokol ini:</p>
+
+<div class="card" style="border-left: 4px solid var(--danger);">
+  <h4>Step 1: Bernapas & Batasi Kerusakan (Isolate)</h4>
+  <p>Jangan langsung push perbaikan kode baru ke production jika kamu belum tahu akar masalahnya. Matikan fitur yang rusak (jika memungkinkan) atau pasang halaman maintenance di cPanel agar user tidak terus-menerus memicu error di database.</p>
+</div>
+
+<div class="card" style="border-left: 4px solid var(--warn);">
+  <h4>Step 2: Analisis Akar Masalah (Tanyakan 3 Hal)</h4>
+  <ul>
+    <li><strong>Apakah Supabase Down?</strong> Cek <a href="https://status.supabase.com/" target="_blank">status.supabase.com</a>. Jika ya, ini masalah global, kita hanya perlu menunggu.</li>
+    <li><strong>Apakah server cPanel yang down?</strong> Cek apakah website Next.js masih bisa diakses. Jika cPanel kehabisan resource/RAM, lakukan restart Node.js app via CloudLinux Selector.</li>
+    <li><strong>Apakah database terkunci (Locked)?</strong> Buka Supabase Query Performance. Cek apakah ada query berat yang memblokir query lain.</li>
+  </ul>
+</div>
+
+<div class="card" style="border-left: 4px solid var(--info);">
+  <h4>Step 3: Mitigasi Tercepat (Bukan Solusi Sempurna)</h4>
+  <p>Fokus pertama adalah membuat kasir/outlet bisa bertransaksi kembali, **bukan** membetulkan bug secara sempurna. Jika migrasi terakhir merusak skema database, lakukan Rollback atau kembalikan (Restore) database ke status 1 jam yang lalu.</p>
+</div>
+
+<div class="card" style="border-left: 4px solid var(--ok);">
+  <h4>Step 4: Laporan & Pencegahan (Post-Mortem)</h4>
+  <p>Setelah badai reda, catat apa penyebabnya, mengapa bisa terobos ke production, dan apa yang harus diubah di sistem testing agar masalah yang sama tidak pernah terjadi lagi.</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>2. Tombol Darurat: Point-in-Time Recovery (PITR)</h2>
+
+<p>Jika terjadi musibah besar (misalnya database tidak sengaja terhapus, data keuangan rusak parah akibat bug, dsb.), Supabase menyediakan fitur **Database Restore (PITR)**.</p>
+<p>Fitur ini memungkinkan kamu memutar balik waktu database ke **detik tertentu** di masa lalu secara presisi.</p>
+
+<div class="card">
+  <div class="card-title">📍 Cara Melakukan Restore Database</div>
+  <ol style="padding-left: 1.25rem; line-height: 2">
+    <li>Buka Supabase Dashboard → <strong>Database</strong> → <strong>Backups</strong>.</li>
+    <li>Pilih tab <strong>Point-in-Time Recovery (PITR)</strong>.</li>
+    <li>Masukkan tanggal dan jam tepat sebelum insiden terjadi (misalnya jam 11.58 siang).</li>
+    <li>Klik <strong>Restore Database</strong>. Supabase akan membuat database kloningan baru berisi data persis di detik tersebut.</li>
+  </ol>
+</div>
+
+<div class="callout callout-danger">
+  <div class="callout-label">⚠️ Peringatan Restore</div>
+  <p>Proses restore akan menghapus data yang masuk *setelah* waktu restore yang kamu pilih. Pastikan kamu sudah mem-backup data transaksi terbaru ke file CSV/SQL lokal sebelum menekan tombol restore!</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<h2>3. Selamat! Kamu Sudah Menyelesaikan Kursus Ini 🎓</h2>
+<p>
+  Dengan menyelesaikan 10 lesson ini, kamu tidak lagi sekadar melakukan "vibe coding". Kamu sekarang memahami dasar-dasar kekuatan backend, pertahanan database, optimasi query, pengamanan data (RLS), dan penanganan bencana.
+</p>
+<p>
+  Gunakan **[Cheat Sheet](file:///d:/MIT/CLAUDE%20CODE%20PROJECT/SS%20DIGITAL%20PROJECT/teach/reference/backend-maintenance-cheatsheet.html)** yang sudah kita buat sebagai pegangan harianmu saat merawat server Suka Shawarma Digital Suite!
+</p>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="quiz-section" id="quiz">
+  <div class="quiz-title">🧪 Cek Pemahaman Terakhir</div>
+
+  <div class="quiz-q" id="q1">
+    <p>1. Apa tindakan pertama yang paling tepat saat aplikasi kasir POS down di jam ramai?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q1" value="a"> Menghapus file migrasi lama secara acak</label>
+      <label><input type="radio" name="q1" value="b"> Melakukan isolasi masalah dengan mengecek status Supabase, server cPanel, dan log error secara tenang</label>
+      <label><input type="radio" name="q1" value="c"> Melakukan push update kode Next.js baru langsung ke server</label>
+      <label><input type="radio" name="q1" value="d"> Mematikan modem internet outlet</label>
+    </div>
+    <div class="quiz-feedback" id="q1-feedback"></div>
+  </div>
+
+  <div class="quiz-q" id="q2">
+    <p>2. Fitur Supabase apa yang bisa memutar balik waktu database ke status tepat sebelum data rusak?</p>
+    <div class="quiz-options">
+      <label><input type="radio" name="q2" value="a"> Edge Functions Logs</label>
+      <label><input type="radio" name="q2" value="b"> Point-in-Time Recovery (PITR) Database Restore</label>
+      <label><input type="radio" name="q2" value="c"> Row Level Security (RLS)</label>
+      <label><input type="radio" name="q2" value="d"> Realtime Publication</label>
+    </div>
+    <div class="quiz-feedback" id="q2-feedback"></div>
+  </div>
+
+  <button class="quiz-check" onclick="checkQuiz()">Cek Jawaban</button>
+  <div class="quiz-feedback" id="quiz-result" style="margin-top: 1rem;"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<div class="lesson-nav">
+  <a href="0009-migration-hygiene.html" class="btn">← Lesson 09: Migration Hygiene</a>
+  <a href="../reference/backend-maintenance-cheatsheet.html" class="btn btn-primary">Buka Cheat Sheet 📋</a>
+</div>
+
+<script>
+const answers = { q1: 'b', q2: 'b' };
+const explanations = {
+  q1: {
+    correct: '✅ Benar! Ketenangan dan isolasi masalah secara terstruktur adalah kunci utama penyelamatan sistem agar tidak merusak data lebih jauh.',
+    wrong:   '❌ Salah. Tergesa-gesa mengubah kode atau menghapus migrasi justru bisa memperburuk situasi dan menyebabkan data hilang.'
+  },
+  q2: {
+    correct: '✅ Tepat! PITR adalah tombol darurat untuk memutar balik waktu database ke status aman sebelum insiden terjadi.',
+    wrong:   '❌ Salah. Point-in-Time Recovery (PITR) adalah fitur backup Supabase yang digunakan untuk merestore database ke waktu spesifik.'
+  }
+};
+
+function checkQuiz() {
+  let score = 0;
+  ['q1','q2'].forEach(q => {
+    const chosen = document.querySelector(`input[name="${q}"]:checked`);
+    const fb = document.getElementById(`${q}-feedback`);
+    if (!chosen) { fb.className = 'quiz-feedback wrong'; fb.innerHTML = '⚠️ Pilih salah satu jawaban.'; return; }
+    const isCorrect = chosen.value === answers[q];
+    if (isCorrect) score++;
+    fb.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
+    fb.innerHTML = isCorrect ? explanations[q].correct : explanations[q].wrong;
+  });
+  const result = document.getElementById('quiz-result');
+  if (score === 2) {
+    result.className = 'quiz-feedback correct';
+    result.innerHTML = '🎉 Selamat! Kamu telah menyelesaikan seluruh 10 lesson kursus backend maintenance dengan nilai sempurna! Kamu sekarang siap merawat backend Suka Shawarma!';
+  } else {
+    result.className = 'quiz-feedback wrong';
+    result.innerHTML = `Skor ${score}/2. Review kembali protokol penanganan insiden down ya!`;
+  }
+}
+</script>
+
+</body>
+</html>

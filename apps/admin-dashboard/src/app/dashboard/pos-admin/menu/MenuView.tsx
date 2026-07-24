@@ -270,7 +270,7 @@ export default function MenuView({
   const channelOptions = useMemo(() => {
     const opts: Array<{ key: string; label: string; count: number; icon: React.ReactNode; theme: string }> = [
       { key: '', label: 'Semua Menu', count: initialItems.length, icon: <ChannelLogoIcon channelKey="" />, theme: 'gray' },
-      { key: 'pos_kasir', label: 'POS Kasir Toko', count: initialItems.filter(i => isItemInChannel(i, 'pos_kasir')).length, icon: <ChannelLogoIcon channelKey="pos_kasir" />, theme: 'amber' },
+      { key: 'pos_kasir', label: 'Offline (Kasir Toko)', count: initialItems.filter(i => isItemInChannel(i, 'pos_kasir')).length, icon: <ChannelLogoIcon channelKey="pos_kasir" />, theme: 'amber' },
       { key: 'all_food_apps', label: 'Semua Food Apps', count: initialItems.filter(i => isItemInChannel(i, 'all_food_apps')).length, icon: <ChannelLogoIcon channelKey="all_food_apps" />, theme: 'orange' },
     ]
 
@@ -1385,7 +1385,7 @@ export default function MenuView({
                           return (
                             <>
                               {showPosKasirBadge && (
-                                <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold">POS Kasir</span>
+                                <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold">Offline</span>
                               )}
 
                               {item.is_available_online !== false && activeSlug !== 'pos_kasir' && (

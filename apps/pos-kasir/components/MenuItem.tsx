@@ -119,7 +119,7 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo }: 
             </>
           ) : (
             <>
-              {item.strike_price != null && (
+              {item.strike_price != null && item.strike_price > finalPrice && (
                 <span className="text-[10px] text-gray-400 line-through leading-none mb-0.5 block">
                   {formatRupiah(item.strike_price)}
                 </span>

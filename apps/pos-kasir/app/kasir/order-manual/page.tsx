@@ -374,12 +374,7 @@ export default function OrderManualPage() {
       const isDisabled = isManualUnav || (isAutoUnav && !isForceAvail) || it.is_available === false
 
       let price = it.price;
-      let strike_price = it.strike_price;
-      
-      if (strike_price != null && strike_price < price) {
-        price = strike_price;
-        strike_price = it.price;
-      }
+      let strike_price = (it.strike_price != null && it.strike_price > price) ? it.strike_price : null;
 
       return { ...it, price, strike_price, isDisabled }
     })
@@ -388,12 +383,7 @@ export default function OrderManualPage() {
   const upsellItems = useMemo(() => {
     return items.filter(it => upsellIds.includes(it.id) && it.is_available !== false).map(it => {
       let price = it.price;
-      let strike_price = it.strike_price;
-      
-      if (strike_price != null && strike_price < price) {
-        price = strike_price;
-        strike_price = it.price;
-      }
+      let strike_price = (it.strike_price != null && it.strike_price > price) ? it.strike_price : null;
 
       return { ...it, price, strike_price }
     })

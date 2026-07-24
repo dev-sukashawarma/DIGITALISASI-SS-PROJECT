@@ -985,20 +985,22 @@ export default function MenuView({
                                         <ChannelLogoIcon channelKey={ch.id} />
                                         <span>{ch.name}</span>
                                       </span>
-                                      <CurrencyInput
-                                        value={val}
-                                        onChange={(v) => {
-                                          const valStr = String(v)
-                                          setForm(prev => ({
-                                            ...prev,
-                                            channel_prices: {
-                                              ...prev.channel_prices,
-                                              [slug]: valStr
-                                            }
-                                          }))
-                                        }}
-                                        className="input bg-white text-xs font-bold text-slate-900 py-1.5 px-2.5 w-28 text-right"
-                                      />
+                                      <div className="w-28 sm:w-32 shrink-0">
+                                        <CurrencyInput
+                                          value={val}
+                                          onChange={(v) => {
+                                            const valStr = String(v)
+                                            setForm(prev => ({
+                                              ...prev,
+                                              channel_prices: {
+                                                ...prev.channel_prices,
+                                                [slug]: valStr
+                                              }
+                                            }))
+                                          }}
+                                          className="input bg-white text-xs font-bold text-slate-900 py-1.5 px-2.5 w-full text-right"
+                                        />
+                                      </div>
                                     </div>
                                   )
                                 })}

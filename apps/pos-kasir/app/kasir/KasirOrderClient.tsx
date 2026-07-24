@@ -310,7 +310,7 @@ const renderOrderNotes = (notes: string | null) => {
           <div className="h-px bg-slate-100 w-full my-3"></div>
 
           {/* Customer / Source */}
-          <div className="flex items-center gap-3 mb-4 bg-white/80 p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="flex items-center gap-3 mb-4 bg-[#fff8f1] p-3 rounded-2xl">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isPending ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
               <User size={20} />
             </div>

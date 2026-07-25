@@ -19,6 +19,7 @@ function toFormValues(o: Outlet): OutletFormValues {
     name: o.name, slug: o.slug, address: o.address ?? '',
     lat: o.lat, lng: o.lng, type: o.type, is_active: o.is_active,
     marquee_warning_threshold: o.marquee_warning_threshold,
+    open_hour: o.open_hour ?? '', close_hour: o.close_hour ?? ''
   }
 }
 

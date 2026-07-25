@@ -105,6 +105,16 @@ export function OutletForm({
         <input type="number" min="0" className={inputCls} value={v.marquee_warning_threshold} onChange={(e) => set({ marquee_warning_threshold: parseInt(e.target.value) || 0 })} />
       </label>
 
+      <label className="text-sm">
+        <span className="mb-1 block font-medium text-suka-ink">Jam Buka</span>
+        <input type="time" className={inputCls} value={v.open_hour || ''} onChange={(e) => set({ open_hour: e.target.value })} />
+      </label>
+
+      <label className="text-sm">
+        <span className="mb-1 block font-medium text-suka-ink">Jam Tutup</span>
+        <input type="time" className={inputCls} value={v.close_hour || ''} onChange={(e) => set({ close_hour: e.target.value })} />
+      </label>
+
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={v.is_active} onChange={(e) => set({ is_active: e.target.checked })} />
         <span className="font-medium text-suka-ink">Aktif</span>

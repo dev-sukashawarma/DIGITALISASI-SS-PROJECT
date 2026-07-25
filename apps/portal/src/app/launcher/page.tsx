@@ -56,8 +56,7 @@ export default async function LauncherPage() {
   const APP_URL = await getAppUrls()
 
   // Admin, Owner, Area Manager, dan Mitra tidak punya menu operasional di launcher → langsung ke admin-dashboard.
-  // Chokepoint tunggal: berlaku utk login baru, akses /launcher langsung, & revisit.
-  if (['admin', 'owner', 'mitra', 'area_manager', 'korlap'].includes(staff.role)) {
+  if (['admin', 'owner', 'mitra', 'area_manager', 'korlap', 'purchasing'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
   }
   const apps = accessibleApps(staff.role)

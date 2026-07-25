@@ -11,7 +11,7 @@ export type Role =
   | 'staff_pusat'
   | 'admin_finance'
   | 'area_manager'
-  | 'purchase'
+  | 'purchasing'
 
 export type AppName =
   | 'pos-kasir'

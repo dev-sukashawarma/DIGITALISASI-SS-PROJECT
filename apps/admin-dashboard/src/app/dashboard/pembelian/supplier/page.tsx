@@ -69,7 +69,6 @@ export default function SupplierPage() {
   const isSaving = createSupplier.isPending || updateSupplier.isPending
 
   return (
-  return (
     <div className="space-y-6 max-w-3xl animate-fade-in">
       <PageHeader 
         title="Master Supplier" 

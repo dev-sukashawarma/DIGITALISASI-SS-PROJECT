@@ -950,7 +950,7 @@ export default function KasirOrderClient({
   }
 
   // Mark as Preparing
-  async function handlersRef.current.markAsPreparing(order: ParsedOrder) {
+  async function markAsPreparing(order: ParsedOrder) {
     postToNative({ type: 'haptic', style: 'success' })
     const success = await applyStatusChange(order.id, { status: 'preparing', kitchen_receipt_printed: true })
     if (!success) return
@@ -975,7 +975,7 @@ export default function KasirOrderClient({
   }
 
   // Mark as Completed
-  async function handlersRef.current.markAsCompleted(id: string) {
+  async function markAsCompleted(id: string) {
     const targetOrder = orders?.find(o => o.id === id)
     if (targetOrder && !targetOrder.customer_receipt_printed) {
       showAlert('Pesanan belum dapat diselesaikan! Struk Pelanggan WAJIB dicetak terlebih dahulu.')
@@ -1009,7 +1009,7 @@ export default function KasirOrderClient({
   }
 
   // Handle completion and print receipt
-  async function handlersRef.current.handlePrintCustomerOnly(order: ParsedOrder) {
+  async function handlePrintCustomerOnly(order: ParsedOrder) {
     // Generate and print receipt
     const receiptData: ReceiptData = {
       outletName: outletName || 'SUKA SHAWARMA',
@@ -1080,7 +1080,7 @@ export default function KasirOrderClient({
   }
 
   // Cancel order
-  async function handlersRef.current.cancelOrder(order: ParsedOrder) {
+  async function cancelOrder(order: ParsedOrder) {
     if (order.status !== 'pending' && order.status !== 'preparing') {
       showAlert('Hanya pesanan aktif yang dapat dibatalkan.')
       return

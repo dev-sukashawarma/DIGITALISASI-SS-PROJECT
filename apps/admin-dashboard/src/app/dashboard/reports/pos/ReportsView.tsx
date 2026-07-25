@@ -168,22 +168,37 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   // Modal State for Shift Expenses
   const [selectedShiftForExpenses, setSelectedShiftForExpenses] = useState<ShiftRow | null>(null)
   const [shiftExpenses, setShiftExpenses] = useState<any[]>([])
+  const [shiftTopups, setShiftTopups] = useState<any[]>([])
+  const [activePettyCashTab, setActivePettyCashTab] = useState<'pengeluaran' | 'pemasukan'>('pengeluaran')
   const [loadingShiftExpenses, setLoadingShiftExpenses] = useState(false)
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
 
   const openShiftExpenses = async (shift: ShiftRow) => {
     setSelectedShiftForExpenses(shift)
+    setActivePettyCashTab('pengeluaran')
     setLoadingShiftExpenses(true)
     const supabase = createClient()
-    const { data } = await supabase
+    
+    const expensesPromise = supabase
       .from('petty_cash_expenses')
       .select('*')
       .eq('outlet_id', shift.outlet_id)
       .gte('created_at', shift.start_time)
       .lte('created_at', shift.end_time || new Date().toISOString())
       .order('created_at', { ascending: true })
+
+    const topupsPromise = supabase
+      .from('petty_cash_topups')
+      .select('*')
+      .eq('outlet_id', shift.outlet_id)
+      .gte('created_at', shift.start_time)
+      .lte('created_at', shift.end_time || new Date().toISOString())
+      .order('created_at', { ascending: true })
+      
+    const [expRes, topRes] = await Promise.all([expensesPromise, topupsPromise])
     
-    setShiftExpenses(data || [])
+    setShiftExpenses(expRes.data || [])
+    setShiftTopups(topRes.data || [])
     setLoadingShiftExpenses(false)
   }
 
@@ -1425,7 +1440,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {shifts.length === 0 ? (
+              {selectedOutlet === 'all' ? (
+                <div className="col-span-full p-10 text-center bg-amber-50 rounded-xl border border-amber-100">
+                  <p className="text-amber-700 font-medium">Silakan pilih spesifik outlet di filter atas untuk melihat Laporan Laci Cash (Petty Cash).</p>
+                </div>
+              ) : shifts.length === 0 ? (
                 <div className="col-span-full p-10 text-center bg-gray-50 rounded-xl border border-gray-100">
                   <p className="text-gray-400 font-medium">Data shift tidak ditemukan</p>
                 </div>
@@ -1437,6 +1456,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                   
                   const variance = shift.variance || 0;
                   const pcVariance = shift.petty_cash_variance || 0;
+                  const outletName = initialOutlets.find(o => o.id === shift.outlet_id)?.name || 'Unknown Outlet';
 
                   return (
                     <div key={shift.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col">
@@ -1446,7 +1466,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                           <Calendar className="w-5 h-5" />
                         </div>
                         <div>
-                          <h3 className="font-bold text-amber-900 text-sm mb-0.5">Shift {dateStr}</h3>
+                          <h3 className="font-bold text-amber-900 text-sm mb-0.5">Shift {dateStr} - {outletName}</h3>
                           <p className="text-xs font-medium text-amber-700/80">{startTimeStr} - {endTimeStr}</p>
                         </div>
                       </div>
@@ -1525,7 +1545,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                           className="text-xs font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors border border-amber-200/50"
                         >
                           <FileText className="w-4 h-4" />
-                          Rincian Pengeluaran Petty Cash
+                          Rincian Petty Cash
                         </button>
                       </div>
                     </div>
@@ -1542,7 +1562,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <div>
-                <h3 className="font-bold text-gray-900 text-lg">Rincian Pengeluaran Petty Cash</h3>
+                <h3 className="font-bold text-gray-900 text-lg">Rincian Petty Cash</h3>
                 <p className="text-xs text-gray-500 mt-1">Shift: {new Date(selectedShiftForExpenses.start_time).toLocaleString('id-ID')}</p>
               </div>
               <button 
@@ -1553,48 +1573,122 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               </button>
             </div>
             
+            <div className="flex border-b border-gray-100">
+              <button
+                className={`flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors ${activePettyCashTab === 'pengeluaran' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
+                onClick={() => setActivePettyCashTab('pengeluaran')}
+              >
+                Pengeluaran
+              </button>
+              <button
+                className={`flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors ${activePettyCashTab === 'pemasukan' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
+                onClick={() => setActivePettyCashTab('pemasukan')}
+              >
+                Pemasukan (Top Up)
+              </button>
+            </div>
+
             <div className="p-5 overflow-y-auto flex-1">
               {loadingShiftExpenses ? (
-                <div className="flex justify-center py-10 text-gray-400">Memuat data pengeluaran...</div>
-              ) : shiftExpenses.length === 0 ? (
-                <div className="flex justify-center py-10 text-gray-400 font-medium text-sm">Tidak ada pengeluaran petty cash di shift ini.</div>
-              ) : (
-                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                  <table className="w-full text-left text-sm whitespace-nowrap">
-                    <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
-                      <tr>
-                        <th className="px-4 py-3">Waktu</th>
-                        <th className="px-4 py-3">Kategori</th>
-                        <th className="px-4 py-3">Catatan</th>
-                        <th className="px-4 py-3 text-right">Nominal</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {shiftExpenses.map((exp) => (
-                        <tr key={exp.id} className="hover:bg-amber-50/50">
-                          <td className="px-4 py-3 text-gray-500 font-medium text-xs">
-                            {new Date(exp.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td className="px-4 py-3 text-gray-700 capitalize font-medium">
-                            {exp.category?.replace('_', ' ')}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600 italic">
-                            {exp.description}
-                            {exp.receipt_url && (
-                              <button onClick={() => setSelectedReceiptUrl(exp.receipt_url || null)} className="ml-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md inline-flex items-center gap-1 hover:bg-blue-100 transition-colors">
-                                <FileText className="w-3 h-3" />
-                                Lihat Bukti
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-gray-900">
-                            {formatRupiah(exp.amount)}
+                <div className="flex justify-center py-10 text-gray-400">Memuat data...</div>
+              ) : activePettyCashTab === 'pengeluaran' ? (
+                shiftExpenses.length === 0 ? (
+                  <div className="flex justify-center py-10 text-gray-400 font-medium text-sm">Tidak ada pengeluaran petty cash di shift ini.</div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-gray-200">
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                      <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
+                        <tr>
+                          <th className="px-4 py-3">Waktu</th>
+                          <th className="px-4 py-3">Kategori</th>
+                          <th className="px-4 py-3">Catatan</th>
+                          <th className="px-4 py-3 text-right">Nominal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {shiftExpenses.map((exp) => (
+                          <tr key={exp.id} className="hover:bg-amber-50/50">
+                            <td className="px-4 py-3 text-gray-500 font-medium text-xs">
+                              {new Date(exp.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="px-4 py-3 text-gray-700 capitalize font-medium">
+                              {exp.category?.replace('_', ' ')}
+                            </td>
+                            <td className="px-4 py-3 text-gray-600 italic">
+                              {exp.description}
+                              {exp.receipt_url && (
+                                <button onClick={() => setSelectedReceiptUrl(exp.receipt_url || null)} className="ml-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md inline-flex items-center gap-1 hover:bg-blue-100 transition-colors">
+                                  <FileText className="w-3 h-3" />
+                                  Lihat Bukti
+                                </button>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-gray-900">
+                              {formatRupiah(exp.amount)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 border-t border-gray-200">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-3 text-right font-bold text-gray-700">Total Pengeluaran</td>
+                          <td className="px-4 py-3 text-right font-bold text-red-600">
+                            {formatRupiah(shiftExpenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0))}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </tfoot>
+                    </table>
+                  </div>
+                )
+              ) : (
+                shiftTopups.length === 0 ? (
+                  <div className="flex justify-center py-10 text-gray-400 font-medium text-sm">Tidak ada top up petty cash di shift ini.</div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-gray-200">
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                      <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
+                        <tr>
+                          <th className="px-4 py-3">Waktu</th>
+                          <th className="px-4 py-3">Keterangan</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3 text-right">Nominal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {shiftTopups.map((topup) => (
+                          <tr key={topup.id} className="hover:bg-amber-50/50">
+                            <td className="px-4 py-3 text-gray-500 font-medium text-xs">
+                              {new Date(topup.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="px-4 py-3 text-gray-600 italic">
+                              {topup.description || '-'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 text-[10px] font-bold rounded-md ${
+                                topup.status === 'approved' || topup.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                topup.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                'bg-amber-100 text-amber-700'
+                              }`}>
+                                {topup.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-gray-900">
+                              {formatRupiah(topup.amount)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 border-t border-gray-200">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-3 text-right font-bold text-gray-700">Total Pemasukan (Approved/Completed)</td>
+                          <td className="px-4 py-3 text-right font-bold text-emerald-600">
+                            {formatRupiah(shiftTopups.filter(t => t.status === 'approved' || t.status === 'completed').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0))}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )
               )}
             </div>
             

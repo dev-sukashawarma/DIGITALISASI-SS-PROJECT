@@ -59,3 +59,12 @@ describe('accessibleApps', () => {
     expect(accessibleApps('owner').sort()).toEqual(['admin-dashboard', 'finance', 'owner-dashboard'])
   })
 })
+
+describe('role purchase access', () => {
+  it('purchase hanya boleh admin-dashboard', () => {
+    expect(accessibleApps('purchase')).toEqual(['admin-dashboard'])
+    expect(hasAppAccess('purchase', 'admin-dashboard')).toBe(true)
+    expect(hasAppAccess('purchase', 'finance')).toBe(false)
+    expect(hasAppAccess('purchase', 'stok')).toBe(false)
+  })
+})

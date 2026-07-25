@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 
 const STATUS_LABEL: Record<POStatus, string> = {
   draft: 'Draft',
+  menunggu_approval_finance: 'Menunggu Approval Finance',
   dikirim_ke_supplier: 'Dikirim ke Supplier',
   sebagian_diterima: 'Sebagian Diterima',
   diterima_lengkap: 'Diterima Lengkap',
@@ -20,6 +21,7 @@ const STATUS_LABEL: Record<POStatus, string> = {
 
 const STATUS_COLOR: Record<POStatus, string> = {
   draft: 'bg-gray-100 text-gray-600',
+  menunggu_approval_finance: 'bg-amber-100 text-amber-700',
   dikirim_ke_supplier: 'bg-blue-100 text-blue-700',
   sebagian_diterima: 'bg-yellow-100 text-yellow-700',
   diterima_lengkap: 'bg-green-100 text-green-700',
@@ -27,12 +29,13 @@ const STATUS_COLOR: Record<POStatus, string> = {
 }
 
 const NEXT_STATUS: Partial<Record<POStatus, POStatus>> = {
-  draft: 'dikirim_ke_supplier',
+  draft: 'menunggu_approval_finance',
+  menunggu_approval_finance: undefined, // finance yang memajukan via approve_po_finance
   dikirim_ke_supplier: undefined, // verifikasi dilakukan di distribusi oleh kitchen
 }
 
 const NEXT_STATUS_LABEL: Partial<Record<POStatus, string>> = {
-  draft: 'Kirim ke Supplier',
+  draft: 'Ajukan ke Finance',
 }
 
 // ─── Price Sync Modal ─────────────────────────────────────────────────────────
@@ -446,6 +449,11 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           >
             <Ban size={14} /> Batalkan PO
           </button>
+        )}
+        {po.status === 'menunggu_approval_finance' && (
+          <div className="flex-1 py-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-sm text-center font-medium">
+            ⏳ Menunggu persetujuan finance sebelum dikirim ke supplier
+          </div>
         )}
         {po.status === 'dikirim_ke_supplier' && (
           <div className="flex-1 py-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-xl text-sm text-center font-medium">

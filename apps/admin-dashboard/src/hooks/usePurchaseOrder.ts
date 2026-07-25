@@ -8,6 +8,7 @@ const supabase = createSupabaseBrowserClient()
 
 export type POStatus =
   | 'draft'
+  | 'menunggu_approval_finance'
   | 'dikirim_ke_supplier'
   | 'sebagian_diterima'
   | 'diterima_lengkap'
@@ -67,6 +68,7 @@ export type Supplier = {
   is_active: boolean
   created_at: string
   bahan_baku_ids?: string[] | null
+  termin_hari: number | null
 }
 
 export type BahanBakuOption = {

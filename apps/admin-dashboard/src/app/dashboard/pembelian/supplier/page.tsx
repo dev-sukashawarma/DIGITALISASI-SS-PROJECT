@@ -14,10 +14,10 @@ const KATEGORI_OPTIONS = [
 ]
 
 type FormState = {
-  nama: string; kontak: string; alamat: string; kategori: string; catatan: string; bahan_baku_ids: string[]
+  nama: string; kontak: string; alamat: string; kategori: string; catatan: string; bahan_baku_ids: string[]; termin_hari: number | null
 }
 
-const emptyForm: FormState = { nama: '', kontak: '', alamat: '', kategori: '', catatan: '', bahan_baku_ids: [] }
+const emptyForm: FormState = { nama: '', kontak: '', alamat: '', kategori: '', catatan: '', bahan_baku_ids: [], termin_hari: null }
 
 export default function SupplierPage() {
   const { data: suppliers = [], isLoading } = useSuppliers()
@@ -36,9 +36,10 @@ export default function SupplierPage() {
       nama: s.nama, 
       kontak: s.kontak ?? '', 
       alamat: s.alamat ?? '', 
-      kategori: s.kategori ?? '', 
+      kategori: s.kategori ?? '',
       catatan: s.catatan ?? '',
-      bahan_baku_ids: s.bahan_baku_ids ?? [] 
+      bahan_baku_ids: s.bahan_baku_ids ?? [],
+      termin_hari: s.termin_hari ?? null
     })
     setEditId(s.id)
     setShowForm(true)
@@ -54,6 +55,7 @@ export default function SupplierPage() {
       kategori: form.kategori || null,
       catatan: form.catatan.trim() || null,
       bahan_baku_ids: form.bahan_baku_ids,
+      termin_hari: form.termin_hari,
     }
     if (editId) {
       await updateSupplier.mutateAsync({ id: editId, ...payload })
@@ -102,6 +104,13 @@ export default function SupplierPage() {
                 <option value="">— Pilih kategori —</option>
                 {KATEGORI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Termin (hari)</label>
+              <input type="number" min={0} value={form.termin_hari ?? ''}
+                onChange={e => setForm(f => ({ ...f, termin_hari: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="mis. 30"
+                className="w-full border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20" />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Item yang Disuplai</label>

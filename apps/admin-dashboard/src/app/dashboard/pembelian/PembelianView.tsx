@@ -8,6 +8,7 @@ import { Spinner } from '@suka/design-system'
 
 const STATUS_LABEL: Record<POStatus, string> = {
   draft: 'Draft',
+  menunggu_approval_finance: 'Menunggu Approval Finance',
   dikirim_ke_supplier: 'Dikirim ke Supplier',
   sebagian_diterima: 'Sebagian Diterima',
   diterima_lengkap: 'Diterima Lengkap',
@@ -16,6 +17,7 @@ const STATUS_LABEL: Record<POStatus, string> = {
 
 const STATUS_COLOR: Record<POStatus, string> = {
   draft: 'bg-gray-100 text-gray-600',
+  menunggu_approval_finance: 'bg-amber-100 text-amber-700',
   dikirim_ke_supplier: 'bg-blue-100 text-blue-700',
   sebagian_diterima: 'bg-yellow-100 text-yellow-700',
   diterima_lengkap: 'bg-green-100 text-green-700',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { accessibleItems, accessibleGroups } from './navConfig'
+import { accessibleItems, accessibleGroups, NAV_GROUPS } from './navConfig'
 
 describe('accessibleItems for MITRA', () => {
   const items = accessibleItems('MITRA')
@@ -91,5 +91,20 @@ describe('Rekap Bulanan nav item', () => {
     expect(accessibleItems('ADMIN').map(i => i.href)).toContain('/dashboard/owner/rekap-bulanan')
     expect(accessibleItems('MITRA').map(i => i.href)).not.toContain('/dashboard/owner/rekap-bulanan')
     expect(accessibleItems('ADMIN_HR').map(i => i.href)).not.toContain('/dashboard/owner/rekap-bulanan')
+  })
+})
+
+describe('nav purchase', () => {
+  it('PURCHASE hanya melihat grup Pembelian', () => {
+    const groups = NAV_GROUPS.filter(g => g.roles.includes('PURCHASE' as any))
+    expect(groups.length).toBe(1)
+    expect(groups[0].title).toBe('Pembelian')
+    const hrefs = groups[0].items.map(i => i.href)
+    expect(hrefs).toContain('/dashboard/pembelian/perlu-dibeli')
+    expect(hrefs).toContain('/dashboard/pembelian/permintaan')
+  })
+  it('PURCHASE tidak melihat grup Bisnis/keuangan', () => {
+    const bisnis = NAV_GROUPS.find(g => g.title === 'Bisnis')
+    expect(bisnis?.roles.includes('PURCHASE' as any)).toBeFalsy()
   })
 })

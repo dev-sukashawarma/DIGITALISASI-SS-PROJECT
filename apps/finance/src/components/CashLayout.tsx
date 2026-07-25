@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, User, Coins, Loader2, Receipt, Menu, X } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, User, Coins, Loader2, Receipt, Menu, X, ClipboardCheck } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 
@@ -29,6 +29,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'PEMBAYARAN',
     items: [
       { href: '/supplier', label: 'Supplier', icon: Truck },
+      { href: '/po-approval', label: 'Approval PO', icon: ClipboardCheck },
       { href: '/payroll', label: 'Gaji', icon: Wallet },
       { href: '/petty-cash', label: 'Petty Cash', icon: Coins },
       { href: '/pengeluaran', label: 'Pengeluaran', icon: Receipt },

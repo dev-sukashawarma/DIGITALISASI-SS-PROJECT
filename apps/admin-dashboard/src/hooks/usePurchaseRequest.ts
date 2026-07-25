@@ -45,18 +45,3 @@ export function useRejectPr() {
     onError: (e: any) => toast.error(e.message ?? 'Gagal menolak'),
   })
 }
-
-export function useConvertPrToPo() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, linkedPoId }: { id: string; linkedPoId: string }) => {
-      const { error } = await supabase
-        .from('purchase_request')
-        .update({ status: 'jadi_po', linked_po_id: linkedPoId })
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['purchase-requests'] }); toast.success('Permintaan dikonversi ke PO') },
-    onError: (e: any) => toast.error(e.message ?? 'Gagal mengonversi'),
-  })
-}

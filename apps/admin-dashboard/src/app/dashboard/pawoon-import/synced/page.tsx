@@ -23,24 +23,44 @@ export default async function SyncedPawoonDataPage({
     const fromDate = params.from || '';
     const toDate = params.to || '';
 
-    // Build query for orders
-    let query = supabase
+    // Fetch all synced orders metadata to build a summary of which outlets have data
+    const { data: allSyncedOrders } = await supabase
         .from('orders')
-        .select('id, external_order_id, total_amount, created_at, status, sales_source, payment_method, outlet_id')
-        .eq('source', 'pos')
-        .not('external_order_id', 'is', null);
+        .select('outlet_id, created_at')
+        .not('external_order_id', 'is', null)
+        .eq('source', 'pos');
 
+    const syncedSummary: Record<string, { min: number; max: number; count: number }> = {};
+    (allSyncedOrders || []).forEach(o => {
+        const d = new Date(o.created_at).getTime();
+        if (!syncedSummary[o.outlet_id]) {
+            syncedSummary[o.outlet_id] = { min: d, max: d, count: 1 };
+        } else {
+            if (d < syncedSummary[o.outlet_id].min) syncedSummary[o.outlet_id].min = d;
+            if (d > syncedSummary[o.outlet_id].max) syncedSummary[o.outlet_id].max = d;
+            syncedSummary[o.outlet_id].count++;
+        }
+    });
+
+    let orders: any[] = [];
+    let error: any = null;
+
+    // Only fetch table data if an outlet is explicitly selected
     if (selectedOutletId !== 'ALL') {
-        query = query.eq('outlet_id', selectedOutletId);
-    }
-    if (fromDate) {
-        query = query.gte('created_at', `${fromDate}T00:00:00`);
-    }
-    if (toDate) {
-        query = query.lte('created_at', `${toDate}T23:59:59`);
-    }
+        let query = supabase
+            .from('orders')
+            .select('id, external_order_id, total_amount, created_at, status, sales_source, payment_method, outlet_id')
+            .eq('source', 'pos')
+            .not('external_order_id', 'is', null)
+            .eq('outlet_id', selectedOutletId);
 
-    const { data: orders, error } = await query.order('created_at', { ascending: false }).limit(5000);
+        if (fromDate) query = query.gte('created_at', `${fromDate}T00:00:00`);
+        if (toDate) query = query.lte('created_at', `${toDate}T23:59:59`);
+
+        const res = await query.order('created_at', { ascending: false }).limit(5000);
+        orders = res.data || [];
+        error = res.error;
+    }
 
     // Group by date
     type DailySummary = {
@@ -169,10 +189,50 @@ export default async function SyncedPawoonDataPage({
             {/* Filters */}
             <SyncedFilters outlets={outlets || []} selectedOutletId={selectedOutletId} fromDate={fromDate} toDate={toDate} />
 
-            {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                {error ? (
-                    <div className="p-6 text-red-600">Gagal memuat data: {error.message}</div>
+            {/* Table or Placeholder */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-6">
+                {selectedOutletId === 'ALL' ? (
+                    <div className="p-12 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-500 mb-4">
+                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">Pilih Outlet Terlebih Dahulu</h3>
+                        <p className="text-gray-500 max-w-md mx-auto mb-6">
+                            Untuk melihat detail rekapan transaksi harian, silakan pilih spesifik outlet dari filter di atas.
+                        </p>
+                        
+                        {Object.keys(syncedSummary).length > 0 && (
+                            <div className="max-w-xl mx-auto bg-gray-50 rounded-xl p-6 text-left border border-gray-100 shadow-inner">
+                                <h4 className="font-semibold text-gray-800 mb-4 text-sm flex items-center gap-2 border-b border-gray-200 pb-2">
+                                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                    Daftar Outlet yang Telah Memiliki Data Pawoon:
+                                </h4>
+                                <ul className="space-y-3">
+                                    {Object.entries(syncedSummary).map(([outId, sum]) => {
+                                        const outletName = outlets?.find(o => o.id === outId)?.name || 'Unknown Outlet';
+                                        const minStr = new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+                                        const maxStr = new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+                                        return (
+                                            <li key={outId} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                                                <span className="font-bold text-gray-700">{outletName}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-gray-500 font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100 text-xs">{minStr} – {maxStr}</span>
+                                                    <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">{sum.count} items</span>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                ) : error ? (
+                    <div className="p-6 text-red-600 font-medium flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Gagal memuat data: {error.message}
+                    </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse text-sm">

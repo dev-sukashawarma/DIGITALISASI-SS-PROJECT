@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 
 
-export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER'
+export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASE'
 
 export type NavItem = { href: string; label: string; shortLabel?: string; icon: LucideIcon; roles: Role[] }
 /** Sebuah "pintu" navigasi — kelompok besar berlabel bahasa awam. */
@@ -43,6 +43,19 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/mitra/investasi', label: 'Laporan Investasi', shortLabel: 'Investasi', icon: DollarSign, roles: ['MITRA'] },
       { href: '/dashboard/mitra/transfer', label: 'Transfer Bagi Hasil', shortLabel: 'Transfer', icon: ArrowRightLeft, roles: ['MITRA'] },
       { href: '/dashboard/mitra/saran', label: 'Saran & Kritik', shortLabel: 'Saran', icon: MessageSquare, roles: ['MITRA'] },
+    ],
+  },
+  {
+    title: 'Pembelian',
+    icon: ShoppingCart,
+    roles: ['PURCHASE'],
+    items: [
+      { href: '/dashboard/pembelian/perlu-dibeli', label: 'Perlu Dibeli', shortLabel: 'Perlu Dibeli', icon: BellRing, roles: ['PURCHASE'] },
+      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['PURCHASE'] },
+      { href: '/dashboard/pembelian/permintaan', label: 'Permintaan Pembelian', shortLabel: 'Permintaan', icon: FileText, roles: ['PURCHASE'] },
+      { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['PURCHASE'] },
+      { href: '/dashboard/pembelian/harga', label: 'Harga & Bahan Baku', shortLabel: 'Harga', icon: TrendingDown, roles: ['PURCHASE'] },
+      { href: '/dashboard/reports/pembelian', label: 'Laporan Pembelian', shortLabel: 'Laporan', icon: PieChart, roles: ['PURCHASE'] },
     ],
   },
   {

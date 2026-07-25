@@ -142,9 +142,26 @@ export function PettyCashReportView({
         day: '2-digit',
         month: 'short',
         year: 'numeric',
+        timeZone: 'Asia/Jakarta'
       })
     } catch {
       return isoStr
+    }
+  }
+
+  // Format ISO Time ke HH:mm (WIB)
+  const formatTime = (isoStr: string) => {
+    try {
+      const d = new Date(isoStr)
+      if (isNaN(d.getTime())) return isoStr.includes('T') ? isoStr.split('T')[1].slice(0, 5) : '00:00'
+      return d.toLocaleTimeString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).replace('.', ':')
+    } catch {
+      return isoStr.includes('T') ? isoStr.split('T')[1].slice(0, 5) : '00:00'
     }
   }
 
@@ -411,7 +428,7 @@ export function PettyCashReportView({
                     <td className="p-3.5">
                       <div className="font-bold text-slate-900">{formatDate(t.transaction_date)}</div>
                       <div className="text-[11px] text-slate-500 font-mono">
-                        {t.transaction_date.includes('T') ? t.transaction_date.split('T')[1].slice(0, 5) : '00:00'} WIB
+                        {formatTime(t.transaction_date)} WIB
                       </div>
                     </td>
 

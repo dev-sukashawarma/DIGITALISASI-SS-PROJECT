@@ -197,6 +197,13 @@ export default function OrderManualPage() {
             return false
           }
           return true
+        }).sort((a: any, b: any) => {
+          const priceA = a.price || 0
+          const priceB = b.price || 0
+          if (priceA === priceB) {
+            return (a.name || '').localeCompare(b.name || '')
+          }
+          return priceA - priceB
         })
         const fetchedCategories = catRes.data ?? []
         const settings = unavRes.data

@@ -44,6 +44,11 @@ export default function BlockedOverlay({
   async function handleLogout() {
     await supabase.auth.signOut()
     queryClient.removeQueries({ queryKey: ['my-outlet'] })
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('pos_gate_bypassed_types')
+      } catch (e) {}
+    }
     let portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
     if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
       portalUrl = 'http://localhost:3010'

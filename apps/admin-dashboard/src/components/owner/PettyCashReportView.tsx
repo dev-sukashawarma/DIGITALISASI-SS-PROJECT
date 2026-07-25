@@ -256,7 +256,7 @@ export function PettyCashReportView({
       {/* ── KPI Summary Cards ────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Modal Kas Masuk */}
-        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
               TOTAL MODAL KAS MASUK
@@ -272,7 +272,7 @@ export function PettyCashReportView({
         </div>
 
         {/* Total Pengeluaran Kas */}
-        <div className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-red-700">
               TOTAL PENGELUARAN KAS
@@ -288,7 +288,7 @@ export function PettyCashReportView({
         </div>
 
         {/* Saldo Akhir Petty Cash */}
-        <div className="rounded-2xl border border-suka-orange/30 bg-gradient-to-br from-orange-50 to-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-suka-brown">
               SALDO AKHIR PETTY CASH
@@ -318,15 +318,15 @@ export function PettyCashReportView({
           </span>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-100">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-100">
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full text-left text-sm text-slate-700">
+            <thead className="bg-slate-50 text-slate-600 font-semibold uppercase text-xs tracking-wider border-b border-slate-200">
               <tr>
-                <th className="p-3">Tanggal</th>
-                <th className="p-3 text-center">Jumlah Shift / Modal</th>
-                <th className="p-3 text-right">Modal Kas Masuk</th>
-                <th className="p-3 text-right">Pengeluaran Kas</th>
-                <th className="p-3 text-right">Saldo Akhir Per Hari</th>
+                <th className="p-4">Tanggal</th>
+                <th className="p-4 text-center">Jumlah Shift / Modal</th>
+                <th className="p-4 text-right">Modal Kas Masuk</th>
+                <th className="p-4 text-right">Pengeluaran Kas</th>
+                <th className="p-4 text-right">Saldo Akhir Per Hari</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -339,20 +339,20 @@ export function PettyCashReportView({
               ) : (
                 computedDailySummaries.map((day) => (
                   <tr key={day.date} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="p-3 font-bold text-slate-900 flex items-center gap-1.5">
-                      <Calendar size={13} className="text-slate-400" />
+                    <td className="p-4 font-bold text-slate-900 flex items-center gap-1.5">
+                      <Calendar size={15} className="text-slate-400" />
                       {formatDate(day.date)}
                     </td>
-                    <td className="p-3 text-center font-semibold text-slate-600">
+                    <td className="p-4 text-center font-semibold text-slate-600">
                       {day.shift_count > 0 ? `${day.shift_count} Shift` : '-'}
                     </td>
-                    <td className="p-3 text-right font-bold text-emerald-600">
+                    <td className="p-4 text-right font-bold text-emerald-600">
                       + {formatRp(day.total_in)}
                     </td>
-                    <td className="p-3 text-right font-bold text-red-600">
+                    <td className="p-4 text-right font-bold text-red-600">
                       - {formatRp(day.total_out)}
                     </td>
-                    <td className={`p-3 text-right font-extrabold tabular-nums ${day.ending_balance >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                    <td className={`p-4 text-right font-extrabold tabular-nums ${day.ending_balance >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
                       {formatRp(day.ending_balance)}
                     </td>
                   </tr>
@@ -364,20 +364,20 @@ export function PettyCashReportView({
       </div>
 
       {/* ── Table Bar Quick Filters & Actions ───────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2 flex-1">
-          <div className="flex items-center gap-2 pr-2 border-r border-slate-200">
-            <Layers size={16} className="text-suka-orange" />
-            <span className="font-extrabold text-xs text-slate-800">Rincian Transaksi</span>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="flex items-center gap-2 pr-3 border-r border-slate-200">
+            <Layers size={18} className="text-suka-orange" />
+            <span className="font-extrabold text-sm text-slate-800">Rincian Transaksi</span>
           </div>
 
           {/* Tipe Transaksi Dropdown */}
           <div className="relative">
-            <ArrowUpDown size={14} className="absolute left-3 top-2.5 text-slate-400" />
+            <ArrowUpDown size={15} className="absolute left-3 top-3 text-slate-400" />
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as any)}
-              className="rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-suka-orange focus:bg-white focus:outline-none"
+              className="rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 py-2 text-sm font-semibold text-slate-800 focus:border-suka-orange focus:bg-white focus:outline-none transition-colors"
             >
               <option value="all">Semua Tipe (Masuk &amp; Keluar)</option>
               <option value="in">Modal Kas Masuk saja</option>
@@ -386,14 +386,14 @@ export function PettyCashReportView({
           </div>
 
           {/* Quick Search */}
-          <div className="relative flex-1 sm:w-64">
-            <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+          <div className="relative flex-1 sm:w-72">
+            <Search size={15} className="absolute left-3 top-3 text-slate-400" />
             <input
               type="text"
               placeholder="Cari deskripsi / pembuat..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-suka-orange focus:bg-white focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 py-2 text-sm font-semibold text-slate-800 focus:border-suka-orange focus:bg-white focus:outline-none transition-colors"
             />
           </div>
         </div>
@@ -402,16 +402,16 @@ export function PettyCashReportView({
       {/* ── Table Rincian Transaksi ────────────────────────────────── */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-900 text-white font-bold uppercase text-[10px] tracking-wider">
+          <table className="w-full text-left text-sm text-slate-700">
+            <thead className="bg-slate-50 text-slate-600 font-semibold uppercase text-xs tracking-wider border-b border-slate-200">
               <tr>
-                <th className="p-3.5">Tanggal &amp; Waktu</th>
-                <th className="p-3.5">Outlet</th>
-                <th className="p-3.5">Tipe Transaksi</th>
-                <th className="p-3.5">Kategori &amp; Keterangan</th>
-                <th className="p-3.5 text-right">Nominal</th>
-                <th className="p-3.5">Pembuat Kas</th>
-                <th className="p-3.5 text-center">Bukti Nota</th>
+                <th className="p-4 sm:p-5">Tanggal &amp; Waktu</th>
+                <th className="p-4 sm:p-5">Outlet</th>
+                <th className="p-4 sm:p-5">Tipe Transaksi</th>
+                <th className="p-4 sm:p-5">Kategori &amp; Keterangan</th>
+                <th className="p-4 sm:p-5 text-right">Nominal</th>
+                <th className="p-4 sm:p-5">Pembuat Kas</th>
+                <th className="p-4 sm:p-5 text-center">Bukti Nota</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -425,44 +425,44 @@ export function PettyCashReportView({
                 filteredData.map((t) => (
                   <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
                     {/* Tanggal & Waktu */}
-                    <td className="p-3.5">
+                    <td className="p-4 sm:p-5">
                       <div className="font-bold text-slate-900">{formatDate(t.transaction_date)}</div>
-                      <div className="text-[11px] text-slate-500 font-mono">
+                      <div className="text-xs text-slate-500 font-mono mt-0.5">
                         {formatTime(t.transaction_date)} WIB
                       </div>
                     </td>
 
                     {/* Outlet */}
-                    <td className="p-3.5">
-                      <div className="font-bold text-slate-800 flex items-center gap-1">
-                        <Building2 size={13} className="text-suka-orange" />
+                    <td className="p-4 sm:p-5">
+                      <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <Building2 size={15} className="text-suka-orange" />
                         {t.outlet_name}
                       </div>
                     </td>
 
                     {/* Tipe Badge */}
-                    <td className="p-3.5">
+                    <td className="p-4 sm:p-5">
                       {t.type === 'in' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-extrabold text-emerald-800 border border-emerald-300">
-                          <TrendingUp size={11} /> Modal Kas Masuk
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800 border border-emerald-300">
+                          <TrendingUp size={14} /> Modal Kas Masuk
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-extrabold text-red-800 border border-red-300">
-                          <TrendingDown size={11} /> Pengeluaran Kas
+                        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1.5 text-xs font-bold text-red-800 border border-red-300">
+                          <TrendingDown size={14} /> Pengeluaran Kas
                         </span>
                       )}
                     </td>
 
                     {/* Kategori & Keterangan */}
-                    <td className="p-3.5">
+                    <td className="p-4 sm:p-5">
                       <div className="font-bold text-slate-900">{t.category}</div>
-                      <div className="text-[11px] text-slate-500 max-w-xs truncate mt-0.5">
+                      <div className="text-xs text-slate-500 max-w-xs truncate mt-1">
                         {t.description}
                       </div>
                     </td>
 
                     {/* Nominal */}
-                    <td className="p-3.5 text-right font-black tabular-nums text-sm">
+                    <td className="p-4 sm:p-5 text-right font-black tabular-nums text-base">
                       <span className={t.type === 'in' ? 'text-emerald-600' : 'text-red-600'}>
                         {t.type === 'in' ? '+ ' : '- '}
                         {formatRp(t.amount)}
@@ -470,12 +470,12 @@ export function PettyCashReportView({
                     </td>
 
                     {/* Pembuat Kas */}
-                    <td className="p-3.5 font-semibold text-slate-800">
+                    <td className="p-4 sm:p-5 font-semibold text-slate-800">
                       {t.staff_name}
                     </td>
 
                     {/* Bukti Nota */}
-                    <td className="p-3.5 text-center">
+                    <td className="p-4 sm:p-5 text-center">
                       {t.receipt_url ? (
                         <button
                           onClick={() =>
@@ -484,13 +484,13 @@ export function PettyCashReportView({
                               `Nota Petty Cash - ${t.category} (${formatRp(t.amount)})`
                             )
                           }
-                          className="inline-flex items-center gap-1 rounded-xl bg-orange-50 border border-orange-200 px-2.5 py-1 text-[11px] font-bold text-suka-orange hover:bg-suka-orange hover:text-white transition-colors shadow-sm"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-orange-50 border border-orange-200 px-3 py-1.5 text-xs font-bold text-suka-orange hover:bg-suka-orange hover:text-white transition-colors shadow-sm"
                         >
-                          <Receipt size={12} />
+                          <Receipt size={14} />
                           Lihat Nota
                         </button>
                       ) : (
-                        <span className="text-slate-400 text-[11px] italic font-normal">Tanpa Nota</span>
+                        <span className="text-slate-400 text-xs italic font-normal">Tanpa Nota</span>
                       )}
                     </td>
                   </tr>

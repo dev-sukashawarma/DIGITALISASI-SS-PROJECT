@@ -94,8 +94,9 @@ export async function previewPawoonFile(formData: FormData) {
             const rawOutlet = row[colIdx.outlet] ? row[colIdx.outlet].toString().trim() : '';
             let normalOutlet = rawOutlet.toLowerCase().replace('suka shawarma ', '').replace('mitra ', '').trim();
             
-            // Fix typo dari Pawoon (CIRENDEUU -> CIRENDEU)
+            // Fix typo / penamaan beda dari Pawoon
             if (normalOutlet === 'cirendeuu') normalOutlet = 'cirendeu';
+            if (normalOutlet === 'kota wisata') normalOutlet = 'cibubur';
             
             const outletId = outletIdMap[normalOutlet] || outletIdMap[rawOutlet.toLowerCase()];
             

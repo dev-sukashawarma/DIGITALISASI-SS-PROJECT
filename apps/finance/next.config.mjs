@@ -5,6 +5,9 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'date-fns'],
+  },
 }
 
 export default nextConfig

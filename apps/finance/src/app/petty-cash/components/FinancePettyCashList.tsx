@@ -60,21 +60,27 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
 
-  const allReviewRequests = allRequests?.filter(r => 
-    r.status === 'forwarded_to_finance' || 
-    r.status === 'approved_by_finance'
-  ) || []
+  const allReviewRequests = React.useMemo(() => {
+    return allRequests?.filter(r => 
+      r.status === 'forwarded_to_finance' || 
+      r.status === 'approved_by_finance'
+    ) || []
+  }, [allRequests])
 
-  const allHistoryRequests = allRequests?.filter(r => 
-    r.status !== 'forwarded_to_finance' && 
-    r.status !== 'approved_by_finance'
-  ) || []
+  const allHistoryRequests = React.useMemo(() => {
+    return allRequests?.filter(r => 
+      r.status !== 'forwarded_to_finance' && 
+      r.status !== 'approved_by_finance'
+    ) || []
+  }, [allRequests])
   
-  const filteredReviewRequests = allReviewRequests.filter(r => {
-    if (reviewFilter === 'unprocessed') return r.status === 'forwarded_to_finance'
-    if (reviewFilter === 'ready_handover') return r.status === 'approved_by_finance'
-    return true
-  })
+  const filteredReviewRequests = React.useMemo(() => {
+    return allReviewRequests.filter(r => {
+      if (reviewFilter === 'unprocessed') return r.status === 'forwarded_to_finance'
+      if (reviewFilter === 'ready_handover') return r.status === 'approved_by_finance'
+      return true
+    })
+  }, [allReviewRequests, reviewFilter])
 
   const requests = activeTab === 'review' ? filteredReviewRequests : allHistoryRequests
 

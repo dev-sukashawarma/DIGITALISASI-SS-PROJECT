@@ -41,7 +41,7 @@ export async function previewPawoonFile(formData: FormData) {
         
         const outletIdMap: Record<string, string> = {};
         outletsData.forEach(o => {
-            const normalName = o.name.toLowerCase().replace('suka shawarma ', '').trim();
+            const normalName = o.name.toLowerCase().replace('suka shawarma ', '').replace('mitra ', '').trim();
             outletIdMap[normalName] = o.id;
             outletIdMap[o.name.toLowerCase()] = o.id;
         });
@@ -92,7 +92,7 @@ export async function previewPawoonFile(formData: FormData) {
             if (!productName || productName.startsWith('+')) continue; 
 
             const rawOutlet = row[colIdx.outlet] ? row[colIdx.outlet].toString().trim() : '';
-            let normalOutlet = rawOutlet.toLowerCase().replace('suka shawarma ', '').trim();
+            let normalOutlet = rawOutlet.toLowerCase().replace('suka shawarma ', '').replace('mitra ', '').trim();
             
             // Fix typo dari Pawoon (CIRENDEUU -> CIRENDEU)
             if (normalOutlet === 'cirendeuu') normalOutlet = 'cirendeu';

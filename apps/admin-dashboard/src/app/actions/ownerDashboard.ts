@@ -227,11 +227,17 @@ export async function getPettyCashData(
     }
     if (!resolvedStaffName) resolvedStaffName = 'Staff Kasir'
 
+    let tDate = r.expense_date || r.created_at
+    if (r.expense_date && r.created_at && r.expense_date.length === 10) {
+      const timePart = r.created_at.includes('T') ? r.created_at.split('T')[1] : '00:00:00Z'
+      tDate = `${r.expense_date}T${timePart}`
+    }
+
     return {
       id: r.id,
       outlet_id: r.outlet_id || outlets[0]?.id || '',
       outlet_name: r.outlets?.name || 'Global Outlet',
-      transaction_date: r.expense_date || r.created_at,
+      transaction_date: tDate,
       type: (r.type as 'in' | 'out') || 'out',
       category: r.category || 'Operasional',
       description: r.description || 'Pengeluaran petty cash kasir',

@@ -94,7 +94,7 @@ async function connectToDevice(device: BluetoothDevice, store: any) {
   return true;
 }
 
-export async function connectBluetoothPrinter() {
+export async function connectBluetoothPrinter(customPrefixFilter?: string) {
   const store = usePrinterStore.getState();
   store.setConnecting(true);
 
@@ -104,19 +104,74 @@ export async function connectBluetoothPrinter() {
       throw new Error('Browser ini tidak mendukung Web Bluetooth. Gunakan Google Chrome versi terbaru.');
     }
 
-    // @ts-ignore
-    const device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
-      optionalServices: [
-        CUSTOM_SERVICE_UUID_1, 
-        CUSTOM_SERVICE_UUID_2, 
-        PRINTER_SERVICE_UUID, 
-        '000018f0-0000-1000-8000-00805f9b34fb',
-        // Tambahan UUID umum untuk printer thermal lain (Nordic UART, dll)
-        '6e400001-b5a3-f393-e0a9-e50e24dcca9e', 
-        'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
-      ]
-    });
+    const savedFilter = typeof window !== 'undefined' ? localStorage.getItem('bluetooth_name_filter') : null;
+    const activeFilter = (customPrefixFilter || savedFilter || '').trim();
+
+    const optionalServices = [
+      CUSTOM_SERVICE_UUID_1, 
+      CUSTOM_SERVICE_UUID_2, 
+      PRINTER_SERVICE_UUID, 
+      '000018f0-0000-1000-8000-00805f9b34fb',
+      '6e400001-b5a3-f393-e0a9-e50e24dcca9e', 
+      'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
+    ];
+
+    let device: any = null;
+
+    if (activeFilter) {
+      // Tier 1: Filter spesifik berdasarkan prefiks nama printer yang disetel user/outlet
+      try {
+        // @ts-ignore
+        device = await navigator.bluetooth.requestDevice({
+          filters: [
+            { namePrefix: activeFilter },
+            { namePrefix: activeFilter.toLowerCase() },
+            { namePrefix: activeFilter.toUpperCase() }
+          ],
+          optionalServices
+        });
+      } catch (err: any) {
+        if (err.name === 'NotFoundError' || err.message?.includes('User cancelled') || err.message?.includes('cancelled')) {
+          throw err;
+        }
+        console.warn('Filter spesifik gagal, mencoba filter umum printer:', err);
+      }
+    }
+
+    // Tier 2: Filter umum perangkat Printer Thermal (menyembunyikan HP, TWS, TV, Smartwatch)
+    if (!device) {
+      try {
+        const printerPrefixes = [
+          'PT', 'POS', 'RPP', 'PANDA', 'EP', 'EPT', 'Printer', 'Thermal', 'BT', 'MTP', 'JP', 'InnerPrinter', 'SPP', 'Rongta', 'Xprinter', 'Zebra'
+        ];
+        const filters: any[] = [
+          { services: [PRINTER_SERVICE_UUID] },
+          { services: [CUSTOM_SERVICE_UUID_1] },
+          { services: [CUSTOM_SERVICE_UUID_2] },
+          { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+          { services: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] },
+          ...printerPrefixes.map(p => ({ namePrefix: p }))
+        ];
+
+        // @ts-ignore
+        device = await navigator.bluetooth.requestDevice({
+          filters,
+          optionalServices
+        });
+      } catch (err: any) {
+        if (err.name === 'NotFoundError' || err.message?.includes('User cancelled') || err.message?.includes('cancelled')) {
+          throw err;
+        }
+        console.warn('Filter umum printer gagal, fallback ke acceptAllDevices:', err);
+        
+        // Tier 3: Fallback terakhir jika merk printer belum terdaftar di filter
+        // @ts-ignore
+        device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices
+        });
+      }
+    }
 
     return await connectToDevice(device, store);
   } catch (error: any) {
@@ -186,13 +241,20 @@ export async function printViaBluetooth(
 
   // Logo (raster bitmap) — opsional; guard agar kegagalan muat/CORS tak membatalkan cetak.
   // Lebar dibatasi ~1/3 lebar kertas (ikon kecil), bukan hampir sepenuh kertas.
-  if (showLogo) {
+  const disableRasterLogo = typeof window !== 'undefined' && localStorage.getItem('disable_raster_logo') === 'true';
+  if (showLogo && !disableRasterLogo) {
     try {
       const logoUrl = data.logoUrl || (typeof window !== 'undefined' ? `${window.location.origin}/logo.png` : '');
-      const maxDots = layout.paperWidth === 80 ? 170 : 120;
+      // Lebar optimal logo (72 dots untuk 58mm / 96 dots untuk 80mm) agar ukuran byte super ringan (~300 byte)
+      // & tidak meluapkan buffer printer Bluetooth thermal portabel.
+      const maxDots = layout.paperWidth === 80 ? 96 : 72;
       const raster = logoUrl ? await loadImageRaster(logoUrl, maxDots) : null;
-      if (raster) {
+      if (raster && raster.bytes.length > 0) {
         encoder.alignCenter().raster(raster.bytes, raster.widthBytes, raster.height).newline();
+        // SANGAT PENTING: Paksa reset printer (ESC @) setelah cetak raster bitmap.
+        // Bila terjadi buffer overflow pada printer thermal murah saat cetak cepat,
+        // reset ini memaksa printer kembali ke mode Teks ASCII murni agar tidak garbled.
+        encoder.initialize();
       }
     } catch { /* lewati logo, lanjut cetak teks */ }
   }

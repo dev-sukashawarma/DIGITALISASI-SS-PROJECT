@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { UploadCloud, Loader2, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react'
+import { UploadCloud, Loader2, CheckCircle2, AlertCircle, ImagePlus, Printer } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import OfflineGuardOverlay from '@/components/OfflineGuardOverlay'
@@ -18,6 +18,28 @@ export default function KasirSettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const { outletId, loaded } = useMyOutlet()
 
+  const [btFilter, setBtFilter] = useState('')
+  const [savedBtFilterMsg, setSavedBtFilterMsg] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const val = localStorage.getItem('bluetooth_name_filter') || ''
+      setBtFilter(val)
+    }
+  }, [])
+
+  const handleSaveBtFilter = (val: string) => {
+    setBtFilter(val)
+    if (typeof window !== 'undefined') {
+      if (val.trim()) {
+        localStorage.setItem('bluetooth_name_filter', val.trim())
+      } else {
+        localStorage.removeItem('bluetooth_name_filter')
+      }
+    }
+    setSavedBtFilterMsg(true)
+    setTimeout(() => setSavedBtFilterMsg(false), 2500)
+  }
 
   useEffect(() => {
     async function load() {
@@ -96,11 +118,102 @@ export default function KasirSettingsPage() {
   if (!outletId) return <div className="p-6 text-red-500 font-bold">Outlet tidak ditemukan</div>
 
   return (
-    <div className="max-w-xl space-y-6 relative min-h-[60vh]">
+    <div className="max-w-xl space-y-6 relative min-h-[60vh] pb-20">
       <OfflineGuardOverlay message="Upload & pengaturan gambar kiosk butuh internet. Sambungkan ke internet untuk mengubah tampilan layar." />
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Tampilan Layar Kiosk</h1>
-        <p className="text-gray-500 text-sm mt-1">Kelola gambar yang tampil saat kiosk sedang istirahat (attract screen)</p>
+        <h1 className="text-2xl font-bold text-gray-900">Pengaturan Device & Tampilan</h1>
+        <p className="text-gray-500 text-sm mt-1">Kelola filter Bluetooth printer kasir dan gambar cover kiosk cabang ini</p>
+      </div>
+
+      {/* Pengaturan Filter Bluetooth Printer */}
+      <div className="card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Printer className="w-5 h-5 text-amber-600" />
+          <h2 className="font-semibold text-gray-700">Filter Bluetooth Printer (Pajajaran / Outlet)</h2>
+        </div>
+        <p className="text-xs text-gray-500">
+          Atur prefiks nama printer (misal: <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-amber-700">PT</code>, <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-amber-700">POS</code>, <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-amber-700">PANDA</code>, <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-amber-700">RPP</code>) untuk menyaring pencarian perangkat Bluetooth agar HP/TWS/TV di sekitar tidak muncul.
+        </p>
+
+        <div className="space-y-2">
+          <label className="block text-xs font-bold text-gray-600 uppercase">Prefiks Nama Printer</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={btFilter}
+              onChange={(e) => setBtFilter(e.target.value)}
+              placeholder="Contoh: PT, PANDA, POS-58"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+            />
+            <button
+              onClick={() => handleSaveBtFilter(btFilter)}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl transition-colors shadow-sm"
+            >
+              Simpan
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 pt-1 items-center">
+          <span className="text-xs text-gray-400 font-medium">Preset Cepat:</span>
+          {['PT', 'PANDA', 'POS', 'RPP', 'EP'].map((preset) => (
+            <button
+              key={preset}
+              onClick={() => handleSaveBtFilter(preset)}
+              className={`text-xs px-2.5 py-1 rounded-lg font-bold border transition-colors ${
+                btFilter.toUpperCase() === preset 
+                  ? 'bg-amber-100 text-amber-800 border-amber-300' 
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              {preset}
+            </button>
+          ))}
+          <button
+            onClick={() => handleSaveBtFilter('')}
+            className="text-xs px-2.5 py-1 rounded-lg font-bold border bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+          >
+            Reset (Semua Printer Thermal)
+          </button>
+        </div>
+
+        {savedBtFilterMsg && (
+          <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
+            <CheckCircle2 className="w-4 h-4" />
+            Filter Bluetooth berhasil disimpan!
+          </div>
+        )}
+
+        <hr className="my-2 border-gray-100" />
+
+        {/* Mode Cetak Logo Struk Thermal */}
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-gray-600">Mode Cetak Header / Logo Struk</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => {
+                localStorage.setItem('disable_raster_logo', 'true');
+                setSavedBtFilterMsg(true);
+                setTimeout(() => setSavedBtFilterMsg(false), 3000);
+              }}
+              className="px-3 py-2 text-xs font-medium rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 transition text-left"
+            >
+              <span className="font-bold block">⚡ Logo Teks Murni (Rekomendasi)</span>
+              <span>Cetak kilat 0.1s & anti-karakter aneh/garbled.</span>
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem('disable_raster_logo');
+                setSavedBtFilterMsg(true);
+                setTimeout(() => setSavedBtFilterMsg(false), 3000);
+              }}
+              className="px-3 py-2 text-xs font-medium rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 transition text-left"
+            >
+              <span className="font-bold block">🖼️ Logo Gambar Bitmap</span>
+              <span>Model logo grafik raster (butuh printer buffer tinggi).</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="card p-6 space-y-4">

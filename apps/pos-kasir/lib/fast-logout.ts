@@ -39,11 +39,6 @@ export async function fastLogout(redirectTo: string) {
     // Abaikan — apa pun hasilnya kita tetap paksa logout lokal di bawah.
   }
   clearSupabaseAuthCookies()
-  if (typeof window !== 'undefined') {
-    try {
-      sessionStorage.removeItem('pos_gate_bypassed_types')
-    } catch (e) {}
-  }
   // Hard redirect: pastikan cookie yang sudah dibersihkan terbaca ulang oleh
   // middleware & seluruh state klien ter-reset.
   window.location.replace(redirectTo)

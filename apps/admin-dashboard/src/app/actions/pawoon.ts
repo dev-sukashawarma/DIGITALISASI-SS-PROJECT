@@ -97,6 +97,7 @@ export async function previewPawoonFile(formData: FormData) {
             // Fix typo / penamaan beda dari Pawoon
             if (normalOutlet === 'cirendeuu') normalOutlet = 'cirendeu';
             if (normalOutlet === 'kota wisata') normalOutlet = 'cibubur';
+            if (normalOutlet === 'depok') normalOutlet = 'depok sukmajaya';
             
             const outletId = outletIdMap[normalOutlet] || outletIdMap[rawOutlet.toLowerCase()];
             

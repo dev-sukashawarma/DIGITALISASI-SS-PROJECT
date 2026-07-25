@@ -8,6 +8,7 @@ const supabase = createSupabaseBrowserClient()
 
 export type POStatus =
   | 'draft'
+  | 'menunggu_approval_finance'
   | 'dikirim_ke_supplier'
   | 'sebagian_diterima'
   | 'diterima_lengkap'

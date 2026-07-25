@@ -42,6 +42,7 @@ interface OrderRow {
   channel: string | null
   sales_source: string | null
   customer_name?: string | null
+  external_order_id?: string | null
   order_items: {
     id: string
     menu_item_name: string
@@ -399,7 +400,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       })
       .reduce((sum, r) => sum + r.hpp, 0)
 
-    const netRevenue = actualNetRevenue
+    // Kurangi void Pawoon (cancelled + punya external_order_id = uang yg sudah diterima lalu dikembalikan)
+    // POS Kasir cancelled = belum pernah bayar, jadi TIDAK dikurangi
+    const pawoonVoids = filteredOrders.filter(o => o.status === 'cancelled' && o.external_order_id)
+    const voidDeduction = pawoonVoids.reduce((s, o) => s + Number(o.total_amount), 0)
+
+    const netRevenue = actualNetRevenue - voidDeduction
     const grossRevenue = netRevenue + totalDeductions
     const grossProfit = netRevenue - totalHPP
 

@@ -245,6 +245,26 @@
             "system_id": "78bb6a49-1540-4a05-9d78-38311f471e01",
             "system_name": "Extra Keju",
             "pawoon_price": 9000
+        },
+        "COMBO #2 ORI AYAM SEDANG": {
+            "system_id": "cca77410-9066-41e2-b681-9acaeb578ff2",
+            "system_name": "Combo #2"
+        },
+        "COMBO #1 ORI SAPI BESAR UP-SIZE": {
+            "system_id": "3f4688cd-c859-4a86-8ef3-89bbb6c29ec3",
+            "system_name": "Combo #1 UP SIZE BESAR"
+        },
+        "COMBO #3 ORI MIX BESAR": {
+            "system_id": "6baacbe2-c5d2-45af-bfc8-c02855428c0d",
+            "system_name": "Combo #3"
+        },
+        "COMBO #2 ORI AYAM BESAR UP-SIZE": {
+            "system_id": "60819fcb-53c6-4817-982e-5cf0ddc9327b",
+            "system_name": "Combo #2 UP SIZE BESAR"
+        },
+        "Mix Cheese Jumbo": {
+            "system_id": "e8e71d06-f8e0-48df-898d-22bf652335e9",
+            "system_name": "MIX CHEESE COMBO"
         }
     }
 }

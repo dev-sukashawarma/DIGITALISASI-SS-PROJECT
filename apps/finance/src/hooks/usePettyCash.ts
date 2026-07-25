@@ -110,7 +110,6 @@ export function useProcessPettyCashAreaManager() {
 }
 
 export function useProcessPettyCashFinance() {
-  const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -119,22 +118,39 @@ export function useProcessPettyCashFinance() {
       action, 
       method = 'transfer', 
       cashLocationId,
-      proofOfTransferUrl
+      proofOfTransferUrl,
+      approvedAmount,
+      approvalNote
     }: { 
       id: string; 
       action: 'approve' | 'reject';
       method?: DisbursementMethod;
       cashLocationId?: string;
       proofOfTransferUrl?: string;
+      approvedAmount?: number;
+      approvalNote?: string;
     }) => {
-      const { error } = await supabase.rpc('finance_process_petty_cash', {
-        p_topup_id: id,
-        p_action: action,
-        p_method: method || 'transfer',
-        p_cash_location_id: cashLocationId || null,
-        p_proof_of_transfer_url: proofOfTransferUrl || null
+      // Import the server action dynamically to avoid breaking the client side hook initialization
+      const { processPettyCashFinanceCustomAmount } = await import('@/app/actions/pettyCash')
+      
+      // Get the current user ID
+      const { createClient } = await import('@/lib/supabase')
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const result = await processPettyCashFinanceCustomAmount({
+        id,
+        action,
+        method,
+        cashLocationId,
+        proofOfTransferUrl,
+        approvedAmount,
+        approvalNote,
+        userId: user.id
       })
-      if (error) throw error
+      
+      if (!result.success) throw new Error(result.error)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })

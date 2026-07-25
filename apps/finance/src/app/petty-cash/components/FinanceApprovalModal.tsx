@@ -10,7 +10,7 @@ interface FinanceApprovalModalProps {
   isOpen: boolean
   onClose: () => void
   request: PettyCashTopup
-  onApprove: (method: DisbursementMethod, cashLocationId?: string, proofOfTransferUrl?: string) => Promise<void>
+  onApprove: (method: DisbursementMethod, cashLocationId?: string, proofOfTransferUrl?: string, approvedAmount?: number, approvalNote?: string) => Promise<void>
   onReject: () => Promise<void>
 }
 
@@ -26,6 +26,20 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   const [proofImage, setProofImage] = useState<string | null>(null)
   const [proofFileName, setProofFileName] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Custom Amount State
+  const [approvedAmount, setApprovedAmount] = useState<number>(request.amount)
+  const [approvalNote, setApprovalNote] = useState<string>('')
+
+  // Reset state when request changes
+  React.useEffect(() => {
+    if (isOpen) {
+      setApprovedAmount(request.amount)
+      setApprovalNote('')
+      setProofImage(null)
+      setProofFileName(null)
+    }
+  }, [isOpen, request.amount])
   
   const { locations } = useCashOverview()
 
@@ -87,10 +101,15 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
 
   const handleAction = async (type: 'approve' | 'reject') => {
     if (type === 'approve') {
+      if (approvedAmount !== request.amount && !approvalNote.trim()) {
+        alert('Harap isi alasan perubahan nominal karena nominal yang disetujui berbeda dengan yang diajukan.')
+        return
+      }
+      
       if (cashLocationId) {
         const selectedLoc = availableLocations.find(l => l.id === cashLocationId)
-        if (selectedLoc && selectedLoc.saldo < request.amount) {
-          alert(`Saldo tidak mencukupi! Saldo saat ini: Rp ${selectedLoc.saldo.toLocaleString('id-ID')}, dibutuhkan: Rp ${request.amount.toLocaleString('id-ID')}`)
+        if (selectedLoc && selectedLoc.saldo < approvedAmount) {
+          alert(`Saldo tidak mencukupi! Saldo saat ini: Rp ${selectedLoc.saldo.toLocaleString('id-ID')}, dibutuhkan: Rp ${approvedAmount.toLocaleString('id-ID')}`)
           return
         }
       }
@@ -100,7 +119,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
     setActionType(type)
     try {
       if (type === 'approve') {
-        await onApprove(method, cashLocationId || undefined, proofImage || undefined)
+        await onApprove(method, cashLocationId || undefined, proofImage || undefined, approvedAmount, approvalNote)
       } else {
         await onReject()
       }
@@ -139,29 +158,67 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
         {/* Modal Body */}
         <div className="p-6 space-y-5 overflow-y-auto flex-1">
           
-          {/* Summary Box */}
-          <div className="bg-suka-gray-50 rounded-2xl p-4 border border-suka-gray-200 flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-gray-400">Outlet Pemohon</span>
-              <div className="flex items-center gap-1.5 font-bold text-suka-brown text-sm">
-                <Store className="w-4 h-4 text-suka-orange" />
-                {request.outlet?.name || '-'}
+          {/* Summary Box with Editable Amount */}
+          <div className="bg-suka-gray-50 rounded-2xl p-4 border border-suka-gray-200 flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-gray-400">Outlet Pemohon</span>
+                <div className="flex items-center gap-1.5 font-bold text-suka-brown text-sm">
+                  <Store className="w-4 h-4 text-suka-orange" />
+                  {request.outlet?.name || '-'}
+                </div>
+                <div className="text-[11px] font-semibold text-suka-gray-500" title={tanggalWaktu(request.created_at)}>
+                  {relativeTime(request.created_at)} ({tanggalWaktu(request.created_at)})
+                </div>
               </div>
-              <div className="text-[11px] font-semibold text-suka-gray-500" title={tanggalWaktu(request.created_at)}>
-                {relativeTime(request.created_at)} ({tanggalWaktu(request.created_at)})
+              <div className="text-right">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-gray-400">Nominal Diajukan</span>
+                <div className="text-base font-black text-suka-gray-500 line-through decoration-suka-gray-300">
+                  Rp {request.amount.toLocaleString('id-ID')}
+                </div>
               </div>
             </div>
-            <div className="text-right">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-gray-400">Nominal Disetujui</span>
-              <div className="text-xl font-black text-suka-brown">
-                Rp {request.amount.toLocaleString('id-ID')}
+
+            <div className="pt-3 border-t border-suka-gray-200">
+              <label className="block text-xs font-bold text-suka-brown mb-2 uppercase tracking-wider">
+                Nominal Disetujui (Acc)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span className="text-suka-gray-500 font-bold">Rp</span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={approvedAmount || ''}
+                  onChange={(e) => setApprovedAmount(Number(e.target.value) || 0)}
+                  className="w-full pl-11 pr-4 py-3 bg-white border-2 border-suka-orange/30 rounded-xl font-black text-xl text-suka-brown focus:outline-none focus:ring-0 focus:border-suka-orange transition-colors"
+                />
               </div>
+              <p className="text-[10px] text-suka-gray-500 mt-1.5 font-medium">
+                Ubah nominal ini jika Finance hanya menyetujui sebagian dana.
+              </p>
             </div>
+            
+            {approvedAmount !== request.amount && (
+              <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <label className="block text-xs font-bold text-suka-brown mb-2 uppercase tracking-wider">
+                  Alasan Perubahan Nominal <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={approvalNote}
+                  onChange={(e) => setApprovalNote(e.target.value)}
+                  placeholder="Contoh: Dana untuk X tidak disetujui karena..."
+                  className="w-full px-4 py-3 bg-white border-2 border-amber-300 rounded-xl font-medium text-sm text-suka-brown focus:outline-none focus:ring-0 focus:border-amber-500 transition-colors"
+                  rows={2}
+                />
+              </div>
+            )}
           </div>
 
           {/* Reason Section */}
           <div className="bg-suka-gray-50 rounded-2xl p-4 border border-suka-gray-200 space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-gray-400">Alasan Pengajuan</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-gray-400">Alasan Pengajuan (Dari Outlet)</span>
             <p className="text-sm font-semibold text-suka-gray-800 leading-snug">
               {request.reason || request.description}
             </p>

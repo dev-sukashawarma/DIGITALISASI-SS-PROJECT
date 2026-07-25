@@ -256,7 +256,7 @@ const renderOrderNotes = (notes: string | null) => {
     const isPending = order.status === 'pending';
     const isPreparing = order.status === 'preparing';
 
-    const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50 border-blue-200/60';
+const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50 border-blue-200/60';
     const badgeBg = isPending ? 'bg-amber-100 text-amber-700 ring-amber-200/50' : 'bg-blue-100 text-blue-700 ring-blue-200/50';
     const iconColor = isPending ? 'text-amber-500' : 'text-blue-500';
     const accentColor = isPending ? 'text-amber-600' : 'text-blue-600';
@@ -264,7 +264,6 @@ const renderOrderNotes = (notes: string | null) => {
     const noteBg = isPending ? 'bg-amber-100/50 border-amber-200 text-amber-900' : 'bg-blue-100/50 border-blue-200 text-blue-900';
 
     const { rootItems, childrenMap } = order._parsedItems;
-    const { cancelOrder, markAsPreparing, handlePrintCustomerOnly, markAsCompleted, setReprintTargetOrder, deleteLocalOrder, retryLocalOrderSync } = handlersRef.current;
 
     return (
       <div 
@@ -288,9 +287,13 @@ const renderOrderNotes = (notes: string | null) => {
                 </span>
               )}
               {isLocal && order._sync_error && (
-                <span className="mt-1.5 inline-flex items-center gap-1 bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-max">
-                  <AlertTriangle size={10} /> Gagal Sinkron
-                </span>
+                <button 
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlersRef.current.retryLocalOrderSync(order.id) }}
+                  className="mt-1.5 inline-flex items-center gap-1 bg-red-100 text-red-700 border border-red-200 hover:bg-red-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-max cursor-pointer transition-colors"
+                  title={order._sync_error}
+                >
+                  <RefreshCw size={10} /> SINKRON GAGAL - KLIK ULANG
+                </button>
               )}
             </div>
             <div className="flex flex-col items-end gap-1.5">
@@ -458,7 +461,7 @@ const renderOrderNotes = (notes: string | null) => {
               <>
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteLocalOrder(order.id) }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlersRef.current.deleteLocalOrder(order.id) }}
                   className="relative z-50 cursor-pointer w-1/3 flex flex-col items-center justify-center gap-1 bg-red-100 hover:bg-red-200 text-red-600 py-2 rounded-xl font-bold transition-all text-[11px]"
                 >
                   <XCircle size={16} />
@@ -466,7 +469,7 @@ const renderOrderNotes = (notes: string | null) => {
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); retryLocalOrderSync(order.id) }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlersRef.current.retryLocalOrderSync(order.id) }}
                   className="relative z-50 cursor-pointer w-2/3 flex flex-col items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl font-bold shadow-md transition-all text-[11px]"
                 >
                   <RefreshCw size={16} />
@@ -487,7 +490,7 @@ const renderOrderNotes = (notes: string | null) => {
               <>
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlersRef.current.cancelOrder(order) }}
                   className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
                 >
                   <XCircle size={18} />
@@ -495,7 +498,7 @@ const renderOrderNotes = (notes: string | null) => {
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlersRef.current.markAsPreparing(order) }}
                   className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
                 >
                   <ChefHat size={18} />
@@ -506,7 +509,7 @@ const renderOrderNotes = (notes: string | null) => {
               <>
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancelOrder(order) }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlersRef.current.cancelOrder(order) }}
                   className="relative z-50 cursor-pointer w-1/3 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-3.5 rounded-xl font-bold transition-all"
                 >
                   <XCircle size={18} />
@@ -515,7 +518,7 @@ const renderOrderNotes = (notes: string | null) => {
                 {!order.kitchen_receipt_printed ? (
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsPreparing(order) }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlersRef.current.markAsPreparing(order) }}
                     className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-600/20 hover:shadow-lg transition-all"
                   >
                     <ChefHat size={18} />
@@ -524,7 +527,7 @@ const renderOrderNotes = (notes: string | null) => {
                 ) : !order.customer_receipt_printed ? (
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrintCustomerOnly(order) }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlersRef.current.handlePrintCustomerOnly(order) }}
                     className="relative z-50 cursor-pointer w-2/3 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
                   >
                     <Printer size={18} />
@@ -534,7 +537,7 @@ const renderOrderNotes = (notes: string | null) => {
                   <div className="w-2/3 flex gap-2 relative z-50">
                     <button
                       type="button"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsCompleted(order.id) }}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlersRef.current.markAsCompleted(order.id) }}
                       className="cursor-pointer flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg transition-all"
                     >
                       <CheckCircle2 size={18} />
@@ -542,7 +545,7 @@ const renderOrderNotes = (notes: string | null) => {
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setReprintTargetOrder(order) }}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlersRef.current.setReprintTargetOrder(order) }}
                       className="cursor-pointer px-4 flex items-center justify-center bg-white border-2 border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-500 py-3.5 rounded-xl transition-all shadow-sm active:scale-95"
                       title="Cetak Ulang Struk"
                     >
@@ -947,7 +950,7 @@ export default function KasirOrderClient({
   }
 
   // Mark as Preparing
-  async function markAsPreparing(order: ParsedOrder) {
+  async function handlersRef.current.markAsPreparing(order: ParsedOrder) {
     postToNative({ type: 'haptic', style: 'success' })
     const success = await applyStatusChange(order.id, { status: 'preparing', kitchen_receipt_printed: true })
     if (!success) return
@@ -972,7 +975,7 @@ export default function KasirOrderClient({
   }
 
   // Mark as Completed
-  async function markAsCompleted(id: string) {
+  async function handlersRef.current.markAsCompleted(id: string) {
     const targetOrder = orders?.find(o => o.id === id)
     if (targetOrder && !targetOrder.customer_receipt_printed) {
       showAlert('Pesanan belum dapat diselesaikan! Struk Pelanggan WAJIB dicetak terlebih dahulu.')
@@ -1006,7 +1009,7 @@ export default function KasirOrderClient({
   }
 
   // Handle completion and print receipt
-  async function handlePrintCustomerOnly(order: ParsedOrder) {
+  async function handlersRef.current.handlePrintCustomerOnly(order: ParsedOrder) {
     // Generate and print receipt
     const receiptData: ReceiptData = {
       outletName: outletName || 'SUKA SHAWARMA',
@@ -1067,17 +1070,17 @@ export default function KasirOrderClient({
         `Gagal Mencetak: ${err.message || 'Pastikan bluetooth menyala dan printer terhubung.'}`
       )
     } finally {
-      setReprintTargetOrder(null)
+      handlersRef.current.setReprintTargetOrder(null)
     }
   }
 
   async function handleCompleteAndPrint(order: ParsedOrder) {
-    await markAsCompleted(order.id)
+    await handlersRef.current.markAsCompleted(order.id)
     await handleReprintReceipt(order, 'customer')
   }
 
   // Cancel order
-  async function cancelOrder(order: ParsedOrder) {
+  async function handlersRef.current.cancelOrder(order: ParsedOrder) {
     if (order.status !== 'pending' && order.status !== 'preparing') {
       showAlert('Hanya pesanan aktif yang dapat dibatalkan.')
       return
@@ -1787,7 +1790,7 @@ export default function KasirOrderClient({
                       await handleCompleteAndPrint(orderToComplete)
                     } else {
                       // Fallback
-                      await markAsCompleted(currentAlert.id)
+                      await handlersRef.current.markAsCompleted(currentAlert.id)
                     }
                     setUrgentAlerts(prev => prev.slice(1))
                   }
@@ -1960,7 +1963,7 @@ export default function KasirOrderClient({
       {/* Modal Cetak Ulang Struk */}
       {reprintTargetOrder && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setReprintTargetOrder(null)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => handlersRef.current.setReprintTargetOrder(null)}></div>
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in duration-200">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
@@ -1968,7 +1971,7 @@ export default function KasirOrderClient({
                 Cetak Ulang Struk
               </h3>
               <button 
-                onClick={() => setReprintTargetOrder(null)}
+                onClick={() => handlersRef.current.setReprintTargetOrder(null)}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 hover:text-slate-700 transition-colors"
               >
                 <XCircle size={18} />
@@ -2009,7 +2012,7 @@ export default function KasirOrderClient({
             
             <div className="p-4 bg-slate-50 border-t border-slate-100">
               <button
-                onClick={() => setReprintTargetOrder(null)}
+                onClick={() => handlersRef.current.setReprintTargetOrder(null)}
                 className="w-full py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 active:scale-95 transition-all"
               >
                 Batal

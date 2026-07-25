@@ -10,7 +10,8 @@ const inputCls =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange'
 
 const EMPTY: OutletFormValues = {
-  name: '', slug: '', address: '', lat: NaN, lng: NaN, type: 'outlet', is_active: true, marquee_warning_threshold: 7
+  name: '', slug: '', address: '', lat: NaN, lng: NaN, type: 'outlet', is_active: true, marquee_warning_threshold: 7,
+  open_hour: '13:00', close_hour: '22:00'
 }
 
 export function OutletForm({

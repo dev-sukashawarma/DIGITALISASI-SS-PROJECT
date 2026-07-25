@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from '@suka/auth'
 import { usePathname, useRouter } from 'next/navigation'
 
-type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASE'
+type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING'
 
 interface RoleContextType {
   role: Role
@@ -28,7 +28,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       let mappedRole = outletStaff.role.toUpperCase() as Role
       if (mappedRole as any === 'KORLAP') mappedRole = 'AREA_MANAGER'
       
-      if (['OWNER', 'ADMIN', 'ADMIN_HR', 'MITRA', 'LEADER', 'AREA_MANAGER', 'PURCHASE'].includes(mappedRole)) {
+      if (['OWNER', 'ADMIN', 'ADMIN_HR', 'MITRA', 'LEADER', 'AREA_MANAGER', 'PURCHASING'].includes(mappedRole)) {
         setRole(mappedRole)
         setOutletId(outletStaff.outlet_id ?? null)
       } else {
@@ -91,9 +91,9 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     }
   }, [role, pathname, router])
 
-  // Route-guard: PURCHASE hanya boleh /dashboard/pembelian/*
+  // Route-guard: PURCHASING hanya boleh /dashboard/pembelian/*
   useEffect(() => {
-    if (role !== 'PURCHASE') return
+    if (role !== 'PURCHASING') return
     const allowed = ['/dashboard/pembelian', '/dashboard/reports/pembelian']
     if (!allowed.some((a) => pathname === a || pathname.startsWith(a + '/'))) {
       router.replace('/dashboard/pembelian/perlu-dibeli')

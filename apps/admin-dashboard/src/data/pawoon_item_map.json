@@ -135,11 +135,11 @@
         },
         "COMBO #1 ORI SAPI JUMBO UP-SIZE": {
             "system_id": "08ad3e03-518e-40c2-aca5-15b3ca63955c",
-            "name": "Combo #1"
+            "system_name": "Combo #1 UP SIZE JUMBO"
         },
         "COMBO #3 ORI MIX JUMBO UP-SIZE": {
             "system_id": "6baacbe2-c5d2-45af-bfc8-c02855428c0d",
-            "name": "Combo #3"
+            "system_name": "Combo #3 UP SIZE JUMBO"
         },
         "COMBO #1 ORI SAPI SEDANG": {
             "system_id": "08ad3e03-518e-40c2-aca5-15b3ca63955c",
@@ -265,6 +265,13 @@
         "Mix Cheese Jumbo": {
             "system_id": "e8e71d06-f8e0-48df-898d-22bf652335e9",
             "system_name": "MIX CHEESE COMBO"
+        },
+        "COMBO #4 SUKA FRIED CHICKEN & SAMYANG": {
+            "system_name": "Combo 4"
+        },
+        "COMBO #1 ORI SAPIJUMBO UP-SIZE": {
+            "system_id": "08ad3e03-518e-40c2-aca5-15b3ca63955c",
+            "system_name": "Combo #1 UP SIZE JUMBO"
         }
     }
 }

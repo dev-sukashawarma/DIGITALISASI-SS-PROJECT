@@ -98,6 +98,8 @@ export async function previewPawoonFile(formData: FormData) {
             if (normalOutlet === 'cirendeuu') normalOutlet = 'cirendeu';
             if (normalOutlet === 'kota wisata') normalOutlet = 'cibubur';
             if (normalOutlet === 'depok') normalOutlet = 'depok sukmajaya';
+            if (normalOutlet === 'bcc') normalOutlet = 'cimanggu';
+            if (normalOutlet === 'pajajarann') normalOutlet = 'pajajaran';
             
             const outletId = outletIdMap[normalOutlet] || outletIdMap[rawOutlet.toLowerCase()];
             
@@ -133,9 +135,21 @@ export async function previewPawoonFile(formData: FormData) {
                 }
             }
 
-            let channel = 'pos';
-            if (productName.includes('FOOD APPS') || category === 'FOOD APPS') channel = 'food_apps';
-            else if (productName.includes('BEST SELLER - ') || category === 'SS TIKTOK GO') channel = 'tiktok';
+            // Tentukan channel berdasarkan nama produk/kategori Pawoon
+            // PENTING: nilai 'food_apps' adalah tag generik Pawoon, bukan ID channel valid.
+            // Simpan sebagai null agar resolveOrderSource pakai sales_source='grabfood' dengan benar.
+            let channel: string | null = null;
+            let salesSourceTag = 'pos';
+            if (productName.includes('FOOD APPS') || category === 'FOOD APPS') {
+                channel = null;          // resolveOrderSource akan pakai sales_source
+                salesSourceTag = 'grabfood';
+            } else if (productName.includes('BEST SELLER - ') || category === 'SS TIKTOK GO') {
+                channel = 'tiktokgo';   // tiktokgo terdaftar di CHANNELS[]
+                salesSourceTag = 'tiktokgo';
+            } else {
+                channel = null;
+                salesSourceTag = 'pos';
+            }
 
             let orderStatus = 'completed';
             const statusLower = status.toLowerCase();
@@ -159,7 +173,7 @@ export async function previewPawoonFile(formData: FormData) {
                     outlet_id: outletId,
                     source: 'pos',
                     channel: channel,
-                    sales_source: channel === 'pos' ? 'pos' : channel === 'food_apps' ? 'grabfood' : channel,
+                    sales_source: salesSourceTag,
                     status: orderStatus,
                     payment_method: mappedPayment,
                     total_amount: Math.abs(explicitTotal), 
@@ -176,12 +190,22 @@ export async function previewPawoonFile(formData: FormData) {
                 existingOrder.raw_total += explicitTotal;
                 existingOrder.gross_amount += (price * qty);
                 existingOrder.total_amount = Math.abs(existingOrder.raw_total);
+                // Bug E fix: Jika void row punya receipt ID sama dgn completed,
+                // update status agar void tidak ter-ignore
+                if (statusLower === 'void' || statusLower === 'refund') {
+                    existingOrder.status = 'cancelled';
+                    existingOrder._isRefund = statusLower === 'refund';
+                }
             }
             
-            const order = ordersMap.get(receipt);
-            if (channel !== 'pos') {
+            const order = ordersMap.get(receipt)!;
+            // Update channel jika baris ini adalah food_apps atau tiktok (override default pos)
+            if (channel !== null) {
                 order.channel = channel;
-                order.sales_source = channel === 'food_apps' ? 'grabfood' : channel;
+                order.sales_source = salesSourceTag;
+            } else if (salesSourceTag !== 'pos') {
+                // food_apps: channel tetap null, tapi update sales_source
+                order.sales_source = salesSourceTag;
             }
 
             let remainingQty = Math.abs(qty) || 1;
@@ -208,9 +232,9 @@ export async function previewPawoonFile(formData: FormData) {
             if (!itemSalesTracker[systemName]) {
                 itemSalesTracker[systemName] = { systemName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0 };
             }
-            if (channel === 'pos') itemSalesTracker[systemName].offline += qty;
-            else if (channel === 'food_apps') itemSalesTracker[systemName].food_apps += qty;
-            else if (channel === 'tiktok') itemSalesTracker[systemName].tiktok += qty;
+            if (salesSourceTag === 'pos') itemSalesTracker[systemName].offline += qty;
+            else if (salesSourceTag === 'grabfood') itemSalesTracker[systemName].food_apps += qty;
+            else if (salesSourceTag === 'tiktokgo') itemSalesTracker[systemName].tiktok += qty;
             
             itemSalesTracker[systemName].totalRevenue += (qty * price);
         }
@@ -321,11 +345,15 @@ export async function previewPawoonFile(formData: FormData) {
                 if (!summaryByDate[dateKey].itemSalesTrackerMap[sName]) {
                     summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0 };
                 }
-                if (order.channel === 'pos') summaryByDate[dateKey].itemSalesTrackerMap[sName].offline += item.quantity;
-                else if (order.channel === 'food_apps') summaryByDate[dateKey].itemSalesTrackerMap[sName].food_apps += item.quantity;
-                else if (order.channel === 'tiktok') summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktok += item.quantity;
+                // Bug C+D fix: item.quantity dan item.subtotal di-simpan sebagai Math.abs().
+                // Void order harus MENGURANGI qty dan revenue, bukan menambah.
+                const qtyEffect = (isCancelled || order._isRefund) ? -item.quantity : item.quantity;
+                const revenueEffect = (isCancelled || order._isRefund) ? -item.subtotal : item.subtotal;
+                if (order.sales_source === 'pos') summaryByDate[dateKey].itemSalesTrackerMap[sName].offline += qtyEffect;
+                else if (order.sales_source === 'grabfood') summaryByDate[dateKey].itemSalesTrackerMap[sName].food_apps += qtyEffect;
+                else if (order.sales_source === 'tiktokgo') summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktok += qtyEffect;
                 
-                summaryByDate[dateKey].itemSalesTrackerMap[sName].totalRevenue += item.subtotal;
+                summaryByDate[dateKey].itemSalesTrackerMap[sName].totalRevenue += revenueEffect;
             });
 
             if (!existingReceipts.has(receipt)) {

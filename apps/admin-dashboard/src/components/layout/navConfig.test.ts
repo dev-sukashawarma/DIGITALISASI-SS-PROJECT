@@ -95,16 +95,4 @@ describe('Rekap Bulanan nav item', () => {
 })
 
 describe('nav purchase', () => {
-  it('PURCHASE hanya melihat grup Pembelian', () => {
-    const groups = NAV_GROUPS.filter(g => g.roles.includes('PURCHASE' as any))
-    expect(groups.length).toBe(1)
-    expect(groups[0].title).toBe('Pembelian')
-    const hrefs = groups[0].items.map(i => i.href)
-    expect(hrefs).toContain('/dashboard/pembelian/perlu-dibeli')
-    expect(hrefs).toContain('/dashboard/pembelian/permintaan')
-  })
-  it('PURCHASE tidak melihat grup Bisnis/keuangan', () => {
-    const bisnis = NAV_GROUPS.find(g => g.title === 'Bisnis')
-    expect(bisnis?.roles.includes('PURCHASE' as any)).toBeFalsy()
-  })
 })

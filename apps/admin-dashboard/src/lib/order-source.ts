@@ -24,10 +24,13 @@ export function resolveOrderSource(
   channel?: string | null,
   salesSource?: string | null,
 ): OrderSourceInfo {
-  // sales_source 'tiktok' (agregat) dipetakan ke id channel lokal 'tiktokgo'.
-  const normalized = salesSource === 'tiktok' ? 'tiktokgo' : salesSource
-  const chId = channel || (normalized && normalized !== 'pos' && normalized !== 'online' ? normalized : null)
-  const ch = getChannel(chId)
+  // Try resolving channel first
+  let ch = getChannel(channel)
+  // If channel is generic (e.g. 'food_apps') or unrecognized, fall back to salesSource
+  if (!ch) {
+    const normalized = salesSource === 'tiktok' ? 'tiktokgo' : salesSource
+    ch = getChannel(normalized)
+  }
 
   if (ch) {
     return { key: ch.id, label: ch.label, bg: ch.bg, fg: ch.fg, logoPath: ch.logoPath, mark: ch.mark, lucide: null }

@@ -5,7 +5,7 @@ import {
   Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, AlertTriangle, UserCheck
 } from 'lucide-react'
 
-export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASE'
+export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING'
 
 export type NavItem = { href: string; label: string; shortLabel?: string; icon: LucideIcon; roles: Role[] }
 /** Sebuah "pintu" navigasi — kelompok besar berlabel bahasa awam. */
@@ -46,16 +46,16 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Pembelian',
+    title: 'Pembelian & PO',
     icon: ShoppingCart,
-    roles: ['PURCHASE'],
+    roles: ['ADMIN', 'PURCHASING'],
     items: [
-      { href: '/dashboard/pembelian/perlu-dibeli', label: 'Perlu Dibeli', shortLabel: 'Perlu Dibeli', icon: BellRing, roles: ['PURCHASE'] },
-      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['PURCHASE'] },
-      { href: '/dashboard/pembelian/permintaan', label: 'Permintaan Pembelian', shortLabel: 'Permintaan', icon: FileText, roles: ['PURCHASE'] },
-      { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['PURCHASE'] },
-      { href: '/dashboard/pembelian/harga', label: 'Harga & Bahan Baku', shortLabel: 'Harga', icon: TrendingDown, roles: ['PURCHASE'] },
-      { href: '/dashboard/reports/pembelian', label: 'Laporan Pembelian', shortLabel: 'Laporan', icon: PieChart, roles: ['PURCHASE'] },
+      { href: '/dashboard/pembelian/perlu-dibeli', label: 'Perlu Dibeli', shortLabel: 'Perlu Dibeli', icon: BellRing, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/pembelian/permintaan', label: 'Permintaan Pembelian', shortLabel: 'Permintaan', icon: FileText, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/pembelian/harga', label: 'Harga & Bahan Baku', shortLabel: 'Harga', icon: TrendingDown, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/reports/pembelian', label: 'Laporan Pembelian', shortLabel: 'Laporan', icon: PieChart, roles: ['ADMIN', 'PURCHASING'] },
     ],
   },
   {

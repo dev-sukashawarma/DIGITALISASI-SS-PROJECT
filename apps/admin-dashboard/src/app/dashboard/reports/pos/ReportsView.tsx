@@ -443,13 +443,18 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       })
       .reduce((sum, r) => sum + r.hpp, 0)
 
-    // Kurangi void Pawoon (cancelled + punya external_order_id = uang yg sudah diterima lalu dikembalikan)
-    // POS Kasir cancelled = belum pernah bayar, jadi TIDAK dikurangi
-    const pawoonVoids = filteredOrders.filter(o => o.status === 'cancelled' && o.external_order_id)
-    const voidDeduction = pawoonVoids.reduce((s, o) => s + Number(o.total_amount), 0)
+    // CATATAN: Void Pawoon sudah disimpan dengan status='cancelled', sehingga SUDAH
+    // excluded dari actualNetRevenue (yang hanya menghitung status='completed').
+    // Tidak perlu deduksi tambahan — kalau dikurangi lagi = double-subtraction
+    // yang menyebabkan revenue laporan kurang sebesar total void (contoh Cibubur: Rp118.000).
+    const netRevenue = actualNetRevenue
 
-    const netRevenue = actualNetRevenue - voidDeduction
-    const grossRevenue = netRevenue + totalDeductions
+    // Gross Revenue = SUM(total_amount) semua order completed.
+    // Ini identik dengan Grand Total di Pawoon Dashboard.
+    // TIDAK pakai SUM(item.subtotal) karena data Pawoon multi-row bisa punya
+    // rounding kecil yang membuat hasil berbeda dari angka resmi Pawoon.
+    const grossRevenue = actualNetRevenue
+
     const grossProfit = netRevenue - totalHPP
 
     return {
@@ -540,6 +545,8 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
         let groupLabel = 'OFFLINE'
         if (['shopeefood', 'grabfood', 'gofood'].includes(src.key)) {
           groupLabel = 'FOOD APPS'
+        } else if (['tiktokgo', 'tiktok', 'tiktok_go'].includes(src.key)) {
+          groupLabel = 'TIKTOK'
         } else if (src.key === 'online') {
           groupLabel = 'WEB ONLINE'
         }
@@ -736,7 +743,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               </div>
               <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Total nilai jual murni</p>
+                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Total omzet (sama dengan Grand Total Pawoon)</p>
               </div>
             </div>
 
@@ -1290,9 +1297,10 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                   className="w-full sm:w-auto bg-white border border-gray-200 hover:border-gray-300 px-3 py-2 rounded-xl text-sm font-semibold text-gray-700 transition-all shadow-sm outline-none cursor-pointer"
                 >
                   <option value="all">Semua Kategori</option>
-                  <option value="FOOD APPS">FOOD APPS</option>
+                  <option value="OFFLINE">OFFLINE (POS Kasir)</option>
+                  <option value="FOOD APPS">FOOD APPS (GrabFood/GoFood/Shopee)</option>
+                  <option value="TIKTOK">TIKTOK</option>
                   <option value="WEB ONLINE">WEB ONLINE</option>
-                  <option value="OFFLINE">OFFLINE</option>
                 </select>
               </div>
             </div>

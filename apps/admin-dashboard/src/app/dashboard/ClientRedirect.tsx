@@ -12,6 +12,7 @@ const ROLE_HOME: Record<string, string> = {
   AREA_MANAGER: '/dashboard/area-manager',
   KORLAP: '/dashboard/area-manager',
   LEADER: '/dashboard/leader',
+  PURCHASING: '/dashboard/pembelian',
 }
 const FALLBACK_HOME = '/dashboard/hr'
 

@@ -212,8 +212,8 @@ export default async function SyncedPawoonDataPage({
                                 <ul className="space-y-3">
                                     {Object.entries(syncedSummary).map(([outId, sum]) => {
                                         const outletName = outlets?.find(o => o.id === outId)?.name || 'Unknown Outlet';
-                                        const minStr = new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-                                        const maxStr = new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+                                        const minStr = new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
+                                        const maxStr = new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
                                         return (
                                             <li key={outId} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
                                                 <span className="font-bold text-gray-700">{outletName}</span>

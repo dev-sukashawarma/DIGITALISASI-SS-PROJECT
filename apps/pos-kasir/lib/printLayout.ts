@@ -60,7 +60,14 @@ export function mergePrintLayout(raw: unknown): PrintLayout {
   }
 }
 
+let cachedLayout: PrintLayout | null = null;
+let lastFetchTime = 0;
+
 export async function fetchPrintLayout(supabase: SupabaseClient): Promise<PrintLayout> {
+  const now = Date.now();
+  if (cachedLayout && (now - lastFetchTime < 60_000 * 5)) {
+    return cachedLayout;
+  }
   try {
     const { data, error } = await supabase
       .from('global_settings')
@@ -68,7 +75,9 @@ export async function fetchPrintLayout(supabase: SupabaseClient): Promise<PrintL
       .eq('key', PRINT_LAYOUT_KEY)
       .maybeSingle()
     if (error || !data) return DEFAULT_PRINT_LAYOUT
-    return mergePrintLayout((data as { value: unknown }).value)
+    cachedLayout = mergePrintLayout((data as { value: unknown }).value)
+    lastFetchTime = now
+    return cachedLayout
   } catch {
     return DEFAULT_PRINT_LAYOUT
   }

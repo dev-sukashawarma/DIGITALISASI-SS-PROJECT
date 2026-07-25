@@ -1,10 +1,12 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { Plus, Search, ChevronRight, Package, AlertCircle } from 'lucide-react'
+import { Plus, Search, ChevronRight, Package, AlertCircle, FileText, Clock, TrendingUp } from 'lucide-react'
 import { usePurchaseOrders, type POStatus, type POSummary } from '@/hooks/usePurchaseOrder'
 import { rupiah } from '@/lib/format'
 import { Spinner } from '@suka/design-system'
+import { PageHeader, StatTile } from '@/components/ui'
+import CountUp from 'react-countup'
 
 const STATUS_LABEL: Record<POStatus, string> = {
   draft: 'Draft',
@@ -16,12 +18,12 @@ const STATUS_LABEL: Record<POStatus, string> = {
 }
 
 const STATUS_COLOR: Record<POStatus, string> = {
-  draft: 'bg-gray-100 text-gray-600',
-  menunggu_approval_finance: 'bg-amber-100 text-amber-700',
-  dikirim_ke_supplier: 'bg-blue-100 text-blue-700',
-  sebagian_diterima: 'bg-yellow-100 text-yellow-700',
-  diterima_lengkap: 'bg-green-100 text-green-700',
-  dibatalkan: 'bg-red-100 text-red-600',
+  draft: 'bg-suka-gray-100 text-suka-gray-500 border-suka-gray-200',
+  menunggu_approval_finance: 'bg-orange-50 text-suka-orange border-orange-200',
+  dikirim_ke_supplier: 'bg-blue-50 text-blue-600 border-blue-200',
+  sebagian_diterima: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  diterima_lengkap: 'bg-suka-green/10 text-suka-green border-suka-green/20',
+  dibatalkan: 'bg-red-50 text-red-600 border-red-200',
 }
 
 export default function PembelianView({ initialData, defaultFrom, defaultTo }: { initialData: POSummary[], defaultFrom: string, defaultTo: string }) {
@@ -44,41 +46,67 @@ export default function PembelianView({ initialData, defaultFrom, defaultTo }: {
     : pos
 
   const totalNilai = filtered.reduce((s, p) => s + (p.total_nilai ?? 0), 0)
+  const waitingApproval = filtered.filter(p => p.status === 'menunggu_approval_finance').length
+  const activePO = filtered.filter(p => p.status === 'dikirim_ke_supplier' || p.status === 'sebagian_diterima').length
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-extrabold text-suka-brown tracking-tight">Purchase Order</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Kelola pembelian bahan baku dari supplier ke kitchen pusat.</p>
-        </div>
+      <PageHeader 
+        title="Purchase Order" 
+        description="Kelola pembelian bahan baku dari supplier ke kitchen pusat."
+      >
         <Link
           href="/dashboard/pembelian/new"
-          className="flex items-center gap-2 bg-suka-orange text-white font-bold px-4 py-2.5 rounded-xl hover:bg-suka-orange/90 active:scale-95 transition-all text-sm shadow-sm"
+          className="mt-3 sm:mt-0 flex items-center justify-center gap-2 bg-gradient-to-r from-suka-brown to-suka-ink text-white font-extrabold px-5 py-2.5 rounded-2xl hover:from-suka-ink hover:to-black active:scale-[.98] transition-all text-sm shadow-[0_8px_20px_rgba(44,24,16,0.15)]"
         >
-          <Plus size={16} />
+          <Plus className="w-5 h-5" />
           Buat PO
         </Link>
+      </PageHeader>
+
+      {/* Top Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatTile
+          label="Total Nilai PO"
+          value={<><span className="text-lg align-top">Rp </span><CountUp end={totalNilai} duration={1} separator="." /></>}
+          sub={`${filtered.length} Dokumen Ditemukan`}
+          icon={FileText}
+          accent="brown"
+        />
+        <StatTile
+          label="Menunggu Approval"
+          value={<CountUp end={waitingApproval} duration={1} separator="." />}
+          sub="PO Butuh Persetujuan Finance"
+          icon={Clock}
+          accent="orange"
+        />
+        <StatTile
+          label="Sedang Diproses"
+          value={<CountUp end={activePO} duration={1} separator="." />}
+          sub="Dikirim & Sebagian Diterima"
+          icon={TrendingUp}
+          accent="green"
+        />
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm p-4 space-y-3">
+      <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-suka-gray-200/60 shadow-sm p-4 space-y-3">
         <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[180px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400" />
             <input
               type="text"
-              placeholder="Cari nomor PO atau supplier..."
+              placeholder="Cari nomor PO atau nama supplier..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 text-sm border border-suka-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-suka-brown/20"
+              className="w-full pl-9 pr-3 py-2.5 text-xs font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
             />
           </div>
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20 bg-white"
+            className="border border-suka-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-suka-ink bg-white shadow-inner focus:outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all cursor-pointer"
           >
             <option value="">Semua Status</option>
             {Object.entries(STATUS_LABEL).map(([k, v]) => (
@@ -86,21 +114,9 @@ export default function PembelianView({ initialData, defaultFrom, defaultTo }: {
             ))}
           </select>
           <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-            className="border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20" />
+            className="border border-suka-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-suka-ink bg-white shadow-inner focus:outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all" />
           <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-            className="border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20" />
-        </div>
-
-        {/* Summary bar */}
-        <div className="flex gap-4 pt-2 border-t border-suka-gray-100 text-sm">
-          <div>
-            <span className="text-gray-500">Total PO:</span>
-            <span className="font-bold text-suka-brown ml-1">{filtered.length}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">Total Nilai:</span>
-            <span className="font-bold text-suka-brown ml-1">{rupiah(totalNilai)}</span>
-          </div>
+            className="border border-suka-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-suka-ink bg-white shadow-inner focus:outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all" />
         </div>
       </div>
 
@@ -130,28 +146,31 @@ export default function PembelianView({ initialData, defaultFrom, defaultTo }: {
 }
 
 function POCard({ po }: { po: POSummary }) {
+  const isActive = po.status === 'dikirim_ke_supplier' || po.status === 'sebagian_diterima'
+  
   return (
     <Link href={`/dashboard/pembelian/${po.id}`}>
-      <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm hover:shadow-md hover:border-suka-brown/20 transition-all p-4 flex items-center gap-4 group cursor-pointer">
-        <div className="flex-1 min-w-0">
+      <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-suka-gray-200/60 shadow-sm hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] hover:bg-white/90 hover:border-suka-brown/20 transition-all duration-300 p-4 sm:p-5 flex items-center gap-4 group cursor-pointer relative overflow-hidden">
+        <div className="flex-1 min-w-0 z-10">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-sm font-bold text-suka-brown">{po.nomor_po}</span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${STATUS_COLOR[po.status]}`}>
+            <span className="font-mono text-sm font-black text-suka-ink uppercase tracking-tight">{po.nomor_po}</span>
+            <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest flex items-center gap-1.5 border shadow-sm ${STATUS_COLOR[po.status]}`}>
+              {isActive && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />}
               {STATUS_LABEL[po.status]}
             </span>
           </div>
-          <div className="text-sm text-gray-600 mt-0.5 truncate">{po.supplier_nama}</div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-            <span>{new Date(po.tanggal_po).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+          <div className="text-xs font-bold text-suka-gray-600 mt-1.5 truncate">{po.supplier_nama}</div>
+          <div className="flex items-center gap-3 mt-2 text-[10px] font-semibold text-suka-gray-400">
+            <span className="bg-suka-gray-50 px-2 py-0.5 rounded-md border border-suka-gray-100">{new Date(po.tanggal_po).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             <span>·</span>
-            <span>{po.jumlah_item} item</span>
-            {po.nama_dibuat_oleh && <><span>·</span><span>oleh {po.nama_dibuat_oleh}</span></>}
+            <span className="text-suka-brown">{po.jumlah_item} Item Dipesan</span>
+            {po.nama_dibuat_oleh && <><span>·</span><span className="uppercase tracking-wider">Oleh: {po.nama_dibuat_oleh}</span></>}
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <div className="font-extrabold text-suka-brown text-sm">{rupiah(po.total_nilai)}</div>
+        <div className="text-right shrink-0 z-10">
+          <div className="font-black text-suka-brown text-base tracking-tight">{rupiah(po.total_nilai)}</div>
         </div>
-        <ChevronRight size={16} className="text-gray-300 group-hover:text-suka-orange transition-colors shrink-0" />
+        <ChevronRight className="w-5 h-5 text-suka-gray-300 group-hover:text-suka-orange transition-colors shrink-0 z-10" />
       </div>
     </Link>
   )

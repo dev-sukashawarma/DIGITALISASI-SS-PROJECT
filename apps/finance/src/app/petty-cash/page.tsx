@@ -34,13 +34,13 @@ export default async function FinancePettyCashPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
-          <Wallet className="w-7 h-7 text-indigo-600" />
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white/70 backdrop-blur-xl border border-suka-gray-200/60 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+        <h1 className="text-2xl font-black text-suka-brown tracking-tight flex items-center gap-2.5">
+          <Wallet className="w-7 h-7 text-suka-orange" />
           Pencairan Petty Cash (Treasury Finance)
         </h1>
-        <p className="text-sm text-slate-500 mt-1">Review pengajuan dana dari cabang-cabang dan proses pencairan via Transfer Bank atau Kas Pusat.</p>
+        <p className="text-xs font-bold text-suka-gray-400 mt-1">Review pengajuan dana dari cabang-cabang dan proses pencairan via Transfer Bank atau Kas Pusat.</p>
       </div>
 
       <FinancePettyCashList initialRequests={initialRequests} />

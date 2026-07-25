@@ -25,28 +25,28 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-suka-brown">Net Cash Dashboard</h1>
-        <p className="text-suka-gray-500">Saldo riil kas &amp; bank, disandingkan dengan aktivitas terbaru.</p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white/70 backdrop-blur-xl border border-suka-gray-200/60 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+        <h1 className="text-2xl font-black text-suka-brown tracking-tight">Net Cash Dashboard</h1>
+        <p className="text-xs font-bold text-suka-gray-400 mt-1">Monitoring saldo riil kas &amp; bank disandingkan dengan arus transaksi mutasi.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Kas" value={rupiah(summary.total)} icon={<Wallet size={22} />} tone="green" />
-        <StatCard label="Saldo Bank" value={rupiah(summary.totalBank)} icon={<Landmark size={22} />} tone="blue" />
+        <StatCard label="Total Kas" value={rupiah(summary.total)} icon={<Wallet className="w-5 h-5" />} tone="green" />
+        <StatCard label="Saldo Bank" value={rupiah(summary.totalBank)} icon={<Landmark className="w-5 h-5" />} tone="blue" />
         <StatCard
-          label="Kas Tunai (mengendap)"
+          label="Kas Tunai (Mengendap)"
           value={rupiah(summary.totalCash)}
-          icon={<Banknote size={22} />}
+          icon={<Banknote className="w-5 h-5" />}
           tone="orange"
           hint="Belum disetor ke bank"
         />
-        <div className="flex flex-col gap-4">
-          <StatCard label="Menunggu Approval Tx" value={pending} icon={<Clock size={22} />} tone="red" />
+        <div className="flex flex-col gap-3">
+          <StatCard label="Menunggu Approval Tx" value={pending} icon={<Clock className="w-5 h-5" />} tone="red" />
           <StatCard 
             label="Petty Cash Menunggu" 
             value={pettyCashRequests?.length || 0} 
-            icon={<Clock size={22} />} 
+            icon={<Clock className="w-5 h-5" />} 
             tone="orange" 
           />
         </div>
@@ -59,19 +59,19 @@ export default function DashboardPage() {
           ) : locations.length === 0 ? (
             <EmptyState title="Belum ada rekening/kas" description="Tambahkan di menu Rekening & Kas." />
           ) : (
-            <ul className="divide-y divide-suka-gray-100">
+            <ul className="divide-y divide-suka-gray-100/80">
               {locations.map((l) => (
-                <li key={l.id} className="flex items-center justify-between py-3">
+                <li key={l.id} className="flex items-center justify-between py-3.5 hover:bg-white/40 px-2 rounded-xl transition-all">
                   <div className="flex items-center gap-3">
-                    <span className={`rounded-lg px-2 py-1 text-xs font-bold ${l.kind === 'bank' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-suka-orange'}`}>
+                    <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest border ${l.kind === 'bank' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-orange-50 text-suka-orange border-orange-200'}`}>
                       {l.kind === 'bank' ? 'BANK' : 'TUNAI'}
                     </span>
                     <div>
-                      <p className="font-semibold text-suka-ink">{l.label}</p>
-                      {l.bank_name && <p className="text-xs text-suka-gray-400">{l.bank_name} · {l.account_no}</p>}
+                      <p className="font-extrabold text-suka-brown text-sm">{l.label}</p>
+                      {l.bank_name && <p className="text-[10px] font-semibold text-suka-gray-400 mt-0.5">{l.bank_name} · {l.account_no}</p>}
                     </div>
                   </div>
-                  <span className={`font-bold ${l.saldo < 0 ? 'text-red-600' : 'text-suka-ink'}`}>{rupiah(l.saldo)}</span>
+                  <span className={`font-black text-sm ${l.saldo < 0 ? 'text-red-600' : 'text-suka-brown'}`}>{rupiah(l.saldo)}</span>
                 </li>
               ))}
             </ul>

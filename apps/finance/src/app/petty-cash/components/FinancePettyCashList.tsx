@@ -131,13 +131,13 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
     <div className="space-y-6 font-sans">
       
       {/* TABS NAVIGATION */}
-      <div className="flex border-b border-suka-gray-200 gap-2">
+      <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-suka-gray-200/60 p-1.5 flex flex-wrap gap-2 shadow-2xs">
         <button
           onClick={() => setActiveTab('review')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all ${
             activeTab === 'review'
-              ? 'border-suka-orange text-suka-orange bg-suka-orange/5 rounded-t-xl'
-              : 'border-transparent text-suka-gray-500 hover:text-suka-gray-800 hover:bg-suka-gray-50'
+              ? 'bg-gradient-to-r from-suka-brown to-suka-ink text-white shadow-[0_4px_14px_rgba(44,24,16,0.18)]'
+              : 'text-suka-gray-500 hover:text-suka-brown hover:bg-white/80'
           }`}
         >
           <Clock className="w-4 h-4" />
@@ -145,10 +145,10 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all ${
             activeTab === 'history'
-              ? 'border-suka-orange text-suka-orange bg-suka-orange/5 rounded-t-xl'
-              : 'border-transparent text-suka-gray-500 hover:text-suka-gray-800 hover:bg-suka-gray-50'
+              ? 'bg-gradient-to-r from-suka-brown to-suka-ink text-white shadow-[0_4px_14px_rgba(44,24,16,0.18)]'
+              : 'text-suka-gray-500 hover:text-suka-brown hover:bg-white/80'
           }`}
         >
           <History className="w-4 h-4" />
@@ -158,26 +158,26 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
 
       {/* SUB-FILTER CHIPS FOR REVIEW TAB */}
       {activeTab === 'review' && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider flex items-center gap-1 mr-1">
+        <div className="bg-white/60 backdrop-blur-xl border border-suka-gray-200/60 p-3 rounded-2xl flex flex-wrap items-center gap-2 shadow-2xs">
+          <span className="text-[10px] font-black text-suka-gray-400 uppercase tracking-widest flex items-center gap-1.5 mr-2">
             <Filter className="w-3.5 h-3.5 text-suka-orange" /> Filter Status:
           </span>
           <button
             onClick={() => setReviewFilter('all')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all border ${
               reviewFilter === 'all'
-                ? 'bg-suka-brown text-white shadow-sm'
-                : 'bg-suka-gray-100 text-suka-gray-600 hover:bg-suka-gray-200'
+                ? 'bg-suka-brown text-white border-suka-brown shadow-xs'
+                : 'bg-white text-suka-gray-600 border-suka-gray-200 hover:bg-suka-gray-50'
             }`}
           >
             Semua ({allReviewRequests.length})
           </button>
           <button
             onClick={() => setReviewFilter('unprocessed')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all border ${
               reviewFilter === 'unprocessed'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -185,10 +185,10 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
           </button>
           <button
             onClick={() => setReviewFilter('ready_handover')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all border ${
               reviewFilter === 'ready_handover'
-                ? 'bg-suka-orange text-white shadow-sm'
-                : 'bg-orange-50 text-suka-orange border border-suka-orange/20 hover:bg-orange-100'
+                ? 'bg-suka-orange text-white border-suka-orange shadow-xs'
+                : 'bg-orange-50 text-suka-orange border-suka-orange/20 hover:bg-orange-100'
             }`}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -199,30 +199,30 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
 
       {/* CONTENT LIST */}
       {!requests || requests.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-suka-gray-200 p-12 text-center text-suka-gray-400 space-y-2">
-          <Wallet className="w-10 h-10 mx-auto text-suka-gray-300" />
-          <p className="font-bold text-suka-brown text-base">
+        <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-suka-gray-200/60 p-12 text-center text-suka-gray-400 space-y-2 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+          <Wallet className="w-10 h-10 mx-auto text-suka-orange/60" />
+          <p className="font-extrabold text-suka-brown text-base">
             {activeTab === 'review' ? 'Tidak ada pengajuan butuh tindakan' : 'Belum ada riwayat'}
           </p>
-          <p className="text-xs text-suka-gray-400">
+          <p className="text-xs text-suka-gray-400 font-medium">
             {activeTab === 'review' 
               ? 'Belum ada pengajuan petty cash yang diteruskan oleh Area Manager.' 
               : 'Seluruh riwayat pencairan petty cash akan muncul di sini.'}
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-suka-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-suka-gray-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)] overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[750px]">
+            <table className="w-full text-left border-collapse min-w-[750px] whitespace-nowrap">
               <thead>
-                <tr className="bg-suka-gray-50 text-suka-gray-500 text-xs uppercase tracking-wider border-b border-suka-gray-200">
-                  <th className="py-3.5 px-6 font-semibold">Tanggal</th>
-                  <th className="py-3.5 px-6 font-semibold">Outlet</th>
-                  <th className="py-3.5 px-6 font-semibold">Rekening Tujuan</th>
-                  <th className="py-3.5 px-6 font-semibold">Nominal</th>
-                  <th className="py-3.5 px-6 font-semibold">Alasan / Keperluan</th>
-                  <th className="py-3.5 px-6 font-semibold">Status / Bukti</th>
-                  <th className="py-3.5 px-6 font-semibold text-right">Aksi</th>
+                <tr className="bg-suka-cream/40 text-suka-gray-500 text-[10px] uppercase font-black tracking-widest border-b border-suka-gray-100">
+                  <th className="py-4 px-6">Tanggal</th>
+                  <th className="py-4 px-6">Outlet</th>
+                  <th className="py-4 px-6">Rekening Tujuan</th>
+                  <th className="py-4 px-6">Nominal</th>
+                  <th className="py-4 px-6">Alasan / Keperluan</th>
+                  <th className="py-4 px-6">Status / Bukti</th>
+                  <th className="py-4 px-6 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100 text-sm">

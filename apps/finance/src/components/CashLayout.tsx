@@ -69,22 +69,22 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const currentLink = ALL_LINKS.find(l => l.href === currentNavPath)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-amber-50/40 via-orange-50/20 to-slate-100/60 font-sans">
       {/* Sidebar */}
-      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col print:hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-sm">
-            F
+      <aside className="hidden w-64 shrink-0 border-r border-slate-200/60 bg-white/75 backdrop-blur-2xl md:flex md:flex-col print:hidden shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+        <div className="p-5 border-b border-slate-200/60 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-suka-brown to-suka-ink flex items-center justify-center text-white font-black text-sm shadow-[0_4px_12px_rgba(44,24,16,0.2)] relative group shrink-0">
+            <span className="relative z-10">F</span>
           </div>
           <div>
-            <div className="text-lg font-black text-slate-900 tracking-tight leading-none">Suka<span className="text-indigo-600">Finance</span></div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Treasury Hub</p>
+            <div className="text-lg font-black text-suka-brown tracking-tight leading-none">Suka<span className="text-suka-orange">Finance</span></div>
+            <p className="text-[9px] font-black text-suka-gray-400 uppercase tracking-widest mt-1">Treasury Hub</p>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-6 text-sm">
+        <div className="flex-1 overflow-y-auto py-6 px-3.5 space-y-6 text-sm">
           {NAV_GROUPS.map((group) => (
             <div key={group.title}>
-              <h3 className="px-3 mb-2 text-[10px] font-black tracking-widest text-slate-400 uppercase">
+              <h3 className="px-3 mb-2 text-[9px] font-black tracking-widest text-suka-gray-400 uppercase">
                 {group.title}
               </h3>
               <div className="space-y-1">
@@ -94,14 +94,15 @@ export function CashLayout({ children }: { children: ReactNode }) {
                     <Link
                       key={href}
                       href={href}
-                      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition-all ${
+                      className={`flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-xs transition-all relative group ${
                         active
-                          ? 'bg-indigo-50 text-indigo-600 shadow-sm'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          ? 'bg-orange-50 text-suka-orange font-black border border-orange-200/80 shadow-[0_2px_8px_rgba(234,88,12,0.08)]'
+                          : 'text-suka-gray-600 hover:bg-white/80 hover:text-suka-brown font-bold'
                       }`}
                     >
-                      <Icon size={18} className={active ? 'text-indigo-600' : 'text-slate-400'} />
+                      <Icon className={`w-4 h-4 transition-colors ${active ? 'text-suka-orange' : 'text-suka-gray-400 group-hover:text-suka-brown'}`} />
                       <span className="flex-1">{label}</span>
+                      {active && <div className="w-1.5 h-1.5 rounded-full bg-suka-orange animate-pulse" />}
                     </Link>
                   )
                 })}
@@ -114,24 +115,24 @@ export function CashLayout({ children }: { children: ReactNode }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center gap-3 shadow-xs flex-shrink-0 print:hidden">
+        <header className="bg-white/75 backdrop-blur-2xl border-b border-slate-200/60 px-4 sm:px-6 py-3.5 flex justify-between items-center gap-3 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex-shrink-0 print:hidden">
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight truncate">
+            <h1 className="text-base sm:text-lg font-black text-suka-brown tracking-tight truncate">
               {currentLink?.label ?? 'Dashboard'}
             </h1>
             {outletStaff && (
-              <p className="text-[10px] sm:text-xs font-bold text-indigo-600 mt-0.5 uppercase tracking-wider truncate">
+              <p className="text-[10px] sm:text-xs font-black text-suka-orange mt-0.5 uppercase tracking-wider truncate">
                 Staff: {outletStaff.name} ({outletStaff.role})
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {outletStaff && (
-              <div className="hidden sm:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
-                <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center">
-                  <User className="w-3.5 h-3.5 text-slate-600" />
+              <div className="hidden sm:flex items-center gap-2 bg-suka-cream/60 px-3.5 py-1.5 rounded-full border border-suka-brown/10 shadow-2xs">
+                <div className="w-5 h-5 rounded-full bg-suka-brown text-white flex items-center justify-center text-[10px] font-black">
+                  {outletStaff.name.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-xs font-bold text-slate-800">{outletStaff.name}</span>
+                <span className="text-xs font-extrabold text-suka-brown">{outletStaff.name}</span>
               </div>
             )}
             <button
@@ -144,7 +145,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
                   setIsLoggingOut(false)
                 }
               }}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white hover:bg-red-50 text-suka-gray-600 hover:text-red-600 border border-suka-gray-200 hover:border-red-200 font-extrabold text-xs transition-all cursor-pointer disabled:opacity-50 shadow-2xs active:scale-95"
             >
               {isLoggingOut ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
               {isLoggingOut ? 'Keluar...' : 'Keluar'}
@@ -160,7 +161,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <nav className="md:hidden flex-shrink-0 border-t border-slate-200 bg-white flex items-center justify-around px-2 py-2 pb-safe shadow-sm print:hidden z-40 relative">
+        <nav className="md:hidden fixed bottom-3 left-3 right-3 z-40 bg-white/85 backdrop-blur-2xl rounded-full border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.12)] flex items-center justify-around px-2 py-1.5 print:hidden">
           {BOTTOM_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = currentNavPath === href
             return (
@@ -168,14 +169,14 @@ export function CashLayout({ children }: { children: ReactNode }) {
                 key={href}
                 href={href}
                 onClick={() => setIsMenuOpen(false)}
-                className={`flex flex-col items-center justify-center w-full py-1 gap-1 transition-colors ${
-                  active ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+                className={`flex flex-col items-center justify-center w-full py-1 gap-1 transition-all ${
+                  active ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-brown'
                 }`}
               >
-                <div className={`p-1.5 rounded-full ${active ? 'bg-indigo-50' : 'bg-transparent'}`}>
-                  <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                <div className={`p-1.5 rounded-full transition-all ${active ? 'bg-orange-50 text-suka-orange shadow-2xs' : 'bg-transparent'}`}>
+                  <Icon size={18} strokeWidth={active ? 2.5 : 2} />
                 </div>
-                <span className={`text-[10px] ${active ? 'font-extrabold text-indigo-600' : 'font-medium'}`}>
+                <span className={`text-[9px] ${active ? 'font-black text-suka-orange' : 'font-semibold'}`}>
                   {label}
                 </span>
               </Link>
@@ -185,14 +186,14 @@ export function CashLayout({ children }: { children: ReactNode }) {
           {/* Menu Lainnya Button */}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className={`flex flex-col items-center justify-center w-full py-1 gap-1 transition-colors ${
-              isMenuOpen ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+            className={`flex flex-col items-center justify-center w-full py-1 gap-1 transition-all ${
+              isMenuOpen ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-brown'
             }`}
           >
-            <div className={`p-1.5 rounded-full ${isMenuOpen ? 'bg-indigo-50' : 'bg-transparent'}`}>
-              <Menu size={20} strokeWidth={isMenuOpen ? 2.5 : 2} />
+            <div className={`p-1.5 rounded-full transition-all ${isMenuOpen ? 'bg-orange-50 text-suka-orange' : 'bg-transparent'}`}>
+              <Menu size={18} strokeWidth={isMenuOpen ? 2.5 : 2} />
             </div>
-            <span className={`text-[10px] ${isMenuOpen ? 'font-extrabold text-indigo-600' : 'font-medium'}`}>
+            <span className={`text-[9px] ${isMenuOpen ? 'font-black text-suka-orange' : 'font-semibold'}`}>
               Lainnya
             </span>
           </button>

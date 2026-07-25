@@ -183,17 +183,24 @@ export async function previewPawoonFile(formData: FormData) {
                 order.sales_source = channel === 'food_apps' ? 'grabfood' : channel;
             }
 
-            order.items.push({
-                id: uuidv4(),
-                order_id: order.id,
-                menu_item_id: mapConfig.system_id,
-                menu_item_name: mapConfig.name || mapConfig.system_name || productName,
-                quantity: Math.abs(qty) || 1,
-                unit_price: Math.abs(price),
-                subtotal: Math.abs(qty * price),
-                created_at: order.created_at,
-                _systemName: mapConfig.name || mapConfig.system_name || productName
-            });
+            let remainingQty = Math.abs(qty) || 1;
+            const maxPerItem = 10;
+            
+            while (remainingQty > 0) {
+                const chunkQty = Math.min(remainingQty, maxPerItem);
+                order.items.push({
+                    id: uuidv4(),
+                    order_id: order.id,
+                    menu_item_id: mapConfig.system_id,
+                    menu_item_name: mapConfig.name || mapConfig.system_name || productName,
+                    quantity: chunkQty,
+                    unit_price: Math.abs(price),
+                    subtotal: chunkQty * Math.abs(price),
+                    created_at: order.created_at,
+                    _systemName: mapConfig.name || mapConfig.system_name || productName
+                });
+                remainingQty -= chunkQty;
+            }
             
             // Tracker logic
             const systemName = mapConfig.name || mapConfig.system_name || productName;

@@ -215,48 +215,48 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[750px] whitespace-nowrap">
               <thead>
-                <tr className="bg-suka-cream/40 text-suka-gray-500 text-[10px] uppercase font-black tracking-widest border-b border-suka-gray-100">
-                  <th className="py-4 px-6">Tanggal</th>
-                  <th className="py-4 px-6">Outlet</th>
-                  <th className="py-4 px-6">Rekening Tujuan</th>
-                  <th className="py-4 px-6">Nominal</th>
-                  <th className="py-4 px-6">Alasan / Keperluan</th>
-                  <th className="py-4 px-6">Status / Bukti</th>
-                  <th className="py-4 px-6 text-right">Aksi</th>
+                <tr className="bg-suka-cream/40 text-suka-gray-500 text-[9px] uppercase font-black tracking-widest border-b border-suka-gray-100">
+                  <th className="py-3.5 px-5">Tanggal</th>
+                  <th className="py-3.5 px-5">Outlet</th>
+                  <th className="py-3.5 px-5">Rekening Tujuan</th>
+                  <th className="py-3.5 px-5">Nominal</th>
+                  <th className="py-3.5 px-5">Alasan / Keperluan</th>
+                  <th className="py-3.5 px-5">Status / Bukti</th>
+                  <th className="py-3.5 px-5 text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-suka-gray-100 text-sm">
+              <tbody className="divide-y divide-suka-gray-100 text-xs">
                 {requests.map((req) => (
-                  <tr key={req.id} className="hover:bg-suka-gray-50/60 transition-colors">
-                    <td className="py-4 px-6 text-xs whitespace-nowrap" title={tanggalWaktu(req.created_at)}>
-                      <div className="font-bold text-suka-brown text-sm">{relativeTime(req.created_at)}</div>
-                      <div className="text-[11px] text-suka-gray-500 font-normal">{tanggalWaktu(req.created_at)}</div>
+                  <tr key={req.id} className="hover:bg-white/60 transition-colors">
+                    <td className="py-3.5 px-5 whitespace-nowrap" title={tanggalWaktu(req.created_at)}>
+                      <div className="font-extrabold text-suka-brown text-xs">{relativeTime(req.created_at)}</div>
+                      <div className="text-[10px] text-suka-gray-400 font-medium">{tanggalWaktu(req.created_at)}</div>
                     </td>
-                    <td className="py-4 px-6 font-bold text-suka-brown">
-                      <div className="flex items-center gap-1.5">
-                        <Store className="w-4 h-4 text-suka-orange" />
+                    <td className="py-3.5 px-5 font-bold text-suka-brown">
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <Store className="w-3.5 h-3.5 text-suka-orange" />
                         {req.outlet?.name || '-'}
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-xs">
+                    <td className="py-3.5 px-5 text-xs">
                       {req.bank_name ? (
-                        <div className="bg-suka-gray-50 p-2.5 rounded-xl border border-suka-gray-200 inline-block space-y-0.5">
-                          <div className="font-bold text-suka-brown flex items-center gap-1">
-                            <Building2 className="w-3.5 h-3.5 text-suka-orange" /> {req.bank_name} - <span className="font-mono">{req.bank_account_number}</span>
+                        <div className="bg-white/70 p-2 rounded-xl border border-suka-gray-200/60 inline-block space-y-0.5 shadow-2xs">
+                          <div className="font-extrabold text-suka-brown flex items-center gap-1 text-[11px]">
+                            <Building2 className="w-3 h-3 text-suka-orange" /> {req.bank_name} - <span className="font-mono">{req.bank_account_number}</span>
                           </div>
-                          <div className="text-[11px] text-suka-gray-500">a.n {req.bank_account_name || '-'}</div>
+                          <div className="text-[10px] font-semibold text-suka-gray-400">a.n {req.bank_account_name || '-'}</div>
                         </div>
                       ) : (
-                        <span className="text-suka-gray-400 italic text-xs">Belum ada</span>
+                        <span className="text-suka-gray-400 italic text-[11px]">Belum ada</span>
                       )}
                     </td>
-                    <td className="py-4 px-6 font-black text-suka-brown whitespace-nowrap text-base">
+                    <td className="py-3.5 px-5 font-black text-suka-brown whitespace-nowrap text-sm">
                       {formatRupiah(req.amount)}
                     </td>
-                    <td className="py-4 px-6 text-suka-brown font-medium max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed text-xs">
+                    <td className="py-3.5 px-5 text-suka-brown font-medium max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed text-xs">
                       {req.reason || req.description}
                     </td>
-                    <td className="py-4 px-6 whitespace-nowrap">
+                    <td className="py-3.5 px-5 whitespace-nowrap">
                       <div className="flex flex-col items-start gap-1.5">
                         {req.status === 'forwarded_to_finance' && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 font-bold text-xs rounded-md border border-amber-200">

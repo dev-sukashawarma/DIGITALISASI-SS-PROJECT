@@ -71,37 +71,37 @@ export function CashLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-amber-50/40 via-orange-50/20 to-slate-100/60 font-sans">
       {/* Sidebar */}
-      <aside className="hidden w-64 shrink-0 border-r border-slate-200/60 bg-white/75 backdrop-blur-2xl md:flex md:flex-col print:hidden shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="p-5 border-b border-slate-200/60 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-suka-brown to-suka-ink flex items-center justify-center text-white font-black text-sm shadow-[0_4px_12px_rgba(44,24,16,0.2)] relative group shrink-0">
+      <aside className="hidden w-60 shrink-0 border-r border-slate-200/60 bg-white/80 backdrop-blur-2xl md:flex md:flex-col print:hidden shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
+        <div className="p-4 border-b border-slate-200/60 flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-suka-brown to-suka-ink flex items-center justify-center text-white font-black text-xs shadow-[0_3px_10px_rgba(44,24,16,0.2)] relative group shrink-0">
             <span className="relative z-10">F</span>
           </div>
           <div>
-            <div className="text-lg font-black text-suka-brown tracking-tight leading-none">Suka<span className="text-suka-orange">Finance</span></div>
+            <div className="text-base font-black text-suka-brown tracking-tight leading-none">Suka<span className="text-suka-orange">Finance</span></div>
             <p className="text-[9px] font-black text-suka-gray-400 uppercase tracking-widest mt-1">Treasury Hub</p>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto py-6 px-3.5 space-y-6 text-sm">
+        <div className="flex-1 overflow-y-auto py-5 px-3 space-y-5 text-xs">
           {NAV_GROUPS.map((group) => (
             <div key={group.title}>
-              <h3 className="px-3 mb-2 text-[9px] font-black tracking-widest text-suka-gray-400 uppercase">
+              <h3 className="px-2.5 mb-1.5 text-[9px] font-black tracking-widest text-suka-gray-400 uppercase">
                 {group.title}
               </h3>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {group.items.map(({ href, label, icon: Icon }) => {
                   const active = currentNavPath === href
                   return (
                     <Link
                       key={href}
                       href={href}
-                      className={`flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-xs transition-all relative group ${
+                      className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs transition-all relative group ${
                         active
-                          ? 'bg-orange-50 text-suka-orange font-black border border-orange-200/80 shadow-[0_2px_8px_rgba(234,88,12,0.08)]'
-                          : 'text-suka-gray-600 hover:bg-white/80 hover:text-suka-brown font-bold'
+                          ? 'bg-orange-50/90 text-suka-orange font-black border border-orange-200/80 shadow-2xs'
+                          : 'text-suka-gray-600 hover:bg-white/90 hover:text-suka-brown font-bold'
                       }`}
                     >
                       <Icon className={`w-4 h-4 transition-colors ${active ? 'text-suka-orange' : 'text-suka-gray-400 group-hover:text-suka-brown'}`} />
-                      <span className="flex-1">{label}</span>
+                      <span className="flex-1 truncate">{label}</span>
                       {active && <div className="w-1.5 h-1.5 rounded-full bg-suka-orange animate-pulse" />}
                     </Link>
                   )
@@ -155,7 +155,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
 
         {/* Scrollable Main */}
         <main className="flex-1 overflow-y-auto w-full">
-          <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-24 md:pb-8">
+          <div className="max-w-7xl mx-auto p-4 sm:p-5 lg:p-6 pb-24 md:pb-8">
             {children}
           </div>
         </main>

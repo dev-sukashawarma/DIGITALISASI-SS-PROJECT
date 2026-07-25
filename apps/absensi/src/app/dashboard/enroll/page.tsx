@@ -59,6 +59,7 @@ export default function EnrollPage() {
       .select("id, name, role, enrolled_at")
       .eq("outlet_id", selectedOutletId)
       .eq("status", "active")
+      .neq("role", "kiosk")
       .order("name")
       .then(({ data, error }) => {
         if (error) {

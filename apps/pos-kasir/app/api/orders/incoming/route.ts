@@ -57,11 +57,11 @@ export async function POST(request: Request) {
 
   const supabaseService = createServiceClient()
 
-  // Idempotency: kalau order ini sudah pernah masuk, jangan duplikat
+  // Idempotency ketat: cek id ATAU external_order_id untuk cegah duplikasi orderan & double-counting omzet
   const { data: existing } = await supabaseService
     .from('orders')
     .select('id, order_number')
-    .eq('external_order_id', external_order_id)
+    .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
     .maybeSingle()
 
   if (existing) {

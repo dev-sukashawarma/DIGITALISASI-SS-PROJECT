@@ -245,7 +245,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                     <td className="py-4 px-6 font-black text-suka-brown whitespace-nowrap text-base">
                       {formatRupiah(req.amount)}
                     </td>
-                    <td className="py-4 px-6 text-suka-gray-700 max-w-xs truncate font-medium">
+                    <td className="py-4 px-6 text-suka-brown font-medium max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed text-xs">
                       {req.reason || req.description}
                     </td>
                     <td className="py-4 px-6 whitespace-nowrap">

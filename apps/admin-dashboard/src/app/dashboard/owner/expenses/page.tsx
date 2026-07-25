@@ -8,9 +8,8 @@ import { useRole } from '@/components/layout/RoleContext'
 import { PageHeader, StatTile, Section, StatTilesSkeleton } from '@/components/ui'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import CountUp from 'react-countup'
-import { Wallet, TrendingDown, Search, ExternalLink, Receipt, Award } from 'lucide-react'
+import { Wallet, TrendingDown, Search, Award } from 'lucide-react'
 import { CATEGORY_META } from '@/lib/expenseCategories'
-import { rupiah } from '@/lib/format'
 import dynamic from 'next/dynamic'
 
 const ExpenseDistributionChart = dynamic(
@@ -62,6 +61,7 @@ export default function ExpensesPage() {
   const amountBulanan = useMemo(() => filteredRows.filter(r => r.source === 'monthly').reduce((s, r) => s + r.amount, 0), [filteredRows])
   const amountPettyCash = useMemo(() => filteredRows.filter(r => r.source === 'petty_cash').reduce((s, r) => s + r.amount, 0), [filteredRows])
   const totalWaste = useMemo(() => wasteRows.reduce((s, r) => s + r.nilai_waste, 0), [wasteRows])
+  const totalTransaksi = filteredRows.length
 
   const byCategory = useMemo(() => {
     const map = new Map<string, number>()
@@ -74,8 +74,7 @@ export default function ExpensesPage() {
     })).sort((a, b) => b.value - a.value)
   }, [filteredRows])
 
-  const totalTransaksi = filteredRows.length
-  const topCategory = byCategory.length > 0 ? byCategory[0] : null
+  const topCategory = byCategory.length > 0 ? byCategory[0].name : '-'
 
   const selectOptions = [
     { label: '🏪 Semua Outlet', value: 'all' },
@@ -107,7 +106,7 @@ export default function ExpensesPage() {
       )}
 
       {loading || wasteLoading ? (
-        <StatTilesSkeleton count={4} />
+        <StatTilesSkeleton count={3} />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -118,7 +117,21 @@ export default function ExpensesPage() {
               icon={Wallet}
               accent="brown"
             />
-            {!isPusat ? (
+            <StatTile
+              label="Total Transaksi"
+              value={<><CountUp end={totalTransaksi} duration={1} separator="." /></>}
+              sub="Frekuensi pencatatan pengeluaran"
+              icon={Search}
+              accent="blue"
+            />
+            <StatTile
+              label="Kategori Terbesar"
+              value={<span className="text-xl leading-tight">{topCategory}</span>}
+              sub={byCategory.length > 0 ? `Total: Rp ${(byCategory[0].value/1000).toLocaleString('id-ID')}k` : 'Belum ada data'}
+              icon={Award}
+              accent="orange"
+            />
+            {!isPusat && (
               <StatTile
                 label="Kerugian Waste"
                 value={<><span className="text-lg align-top">Rp </span><CountUp end={totalWaste} duration={1} separator="." /></>}
@@ -126,34 +139,7 @@ export default function ExpensesPage() {
                 icon={TrendingDown}
                 accent="red"
               />
-            ) : (
-              <StatTile
-                label="Total Transaksi Pusat"
-                value={<CountUp end={totalTransaksi} duration={1} />}
-                sub="Jumlah nota/struk tercatat bulan ini"
-                icon={Receipt}
-                accent="blue"
-              />
             )}
-            
-            {/* Hanya render jika di mode non-Pusat, agar tetap 4 kolom. Jika Pusat, Total Transaksi sudah di-render di atas. */}
-            {!isPusat && (
-              <StatTile
-                label="Total Transaksi"
-                value={<CountUp end={totalTransaksi} duration={1} />}
-                sub="Jumlah pengeluaran (Bulanan & Kas Kecil)"
-                icon={Receipt}
-                accent="blue"
-              />
-            )}
-            
-            <StatTile
-              label="Kategori Terbesar"
-              value={topCategory ? topCategory.name : '-'}
-              sub={topCategory ? `Total: ${rupiah(topCategory.value)} (${((topCategory.value / totalAmount) * 100).toFixed(1)}%)` : 'Tidak ada pengeluaran'}
-              icon={Award}
-              accent="orange"
-            />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -161,7 +147,6 @@ export default function ExpensesPage() {
               <ExpenseDistributionChart byCategory={byCategory} totalOutlet={totalAmount} />
             </Section>
           </div>
-
         </>
       )}
     </div>

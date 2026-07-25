@@ -41,7 +41,7 @@ export async function previewPawoonFile(formData: FormData) {
         
         const outletIdMap: Record<string, string> = {};
         outletsData.forEach(o => {
-            const normalName = o.name.toLowerCase().replace('suka shawarma ', '').trim();
+            const normalName = o.name.toLowerCase().replace('suka shawarma ', '').replace('mitra ', '').trim();
             outletIdMap[normalName] = o.id;
             outletIdMap[o.name.toLowerCase()] = o.id;
         });
@@ -92,7 +92,13 @@ export async function previewPawoonFile(formData: FormData) {
             if (!productName || productName.startsWith('+')) continue; 
 
             const rawOutlet = row[colIdx.outlet] ? row[colIdx.outlet].toString().trim() : '';
-            const normalOutlet = rawOutlet.toLowerCase().replace('suka shawarma ', '').trim();
+            let normalOutlet = rawOutlet.toLowerCase().replace('suka shawarma ', '').replace('mitra ', '').trim();
+            
+            // Fix typo / penamaan beda dari Pawoon
+            if (normalOutlet === 'cirendeuu') normalOutlet = 'cirendeu';
+            if (normalOutlet === 'kota wisata') normalOutlet = 'cibubur';
+            if (normalOutlet === 'depok') normalOutlet = 'depok sukmajaya';
+            
             const outletId = outletIdMap[normalOutlet] || outletIdMap[rawOutlet.toLowerCase()];
             
             if (!outletId) {
@@ -109,7 +115,11 @@ export async function previewPawoonFile(formData: FormData) {
             const qty = parseInt(row[colIdx.qty]) || 1;
             const price = parseFloat(row[colIdx.price]) || 0;
             const category = row[colIdx.cat] ? row[colIdx.cat].toString() : '';
-            const orderTotal = parseFloat(row[colIdx.total]) || (price * qty); 
+            const rawTotalCell = row[colIdx.total];
+            const rawTotalStr = rawTotalCell != null ? rawTotalCell.toString().trim() : '';
+            // PENTING: Jangan pakai || karena 0 itu falsy! Cek dulu apakah sel ada isinya.
+            const orderTotal = (rawTotalStr !== '' && rawTotalStr !== '-') ? (parseFloat(rawTotalStr) || 0) : (price * qty);
+            const hasExplicitTotal = rawTotalStr !== '' && rawTotalStr !== '-';
             const dateStr = row[colIdx.date] ? row[colIdx.date].toString() : '';
             
             let isoDate = new Date().toISOString();
@@ -133,52 +143,76 @@ export async function previewPawoonFile(formData: FormData) {
                 orderStatus = 'cancelled';
             }
 
+            // explicit total = parsed number, or 0 if '-' or empty.
+            // This ensures if Pawoon rolls an add-on into a main item, we don't overcount.
+            const explicitTotal = (rawTotalStr !== '' && rawTotalStr !== '-') ? (parseFloat(rawTotalStr) || 0) : 0;
+
             if (!ordersMap.has(receipt)) {
+                let rawPayment = row[colIdx.payment] ? row[colIdx.payment].toString().toLowerCase() : 'cash';
+                let mappedPayment = 'cash';
+                if (rawPayment.includes('qris') || rawPayment.includes('gopay') || rawPayment.includes('ovo') || rawPayment.includes('shopee') || rawPayment.includes('dana') || rawPayment.includes('linkaja')) mappedPayment = 'qris';
+                else if (rawPayment.includes('bca') || rawPayment.includes('mandiri') || rawPayment.includes('card') || rawPayment.includes('debit') || rawPayment.includes('kredit')) mappedPayment = 'card';
+
                 ordersMap.set(receipt, {
                     id: uuidv4(),
                     external_order_id: receipt,
                     outlet_id: outletId,
-                    source: 'PAWOON',
+                    source: 'pos',
                     channel: channel,
-                    sales_source: channel === 'pos' ? 'walk_in' : channel,
-                    order_status: orderStatus,
-                    payment_status: statusLower === 'void' ? 'refunded' : 'paid',
-                    payment_method: row[colIdx.payment] ? row[colIdx.payment].toString() : 'Cash',
-                    total_amount: orderTotal, 
-                    gross_amount: price * qty,
+                    sales_source: channel === 'pos' ? 'pos' : channel === 'food_apps' ? 'grabfood' : channel,
+                    status: orderStatus,
+                    payment_method: mappedPayment,
+                    total_amount: Math.abs(explicitTotal), 
                     customer_name: 'Pawoon Import',
                     created_at: isoDate,
+                    updated_at: isoDate,
+                    raw_total: explicitTotal,
+                    gross_amount: (price * qty),
+                    _isRefund: statusLower === 'refund',
                     items: []
                 });
             } else {
                 const existingOrder = ordersMap.get(receipt);
+                existingOrder.raw_total += explicitTotal;
                 existingOrder.gross_amount += (price * qty);
+                existingOrder.total_amount = Math.abs(existingOrder.raw_total);
             }
             
             const order = ordersMap.get(receipt);
             if (channel !== 'pos') {
                 order.channel = channel;
-                order.sales_source = channel;
+                order.sales_source = channel === 'food_apps' ? 'grabfood' : channel;
             }
 
-            order.items.push({
-                id: uuidv4(),
-                order_id: order.id,
-                menu_item_id: mapConfig.system_id,
-                quantity: qty,
-                unit_price: price,
-                subtotal: qty * price,
-                _systemName: mapConfig.name || mapConfig.system_name || productName
-            });
+            let remainingQty = Math.abs(qty) || 1;
+            const maxPerItem = 10;
+            
+            while (remainingQty > 0) {
+                const chunkQty = Math.min(remainingQty, maxPerItem);
+                order.items.push({
+                    id: uuidv4(),
+                    order_id: order.id,
+                    menu_item_id: mapConfig.system_id,
+                    menu_item_name: mapConfig.name || mapConfig.system_name || productName,
+                    quantity: chunkQty,
+                    unit_price: Math.abs(price),
+                    subtotal: chunkQty * Math.abs(price),
+                    created_at: order.created_at,
+                    _systemName: mapConfig.name || mapConfig.system_name || productName
+                });
+                remainingQty -= chunkQty;
+            }
             
             // Tracker logic
             const systemName = mapConfig.name || mapConfig.system_name || productName;
             if (!itemSalesTracker[systemName]) {
-                itemSalesTracker[systemName] = { systemName, offline: 0, food_apps: 0, tiktok: 0 };
+                itemSalesTracker[systemName] = { systemName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0 };
             }
             if (channel === 'pos') itemSalesTracker[systemName].offline += qty;
             else if (channel === 'food_apps') itemSalesTracker[systemName].food_apps += qty;
             else if (channel === 'tiktok') itemSalesTracker[systemName].tiktok += qty;
+            
+            itemSalesTracker[systemName].totalRevenue += (qty * price);
         }
 
         if (unmappedItems.size > 0 || unmappedOutlets.size > 0) {
@@ -212,17 +246,51 @@ export async function previewPawoonFile(formData: FormData) {
         // --- Calculate Summary for ALL DATA (Raw Excel File) ---
         let totalOmset = 0;
         let totalOmsetGross = 0;
+        let totalVoids = 0;
+        let totalOmsetVoid = 0;
         const summaryByDate: Record<string, {
             date: string,
             transactionsCount: number,
             totalOmset: number,
             totalOmsetGross: number,
-            itemSalesTrackerMap: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number }>
+            itemSalesTrackerMap: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number, totalRevenue: number }>
         }> = {};
 
         ordersMap.forEach((order, receipt) => {
-            totalOmset += order.total_amount;
-            totalOmsetGross += order.gross_amount;
+            const isCompleted = order.status === 'completed';
+            const isRefund = order._isRefund;
+            const isCancelled = order.status === 'cancelled';
+            
+            // Pawoon's Grand Total includes Completed and Refunds/Voids (subtracting them).
+            if (isCompleted || isRefund || isCancelled) {
+                // Net Omset (Matches Excel Grand Total exactly)
+                // Void yang punya explicit total (misal 0) = tidak mengurangi net omset
+                // Void yang tidak punya explicit total = pakai gross_amount sebagai pengurang
+                let finalTotal: number;
+                if (isCancelled || isRefund) {
+                    // PAWOON BEHAVIOR: hanya kurangi void yang punya explicit total di kolom Excel.
+                    // Void dengan kolom Total kosong = TIDAK dikurangi dari Grand Total (sama persis Pawoon)
+                    finalTotal = order.raw_total;
+                    if (finalTotal > 0) finalTotal = -finalTotal; // pastikan negatif
+                } else {
+                    finalTotal = order.raw_total;
+                }
+                
+                totalOmset += finalTotal;
+
+                // Voids
+                if (isCancelled && !isRefund) {
+                    totalVoids++;
+                    let voidAmt = (order.raw_total !== 0) ? Math.abs(order.raw_total) : order.gross_amount;
+                    totalOmsetVoid += voidAmt;
+                }
+
+                // Gross Omset (Matches Pawoon Dashboard exactly = semua completed)
+                if (isCompleted) {
+                    totalOmsetGross += order.raw_total;
+                }
+            }
+
             const dateKey = order.created_at.split('T')[0];
             
             if (!summaryByDate[dateKey]) {
@@ -235,21 +303,33 @@ export async function previewPawoonFile(formData: FormData) {
                 };
             }
             summaryByDate[dateKey].transactionsCount++;
-            summaryByDate[dateKey].totalOmset += order.total_amount;
-            summaryByDate[dateKey].totalOmsetGross += order.gross_amount;
+            let dateFinalTotal: number;
+            if (isCancelled || isRefund) {
+                dateFinalTotal = order.raw_total;
+                if (dateFinalTotal > 0) dateFinalTotal = -dateFinalTotal;
+            } else {
+                dateFinalTotal = order.raw_total;
+            }
+            summaryByDate[dateKey].totalOmset += dateFinalTotal;
+            
+            if (isCompleted) {
+                summaryByDate[dateKey].totalOmsetGross += order.raw_total;
+            }
             
             order.items.forEach((item: any) => {
                 const sName = item._systemName;
                 if (!summaryByDate[dateKey].itemSalesTrackerMap[sName]) {
-                    summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0 };
+                    summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0 };
                 }
                 if (order.channel === 'pos') summaryByDate[dateKey].itemSalesTrackerMap[sName].offline += item.quantity;
                 else if (order.channel === 'food_apps') summaryByDate[dateKey].itemSalesTrackerMap[sName].food_apps += item.quantity;
                 else if (order.channel === 'tiktok') summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktok += item.quantity;
+                
+                summaryByDate[dateKey].itemSalesTrackerMap[sName].totalRevenue += item.subtotal;
             });
 
             if (!existingReceipts.has(receipt)) {
-                const { items, gross_amount, ...orderData } = order;
+                const { items, gross_amount, _hasExplicitTotal, raw_total, _isRefund, ...orderData } = order;
                 ordersToInsert.push(orderData);
                 // Remove _systemName before insert
                 items.forEach((i: any) => delete i._systemName);
@@ -263,6 +343,8 @@ export async function previewPawoonFile(formData: FormData) {
             success: true,
             summary: {
                 totalTransactionsParsed: ordersMap.size,
+                totalVoids: totalVoids,
+                totalOmsetVoid: totalOmsetVoid,
                 duplicatesSkipped: duplicateCount,
                 transactionsToInsert: ordersToInsert.length,
                 totalOmset: totalOmset,
@@ -271,7 +353,7 @@ export async function previewPawoonFile(formData: FormData) {
                 byDate: Object.values(summaryByDate).map(s => ({
                     ...s,
                     itemSalesTracker: Object.values(s.itemSalesTrackerMap)
-                }))
+                })),
             },
             data: {
                 orders: ordersToInsert,

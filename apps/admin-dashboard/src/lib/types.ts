@@ -24,6 +24,8 @@ export interface OutletFormValues {
   type: string
   is_active: boolean
   marquee_warning_threshold: number
+  open_hour?: string
+  close_hour?: string
 }
 
 export interface OutletFilterValues {

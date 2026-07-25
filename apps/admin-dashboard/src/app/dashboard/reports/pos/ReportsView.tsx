@@ -42,6 +42,7 @@ interface OrderRow {
   channel: string | null
   sales_source: string | null
   customer_name?: string | null
+  external_order_id?: string | null
   order_items: {
     id: string
     menu_item_name: string
@@ -167,22 +168,37 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   // Modal State for Shift Expenses
   const [selectedShiftForExpenses, setSelectedShiftForExpenses] = useState<ShiftRow | null>(null)
   const [shiftExpenses, setShiftExpenses] = useState<any[]>([])
+  const [shiftTopups, setShiftTopups] = useState<any[]>([])
+  const [activePettyCashTab, setActivePettyCashTab] = useState<'pengeluaran' | 'pemasukan'>('pengeluaran')
   const [loadingShiftExpenses, setLoadingShiftExpenses] = useState(false)
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
 
   const openShiftExpenses = async (shift: ShiftRow) => {
     setSelectedShiftForExpenses(shift)
+    setActivePettyCashTab('pengeluaran')
     setLoadingShiftExpenses(true)
     const supabase = createClient()
-    const { data } = await supabase
+    
+    const expensesPromise = supabase
       .from('petty_cash_expenses')
       .select('*')
       .eq('outlet_id', shift.outlet_id)
       .gte('created_at', shift.start_time)
       .lte('created_at', shift.end_time || new Date().toISOString())
       .order('created_at', { ascending: true })
+
+    const topupsPromise = supabase
+      .from('petty_cash_topups')
+      .select('*')
+      .eq('outlet_id', shift.outlet_id)
+      .gte('created_at', shift.start_time)
+      .lte('created_at', shift.end_time || new Date().toISOString())
+      .order('created_at', { ascending: true })
+      
+    const [expRes, topRes] = await Promise.all([expensesPromise, topupsPromise])
     
-    setShiftExpenses(data || [])
+    setShiftExpenses(expRes.data || [])
+    setShiftTopups(topRes.data || [])
     setLoadingShiftExpenses(false)
   }
 
@@ -190,49 +206,56 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     setLoading(true)
     const supabase = createClient()
 
-    let q = supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .order('created_at', { ascending: false })
-      
-    // Filter Outlet
-    if (selectedOutlet !== 'all') {
-      q = q.eq('outlet_id', selectedOutlet)
-    }
-
-    // Filter Date
+    // Filter Date (dihitung sekali jadi bound tanggal, dipakai ulang tiap halaman pagination)
+    let ordersGte: string | undefined
+    let ordersLt: string | undefined
+    let ordersLte: string | undefined
     if (range === 'today') {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', today.toISOString())
+      ordersGte = today.toISOString()
     } else if (range === 'yesterday') {
       const d = new Date()
       d.setDate(d.getDate() - 1)
       d.setHours(0, 0, 0, 0)
       const endD = new Date()
       endD.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString()).lt('created_at', endD.toISOString())
+      ordersGte = d.toISOString()
+      ordersLt = endD.toISOString()
     } else if (range === '7days') {
       const d = new Date()
       d.setDate(d.getDate() - 7)
       d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      ordersGte = d.toISOString()
     } else if (range === '30days') {
       const d = new Date()
       d.setDate(d.getDate() - 30)
       d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      ordersGte = d.toISOString()
     } else if (range === 'thisMonth') {
       const d = new Date()
       d.setDate(1)
       d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      ordersGte = d.toISOString()
     } else if (range === 'custom' && customStartDate && customEndDate) {
       const start = new Date(customStartDate)
       start.setHours(0, 0, 0, 0)
       const end = new Date(customEndDate)
       end.setHours(23, 59, 59, 999)
-      q = q.gte('created_at', start.toISOString()).lte('created_at', end.toISOString())
+      ordersGte = start.toISOString()
+      ordersLte = end.toISOString()
+    }
+
+    const buildOrdersQuery = () => {
+      let query = supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .order('created_at', { ascending: false })
+      if (selectedOutlet !== 'all') query = query.eq('outlet_id', selectedOutlet)
+      if (ordersGte) query = query.gte('created_at', ordersGte)
+      if (ordersLt) query = query.lt('created_at', ordersLt)
+      if (ordersLte) query = query.lte('created_at', ordersLte)
+      return query
     }
 
     // Fetch Shifts
@@ -268,8 +291,29 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       qShifts = qShifts.gte('end_time', start.toISOString()).lte('end_time', end.toISOString())
     }
 
-    const [{ data: ordersData }, { data: shiftsData }] = await Promise.all([q, qShifts])
-    setOrders(ordersData ?? [])
+    // Supabase/PostgREST membatasi max 1000 baris per query — untuk rentang
+    // seperti "Bulan Ini" (bisa >1000 order lintas 19 outlet) ini memotong
+    // hasil ke order TERBARU saja (order by created_at desc tanpa .range()),
+    // sehingga total revenue jadi jauh lebih kecil dari HPP (yang diagregasi
+    // penuh di server via RPC). Paginate sampai halaman terakhir.
+    const PAGE_SIZE = 1000
+    const fetchAllOrders = async () => {
+      const all: OrderRow[] = []
+      let offset = 0
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { data, error } = await buildOrdersQuery().range(offset, offset + PAGE_SIZE - 1)
+        if (error) throw error
+        const page = data ?? []
+        all.push(...(page as OrderRow[]))
+        if (page.length < PAGE_SIZE) break
+        offset += PAGE_SIZE
+      }
+      return all
+    }
+
+    const [ordersData, { data: shiftsData }] = await Promise.all([fetchAllOrders(), qShifts])
+    setOrders(ordersData)
     setShifts(shiftsData ?? [])
     setLoading(false)
   }, [range, selectedOutlet, customStartDate, customEndDate])
@@ -399,7 +443,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       })
       .reduce((sum, r) => sum + r.hpp, 0)
 
-    const netRevenue = actualNetRevenue
+    // Kurangi void Pawoon (cancelled + punya external_order_id = uang yg sudah diterima lalu dikembalikan)
+    // POS Kasir cancelled = belum pernah bayar, jadi TIDAK dikurangi
+    const pawoonVoids = filteredOrders.filter(o => o.status === 'cancelled' && o.external_order_id)
+    const voidDeduction = pawoonVoids.reduce((s, o) => s + Number(o.total_amount), 0)
+
+    const netRevenue = actualNetRevenue - voidDeduction
     const grossRevenue = netRevenue + totalDeductions
     const grossProfit = netRevenue - totalHPP
 
@@ -676,7 +725,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
         </div>
       ) : (
         <>
-          {/* ── KPI Cards (Gross Revenue, Net Revenue, COGS, Gross Profit) ── */}
+          {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-6">
             {/* 1. Gross Revenue */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
@@ -1391,7 +1440,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {shifts.length === 0 ? (
+              {selectedOutlet === 'all' ? (
+                <div className="col-span-full p-10 text-center bg-amber-50 rounded-xl border border-amber-100">
+                  <p className="text-amber-700 font-medium">Silakan pilih spesifik outlet di filter atas untuk melihat Laporan Laci Cash (Petty Cash).</p>
+                </div>
+              ) : shifts.length === 0 ? (
                 <div className="col-span-full p-10 text-center bg-gray-50 rounded-xl border border-gray-100">
                   <p className="text-gray-400 font-medium">Data shift tidak ditemukan</p>
                 </div>
@@ -1403,6 +1456,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                   
                   const variance = shift.variance || 0;
                   const pcVariance = shift.petty_cash_variance || 0;
+                  const outletName = initialOutlets.find(o => o.id === shift.outlet_id)?.name || 'Unknown Outlet';
 
                   return (
                     <div key={shift.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col">
@@ -1412,7 +1466,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                           <Calendar className="w-5 h-5" />
                         </div>
                         <div>
-                          <h3 className="font-bold text-amber-900 text-sm mb-0.5">Shift {dateStr}</h3>
+                          <h3 className="font-bold text-amber-900 text-sm mb-0.5">Shift {dateStr} - {outletName}</h3>
                           <p className="text-xs font-medium text-amber-700/80">{startTimeStr} - {endTimeStr}</p>
                         </div>
                       </div>
@@ -1491,7 +1545,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                           className="text-xs font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors border border-amber-200/50"
                         >
                           <FileText className="w-4 h-4" />
-                          Rincian Pengeluaran Petty Cash
+                          Rincian Petty Cash
                         </button>
                       </div>
                     </div>
@@ -1508,7 +1562,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <div>
-                <h3 className="font-bold text-gray-900 text-lg">Rincian Pengeluaran Petty Cash</h3>
+                <h3 className="font-bold text-gray-900 text-lg">Rincian Petty Cash</h3>
                 <p className="text-xs text-gray-500 mt-1">Shift: {new Date(selectedShiftForExpenses.start_time).toLocaleString('id-ID')}</p>
               </div>
               <button 
@@ -1519,48 +1573,122 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               </button>
             </div>
             
+            <div className="flex border-b border-gray-100">
+              <button
+                className={`flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors ${activePettyCashTab === 'pengeluaran' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
+                onClick={() => setActivePettyCashTab('pengeluaran')}
+              >
+                Pengeluaran
+              </button>
+              <button
+                className={`flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors ${activePettyCashTab === 'pemasukan' ? 'border-amber-500 text-amber-700' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
+                onClick={() => setActivePettyCashTab('pemasukan')}
+              >
+                Pemasukan (Top Up)
+              </button>
+            </div>
+
             <div className="p-5 overflow-y-auto flex-1">
               {loadingShiftExpenses ? (
-                <div className="flex justify-center py-10 text-gray-400">Memuat data pengeluaran...</div>
-              ) : shiftExpenses.length === 0 ? (
-                <div className="flex justify-center py-10 text-gray-400 font-medium text-sm">Tidak ada pengeluaran petty cash di shift ini.</div>
-              ) : (
-                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                  <table className="w-full text-left text-sm whitespace-nowrap">
-                    <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
-                      <tr>
-                        <th className="px-4 py-3">Waktu</th>
-                        <th className="px-4 py-3">Kategori</th>
-                        <th className="px-4 py-3">Catatan</th>
-                        <th className="px-4 py-3 text-right">Nominal</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {shiftExpenses.map((exp) => (
-                        <tr key={exp.id} className="hover:bg-amber-50/50">
-                          <td className="px-4 py-3 text-gray-500 font-medium text-xs">
-                            {new Date(exp.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td className="px-4 py-3 text-gray-700 capitalize font-medium">
-                            {exp.category?.replace('_', ' ')}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600 italic">
-                            {exp.description}
-                            {exp.receipt_url && (
-                              <button onClick={() => setSelectedReceiptUrl(exp.receipt_url || null)} className="ml-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md inline-flex items-center gap-1 hover:bg-blue-100 transition-colors">
-                                <FileText className="w-3 h-3" />
-                                Lihat Bukti
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-gray-900">
-                            {formatRupiah(exp.amount)}
+                <div className="flex justify-center py-10 text-gray-400">Memuat data...</div>
+              ) : activePettyCashTab === 'pengeluaran' ? (
+                shiftExpenses.length === 0 ? (
+                  <div className="flex justify-center py-10 text-gray-400 font-medium text-sm">Tidak ada pengeluaran petty cash di shift ini.</div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-gray-200">
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                      <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
+                        <tr>
+                          <th className="px-4 py-3">Waktu</th>
+                          <th className="px-4 py-3">Kategori</th>
+                          <th className="px-4 py-3">Catatan</th>
+                          <th className="px-4 py-3 text-right">Nominal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {shiftExpenses.map((exp) => (
+                          <tr key={exp.id} className="hover:bg-amber-50/50">
+                            <td className="px-4 py-3 text-gray-500 font-medium text-xs">
+                              {new Date(exp.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="px-4 py-3 text-gray-700 capitalize font-medium">
+                              {exp.category?.replace('_', ' ')}
+                            </td>
+                            <td className="px-4 py-3 text-gray-600 italic">
+                              {exp.description}
+                              {exp.receipt_url && (
+                                <button onClick={() => setSelectedReceiptUrl(exp.receipt_url || null)} className="ml-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md inline-flex items-center gap-1 hover:bg-blue-100 transition-colors">
+                                  <FileText className="w-3 h-3" />
+                                  Lihat Bukti
+                                </button>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-gray-900">
+                              {formatRupiah(exp.amount)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 border-t border-gray-200">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-3 text-right font-bold text-gray-700">Total Pengeluaran</td>
+                          <td className="px-4 py-3 text-right font-bold text-red-600">
+                            {formatRupiah(shiftExpenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0))}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </tfoot>
+                    </table>
+                  </div>
+                )
+              ) : (
+                shiftTopups.length === 0 ? (
+                  <div className="flex justify-center py-10 text-gray-400 font-medium text-sm">Tidak ada top up petty cash di shift ini.</div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-gray-200">
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                      <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
+                        <tr>
+                          <th className="px-4 py-3">Waktu</th>
+                          <th className="px-4 py-3">Keterangan</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3 text-right">Nominal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {shiftTopups.map((topup) => (
+                          <tr key={topup.id} className="hover:bg-amber-50/50">
+                            <td className="px-4 py-3 text-gray-500 font-medium text-xs">
+                              {new Date(topup.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="px-4 py-3 text-gray-600 italic">
+                              {topup.description || '-'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 text-[10px] font-bold rounded-md ${
+                                topup.status === 'approved' || topup.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                topup.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                'bg-amber-100 text-amber-700'
+                              }`}>
+                                {topup.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-gray-900">
+                              {formatRupiah(topup.amount)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 border-t border-gray-200">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-3 text-right font-bold text-gray-700">Total Pemasukan (Approved/Completed)</td>
+                          <td className="px-4 py-3 text-right font-bold text-emerald-600">
+                            {formatRupiah(shiftTopups.filter(t => t.status === 'approved' || t.status === 'completed').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0))}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )
               )}
             </div>
             

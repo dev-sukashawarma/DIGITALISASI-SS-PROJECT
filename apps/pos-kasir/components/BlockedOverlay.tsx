@@ -44,6 +44,11 @@ export default function BlockedOverlay({
   async function handleLogout() {
     await supabase.auth.signOut()
     queryClient.removeQueries({ queryKey: ['my-outlet'] })
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('pos_gate_bypassed_types')
+      } catch (e) {}
+    }
     let portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
     if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
       portalUrl = 'http://localhost:3010'
@@ -84,6 +89,19 @@ export default function BlockedOverlay({
 
       setIsPendingApproval(true)
 
+      const markApprovedAndUnlock = () => {
+        if (typeof window !== 'undefined') {
+          try {
+            const stored = JSON.parse(sessionStorage.getItem('pos_gate_bypassed_types') || '[]')
+            stored.push('all', 'attendance', 'checklist', 'closed')
+            sessionStorage.setItem('pos_gate_bypassed_types', JSON.stringify(stored))
+          } catch (e) {}
+        }
+        if (onBypass) onBypass()
+        setShowBypassForm(false)
+        setIsPendingApproval(false)
+      }
+
       // 3. Listen to realtime changes for this specific bypass request
       const channel = supabase.channel(`bypass_request_${insertedRequest.id}`)
       channel.on('postgres_changes', {
@@ -94,8 +112,7 @@ export default function BlockedOverlay({
       }, (payload) => {
         const newStatus = payload.new.status
         if (newStatus === 'approved') {
-          if (onBypass) onBypass()
-          setShowBypassForm(false)
+          markApprovedAndUnlock()
           supabase.removeChannel(channel)
         } else if (newStatus === 'rejected') {
           setBypassError('Pengajuan bypass ditolak oleh SPV.')
@@ -103,6 +120,26 @@ export default function BlockedOverlay({
           supabase.removeChannel(channel)
         }
       }).subscribe()
+
+      // 3b. Fallback Polling setiap 2 detik untuk memastikan persetujuan langsung ditangkap
+      const pollInterval = setInterval(async () => {
+        const { data: reqCheck } = await supabase
+          .from('bypass_requests')
+          .select('status')
+          .eq('id', insertedRequest.id)
+          .single()
+
+        if (reqCheck?.status === 'approved') {
+          clearInterval(pollInterval)
+          markApprovedAndUnlock()
+          supabase.removeChannel(channel)
+        } else if (reqCheck?.status === 'rejected') {
+          clearInterval(pollInterval)
+          setBypassError('Pengajuan bypass ditolak oleh SPV.')
+          setIsPendingApproval(false)
+          supabase.removeChannel(channel)
+        }
+      }, 2000)
 
       // 4. Generate WA link and open it
       const appUrl = window.location.origin

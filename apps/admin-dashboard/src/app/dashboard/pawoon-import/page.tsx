@@ -159,31 +159,32 @@ export default function PawoonImportPage() {
                     </div>
                     
                     <div className="p-6 pt-0 border-b border-gray-100">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 mt-4">
-                            <div className="bg-blue-50 p-4 rounded-xl">
-                                <p className="text-blue-600 text-sm font-medium mb-1">Omset Kotor (Gross) {selectedDate !== 'ALL' && `(${selectedDate})`}</p>
-                                <p className="text-2xl font-bold text-blue-900">
-                                    Rp {displayedSummary.totalOmsetGross.toLocaleString('id-ID')}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 mt-4">
+                            <div className="bg-blue-50 p-4 rounded-xl flex flex-col justify-center">
+                                <p className="text-blue-600 text-sm font-medium mb-1">Grand Total</p>
+                                <p className="text-3xl font-bold text-blue-900 mt-1">
+                                    Rp {((displayedSummary.totalOmsetGross || displayedSummary.totalOmset) - (displayedSummary.totalOmsetVoid || 0)).toLocaleString('id-ID')}
+                                </p>
+                                <p className="text-xs font-medium text-blue-700 mt-2">
+                                    Total Omset (Rp {(displayedSummary.totalOmsetGross || displayedSummary.totalOmset).toLocaleString('id-ID')}) - Void (Rp {(displayedSummary.totalOmsetVoid || 0).toLocaleString('id-ID')})
+                                </p>
+                                <p className={`text-xs font-bold mt-1 ${((displayedSummary.totalOmsetGross || displayedSummary.totalOmset) - (displayedSummary.totalOmsetVoid || 0)) === displayedSummary.totalOmset ? 'text-green-600' : 'text-red-600'}`}>
+                                    Validasi Excel: Rp {displayedSummary.totalOmset.toLocaleString('id-ID')} 
+                                    {((displayedSummary.totalOmsetGross || displayedSummary.totalOmset) - (displayedSummary.totalOmsetVoid || 0)) === displayedSummary.totalOmset ? ' (Match ✅)' : ' (Beda ❌)'}
                                 </p>
                             </div>
-                            <div className="bg-green-50 p-4 rounded-xl">
-                                <p className="text-green-600 text-sm font-medium mb-1">Omset Bersih (Net) {selectedDate !== 'ALL' && `(${selectedDate})`}</p>
-                                <p className="text-2xl font-bold text-green-900">
-                                    Rp {displayedSummary.totalOmset.toLocaleString('id-ID')}
-                                </p>
-                            </div>
-                            <div className="bg-purple-50 p-4 rounded-xl">
-                                <p className="text-purple-600 text-sm font-medium mb-1">Total Struk (File)</p>
-                                <p className="text-2xl font-bold text-purple-900">
+
+                            <div className="bg-purple-50 p-4 rounded-xl flex flex-col justify-center">
+                                <p className="text-purple-600 text-sm font-medium mb-1">Total Struk</p>
+                                <p className="text-3xl font-bold text-purple-900 mt-1">
                                     {selectedDate === 'ALL' ? displayedSummary.totalTransactionsParsed : displayedSummary.transactionsCount}
                                 </p>
                             </div>
-                            <div className="bg-orange-50 p-4 rounded-xl">
-                                <p className="text-orange-600 text-sm font-medium mb-1">
-                                    {selectedDate === 'ALL' ? 'Duplikat Terdeteksi (Di-skip)' : 'Status Filter'}
-                                </p>
-                                <p className="text-2xl font-bold text-orange-900 mt-1">
-                                    {selectedDate === 'ALL' ? displayedSummary.duplicatesSkipped : 'Melihat Harian'}
+
+                            <div className="bg-gray-50 p-4 rounded-xl flex flex-col justify-center">
+                                <p className="text-gray-600 text-sm font-medium mb-1">Duplikat (Skip)</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">
+                                    {displayedSummary.duplicatesSkipped}
                                 </p>
                             </div>
                         </div>
@@ -198,6 +199,7 @@ export default function PawoonImportPage() {
                                         <th className="p-3 border-b font-medium text-center">Food Apps</th>
                                         <th className="p-3 border-b font-medium text-center">TikTok Go</th>
                                         <th className="p-3 border-b font-medium text-center bg-gray-100">Total Kuantitas</th>
+                                        <th className="p-3 border-b font-medium text-right bg-blue-50">Total Penjualan (Kotor)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -208,6 +210,9 @@ export default function PawoonImportPage() {
                                             <td className="p-3 text-center">{item.food_apps > 0 ? item.food_apps : '-'}</td>
                                             <td className="p-3 text-center">{item.tiktok > 0 ? item.tiktok : '-'}</td>
                                             <td className="p-3 text-center font-bold bg-gray-50">{item.offline + item.food_apps + item.tiktok}</td>
+                                            <td className="p-3 text-right font-bold text-blue-700 bg-blue-50/50">
+                                                Rp {item.totalRevenue?.toLocaleString('id-ID') || 0}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

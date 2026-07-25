@@ -51,7 +51,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const [curData, prevData, menuSales] = await Promise.all([
     getOwnerDashboardData(filter, scopedOutlets),
     getOwnerDashboardData(prevFilter, scopedOutlets),
-    getAggregatedMenuSales(filter)
+    getAggregatedMenuSales(filter),
   ])
 
   const leaderboard = buildLeaderboard(curData.kpiRows, prevData.kpiRows)

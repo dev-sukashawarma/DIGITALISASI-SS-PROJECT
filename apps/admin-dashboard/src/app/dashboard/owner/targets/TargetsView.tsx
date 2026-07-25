@@ -493,57 +493,59 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                 <div className="space-y-3 pt-4 border-t border-suka-gray-100">
                   <div className="flex items-center gap-2.5">
                     <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-suka-orange font-black text-[10px] uppercase tracking-widest border border-orange-200 shadow-[0_2px_4px_rgba(234,88,12,0.1)]">Langkah 2</span>
-                    <h3 className="font-extrabold text-suka-brown text-sm">Target Omzet & Bonus Sales <span className="text-suka-gray-400 font-medium">(Opsional)</span></h3>
+                    <h3 className="font-extrabold text-suka-brown text-sm">Target Omzet & Bonus Sales <span className="text-suka-gray-400 font-normal">(Opsional)</span></h3>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Target Amount */}
                     <div className="space-y-1">
-                      <label className="block text-[11px] font-extrabold text-suka-brown flex items-center gap-1.5 uppercase tracking-wide">
-                        <TargetIcon className="w-3.5 h-3.5 text-suka-brown" /> Target Omzet Harian
+                      <label className="block text-[11px] font-extrabold text-suka-brown uppercase tracking-widest flex items-center gap-1.5">
+                        <TargetIcon className="w-4 h-4 text-suka-brown" /> Target Omzet Harian
                       </label>
                       <div className="relative group">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs">Rp</span>
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs group-focus-within:text-suka-orange transition-colors">Rp</span>
                         <input
                           inputMode="numeric"
                           value={targetInput ? Number(targetInput).toLocaleString('id-ID') : ''}
                           onChange={(e) => setTargetInput(e.target.value.replace(/\D/g, ''))}
                           placeholder="misal: 5.000.000"
-                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-white border border-suka-gray-200 shadow-inner shadow-suka-gray-100/50 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-black text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
                         />
                       </div>
-                      <p className="text-[11px] text-suka-gray-400 font-medium">Target omzet penjualan harian untuk kasir</p>
+                      <p className="text-[10px] text-suka-gray-400 font-medium">Target omzet penjualan harian untuk kasir</p>
                     </div>
 
                     {/* Bonus per Item */}
                     <div className="space-y-1">
-                      <label className="block text-[11px] font-extrabold text-suka-brown flex items-center gap-1.5 uppercase tracking-wide">
-                        <Sparkles className="w-3.5 h-3.5 text-suka-brown" /> Bonus Per Item Terjual
+                      <label className="block text-[11px] font-extrabold text-suka-brown uppercase tracking-widest flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-suka-brown" /> Bonus Per Item Terjual
                       </label>
                       <div className="relative group">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs">Rp</span>
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs group-focus-within:text-suka-orange transition-colors">Rp</span>
                         <input
                           inputMode="numeric"
                           value={bonusInput ? Number(bonusInput).toLocaleString('id-ID') : ''}
                           onChange={(e) => setBonusInput(e.target.value.replace(/\D/g, ''))}
                           placeholder="misal: 150.000"
-                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-white border border-suka-gray-200 shadow-inner shadow-suka-gray-100/50 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-black text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
                         />
                       </div>
-                      <p className="text-[11px] text-suka-gray-400 font-medium">Nominal bonus tambahan per item terjual</p>
+                      <p className="text-[10px] text-suka-gray-400 font-medium">Nominal bonus tambahan per item terjual</p>
                     </div>
                   </div>
                 </div>
 
                 {/* ── LANGKAH 3: TULIS PESAN KASIR ── */}
                 <div className="space-y-3 pt-4 border-t border-suka-gray-100">
-                  <div className="flex items-center gap-2.5">
-                    <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-suka-orange font-black text-[10px] uppercase tracking-widest border border-orange-200 shadow-[0_2px_4px_rgba(234,88,12,0.1)]">Langkah 3</span>
-                    <h3 className="font-extrabold text-suka-brown text-sm">Pesan Pengumuman & Motivasi <span className="text-suka-gray-400 font-medium">(Opsional)</span></h3>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-suka-orange font-black text-[10px] uppercase tracking-widest border border-orange-200 shadow-[0_2px_4px_rgba(234,88,12,0.1)]">Langkah 3</span>
+                      <h3 className="font-extrabold text-suka-brown text-sm">Pesan Pengumuman & Motivasi <span className="text-suka-gray-400 font-normal">(Opsional)</span></h3>
+                    </div>
                   </div>
 
                   {/* Jenis Pesan */}
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {KINDS.map((k) => {
                       const Icon = k.icon
                       const active = kind === k.key
@@ -554,79 +556,79 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                           onClick={() => setKind(k.key)}
                           className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 relative overflow-hidden ${
                             active
-                              ? `${k.bg} text-suka-brown ${k.border} shadow-sm`
-                              : 'bg-white border-suka-gray-200 text-suka-gray-500 hover:bg-suka-cream/40'
+                              ? 'bg-white shadow-[0_4px_16px_rgba(0,0,0,0.06)]'
+                              : 'bg-suka-gray-50/50 border-suka-gray-200 hover:bg-white hover:shadow-sm'
                           }`}
+                          style={{ borderColor: active ? k.color : undefined }}
                         >
-                          <div className={`p-1.5 rounded-xl ${active ? 'bg-white shadow-sm' : ''}`}>
-                            <Icon className={`w-5 h-5 ${active ? '' : 'opacity-60'}`} style={{ color: active ? k.color : undefined }} />
+                          <div className={`p-2 rounded-xl transition-colors ${active ? 'bg-white' : 'bg-white shadow-xs'}`} style={{ color: active ? k.color : '#9ca3af' }}>
+                            <Icon className="w-5 h-5" />
                           </div>
-                          <span className={`text-[11px] font-bold ${active ? 'text-suka-brown' : ''}`}>{k.label}</span>
-                          {active && <div className="absolute inset-x-0 bottom-0 h-0.5" style={{ backgroundColor: k.color }} />}
+                          <span className={`text-[11px] font-extrabold uppercase tracking-widest ${active ? 'text-suka-ink' : 'text-suka-gray-400'}`}>{k.label}</span>
+                          {active && <div className="absolute top-0 left-0 w-full h-1" style={{ backgroundColor: k.color }} />}
                         </button>
                       )
                     })}
                   </div>
 
                   {/* Template Pesan Cepat */}
-                  <div className="space-y-2 pt-1">
-                    <label className="block text-[10px] font-extrabold text-suka-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-suka-orange" /> Template Pesan Cepat
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-suka-gray-400 uppercase tracking-widest">
+                      💡 Template Cepat:
                     </label>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1">
                       {QUOTES.map((q, idx) => (
                         <button
                           key={idx}
                           type="button"
                           onClick={() => setBody(q)}
-                          className="text-left px-3 py-1.5 rounded-full text-[11px] font-semibold text-suka-brown bg-suka-cream/50 hover:bg-orange-50 border border-suka-brown/10 hover:border-orange-200 hover:text-suka-orange transition-all shadow-sm active:scale-95 truncate max-w-[220px]"
-                          title={q}
+                          className="text-left px-3 py-1.5 rounded-full text-[11px] font-bold text-suka-brown bg-suka-cream hover:bg-orange-50 border border-suka-brown/10 hover:border-orange-200 transition-colors flex items-center gap-1.5"
                         >
-                          {q}
+                          <span className="line-clamp-1 max-w-[200px]">{q}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Input Judul & Isi Pesan (Soft Glass Style) */}
-                  <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden flex flex-col mt-2">
+                  {/* Input Judul & Isi Pesan */}
+                  <div className="space-y-3">
                     <input
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Judul Pesan (Opsional), contoh: Semangat Pagi!"
                       maxLength={80}
-                      className="w-full px-4 py-3 text-xs font-extrabold text-suka-ink bg-transparent border-none outline-none focus:ring-0 placeholder:text-suka-gray-400 placeholder:font-medium"
+                      className="w-full px-4 py-3 rounded-xl text-xs font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
                     />
-                    <div className="h-px w-full bg-suka-gray-100" />
-                    <div className="relative">
+
+                    <div>
                       <textarea
                         value={body}
                         onChange={(e) => setBody(e.target.value)}
                         rows={3}
                         placeholder={title.trim() ? 'Tulis isi pesan lengkap di sini...' : 'Tulis pesan untuk kasir... (Kosongkan jika hanya mengatur target omzet)'}
                         maxLength={500}
-                        className="w-full p-4 text-xs font-medium text-suka-ink bg-suka-gray-50/30 border-none outline-none focus:ring-0 focus:bg-orange-50/30 transition-colors placeholder:text-suka-gray-400 resize-none"
+                        className="w-full p-4 rounded-xl text-xs font-medium text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all resize-none"
                       />
-                      <p className="absolute bottom-2 right-3 text-[10px] text-suka-gray-400 font-bold bg-white/80 px-1.5 py-0.5 rounded-md">{body.length}/500</p>
+                      <p className="text-[10px] text-suka-gray-400 font-semibold text-right mt-1">{body.length}/500 Karakter</p>
                     </div>
                   </div>
 
                   {/* Masa Berlaku Pesan */}
                   <div className="space-y-2 pt-2">
-                    <label className="block text-[11px] font-extrabold text-suka-brown flex items-center gap-1.5 uppercase tracking-wide">
-                      <Clock className="w-3.5 h-3.5 text-suka-brown" /> Masa Berlaku Tampil Pesan
+                    <label className="block text-[11px] font-extrabold text-suka-brown uppercase tracking-widest flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-suka-brown" /> Masa Berlaku Tampil Pesan
                     </label>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {EXPIRY_PRESETS.map((p) => (
                         <button
                           key={p.key}
                           type="button"
                           onClick={() => setExpiryKey(p.key)}
-                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all shadow-sm border ${
+                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
                             expiryKey === p.key
-                              ? 'bg-suka-brown text-white border-suka-brown'
-                              : 'bg-white text-suka-gray-600 border-suka-gray-200 hover:bg-suka-cream/60'
+                              ? 'bg-orange-50 text-suka-orange border-orange-200'
+                              : 'bg-white text-suka-gray-500 border-suka-gray-200 hover:bg-suka-gray-50'
                           }`}
                         >
                           {p.label}
@@ -638,13 +640,13 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                         type="datetime-local"
                         value={customExpiry}
                         onChange={(e) => setCustomExpiry(e.target.value)}
-                        className="mt-2 w-full px-3 py-2.5 rounded-xl text-xs font-bold text-suka-ink bg-white border border-suka-gray-200 shadow-inner shadow-suka-gray-100/50 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10"
+                        className="mt-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
                       />
                     )}
                   </div>
                 </div>
 
-                {/* ── TOMBOL SUBMIT EKSPLISIT (Gradient Premium) ── */}
+                {/* ── TOMBOL SUBMIT EKSPLISIT ── */}
                 <button
                   type="button"
                   onClick={submit}
@@ -654,12 +656,12 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                     (hasBonus && !hasTarget) || 
                     (!hasTarget && body.trim().length === 0)
                   }
-                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white font-extrabold text-sm shadow-[0_8px_20px_rgba(44,24,16,0.15)] disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all active:scale-[.98] flex items-center justify-center gap-2 mt-6"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white font-extrabold text-sm shadow-[0_8px_20px_rgba(44,24,16,0.15)] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[.99] flex items-center justify-center gap-2 mt-4"
                 >
                   {sending ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : sent ? (
-                    <CheckCircle2 className="w-5 h-5 text-suka-green bg-white rounded-full" />
+                    <CheckCircle2 className="w-5 h-5" />
                   ) : (
                     <Send className="w-5 h-5" />
                   )}
@@ -671,7 +673,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                     ? 'Isi Target Omzet Terlebih Dahulu'
                     : (!hasTarget && body.trim().length === 0)
                     ? 'Isi Target Omzet ATAU Tulis Pesan'
-                    : 'Kirim Target & Pesan ke Kasir'}
+                    : '🚀 Kirim Target & Pesan ke Kasir'}
                 </button>
               </div>
             )}
@@ -685,7 +687,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                   <MessageSquare className="w-5 h-5 text-suka-brown" />
                   <h3 className="font-extrabold text-suka-brown text-base uppercase tracking-tight">Riwayat Pesan Kasir</h3>
                 </div>
-                <span className="text-[10px] sm:text-xs font-bold text-suka-gray-400 bg-suka-gray-50 px-2 py-1 rounded-md">{history.length} Terkirim</span>
+                <span className="text-[10px] font-black text-suka-brown bg-suka-cream border border-suka-brown/10 px-3 py-1.5 rounded-full">{history.length} Terkirim</span>
               </div>
 
               {history.length === 0 ? (
@@ -700,30 +702,28 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                     const meta = KINDS.find((k) => k.key === m.kind) ?? KINDS[0]
                     const Icon = meta.icon
                     return (
-                      <div key={m.id} className="p-4 rounded-2xl border border-suka-gray-200/60 bg-white/40 backdrop-blur-xl hover:bg-white/80 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] transition-all duration-300 space-y-3">
+                      <div key={m.id} className="p-4 rounded-2xl border border-suka-gray-200/60 bg-white/40 backdrop-blur-xl hover:bg-white/80 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] transition-all duration-300 space-y-3 relative overflow-hidden group">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: meta.bg, border: `1px solid ${meta.color}20` }}>
-                              <Icon className="w-4 h-4" style={{ color: meta.color }} />
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
+                              <Icon className="w-4 h-4" />
                             </div>
                             <div>
-                              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: meta.color }}>{meta.label}</span>
-                              {m.title && <h4 className="text-[13px] font-extrabold text-suka-brown leading-tight mt-0.5">{m.title}</h4>}
+                              <span className="text-[9px] font-black uppercase tracking-widest opacity-80" style={{ color: meta.color }}>{meta.label}</span>
+                              {m.title && <h4 className="text-xs font-extrabold text-suka-ink leading-tight mt-0.5">{m.title}</h4>}
                             </div>
                           </div>
 
                           {m.is_live ? (
-                            <span className="flex items-center gap-1.5 text-[9px] font-black text-suka-green bg-green-50 border border-green-200 px-2 py-1 rounded-full shrink-0 tracking-widest uppercase">
-                              <span className="w-1.5 h-1.5 rounded-full bg-suka-green animate-pulse shadow-[0_0_8px_rgba(21,128,61,0.6)]" /> Aktif
+                            <span className="text-[9px] font-black text-suka-green border border-suka-green/20 px-2.5 py-1 rounded-full shrink-0 flex items-center gap-1 shadow-[0_2px_8px_rgba(34,197,94,0.15)]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-suka-green animate-pulse" /> AKTIF
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1.5 text-[9px] font-bold text-suka-gray-500 bg-suka-gray-50 border border-suka-gray-200 px-2 py-1 rounded-full shrink-0 tracking-widest uppercase">
-                              <span className="w-1.5 h-1.5 rounded-full bg-suka-gray-300" /> Selesai
-                            </span>
+                            <span className="text-[9px] font-bold text-suka-gray-400 border border-suka-gray-200 px-2 py-0.5 rounded-full shrink-0">SELESAI</span>
                           )}
                         </div>
 
-                        <div className="text-xs text-suka-ink leading-relaxed font-medium bg-white/60 p-3 rounded-xl border border-suka-gray-100 shadow-inner shadow-suka-gray-50/50">{m.body}</div>
+                        <p className="text-xs text-suka-gray-600 leading-relaxed font-medium bg-white/60 p-3 rounded-xl shadow-inner border border-white">{m.body}</p>
 
                         <div className="flex items-center justify-between text-[11px] font-semibold text-suka-gray-400 pt-1">
                           <div className="flex items-center gap-3">

@@ -1,21 +1,124 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect, useDeferredValue } from 'react'
+import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, X, Loader2, Copy,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  FileArchive, Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown
+  Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown, Store, Sparkles, Globe
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput, compressImageToWebP } from '@suka/design-system'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
-import ZipUploadModal from '@/components/ZipUploadModal'
 import { useDialogStore } from '@/lib/dialogStore'
 import { MenuPicker } from './MenuPicker'
 import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
+import { getChannel } from '@/lib/channels'
+
+function ChannelLogoIcon({ channelKey }: { channelKey: string }) {
+  const norm = channelKey.toLowerCase()
+
+  if (norm === '' || norm === 'all') {
+    return (
+      <span className="w-5 h-5 rounded-md bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-xs">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+          <path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.46 3.9 3.45 4.38l-.95 7.62H7.5l.75-6H11V9zm7-7v18h2V2h-2zm-3 0v8h2V2h-2z"/>
+        </svg>
+      </span>
+    )
+  }
+
+  if (norm === 'pos_kasir') {
+    return (
+      <span className="w-5 h-5 rounded-md bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+        <Store size={12} strokeWidth={2.5} />
+      </span>
+    )
+  }
+
+  if (norm === 'all_food_apps') {
+    return (
+      <span className="w-5 h-5 rounded-md bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+          <path d="M19 7c0-1.1-.9-2-2-2h-3v2h3v2.65L13.52 14H10V9H6c-2.21 0-4 1.79-4 4v3h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4.48L19 10.35V7zM7 17c-.55 0-1-.45-1-1h2c0 .55-.45 1-1 1zm12.5-4c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5-1.5-.67-1.5-1.5.67-1.5 1.5-1.5z"/>
+        </svg>
+      </span>
+    )
+  }
+
+  const ch = getChannel(norm)
+  if (ch && ch.logoPath) {
+    return (
+      <span 
+        className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 shadow-xs"
+        style={{ backgroundColor: ch.bg }}
+      >
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-white">
+          <path d={ch.logoPath} />
+        </svg>
+      </span>
+    )
+  }
+
+  return (
+    <span className="w-5 h-5 rounded-md bg-slate-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+      <Store size={12} />
+    </span>
+  )
+}
+
+function SearchEmptyVector({ 
+  query, 
+  channelLabel, 
+  onReset 
+}: { 
+  query: string
+  channelLabel?: string
+  onReset: () => void 
+}) {
+  return (
+    <div className="bg-white rounded-3xl border border-slate-100 p-12 sm:p-16 flex flex-col items-center justify-center text-center shadow-xs animate-in fade-in zoom-in-95 duration-200 my-4">
+      {/* Animated Vector Illustration */}
+      <div className="relative w-28 h-28 mb-6 flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-tr from-amber-100 to-orange-100 rounded-full blur-xl opacity-60 animate-pulse"></div>
+        <div className="absolute inset-2 border-2 border-dashed border-amber-300/60 rounded-full animate-spin-slow"></div>
+        
+        <div className="relative w-20 h-20 bg-gradient-to-b from-white to-amber-50 rounded-2xl border border-amber-200/80 shadow-md flex items-center justify-center">
+          <Search className="w-10 h-10 text-amber-500 stroke-[1.75]" />
+          <span className="absolute -top-2 -right-2 bg-suka-orange text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm">
+            0 Hasil
+          </span>
+        </div>
+      </div>
+
+      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight mb-2">
+        Menu Tidak Ditemukan
+      </h3>
+      <p className="text-sm font-medium text-slate-500 max-w-md mb-6 leading-relaxed">
+        {query ? (
+          <>Tidak ada menu yang cocok dengan kata kunci <strong className="text-amber-600 font-bold">&quot;{query}&quot;</strong>.</>
+        ) : (
+          <>Tidak ada menu yang terdaftar pada filter <strong className="text-amber-600 font-bold">{channelLabel || 'ini'}</strong>.</>
+        )}
+        <br />Silakan periksa ejaan kata kunci atau ubah filter pencarian Anda.
+      </p>
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <button
+          onClick={onReset}
+          className="px-5 py-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-xs font-extrabold transition-all shadow-xs active:scale-95 flex items-center gap-2 cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+          Reset Filter &amp; Pencarian
+        </button>
+      </div>
+    </div>
+  )
+}
 
 const BUCKET = 'menu-images'
 
@@ -95,16 +198,18 @@ export default function MenuView({
   const [error, setError]         = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [preview, setPreview]     = useState<string | null>(null)
-  const [showZipModal, setShowZipModal] = useState(false)
   const [deletingAll, setDeletingAll]   = useState(false)
   const [upsells, setUpsells] = useState<string[]>(initialUpsells || [])
   const [bestsellers, setBestsellers] = useState<string[]>(initialBestsellers || [])
   const [recommendations, setRecommendations] = useState<string[]>(initialRecommendations || [])
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+  const [dropdownPos, setDropdownPos] = useState<{ top: number, right: number } | null>(null)
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all')
   const [activeChannelFilter, setActiveChannelFilter] = useState<string>('')
   const [channelDropdownOpen, setChannelDropdownOpen] = useState(false)
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [outletSearch, setOutletSearch] = useState('')
+  const [onlinePriceMode, setOnlinePriceMode] = useState<'unified' | 'per_channel'>('unified')
   const fileRef = useRef<HTMLInputElement>(null)
   const channelDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -117,6 +222,17 @@ export default function MenuView({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    function handleScroll() {
+      if (openDropdownId) {
+        setOpenDropdownId(null)
+        setDropdownPos(null)
+      }
+    }
+    window.addEventListener('scroll', handleScroll, true)
+    return () => window.removeEventListener('scroll', handleScroll, true)
+  }, [openDropdownId])
 
   const getSlug = (channelId: string) => {
     if (!channelId) return ''
@@ -134,7 +250,21 @@ export default function MenuView({
       if (!channelKey || channelKey === 'all') return true
       
       if (channelKey === 'pos_kasir') {
-        return item.is_available !== false
+        if (item.is_available === false) return false
+        const chs = item.available_online_channels
+        if (chs && Array.isArray(chs) && chs.length > 0) {
+          return chs.some(c => c.toLowerCase().replace(/\s+/g, '') === 'pos_kasir')
+        }
+        return true
+      }
+
+      if (channelKey === 'online_only') {
+        if (item.is_available_online === false) return false
+        const chs = item.available_online_channels
+        if (chs && Array.isArray(chs) && chs.length > 0) {
+          return !chs.some(c => c.toLowerCase().replace(/\s+/g, '') === 'pos_kasir')
+        }
+        return false
       }
 
       if (channelKey === 'all_food_apps') {
@@ -147,44 +277,41 @@ export default function MenuView({
       const targetSlug = getSlug(channelKey)
       if (item.is_available_online === false) return false
 
-      // 1. Check if item has a channel price set for this channel
-      const channelPrice = item.channel_prices?.[targetSlug] || (targetSlug === 'tiktokgo' ? item.channel_prices?.tiktok_go : undefined)
-      const hasSpecificPrice = channelPrice !== undefined && channelPrice !== null && Number(channelPrice) > 0
+      const chs = item.available_online_channels
+      const pricesObj = item.channel_prices || {}
 
-      // 2. Check if item explicitly lists this channel in available_online_channels
-      let hasExplicitChannel = false
-      if (item.available_online_channels !== null && Array.isArray(item.available_online_channels)) {
-        hasExplicitChannel = item.available_online_channels.some(
-          c => c.toLowerCase().replace(/\s+/g, '') === targetSlug || (targetSlug === 'tiktokgo' && (c === 'tiktokgo' || c === 'tiktok_go'))
+      if (Array.isArray(chs) && chs.length > 0) {
+        return chs.some(
+          c => c.toLowerCase().replace(/\s+/g, '') === targetSlug || ((targetSlug === 'tiktokgo' || targetSlug === 'tiktok') && (c === 'tiktokgo' || c === 'tiktok_go' || c === 'tiktok'))
         )
+      } else {
+        const channelPrice = pricesObj[targetSlug] || ((targetSlug === 'tiktokgo' || targetSlug === 'tiktok') ? (pricesObj['tiktok_go'] || pricesObj['tiktokgo']) : undefined)
+        return channelPrice !== undefined && channelPrice !== null && Number(channelPrice) > 0
       }
-
-      // STRICT FILTER: If specific food app (e.g. TikTok Go), MUST have specific price or explicit channel assignment!
-      return hasSpecificPrice || hasExplicitChannel
     }
   }, [initialChannels])
 
   const channelOptions = useMemo(() => {
-    const opts: Array<{ key: string; label: string; count: number; icon: string; theme: string }> = [
-      { key: '', label: 'Semua Menu', count: initialItems.length, icon: '🍽️', theme: 'gray' },
-      { key: 'pos_kasir', label: 'POS Kasir Toko', count: initialItems.filter(i => isItemInChannel(i, 'pos_kasir')).length, icon: '🏪', theme: 'amber' },
-      { key: 'all_food_apps', label: 'Semua Food Apps', count: initialItems.filter(i => isItemInChannel(i, 'all_food_apps')).length, icon: '🛵', theme: 'orange' },
+    const opts: Array<{ key: string; label: string; count: number; icon: React.ReactNode; theme: string }> = [
+      { key: '', label: 'Semua Menu', count: initialItems.length, icon: <ChannelLogoIcon channelKey="" />, theme: 'gray' },
+      { key: 'pos_kasir', label: 'Offline (Kasir Toko)', count: initialItems.filter(i => isItemInChannel(i, 'pos_kasir')).length, icon: <ChannelLogoIcon channelKey="pos_kasir" />, theme: 'amber' },
+      { key: 'online_only', label: 'Khusus Online (Tidak Dijual Offline)', count: initialItems.filter(i => isItemInChannel(i, 'online_only')).length, icon: <Globe className="w-4 h-4 text-emerald-600" />, theme: 'emerald' },
+      { key: 'all_food_apps', label: 'Semua Food Apps', count: initialItems.filter(i => isItemInChannel(i, 'all_food_apps')).length, icon: <ChannelLogoIcon channelKey="all_food_apps" />, theme: 'orange' },
     ]
 
     initialChannels.forEach(ch => {
       const slug = ch.name.toLowerCase().replace(/\s+/g, '')
-      let icon = '📱'
       let theme = 'gray'
-      if (slug.includes('tiktok')) { icon = '🎵'; theme = 'slate' }
-      else if (slug.includes('gofood')) { icon = '🟢'; theme = 'emerald' }
-      else if (slug.includes('grabfood')) { icon = '🟢'; theme = 'green' }
-      else if (slug.includes('shopee')) { icon = '🧡'; theme = 'orange' }
+      if (slug.includes('tiktok')) { theme = 'slate' }
+      else if (slug.includes('gofood')) { theme = 'emerald' }
+      else if (slug.includes('grabfood')) { theme = 'green' }
+      else if (slug.includes('shopee')) { theme = 'orange' }
 
       opts.push({
         key: ch.id,
         label: `Khusus ${ch.name}`,
         count: initialItems.filter(i => isItemInChannel(i, ch.id)).length,
-        icon,
+        icon: <ChannelLogoIcon channelKey={ch.id} />,
         theme,
       })
     })
@@ -197,13 +324,48 @@ export default function MenuView({
   const [searchVal, setSearchVal] = useState(searchQuery)
   const deferredSearch = useDeferredValue(searchVal)
 
+  // Sync searchVal with prop if searchQuery changes externally
+  useEffect(() => {
+    setSearchVal(searchQuery)
+  }, [searchQuery])
+
+  // Keyboard shortcut Esc to clear search
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && searchVal) {
+        setSearchVal('')
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [searchVal])
+
   const sortedItems = useMemo(() => {
     let sortableItems = [...initialItems];
 
-    if (deferredSearch) {
-      sortableItems = sortableItems.filter(item => 
-        item.name.toLowerCase().includes(deferredSearch.toLowerCase())
-      );
+    if (activeCategoryFilter !== 'all') {
+      sortableItems = sortableItems.filter(item => item.category_id === activeCategoryFilter);
+    }
+
+    if (deferredSearch && deferredSearch.trim()) {
+      const q = deferredSearch.trim().toLowerCase();
+      const keywords = q.split(/\s+/).filter(Boolean);
+
+      sortableItems = sortableItems.filter(item => {
+        const name = (item.name || '').toLowerCase();
+        const category = (item.categories?.name || '').toLowerCase();
+        const desc = (item.description || '').toLowerCase();
+        const priceStr = String(item.price);
+        const typeStr = item.is_package ? 'paket combo package' : 'satuan';
+
+        return keywords.every(kw => 
+          name.includes(kw) || 
+          category.includes(kw) || 
+          desc.includes(kw) || 
+          priceStr.includes(kw) ||
+          typeStr.includes(kw)
+        );
+      });
     }
 
     if (activeChannelFilter) {
@@ -241,7 +403,7 @@ export default function MenuView({
       });
     }
     return sortableItems;
-  }, [initialItems, sortConfig, activeChannelFilter, searchQuery, isItemInChannel]);
+  }, [initialItems, sortConfig, activeChannelFilter, activeCategoryFilter, deferredSearch, isItemInChannel]);
 
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -281,15 +443,9 @@ export default function MenuView({
       })
     }
     
-    let displayPrice = String(item.price)
-    if (activeChannelFilter) {
-      const slug = getSlug(activeChannelFilter)
-      displayPrice = formattedChannelPrices[slug] || String(item.price)
-    }
-    
     setForm({
       id: item.id, name: item.name, description: item.description ?? '',
-      price: displayPrice, 
+      price: String(item.price), 
       strike_price: item.strike_price ? String(item.strike_price) : '',
       base_price: String(item.price),
       channel_prices: formattedChannelPrices,
@@ -375,7 +531,7 @@ export default function MenuView({
       if (!imgUrl) { setSaving(false); return }
     }
 
-    let finalBasePrice = parseFloat(form.base_price) || price
+    let finalBasePrice = price
     const parsedChannelPrices: Record<string, number> = {}
     
     Object.entries(form.channel_prices).forEach(([k, v]) => {
@@ -385,15 +541,16 @@ export default function MenuView({
       }
     })
 
-    if (activeChannelFilter) {
-      const slug = getSlug(activeChannelFilter)
-      if (price === finalBasePrice || price <= 0) {
-        delete parsedChannelPrices[slug]
-      } else {
-        parsedChannelPrices[slug] = price
-      }
-    } else {
-      finalBasePrice = price
+    // Jika menu memiliki channel online spesifik (misal TikTok Go), pastikan channel_prices tersinkron jika belum diset
+    if (form.available_online_channels && Array.isArray(form.available_online_channels)) {
+      form.available_online_channels.forEach(ch => {
+        const slug = ch.toLowerCase().replace(/\s+/g, '')
+        if (slug !== 'pos_kasir') {
+          if (!parsedChannelPrices[slug] || parsedChannelPrices[slug] <= 0) {
+            parsedChannelPrices[slug] = finalBasePrice
+          }
+        }
+      })
     }
 
     const payload = {
@@ -414,7 +571,15 @@ export default function MenuView({
       await saveMenuItem(payload as any)
       closeForm()
     } catch (err: any) {
-      setError(err.message)
+      const errMsg = err?.message || String(err || '')
+      if (errMsg.includes('Server Action') || errMsg.includes('not found on the server') || err?.digest?.includes('ACTION_NOT_FOUND')) {
+        setError('Versi aplikasi di browser Anda usang. Memuat ulang halaman...')
+        setTimeout(() => {
+          window.location.reload()
+        }, 600)
+        return
+      }
+      setError(errMsg)
     }
     setSaving(false)
   }
@@ -476,28 +641,28 @@ export default function MenuView({
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Search Input */}
-          <div className="relative w-full sm:w-auto sm:min-w-[220px]">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
+          <div className="relative w-full sm:w-auto sm:min-w-[280px]">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <Search className="h-4 w-4" />
             </div>
             <input
               type="text"
-              className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-2xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-sm"
-              placeholder="Cari menu..."
+              className="block w-full pl-9 pr-9 py-2.5 border border-slate-200 rounded-2xl text-sm bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all font-semibold shadow-xs text-slate-900"
+              placeholder="Cari menu, kategori, deskripsi..."
               value={searchVal}
               onChange={(e) => setSearchVal(e.target.value)}
             />
+            {searchVal && (
+              <button
+                onClick={() => setSearchVal('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                title="Hapus pencarian (Esc)"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
-          <button
-            onClick={() => setShowZipModal(true)}
-            className="py-2.5 px-5 text-sm font-semibold rounded-2xl flex items-center gap-2
-              bg-violet-600 text-white hover:bg-violet-700
-              transition-all duration-200 active:scale-[.98]"
-          >
-            <FileArchive className="w-4 h-4" />
-            Import ZIP
-          </button>
           <button
             onClick={deleteAllItems}
             disabled={deletingAll || initialItems.length === 0}
@@ -517,8 +682,26 @@ export default function MenuView({
         </div>
       </div>
 
-      {/* Channel Filter Dropdown (custom, non-native) */}
-      <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex flex-wrap items-center gap-3">
+      {/* Active Search Result Banner */}
+      {deferredSearch.trim() && (
+        <div className="flex items-center justify-between gap-3 bg-amber-50/90 border border-amber-200/80 text-amber-900 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-xs animate-in fade-in duration-150">
+          <div className="flex items-center gap-2">
+            <Search size={14} className="text-amber-600 shrink-0" />
+            <span>Pencarian: &quot;<strong className="text-amber-950">{deferredSearch}</strong>&quot; — <strong>{sortedItems.length}</strong> dari {initialItems.length} menu ditemukan</span>
+          </div>
+          <button
+            onClick={() => { setSearchVal(''); setActiveCategoryFilter('all'); }}
+            className="text-amber-700 hover:text-amber-950 underline font-extrabold cursor-pointer shrink-0"
+          >
+            Reset Filter
+          </button>
+        </div>
+      )}
+
+      {/* Filters Container */}
+      <div className="flex flex-col gap-3">
+        {/* Channel Filter Dropdown (custom, non-native) */}
+        <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex flex-wrap items-center gap-3">
         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider px-2">Filter Channel:</span>
 
         <div className="relative" ref={channelDropdownRef}>
@@ -571,6 +754,26 @@ export default function MenuView({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Category Filter Pills */}
+      <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-hide">
+        <button
+          onClick={() => setActiveCategoryFilter('all')}
+          className={`px-3.5 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeCategoryFilter === 'all' ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+        >
+          Semua Kategori
+        </button>
+        {initialCategories.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setActiveCategoryFilter(c.id)}
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeCategoryFilter === c.id ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+          >
+            {c.name}
+          </button>
+        ))}
+      </div>
       </div>
 
       {showForm && (
@@ -686,34 +889,52 @@ export default function MenuView({
 
                   {/* Right Column */}
                   <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm space-y-6">
-                      {/* Price & Category */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm space-y-5">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                          <Sandwich className="w-4 h-4 text-amber-500" />
+                          Pengaturan Harga (Offline & Food Apps)
+                        </h3>
+                        <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/60">
+                          Multi-Channel Price
+                        </span>
+                      </div>
+
+                      {/* Price & Category Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="input-label text-gray-700 font-bold mb-2 block">
-                            {activeChannelFilter 
-                              ? `Harga ${initialChannels.find(c => c.id === activeChannelFilter)?.name || ''}` 
-                              : 'Harga Dasar'}
-                            <span className="text-red-500 ml-1">*</span>
+                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider flex items-center gap-1.5">
+                            <Store className="w-3.5 h-3.5 text-amber-600" />
+                            Harga Offline <span className="text-red-500">*</span>
                           </label>
                           <CurrencyInput value={form.price}
-                            onChange={(v) => setForm({ ...form, price: String(v) })}
-                            required className="input bg-gray-50 focus:bg-white font-bold text-gray-900 text-base py-3" />
+                            onChange={(v) => {
+                              const valStr = String(v)
+                              setForm(prev => ({
+                                ...prev,
+                                price: valStr,
+                                channel_prices: {
+                                  ...prev.channel_prices,
+                                  pos_kasir: valStr
+                                }
+                              }))
+                            }}
+                            required className="input bg-gray-50 focus:bg-white font-bold text-gray-900 text-base py-2.5" />
                         </div>
                         <div>
-                          <label className="input-label text-gray-700 font-bold mb-2 block">
-                            Harga Coret
-                            <span className="text-gray-400 font-medium text-xs ml-2 bg-gray-100 px-2 py-0.5 rounded-md">Opsional</span>
+                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider flex items-center justify-between">
+                            <span>Harga Coret</span>
+                            <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Opsional</span>
                           </label>
                           <CurrencyInput value={form.strike_price}
                             onChange={(v) => setForm({ ...form, strike_price: String(v) })}
-                            className="input bg-gray-50 focus:bg-white text-gray-900 text-base py-3" />
+                            className="input bg-gray-50 focus:bg-white text-gray-900 text-base py-2.5" />
                         </div>
-                        <div>
-                          <label className="input-label text-gray-700 font-bold mb-2 block">Kategori</label>
+                        <div className="sm:col-span-2">
+                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider">Kategori Menu</label>
                           <select value={form.category_id}
                             onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                            className="input bg-gray-50 focus:bg-white text-base py-3 font-medium">
+                            className="input bg-gray-50 focus:bg-white text-sm py-2.5 font-medium">
                             <option value="">-- Pilih Kategori --</option>
                             {initialCategories.map((c) => (
                               <option key={c.id} value={c.id}>{c.name}</option>
@@ -721,6 +942,114 @@ export default function MenuView({
                           </select>
                         </div>
                       </div>
+
+                      {/* CONTAINER PENGATURAN HARGA ONLINE (FOOD APPS) */}
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                            <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+                              <Globe className="w-4 h-4 text-indigo-600" />
+                              Harga Online (Food Apps)
+                            </label>
+
+                            {/* OPSI: Satu Harga Semua VS Pilih Per Channel */}
+                            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-bold">
+                              <button
+                                type="button"
+                                onClick={() => setOnlinePriceMode('unified')}
+                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                                  onlinePriceMode === 'unified'
+                                    ? 'bg-indigo-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:bg-slate-200'
+                                }`}
+                              >
+                                Semua Food Apps (Satu Harga)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setOnlinePriceMode('per_channel')}
+                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                                  onlinePriceMode === 'per_channel'
+                                    ? 'bg-indigo-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:bg-slate-200'
+                                }`}
+                              >
+                                Pilih Salah Satu / Per App
+                              </button>
+                            </div>
+                          </div>
+
+                          {onlinePriceMode === 'unified' ? (
+                            <div className="space-y-1.5">
+                              <CurrencyInput
+                                value={
+                                  form.channel_prices['gofood'] ||
+                                  form.channel_prices['grabfood'] ||
+                                  form.channel_prices['shopeefood'] ||
+                                  form.channel_prices['tiktok_go'] ||
+                                  form.channel_prices['all_food_apps'] ||
+                                  form.price
+                                }
+                                onChange={(v) => {
+                                  const valStr = String(v)
+                                  setForm(prev => {
+                                    const newPrices = { ...prev.channel_prices }
+                                    const slugs = ['gofood', 'grabfood', 'shopeefood', 'tiktok_go', 'all_food_apps', 'online']
+                                    slugs.forEach(s => { newPrices[s] = valStr })
+                                    if (initialChannels && initialChannels.length > 0) {
+                                      initialChannels.forEach(ch => {
+                                        const slug = ch.id.toLowerCase().replace(/\s+/g, '')
+                                        if (slug !== 'pos_kasir') newPrices[slug] = valStr
+                                      })
+                                    }
+                                    return { ...prev, channel_prices: newPrices }
+                                  })
+                                }}
+                                placeholder={form.price || '0'}
+                                className="input bg-slate-50 focus:bg-white font-bold text-slate-900 text-sm py-2"
+                              />
+                              <p className="text-[11px] text-slate-500 font-medium">
+                                Harga online ini otomatis berlaku seragam untuk semua aplikasi (GoFood, GrabFood, ShopeeFood, TikTok Go, dsb).
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2 pt-1">
+                              <p className="text-[11px] font-bold text-indigo-900">Masukkan harga spesifik per aplikasi online:</p>
+                              <div className="grid grid-cols-1 gap-2.5">
+                                {initialChannels.filter(c => c.id.toLowerCase() !== 'pos_kasir').map(ch => {
+                                  const slug = getSlug(ch.id)
+                                  const val = form.channel_prices[slug] || form.price
+                                  return (
+                                    <div key={ch.id} className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 shrink-0">
+                                        <ChannelLogoIcon channelKey={slug} />
+                                        <span>{ch.name}</span>
+                                      </span>
+                                      <div className="w-28 sm:w-32 shrink-0">
+                                        <CurrencyInput
+                                          value={val}
+                                          onChange={(v) => {
+                                            const valStr = String(v)
+                                            setForm(prev => ({
+                                              ...prev,
+                                              channel_prices: {
+                                                ...prev.channel_prices,
+                                                [slug]: valStr
+                                              }
+                                            }))
+                                          }}
+                                          className="input bg-white text-xs font-bold text-slate-900 py-1.5 px-2.5 w-full text-right"
+                                        />
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
                       {/* Menu Type Toggle */}
                       <div>
@@ -857,31 +1186,31 @@ export default function MenuView({
                         Pengaturan Ketersediaan
                       </h3>
 
-                      {/* Availability toggle */}
+                      {/* Availability toggle (Status Stok Menu) */}
                       <button type="button"
                         onClick={() => setForm({ ...form, is_available: !form.is_available })}
                         className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300
                           ${form.is_available
-                            ? 'border-green-200 bg-green-50/40 hover:bg-green-50'
-                            : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}>
+                            ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50'
+                            : 'border-red-200 bg-red-50/40 hover:bg-red-50'}`}>
                         <div className="flex items-center gap-4">
                           <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
-                            ${form.is_available ? 'bg-green-100 text-green-600' : 'bg-white border border-gray-200 text-gray-400'}`}>
+                            ${form.is_available ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
                             {form.is_available
                               ? <ToggleRight className="w-7 h-7" />
                               : <ToggleLeft  className="w-7 h-7" />}
                           </div>
                           <div className="text-left">
-                            <p className={`text-sm font-bold leading-none mb-1.5 ${form.is_available ? 'text-green-800' : 'text-gray-600'}`}>
-                              {form.is_available ? 'Tersedia' : 'Tidak Tersedia'}
+                            <p className={`text-sm font-bold leading-none mb-1.5 ${form.is_available ? 'text-emerald-800' : 'text-red-800'}`}>
+                              {form.is_available ? 'Status Stok: Tersedia (In Stock)' : 'Status Stok: Habis (Out of Stock)'}
                             </p>
                             <p className="text-xs font-medium text-gray-500">
-                              {form.is_available ? 'Pelanggan dapat memesan' : 'Ditandai sebagai habis'}
+                              {form.is_available ? 'Stok menu ada dan siap dipesan pelanggan' : 'Tandai menu sebagai stok habis'}
                             </p>
                           </div>
                         </div>
                         <div className={`w-14 h-7 rounded-full transition-all duration-300 relative flex-shrink-0 shadow-inner
-                          ${form.is_available ? 'bg-green-500' : 'bg-gray-300'}`}>
+                          ${form.is_available ? 'bg-emerald-500' : 'bg-red-400'}`}>
                           <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm
                             transition-transform duration-300 ${form.is_available ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
                         </div>
@@ -1035,7 +1364,7 @@ export default function MenuView({
                           <div className="p-5 rounded-[1.25rem] border border-indigo-100 bg-indigo-50/30 ml-4 animate-in fade-in slide-in-from-top-2 duration-300">
                             <p className="text-[11px] font-bold text-indigo-800/70 uppercase tracking-widest mb-4 flex items-center gap-2.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_4px_rgba(99,102,241,0.5)]"></span>
-                              Platform Online Tersedia:
+                              Platform Online & Channel Tersedia:
                             </p>
                             <div className="space-y-3">
                               <label className="flex items-center gap-3.5 cursor-pointer group">
@@ -1049,25 +1378,47 @@ export default function MenuView({
                                     <div className="w-2 h-2 rounded-full bg-white"></div>
                                   </div>
                                 </div>
-                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Semua Platform Food Apps</span>
+                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Semua Platform (Offline Toko + Food Apps)</span>
                               </label>
                               <label className="flex items-center gap-3.5 cursor-pointer group">
                                 <div className="relative flex items-center">
                                   <input type="radio" 
                                     checked={form.available_online_channels !== null} 
-                                    onChange={() => setForm({ ...form, available_online_channels: [] })}
+                                    onChange={() => setForm({ ...form, available_online_channels: ['pos_kasir'] })}
                                     className="peer sr-only" />
                                   <div className="w-5 h-5 rounded-full border-[2.5px] border-gray-300 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 transition-colors shadow-sm"></div>
                                   <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
                                     <div className="w-2 h-2 rounded-full bg-white"></div>
                                   </div>
                                 </div>
-                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Pilih Platform Spesifik</span>
+                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Pilih Channel Spesifik</span>
                               </label>
                             </div>
                             
                             {form.available_online_channels !== null && (
                               <div className="mt-5 pl-8 pt-5 border-t border-indigo-100/60 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-300">
+                                {/* Checkbox Kasir Toko (Offline) */}
+                                <label className="flex items-center gap-3 cursor-pointer hover:bg-white p-2.5 rounded-xl transition-all duration-200 border border-transparent hover:border-amber-100 hover:shadow-sm">
+                                  <div className="relative flex items-center">
+                                    <input type="checkbox" 
+                                      checked={form.available_online_channels.includes('pos_kasir')}
+                                      onChange={(e) => {
+                                        const curr = form.available_online_channels || [];
+                                        if (e.target.checked) {
+                                          setForm({ ...form, available_online_channels: [...curr, 'pos_kasir'] });
+                                        } else {
+                                          setForm({ ...form, available_online_channels: curr.filter(c => c !== 'pos_kasir') });
+                                        }
+                                      }}
+                                      className="peer sr-only" />
+                                    <div className="w-5 h-5 rounded-[6px] border-[2px] border-amber-400 peer-checked:border-amber-500 peer-checked:bg-amber-500 transition-colors shadow-sm"></div>
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
+                                      <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
+                                    </div>
+                                  </div>
+                                  <span className="text-sm font-bold text-slate-800">Kasir Toko (Offline)</span>
+                                </label>
+
                                 {initialChannels.map(ch => {
                                   const slug = getSlug(ch.id);
                                   const isChecked = form.available_online_channels!.includes(slug);
@@ -1101,7 +1452,6 @@ export default function MenuView({
                       </div>
                     </div>
                   </div>
-                </div>
 
               </div>
 
@@ -1123,30 +1473,29 @@ export default function MenuView({
         </div>
       )}
 
-      {/* ── ZIP Upload Modal ─────────────────────────────── */}
-      {showZipModal && (
-        <ZipUploadModal
-          categories={initialCategories}
-          onClose={() => setShowZipModal(false)}
-          onComplete={() => router.refresh()}
-        />
-      )}
-
       {/* ── Menu Grid / Table ────────────────────────────── */}
       {initialItems.length === 0 ? (
-        <div className="card p-16 flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
-            <Sandwich className="w-8 h-8 text-amber-200" strokeWidth={1} />
+        <div className="bg-white rounded-3xl border border-slate-100 p-12 sm:p-16 flex flex-col items-center justify-center text-center shadow-xs animate-in fade-in duration-200 my-4">
+          <div className="w-20 h-20 bg-gradient-to-b from-amber-50 to-orange-100 rounded-3xl border border-amber-200/60 flex items-center justify-center mb-4 shadow-sm">
+            <Sandwich className="w-10 h-10 text-amber-500" strokeWidth={1.5} />
           </div>
-          <p className="font-semibold text-gray-500">Belum ada menu</p>
-          <p className="text-sm text-gray-400 mt-1">Tambahkan menu pertamamu</p>
+          <h3 className="text-xl font-extrabold text-slate-900 tracking-tight mb-1">Belum Ada Menu POS</h3>
+          <p className="text-sm font-medium text-slate-500 max-w-sm mb-6">Daftar menu POS Anda masih kosong. Mulai tambahkan menu makanan &amp; minuman pertama Anda.</p>
+          <button onClick={openAdd} className="btn-primary py-2.5 px-6 text-sm font-bold shadow-md">
+            <Plus className="w-4 h-4" />
+            Tambah Menu Pertama
+          </button>
         </div>
-      ) : initialItems.length === 0 ? (
-        <div className="card p-16 flex flex-col items-center text-center">
-          <Search className="w-10 h-10 text-gray-200 mb-3" />
-          <p className="font-semibold text-gray-500">Menu tidak ditemukan</p>
-          <p className="text-sm text-gray-400 mt-1">Coba kata kunci lain</p>
-        </div>
+      ) : sortedItems.length === 0 ? (
+        <SearchEmptyVector
+          query={deferredSearch}
+          channelLabel={selectedChannelOption.label}
+          onReset={() => {
+            setSearchVal('')
+            setActiveCategoryFilter('all')
+            setActiveChannelFilter('')
+          }}
+        />
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
@@ -1167,9 +1516,16 @@ export default function MenuView({
                       onClick={() => requestSort('price')}
                   >
                     <div className="flex items-center justify-end">
-                      {activeChannelFilter 
-                        ? `Harga ${initialChannels.find(c => c.id === activeChannelFilter)?.name || ''}`
-                        : 'Harga Dasar'}
+                      {(() => {
+                        if (!activeChannelFilter || activeChannelFilter === 'all') return 'Informasi Harga';
+                        if (activeChannelFilter === 'pos_kasir') return 'Harga Offline (Kasir Toko)';
+                        if (activeChannelFilter === 'online_only') return 'Harga Khusus Online (Non-Offline)';
+                        if (activeChannelFilter === 'all_food_apps') return 'Harga Online Food Apps';
+                        const ch = initialChannels.find(c => c.id === activeChannelFilter || c.name.toLowerCase().replace(/\s+/g, '') === activeChannelFilter.toLowerCase().replace(/\s+/g, ''));
+                        if (ch) return `Harga ${ch.name}`;
+                        if (activeChannelFilter === 'tiktokgo' || activeChannelFilter === 'tiktok_go') return 'Harga TikTok Go';
+                        return `Harga ${activeChannelFilter}`;
+                      })()}
                       {getSortIcon('price')}
                     </div>
                   </th>
@@ -1222,22 +1578,30 @@ export default function MenuView({
                           };
 
                           const hasExplicitChannel = (slug: string) => {
-                            if (!item.available_online_channels || !Array.isArray(item.available_online_channels)) return false;
+                            if (item.available_online_channels === null || item.available_online_channels === undefined) return true;
+                            if (!Array.isArray(item.available_online_channels)) return false;
                             return item.available_online_channels.some(
                               c => c.toLowerCase().replace(/\s+/g, '') === slug || (slug === 'tiktokgo' && (c === 'tiktokgo' || c === 'tiktok_go'))
                             );
                           };
 
                           const isRealInChannel = (slug: string) => {
-                            return hasSpecificChannelPrice(slug) || hasExplicitChannel(slug);
+                            return hasExplicitChannel(slug);
                           };
 
-                          const showPosKasirBadge = !isSpecificFoodApp && activeSlug !== 'all_food_apps' && item.is_available !== false;
+                          const isOfflineAvailable = item.is_available !== false && (
+                            item.available_online_channels === null ||
+                            item.available_online_channels === undefined ||
+                            !Array.isArray(item.available_online_channels) ||
+                            item.available_online_channels.includes('pos_kasir')
+                          );
+
+                          const showPosKasirBadge = !isSpecificFoodApp && activeSlug !== 'all_food_apps' && isOfflineAvailable;
 
                           return (
                             <>
                               {showPosKasirBadge && (
-                                <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold">POS Kasir</span>
+                                <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold">Offline</span>
                               )}
 
                               {item.is_available_online !== false && activeSlug !== 'pos_kasir' && (
@@ -1274,23 +1638,109 @@ export default function MenuView({
                       }
                     </td>
 
-                    {/* Price */}
+                    {/* Price (Offline & Online) */}
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex flex-col items-end">
-                        {item.strike_price && (
-                          <span className="text-xs text-gray-400 line-through decoration-gray-400/50 mb-0.5">
-                            {formatRupiah(item.strike_price)}
-                          </span>
-                        )}
-                        {activeChannelFilter && !['pos_kasir', 'all_food_apps'].includes(activeChannelFilter) && item.channel_prices?.[getSlug(activeChannelFilter)] ? (
-                          <>
-                            <span className="font-bold text-amber-600">{formatRupiah(item.channel_prices[getSlug(activeChannelFilter)])}</span>
-                            <span className="text-[10px] text-gray-400 font-medium">Dasar: {formatRupiah(item.price)}</span>
-                          </>
-                        ) : (
-                          <span className="font-bold text-gray-900">{formatRupiah(item.price)}</span>
-                        )}
-                      </div>
+                      {(() => {
+                        const offlinePrice = item.price;
+                        const pricesObj = item.channel_prices || {};
+                        const activeSlug = activeChannelFilter ? getSlug(activeChannelFilter) : '';
+
+                        const isChannelOffline = item.available_online_channels === null ||
+                          !Array.isArray(item.available_online_channels) ||
+                          item.available_online_channels.includes('pos_kasir');
+
+                        // Calculate Online Price
+                        let onlineDisplay: string | null = null;
+                        let targetNumericPrice: number | null = null;
+
+                        if (item.is_available_online !== false) {
+                          if (activeSlug && !['pos_kasir', 'all_food_apps', ''].includes(activeSlug)) {
+                            const chPrice = pricesObj[activeSlug] || (activeSlug === 'tiktokgo' ? pricesObj['tiktok_go'] : undefined);
+                            if (chPrice && Number(chPrice) > 0) {
+                              targetNumericPrice = Number(chPrice);
+                              onlineDisplay = formatRupiah(targetNumericPrice);
+                            }
+                          } else {
+                            const validPrices = Object.values(pricesObj)
+                              .map(p => Number(p))
+                              .filter(p => !isNaN(p) && p > 0);
+
+                            if (validPrices.length > 0) {
+                              const minP = Math.min(...validPrices);
+                              const maxP = Math.max(...validPrices);
+                              targetNumericPrice = minP;
+                              if (minP === maxP) {
+                                onlineDisplay = formatRupiah(minP);
+                              } else {
+                                onlineDisplay = `${formatRupiah(minP)} - ${formatRupiah(maxP)}`;
+                              }
+                            }
+                          }
+                        }
+
+                        // 1. Skenario Filter Channel Spesifik (GoFood, GrabFood, ShopeeFood, TikTok Go, Offline)
+                        if (activeSlug && !['all_food_apps', ''].includes(activeSlug)) {
+                          const displayPrice = activeSlug === 'pos_kasir' ? formatRupiah(offlinePrice) : onlineDisplay;
+                          const numericP = activeSlug === 'pos_kasir' ? offlinePrice : targetNumericPrice;
+
+                          if (!displayPrice) {
+                            return <span className="text-xs font-bold text-slate-400 font-mono">—</span>;
+                          }
+
+                          return (
+                            <div className="flex flex-col items-end gap-0.5">
+                              {item.strike_price && numericP && item.strike_price > numericP && (
+                                <span className="text-xs text-gray-400 line-through decoration-gray-400/50">
+                                  {formatRupiah(item.strike_price)}
+                                </span>
+                              )}
+                              <span className="text-sm font-bold text-gray-900 font-mono">
+                                {displayPrice}
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        // 2. Skenario Menu Khusus Online (Tidak dijual offline)
+                        if (!isChannelOffline) {
+                          const displayPrice = onlineDisplay || formatRupiah(offlinePrice);
+                          const numericP = targetNumericPrice || offlinePrice;
+
+                          return (
+                            <div className="flex flex-col items-end gap-0.5">
+                              {item.strike_price && numericP && item.strike_price > numericP && (
+                                <span className="text-xs text-gray-400 line-through decoration-gray-400/50">
+                                  {formatRupiah(item.strike_price)}
+                                </span>
+                              )}
+                              <span className="text-sm font-bold text-gray-900 font-mono">
+                                {displayPrice}
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        // 3. Skenario Umum (Dijual Offline & Online)
+                        return (
+                          <div className="flex flex-col items-end gap-1">
+                            {item.strike_price && item.strike_price > offlinePrice && (
+                              <span className="text-xs text-gray-400 line-through decoration-gray-400/50">
+                                {formatRupiah(item.strike_price)}
+                              </span>
+                            )}
+                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50/90 border border-amber-200/80 shadow-2xs" title="Harga Jual Offline Kasir Toko">
+                              <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Offline:</span>
+                              <span className="text-xs font-black text-amber-950 font-mono">{formatRupiah(offlinePrice)}</span>
+                            </div>
+                            {onlineDisplay && (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50/90 border border-emerald-200/80 shadow-2xs" title="Harga Jual Online Food Apps">
+                                <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Food Apps:</span>
+                                <span className="text-xs font-black text-emerald-950 font-mono">{onlineDisplay}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Status toggle */}
@@ -1325,25 +1775,41 @@ export default function MenuView({
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                         <div className="relative">
-                          <button onClick={() => setOpenDropdownId(openDropdownId === item.id ? null : item.id)}
+                          <button onClick={(e) => {
+                            if (openDropdownId === item.id) {
+                              setOpenDropdownId(null);
+                              setDropdownPos(null);
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setDropdownPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                              setOpenDropdownId(item.id);
+                            }
+                          }}
                             className="w-8 h-8 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-xl flex items-center justify-center transition-all">
                             <MoreVertical className="w-3.5 h-3.5" />
                           </button>
-                          {openDropdownId === item.id && (
-                            <div className="absolute right-0 top-10 z-50 w-52 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] border border-gray-100 p-2 text-left origin-top-right">
-                              <button onClick={() => { toggleSetting('upsell', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between transition-colors">
-                                <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Ekstra</span>
-                                {upsells.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                              </button>
-                              <button onClick={() => { toggleSetting('bestseller', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between mt-1 transition-colors">
-                                <span className={bestsellers.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Best Seller</span>
-                                {bestsellers.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                              </button>
-                              <button onClick={() => { toggleSetting('recommendation', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between mt-1 transition-colors">
-                                <span className={recommendations.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Rekomendasi</span>
-                                {recommendations.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                              </button>
-                            </div>
+                          {openDropdownId === item.id && dropdownPos && typeof document !== 'undefined' && createPortal(
+                            <>
+                              <div className="fixed inset-0 z-[90]" onClick={() => { setOpenDropdownId(null); setDropdownPos(null); }} />
+                              <div 
+                                className="fixed z-[100] w-52 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-100 p-2 text-left origin-top-right animate-in fade-in zoom-in-95 duration-100"
+                                style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                              >
+                                <button onClick={() => { toggleSetting('upsell', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between transition-colors">
+                                  <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Ekstra</span>
+                                  {upsells.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                                </button>
+                                <button onClick={() => { toggleSetting('bestseller', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between mt-1 transition-colors">
+                                  <span className={bestsellers.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Best Seller</span>
+                                  {bestsellers.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                                </button>
+                                <button onClick={() => { toggleSetting('recommendation', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between mt-1 transition-colors">
+                                  <span className={recommendations.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Rekomendasi</span>
+                                  {recommendations.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                                </button>
+                              </div>
+                            </>,
+                            document.body
                           )}
                         </div>
                       </div>

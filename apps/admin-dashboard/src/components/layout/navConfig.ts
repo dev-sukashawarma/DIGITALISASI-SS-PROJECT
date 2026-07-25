@@ -2,9 +2,8 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, type LucideIcon, MessageSquare, ArrowRightLeft, AlertTriangle, UserCheck
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, AlertTriangle, UserCheck
 } from 'lucide-react'
-
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASE'
 
@@ -33,6 +32,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+
     title: 'Portal Mitra',
     icon: HeartHandshake,
     roles: ['MITRA'],
@@ -64,6 +64,8 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['OWNER', 'ADMIN'],
     items: [
       { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/petty-cash', label: 'Petty Cash (Khusus)', shortLabel: 'Petty Cash', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/profit', label: 'Untung Rugi', shortLabel: 'Untung Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/targets', label: 'Target & Pesan', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
@@ -134,13 +136,22 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Settings,
     roles: ['OWNER', 'ADMIN'],
     items: [
-      { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/monitoring', label: 'Monitoring Aktivitas', shortLabel: 'Monitoring', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/panduan', label: 'Panduan Sistem', shortLabel: 'Panduan', icon: BookOpen, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
       { href: '/dashboard/system-health', label: 'Kesehatan Sistem', shortLabel: 'Sistem', icon: Activity, roles: ['ADMIN'] },
       { href: '/dashboard/printer', label: 'Pengaturan Printer', shortLabel: 'Printer', icon: Printer, roles: ['ADMIN'] },
       { href: '/dashboard/owner/kelola-mitra', label: 'Kelola Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['OWNER', 'ADMIN'] },
+    ],
+  },
+  {
+    title: 'Migrasi Data',
+    icon: UploadCloud,
+    roles: ['OWNER', 'ADMIN'],
+    items: [
+      { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: UploadCloud, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/pawoon-import/synced', label: 'Data Tersinkron', shortLabel: 'Tersinkron', icon: Activity, roles: ['ADMIN', 'OWNER'] },
+      { href: '/dashboard/pawoon-import/mapping', label: 'Mapping Menu Pawoon', shortLabel: 'Mapping', icon: ArrowRightLeft, roles: ['ADMIN', 'OWNER'] },
     ],
   },
 ]
@@ -161,7 +172,6 @@ export function accessibleGroups(role: Role): NavGroup[] {
 
 /** Active-route resolution shared by sidebar & bottom nav. */
 export function isItemActive(href: string, pathname: string): boolean {
-  // Dashboard landing routes must match exactly (they have sub-routes).
   if (
     href === '/dashboard/hr' ||
     href === '/dashboard/owner' ||

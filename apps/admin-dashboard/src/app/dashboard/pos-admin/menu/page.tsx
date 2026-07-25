@@ -1,3 +1,7 @@
+/**
+ * Dashboard POS Admin - Menu Page
+ * Author: rendydev404 <rendyakun50@gmail.com>
+ */
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import MenuView from './MenuView'

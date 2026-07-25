@@ -40,35 +40,8 @@ export async function POST(req: Request) {
       outletName = outletData.name;
     }
 
-    // Cek via staff_outlets (Leader yang membawahi banyak outlet)
-    const { data: staffMapping } = await supabase
-      .from('staff_outlets')
-      .select('outlet_staff!inner(phone, status, role)')
-      .eq('outlet_id', order.outlet_id)
-      .eq('outlet_staff.role', 'leader')
-      .eq('outlet_staff.status', 'active')
-      .not('outlet_staff.phone', 'is', null)
-      .neq('outlet_staff.phone', '')
-      .limit(1)
-
-    if (staffMapping && staffMapping.length > 0) {
-      leaderPhone = (staffMapping[0].outlet_staff as any).phone;
-    } else {
-      // Fallback: cek via outlet_staff langsung
-      const { data: directLeaders } = await supabase
-        .from('outlet_staff')
-        .select('phone')
-        .eq('outlet_id', order.outlet_id)
-        .eq('role', 'leader')
-        .eq('status', 'active')
-        .not('phone', 'is', null)
-        .neq('phone', '')
-        .limit(1)
-        
-      if (directLeaders && directLeaders.length > 0) {
-        leaderPhone = directLeaders[0].phone;
-      }
-    }
+    // Semua verifikasi pembatalan (void) diarahkan ke nomor terpusat
+    leaderPhone = '085885497377';
 
     if (!leaderPhone) {
       return NextResponse.json({ error: 'Leader not found or no WhatsApp number set for this outlet' }, { status: 404 })

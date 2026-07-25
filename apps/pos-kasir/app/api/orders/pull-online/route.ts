@@ -26,11 +26,11 @@ export async function POST(request: Request) {
   const ssOrderDb = createClient(SS_ORDER_URL, SS_ORDER_KEY)
   const posDb = createServiceClient()
 
-  // 1. Cek idempotency di pos-kasir
+  // 1. Cek idempotency ketat di pos-kasir (cegah duplikasi order id / external_order_id)
   const { data: existing } = await posDb
     .from('orders')
     .select('id, order_number')
-    .eq('external_order_id', external_order_id)
+    .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
     .maybeSingle()
 
   if (existing) {
@@ -91,6 +91,7 @@ export async function POST(request: Request) {
       total_amount: order.total,
       status: 'preparing',
       source: 'online',
+      sales_source: 'online',
       external_order_id: order.id,
       pickup_time: pickupTime ? pickupTime.toISOString() : null,
       release_time: releaseTime ? releaseTime.toISOString() : null,

@@ -1,0 +1,52 @@
+import { cookies } from 'next/headers'
+import { createSupabaseServerClient } from '@suka/auth'
+import { presetRange } from '@/lib/period'
+import { getAttendanceReportData } from '@/app/actions/ownerDashboard'
+import RekapAbsensiPageClient from './RekapAbsensiPageClient'
+import type { SalesSource, PeriodFilterValue } from '@/lib/types'
+
+export const dynamic = 'force-dynamic'
+
+export default async function RekapAbsensiOwnerPage({ searchParams }: { searchParams: Promise<any> }) {
+  const cookieStore = await cookies()
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: () => {}
+  })
+
+  const sp = await searchParams
+
+  const { data: user } = await supabase.auth.getUser()
+  const { data: profile } = await supabase.from('users').select('role, outlet_id').eq('id', user.user?.id).single()
+  const isReadOnly = profile?.role === 'MITRA'
+  const lockedOutletId = isReadOnly ? profile?.outlet_id : null
+
+  const defaultRange = presetRange('today')
+  const filter: PeriodFilterValue = {
+    from: sp.from || defaultRange.from,
+    to: sp.to || defaultRange.to,
+    outletId: lockedOutletId || sp.outletId || 'all',
+    source: (sp.source as SalesSource) || 'all'
+  }
+
+  const { data: outlets = [] } = await supabase
+    .from('outlets')
+    .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
+    .order('name')
+
+  const scopedOutlets = lockedOutletId 
+    ? (outlets ?? []).filter(o => o.id === lockedOutletId) 
+    : (outlets ?? [])
+
+  // Query REAL database records for Attendance & Stealth Photos
+  const attendanceRecords = await getAttendanceReportData(filter, scopedOutlets)
+
+  return (
+    <RekapAbsensiPageClient
+      filter={filter}
+      outlets={scopedOutlets}
+      lockedOutletId={lockedOutletId}
+      attendanceRecords={attendanceRecords}
+    />
+  )
+}

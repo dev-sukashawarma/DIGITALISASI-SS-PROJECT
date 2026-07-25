@@ -27,18 +27,32 @@ export async function getAreaManagerPettyCashTopups() {
       return { success: true, data: [] }
     }
 
-    // 2. Fetch topups for Bogor outlets only, limited to recent 100 entries for fast response
+    // 2. Fetch topups for Bogor outlets
     const { data: topups, error: topupErr } = await supabase
       .from('petty_cash_topups')
-      .select('id, outlet_id, amount, description, status, created_at, bank_name, bank_account_number, bank_account_name')
+      .select('id, outlet_id, amount, description, status, created_at, created_by, bank_name, bank_account_number, bank_account_name, proof_of_transfer_url')
       .in('outlet_id', bogorOutletIds)
       .order('created_at', { ascending: false })
       .limit(100)
 
     if (topupErr) throw topupErr
 
+    // 3. Fetch staff names for created_by
+    const createdByIds = Array.from(new Set((topups || []).map(t => t.created_by).filter(Boolean)))
+    let staffMap = new Map<string, { name: string; role: string }>()
+    if (createdByIds.length > 0) {
+      const { data: staffList } = await supabase
+        .from('outlet_staff')
+        .select('id, name, role')
+        .in('id', createdByIds)
+      if (staffList) {
+        staffMap = new Map(staffList.map(s => [s.id, { name: s.name, role: s.role }]))
+      }
+    }
+
     const formattedData = (topups || []).map(r => ({
       ...r,
+      created_by_staff: r.created_by ? staffMap.get(r.created_by) || null : null,
       outlets: outletMap.get(r.outlet_id) || null
     }))
 

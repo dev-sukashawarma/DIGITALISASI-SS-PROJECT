@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator, Lock, X, Camera } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -12,6 +12,7 @@ import { useDialogStore } from '@/lib/dialogStore'
 import { db } from '@/lib/db'
 import { useNetworkStatus } from '@/lib/useNetworkStatus'
 import { postToNative, isRunningInWebView, compressImageToWebP } from '@suka/design-system'
+import PettyCashSpotlightTour from '@/components/PettyCashSpotlightTour'
 
 interface Shift {
   id: string
@@ -92,6 +93,7 @@ export default function ShiftPage() {
   const { outletId, outletRegion } = useMyOutlet()
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const isOnline = useNetworkStatus()
   
   const [loading, setLoading] = useState(true)
@@ -102,6 +104,10 @@ export default function ShiftPage() {
   const [cashOrders, setCashOrders] = useState<CashOrder[]>([])
   const [pettyCashBalance, setPettyCashBalance] = useState<number>(0)
   
+  // Spotlight Tour state
+  const [showSpotlightTour, setShowSpotlightTour] = useState(false)
+  const [tourTopupInfo, setTourTopupInfo] = useState<{ amount?: number; description?: string }>({})
+
   // Forms
   const [startingPettyCash, setStartingPettyCash] = useState<string>('')
   const [pettyCashLocked, setPettyCashLocked] = useState(false)
@@ -121,6 +127,26 @@ export default function ShiftPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const tourParam = searchParams.get('tour')
+    if (tourParam === 'terima-dana') {
+      const timer = setTimeout(() => {
+        setShowSpotlightTour(true)
+      }, 600)
+      return () => clearTimeout(timer)
+    }
+
+    const handleCustomTourEvent = (e: any) => {
+      if (e.detail) {
+        setTourTopupInfo({ amount: e.detail.amount, description: e.detail.description })
+      }
+      setShowSpotlightTour(true)
+    }
+
+    window.addEventListener('start-petty-cash-tour', handleCustomTourEvent)
+    return () => window.removeEventListener('start-petty-cash-tour', handleCustomTourEvent)
+  }, [searchParams])
 
   const shiftSalesTotal = useMemo(
     () => cashOrders.reduce((s, o) => s + Number(o.total_amount), 0),
@@ -218,14 +244,10 @@ export default function ShiftPage() {
           return items
         }
 
-        const startOfToday = new Date()
-        startOfToday.setHours(0, 0, 0, 0)
-        const fetchStartTime = new Date(shiftData.start_time) > startOfToday ? shiftData.start_time : startOfToday.toISOString()
-
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
           supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('updated_at', fetchStartTime)
+          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('updated_at', shiftData.start_time)
         ])
 
         const [processedExpenses, processedTopups] = await Promise.all([
@@ -239,10 +261,10 @@ export default function ShiftPage() {
         setTopups(snapTopups)
         setCashOrders(snapCashOrders)
 
-        // Saldo Petty Cash Shift Ini: Modal Awal + TopUp Diterima - Pengeluaran Shift Ini
+        // Saldo Petty Cash Shift Ini: Modal Awal + TopUp Diterima (Sudah Tekan Terima Dana) - Pengeluaran Shift Ini
         const startPetty = Number(shiftData.starting_petty_cash) || 0
         const topupsTotal = snapTopups
-          .filter(t => ['completed', 'approved', 'approved_by_finance', 'forwarded_by_leader'].includes(t.status))
+          .filter(t => t.status === 'completed' || t.status === 'approved')
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
         const expensesTotal = snapExpenses
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
@@ -548,13 +570,6 @@ export default function ShiftPage() {
         </div>
         {activeShift && (
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            <button
-              onClick={() => setShowTopupModal(true)}
-              className="flex items-center justify-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2.5 sm:py-2 rounded-lg font-bold text-sm transition-colors border border-blue-200 w-full sm:w-auto"
-            >
-              <ArrowDownToLine className="w-4 h-4" />
-              Ajukan Top Up Petty Cash
-            </button>
             <Link
               href="/kasir/shift/close"
               className="flex items-center justify-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 sm:py-2 rounded-lg font-bold text-sm transition-colors border border-red-200 w-full sm:w-auto"
@@ -800,9 +815,10 @@ export default function ShiftPage() {
                               )}
                               {top.status === 'forwarded_by_leader' && (
                                 <button
+                                  data-tour="terima-dana-btn"
                                   onClick={() => handleReceiveFunds(top.id)}
                                   disabled={isSubmitting}
-                                  className="text-[10px] font-bold text-white bg-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                  className="text-[10px] font-bold text-white bg-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 relative z-[10001]"
                                 >
                                   Terima Dana
                                 </button>
@@ -842,44 +858,7 @@ export default function ShiftPage() {
         </div>
       )}
 
-      {/* Topup Modal */}
-      {showTopupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <ArrowDownToLine className="w-5 h-5 text-blue-500" />
-                Pengajuan Top Up Petty Cash
-              </h3>
-              <button onClick={() => setShowTopupModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button>
-            </div>
-            <form onSubmit={handleAddTopup} className="p-6 space-y-4">
-              <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm mb-4">
-                Pengajuan top up akan berstatus <b>Pending</b> dan menunggu persetujuan Leader/SPV di Dasbor Admin sebelum masuk ke saldo.
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Nominal Tambahan (Rp)</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-400 font-semibold text-sm">Rp</span>
-                  </div>
-                  <input inputMode="numeric" required placeholder="50.000" value={topupAmount ? Number(topupAmount).toLocaleString('id-ID') : ''} onChange={e => setTopupAmount(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting} className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-bold" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Keterangan / Alasan Pengajuan</label>
-                <input type="text" required placeholder="Contoh: Butuh tambahan uang receh untuk kembalian" value={topupDesc} onChange={e => setTopupDesc(e.target.value)} disabled={isSubmitting} className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowTopupModal(false)} disabled={isSubmitting} className="flex-1 py-2.5 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">Batal</button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
 
       {/* Receipt Image Modal */}
       {selectedReceiptUrl && (
@@ -910,6 +889,16 @@ export default function ShiftPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Spotlight Tour for Terima Dana button */}
+      {showSpotlightTour && (
+        <PettyCashSpotlightTour
+          targetSelector='[data-tour="terima-dana-btn"]'
+          amount={tourTopupInfo.amount}
+          description={tourTopupInfo.description}
+          onClose={() => setShowSpotlightTour(false)}
+        />
       )}
     </div>
   )

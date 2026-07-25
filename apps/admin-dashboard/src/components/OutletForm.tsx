@@ -10,7 +10,8 @@ const inputCls =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange'
 
 const EMPTY: OutletFormValues = {
-  name: '', slug: '', address: '', lat: NaN, lng: NaN, type: 'outlet', is_active: true, marquee_warning_threshold: 7
+  name: '', slug: '', address: '', lat: NaN, lng: NaN, type: 'outlet', is_active: true, marquee_warning_threshold: 7,
+  open_hour: '13:00', close_hour: '22:00'
 }
 
 export function OutletForm({
@@ -103,6 +104,16 @@ export function OutletForm({
       <label className="text-sm">
         <span className="mb-1 block font-medium text-suka-ink">Batas Peringatan Porsi (Marquee)</span>
         <input type="number" min="0" className={inputCls} value={v.marquee_warning_threshold} onChange={(e) => set({ marquee_warning_threshold: parseInt(e.target.value) || 0 })} />
+      </label>
+
+      <label className="text-sm">
+        <span className="mb-1 block font-medium text-suka-ink">Jam Buka</span>
+        <input type="time" className={inputCls} value={v.open_hour || ''} onChange={(e) => set({ open_hour: e.target.value })} />
+      </label>
+
+      <label className="text-sm">
+        <span className="mb-1 block font-medium text-suka-ink">Jam Tutup</span>
+        <input type="time" className={inputCls} value={v.close_hour || ''} onChange={(e) => set({ close_hour: e.target.value })} />
       </label>
 
       <label className="flex items-center gap-2 text-sm">

@@ -532,7 +532,7 @@ export default function OrderManualPage() {
         receiptType: 'kitchen'
       }
 
-      await printReceipt(receipt)
+      printReceipt(receipt)
 
       setSuccess({
         orderNumber: data.order_number,
@@ -600,7 +600,7 @@ export default function OrderManualPage() {
         receiptType: 'kitchen'
       }
 
-      await printReceipt(receipt)
+      printReceipt(receipt)
 
       setSuccess({
         orderNumber,
@@ -719,7 +719,7 @@ export default function OrderManualPage() {
       }
 
       // Cetak struk otomatis (hanya dapur)
-      await printReceipt(receipt)
+      printReceipt(receipt)
 
       setWalkInSuccess({
         orderNumber: data.order_number,
@@ -782,7 +782,7 @@ export default function OrderManualPage() {
       }
 
       // Cetak struk otomatis (hanya dapur)
-      await printReceipt(receipt)
+      printReceipt(receipt)
 
       setWalkInSuccess({
         orderNumber: offlineOrderNumber,

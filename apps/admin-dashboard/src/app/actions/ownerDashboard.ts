@@ -184,9 +184,26 @@ export async function getPettyCashData(
     expenseQuery = expenseQuery.eq('outlet_id', filter.outletId)
   }
 
-  const [{ data: shiftRows }, { data: expenseRows }] = await Promise.all([
+  let topupQuery = supabase
+    .from('petty_cash_topups')
+    .select('*, outlets(name)')
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+
+  if (filter.from) {
+    topupQuery = topupQuery.gte('created_at', `${filter.from}T00:00:00.000Z`)
+  }
+  if (filter.to) {
+    topupQuery = topupQuery.lte('created_at', `${filter.to}T23:59:59.999Z`)
+  }
+  if (filter.outletId && filter.outletId !== 'all') {
+    topupQuery = topupQuery.eq('outlet_id', filter.outletId)
+  }
+
+  const [{ data: shiftRows }, { data: expenseRows }, { data: topupRows }] = await Promise.all([
     shiftQuery,
     expenseQuery,
+    topupQuery,
   ])
 
   // Map starting cash from shifts as Kas Masuk
@@ -247,8 +264,33 @@ export async function getPettyCashData(
     }
   })
 
+  // Map topups from petty_cash_topups as Kas Masuk
+  const topupEntries: PettyCashTransaction[] = (topupRows || []).map((r: any) => {
+    let resolvedStaffName = staffMap.get(r.created_by) || userMap.get(r.created_by)
+    if (!resolvedStaffName && r.outlet_id) {
+      const candidates = staffByOutlet.get(r.outlet_id)
+      if (candidates && candidates.length > 0) resolvedStaffName = candidates[0]
+    }
+    if (!resolvedStaffName) resolvedStaffName = 'Finance Staff'
+
+    let tDate = r.completed_at || r.created_at
+
+    return {
+      id: r.id,
+      outlet_id: r.outlet_id || outlets[0]?.id || '',
+      outlet_name: r.outlets?.name || 'Global Outlet',
+      transaction_date: tDate,
+      type: 'in',
+      category: 'Top Up Petty Cash',
+      description: r.description || 'Pengisian saldo petty cash',
+      amount: Number(r.amount) || 0,
+      staff_name: resolvedStaffName,
+      receipt_url: r.proof_of_transfer_url || null,
+    }
+  })
+
   // Combine and sort all transactions by transaction_date DESC
-  const allTransactions = [...shiftEntries, ...expenseEntries].sort((a, b) =>
+  const allTransactions = [...shiftEntries, ...expenseEntries, ...topupEntries].sort((a, b) =>
     b.transaction_date.localeCompare(a.transaction_date)
   )
 

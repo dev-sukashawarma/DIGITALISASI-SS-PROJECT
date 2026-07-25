@@ -240,30 +240,73 @@ export default async function SyncedPawoonDataPage({
                             Untuk melihat detail rekapan transaksi harian, silakan pilih spesifik outlet dari filter di atas.
                         </p>
                         
-                        {Object.keys(syncedSummary).length > 0 && (
-                            <div className="max-w-xl mx-auto bg-gray-50 rounded-xl p-6 text-left border border-gray-100 shadow-inner">
-                                <h4 className="font-semibold text-gray-800 mb-4 text-sm flex items-center gap-2 border-b border-gray-200 pb-2">
-                                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                    Daftar Outlet yang Telah Memiliki Data Pawoon:
-                                </h4>
-                                <ul className="space-y-3">
-                                    {Object.entries(syncedSummary).map(([outId, sum]) => {
-                                        const outletName = outlets?.find(o => o.id === outId)?.name || 'Unknown Outlet';
-                                        const minStr = new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
-                                        const maxStr = new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
-                                        return (
-                                            <li key={outId} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                                                <span className="font-bold text-gray-700">{outletName}</span>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-gray-500 font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100 text-xs">{minStr} – {maxStr}</span>
-                                                    <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">{sum.count} items</span>
-                                                </div>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </div>
-                        )}
+                        {(() => {
+                            const cabangSummary: Record<string, any> = {};
+                            const mitraSummary: Record<string, any> = {};
+                            
+                            Object.entries(syncedSummary).forEach(([outId, sum]) => {
+                                const outlet = outlets?.find(o => o.id === outId);
+                                if (outlet?.type === 'mitra') {
+                                    mitraSummary[outId] = sum;
+                                } else {
+                                    cabangSummary[outId] = sum;
+                                }
+                            });
+
+                            return (
+                                <div className="space-y-6">
+                                    {Object.keys(cabangSummary).length > 0 && (
+                                        <div className="max-w-xl mx-auto bg-gray-50 rounded-xl p-6 text-left border border-gray-100 shadow-inner">
+                                            <h4 className="font-semibold text-gray-800 mb-4 text-sm flex items-center gap-2 border-b border-gray-200 pb-2">
+                                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                                Daftar Outlet Cabang yang Telah Memiliki Data Pawoon:
+                                            </h4>
+                                            <ul className="space-y-3">
+                                                {Object.entries(cabangSummary).map(([outId, sum]) => {
+                                                    const outletName = outlets?.find(o => o.id === outId)?.name || 'Unknown Outlet';
+                                                    const minStr = new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
+                                                    const maxStr = new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
+                                                    return (
+                                                        <li key={outId} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                                                            <span className="font-bold text-gray-700">{outletName}</span>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-gray-500 font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100 text-xs">{minStr} – {maxStr}</span>
+                                                                <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">{sum.count} items</span>
+                                                            </div>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    {Object.keys(mitraSummary).length > 0 && (
+                                        <div className="max-w-xl mx-auto bg-amber-50 rounded-xl p-6 text-left border border-amber-100 shadow-inner">
+                                            <h4 className="font-semibold text-amber-900 mb-4 text-sm flex items-center gap-2 border-b border-amber-200 pb-2">
+                                                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                                                Daftar Outlet Mitra yang Telah Memiliki Data Pawoon:
+                                            </h4>
+                                            <ul className="space-y-3">
+                                                {Object.entries(mitraSummary).map(([outId, sum]) => {
+                                                    const outletName = outlets?.find(o => o.id === outId)?.name || 'Unknown Outlet';
+                                                    const minStr = new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
+                                                    const maxStr = new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
+                                                    return (
+                                                        <li key={outId} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
+                                                            <span className="font-bold text-amber-900">{outletName}</span>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-amber-700 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-100 text-xs">{minStr} – {maxStr}</span>
+                                                                <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs font-bold">{sum.count} items</span>
+                                                            </div>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 ) : error ? (
                     <div className="p-6 text-red-600 font-medium flex items-center gap-2">

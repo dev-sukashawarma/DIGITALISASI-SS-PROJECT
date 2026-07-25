@@ -191,49 +191,56 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     setLoading(true)
     const supabase = createClient()
 
-    let q = supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .order('created_at', { ascending: false })
-      
-    // Filter Outlet
-    if (selectedOutlet !== 'all') {
-      q = q.eq('outlet_id', selectedOutlet)
-    }
-
-    // Filter Date
+    // Filter Date (dihitung sekali jadi bound tanggal, dipakai ulang tiap halaman pagination)
+    let ordersGte: string | undefined
+    let ordersLt: string | undefined
+    let ordersLte: string | undefined
     if (range === 'today') {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', today.toISOString())
+      ordersGte = today.toISOString()
     } else if (range === 'yesterday') {
       const d = new Date()
       d.setDate(d.getDate() - 1)
       d.setHours(0, 0, 0, 0)
       const endD = new Date()
       endD.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString()).lt('created_at', endD.toISOString())
+      ordersGte = d.toISOString()
+      ordersLt = endD.toISOString()
     } else if (range === '7days') {
       const d = new Date()
       d.setDate(d.getDate() - 7)
       d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      ordersGte = d.toISOString()
     } else if (range === '30days') {
       const d = new Date()
       d.setDate(d.getDate() - 30)
       d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      ordersGte = d.toISOString()
     } else if (range === 'thisMonth') {
       const d = new Date()
       d.setDate(1)
       d.setHours(0, 0, 0, 0)
-      q = q.gte('created_at', d.toISOString())
+      ordersGte = d.toISOString()
     } else if (range === 'custom' && customStartDate && customEndDate) {
       const start = new Date(customStartDate)
       start.setHours(0, 0, 0, 0)
       const end = new Date(customEndDate)
       end.setHours(23, 59, 59, 999)
-      q = q.gte('created_at', start.toISOString()).lte('created_at', end.toISOString())
+      ordersGte = start.toISOString()
+      ordersLte = end.toISOString()
+    }
+
+    const buildOrdersQuery = () => {
+      let query = supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .order('created_at', { ascending: false })
+      if (selectedOutlet !== 'all') query = query.eq('outlet_id', selectedOutlet)
+      if (ordersGte) query = query.gte('created_at', ordersGte)
+      if (ordersLt) query = query.lt('created_at', ordersLt)
+      if (ordersLte) query = query.lte('created_at', ordersLte)
+      return query
     }
 
     // Fetch Shifts
@@ -269,8 +276,29 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       qShifts = qShifts.gte('end_time', start.toISOString()).lte('end_time', end.toISOString())
     }
 
-    const [{ data: ordersData }, { data: shiftsData }] = await Promise.all([q, qShifts])
-    setOrders(ordersData ?? [])
+    // Supabase/PostgREST membatasi max 1000 baris per query — untuk rentang
+    // seperti "Bulan Ini" (bisa >1000 order lintas 19 outlet) ini memotong
+    // hasil ke order TERBARU saja (order by created_at desc tanpa .range()),
+    // sehingga total revenue jadi jauh lebih kecil dari HPP (yang diagregasi
+    // penuh di server via RPC). Paginate sampai halaman terakhir.
+    const PAGE_SIZE = 1000
+    const fetchAllOrders = async () => {
+      const all: OrderRow[] = []
+      let offset = 0
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { data, error } = await buildOrdersQuery().range(offset, offset + PAGE_SIZE - 1)
+        if (error) throw error
+        const page = data ?? []
+        all.push(...(page as OrderRow[]))
+        if (page.length < PAGE_SIZE) break
+        offset += PAGE_SIZE
+      }
+      return all
+    }
+
+    const [ordersData, { data: shiftsData }] = await Promise.all([fetchAllOrders(), qShifts])
+    setOrders(ordersData)
     setShifts(shiftsData ?? [])
     setLoading(false)
   }, [range, selectedOutlet, customStartDate, customEndDate])

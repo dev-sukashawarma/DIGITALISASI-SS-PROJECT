@@ -235,6 +235,16 @@
             "system_id": "10c415f9-4fe7-42b7-8f5f-7c22c930bc11",
             "system_name": "SHAWARMIE DUO VARIAN",
             "pawoon_price": 0
+        },
+        "EXTRA KENTANG": {
+            "system_id": "120f9317-1628-4c8c-999c-a82945f017b2",
+            "system_name": "Extra Kentang",
+            "pawoon_price": 11000
+        },
+        "EXTRA KEJU": {
+            "system_id": "78bb6a49-1540-4a05-9d78-38311f471e01",
+            "system_name": "Extra Keju",
+            "pawoon_price": 9000
         }
     }
 }

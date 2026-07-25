@@ -24,11 +24,28 @@ export default async function SyncedPawoonDataPage({
     const toDate = params.to || '';
 
     // Fetch all synced orders metadata to build a summary of which outlets have data
-    const { data: allSyncedOrders } = await supabase
-        .from('orders')
-        .select('outlet_id, created_at')
-        .not('external_order_id', 'is', null)
-        .eq('source', 'pos');
+    // Supabase limits each query to 1000 rows, so we must paginate to get all records
+    const allSyncedOrders: any[] = [];
+    let fromIndex = 0;
+    const step = 1000;
+    
+    while (true) {
+        const { data } = await supabase
+            .from('orders')
+            .select('outlet_id, created_at')
+            .not('external_order_id', 'is', null)
+            .eq('source', 'pos')
+            .range(fromIndex, fromIndex + step - 1);
+            
+        if (data && data.length > 0) {
+            allSyncedOrders.push(...data);
+        }
+        
+        if (!data || data.length < step) {
+            break;
+        }
+        fromIndex += step;
+    }
 
     const syncedSummary: Record<string, { min: number; max: number; count: number }> = {};
     (allSyncedOrders || []).forEach(o => {
@@ -47,19 +64,39 @@ export default async function SyncedPawoonDataPage({
 
     // Only fetch table data if an outlet is explicitly selected
     if (selectedOutletId !== 'ALL') {
-        let query = supabase
-            .from('orders')
-            .select('id, external_order_id, total_amount, created_at, status, sales_source, payment_method, outlet_id')
-            .eq('source', 'pos')
-            .not('external_order_id', 'is', null)
-            .eq('outlet_id', selectedOutletId);
+        let fromIndexTable = 0;
+        const stepTable = 1000;
+        let hasMore = true;
 
-        if (fromDate) query = query.gte('created_at', `${fromDate}T00:00:00`);
-        if (toDate) query = query.lte('created_at', `${toDate}T23:59:59`);
+        while (hasMore) {
+            let query = supabase
+                .from('orders')
+                .select('id, external_order_id, total_amount, created_at, status, sales_source, payment_method, outlet_id')
+                .eq('source', 'pos')
+                .not('external_order_id', 'is', null)
+                .eq('outlet_id', selectedOutletId);
 
-        const res = await query.order('created_at', { ascending: false }).limit(5000);
-        orders = res.data || [];
-        error = res.error;
+            if (fromDate) query = query.gte('created_at', `${fromDate}T00:00:00`);
+            if (toDate) query = query.lte('created_at', `${toDate}T23:59:59`);
+
+            const res = await query
+                .order('created_at', { ascending: false })
+                .range(fromIndexTable, fromIndexTable + stepTable - 1);
+
+            if (res.error) {
+                error = res.error;
+                hasMore = false;
+            } else if (res.data && res.data.length > 0) {
+                orders.push(...res.data);
+                if (res.data.length < stepTable) {
+                    hasMore = false;
+                } else {
+                    fromIndexTable += stepTable;
+                }
+            } else {
+                hasMore = false;
+            }
+        }
     }
 
     // Group by date

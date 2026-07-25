@@ -92,7 +92,11 @@ export async function previewPawoonFile(formData: FormData) {
             if (!productName || productName.startsWith('+')) continue; 
 
             const rawOutlet = row[colIdx.outlet] ? row[colIdx.outlet].toString().trim() : '';
-            const normalOutlet = rawOutlet.toLowerCase().replace('suka shawarma ', '').trim();
+            let normalOutlet = rawOutlet.toLowerCase().replace('suka shawarma ', '').trim();
+            
+            // Fix typo dari Pawoon (CIRENDEUU -> CIRENDEU)
+            if (normalOutlet === 'cirendeuu') normalOutlet = 'cirendeu';
+            
             const outletId = outletIdMap[normalOutlet] || outletIdMap[rawOutlet.toLowerCase()];
             
             if (!outletId) {

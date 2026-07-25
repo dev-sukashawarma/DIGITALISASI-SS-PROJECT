@@ -13,10 +13,11 @@ export default async function SyncedPawoonDataPage({
     const supabase = createClient();
     const params = await searchParams;
 
-    // Fetch outlets for filter dropdown
+    // Fetch outlets for filter dropdown and summary
     const { data: outlets } = await supabase
         .from('outlets')
-        .select('id, name')
+        .select('id, name, type, is_active')
+        .eq('is_active', true)
         .order('name');
 
     const selectedOutletId = params.outlet || 'ALL';
@@ -241,37 +242,34 @@ export default async function SyncedPawoonDataPage({
                         </p>
                         
                         {(() => {
-                            const cabangSummary: Record<string, any> = {};
-                            const mitraSummary: Record<string, any> = {};
-                            
-                            Object.entries(syncedSummary).forEach(([outId, sum]) => {
-                                const outlet = outlets?.find(o => o.id === outId);
-                                if (outlet?.type === 'mitra') {
-                                    mitraSummary[outId] = sum;
-                                } else {
-                                    cabangSummary[outId] = sum;
-                                }
-                            });
+                            const cabangOutlets = (outlets || []).filter(o => o.type !== 'mitra');
+                            const mitraOutlets = (outlets || []).filter(o => o.type === 'mitra');
 
                             return (
                                 <div className="space-y-6">
-                                    {Object.keys(cabangSummary).length > 0 && (
+                                    {cabangOutlets.length > 0 && (
                                         <div className="max-w-xl mx-auto bg-gray-50 rounded-xl p-6 text-left border border-gray-100 shadow-inner">
                                             <h4 className="font-semibold text-gray-800 mb-4 text-sm flex items-center gap-2 border-b border-gray-200 pb-2">
                                                 <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                                Daftar Outlet Cabang yang Telah Memiliki Data Pawoon:
+                                                Status Sinkronisasi Outlet Cabang:
                                             </h4>
                                             <ul className="space-y-3">
-                                                {Object.entries(cabangSummary).map(([outId, sum]) => {
-                                                    const outletName = outlets?.find(o => o.id === outId)?.name || 'Unknown Outlet';
-                                                    const minStr = new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
-                                                    const maxStr = new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
+                                                {cabangOutlets.map((outlet) => {
+                                                    const sum = syncedSummary[outlet.id];
                                                     return (
-                                                        <li key={outId} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                                                            <span className="font-bold text-gray-700">{outletName}</span>
+                                                        <li key={outlet.id} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                                                            <span className={`font-bold ${sum ? 'text-gray-700' : 'text-gray-400'}`}>{outlet.name}</span>
                                                             <div className="flex items-center gap-3">
-                                                                <span className="text-gray-500 font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100 text-xs">{minStr} – {maxStr}</span>
-                                                                <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">{sum.count} items</span>
+                                                                {sum ? (
+                                                                    <>
+                                                                        <span className="text-gray-500 font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100 text-xs">
+                                                                            {new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' })} – {new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' })}
+                                                                        </span>
+                                                                        <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">{sum.count} items</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 text-xs font-semibold">Belum tersinkronisasi</span>
+                                                                )}
                                                             </div>
                                                         </li>
                                                     );
@@ -280,23 +278,29 @@ export default async function SyncedPawoonDataPage({
                                         </div>
                                     )}
 
-                                    {Object.keys(mitraSummary).length > 0 && (
+                                    {mitraOutlets.length > 0 && (
                                         <div className="max-w-xl mx-auto bg-amber-50 rounded-xl p-6 text-left border border-amber-100 shadow-inner">
                                             <h4 className="font-semibold text-amber-900 mb-4 text-sm flex items-center gap-2 border-b border-amber-200 pb-2">
                                                 <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                                                Daftar Outlet Mitra yang Telah Memiliki Data Pawoon:
+                                                Status Sinkronisasi Outlet Mitra:
                                             </h4>
                                             <ul className="space-y-3">
-                                                {Object.entries(mitraSummary).map(([outId, sum]) => {
-                                                    const outletName = outlets?.find(o => o.id === outId)?.name || 'Unknown Outlet';
-                                                    const minStr = new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
-                                                    const maxStr = new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
+                                                {mitraOutlets.map((outlet) => {
+                                                    const sum = syncedSummary[outlet.id];
                                                     return (
-                                                        <li key={outId} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
-                                                            <span className="font-bold text-amber-900">{outletName}</span>
+                                                        <li key={outlet.id} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
+                                                            <span className={`font-bold ${sum ? 'text-amber-900' : 'text-amber-600 opacity-60'}`}>{outlet.name}</span>
                                                             <div className="flex items-center gap-3">
-                                                                <span className="text-amber-700 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-100 text-xs">{minStr} – {maxStr}</span>
-                                                                <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs font-bold">{sum.count} items</span>
+                                                                {sum ? (
+                                                                    <>
+                                                                        <span className="text-amber-700 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-100 text-xs">
+                                                                            {new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' })} – {new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' })}
+                                                                        </span>
+                                                                        <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs font-bold">{sum.count} items</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 text-xs font-semibold">Belum tersinkronisasi</span>
+                                                                )}
                                                             </div>
                                                         </li>
                                                     );

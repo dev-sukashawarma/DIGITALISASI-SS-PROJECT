@@ -141,14 +141,15 @@ export async function previewPawoonFile(formData: FormData) {
                 orderStatus = 'cancelled';
             }
 
+            // explicit total = parsed number, or 0 if '-' or empty.
+            // This ensures if Pawoon rolls an add-on into a main item, we don't overcount.
+            const explicitTotal = (rawTotalStr !== '' && rawTotalStr !== '-') ? (parseFloat(rawTotalStr) || 0) : 0;
+
             if (!ordersMap.has(receipt)) {
                 let rawPayment = row[colIdx.payment] ? row[colIdx.payment].toString().toLowerCase() : 'cash';
                 let mappedPayment = 'cash';
                 if (rawPayment.includes('qris') || rawPayment.includes('gopay') || rawPayment.includes('ovo') || rawPayment.includes('shopee') || rawPayment.includes('dana') || rawPayment.includes('linkaja')) mappedPayment = 'qris';
                 else if (rawPayment.includes('bca') || rawPayment.includes('mandiri') || rawPayment.includes('card') || rawPayment.includes('debit') || rawPayment.includes('kredit')) mappedPayment = 'card';
-
-                // hasExplicit sudah dihitung di atas (sebelum ordersMap.has)
-                const hasExplicit = hasExplicitTotal;
 
                 ordersMap.set(receipt, {
                     id: uuidv4(),
@@ -159,19 +160,20 @@ export async function previewPawoonFile(formData: FormData) {
                     sales_source: channel === 'pos' ? 'pos' : channel === 'food_apps' ? 'grabfood' : channel,
                     status: orderStatus,
                     payment_method: mappedPayment,
-                    total_amount: Math.abs(orderTotal), 
+                    total_amount: Math.abs(explicitTotal), 
                     customer_name: 'Pawoon Import',
                     created_at: isoDate,
                     updated_at: isoDate,
-                    _hasExplicitTotal: hasExplicit,
-                    raw_total: orderTotal,
-                    gross_amount: 0,
+                    raw_total: explicitTotal,
+                    gross_amount: (price * qty),
                     _isRefund: statusLower === 'refund',
                     items: []
                 });
             } else {
                 const existingOrder = ordersMap.get(receipt);
+                existingOrder.raw_total += explicitTotal;
                 existingOrder.gross_amount += (price * qty);
+                existingOrder.total_amount = Math.abs(existingOrder.raw_total);
             }
             
             const order = ordersMap.get(receipt);
@@ -259,7 +261,7 @@ export async function previewPawoonFile(formData: FormData) {
                 if (isCancelled || isRefund) {
                     // PAWOON BEHAVIOR: hanya kurangi void yang punya explicit total di kolom Excel.
                     // Void dengan kolom Total kosong = TIDAK dikurangi dari Grand Total (sama persis Pawoon)
-                    finalTotal = order._hasExplicitTotal ? order.raw_total : 0;
+                    finalTotal = order.raw_total;
                     if (finalTotal > 0) finalTotal = -finalTotal; // pastikan negatif
                 } else {
                     finalTotal = order.raw_total;
@@ -270,7 +272,7 @@ export async function previewPawoonFile(formData: FormData) {
                 // Voids
                 if (isCancelled && !isRefund) {
                     totalVoids++;
-                    let voidAmt = (order._hasExplicitTotal && order.raw_total !== 0) ? Math.abs(order.raw_total) : order.gross_amount;
+                    let voidAmt = (order.raw_total !== 0) ? Math.abs(order.raw_total) : order.gross_amount;
                     totalOmsetVoid += voidAmt;
                 }
 
@@ -294,7 +296,7 @@ export async function previewPawoonFile(formData: FormData) {
             summaryByDate[dateKey].transactionsCount++;
             let dateFinalTotal: number;
             if (isCancelled || isRefund) {
-                dateFinalTotal = order._hasExplicitTotal ? order.raw_total : 0;
+                dateFinalTotal = order.raw_total;
                 if (dateFinalTotal > 0) dateFinalTotal = -dateFinalTotal;
             } else {
                 dateFinalTotal = order.raw_total;

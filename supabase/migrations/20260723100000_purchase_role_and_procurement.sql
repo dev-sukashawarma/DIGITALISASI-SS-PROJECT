@@ -68,7 +68,10 @@ CREATE TABLE IF NOT EXISTS public.purchase_request (
 CREATE INDEX IF NOT EXISTS idx_pr_status ON public.purchase_request(status, created_at DESC);
 ALTER TABLE public.purchase_request ENABLE ROW LEVEL SECURITY;
 
--- SELECT: pengaju (kitchen/spv), purchase, admin, owner
+-- SELECT: DISENGAJA broad — semua kitchen/spv/purchase/admin/owner melihat
+-- SELURUH PR (pengadaan terpusat: kitchen = Gudang Pusat lihat semua permintaan,
+-- purchase memproses semua). Bukan scoped-ke-pengaju. Ini aman karena PR bukan
+-- data sensitif & aksi approval dijaga di UPDATE (purchase/admin/owner), bukan SELECT.
 DROP POLICY IF EXISTS pr_select ON public.purchase_request;
 CREATE POLICY pr_select ON public.purchase_request
   FOR SELECT TO authenticated

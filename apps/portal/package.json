@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.5.1",
     "@suka/auth": "*",
     "@suka/design-system": "*",
     "lucide-react": "^0.300.0",

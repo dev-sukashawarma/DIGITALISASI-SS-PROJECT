@@ -5,9 +5,6 @@ import Image from 'next/image'
 import { createSupabaseBrowserClient, getOutletStaff, normalizeLoginIdentifier } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
 import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin, QrCode, Eye, EyeOff } from 'lucide-react'
-import dynamic from 'next/dynamic'
-
-const ChangelogModal = dynamic(() => import('@/components/ChangelogModal'), { ssr: false })
 
 export default function LoginPage() {
   const router = useRouter()
@@ -242,9 +239,6 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-
-      {/* Changelog Update Modal */}
-      <ChangelogModal />
     </main>
   )
 }

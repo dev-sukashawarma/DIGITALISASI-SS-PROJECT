@@ -55,7 +55,7 @@ export async function enforceAppAccess(
 
   const getRedirect = (url: string | URL) => {
     const redirectResponse = NextResponse.redirect(new URL(url, request.url))
-    response.cookies.getAll().forEach((cookie) => {
+    response.cookies.getAll().forEach((cookie: any) => {
       redirectResponse.cookies.set({ ...cookie })
     })
     return redirectResponse
@@ -90,7 +90,7 @@ export async function enforceAppAccess(
       : NextResponse.next({ request: { headers: requestHeaders } })
 
   // Salin cookie yang sempat di-refresh ke response final.
-  response.cookies.getAll().forEach((cookie) => {
+  response.cookies.getAll().forEach((cookie: any) => {
     pass.cookies.set({ ...cookie })
   })
   return pass

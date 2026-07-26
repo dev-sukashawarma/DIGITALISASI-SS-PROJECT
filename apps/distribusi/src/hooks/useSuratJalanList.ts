@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 
 interface SuratJalan {
   id: string
@@ -18,12 +18,41 @@ interface SuratJalanWithOutlet extends SuratJalan {
 
 type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif'
 
-async function fetchSuratJalan(dateFilter: DateFilter): Promise<SuratJalanWithOutlet[]> {
+async function fetchSuratJalan(dateFilter: DateFilter, outletStaff: any): Promise<SuratJalanWithOutlet[]> {
   const supabase = createSupabaseBrowserClient()
   let query = supabase
     .from('surat_jalan')
     .select('id, outlet_id, status, created_at, document_number, outlets(name), surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
     .order('created_at', { ascending: false })
+
+  const isGlobalPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+
+  if (!isGlobalPusat && outletStaff) {
+    if (outletStaff.role === 'leader') {
+      const { data: soData } = await supabase
+        .from('staff_outlets')
+        .select('outlet_id')
+        .eq('staff_id', outletStaff.id)
+
+      const ids = new Set<string>()
+      if (outletStaff.outlet_id) ids.add(outletStaff.outlet_id)
+      if (soData) {
+        soData.forEach((row: any) => {
+          if (row.outlet_id) ids.add(row.outlet_id)
+        })
+      }
+      const accessibleIds = Array.from(ids)
+      if (accessibleIds.length > 0) {
+        query = query.in('outlet_id', accessibleIds)
+      } else {
+        return []
+      }
+    } else if (outletStaff.outlet_id) {
+      query = query.eq('outlet_id', outletStaff.outlet_id)
+    } else {
+      return []
+    }
+  }
 
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
@@ -50,15 +79,18 @@ async function fetchSuratJalan(dateFilter: DateFilter): Promise<SuratJalanWithOu
 }
 
 export function useSuratJalanList(dateFilter: DateFilter = 'all') {
+  const { outletStaff } = useAuth()
+
   const { data = [], isLoading: loading, error } = useQuery({
-    queryKey: ['surat_jalan', dateFilter],
-    queryFn: () => fetchSuratJalan(dateFilter),
+    queryKey: ['surat_jalan', dateFilter, outletStaff?.id, outletStaff?.role, outletStaff?.outlet_id],
+    queryFn: () => fetchSuratJalan(dateFilter, outletStaff),
+    enabled: !!outletStaff,
   })
 
-  const draftCount = data.filter((sj) => sj.status === 'draft').length
-  const sentCount = data.filter((sj) => sj.status === 'dikirim').length
-  const diterimaCount = data.filter((sj) => sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian').length
-  const selesaiCount = data.filter((sj) => sj.status === 'selesai').length
+  const draftCount = data.filter((sj: SuratJalanWithOutlet) => sj.status === 'draft').length
+  const sentCount = data.filter((sj: SuratJalanWithOutlet) => sj.status === 'dikirim').length
+  const diterimaCount = data.filter((sj: SuratJalanWithOutlet) => sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian').length
+  const selesaiCount = data.filter((sj: SuratJalanWithOutlet) => sj.status === 'selesai').length
 
   return { data, loading, error: error ? (error as Error).message : null, draftCount, sentCount, diterimaCount, selesaiCount }
 }

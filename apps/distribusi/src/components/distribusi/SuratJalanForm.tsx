@@ -58,6 +58,27 @@ export function SuratJalanForm() {
   const [selectedBahan, setSelectedBahan] = useState('')
   const [qty, setQty] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+
+  if (!isPusatSender) {
+    return (
+      <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-4">
+        <div className="bg-white border border-[#d9c2b2]/45 p-6 rounded-2xl text-center max-w-md shadow-md">
+          <span className="text-3xl block mb-2">🚫</span>
+          <h3 className="font-extrabold text-sm text-[#701604] uppercase">Akses Ditolak</h3>
+          <p className="text-xs text-[#544437] mt-1 font-semibold">
+            Hanya Gudang Pusat (Kitchen/Admin) yang dapat membuat Surat Jalan baru. Akses Anda terbatas untuk melihat dan menerima barang.
+          </p>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="mt-4 px-4 py-2 bg-[#f29744] hover:bg-orange-600 active:scale-95 text-white text-xs font-bold rounded-xl transition-all uppercase tracking-wider"
+          >
+            Kembali ke Dashboard
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const addItem = () => {
     if (!selectedBahan || !qty) return

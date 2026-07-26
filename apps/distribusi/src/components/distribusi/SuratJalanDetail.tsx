@@ -97,6 +97,9 @@ export function SuratJalanDetail({ id }: { id: string }) {
   }
 
   useEffect(() => {
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+    const hideQR = !isPusat
+
     const loadPdfHtml = async () => {
       if (data) {
         const items = await buildItemsWithFoto(data.surat_jalan_item)
@@ -112,7 +115,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
           items,
           signatures: data.signatures || [],
           receipt_signatures: data.receipt_signatures || [],
-        }, { hideQR: true })
+        }, { hideQR })
         setPdfHtml(htmlContent)
       }
     }
@@ -151,6 +154,8 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   const handleDownloadPDF = async () => {
     if (!data) return
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+    const hideQR = !isPusat
 
     const items = await buildItemsWithFoto(data.surat_jalan_item)
     const htmlContent = await generatePDFContent({
@@ -165,7 +170,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
       items,
       signatures: data.signatures || [],
       receipt_signatures: data.receipt_signatures || [],
-    })
+    }, { hideQR })
 
     downloadPDF(`Surat-Jalan-${data.id.substring(0, 8)}.html`, htmlContent)
   }
@@ -189,7 +194,8 @@ export function SuratJalanDetail({ id }: { id: string }) {
     )
   }
 
-  if (outletStaff?.role !== 'leader' && outletStaff?.role !== 'kitchen') {
+  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+  if (!isPusatSender) {
     return (
       <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-24">
         {/* Header Banner */}

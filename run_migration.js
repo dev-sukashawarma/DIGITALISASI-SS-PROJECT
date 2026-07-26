@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
 
-const sqlPath = path.join(__dirname, 'supabase', 'migrations', '20260722110000_update_petty_cash_flow_and_bank.sql');
+const sqlPath = path.join(__dirname, 'supabase', 'migrations', '20260726080500_fix_surat_jalan_rls_accessible_outlets.sql');
 const sql = fs.readFileSync(sqlPath, 'utf8');
 
 async function main() {

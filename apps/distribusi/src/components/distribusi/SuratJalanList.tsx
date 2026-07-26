@@ -97,7 +97,8 @@ export function SuratJalanList() {
     const outletData = data.find((d) => d.id === sjId)
 
     // Load the PDF module (incl. ~320KB embedded logo) only when a PDF is actually generated.
-    const { generatePDFContent, downloadPDF } = await import('@/utils/generatePDF')
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+    const hideQR = !isPusat
 
     const htmlContent = await generatePDFContent({
       id: sj.id,
@@ -111,7 +112,7 @@ export function SuratJalanList() {
       items: itemsWithBahan,
       signatures: sj.signatures || [],
       receipt_signatures: sj.receipt_signatures || [],
-    })
+    }, { hideQR })
 
     downloadPDF(`Surat-Jalan-${sj.id.substring(0, 8)}.html`, htmlContent)
   }
@@ -137,13 +138,15 @@ export function SuratJalanList() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <PrinterStatus />
-          <Link
-            href="/distribusi/surat-jalan/new"
-            className="px-3 py-2 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-suka-orange/20 uppercase tracking-widest active:scale-95 flex items-center gap-1 cursor-pointer"
-          >
-            <Plus size={14} /> <span className="hidden sm:inline">Buat SJ</span>
-          </Link>
+          {outletStaff?.role === 'kitchen' && <PrinterStatus />}
+          {['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '') && (
+            <Link
+              href="/distribusi/surat-jalan/new"
+              className="px-3 py-2 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-suka-orange/20 uppercase tracking-widest active:scale-95 flex items-center gap-1 cursor-pointer"
+            >
+              <Plus size={14} /> <span className="hidden sm:inline">Buat SJ</span>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -290,25 +293,29 @@ export function SuratJalanList() {
                         >
                           <FileDown size={12} /> PDF
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadBarcode(sj.id, sj.document_number || sj.id.substring(0, 8));
-                          }}
-                          className="flex-1 py-2.5 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
-                        >
-                          <QrCode size={12} /> QR
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const tanggalStr = new Date(sj.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                            handlePrintBarcode(sj.id, sj.document_number || sj.id.substring(0, 8), tanggalStr, sj.outlet?.name || 'Unknown', sj.verification_code);
-                          }}
-                          className="flex-1 py-2.5 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
-                        >
-                          <Printer size={12} /> Print
-                        </button>
+                        {outletStaff?.role === 'kitchen' && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadBarcode(sj.id, sj.document_number || sj.id.substring(0, 8));
+                              }}
+                              className="flex-1 py-2.5 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
+                            >
+                              <QrCode size={12} /> QR
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const tanggalStr = new Date(sj.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                                handlePrintBarcode(sj.id, sj.document_number || sj.id.substring(0, 8), tanggalStr, sj.outlet?.name || 'Unknown', sj.verification_code);
+                              }}
+                              className="flex-1 py-2.5 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
+                            >
+                              <Printer size={12} /> Print
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

@@ -3,17 +3,56 @@ import { useCallback, useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import type { SuratJalan, SuratJalanItem } from '@/types/distribusi'
 
-// List all Surat Jalan (SPV sees all; crew sees own outlet)
+import { useAuth } from '@suka/auth'
+
+// List Surat Jalan scoped by staff accessibility (Pusat sees all; Leader sees assigned outlets; Crew sees own outlet)
 export function useSuratJalanList(outlet_id?: string, status?: string) {
+  const { outletStaff } = useAuth()
   const [data, setData] = useState<SuratJalan[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!outletStaff) return
     const supabase = createSupabaseBrowserClient()
     const fetchData = async () => {
       try {
         let query = supabase.from('surat_jalan').select('*, outlets(name)')
-        if (outlet_id) query = query.eq('outlet_id', outlet_id)
+
+        const isGlobalPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff.role)
+
+        if (outlet_id) {
+          query = query.eq('outlet_id', outlet_id)
+        } else if (!isGlobalPusat) {
+          if (outletStaff.role === 'leader') {
+            const { data: soData } = await supabase
+              .from('staff_outlets')
+              .select('outlet_id')
+              .eq('staff_id', outletStaff.id)
+
+            const ids = new Set<string>()
+            if (outletStaff.outlet_id) ids.add(outletStaff.outlet_id)
+            if (soData) {
+              soData.forEach((row: any) => {
+                if (row.outlet_id) ids.add(row.outlet_id)
+              })
+            }
+            const accessibleIds = Array.from(ids)
+            if (accessibleIds.length > 0) {
+              query = query.in('outlet_id', accessibleIds)
+            } else {
+              setData([])
+              setLoading(false)
+              return
+            }
+          } else if (outletStaff.outlet_id) {
+            query = query.eq('outlet_id', outletStaff.outlet_id)
+          } else {
+            setData([])
+            setLoading(false)
+            return
+          }
+        }
+
         if (status) query = query.eq('status', status)
 
         const { data, error } = await query.order('created_at', { ascending: false })
@@ -31,7 +70,7 @@ export function useSuratJalanList(outlet_id?: string, status?: string) {
       }
     }
     fetchData()
-  }, [outlet_id, status])
+  }, [outletStaff, outlet_id, status])
 
   return { suratJalanList: data, loading }
 }

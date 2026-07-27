@@ -111,3 +111,42 @@ export async function processPettyCashFinanceCustomAmount({
     return { success: false, error: err?.message || 'Gagal memproses pencairan' }
   }
 }
+
+export async function forwardPettyCashFinance({ id, userId }: { id: string, userId: string }) {
+  try {
+    const supabase = await getSupabaseClient()
+    const { data: topup, error: fetchError } = await supabase
+      .from('petty_cash_topups')
+      .select('status')
+      .eq('id', id)
+      .single()
+
+    if (fetchError || !topup) {
+      throw new Error(`Top up request not found (${fetchError?.message || ''})`)
+    }
+
+    if (topup.status !== 'approved_by_finance') {
+      throw new Error(`Status tidak valid untuk diserahkan ke AM (status: ${topup.status})`)
+    }
+
+    const { error: rpcError } = await supabase.rpc('finance_forward_funds', {
+      p_topup_id: id
+    })
+
+    if (rpcError) {
+      throw new Error(rpcError.message || 'Gagal meneruskan dana via RPC')
+    }
+    
+    // Also record the user who forwarded it
+    if (userId && userId !== '00000000-0000-0000-0000-000000000000') {
+      await supabase.from('petty_cash_topups').update({ finance_forwarded_by: userId, finance_forwarded_at: new Date().toISOString() }).eq('id', id)
+    }
+
+    revalidatePath('/petty-cash')
+    return { success: true }
+  } catch (err: any) {
+    console.error('Error in forwardPettyCashFinance:', err)
+    return { success: false, error: err?.message || 'Gagal meneruskan dana' }
+  }
+}
+

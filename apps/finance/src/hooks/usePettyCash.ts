@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
-import { processPettyCashFinanceCustomAmount } from '@/app/actions/pettyCash'
+import { processPettyCashFinanceCustomAmount, forwardPettyCashFinance } from '@/app/actions/pettyCash'
 
 export function usePettyCashRequests(status?: string, initialData?: PettyCashTopup[], regionFilter?: string) {
   const supabase = useMemo(() => createClient(), [])
@@ -162,10 +162,12 @@ export function useForwardPettyCashFinance() {
 
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const { error } = await supabase.rpc('finance_forward_funds', {
-        p_topup_id: id
-      })
-      if (error) throw error
+      const { data: { user } } = await supabase.auth.getUser()
+      const userId = user?.id || '00000000-0000-0000-0000-000000000000'
+      const result = await forwardPettyCashFinance({ id, userId })
+      if (!result.success) {
+        throw new Error(result.error || 'Gagal meneruskan dana')
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })

@@ -53,7 +53,11 @@ export function AttendanceKioskPanel() {
 
   type AssignedOutlet = { id: string; name: string; lat: number | null; lng: number | null; distanceM?: number | null };
 
+  // Leader / Multi-outlet Support
+  const [assignedOutlets, setAssignedOutlets] = useState<AssignedOutlet[]>([]);
+  const [selectedOutletId, setSelectedOutletId] = useState<string>("");
   const [hasUserConfirmedOutlet, setHasUserConfirmedOutlet] = useState<boolean>(false);
+  const manualSelectionRef = useRef(false);
 
   const activeOutletId = selectedOutletId || outletStaff?.outlet_id || "";
   const activeOutletObj = assignedOutlets.find((o) => o.id === activeOutletId);

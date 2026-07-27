@@ -32,7 +32,8 @@ export default function LoginPage() {
         email = `${email}@outlet.local`
       }
     }
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const cleanPassword = password.trim()
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: cleanPassword })
     if (error) {
       setLoading(false)
       const hint = !identifier.includes('@') ? ' Jika Anda admin/owner/leader, gunakan email lengkap.' : ''

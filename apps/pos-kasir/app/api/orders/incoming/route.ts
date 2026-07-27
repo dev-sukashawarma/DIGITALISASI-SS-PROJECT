@@ -58,13 +58,27 @@ export async function POST(request: Request) {
   const supabaseService = createServiceClient()
 
   // Idempotency ketat: cek id ATAU external_order_id untuk cegah duplikasi orderan & double-counting omzet
-  const { data: existing } = await supabaseService
+  const { data: existingList } = await supabaseService
     .from('orders')
-    .select('id, order_number')
+    .select('id, order_number, source')
     .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
-    .maybeSingle()
+    .limit(1)
+
+  const existing = existingList && existingList.length > 0 ? existingList[0] : null
 
   if (existing) {
+    if (existing.id === external_order_id && existing.source !== 'online') {
+      await supabaseService
+        .from('orders')
+        .update({
+          source: 'online',
+          sales_source: 'online',
+          external_order_id: external_order_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Order sudah pernah diterima sebelumnya (idempoten)',
@@ -102,6 +116,21 @@ export async function POST(request: Request) {
     .single()
 
   if (orderError || !order) {
+    if ((orderError as any)?.code === '23505') {
+      const { data: retryList } = await supabaseService
+        .from('orders')
+        .select('id, order_number')
+        .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
+        .limit(1)
+      if (retryList && retryList.length > 0) {
+        return NextResponse.json({
+          success: true,
+          message: 'Order sudah ditarik sebelumnya (race condition resolved)',
+          order_id: retryList[0].id,
+          order_number: retryList[0].order_number,
+        })
+      }
+    }
     console.error('Gagal membuat order dari order-system:', orderError)
     return NextResponse.json({ error: 'Gagal membuat pesanan' }, { status: 500 })
   }

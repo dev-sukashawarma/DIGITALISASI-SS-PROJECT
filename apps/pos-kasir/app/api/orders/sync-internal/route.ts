@@ -12,12 +12,13 @@ export async function POST(request: Request) {
     const posDb = createServiceClient()
 
     // Cari order
-    const { data: order } = await posDb
+    const { data: orderList } = await posDb
       .from('orders')
       .select('id, status')
-      .eq('external_order_id', external_order_id)
-      .eq('source', 'online')
-      .maybeSingle()
+      .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
+      .limit(1)
+
+    const order = orderList && orderList.length > 0 ? orderList[0] : null
 
     if (!order) {
       // Boleh diabaikan kalau tidak ketemu

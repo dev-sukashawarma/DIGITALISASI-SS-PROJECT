@@ -18,10 +18,13 @@ export default function OnlineOrderSync() {
 
     const ssOrderDb = createSupabaseClient(SS_ORDER_URL, SS_ORDER_KEY)
     const knownOrders = new Set<string>()
+    const inFlightPulls = new Set<string>()
 
     console.log('OnlineOrderSync: Mendengarkan pesanan baru dari SS_ORDER...')
 
     async function pullOrder(externalOrderId: string) {
+      if (inFlightPulls.has(externalOrderId)) return
+      inFlightPulls.add(externalOrderId)
       try {
         const res = await fetch('/api/orders/pull-online', {
           method: 'POST',
@@ -37,6 +40,8 @@ export default function OnlineOrderSync() {
         }
       } catch (err) {
         console.warn('OnlineOrderSync: Error fetching pull-online', err)
+      } finally {
+        inFlightPulls.delete(externalOrderId)
       }
     }
 

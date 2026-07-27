@@ -26,6 +26,7 @@ interface ManualPayload {
   customer_name?: string
   amount_received?: number // added for cash logic
   promo_subsidy?: number
+  outlet_id?: string
   items: ManualItem[]
 }
 

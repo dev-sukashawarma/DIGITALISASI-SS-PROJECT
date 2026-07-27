@@ -27,13 +27,27 @@ export async function POST(request: Request) {
   const posDb = createServiceClient()
 
   // 1. Cek idempotency ketat di pos-kasir (cegah duplikasi order id / external_order_id)
-  const { data: existing } = await posDb
+  const { data: existingList } = await posDb
     .from('orders')
-    .select('id, order_number')
+    .select('id, order_number, source')
     .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
-    .maybeSingle()
+    .limit(1)
+
+  const existing = existingList && existingList.length > 0 ? existingList[0] : null
 
   if (existing) {
+    if (existing.id === external_order_id && existing.source !== 'online') {
+      await posDb
+        .from('orders')
+        .update({
+          source: 'online',
+          sales_source: 'online',
+          external_order_id: external_order_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Order sudah ditarik sebelumnya',
@@ -100,6 +114,21 @@ export async function POST(request: Request) {
     .single()
 
   if (insertErr || !newOrder) {
+    if ((insertErr as any)?.code === '23505') {
+      const { data: retryList } = await posDb
+        .from('orders')
+        .select('id, order_number')
+        .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
+        .limit(1)
+      if (retryList && retryList.length > 0) {
+        return NextResponse.json({
+          success: true,
+          message: 'Order sudah ditarik sebelumnya (race condition resolved)',
+          order_id: retryList[0].id,
+          order_number: retryList[0].order_number,
+        })
+      }
+    }
     console.error('Gagal insert order ke pos-kasir:', insertErr)
     return NextResponse.json({ error: 'Gagal menyimpan pesanan ke database kasir' }, { status: 500 })
   }

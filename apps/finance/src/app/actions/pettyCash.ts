@@ -1,12 +1,22 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
+import { createSupabaseServerClient } from '@suka/auth'
 import { DisbursementMethod } from '@/lib/types'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+async function getSupabaseClient() {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  }
+  const cookieStore = await cookies()
+  return createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: () => {},
+  })
+}
 
 export async function processPettyCashFinanceCustomAmount({
   id,
@@ -28,6 +38,8 @@ export async function processPettyCashFinanceCustomAmount({
   userId: string
 }) {
   try {
+    const supabase = await getSupabaseClient()
+
     const { data: topup, error: fetchError } = await supabase
       .from('petty_cash_topups')
       .select('*')
@@ -35,7 +47,8 @@ export async function processPettyCashFinanceCustomAmount({
       .single()
 
     if (fetchError || !topup) {
-      throw new Error('Top up request not found')
+      console.error('Fetch topup error in server action:', fetchError)
+      throw new Error(`Top up request not found (${fetchError?.message || 'No row returned'})`)
     }
 
     if (topup.status !== 'forwarded_to_finance') {
@@ -81,7 +94,6 @@ export async function processPettyCashFinanceCustomAmount({
 
         if (cashError) {
           console.error('Warning inserting cash_transaction:', cashError)
-          // Do not fail topup approval if cash_transaction log insert fails due to minor constraint
         }
       }
     } else if (action === 'reject') {

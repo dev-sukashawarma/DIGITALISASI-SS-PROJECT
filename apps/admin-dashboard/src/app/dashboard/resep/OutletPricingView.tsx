@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { toast } from 'sonner'
-import { Save, Store, RefreshCw, AlertCircle } from 'lucide-react'
+import { Save, Store, RefreshCw, AlertCircle, Calculator } from 'lucide-react'
 import type { Outlet, MenuOutletPrice } from '@/pos-types'
 
 interface OutletPricingViewProps {
@@ -138,6 +138,39 @@ export default function OutletPricingView({ menuItems }: OutletPricingViewProps)
     }
   }
 
+  const handleAutoCalculate = () => {
+    if (!selectedOutletId) return;
+    
+    if (!confirm('Hitung otomatis semua HPP Mitra menjadi +10% dari HPP Pusat? Angka akan berubah di tabel dan bisa Anda edit manual sebelum di-Simpan.')) return;
+
+    setOutletPrices(prev => {
+      const newPrices = { ...prev };
+      
+      tableData.forEach(row => {
+        // HPP Pusat yang sedang aktif
+        const baseHpp = row.hppOverride !== null ? row.hppOverride : row.hpp;
+        
+        if (baseHpp !== null && baseHpp > 0) {
+          const autoHpp = Math.round(baseHpp * 1.10);
+          
+          const existing = newPrices[row.id] || {
+            menu_item_id: row.id,
+            outlet_id: selectedOutletId,
+            price: null,
+            hpp_override: null,
+            is_available: true
+          };
+          
+          newPrices[row.id] = { ...existing, hpp_override: autoHpp };
+        }
+      });
+      
+      return newPrices;
+    });
+    
+    toast.success('HPP berhasil dihitung (+10%). Silakan periksa tabel dan klik Simpan!');
+  };
+
   const rupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
 
   return (
@@ -156,6 +189,15 @@ export default function OutletPricingView({ menuItems }: OutletPricingViewProps)
         </div>
         
         <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+          <button
+            onClick={handleAutoCalculate}
+            disabled={isSaving || isLoadingPrices}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl font-bold text-sm hover:bg-amber-100 transition-all disabled:opacity-50"
+            title="Isi otomatis semua kotak HPP dengan +10% dari HPP Pusat"
+          >
+            <Calculator className="w-4 h-4" />
+            Auto (+10%)
+          </button>
           <button
             onClick={handleSave}
             disabled={isSaving || isLoadingPrices}

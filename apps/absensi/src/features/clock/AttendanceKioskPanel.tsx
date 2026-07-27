@@ -68,49 +68,30 @@ export function AttendanceKioskPanel() {
   const loopRef = useRef<number | null>(null);
   const router = useRouter();
 
-  // Load daftar outlet yang diampu / dibawahi oleh staf/leader dari staff_outlets + Smart Auto-Detect Terdekat
+  // Load daftar outlet yang diampu / dibawahi oleh staf/leader via /api/staff-outlets + Smart Auto-Detect Terdekat
   useEffect(() => {
     if (!outletStaff) return;
 
     let isMounted = true;
     async function loadAssignedOutlets() {
-      const { data: soData } = await supabase
-        .from("staff_outlets")
-        .select("outlet_id, outlets(id, name, lat, lng)")
-        .eq("staff_id", outletStaff.id);
-
-      const list: AssignedOutlet[] = [];
-      if (soData && soData.length > 0) {
-        soData.forEach((row: any) => {
-          if (row.outlets) {
-            const item = Array.isArray(row.outlets) ? row.outlets[0] : row.outlets;
-            if (item && item.id && !list.some((x) => x.id === item.id)) {
-              list.push({
-                id: item.id,
-                name: item.name,
-                lat: item.lat !== null ? Number(item.lat) : null,
-                lng: item.lng !== null ? Number(item.lng) : null,
-              });
-            }
-          }
-        });
+      let list: AssignedOutlet[] = [];
+      try {
+        const res = await fetch(`/api/staff-outlets?staff_id=${outletStaff.id}`);
+        const resData = await res.json();
+        if (resData.ok && Array.isArray(resData.outlets)) {
+          list = resData.outlets;
+        }
+      } catch (err) {
+        console.error("Failed to fetch /api/staff-outlets:", err);
       }
 
-      // Pastikan primary outlet dari outletStaff ada di list jika belum ada
-      if (outletStaff.outlet_id && !list.some((x) => x.id === outletStaff.outlet_id)) {
-        const { data: primaryOutlet } = await supabase
-          .from("outlets")
-          .select("id, name, lat, lng")
-          .eq("id", outletStaff.outlet_id)
-          .maybeSingle();
-        if (primaryOutlet) {
-          list.unshift({
-            id: primaryOutlet.id,
-            name: primaryOutlet.name,
-            lat: primaryOutlet.lat !== null ? Number(primaryOutlet.lat) : null,
-            lng: primaryOutlet.lng !== null ? Number(primaryOutlet.lng) : null,
-          });
-        }
+      if (list.length === 0 && outletStaff.outlet_id) {
+        list = [{
+          id: outletStaff.outlet_id,
+          name: outletStaff.outlets?.name || "Outlet Utama",
+          lat: null,
+          lng: null,
+        }];
       }
 
       if (!isMounted) return;

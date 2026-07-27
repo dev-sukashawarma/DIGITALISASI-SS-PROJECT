@@ -1,0 +1,74 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const staffId = searchParams.get("staff_id");
+
+    if (!staffId) {
+      return NextResponse.json({ ok: false, reason: "missing_staff_id" }, { status: 400 });
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const admin = createClient(supabaseUrl, serviceKey);
+
+    // 1. Fetch assigned outlets from staff_outlets
+    const { data: soData, error: soErr } = await admin
+      .from("staff_outlets")
+      .select("outlet_id, outlets(id, name, lat, lng)")
+      .eq("staff_id", staffId);
+
+    if (soErr) {
+      console.error("Error fetching staff_outlets in API:", soErr);
+    }
+
+    const list: { id: string; name: string; lat: number | null; lng: number | null }[] = [];
+
+    if (soData && soData.length > 0) {
+      soData.forEach((row: any) => {
+        if (row.outlets) {
+          const item = Array.isArray(row.outlets) ? row.outlets[0] : row.outlets;
+          if (item && item.id && !list.some((x) => x.id === item.id)) {
+            list.push({
+              id: item.id,
+              name: item.name,
+              lat: item.lat !== null ? Number(item.lat) : null,
+              lng: item.lng !== null ? Number(item.lng) : null,
+            });
+          }
+        }
+      });
+    }
+
+    // 2. Fetch primary outlet from outlet_staff
+    const { data: staffData } = await admin
+      .from("outlet_staff")
+      .select("outlet_id")
+      .eq("id", staffId)
+      .maybeSingle();
+
+    if (staffData?.outlet_id && !list.some((x) => x.id === staffData.outlet_id)) {
+      const { data: primaryOutlet } = await admin
+        .from("outlets")
+        .select("id, name, lat, lng")
+        .eq("id", staffData.outlet_id)
+        .maybeSingle();
+
+      if (primaryOutlet) {
+        list.unshift({
+          id: primaryOutlet.id,
+          name: primaryOutlet.name,
+          lat: primaryOutlet.lat !== null ? Number(primaryOutlet.lat) : null,
+          lng: primaryOutlet.lng !== null ? Number(primaryOutlet.lng) : null,
+        });
+      }
+    }
+
+    return NextResponse.json({ ok: true, outlets: list }, { status: 200 });
+  } catch (err: any) {
+    console.error("API /api/staff-outlets error:", err);
+    return NextResponse.json({ ok: false, reason: "internal_error" }, { status: 500 });
+  }
+}

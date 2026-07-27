@@ -204,8 +204,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Mobile Header — tanpa hamburger, navigasi pindah ke bottom bar */}
         <header className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur border-b border-gray-200">
           <h2 className="text-base font-bold text-suka-brown flex items-center gap-2 truncate">
-            <Store size={20} className="shrink-0" />
-            <span className="truncate">{outletStaff?.outlets?.name || "SukaAbsen"}</span>
+            <Store size={20} className="shrink-0 text-suka-orange" />
+            <span className="truncate">{outletStaff?.role === "leader" || outletStaff?.role === "spv" ? "SukaAbsen Leader" : (outletStaff?.outlets?.name || "SukaAbsen")}</span>
           </h2>
           <div className="w-7 h-7 rounded-full bg-suka-brown flex items-center justify-center text-white font-bold text-xs shrink-0">
             {outletStaff?.name?.charAt(0) || "?"}

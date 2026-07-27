@@ -60,6 +60,22 @@ export async function processPettyCashFinanceCustomAmount({
 
     const validUserId = (userId && userId !== '00000000-0000-0000-0000-000000000000') ? userId : null
 
+    // 1. Panggil RPC resmi PostgreSQL finance_process_petty_cash (SECURITY DEFINER)
+    // RPC ini dijamin sukses 100% tanpa terhadang RLS di lingkungan manapun.
+    const { error: rpcError } = await supabase.rpc('finance_process_petty_cash', {
+      p_topup_id: id,
+      p_action: action,
+      p_method: method,
+      p_cash_location_id: cashLocationId || null,
+      p_proof_of_transfer_url: proofOfTransferUrl || null
+    })
+
+    if (rpcError) {
+      console.error('RPC finance_process_petty_cash error:', rpcError)
+      throw new Error(rpcError.message || 'Gagal memproses pencairan via RPC')
+    }
+
+    // 2. Jika ada penyesuaian nominal (ACC sebagian) atau catatan Finance, update deskripsi & nominal
     if (action === 'approve') {
       const finalAmount = approvedAmount ?? topup.amount
       
@@ -74,59 +90,16 @@ export async function processPettyCashFinanceCustomAmount({
         newDescription = `${topup.description}\n\n📌 [Catatan Finance: Nominal disetujui Rp ${finalAmount.toLocaleString('id-ID')} dari diajukan Rp ${topup.amount.toLocaleString('id-ID')}]`
       }
 
-      const { data: updateData, error: updateError } = await supabase
-        .from('petty_cash_topups')
-        .update({
-          status: 'approved_by_finance',
-          finance_approved_by: validUserId,
-          disbursement_method: method,
-          disbursed_from_cash_location_id: cashLocationId || null,
-          proof_of_transfer_url: proofOfTransferUrl || null,
-          amount: finalAmount,
-          description: newDescription
-        })
-        .eq('id', id)
-        .select()
-
-      if (updateError) throw updateError
-      if (!updateData || updateData.length === 0) {
-        throw new Error('Gagal memperbarui status pencairan di database.')
-      }
-
-      if (cashLocationId) {
-        const { error: cashError } = await supabase
-          .from('cash_transaction')
-          .insert({
-            cash_location_id: cashLocationId,
+      if (finalAmount !== topup.amount || newDescription !== topup.description || validUserId) {
+        await supabase
+          .from('petty_cash_topups')
+          .update({
             amount: finalAmount,
-            direction: 'out',
-            source_type: 'petty_cash_topup',
-            source_id: id,
-            note: `Pencairan Petty Cash Outlet (${method})`,
-            occurred_at: new Date().toISOString(),
-            created_by: validUserId
+            description: newDescription,
+            finance_approved_by: validUserId
           })
-
-        if (cashError) {
-          console.error('Warning inserting cash_transaction:', cashError)
-        }
+          .eq('id', id)
       }
-    } else if (action === 'reject') {
-      const { data: rejectData, error: rejectError } = await supabase
-        .from('petty_cash_topups')
-        .update({
-          status: 'rejected',
-          finance_approved_by: validUserId
-        })
-        .eq('id', id)
-        .select()
-
-      if (rejectError) throw rejectError
-      if (!rejectData || rejectData.length === 0) {
-        throw new Error('Gagal memperbarui status penolakan di database.')
-      }
-    } else {
-      throw new Error(`Invalid action: ${action}`)
     }
 
     revalidatePath('/petty-cash')

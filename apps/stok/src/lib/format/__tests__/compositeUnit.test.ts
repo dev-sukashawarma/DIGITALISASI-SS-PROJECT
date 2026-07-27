@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatCompositeSaldo, formatCompositeDelta, combineOpnameInput } from '../compositeUnit'
+import { formatCompositeSaldo, formatCompositeDelta, combineOpnameInput, formatTriUnitSaldo } from '../compositeUnit'
 
 describe('formatCompositeSaldo', () => {
   it('pecah saldo jadi unit besar + sisa unit kecil', () => {
@@ -66,5 +66,16 @@ describe('combineOpnameInput', () => {
 
   it('sisa mendekati batas', () => {
     expect(combineOpnameInput(0, 15.98, 16)).toBeCloseTo(0.99875, 5)
+  })
+})
+
+describe('formatTriUnitSaldo', () => {
+  it('formats positive tri-unit saldo correctly', () => {
+    // 1.5 blok where 1 blok = 2 pack = 2000 gram (faktorTengah=2, faktorTampilan=2000)
+    expect(formatTriUnitSaldo(1.5, 'blok', 'pack', 2, 'gram', 2000)).toBe('1 blok 1 pack')
+  })
+
+  it('formats negative tri-unit saldo with multiline consistently', () => {
+    expect(formatTriUnitSaldo(-1.5, 'blok', 'pack', 2, 'gram', 2000, true)).toBe('-1 blok\n-1 pack')
   })
 })

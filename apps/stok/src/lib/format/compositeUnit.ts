@@ -92,11 +92,18 @@ export function formatTriUnitSaldo(
     }
 
     const parts = []
-    if (besar !== 0 || (tengah === 0 && kecil === 0)) parts.push(`${besar} ${satuanBesar}`)
-    if (tengah !== 0) parts.push(`${tengah} ${satuanTengah}`)
-    if (kecil !== 0) parts.push(`${kecil} ${satuanKecil}`)
-
-    return (qty < 0 ? "-" : "") + parts.join(joiner)
+    const sign = qty < 0 ? '-' : ''
+    if (multiline) {
+      if (besar !== 0 || (tengah === 0 && kecil === 0)) parts.push(`${sign}${besar} ${satuanBesar}`)
+      if (tengah !== 0) parts.push(`${sign}${tengah} ${satuanTengah}`)
+      if (kecil !== 0) parts.push(`${sign}${kecil} ${satuanKecil}`)
+      return parts.join(joiner)
+    } else {
+      if (besar !== 0 || (tengah === 0 && kecil === 0)) parts.push(`${besar} ${satuanBesar}`)
+      if (tengah !== 0) parts.push(`${tengah} ${satuanTengah}`)
+      if (kecil !== 0) parts.push(`${kecil} ${satuanKecil}`)
+      return (qty < 0 ? '-' : '') + parts.join(joiner)
+    }
   }
 
   return formatCompositeSaldo(qty, satuanBesar, satuanKecil, faktorTampilan, multiline)

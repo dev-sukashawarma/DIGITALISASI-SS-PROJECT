@@ -1,6 +1,11 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
+import { createSupabaseServerClient } from '@suka/auth'
+import { assertOutletAccessible } from '@/lib/stok/outletAccess'
+
+const THRESHOLD_EDITOR_ROLES = ['spv', 'leader', 'admin', 'owner', 'kitchen'] as const
 
 function makeServiceClient() {
   return createClient(
@@ -9,7 +14,51 @@ function makeServiceClient() {
   )
 }
 
+async function getAuthedClient() {
+  const cookieStore = await cookies()
+  return createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (toSet) =>
+      toSet.forEach(({ name, value, options }) =>
+        cookieStore.set(name, value, options as any)
+      ),
+  })
+}
+
+/**
+ * Gerbang otorisasi update reorder point untuk SATU outlet tertentu.
+ *
+ * Role check saja TIDAK CUKUP: leader adalah role multi-outlet-scoped (via
+ * staff_outlets), bukan otomatis semua outlet seperti spv/kitchen/admin/owner
+ * — tanpa cek assertOutletAccessible(), leader outlet A bisa mengubah
+ * reorder point outlet B yang bukan tanggung jawabnya.
+ */
+async function requireThresholdEditor(outletId: string): Promise<string> {
+  const authedClient = await getAuthedClient()
+  const { data: { user }, error: userError } = await authedClient.auth.getUser()
+  if (userError || !user) {
+    throw new Error('Unauthorized: No active user session found')
+  }
+  const userId = user.id
+
+  const { data: staff, error } = await makeServiceClient()
+    .from('outlet_staff')
+    .select('role, status')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!staff || staff.status !== 'active' || !(THRESHOLD_EDITOR_ROLES as readonly string[]).includes(staff.role)) {
+    throw new Error('Forbidden: hanya SPV/Leader/Kitchen/Admin/Owner yang boleh mengubah reorder point')
+  }
+
+  await assertOutletAccessible(authedClient, outletId)
+
+  return userId
+}
+
 export async function updateThresholdAction(outletId: string, bahanBakuId: string, value: number) {
+  await requireThresholdEditor(outletId)
   const supabase = makeServiceClient();
   const { error } = await supabase
     .from('outlet_reorder_point')
@@ -26,3 +75,4 @@ export async function updateThresholdAction(outletId: string, bahanBakuId: strin
     throw new Error(error.message);
   }
 }
+

@@ -19,6 +19,10 @@ describe('isSelisihFlagged', () => {
   it('does not flag when qty_system is 0 (first opname)', () => {
     expect(isSelisihFlagged(50, 0)).toBe(false)
   })
+  it('flags discrepancy when qty_system is negative (negative system stock)', () => {
+    expect(isSelisihFlagged(15, -5, 'pcs')).toBe(true)
+    expect(isSelisihFlagged(-15, -5, 'pcs')).toBe(true)
+  })
   it('flags any discrepancy for countable items (0% threshold)', () => {
     expect(isSelisihFlagged(1, 10, 'pcs')).toBe(true)
     expect(isSelisihFlagged(-1, 10, 'box')).toBe(true)

@@ -39,7 +39,7 @@ export function useWasteApprovalList() {
 export function useMyWasteHistory(staffId: string | undefined) {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['waste_history', staffId],
-    queryFn: () => fetchMyWasteReports(staffId as string) as Promise<WasteReport[]>,
+    queryFn: () => fetchMyWasteReports() as Promise<WasteReport[]>,
     enabled: !!staffId,
     staleTime: 25000,
     gcTime: 60000,

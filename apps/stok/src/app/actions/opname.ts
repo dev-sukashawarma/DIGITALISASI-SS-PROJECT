@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { canApproveOpname } from '@/lib/stok/approver'
+import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
 
 function makeServiceClient() {
   return createClient(
@@ -11,15 +12,18 @@ function makeServiceClient() {
   )
 }
 
-async function getCurrentStaffId(): Promise<string> {
+async function getAuthedClient() {
   const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
+  return createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: (toSet) =>
       toSet.forEach(({ name, value, options }) =>
         cookieStore.set(name, value, options as any)
       ),
   })
+}
+
+async function getCurrentStaffId(supabase: Awaited<ReturnType<typeof getAuthedClient>>): Promise<string> {
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) {
     throw new Error('Unauthorized: No active user session found')
@@ -29,16 +33,12 @@ async function getCurrentStaffId(): Promise<string> {
 }
 
 /**
- * Gerbang otorisasi server-side untuk aksi approval opname.
- *
- * WAJIB dipanggil sebelum menyentuh service-role client: RPC `approve_opname`
- * / `reject_opname` adalah SECURITY DEFINER dan TIDAK memeriksa role pemanggil
- * (hanya cek status opname), sedangkan `makeServiceClient()` mem-bypass RLS.
- * Server Action = endpoint POST yang bisa dipanggil siapa pun yang punya sesi,
- * jadi guard di UI/halaman tidak melindungi apa pun.
+ * Cek role approval opname saja (tanpa scope outlet) — dipakai untuk gerbang
+ * identitas sebelum tahu outlet_id mana yang relevan.
  */
-async function requireOpnameApprover(): Promise<string> {
-  const staffId = await getCurrentStaffId()
+async function requireApproverIdentity() {
+  const authedClient = await getAuthedClient()
+  const staffId = await getCurrentStaffId(authedClient)
 
   const { data: staff, error } = await makeServiceClient()
     .from('outlet_staff')
@@ -51,7 +51,49 @@ async function requireOpnameApprover(): Promise<string> {
     throw new Error('Forbidden: hanya leader/SPV/kitchen yang boleh memproses approval opname')
   }
 
+  return { staffId, authedClient }
+}
+
+/**
+ * Gerbang otorisasi server-side untuk aksi approval opname pada SATU outlet
+ * tertentu (approve/reject).
+ *
+ * WAJIB dipanggil sebelum menyentuh service-role client: RPC `approve_opname`
+ * / `reject_opname` adalah SECURITY DEFINER dan TIDAK memeriksa role maupun
+ * outlet pemanggil (hanya cek status opname), sedangkan `makeServiceClient()`
+ * mem-bypass RLS. Server Action = endpoint POST yang bisa dipanggil siapa pun
+ * yang punya sesi, jadi guard di UI/halaman tidak melindungi apa pun.
+ *
+ * Role check saja TIDAK CUKUP: leader/korlap adalah role multi-outlet-scoped
+ * (via staff_outlets), bukan otomatis semua outlet seperti spv/kitchen/admin/
+ * owner — tanpa cek ini, leader outlet A bisa approve opname outlet B yang
+ * bukan tanggung jawabnya. assertOutletAccessible() delegasikan scope ke
+ * accessible_outlet_ids() (sumber kebenaran yang sama dipakai RLS).
+ */
+async function requireOpnameApprover(outletId: string): Promise<string> {
+  const { staffId, authedClient } = await requireApproverIdentity()
+  await assertOutletAccessible(authedClient, outletId)
   return staffId
+}
+
+/**
+ * Gerbang otorisasi untuk fetch daftar/jumlah opname pending. `outletId`
+ * opsional: kalau diisi, dicek scope-nya; kalau kosong, dikembalikan set
+ * outlet yang boleh dilihat supaya query di-filter (bukan dibiarkan
+ * unrestricted — leader tanpa outletId tidak boleh melihat SEMUA outlet).
+ */
+async function requireOpnameApproverForList(outletId?: string): Promise<Set<string> | null> {
+  const { authedClient } = await requireApproverIdentity()
+  const allowed = await getAccessibleOutletIds(authedClient)
+
+  if (outletId) {
+    if (!allowed.has(outletId)) {
+      throw new Error('Forbidden: outlet di luar scope akses Anda')
+    }
+    return null // caller sudah filter via .eq('outlet_id', outletId)
+  }
+
+  return allowed
 }
 
 /**
@@ -59,8 +101,16 @@ async function requireOpnameApprover(): Promise<string> {
  * Memanggil RPC approve_opname yang otomatis finalize.
  */
 export async function approveOpname(opnameId: string): Promise<void> {
-  const staffId = await requireOpnameApprover()
   const supabase = makeServiceClient()
+  const { data: opname, error: opnameError } = await supabase
+    .from('opname')
+    .select('outlet_id')
+    .eq('id', opnameId)
+    .maybeSingle()
+  if (opnameError) throw new Error(opnameError.message)
+  if (!opname) throw new Error('Opname tidak ditemukan')
+
+  const staffId = await requireOpnameApprover(opname.outlet_id)
 
   const { error } = await supabase.rpc('approve_opname', {
     p_opname_id: opnameId,
@@ -75,8 +125,16 @@ export async function approveOpname(opnameId: string): Promise<void> {
  * Status menjadi 'rejected', crew harus input ulang.
  */
 export async function rejectOpname(opnameId: string, reason: string): Promise<void> {
-  const staffId = await requireOpnameApprover()
   const supabase = makeServiceClient()
+  const { data: opname, error: opnameError } = await supabase
+    .from('opname')
+    .select('outlet_id')
+    .eq('id', opnameId)
+    .maybeSingle()
+  if (opnameError) throw new Error(opnameError.message)
+  if (!opname) throw new Error('Opname tidak ditemukan')
+
+  const staffId = await requireOpnameApprover(opname.outlet_id)
 
   const { error } = await supabase.rpc('reject_opname', {
     p_opname_id: opnameId,
@@ -92,7 +150,7 @@ export async function rejectOpname(opnameId: string, reason: string): Promise<vo
  * Opsional filter per outlet (untuk leader yang handle 1 outlet).
  */
 export async function fetchPendingOpnameApprovals(outletId?: string) {
-  await requireOpnameApprover()
+  const scopeToOutletIds = await requireOpnameApproverForList(outletId)
   const supabase = makeServiceClient()
 
   let query = supabase
@@ -107,6 +165,8 @@ export async function fetchPendingOpnameApprovals(outletId?: string) {
 
   if (outletId) {
     query = query.eq('outlet_id', outletId)
+  } else if (scopeToOutletIds) {
+    query = query.in('outlet_id', Array.from(scopeToOutletIds))
   }
 
   const { data, error } = await query
@@ -118,7 +178,7 @@ export async function fetchPendingOpnameApprovals(outletId?: string) {
  * Hitung jumlah opname pending — untuk badge notifikasi di nav.
  */
 export async function countPendingOpnameApprovals(outletId?: string): Promise<number> {
-  await requireOpnameApprover()
+  const scopeToOutletIds = await requireOpnameApproverForList(outletId)
   const supabase = makeServiceClient()
 
   let query = supabase
@@ -128,6 +188,8 @@ export async function countPendingOpnameApprovals(outletId?: string): Promise<nu
 
   if (outletId) {
     query = query.eq('outlet_id', outletId)
+  } else if (scopeToOutletIds) {
+    query = query.in('outlet_id', Array.from(scopeToOutletIds))
   }
 
   const { count, error } = await query

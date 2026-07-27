@@ -2,7 +2,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
-import { canApprovePermintaan } from '@/lib/stok/approver'
+import { canApprovePermintaan, isApproverRole } from '@/lib/stok/approver'
+import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 
 // ---------------------------------------------------------------------------
@@ -27,15 +28,18 @@ function makeServiceClient() {
   )
 }
 
-async function getCurrentUserId(): Promise<string> {
+async function getAuthedClient() {
   const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
+  return createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: (toSet) =>
       toSet.forEach(({ name, value, options }) =>
         cookieStore.set(name, value, options as any)
       ),
   })
+}
+
+async function getCurrentUserId(supabase: Awaited<ReturnType<typeof getAuthedClient>>): Promise<string> {
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) {
     throw new Error('Unauthorized: No active user session found')
@@ -55,7 +59,8 @@ async function getCurrentUserId(): Promise<string> {
  * apa pun.
  */
 async function requirePermintaanApprover(): Promise<string> {
-  const userId = await getCurrentUserId()
+  const authedClient = await getAuthedClient()
+  const userId = await getCurrentUserId(authedClient)
 
   const { data: staff, error } = await makeServiceClient()
     .from('outlet_staff')
@@ -70,7 +75,36 @@ async function requirePermintaanApprover(): Promise<string> {
     )
   }
 
+  // Tidak perlu assertOutletAccessible: semua role di canApprovePermintaan
+  // (kitchen/admin/owner) sudah privileged untuk SEMUA outlet di
+  // accessible_outlet_ids() — beda dengan opname/waste/threshold yang
+  // approver-nya termasuk 'leader' (multi-outlet-scoped).
   return userId
+}
+
+/**
+ * Gerbang untuk melihat (bukan memutuskan) daftar permintaan pending —
+ * kitchen/spv/leader/admin/owner ("approver (leader/SPV/kitchen) perlu
+ * melihat request dari semua outlet accessible baginya", lihat komentar di
+ * useApprovalList). Mengembalikan outlet mana saja yang boleh dilihat supaya
+ * query di-filter, bukan dibiarkan unrestricted lintas semua outlet.
+ */
+async function requirePermintaanViewer(): Promise<Set<string>> {
+  const authedClient = await getAuthedClient()
+  const userId = await getCurrentUserId(authedClient)
+
+  const { data: staff, error } = await makeServiceClient()
+    .from('outlet_staff')
+    .select('role, status')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!staff || staff.status !== 'active' || !(isApproverRole(staff.role) || canApprovePermintaan(staff.role))) {
+    throw new Error('Forbidden: hanya leader/SPV/kitchen/admin/owner yang boleh melihat daftar permintaan pending')
+  }
+
+  return getAccessibleOutletIds(authedClient)
 }
 
 function mapRow(row: any): PermintaanWithItems {
@@ -92,6 +126,10 @@ function mapRow(row: any): PermintaanWithItems {
 // ---------------------------------------------------------------------------
 
 export async function fetchPermintaanOutlet(outletId: string): Promise<PermintaanWithItems[]> {
+  const authedClient = await getAuthedClient()
+  await getCurrentUserId(authedClient)
+  await assertOutletAccessible(authedClient, outletId)
+
   const supabase = makeServiceClient()
   const { data, error } = await supabase
     .from('permintaan_bahan')
@@ -125,11 +163,14 @@ export async function fetchPermintaanOutlet(outletId: string): Promise<Permintaa
 // ---------------------------------------------------------------------------
 
 export async function fetchPermintaanPending(): Promise<PermintaanWithItems[]> {
+  const allowedOutletIds = await requirePermintaanViewer()
+
   const supabase = makeServiceClient()
   const { data, error } = await supabase
     .from('permintaan_bahan')
     .select('*, permintaan_bahan_item(*, bahan_baku(nama, satuan)), outlets(name)')
     .eq('status', 'menunggu')
+    .in('outlet_id', Array.from(allowedOutletIds))
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -163,8 +204,11 @@ export async function buatPermintaan(
   items: BuatPermintaanItemInput[],
   targetMetadata?: any
 ): Promise<void> {
+  const authedClient = await getAuthedClient()
+  const currentUserId = await getCurrentUserId(authedClient)
+  await assertOutletAccessible(authedClient, outletId)
+
   const supabase = makeServiceClient()
-  const currentUserId = await getCurrentUserId()
   const { error } = await supabase.rpc('buat_permintaan_svc', {
     p_outlet_id: outletId,
     p_items: items,
@@ -215,6 +259,10 @@ export async function fetchCrosscheckStok(
   outletId: string,
   bahanBakuIds: string[]
 ): Promise<Record<string, { outletStok: number; gudangStok: number }>> {
+  // Dipakai dari ApprovalModal (konteks approval permintaan) — gerbang yang
+  // sama dengan approve/tolak, bukan sekadar baca bebas lintas outlet.
+  await requirePermintaanApprover()
+
   if (!bahanBakuIds.length) return {}
 
   const result: Record<string, { outletStok: number; gudangStok: number }> = {}

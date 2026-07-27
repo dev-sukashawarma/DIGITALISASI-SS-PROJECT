@@ -6,11 +6,19 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@suka/auth'
 import { DisbursementMethod } from '@/lib/types'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk2MzI5MiwiZXhwIjoyMDk2NTM5MjkyfQ.Dy0QMAHfB8EU9BK-JuyRrBidpG6iM94t9RtiJ_viZz8'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 async function getSupabaseClient() {
-  return createClient(supabaseUrl, serviceRoleKey)
+  if (serviceRoleKey) {
+    return createClient(supabaseUrl, serviceRoleKey)
+  }
+  console.warn('[PettyCash Action] SUPABASE_SERVICE_ROLE_KEY missing, fallback to server client cookie auth.')
+  const cookieStore = await cookies()
+  return createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: () => {},
+  })
 }
 
 export async function processPettyCashFinanceCustomAmount({

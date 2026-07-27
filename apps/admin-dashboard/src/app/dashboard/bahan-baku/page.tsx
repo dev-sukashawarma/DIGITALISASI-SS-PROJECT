@@ -12,7 +12,7 @@ import { BahanBakuTable } from '@/components/BahanBakuTable'
 
 export default function BahanBakuPage() {
   const { data: rows = [], isLoading } = useBahanBakuHarga()
-  const { setHarga, setMerek, setNama, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku, setSkuImage } = useBahanBakuHargaMutations()
+  const { setHarga, setMerek, setNama, setSatuan, setThreshold, setImage, addSku, updateSku, deleteSku, setDefaultSku, setSkuImage } = useBahanBakuHargaMutations()
   const { data: priceAlerts = [] } = usePOPriceAlerts()
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('nama-asc')
@@ -120,7 +120,11 @@ export default function BahanBakuPage() {
             onSaveMerek={handleSaveMerek}
             onSaveNama={handleSaveNama}
             onSaveSatuan={handleSaveSatuan}
-            saving={setHarga.isPending || setMerek.isPending || setNama.isPending || setSatuan.isPending} 
+            onSaveThreshold={(id, type, pct, ideal) => setThreshold.mutate({ bahan_baku_id: id, threshold_type: type, threshold_persentase: pct, stok_ideal: ideal }, {
+              onSuccess: () => toast.success('Pengaturan threshold berhasil disimpan'),
+              onError: (e: any) => toast.error(e.message),
+            })}
+            saving={setHarga.isPending || setMerek.isPending || setNama.isPending || setSatuan.isPending || setThreshold.isPending} 
             onUploadImage={handleUploadImage}
             uploading={setImage.isPending}
             onAddSku={(vars) => addSku.mutate(vars, {

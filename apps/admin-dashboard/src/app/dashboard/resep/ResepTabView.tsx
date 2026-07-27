@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { BookOpen, TrendingUp } from 'lucide-react'
+import { BookOpen, TrendingUp, Store } from 'lucide-react'
 import HPPView from './HPPView'
+import OutletPricingView from './OutletPricingView'
 
 interface ResepTabViewProps {
   menuWithBOM: any[]
@@ -12,7 +13,7 @@ interface ResepTabViewProps {
 }
 
 export default function ResepTabView({ menuWithBOM, hppItems, channels }: ResepTabViewProps) {
-  const [activeTab, setActiveTab] = useState<'bom' | 'hpp'>('bom')
+  const [activeTab, setActiveTab] = useState<'bom' | 'hpp' | 'outlet'>('bom')
 
   return (
     <div className="p-6 w-full space-y-6">
@@ -47,6 +48,17 @@ export default function ResepTabView({ menuWithBOM, hppItems, channels }: ResepT
         >
           <TrendingUp className="w-4 h-4" />
           HPP / COGS
+        </button>
+        <button
+          onClick={() => setActiveTab('outlet')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+            activeTab === 'outlet'
+              ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/30'
+              : 'text-gray-500 hover:text-gray-900 hover:bg-white/60'
+          }`}
+        >
+          <Store className="w-4 h-4" />
+          Distribusi & Harga Outlet
         </button>
       </div>
 
@@ -88,7 +100,7 @@ export default function ResepTabView({ menuWithBOM, hppItems, channels }: ResepT
                         href={`/dashboard/resep/${menu.id}`}
                         className="text-suka-primary hover:text-suka-primary/80 font-medium"
                       >
-                        {menu.hasBOM ? 'Edit Resep' : 'Buat Resep'}
+                        {menu.isPackage ? 'Lihat Resep' : (menu.hasBOM ? 'Edit Resep' : 'Buat Resep')}
                       </Link>
                     </td>
                   </tr>
@@ -109,6 +121,11 @@ export default function ResepTabView({ menuWithBOM, hppItems, channels }: ResepT
       {/* Tab Content: HPP / COGS */}
       {activeTab === 'hpp' && (
         <HPPView items={hppItems} channels={channels} />
+      )}
+
+      {/* Tab Content: Outlet Pricing */}
+      {activeTab === 'outlet' && (
+        <OutletPricingView menuItems={hppItems} />
       )}
     </div>
   )

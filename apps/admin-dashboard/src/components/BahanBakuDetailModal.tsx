@@ -21,6 +21,7 @@ interface BahanBakuDetailModalProps {
   onSaveMerek: (id: string, m: string | null) => void
   onSaveNama: (id: string, n: string) => void
   onSaveSatuan: (id: string, s: string, st: string | null, ft: number | null, sk: string | null, fk: number | null) => void
+  onSaveThreshold: (id: string, type: 'angka' | 'persentase', pct: number | null, ideal: number | null) => void
   saving: boolean
   onAddSku: (vars: { bahan_baku_id: string; nama_kemasan: string; qty_isi: number; harga_beli: number; is_default?: boolean; satuan_tengah?: string | null; faktor_tengah?: number | null }) => void
   setSkuImage?: (sku_id: string, file: File) => void
@@ -32,7 +33,7 @@ interface BahanBakuDetailModalProps {
 
 export function BahanBakuDetailModal({
   isOpen, onClose, bahanBaku, onUploadImage, uploading,
-  onSave, onSaveMerek, onSaveNama, onSaveSatuan, saving,
+  onSave, onSaveMerek, onSaveNama, onSaveSatuan, onSaveThreshold, saving,
   onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving, setSkuImage
 }: BahanBakuDetailModalProps) {
   const fileInputRefBesar = useRef<HTMLInputElement>(null)
@@ -59,6 +60,13 @@ export function BahanBakuDetailModal({
     faktor_tampilan: ''
   })
   
+  const [isEditingThreshold, setIsEditingThreshold] = useState(false)
+  const [draftThreshold, setDraftThreshold] = useState({
+    type: 'angka' as 'angka' | 'persentase',
+    persentase: '',
+    stok_ideal: ''
+  })
+  
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [showSkuSection, setShowSkuSection] = useState(false)
   
@@ -78,6 +86,12 @@ export function BahanBakuDetailModal({
         faktor_tengah: bahanBaku.faktor_tengah ? String(bahanBaku.faktor_tengah) : '',
         satuan_kecil: bahanBaku.satuan_kecil || '',
         faktor_tampilan: bahanBaku.faktor_tampilan ? String(bahanBaku.faktor_tampilan) : ''
+      })
+      setIsEditingThreshold(false)
+      setDraftThreshold({
+        type: bahanBaku.threshold_type || 'angka',
+        persentase: bahanBaku.threshold_persentase ? String(bahanBaku.threshold_persentase) : '',
+        stok_ideal: bahanBaku.stok_ideal ? String(bahanBaku.stok_ideal) : ''
       })
     }
   }, [isOpen, bahanBaku])
@@ -527,6 +541,115 @@ export function BahanBakuDetailModal({
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Setting Threshold (Stok Ideal & Reorder Point) */}
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Pengaturan Threshold</label>
+                  {!isEditingThreshold && (
+                    <button 
+                      onClick={() => setIsEditingThreshold(true)}
+                      className="text-suka-orange flex items-center gap-1 text-xs font-semibold hover:bg-orange-50 px-2 py-1 rounded transition-colors"
+                    >
+                      <Pencil size={12} /> Edit
+                    </button>
+                  )}
+                </div>
+                
+                {isEditingThreshold ? (
+                  <div className="space-y-4 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Stok Ideal (Par Level) Default</label>
+                        <div className="flex gap-2 items-center">
+                          <input 
+                            type="number"
+                            className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+                            value={draftThreshold.stok_ideal}
+                            onChange={e => setDraftThreshold({...draftThreshold, stok_ideal: e.target.value})}
+                            placeholder="Contoh: 100"
+                          />
+                          <span className="text-sm font-medium text-gray-500 whitespace-nowrap">{bahanBaku.satuan}</span>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Tipe Threshold (Batas Aman)</label>
+                        <select 
+                          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white"
+                          value={draftThreshold.type}
+                          onChange={e => setDraftThreshold({...draftThreshold, type: e.target.value as 'angka' | 'persentase'})}
+                        >
+                          <option value="angka">Angka Tetap (Fixed)</option>
+                          <option value="persentase">Persentase dari Stok Ideal</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    {draftThreshold.type === 'persentase' && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Persentase (%)</label>
+                        <div className="flex gap-2 items-center w-full md:w-1/2">
+                          <input 
+                            type="number"
+                            className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+                            value={draftThreshold.persentase}
+                            onChange={e => setDraftThreshold({...draftThreshold, persentase: e.target.value})}
+                            placeholder="Contoh: 20"
+                          />
+                          <span className="text-sm font-medium text-gray-500 whitespace-nowrap">%</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-1">Sistem akan memberi tahu jika stok berada di bawah {(draftThreshold.persentase || '0')}% dari stok ideal.</p>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                      <Button variant="outline" size="sm" onClick={() => setIsEditingThreshold(false)} disabled={saving}>Batal</Button>
+                      <Button 
+                        variant="primary" 
+                        size="sm" 
+                        onClick={() => {
+                          onSaveThreshold(
+                            bahanBaku.id,
+                            draftThreshold.type,
+                            draftThreshold.persentase ? Number(draftThreshold.persentase) : null,
+                            draftThreshold.stok_ideal ? Number(draftThreshold.stok_ideal) : null
+                          )
+                          setIsEditingThreshold(false)
+                        }} 
+                        disabled={saving}
+                      >
+                        Simpan Pengaturan
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col bg-white p-3 rounded-lg border border-gray-200 gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-500">Stok Ideal (Par Level)</span>
+                      <span className="font-bold text-suka-ink text-md">
+                        {bahanBaku.stok_ideal ? `${bahanBaku.stok_ideal} ${bahanBaku.satuan}` : '—'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-100 pt-2">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-gray-500">Batas Aman Default (Threshold)</span>
+                        <span className="text-[11px] text-gray-400">
+                          {bahanBaku.threshold_type === 'persentase' 
+                            ? `${bahanBaku.threshold_persentase}% dari Stok Ideal` 
+                            : 'Angka Tetap'}
+                        </span>
+                      </div>
+                      <span className="font-bold text-suka-orange text-md">
+                        {bahanBaku.threshold_type === 'persentase' && bahanBaku.stok_ideal && bahanBaku.threshold_persentase
+                          ? `${(bahanBaku.threshold_persentase / 100 * bahanBaku.stok_ideal)} ${bahanBaku.satuan}`
+                          : '—'}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

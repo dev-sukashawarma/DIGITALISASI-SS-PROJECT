@@ -18,6 +18,9 @@ export interface BahanBakuRaw {
   satuan_kecil: string | null
   faktor_tampilan: number | null
   kategori: string
+  stok_ideal?: number | null
+  threshold_type?: 'angka' | 'persentase' | null
+  threshold_persentase?: number | null
   bahan_baku_harga: BahanBakuHargaRow | BahanBakuHargaRow[] | null
   bahan_baku_sku?: BahanBakuSku[] | null
 }
@@ -49,6 +52,9 @@ export interface BahanBakuWithHarga {
   satuan_kecil: string | null
   faktor_tampilan: number | null
   kategori: string
+  stok_ideal?: number | null
+  threshold_type?: 'angka' | 'persentase' | null
+  threshold_persentase?: number | null
   harga: BahanBakuHargaRow | null
   skus?: BahanBakuSku[]
 }
@@ -70,6 +76,9 @@ export function normalizeBahanBaku(raw: BahanBakuRaw): BahanBakuWithHarga {
     satuan_kecil: raw.satuan_kecil, 
     faktor_tampilan: raw.faktor_tampilan, 
     kategori: raw.kategori, 
+    stok_ideal: raw.stok_ideal,
+    threshold_type: raw.threshold_type,
+    threshold_persentase: raw.threshold_persentase,
     harga,
     skus: raw.bahan_baku_sku || []
   }

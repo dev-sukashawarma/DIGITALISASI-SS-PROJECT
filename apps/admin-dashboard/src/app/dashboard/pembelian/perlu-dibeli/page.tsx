@@ -278,8 +278,16 @@ export default function PerluDibeliPage() {
                               className="w-4 h-4 rounded text-suka-orange focus:ring-suka-orange cursor-pointer"
                             />
                           </td>
-                          <td className="py-3.5 px-5 font-extrabold text-suka-brown text-sm">
-                            {r.nama}
+                          <td className="py-3.5 px-5">
+                            <div className="font-extrabold text-suka-brown text-sm">{r.nama}</div>
+                            {r.bahan_baku?.satuan_tengah && r.bahan_baku?.faktor_tengah ? (
+                              <div className="text-[10px] text-suka-gray-400 mt-0.5 font-medium tracking-wide">
+                                1 {r.satuan} = {r.bahan_baku.faktor_tengah} {r.bahan_baku.satuan_tengah}
+                                {r.bahan_baku.satuan_kecil && r.bahan_baku.faktor_tampilan ? 
+                                  ` \u2022 1 ${r.bahan_baku.satuan_tengah} = ${r.bahan_baku.faktor_tampilan} ${r.bahan_baku.satuan_kecil}` 
+                                : ''}
+                              </div>
+                            ) : null}
                           </td>
                           <td className="py-3.5 px-5 text-right font-bold text-suka-ink whitespace-nowrap">
                             {formatStok(

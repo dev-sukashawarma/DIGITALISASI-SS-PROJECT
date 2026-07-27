@@ -137,6 +137,8 @@ interface FormState {
   description: string
   price: string
   strike_price: string
+  campaign_price: string
+  is_campaign_active: boolean
   base_price: string
   channel_prices: Record<string, string>
   category_id: string
@@ -150,7 +152,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  id: null, name: '', description: '', price: '', strike_price: '', base_price: '',
+  id: null, name: '', description: '', price: '', strike_price: '', campaign_price: '', is_campaign_active: false, base_price: '',
   channel_prices: {},
   category_id: '', is_available: true, is_available_online: true, available_online_channels: null, image_url: null,
   is_package: false, package_items: [], outlet_ids: null
@@ -447,6 +449,8 @@ export default function MenuView({
       id: item.id, name: item.name, description: item.description ?? '',
       price: String(item.price), 
       strike_price: item.strike_price ? String(item.strike_price) : '',
+      campaign_price: item.campaign_price ? String(item.campaign_price) : '',
+      is_campaign_active: item.is_campaign_active ?? false,
       base_price: String(item.price),
       channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
@@ -476,6 +480,8 @@ export default function MenuView({
       description: item.description ?? '',
       price: String(item.price), 
       strike_price: item.strike_price ? String(item.strike_price) : '',
+      campaign_price: item.campaign_price ? String(item.campaign_price) : '',
+      is_campaign_active: item.is_campaign_active ?? false,
       base_price: String(item.price),
       channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
@@ -558,6 +564,8 @@ export default function MenuView({
       name: form.name.trim(), description: form.description.trim() || null,
       price: finalBasePrice, 
       strike_price: form.strike_price ? parseFloat(form.strike_price) : null,
+      campaign_price: form.campaign_price ? parseFloat(form.campaign_price) : null,
+      is_campaign_active: form.is_campaign_active,
       category_id: form.category_id || null,
       is_available: form.is_available, is_available_online: form.is_available_online, available_online_channels: form.available_online_channels, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
@@ -1048,6 +1056,35 @@ export default function MenuView({
                             </div>
                           )}
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-100 mt-4">
+                        <div className="md:col-span-2">
+                          <label className="flex items-center gap-2 cursor-pointer p-3 bg-amber-50 rounded-xl border border-amber-200">
+                            <input
+                              type="checkbox"
+                              checked={form.is_campaign_active}
+                              onChange={(e) => setForm({ ...form, is_campaign_active: e.target.checked })}
+                              className="w-4 h-4 text-amber-500 bg-white border-amber-300 rounded focus:ring-amber-500"
+                            />
+                            <div>
+                              <span className="font-bold text-amber-900 text-sm block">Aktifkan Harga Campaign (Tiktok GO dll)</span>
+                              <span className="text-xs text-amber-700">Jika aktif, kasir bisa memilih harga normal vs harga campaign saat order.</span>
+                            </div>
+                          </label>
+                        </div>
+                        
+                        {form.is_campaign_active && (
+                          <div className="md:col-span-1">
+                            <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                              Harga Campaign <span className="text-red-500">*</span>
+                            </label>
+                            <CurrencyInput value={form.campaign_price}
+                              onChange={(v) => setForm({ ...form, campaign_price: String(v) })}
+                              placeholder="0"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
 

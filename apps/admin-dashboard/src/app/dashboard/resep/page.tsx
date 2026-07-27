@@ -124,15 +124,39 @@ export default async function ResepPage() {
 
   // BOM list data (existing tab)
   const menuWithBOM = menuItems.map((menu: any) => {
-    const bom = recipes?.find((r: any) => r.menu_item_ref === menu.id)
+    const isPackage = !!menu.is_package
     const categoryInfo = menu.categories || {}
+    let hasBOM = false
+    let bomActive = false
+    let itemCount = 0
+
+    if (isPackage) {
+      const components: any[] = menu.package_items || []
+      // Combo has BOM if all its components have BOMs
+      hasBOM = components.length > 0 && components.every((comp: any) => recipeSet.has(comp.menu_item_id))
+      bomActive = hasBOM
+      
+      let count = 0
+      for (const comp of components) {
+         const bom = recipes?.find((r: any) => r.menu_item_ref === comp.menu_item_id)
+         count += bom?.resep_item?.length || 0
+      }
+      itemCount = count
+    } else {
+      const bom = recipes?.find((r: any) => r.menu_item_ref === menu.id)
+      hasBOM = !!bom
+      bomActive = bom?.is_active
+      itemCount = bom?.resep_item?.length || 0
+    }
+
     return {
       ...menu,
       category: categoryInfo.name || '—',
       categoryOrder: categoryInfo.sort_order || 999,
-      hasBOM: !!bom,
-      bomActive: bom?.is_active,
-      itemCount: bom?.resep_item?.length || 0,
+      hasBOM,
+      bomActive,
+      itemCount,
+      isPackage,
     }
   }).sort((a: any, b: any) => {
     if (a.categoryOrder !== b.categoryOrder) return a.categoryOrder - b.categoryOrder

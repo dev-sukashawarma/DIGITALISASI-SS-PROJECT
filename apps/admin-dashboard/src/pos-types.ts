@@ -61,10 +61,23 @@ export interface MenuItem {
   is_available: boolean
   is_available_online: boolean
   available_online_channels?: string[] | null
+  campaign_price?: number | null
+  is_campaign_active?: boolean
   sort_order: number
   is_package?: boolean
   package_items?: PackageItem[]
   categories?: Category
+}
+
+export interface MenuOutletPrice {
+  id?: string
+  menu_item_id: string
+  outlet_id: string
+  price: number | null
+  hpp_override: number | null
+  is_available: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 

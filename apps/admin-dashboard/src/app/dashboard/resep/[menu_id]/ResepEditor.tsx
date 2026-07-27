@@ -6,12 +6,18 @@ import { createClient } from '@/lib/supabase'
 import { Plus, Trash2, Save } from 'lucide-react'
 import { computeResepHpp, type HppBahan } from '@/lib/hpp'
 
-export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
+export function ResepEditor({ menu, bahanBakuList, existingRecipe, comboBOMData }: any) {
   const router = useRouter()
   const supabase = createClient()
 
   // State for recipe items
-  const [items, setItems] = useState<any[]>(existingRecipe?.resep_item || [])
+  const [items, setItems] = useState<any[]>(
+    menu.is_package && comboBOMData
+      ? comboBOMData.flatMap((c: any) => 
+          (c.items || []).map((i: any) => ({ ...i, qty_per_porsi: (Number(i.qty_per_porsi) || 0) * c.quantity, id: crypto.randomUUID() }))
+        )
+      : (existingRecipe?.resep_item || [])
+  )
   const [isActive, setIsActive] = useState(existingRecipe?.is_active ?? true)
   const [catatan, setCatatan] = useState<string>(existingRecipe?.catatan ?? '')
   const [hargaJual, setHargaJual] = useState<number>(Number(menu.price) || 0)
@@ -101,31 +107,33 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
 
       let resepId = existingRecipe?.id
 
-      if (resepId) {
-        const { error } = await supabase.from('resep').update(resepPayload).eq('id', resepId)
-        if (error) throw error
-      } else {
-        const { data, error } = await supabase.from('resep').insert(resepPayload).select().single()
-        if (error) throw error
-        resepId = data.id
-      }
+      if (!menu.is_package) {
+        if (resepId) {
+          const { error } = await supabase.from('resep').update(resepPayload).eq('id', resepId)
+          if (error) throw error
+        } else {
+          const { data, error } = await supabase.from('resep').insert(resepPayload).select().single()
+          if (error) throw error
+          resepId = data.id
+        }
 
-      const { error: delError } = await supabase.from('resep_item').delete().eq('resep_id', resepId)
-      if (delError) throw delError
+        const { error: delError } = await supabase.from('resep_item').delete().eq('resep_id', resepId)
+        if (delError) throw delError
 
-      if (items.length > 0) {
-        const itemsPayload = items.map((i) => {
-          const bb = bahanBakuList.find((b: any) => b.id === i.bahan_baku_id)
-          const satuan = i.satuan || bb?.kemasan_satuan || ''
-          return {
-            resep_id: resepId,
-            bahan_baku_id: i.bahan_baku_id,
-            qty_per_porsi: i.qty_per_porsi,
-            satuan,
-          }
-        })
-        const { error: insError } = await supabase.from('resep_item').insert(itemsPayload)
-        if (insError) throw insError
+        if (items.length > 0) {
+          const itemsPayload = items.map((i) => {
+            const bb = bahanBakuList.find((b: any) => b.id === i.bahan_baku_id)
+            const satuan = i.satuan || bb?.kemasan_satuan || ''
+            return {
+              resep_id: resepId,
+              bahan_baku_id: i.bahan_baku_id,
+              qty_per_porsi: i.qty_per_porsi,
+              satuan,
+            }
+          })
+          const { error: insError } = await supabase.from('resep_item').insert(itemsPayload)
+          if (insError) throw insError
+        }
       }
 
       // Update Harga Jual and HPP Override in menu_items
@@ -172,15 +180,17 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
             </div>
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 bg-gray-50 px-3 py-1.5 rounded-lg border">
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-              className="rounded text-suka-primary focus:ring-suka-primary"
-            />
-            Resep Aktif (Memotong Stok)
-          </label>
+          {!menu.is_package && (
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 bg-gray-50 px-3 py-1.5 rounded-lg border">
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="rounded text-suka-primary focus:ring-suka-primary"
+              />
+              Resep Aktif (Memotong Stok)
+            </label>
+          )}
         </div>
       </div>
 
@@ -260,13 +270,95 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
         </div>
       </div>
 
-      {/* Komposisi Bahan Baku (Editable Table) */}
+      {/* Komposisi Bahan Baku (Editable Table / Read-Only Grouped) */}
       <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
         <div className="p-5 border-b bg-gray-50/50">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-suka-primary">Rincian Bahan Baku</h2>
+          <h2 className="text-sm font-bold uppercase tracking-widest text-suka-primary">
+            {menu.is_package ? 'Rincian Bahan Baku (Otomatis dari Paket)' : 'Rincian Bahan Baku'}
+          </h2>
         </div>
         
         <div className="overflow-x-auto">
+          {menu.is_package && comboBOMData ? (
+            <div className="divide-y divide-gray-100">
+              {comboBOMData.map((cData: any) => {
+                let cDataSubtotal = 0
+                if (cData.hasBOM) {
+                  cData.items.forEach((bItem: any) => {
+                     const totalQty = (Number(bItem.qty_per_porsi) || 0) * cData.quantity
+                     const line = hpp.lines.find((l) => l.bahan_baku_id === bItem.bahan_baku_id)
+                     if (line && line.hasPrice) {
+                        cDataSubtotal += (line.hargaBeliDisplay / line.kemasanQty) * totalQty
+                     }
+                  })
+                }
+                return (
+                <div key={cData.baseItemId} className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-gray-800">
+                      📦 Dari: {cData.baseItemName} <span className="text-sm font-normal text-gray-500">(Qty: {cData.quantity})</span>
+                    </h3>
+                    {cData.hasBOM && (
+                      <span className="text-sm text-suka-orange font-bold bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+                        Total HPP: {rupiah(cDataSubtotal)}
+                      </span>
+                    )}
+                  </div>
+                  {!cData.hasBOM ? (
+                    <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-md font-medium border border-amber-200">
+                      ⚠️ Resep untuk {cData.baseItemName} belum diatur. Silakan atur terlebih dahulu di menu satuan.
+                    </div>
+                  ) : (
+                    <table className="w-full text-sm mt-2 border rounded-md overflow-hidden">
+                      <thead className="bg-gray-50">
+                        <tr className="text-left text-[10px] uppercase tracking-wider text-gray-500">
+                          <th className="px-3 py-2 font-medium">Bahan</th>
+                          <th className="px-3 py-2 font-medium text-center">Harga Beli</th>
+                          <th className="px-3 py-2 font-medium text-center">Isi Kemasan</th>
+                          <th className="px-3 py-2 font-medium text-center">Dipakai/Porsi</th>
+                          <th className="px-3 py-2 font-medium text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {cData.items.map((bItem: any, idx: number) => {
+                          const bb = bahanBakuList.find((b: any) => b.id === bItem.bahan_baku_id)
+                          const totalQty = (Number(bItem.qty_per_porsi) || 0) * cData.quantity
+                          const line = hpp.lines.find((l) => l.bahan_baku_id === bItem.bahan_baku_id)
+                          // calculate correct subtotal per line since line.subtotal in hpp is aggregated by bahan_baku_id
+                          const perLineSubtotal = line && line.hasPrice ? (line.hargaBeliDisplay / line.kemasanQty) * totalQty : 0
+                          
+                          return (
+                            <tr key={idx} className="hover:bg-gray-50/50">
+                              <td className="px-3 py-2 text-gray-800 font-medium">
+                                {bb?.nama || 'Unknown'} <span className="text-xs text-gray-400 font-normal">({bb?.satuan || bItem.satuan})</span>
+                              </td>
+                              <td className="px-3 py-2 text-center text-gray-500">
+                                {line?.hasPrice ? rupiah(line.hargaBeliDisplay) : '—'}
+                              </td>
+                              <td className="px-3 py-2 text-center text-gray-500">
+                                {line?.hasPrice ? `${line.kemasanQty} ${line.kemasanSatuan}` : '—'}
+                              </td>
+                              <td className="px-3 py-2 text-center font-medium text-gray-700">
+                                {totalQty} {bb?.kemasan_satuan || bItem.satuan}
+                              </td>
+                              <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                                {line?.hasPrice ? rupiah(perLineSubtotal) : '—'}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                )
+              })}
+              <div className="p-4 bg-gray-50/80 flex justify-between items-center">
+                <span className="font-bold text-gray-900">Total Keseluruhan COGS (HPP)</span>
+                <span className="text-xl font-extrabold text-gray-900">{rupiah(hpp.totalHpp)}</span>
+              </div>
+            </div>
+          ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 border-b bg-white">
@@ -362,18 +454,21 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
               </tr>
             </tfoot>
           </table>
+          )}
           
-          <div className="p-4 border-t">
-            <button
-              onClick={addItem}
-              className="w-full py-2.5 border-2 border-dashed border-gray-200 text-gray-500 hover:border-suka-primary hover:text-suka-primary hover:bg-orange-50/50 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-all"
-            >
-              <Plus className="w-4 h-4" /> Tambah Bahan Baku
-            </button>
-          </div>
+          {!menu.is_package && (
+            <div className="p-4 border-t">
+              <button
+                onClick={addItem}
+                className="w-full py-2.5 border-2 border-dashed border-gray-200 text-gray-500 hover:border-suka-primary hover:text-suka-primary hover:bg-orange-50/50 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Tambah Bahan Baku
+              </button>
+            </div>
+          )}
           
           {hpp.anyMissingPrice && (
-            <div className="px-4 py-3 text-xs text-amber-600 bg-amber-50 font-medium">
+            <div className="px-4 py-3 text-xs text-amber-600 bg-amber-50 font-medium border-t">
               ⚠️ Sebagian bahan belum ada harga — COGS masih parsial.
             </div>
           )}
@@ -397,7 +492,7 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe }: any) {
               disabled={isSaving}
               className="px-6 py-2.5 bg-suka-primary text-white rounded-md font-medium text-sm hover:bg-suka-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-suka-primary disabled:opacity-50 flex items-center gap-2 shadow-sm transition-all"
             >
-              {isSaving ? 'Menyimpan...' : <><Save className="w-4 h-4" /> Simpan Resep BOM</>}
+              {isSaving ? 'Menyimpan...' : <><Save className="w-4 h-4" /> {menu.is_package ? 'Simpan Perubahan' : 'Simpan Resep BOM'}</>}
             </button>
           </div>
         </div>

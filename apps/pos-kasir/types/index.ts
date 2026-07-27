@@ -53,6 +53,8 @@ export interface MenuItem {
   is_available: boolean
   is_available_online?: boolean
   available_online_channels?: string[] | null
+  campaign_price?: number | null
+  is_campaign_active?: boolean
   sort_order: number
   is_package?: boolean
   package_items?: PackageItem[]

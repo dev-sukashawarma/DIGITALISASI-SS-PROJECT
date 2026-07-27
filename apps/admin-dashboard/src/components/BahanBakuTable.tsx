@@ -15,7 +15,7 @@ function formatUpdatedAt(iso: string | null): string {
 }
 
 export function BahanBakuTable({
-  rows, onSave, onSaveMerek, onSaveNama, onSaveSatuan, saving, onUploadImage, uploading,
+  rows, onSave, onSaveMerek, onSaveNama, onSaveSatuan, onSaveThreshold, saving, onUploadImage, uploading,
   onAddSku, onUpdateSku, onDeleteSku, onSetDefaultSku, skuSaving, priceAlerts = [], setSkuImage
 }: {
   rows: BahanBakuWithHarga[]
@@ -23,6 +23,7 @@ export function BahanBakuTable({
   onSaveMerek: (bahanBakuId: string, merek: string | null) => void
   onSaveNama: (bahanBakuId: string, nama: string) => void
   onSaveSatuan: (id: string, s: string, st: string | null, ft: number | null, sk: string | null, fk: number | null) => void
+  onSaveThreshold: (id: string, type: 'angka' | 'persentase', pct: number | null, ideal: number | null) => void
   saving: boolean
   onUploadImage: (bahanBakuId: string, file: File, level: 'besar' | 'tengah' | 'kecil') => void
   uploading: boolean
@@ -253,6 +254,7 @@ export function BahanBakuTable({
         onSaveMerek={onSaveMerek}
         onSaveNama={onSaveNama}
         onSaveSatuan={onSaveSatuan}
+        onSaveThreshold={onSaveThreshold}
         saving={saving}
         onAddSku={onAddSku}
         onUpdateSku={onUpdateSku}

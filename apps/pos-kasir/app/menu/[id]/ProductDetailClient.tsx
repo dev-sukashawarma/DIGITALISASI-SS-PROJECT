@@ -28,6 +28,7 @@ export default function ProductDetailClient({
   const [note, setNote] = useState('')
   const [selectedUpsells, setSelectedUpsells] = useState<Record<string, number>>({})
   const [selectedPackageChoices, setSelectedPackageChoices] = useState<Record<string, string>>({})
+  const [selectedCampaign, setSelectedCampaign] = useState(false)
 
   function handleAdd() {
     // 1. Prepare final note with package choices
@@ -43,10 +44,16 @@ export default function ProductDetailClient({
       }
     }
 
-    // 2. Add main item
-    const parentId = addItem(item, qty, finalNote, undefined, selectedPackageChoices)
+    // 2. Add main item (with campaign price if selected)
+    const itemToAdd = { ...item };
+    if (selectedCampaign && item.campaign_price !== null && item.campaign_price !== undefined) {
+      itemToAdd.price = item.campaign_price;
+      itemToAdd.name = `${item.name} (Promo)`;
+    }
 
-    // 2. Add upsell items
+    const parentId = addItem(itemToAdd, qty, finalNote, undefined, selectedPackageChoices)
+
+    // 3. Add upsell items
     Object.entries(selectedUpsells).forEach(([uId, uQty]) => {
       if (uQty > 0) {
         const uItem = upsellItems.find(u => u.id === uId)
@@ -180,6 +187,33 @@ export default function ProductDetailClient({
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Campaign Price Selection */}
+        {item.is_campaign_active && item.campaign_price !== null && item.campaign_price !== undefined && (
+          <div className="space-y-4">
+            <h3 className="text-[15px] font-bold text-gray-900 px-1 flex items-center gap-2">
+              <Sandwich className="w-5 h-5 text-red-500" /> Pilihan Harga
+            </h3>
+            <div className="bg-white p-5 rounded-2xl shadow-card border border-red-100">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setSelectedCampaign(false)}
+                  className={`p-4 rounded-xl border text-left transition-all active:scale-[0.98] ${!selectedCampaign ? 'border-red-500 bg-red-50 shadow-sm' : 'border-gray-200 bg-white hover:border-red-200'}`}
+                >
+                  <div className={`font-bold text-sm ${!selectedCampaign ? 'text-red-700' : 'text-gray-900'}`}>Harga Normal</div>
+                  <div className={`text-xs mt-1 ${!selectedCampaign ? 'text-red-500' : 'text-gray-500'}`}>{formatRupiah(item.price)}</div>
+                </button>
+                <button
+                  onClick={() => setSelectedCampaign(true)}
+                  className={`p-4 rounded-xl border text-left transition-all active:scale-[0.98] ${selectedCampaign ? 'border-red-500 bg-red-50 shadow-sm' : 'border-gray-200 bg-white hover:border-red-200'}`}
+                >
+                  <div className={`font-bold text-sm ${selectedCampaign ? 'text-red-700' : 'text-gray-900'}`}>Harga Campaign</div>
+                  <div className={`text-xs mt-1 ${selectedCampaign ? 'text-red-500' : 'text-gray-500'}`}>{formatRupiah(item.campaign_price)}</div>
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -39,6 +39,30 @@ export default async function EditResepPage({ params }: { params: Promise<{ menu
     .eq('scope', 'global')
     .maybeSingle()
 
+  let comboBOMData = null;
+  if (menu.is_package) {
+    const { data: simplePkg } = await supabase.from('menu_packages').select('menu_item_id, quantity').eq('package_id', menu_id);
+    const baseIds = (simplePkg || []).map((p: any) => p.menu_item_id);
+    if (baseIds.length > 0) {
+      const { data: baseMenus } = await supabase.from('menu_items').select('id, name').in('id', baseIds);
+      const { data: baseRecipes } = await supabase.from('resep').select('menu_item_ref, resep_item(bahan_baku_id, qty_per_porsi, satuan)').in('menu_item_ref', baseIds).eq('scope', 'global');
+      
+      comboBOMData = (simplePkg || []).map((pkg: any) => {
+         const baseMenu = baseMenus?.find((m: any) => m.id === pkg.menu_item_id)
+         const recipe = baseRecipes?.find((r: any) => r.menu_item_ref === pkg.menu_item_id)
+         return {
+           baseItemId: pkg.menu_item_id,
+           baseItemName: baseMenu?.name || 'Unknown Item',
+           quantity: pkg.quantity || 1,
+           items: recipe?.resep_item || [],
+           hasBOM: !!recipe
+         }
+      })
+    } else {
+      comboBOMData = []
+    }
+  }
+
   const bahanNorm = (bahanBakuList || []).map((bb: any) => {
     const h = Array.isArray(bb.bahan_baku_harga) ? bb.bahan_baku_harga[0] : bb.bahan_baku_harga
     const skus = Array.isArray(bb.bahan_baku_sku) ? bb.bahan_baku_sku : []
@@ -86,6 +110,7 @@ export default async function EditResepPage({ params }: { params: Promise<{ menu
         menu={menu}
         bahanBakuList={bahanNorm}
         existingRecipe={existingRecipe}
+        comboBOMData={comboBOMData}
       />
     </div>
   )

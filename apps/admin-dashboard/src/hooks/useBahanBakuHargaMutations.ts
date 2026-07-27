@@ -151,5 +151,17 @@ export function useBahanBakuHargaMutations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
   })
 
-  return { setHarga, setMerek, setNama, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku, setSkuImage }
+  const setThreshold = useMutation({
+    mutationFn: async (vars: { bahan_baku_id: string; threshold_type: 'angka' | 'persentase'; threshold_persentase: number | null; stok_ideal: number | null }) => {
+      const { error } = await supabase.from('bahan_baku').update({
+        threshold_type: vars.threshold_type,
+        threshold_persentase: vars.threshold_persentase,
+        stok_ideal: vars.stok_ideal
+      }).eq('id', vars.bahan_baku_id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
+  })
+
+  return { setHarga, setMerek, setNama, setSatuan, setImage, addSku, updateSku, deleteSku, setDefaultSku, setSkuImage, setThreshold }
 }

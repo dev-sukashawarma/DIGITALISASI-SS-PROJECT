@@ -367,7 +367,7 @@ export function AttendanceKioskPanel() {
             </div>
             <div>
               <span className="rounded-full bg-suka-orange/10 border border-suka-orange/30 px-3 py-0.5 text-[10px] font-black text-suka-brown uppercase tracking-wider">
-                Leader / Multi-Outlet
+                Pintu Absensi SPV & Leader Multi-Outlet
               </span>
               <h2 className="text-lg font-extrabold text-suka-ink mt-0.5">Pilih Lokasi Outlet Absen</h2>
             </div>

@@ -67,27 +67,33 @@ export async function GET(req: Request) {
       }
     }
 
-    // 2. Fetch primary outlet from outlet_staff
-    const { data: staffData } = await admin
+    // 3. For SPV, Owner, Admin, Admin HR, and Korlap roles: if list has <= 1 outlet, load all active outlets so SPV can choose any outlet!
+    const { data: staffRoleData } = await admin
       .from("outlet_staff")
-      .select("outlet_id")
+      .select("role")
       .eq("id", staffId)
       .maybeSingle();
 
-    if (staffData?.outlet_id && !list.some((x) => x.id === staffData.outlet_id)) {
-      const { data: primaryOutlet } = await admin
-        .from("outlets")
-        .select("id, name, lat, lng")
-        .eq("id", staffData.outlet_id)
-        .maybeSingle();
+    if (["spv", "owner", "admin", "admin_hr", "korlap"].includes(staffRoleData?.role || "")) {
+      if (list.length <= 1) {
+        const { data: allOutlets } = await admin
+          .from("outlets")
+          .select("id, name, lat, lng")
+          .eq("is_active", true)
+          .order("name");
 
-      if (primaryOutlet) {
-        list.unshift({
-          id: primaryOutlet.id,
-          name: primaryOutlet.name,
-          lat: primaryOutlet.lat !== null ? Number(primaryOutlet.lat) : null,
-          lng: primaryOutlet.lng !== null ? Number(primaryOutlet.lng) : null,
-        });
+        if (allOutlets && allOutlets.length > 0) {
+          allOutlets.forEach((item: any) => {
+            if (!list.some((x) => x.id === item.id)) {
+              list.push({
+                id: item.id,
+                name: item.name,
+                lat: item.lat !== null ? Number(item.lat) : null,
+                lng: item.lng !== null ? Number(item.lng) : null,
+              });
+            }
+          });
+        }
       }
     }
 

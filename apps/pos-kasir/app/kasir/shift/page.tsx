@@ -38,6 +38,8 @@ interface Expense {
   created_by?: string | null
   creator?: { name: string | null } | null
   receipt_url?: string | null
+  deleted_at?: string | null
+  delete_reason?: string | null
 }
 
 interface PettyCashTopup {
@@ -165,7 +167,7 @@ export default function ShiftPage() {
   }, [topups])
 
   const expensesTotal = useMemo(
-    () => expenses.reduce((s, e) => s + Number(e.amount), 0),
+    () => expenses.filter(e => !e.deleted_at).reduce((s, e) => s + Number(e.amount), 0),
     [expenses],
   )
 
@@ -267,6 +269,7 @@ export default function ShiftPage() {
           .filter(t => t.status === 'completed' || t.status === 'approved')
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
         const expensesTotal = snapExpenses
+          .filter(e => !e.deleted_at)
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
         calculatedBalance = startPetty + topupsTotal - expensesTotal
@@ -414,6 +417,34 @@ export default function ShiftPage() {
       await fetchCurrentState()
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal mencatat pengeluaran (mungkin saldo kurang)')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleVoidExpense(id: string) {
+    if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
+    const reason = window.prompt('Masukkan alasan pembatalan pengeluaran:')
+    if (reason === null) return // User cancelled
+    if (!reason.trim()) {
+      window.alert('Alasan pembatalan harus diisi!')
+      return
+    }
+
+    const confirmed = await showConfirm('Anda yakin ingin membatalkan pengeluaran ini? Nominal akan dikembalikan ke saldo Petty Cash.')
+    if (!confirmed) return
+
+    setErrorMsg('')
+    setSuccessMsg('')
+    setIsSubmitting(true)
+    try {
+      const { error } = await supabase.rpc('void_petty_cash_expense', { p_expense_id: id, p_reason: reason.trim() })
+      if (error) throw error
+
+      setSuccessMsg('Pengeluaran berhasil dibatalkan.')
+      await fetchCurrentState()
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Gagal membatalkan pengeluaran.')
     } finally {
       setIsSubmitting(false)
     }
@@ -755,24 +786,35 @@ export default function ShiftPage() {
                     ledgerItems.map((item, idx) => {
                       if (item.type === 'expense') {
                         const exp = item.data as Expense
+                        const isVoided = !!exp.deleted_at;
                         return (
-                          <div key={`exp-${exp.id}-${idx}`} className="p-4 flex items-start justify-between gap-3 hover:bg-gray-50">
+                          <div key={`exp-${exp.id}-${idx}`} className={`p-4 flex items-start justify-between gap-3 hover:bg-gray-50 ${isVoided ? 'opacity-60 bg-gray-50/80' : ''}`}>
                             <div className="flex items-start gap-3 min-w-0">
-                              <div className="shrink-0 w-11 h-11 rounded-lg bg-red-50 flex items-center justify-center text-red-400">
+                              <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${isVoided ? 'bg-gray-100 text-gray-400' : 'bg-red-50 text-red-400'}`}>
                                 <Receipt className="w-5 h-5" />
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-bold text-gray-900 truncate">{exp.description}</p>
-                                <p className="text-[11px] font-semibold text-gray-400 uppercase mt-0.5">Pengeluaran Petty Cash ({CATEGORY_LABEL[exp.category] ?? exp.category})</p>
+                                <p className={`text-sm font-bold text-gray-900 truncate ${isVoided ? 'line-through text-gray-500' : ''}`}>{exp.description}</p>
+                                <p className="text-[11px] font-semibold text-gray-400 uppercase mt-0.5">
+                                  Pengeluaran Petty Cash ({CATEGORY_LABEL[exp.category] ?? exp.category}) {isVoided && <span className="text-red-500 ml-1 font-bold">(DIBATALKAN)</span>}
+                                </p>
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
                                   <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{exp.creator?.name ?? '—'}</span>
                                   <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(exp.created_at)}</span>
                                 </div>
+                                {isVoided && exp.delete_reason && (
+                                  <p className="text-[10px] font-medium text-red-500 mt-1 italic">Alasan Batal: {exp.delete_reason}</p>
+                                )}
                               </div>
                             </div>
                             <div className="flex flex-col items-end shrink-0 gap-1.5">
-                              <span className="text-sm font-black text-red-600">-{formatRupiah(exp.amount)}</span>
-                              {exp.receipt_url && <button onClick={() => setSelectedReceiptUrl(exp.receipt_url || null)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md hover:bg-blue-100 transition-colors">Lihat Bukti</button>}
+                              <span className={`text-sm font-black ${isVoided ? 'text-gray-400 line-through' : 'text-red-600'}`}>-{formatRupiah(exp.amount)}</span>
+                              <div className="flex items-center gap-1.5">
+                                {exp.receipt_url && <button onClick={() => setSelectedReceiptUrl(exp.receipt_url || null)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md hover:bg-blue-100 transition-colors">Lihat Bukti</button>}
+                                {!isVoided && activeShift && (
+                                  <button onClick={() => handleVoidExpense(exp.id)} className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded-md hover:bg-red-100 transition-colors border border-red-100 shadow-sm">Batal</button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         )

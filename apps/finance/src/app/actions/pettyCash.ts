@@ -34,10 +34,10 @@ export async function processPettyCashFinanceCustomAmount({
   id: string
   action: 'approve' | 'reject'
   method?: DisbursementMethod
-  cashLocationId?: string
-  proofOfTransferUrl?: string
-  approvedAmount?: number
-  approvalNote?: string
+  cashLocationId?: string | null
+  proofOfTransferUrl?: string | null
+  approvedAmount?: number | null
+  approvalNote?: string | null
   userId: string
 }) {
   try {

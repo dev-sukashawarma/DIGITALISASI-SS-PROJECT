@@ -139,10 +139,10 @@ export function useProcessPettyCashFinance() {
         id,
         action,
         method,
-        cashLocationId,
-        proofOfTransferUrl,
-        approvedAmount,
-        approvalNote,
+        cashLocationId: cashLocationId || null,
+        proofOfTransferUrl: proofOfTransferUrl || null,
+        approvedAmount: approvedAmount ?? null,
+        approvalNote: approvalNote || null,
         userId
       })
       

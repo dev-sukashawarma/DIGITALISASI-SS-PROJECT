@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
-import { ArrowDownToLine, Wallet, X, Info, MessageSquare } from 'lucide-react'
+import { ArrowDownToLine, Wallet, Info, MessageSquare } from 'lucide-react'
 
 interface PendingTopup {
   id: string
@@ -40,7 +40,6 @@ export default function PettyCashNotification() {
   const pathname = usePathname()
 
   const [pendingTopup, setPendingTopup] = useState<PendingTopup | null>(null)
-  const dismissedIds = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     if (!outletId) return
@@ -58,8 +57,10 @@ export default function PettyCashNotification() {
           .limit(1)
           .maybeSingle()
 
-        if (!error && data && !dismissedIds.current.has(data.id)) {
+        if (!error && data) {
           setPendingTopup(data)
+        } else {
+          setPendingTopup(null)
         }
       } catch (err) {
         console.error('Error checking pending topups:', err)
@@ -82,7 +83,7 @@ export default function PettyCashNotification() {
           const newStatus = payload.new?.status
           const id = payload.new?.id
 
-          if (newStatus === 'forwarded_by_leader' && id && !dismissedIds.current.has(id)) {
+          if (newStatus === 'forwarded_by_leader' && id) {
             setPendingTopup({
               id,
               amount: payload.new.amount || 0,
@@ -90,6 +91,9 @@ export default function PettyCashNotification() {
               created_at: payload.new.created_at || new Date().toISOString(),
             })
           } else if (newStatus === 'completed' && id) {
+            setPendingTopup((prev) => (prev?.id === id ? null : prev))
+          } else if (newStatus && newStatus !== 'forwarded_by_leader') {
+             // If status changed to something else (e.g., rejected), remove if it's the current one
             setPendingTopup((prev) => (prev?.id === id ? null : prev))
           }
         }
@@ -101,67 +105,41 @@ export default function PettyCashNotification() {
     }
   }, [outletId])
 
-  function handleConfirm() {
-    if (pendingTopup) {
-      dismissedIds.current.add(pendingTopup.id)
-    }
-    setPendingTopup(null)
-
-    if (pathname === '/kasir/shift') {
-      window.dispatchEvent(new CustomEvent('start-petty-cash-tour', { detail: pendingTopup }))
-    } else {
-      router.push('/kasir/shift?tour=terima-dana')
-    }
-  }
-
-  function handleDismiss() {
-    if (pendingTopup) {
-      dismissedIds.current.add(pendingTopup.id)
-    }
-    setPendingTopup(null)
-  }
-
-  if (!pendingTopup) return null
+  // Automatically hide the modal if the user is already on the Petty Cash page
+  if (!pendingTopup || pathname === '/kasir/shift') return null
 
   const { mainReason, financeNote } = parseFinanceNote(pendingTopup.description)
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in font-sans">
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200 relative">
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in font-sans">
+      <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200 relative">
         {/* Top Header Section */}
         <div className="p-6 pb-3 relative">
-          <button
-            onClick={handleDismiss}
-            className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-
           {/* Clean Icon Badge */}
           <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-4 border border-blue-100/80">
             <Wallet className="w-6 h-6" />
           </div>
 
-          <h3 className="text-lg font-bold text-gray-900 tracking-tight">
-            Top-Up Petty Cash Siap Diterima
+          <h3 className="text-xl font-black text-gray-900 tracking-tight leading-tight">
+            Ada Dana Petty Cash<br/>Siap Diterima!
           </h3>
-          <p className="text-xs text-gray-500 mt-1">
-            Konfirmasi fisik uang sebelum saldo bertambah
+          <p className="text-xs text-gray-500 mt-1.5 font-medium">
+            Kasir wajib mengonfirmasi penerimaan dana sebelum melanjutkan transaksi.
           </p>
         </div>
 
         {/* Content Body */}
         <div className="px-6 space-y-3.5 pb-6">
           {/* Nominal Display Card */}
-          <div className="bg-gray-50/80 border border-gray-100 rounded-xl p-4 text-center">
+          <div className="bg-gray-50/80 border border-gray-100 rounded-2xl p-4 text-center">
             <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-              Nominal Dana Disetujui
+              Nominal Pencairan
             </span>
-            <div className="text-2xl font-black text-gray-900 tracking-tight">
+            <div className="text-3xl font-black text-gray-900 tracking-tight">
               +Rp {pendingTopup.amount.toLocaleString('id-ID')}
             </div>
             {mainReason && (
-              <p className="text-xs text-gray-600 mt-1.5 font-medium line-clamp-2">
+              <p className="text-xs text-gray-600 mt-2 font-medium line-clamp-2">
                 "{mainReason}"
               </p>
             )}
@@ -169,7 +147,7 @@ export default function PettyCashNotification() {
 
           {/* Highlighted Catatan Finance */}
           {financeNote && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-950 font-semibold space-y-1">
+            <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-3 text-xs text-amber-950 font-semibold space-y-1">
               <div className="flex items-center gap-1.5 text-amber-800 font-extrabold">
                 <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <span>Catatan Finance:</span>
@@ -181,27 +159,21 @@ export default function PettyCashNotification() {
           )}
 
           {/* Info callout */}
-          <div className="bg-blue-50/80 border border-blue-200/60 rounded-xl p-3 flex items-start gap-2.5">
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-2.5">
             <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <p className="text-[11px] text-blue-900 font-medium leading-relaxed">
-              Saldo Petty Cash <b>belum bertambah</b>. Klik tombol di bawah untuk mengonfirmasi penerimaan.
+              Anda tidak bisa menutup pop-up ini. Silakan menuju halaman Petty Cash untuk menyelesaikan proses.
             </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-1 space-y-2">
+          <div className="pt-2">
             <button
-              onClick={handleConfirm}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold rounded-xl text-xs transition-all shadow-sm shadow-blue-200 flex items-center justify-center gap-2 cursor-pointer"
+              onClick={() => router.push('/kasir/shift?tour=terima-dana')}
+              className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-black rounded-xl text-sm transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer"
             >
               <ArrowDownToLine className="w-4 h-4" />
-              Buka & Terima Dana
-            </button>
-            <button
-              onClick={handleDismiss}
-              className="w-full py-2 text-[11px] font-semibold text-gray-400 hover:text-gray-600 transition-colors text-center cursor-pointer"
-            >
-              Nanti Saja
+              Menuju Halaman Petty Cash
             </button>
           </div>
         </div>
@@ -209,3 +181,4 @@ export default function PettyCashNotification() {
     </div>
   )
 }
+

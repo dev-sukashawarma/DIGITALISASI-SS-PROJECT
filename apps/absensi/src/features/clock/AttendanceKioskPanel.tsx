@@ -53,10 +53,10 @@ export function AttendanceKioskPanel() {
 
   type AssignedOutlet = { id: string; name: string; lat: number | null; lng: number | null; distanceM?: number | null };
 
-  // Leader / Multi-outlet Support
+  // Leader / Multi-outlet Support — Seamless Auto-Detect
   const [assignedOutlets, setAssignedOutlets] = useState<AssignedOutlet[]>([]);
   const [selectedOutletId, setSelectedOutletId] = useState<string>("");
-  const [hasUserConfirmedOutlet, setHasUserConfirmedOutlet] = useState<boolean>(false);
+  const [showOutletPickerModal, setShowOutletPickerModal] = useState<boolean>(false);
   const manualSelectionRef = useRef(false);
 
   const activeOutletId = selectedOutletId || outletStaff?.outlet_id || "";
@@ -64,7 +64,6 @@ export function AttendanceKioskPanel() {
   const activeOutletName = activeOutletObj?.name || outletName || "Outlet Utama";
 
   // Kiosk Integration — MODE 1:1: panel pribadi, kunci ke akun yang login.
-  // Wajah orang lain (walau ter-enroll) ditolak; hanya pemilik akun yang bisa absen.
   const supabase = createClient();
   const kiosk = useClockKiosk(activeOutletId, { lockToStaffId: outletStaff?.id });
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -99,13 +98,12 @@ export function AttendanceKioskPanel() {
 
       if (!isMounted) return;
 
-      // SET ASSIGNED OUTLETS IMMEDIATELY SO GATEWAY CARD SHOWS UP ON FIRST RENDER!
       setAssignedOutlets(list);
       if (!selectedOutletId && list[0]?.id) {
         setSelectedOutletId(list[0].id);
       }
 
-      // Smart Proximity Detection di background untuk update label jarak
+      // Smart High-Precision Proximity Detection: Otomatis kunci ke outlet terdekat!
       if (typeof navigator !== "undefined" && navigator.geolocation && list.length > 1) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
@@ -130,13 +128,13 @@ export function AttendanceKioskPanel() {
             updatedList.sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity));
             setAssignedOutlets(updatedList);
 
-            // Jika user belum pernah memilih secara manual, otomatis defaultkan ke outlet terdekat!
+            // Jika user belum pernah memilih manual, OTOMATIS KUNCI ke outlet terdekat!
             if (!manualSelectionRef.current && closestOutletId) {
               setSelectedOutletId(closestOutletId);
             }
           },
           () => {},
-          { enableHighAccuracy: true, timeout: 6000, maximumAge: 10000 }
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
         );
       }
     }
@@ -160,8 +158,6 @@ export function AttendanceKioskPanel() {
 
   useEffect(() => {
     if (!activeOutletId) return;
-    // JANGAN jalankan checkLocation/loading jika user leader belum mengonfirmasi/memilih outlet!
-    if (assignedOutlets.length > 1 && !hasUserConfirmedOutlet) return;
 
     // Initial Load for activeOutletId
     kiosk.loadCandidates();
@@ -358,91 +354,104 @@ export function AttendanceKioskPanel() {
         </div>
       </div>
 
-      {/* ── GATEWAY PILIHAN OUTLET UNTUK LEADER / MULTI-OUTLET ── */}
-      {assignedOutlets.length > 1 && !hasUserConfirmedOutlet ? (
-        <Card className="p-6 rounded-3xl border-2 border-suka-orange bg-gradient-to-b from-orange-50/90 via-amber-50/40 to-white shadow-xl space-y-5">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-suka-orange/20 flex items-center justify-center text-suka-orange shrink-0">
-              <Store size={28} />
-            </div>
-            <div>
-              <span className="rounded-full bg-suka-orange/10 border border-suka-orange/30 px-3 py-0.5 text-[10px] font-black text-suka-brown uppercase tracking-wider">
-                Pintu Absensi SPV & Leader Multi-Outlet
-              </span>
-              <h2 className="text-lg font-extrabold text-suka-ink mt-0.5">Pilih Lokasi Outlet Absen</h2>
-            </div>
+      {/* Active outlet banner for multi-outlet users (Seamless Auto-Detect) */}
+      {assignedOutlets.length > 1 && (
+        <div className="flex items-center justify-between bg-gradient-to-r from-orange-50 via-amber-50/60 to-white border border-suka-orange/30 p-3.5 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-2 text-xs font-extrabold text-suka-ink min-w-0">
+            <Store size={16} className="text-suka-orange shrink-0" />
+            <span className="truncate">
+              📍 Terdeteksi: <span className="text-suka-orange font-black">{activeOutletName}</span>
+              {activeOutletObj?.distanceM !== undefined && activeOutletObj?.distanceM !== null && (
+                <span className="ml-1.5 text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full text-[10px] font-black">
+                  {formatDistanceMeters(activeOutletObj.distanceM, true)}
+                </span>
+              )}
+            </span>
           </div>
+          <button
+            onClick={() => setShowOutletPickerModal(true)}
+            className="text-xs font-extrabold text-suka-brown bg-white border border-suka-orange/40 px-3 py-1.5 rounded-xl hover:bg-orange-100 transition-all shadow-sm shrink-0"
+          >
+            🔄 Ganti Outlet
+          </button>
+        </div>
+      )}
 
-          <p className="text-xs text-gray-600 font-medium leading-relaxed">
-            Silakan pilih lokasi outlet tempat Anda berada saat ini untuk memulai verifikasi lokasi dan scan absensi:
-          </p>
-
-          <div className="space-y-3">
-            {assignedOutlets.map((out) => {
-              const isClosest = out.distanceM !== undefined && out.distanceM !== null && out.distanceM <= 300;
-              let distText = "";
-              if (out.distanceM !== undefined && out.distanceM !== null) {
-                distText = formatDistanceMeters(out.distanceM, true);
-              }
-
-              return (
-                <div
-                  key={out.id}
-                  onClick={() => {
-                    manualSelectionRef.current = true;
-                    setSelectedOutletId(out.id);
-                    setHasUserConfirmedOutlet(true);
-                    kiosk.checkLocation();
-                  }}
-                  className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
-                    isClosest
-                      ? "border-suka-orange bg-white shadow-md ring-2 ring-suka-orange/30 hover:border-suka-orange/80"
-                      : "border-gray-200 bg-white hover:border-suka-orange/50 hover:bg-orange-50/30 shadow-sm"
-                  }`}
-                >
-                  <div className="min-w-0 pr-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-sm text-suka-ink group-hover:text-suka-orange transition-colors truncate">
-                        📍 {out.name}
-                      </span>
-                      {out.id === outletStaff.outlet_id && (
-                        <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-bold shrink-0">Utama</span>
-                      )}
-                    </div>
-                    {distText && (
-                      <div className="text-xs font-semibold mt-1 flex items-center gap-1.5 text-gray-500">
-                        <span>Jarak: <span className={isClosest ? "text-emerald-600 font-extrabold" : "text-gray-600"}>{distText}</span></span>
-                        {isClosest && (
-                          <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-full">📍 Terdekat (Lokasi Anda)</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <button className="shrink-0 bg-suka-orange text-white px-3.5 py-2 rounded-xl text-xs font-extrabold shadow group-hover:bg-suka-brown transition-colors">
-                    Pilih & Absen →
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      ) : (
-        <>
-          {/* Active outlet banner for multi-outlet leaders when confirmed */}
-          {assignedOutlets.length > 1 && hasUserConfirmedOutlet && (
-            <div className="flex items-center justify-between bg-orange-50 border border-suka-orange/30 p-3.5 rounded-2xl">
-              <div className="flex items-center gap-2 text-xs font-extrabold text-suka-ink min-w-0">
-                <Store size={16} className="text-suka-orange shrink-0" />
-                <span className="truncate">Lokasi Absen: <span className="text-suka-orange font-black">{activeOutletName}</span></span>
+      {/* Modal Popup Pilih Outlet Manual */}
+      {showOutletPickerModal && (
+        <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <Card className="w-full max-w-md bg-white p-6 rounded-3xl space-y-4 shadow-2xl border-2 border-suka-orange max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Store className="text-suka-orange" size={20} />
+                <h3 className="text-base font-extrabold text-suka-ink">Pilih Lokasi Outlet</h3>
               </div>
               <button
-                onClick={() => setHasUserConfirmedOutlet(false)}
-                className="text-xs font-bold text-suka-brown bg-white border border-suka-orange/30 px-3 py-1.5 rounded-xl hover:bg-orange-100 transition-colors shrink-0"
+                onClick={() => setShowOutletPickerModal(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold flex items-center justify-center transition-colors"
               >
-                🔄 Ganti Outlet
+                ✕
               </button>
             </div>
-          )}
+
+            <p className="text-xs text-gray-500 font-medium">
+              Pilih lokasi outlet tempat Anda bertugas saat ini untuk mengunci titik koordinat GPS:
+            </p>
+
+            <div className="space-y-2.5">
+              {assignedOutlets.map((out) => {
+                const isSelected = out.id === activeOutletId;
+                const isClosest = out.distanceM !== undefined && out.distanceM !== null && out.distanceM <= 300;
+                let distText = "";
+                if (out.distanceM !== undefined && out.distanceM !== null) {
+                  distText = formatDistanceMeters(out.distanceM, true);
+                }
+
+                return (
+                  <div
+                    key={out.id}
+                    onClick={() => {
+                      manualSelectionRef.current = true;
+                      setSelectedOutletId(out.id);
+                      setShowOutletPickerModal(false);
+                      kiosk.checkLocation();
+                    }}
+                    className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
+                      isSelected
+                        ? "border-suka-orange bg-orange-50/60 shadow-md ring-2 ring-suka-orange/40"
+                        : "border-gray-200 bg-white hover:border-suka-orange/50 hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-xs text-suka-ink truncate">
+                          📍 {out.name}
+                        </span>
+                        {out.id === outletStaff.outlet_id && (
+                          <span className="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full font-bold shrink-0">Utama</span>
+                        )}
+                      </div>
+                      {distText && (
+                        <div className="text-[11px] font-semibold mt-1 flex items-center gap-1 text-gray-500">
+                          <span>Jarak: <span className={isClosest ? "text-emerald-600 font-extrabold" : "text-gray-600"}>{distText}</span></span>
+                          {isClosest && (
+                            <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-full">📍 Terdekat</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <button className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold shadow transition-colors ${
+                      isSelected ? "bg-suka-brown text-white" : "bg-suka-orange text-white group-hover:bg-suka-brown"
+                    }`}>
+                      {isSelected ? "Aktif" : "Pilih →"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      )}
 
           {/* Camera (Absen) - POSISI ATAS */}
           <Card className={`relative overflow-hidden p-0 rounded-3xl flex flex-col justify-between border transition-all duration-500 shadow-lg ${
@@ -828,8 +837,6 @@ export function AttendanceKioskPanel() {
           )}
         </div>
       </Card>
-        </>
-      )}
     </div>
   );
 }

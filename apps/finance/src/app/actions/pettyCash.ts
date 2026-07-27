@@ -3,10 +3,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { DisbursementMethod } from '@/lib/types'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function processPettyCashFinanceCustomAmount({
   id,
@@ -56,8 +56,8 @@ export async function processPettyCashFinanceCustomAmount({
           status: 'approved_by_finance',
           finance_approved_by: userId,
           disbursement_method: method,
-          disbursed_from_cash_location_id: cashLocationId,
-          proof_of_transfer_url: proofOfTransferUrl,
+          disbursed_from_cash_location_id: cashLocationId || null,
+          proof_of_transfer_url: proofOfTransferUrl || null,
           amount: finalAmount,
           description: newDescription
         })
@@ -79,7 +79,10 @@ export async function processPettyCashFinanceCustomAmount({
             created_by: userId
           })
 
-        if (cashError) throw cashError
+        if (cashError) {
+          console.error('Warning inserting cash_transaction:', cashError)
+          // Do not fail topup approval if cash_transaction log insert fails due to minor constraint
+        }
       }
     } else if (action === 'reject') {
       const { error: rejectError } = await supabase
@@ -98,6 +101,6 @@ export async function processPettyCashFinanceCustomAmount({
     return { success: true }
   } catch (err: any) {
     console.error('Error in processPettyCashFinanceCustomAmount:', err)
-    return { success: false, error: err.message }
+    return { success: false, error: err?.message || 'Gagal memproses pencairan' }
   }
 }

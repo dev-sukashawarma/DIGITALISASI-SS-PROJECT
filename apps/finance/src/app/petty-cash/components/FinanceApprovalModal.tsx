@@ -5,6 +5,7 @@ import { Wallet, X, Store, CreditCard, Building2, User, AlertCircle, CheckCircle
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 import { relativeTime, tanggalWaktu } from '@/lib/format'
 import { useCashOverview } from '@/hooks/useCashData'
+import { createClient } from '@/lib/supabase'
 
 interface FinanceApprovalModalProps {
   isOpen: boolean
@@ -23,6 +24,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   const [cashLocationId, setCashLocationId] = useState<string>('')
   
   // Photo File Upload State
+  const [proofFile, setProofFile] = useState<File | null>(null)
   const [proofImage, setProofImage] = useState<string | null>(null)
   const [proofFileName, setProofFileName] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -36,6 +38,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
     if (isOpen) {
       setApprovedAmount(request.amount)
       setApprovalNote('')
+      setProofFile(null)
       setProofImage(null)
       setProofFileName(null)
     }
@@ -82,16 +85,17 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
         alert('Ukuran file foto maksimal 5MB')
         return
       }
+      setProofFile(file)
       setProofFileName(file.name)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setProofImage(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+      setProofImage(URL.createObjectURL(file))
     }
   }
 
   const handleRemovePhoto = () => {
+    if (proofImage) {
+      URL.revokeObjectURL(proofImage)
+    }
+    setProofFile(null)
     setProofImage(null)
     setProofFileName(null)
     if (fileInputRef.current) {
@@ -119,7 +123,33 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
     setActionType(type)
     try {
       if (type === 'approve') {
-        await onApprove(method, cashLocationId || undefined, proofImage || undefined, approvedAmount, approvalNote)
+        let uploadedUrl: string | undefined = undefined
+
+        if (proofFile) {
+          try {
+            const supabase = createClient()
+            const ext = proofFile.name.split('.').pop() || 'jpg'
+            const cleanName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`
+            const storagePath = `finance-proofs/${cleanName}`
+            
+            const { error: upErr } = await supabase.storage
+              .from('finance-proofs')
+              .upload(storagePath, proofFile)
+              
+            if (!upErr) {
+              const { data: pubData } = supabase.storage
+                .from('finance-proofs')
+                .getPublicUrl(storagePath)
+              uploadedUrl = pubData.publicUrl
+            } else {
+              console.warn('Storage upload error, proceeding without image:', upErr)
+            }
+          } catch (e) {
+            console.warn('Failed to upload proof image:', e)
+          }
+        }
+
+        await onApprove(method, cashLocationId || undefined, uploadedUrl, approvedAmount, approvalNote)
       } else {
         await onReject()
       }

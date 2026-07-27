@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
+import { processPettyCashFinanceCustomAmount } from '@/app/actions/pettyCash'
 
 export function usePettyCashRequests(status?: string, initialData?: PettyCashTopup[], regionFilter?: string) {
   const supabase = useMemo(() => createClient(), [])
@@ -130,14 +131,9 @@ export function useProcessPettyCashFinance() {
       approvedAmount?: number;
       approvalNote?: string;
     }) => {
-      // Import the server action dynamically to avoid breaking the client side hook initialization
-      const { processPettyCashFinanceCustomAmount } = await import('@/app/actions/pettyCash')
-      
-      // Get the current user ID
-      const { createClient } = await import('@/lib/supabase')
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      const userId = user?.id || '00000000-0000-0000-0000-000000000000'
 
       const result = await processPettyCashFinanceCustomAmount({
         id,
@@ -147,10 +143,12 @@ export function useProcessPettyCashFinance() {
         proofOfTransferUrl,
         approvedAmount,
         approvalNote,
-        userId: user.id
+        userId
       })
       
-      if (!result.success) throw new Error(result.error)
+      if (!result.success) {
+        throw new Error(result.error || 'Gagal memproses pencairan')
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })

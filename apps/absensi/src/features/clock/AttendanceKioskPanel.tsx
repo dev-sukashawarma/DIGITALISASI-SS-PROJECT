@@ -51,9 +51,12 @@ export function AttendanceKioskPanel() {
   const [modelError, setModelError] = useState<string | null>(null);
   const [outletName, setOutletName] = useState<string>("");
 
+  type AssignedOutlet = { id: string; name: string; lat: number | null; lng: number | null; distanceM?: number | null };
+
   // Leader / Multi-outlet Support
-  const [assignedOutlets, setAssignedOutlets] = useState<{ id: string; name: string }[]>([]);
+  const [assignedOutlets, setAssignedOutlets] = useState<AssignedOutlet[]>([]);
   const [selectedOutletId, setSelectedOutletId] = useState<string>("");
+  const manualSelectionRef = useRef(false);
 
   const activeOutletId = selectedOutletId || outletStaff?.outlet_id || "";
 
@@ -65,7 +68,7 @@ export function AttendanceKioskPanel() {
   const loopRef = useRef<number | null>(null);
   const router = useRouter();
 
-  // Load daftar outlet yang diampu / dibawahi oleh staf/leader dari staff_outlets
+  // Load daftar outlet yang diampu / dibawahi oleh staf/leader dari staff_outlets + Smart Auto-Detect Terdekat
   useEffect(() => {
     if (!outletStaff) return;
 
@@ -73,16 +76,21 @@ export function AttendanceKioskPanel() {
     async function loadAssignedOutlets() {
       const { data: soData } = await supabase
         .from("staff_outlets")
-        .select("outlet_id, outlets(id, name)")
+        .select("outlet_id, outlets(id, name, lat, lng)")
         .eq("staff_id", outletStaff.id);
 
-      const list: { id: string; name: string }[] = [];
+      const list: AssignedOutlet[] = [];
       if (soData && soData.length > 0) {
         soData.forEach((row: any) => {
           if (row.outlets) {
             const item = Array.isArray(row.outlets) ? row.outlets[0] : row.outlets;
             if (item && item.id && !list.some((x) => x.id === item.id)) {
-              list.push({ id: item.id, name: item.name });
+              list.push({
+                id: item.id,
+                name: item.name,
+                lat: item.lat !== null ? Number(item.lat) : null,
+                lng: item.lng !== null ? Number(item.lng) : null,
+              });
             }
           }
         });
@@ -92,15 +100,62 @@ export function AttendanceKioskPanel() {
       if (outletStaff.outlet_id && !list.some((x) => x.id === outletStaff.outlet_id)) {
         const { data: primaryOutlet } = await supabase
           .from("outlets")
-          .select("id, name")
+          .select("id, name, lat, lng")
           .eq("id", outletStaff.outlet_id)
           .maybeSingle();
         if (primaryOutlet) {
-          list.unshift({ id: primaryOutlet.id, name: primaryOutlet.name });
+          list.unshift({
+            id: primaryOutlet.id,
+            name: primaryOutlet.name,
+            lat: primaryOutlet.lat !== null ? Number(primaryOutlet.lat) : null,
+            lng: primaryOutlet.lng !== null ? Number(primaryOutlet.lng) : null,
+          });
         }
       }
 
-      if (isMounted) {
+      if (!isMounted) return;
+
+      // Smart Proximity Detection: Dapatkan lokasi fisik GPS perangkat & tentukan outlet terdekat
+      if (typeof navigator !== "undefined" && navigator.geolocation && list.length > 1) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (!isMounted) return;
+            const deviceLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            let closestOutletId = list[0]?.id;
+            let minDistance = Infinity;
+
+            const updatedList = list.map((out) => {
+              if (out.lat !== null && out.lng !== null) {
+                const dist = haversineMeters({ lat: out.lat, lng: out.lng }, deviceLoc);
+                if (dist < minDistance) {
+                  minDistance = dist;
+                  closestOutletId = out.id;
+                }
+                return { ...out, distanceM: dist };
+              }
+              return out;
+            });
+
+            // Urutkan outlet dari jarak fisik terdekat
+            updatedList.sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity));
+            setAssignedOutlets(updatedList);
+
+            // Jika user belum pernah memilih secara manual, otomatis aktifkan outlet terdekat!
+            if (!manualSelectionRef.current && closestOutletId) {
+              setSelectedOutletId(closestOutletId);
+            }
+          },
+          () => {
+            if (isMounted) {
+              setAssignedOutlets(list);
+              if (!selectedOutletId) {
+                setSelectedOutletId(outletStaff.outlet_id || (list[0]?.id ?? ""));
+              }
+            }
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+        );
+      } else {
         setAssignedOutlets(list);
         if (!selectedOutletId) {
           setSelectedOutletId(outletStaff.outlet_id || (list[0]?.id ?? ""));
@@ -336,23 +391,31 @@ export function AttendanceKioskPanel() {
             </span>
           </div>
           <p className="text-xs text-gray-600 font-medium leading-relaxed">
-            Anda terdaftar di beberapa cabang. Silakan pilih lokasi outlet tempat Anda berada saat ini sebelum scan absen:
+            Sistem otomatis mendeteksi lokasi terdekat Anda. Anda juga dapat memilih cabang lokasi secara manual:
           </p>
           <div className="relative">
             <select
               value={activeOutletId}
               onChange={(e) => {
                 const newId = e.target.value;
+                manualSelectionRef.current = true;
                 setSelectedOutletId(newId);
                 kiosk.checkLocation();
               }}
               className="w-full rounded-2xl border border-suka-orange/40 bg-white px-4 py-3 text-sm font-extrabold text-suka-ink shadow-sm outline-none focus:ring-2 focus:ring-suka-orange cursor-pointer transition-all"
             >
-              {assignedOutlets.map((out) => (
-                <option key={out.id} value={out.id}>
-                  📍 {out.name} {out.id === outletStaff.outlet_id ? "(Utama)" : ""}
-                </option>
-              ))}
+              {assignedOutlets.map((out) => {
+                let distText = "";
+                if (out.distanceM !== undefined && out.distanceM !== null) {
+                  distText = ` (${formatDistanceMeters(out.distanceM, true)})`;
+                }
+                const isPrimary = out.id === outletStaff.outlet_id ? " [Utama]" : "";
+                return (
+                  <option key={out.id} value={out.id}>
+                    📍 {out.name}{isPrimary}{distText}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </Card>

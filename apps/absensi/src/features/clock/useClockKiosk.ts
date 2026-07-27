@@ -104,53 +104,60 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     };
   }, []);
 
+  // Reset cached outlet coordinates and location lock when outletId changes
+  useEffect(() => {
+    setOutletCoords(null);
+    locationLockedRef.current = false;
+    setGpsDistance(null);
+    if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  }, [outletId]);
+
   /** Validasi lokasi sebelum scan wajah. Radius = GEOFENCE_RADIUS_M (lib/gps). */
   const checkLocation = useCallback(async () => {
     if (!outletId) return;
     setPhase("locating");
     setResult(null);
 
-    // Cek apakah lokasi sudah terverifikasi hari ini (cache dihapus karena server butuh lat/lng realtime)
+    // 1. Dapatkan koordinat outlet yang selalu fresh dari DB untuk outletId aktif
+    let coords: { lat: number; lng: number } | null = null;
+    try {
+      const { data, error } = await supabase
+        .from("outlets")
+        .select("lat, lng, is_active")
+        .eq("id", outletId)
+        .single();
 
-
-    // 1. Dapatkan koordinat outlet dari DB jika belum dimuat
-    let coords = outletCoords;
-    if (!coords) {
-      try {
-        const { data, error } = await supabase
-          .from("outlets")
-          .select("lat, lng, is_active")
-          .eq("id", outletId)
-          .single();
-        if (error || !data) {
-          console.error("Failed to load outlet coordinates:", error);
-          setResult({ ok: false, message: "Gagal memuat koordinat outlet" });
-          setPhase("location_invalid");
-          return;
-        }
-
-        if (data.is_active === false) {
-          setResult({ ok: false, message: "Kamera absensi sedang dinonaktifkan oleh Pusat (Emergency Lock)." });
-          setPhase("locked");
-          return;
-        }
-
-        // Jika lat/lng di DB bernilai null (misalnya HQ), bypass validasi geofence
-        if (data.lat === null || data.lng === null) {
-          locationLockedRef.current = true;
-          setPhase("idle");
-          setResult(null);
-          return;
-        }
-
-        coords = { lat: Number(data.lat), lng: Number(data.lng) };
-        setOutletCoords(coords);
-      } catch (err) {
-        console.error("Error loading outlet coordinates:", err);
-        setResult({ ok: false, message: "Terjadi kesalahan sistem memuat lokasi outlet" });
+      if (error || !data) {
+        console.error("Failed to load outlet coordinates for outletId:", outletId, error);
+        setResult({ ok: false, message: "Gagal memuat koordinat outlet" });
         setPhase("location_invalid");
         return;
       }
+
+      if (data.is_active === false) {
+        setResult({ ok: false, message: "Kamera absensi sedang dinonaktifkan oleh Pusat (Emergency Lock)." });
+        setPhase("locked");
+        return;
+      }
+
+      // Jika lat/lng di DB bernilai null (misalnya HQ), bypass validasi geofence
+      if (data.lat === null || data.lng === null) {
+        locationLockedRef.current = true;
+        setPhase("idle");
+        setResult(null);
+        return;
+      }
+
+      coords = { lat: Number(data.lat), lng: Number(data.lng) };
+      setOutletCoords(coords);
+    } catch (err) {
+      console.error("Error loading outlet coordinates:", err);
+      setResult({ ok: false, message: "Terjadi kesalahan sistem memuat lokasi outlet" });
+      setPhase("location_invalid");
+      return;
     }
 
     // Helper fungsi untuk memproses koordinat lokasi perangkat

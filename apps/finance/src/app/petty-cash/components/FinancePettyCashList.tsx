@@ -33,6 +33,8 @@ function parseFinanceNote(description?: string | null) {
 }
 
 function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
+  const [imgError, setImgError] = useState(false)
+
   if (!imageUrl) return null
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-suka-ink/80 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
@@ -46,14 +48,35 @@ function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; on
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => { setImgError(false); onClose(); }}
             className="w-8 h-8 rounded-full bg-suka-gray-100 hover:bg-suka-gray-200 text-suka-gray-500 hover:text-suka-brown flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-suka-gray-50">
-          <img src={imageUrl} alt="Bukti Transfer" className="max-h-[65vh] w-auto object-contain rounded-2xl shadow-md border border-suka-gray-200" />
+        <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-suka-gray-50 min-h-[250px]">
+          {imgError ? (
+            <div className="text-center p-6 text-suka-gray-500">
+              <Camera className="w-10 h-10 mx-auto text-suka-gray-300 mb-2" />
+              <p className="font-bold text-sm text-suka-brown">Gambar tidak dapat ditampilkan langsung</p>
+              <p className="text-xs text-suka-gray-400 mt-1 mb-3">Klik tombol di bawah untuk membuka gambar secara utuh di tab baru.</p>
+              <a
+                href={imageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-suka-orange text-white rounded-xl font-bold text-xs hover:bg-orange-600 transition-colors shadow-sm"
+              >
+                Buka Foto Utuh
+              </a>
+            </div>
+          ) : (
+            <img 
+              src={imageUrl} 
+              alt="Bukti Transfer" 
+              onError={() => setImgError(true)}
+              className="max-h-[65vh] w-auto object-contain rounded-2xl shadow-md border border-suka-gray-200" 
+            />
+          )}
         </div>
         <div className="p-4 bg-suka-gray-50 border-t border-suka-gray-100 flex items-center justify-between shrink-0 text-xs">
           <span className="text-suka-gray-500 font-semibold">Lampiran Bukti Transfer Resmi</span>

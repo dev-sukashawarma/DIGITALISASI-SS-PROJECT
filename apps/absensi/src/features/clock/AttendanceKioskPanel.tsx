@@ -71,7 +71,7 @@ export function AttendanceKioskPanel() {
   const loopRef = useRef<number | null>(null);
   const router = useRouter();
 
-  // Load daftar outlet yang diampu / dibawahi oleh staf/leader via /api/staff-outlets + Smart Auto-Detect Terdekat
+  // Load daftar outlet yang diampu / dibawahi oleh staf/leader via /api/staff-outlets
   useEffect(() => {
     if (!outletStaff) return;
 
@@ -99,7 +99,13 @@ export function AttendanceKioskPanel() {
 
       if (!isMounted) return;
 
-      // Smart Proximity Detection: Dapatkan lokasi fisik GPS perangkat & tentukan outlet terdekat
+      // SET ASSIGNED OUTLETS IMMEDIATELY SO GATEWAY CARD SHOWS UP ON FIRST RENDER!
+      setAssignedOutlets(list);
+      if (!selectedOutletId && list[0]?.id) {
+        setSelectedOutletId(list[0].id);
+      }
+
+      // Smart Proximity Detection di background untuk update label jarak
       if (typeof navigator !== "undefined" && navigator.geolocation && list.length > 1) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
@@ -124,26 +130,14 @@ export function AttendanceKioskPanel() {
             updatedList.sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity));
             setAssignedOutlets(updatedList);
 
-            // Set outlet terdekat sebagai default awal jika belum pernah memilih manual
+            // Jika user belum pernah memilih secara manual, otomatis defaultkan ke outlet terdekat!
             if (!manualSelectionRef.current && closestOutletId) {
               setSelectedOutletId(closestOutletId);
             }
           },
-          () => {
-            if (isMounted) {
-              setAssignedOutlets(list);
-              if (!selectedOutletId) {
-                setSelectedOutletId(outletStaff.outlet_id || (list[0]?.id ?? ""));
-              }
-            }
-          },
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+          () => {},
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 10000 }
         );
-      } else {
-        setAssignedOutlets(list);
-        if (!selectedOutletId) {
-          setSelectedOutletId(outletStaff.outlet_id || (list[0]?.id ?? ""));
-        }
       }
     }
 
@@ -166,6 +160,8 @@ export function AttendanceKioskPanel() {
 
   useEffect(() => {
     if (!activeOutletId) return;
+    // JANGAN jalankan checkLocation/loading jika user leader belum mengonfirmasi/memilih outlet!
+    if (assignedOutlets.length > 1 && !hasUserConfirmedOutlet) return;
 
     // Initial Load for activeOutletId
     kiosk.loadCandidates();

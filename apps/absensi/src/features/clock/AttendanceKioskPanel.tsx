@@ -199,14 +199,14 @@ export function AttendanceKioskPanel() {
   // Logika window kamera:
   // - Sudah clock-out → tutup (shift selesai)
   // - Sudah clock-in, belum clock-out → tutup sampai 30 menit sebelum jam_keluar (jika diset)
-  // - Belum clock-in → jika manual ikuti isOutletOpen, jika auto buka 1 jam sebelum jam_masuk
+  // - Belum clock-in → tidak ditutup sebelum buka outlet (diperbolehkan absen masuk kapan saja)
   const clockInWindowOpen = hasOut
     ? false                                                              // shift selesai
     : hasIn
-      ? (!jamKeluar || nowMinutes >= toMin(jamKeluar) - 30)             // clock-out window
+      ? (!jamKeluar || nowMinutes >= toMin(jamKeluar) - 30)             // clock-out window (absen pulang tetap dibatasi)
       : isManual
         ? isOutletOpen                                                  // manual clock-in window
-        : (!jamMasuk || nowMinutes >= toMin(jamMasuk) - 60);            // auto clock-in window
+        : true;                                                         // auto clock-in window (selalu terbuka untuk absen masuk)
 
   // Label jam kamera akan buka lagi (untuk overlay "sedang bekerja")
   const clockOutWindowLabel = jamKeluar

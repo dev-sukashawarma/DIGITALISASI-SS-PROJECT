@@ -89,8 +89,8 @@ Geofencing diterapkan dengan perhitungan *Haversine Formula* (jarak bumi bulat) 
 - **Time Windows (Batas Jam Absen)**:
   Berdasarkan tabel `outlet_attendance_config` untuk outlet terkait (`jam_masuk`, `jam_keluar`, `toleransi_menit`, `absen_window_mode`).
   Jika `absen_window_mode = 'auto'`:
-  - **Absen Masuk**: Tidak boleh dilakukan **lebih dari 60 menit** sebelum `jam_masuk`. (Contoh: Jam masuk 08:00, absen mulai bisa dilakukan 07:00).
-  - **Absen Pulang**: Tidak boleh dilakukan **lebih dari 30 menit** sebelum `jam_keluar`.
+  - **Absen Masuk**: Tidak dibatasi/ditutup sebelum buka outlet (`jam_masuk`). Pegawai/staf dapat melakukan absen masuk kapan saja sebelum shift dimulai.
+  - **Absen Pulang**: Tidak boleh dilakukan **lebih dari 30 menit** sebelum `jam_keluar` (tetap dibatasi dan tidak diubah).
 - **Penentuan Status**:
   Server membandingkan Waktu Eksekusi (*Local Server Time* di Asia/Jakarta) terhadap Konfigurasi.
   - **Masuk (`in`)**:

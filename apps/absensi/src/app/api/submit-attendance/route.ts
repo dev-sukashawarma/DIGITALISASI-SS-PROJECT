@@ -207,12 +207,7 @@ export async function POST(req: Request) {
     const nowMinutes = local.getHours() * 60 + local.getMinutes();
 
     if ((cfg.absen_window_mode ?? "auto") === "auto") {
-      if (body.type === "in") {
-        const windowOpen = toTotalMinutes(cfg.jam_masuk) - 60;
-        if (nowMinutes < windowOpen) {
-          return NextResponse.json({ ok: false, reason: "too_early_in" }, { status: 200 });
-        }
-      }
+      // Absen masuk tidak ditutup sebelum buka outlet (diperbolehkan absen masuk kapan saja)
       if (body.type === "out") {
         const windowOpen = toTotalMinutes(cfg.jam_keluar || "17:00") - 30;
         if (nowMinutes < windowOpen) {

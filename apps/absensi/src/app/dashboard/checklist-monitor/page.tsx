@@ -90,15 +90,17 @@ export default function ChecklistMonitorPage() {
   }
 
   async function loadStaffMap(supabase: ReturnType<typeof createClient>) {
-    const { data } = await supabase
-      .from("outlet_staff")
-      .select("id, name")
-      .eq("outlet_id", selectedOutletId);
-    if (data) {
-      const map: Record<string, string> = {};
-      data.forEach((s: { id: string; name: string }) => { map[s.id] = s.name; });
-      setStaffMap(map);
-    }
+    const [primaryRes, assignedRes] = await Promise.all([
+      supabase.from("outlet_staff").select("id, name").eq("outlet_id", selectedOutletId),
+      supabase.from("staff_outlets").select("staff_id, outlet_staff!inner(id, name)").eq("outlet_id", selectedOutletId)
+    ]);
+    const map: Record<string, string> = {};
+    (primaryRes.data || []).forEach((s: { id: string; name: string }) => { map[s.id] = s.name; });
+    (assignedRes.data || []).forEach((row: any) => {
+      const st = Array.isArray(row.outlet_staff) ? row.outlet_staff[0] : row.outlet_staff;
+      if (st && !map[st.id]) map[st.id] = st.name;
+    });
+    setStaffMap(map);
   }
 
   async function loadTodayTicks(supabase: ReturnType<typeof createClient>) {

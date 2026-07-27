@@ -22,7 +22,7 @@ interface ManualItem {
 
 interface ManualPayload {
   channel: string
-  payment_method: 'cash' | 'qris' | 'card'
+  payment_method: 'cash' | 'qris' | 'card' | 'va'
   customer_name?: string
   amount_received?: number // added for cash logic
   promo_subsidy?: number
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   if (!body.channel || !VALID_CHANNELS.has(body.channel)) {
     return NextResponse.json({ error: 'Channel tidak valid' }, { status: 400 })
   }
-  if (body.payment_method !== 'cash' && body.payment_method !== 'qris' && body.payment_method !== 'card') {
+  if (body.payment_method !== 'cash' && body.payment_method !== 'qris' && body.payment_method !== 'card' && body.payment_method !== 'va') {
     return NextResponse.json({ error: 'Metode pembayaran tidak valid' }, { status: 400 })
   }
   if (!Array.isArray(body.items) || body.items.length === 0) {
@@ -76,6 +76,18 @@ export async function POST(request: Request) {
   }
 
   let outlet_id = profile.outlet_id
+  if (body.outlet_id && body.outlet_id !== outlet_id) {
+    const { data: isMapped } = await supabaseService
+      .from('staff_outlets')
+      .select('outlet_id')
+      .eq('staff_id', user.id)
+      .eq('outlet_id', body.outlet_id)
+      .maybeSingle()
+
+    if (isMapped || ['admin', 'owner', 'spv', 'leader', 'korlap'].includes(profile.role)) {
+      outlet_id = body.outlet_id
+    }
+  }
   if (profile.role === 'admin' && !outlet_id) {
     const { data: defaultOutlet } = await supabaseService.from('outlets').select('id').limit(1).single()
     if (defaultOutlet) outlet_id = defaultOutlet.id

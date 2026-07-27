@@ -54,19 +54,35 @@ export default function EnrollPage() {
   const loadStaff = useCallback(() => {
     if (!selectedOutletId) return;
     setLoadingStaff(true);
-    supabase
-      .from("outlet_staff")
-      .select("id, name, role, enrolled_at")
-      .eq("outlet_id", selectedOutletId)
-      .eq("status", "active")
-      .neq("role", "kiosk")
-      .order("name")
-      .then(({ data, error }) => {
-        if (error) {
-          toast.show("err", `Gagal memuat data staff: ${error.message}`);
-        } else {
-          setStaffList((data as Staff[]) ?? []);
-        }
+    Promise.all([
+      supabase
+        .from("outlet_staff")
+        .select("id, name, role, enrolled_at, status")
+        .eq("outlet_id", selectedOutletId)
+        .eq("status", "active")
+        .neq("role", "kiosk"),
+      supabase
+        .from("staff_outlets")
+        .select("staff_id, outlet_staff!inner(id, name, role, status, enrolled_at)")
+        .eq("outlet_id", selectedOutletId)
+    ])
+      .then(([primaryRes, assignedRes]) => {
+        const staffMap = new Map<string, Staff>();
+        (primaryRes.data || []).forEach((s) => {
+          staffMap.set(s.id, s as Staff);
+        });
+        (assignedRes.data || []).forEach((row: any) => {
+          const st = Array.isArray(row.outlet_staff) ? row.outlet_staff[0] : row.outlet_staff;
+          if (st && st.status === "active" && st.role !== "kiosk" && !staffMap.has(st.id)) {
+            staffMap.set(st.id, { id: st.id, name: st.name, role: st.role, enrolled_at: st.enrolled_at });
+          }
+        });
+        const combinedList = Array.from(staffMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+        setStaffList(combinedList);
+        setLoadingStaff(false);
+      })
+      .catch((error) => {
+        toast.show("err", `Gagal memuat data staff: ${error.message}`);
         setLoadingStaff(false);
       });
   }, [selectedOutletId, supabase, toast]);

@@ -14,23 +14,48 @@ export async function GET(req: Request) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // 1. Fetch assigned outlets from staff_outlets
+    const list: { id: string; name: string; lat: number | null; lng: number | null }[] = [];
+
+    // 1. Fetch assigned outlets from staff_outlets table
     const { data: soData, error: soErr } = await admin
       .from("staff_outlets")
-      .select("outlet_id, outlets(id, name, lat, lng)")
+      .select("outlet_id, outlets!staff_outlets_outlet_id_fkey(id, name, lat, lng)")
       .eq("staff_id", staffId);
 
     if (soErr) {
-      console.error("Error fetching staff_outlets in API:", soErr);
+      console.warn("PostgREST embed query warning, falling back to manual join:", soErr.message);
     }
-
-    const list: { id: string; name: string; lat: number | null; lng: number | null }[] = [];
 
     if (soData && soData.length > 0) {
       soData.forEach((row: any) => {
-        if (row.outlets) {
-          const item = Array.isArray(row.outlets) ? row.outlets[0] : row.outlets;
-          if (item && item.id && !list.some((x) => x.id === item.id)) {
+        const item = Array.isArray(row.outlets) ? row.outlets[0] : row.outlets;
+        if (item && item.id && !list.some((x) => x.id === item.id)) {
+          list.push({
+            id: item.id,
+            name: item.name,
+            lat: item.lat !== null ? Number(item.lat) : null,
+            lng: item.lng !== null ? Number(item.lng) : null,
+          });
+        }
+      });
+    }
+
+    // Fallback: If join embedding returned no items or error, fetch outlet_ids and query outlets manually
+    if (list.length === 0) {
+      const { data: rawSo } = await admin
+        .from("staff_outlets")
+        .select("outlet_id")
+        .eq("staff_id", staffId);
+
+      const assignedIds = (rawSo || []).map((r: any) => r.outlet_id).filter(Boolean);
+      if (assignedIds.length > 0) {
+        const { data: outletRows } = await admin
+          .from("outlets")
+          .select("id, name, lat, lng")
+          .in("id", assignedIds);
+
+        (outletRows || []).forEach((item: any) => {
+          if (!list.some((x) => x.id === item.id)) {
             list.push({
               id: item.id,
               name: item.name,
@@ -38,8 +63,8 @@ export async function GET(req: Request) {
               lng: item.lng !== null ? Number(item.lng) : null,
             });
           }
-        }
-      });
+        });
+      }
     }
 
     // 2. Fetch primary outlet from outlet_staff

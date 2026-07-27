@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { Wallet, Clock, History, Filter, Store, Building2, CheckCircle2, XCircle, Send, ArrowRight, Loader2, Camera, X, Download } from 'lucide-react'
 import { FinanceApprovalModal } from './FinanceApprovalModal'
 import { usePettyCashRequests, useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
@@ -50,6 +52,7 @@ function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; on
 }
 
 export function FinancePettyCashList({ initialRequests }: { initialRequests?: PettyCashTopup[] }) {
+  const router = useRouter()
   const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests)
   const processTopup = useProcessPettyCashFinance()
   const forwardTopup = useForwardPettyCashFinance()
@@ -91,27 +94,47 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
 
   const handleApprove = async (method: DisbursementMethod, cashLocationId?: string, proofOfTransferUrl?: string, approvedAmount?: number, approvalNote?: string) => {
     if (!selectedRequest) return
-    await processTopup.mutateAsync({ 
-      id: selectedRequest.id, 
-      action: 'approve',
-      method,
-      cashLocationId,
-      proofOfTransferUrl,
-      approvedAmount,
-      approvalNote
-    })
-    setIsModalOpen(false)
+    try {
+      await processTopup.mutateAsync({ 
+        id: selectedRequest.id, 
+        action: 'approve',
+        method,
+        cashLocationId,
+        proofOfTransferUrl,
+        approvedAmount,
+        approvalNote
+      })
+      toast.success('Pencairan Petty Cash berhasil diproses!')
+      setIsModalOpen(false)
+      router.refresh()
+    } catch (err: any) {
+      console.error('Error approving topup:', err)
+      toast.error(err.message || 'Gagal memproses pencairan')
+    }
   }
 
   const handleReject = async () => {
     if (!selectedRequest) return
-    await processTopup.mutateAsync({ id: selectedRequest.id, action: 'reject' })
-    setIsModalOpen(false)
+    try {
+      await processTopup.mutateAsync({ id: selectedRequest.id, action: 'reject' })
+      toast.success('Pengajuan Petty Cash ditolak.')
+      setIsModalOpen(false)
+      router.refresh()
+    } catch (err: any) {
+      console.error('Error rejecting topup:', err)
+      toast.error(err.message || 'Gagal menolak pengajuan')
+    }
   }
 
   const handleForwardToAreaManager = async (req: PettyCashTopup) => {
     if (confirm('Konfirmasi penyerahan dana dari Finance ke Area Manager?')) {
-      await forwardTopup.mutateAsync({ id: req.id })
+      try {
+        await forwardTopup.mutateAsync({ id: req.id })
+        toast.success('Dana berhasil diserahkan ke Area Manager!')
+        router.refresh()
+      } catch (err: any) {
+        toast.error(err.message || 'Gagal meneruskan dana')
+      }
     }
   }
 

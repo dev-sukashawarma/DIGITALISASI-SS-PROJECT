@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@suka/auth'
 import { DisbursementMethod } from '@/lib/types'
 
@@ -55,6 +56,8 @@ export async function processPettyCashFinanceCustomAmount({
       throw new Error(`Top up is not ready for finance processing (status: ${topup.status})`)
     }
 
+    const validUserId = (userId && userId !== '00000000-0000-0000-0000-000000000000') ? userId : null
+
     if (action === 'approve') {
       const finalAmount = approvedAmount ?? topup.amount
       
@@ -67,7 +70,7 @@ export async function processPettyCashFinanceCustomAmount({
         .from('petty_cash_topups')
         .update({
           status: 'approved_by_finance',
-          finance_approved_by: userId,
+          finance_approved_by: validUserId,
           disbursement_method: method,
           disbursed_from_cash_location_id: cashLocationId || null,
           proof_of_transfer_url: proofOfTransferUrl || null,
@@ -89,7 +92,7 @@ export async function processPettyCashFinanceCustomAmount({
             source_id: id,
             note: `Pencairan Petty Cash Outlet (${method})`,
             occurred_at: new Date().toISOString(),
-            created_by: userId
+            created_by: validUserId
           })
 
         if (cashError) {
@@ -101,7 +104,7 @@ export async function processPettyCashFinanceCustomAmount({
         .from('petty_cash_topups')
         .update({
           status: 'rejected',
-          finance_approved_by: userId
+          finance_approved_by: validUserId
         })
         .eq('id', id)
 
@@ -109,6 +112,9 @@ export async function processPettyCashFinanceCustomAmount({
     } else {
       throw new Error(`Invalid action: ${action}`)
     }
+
+    revalidatePath('/petty-cash')
+    revalidatePath('/area-manager/petty-cash')
 
     return { success: true }
   } catch (err: any) {

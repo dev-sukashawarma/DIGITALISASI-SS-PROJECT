@@ -16,8 +16,13 @@ const LiveLocationMap = dynamic(() => import('./LiveLocationMap'), {
 
 type Outlet = { id: string; name: string; is_active: boolean; region?: string | null; lat?: number | null; lng?: number | null; address?: string | null }
 type Staff = { id: string; name: string; outlet_id: string; role: string; is_active: boolean }
+type StaffOutletMap = { staff_id: string; outlet_id: string }
 type Attendance = { outlet_id: string; outlet_staff_id: string; type: 'in' | 'out'; ts_server: string }
 type Opname = { id: string; outlet_id: string; created_at: string }
+
+function cleanOutletShortName(name: string): string {
+  return name.replace(/^SUKA SHAWARMA\s+/i, '').replace(/^MITRA\s+/i, '')
+}
 
 // ── Date & Time Format Helpers ─────────────────────────────────────
 function getWIBDateStr(tsServerStr: string): string {
@@ -197,6 +202,7 @@ export default function MonitoringPage() {
 
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [staffList, setStaffList] = useState<Staff[]>([])
+  const [staffOutletMappings, setStaffOutletMappings] = useState<StaffOutletMap[]>([])
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [opnames, setOpnames] = useState<Opname[]>([])
   const [connectedPrinters, setConnectedPrinters] = useState<Set<string>>(new Set())
@@ -242,9 +248,10 @@ export default function MonitoringPage() {
       const start = new Date(`${fromDate}T00:00:00+07:00`).toISOString()
       const end = new Date(`${toDate}T23:59:59+07:00`).toISOString()
 
-      const [outRes, stfRes, attRes, catRes, recRes, opnRes] = await Promise.all([
+      const [outRes, stfRes, mapRes, attRes, catRes, recRes, opnRes] = await Promise.all([
         supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
         supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader']),
+        supabase.from('staff_outlets').select('staff_id, outlet_id'),
         supabase.from('attendance')
           .select('outlet_id, outlet_staff_id, type, ts_server')
           .gte('ts_server', start)
@@ -291,6 +298,7 @@ export default function MonitoringPage() {
 
       setOutlets(validOutlets)
       setStaffList((stfRes.data || []) as Staff[])
+      setStaffOutletMappings((mapRes.data || []) as StaffOutletMap[])
       setAttendances((attRes.data || []) as Attendance[])
       setChecklistReq(reqMap)
       setChecklistTicks(ticksMap)
@@ -312,6 +320,8 @@ export default function MonitoringPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_ticks' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_records' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'opname' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_outlets' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'outlet_staff' }, () => fetchData())
       .subscribe()
 
     const presenceRoom = supabase.channel('room:printer_status')
@@ -401,16 +411,30 @@ export default function MonitoringPage() {
 
   // Helper render per outlet card for a specific date
   const renderOutletCardForDate = (outlet: Outlet, targetDateStr: string) => {
-    const outletStaff = staffList.filter(s => s.outlet_id === outlet.id)
+    // 1. Staff belonging to this outlet (either primary outlet_id OR mapped in staff_outlets)
+    const outletStaff = staffList.filter(s => 
+      s.outlet_id === outlet.id || 
+      staffOutletMappings.some(m => m.staff_id === s.id && m.outlet_id === outlet.id)
+    )
     
     // Filter attendance for this outlet on targetDateStr
     const outletAttDate = attendances.filter(a => a.outlet_id === outlet.id && getWIBDateStr(a.ts_server) === targetDateStr)
     
+    // Filter attendance for ALL outlets on targetDateStr to know cross-outlet attendance for leaders
+    const allAttDate = attendances.filter(a => getWIBDateStr(a.ts_server) === targetDateStr)
+    const staffAttMap = new Map<string, Attendance[]>()
+    allAttDate.forEach(a => {
+      if (!staffAttMap.has(a.outlet_staff_id)) {
+        staffAttMap.set(a.outlet_staff_id, [])
+      }
+      staffAttMap.get(a.outlet_staff_id)!.push(a)
+    })
+
     // Check opname record & timestamp on targetDateStr
     const opnameRecord = opnames.find(o => o.outlet_id === outlet.id && getWIBDateStr(o.created_at) === targetDateStr)
     const opnameTimeStr = opnameRecord ? formatWIBTime(opnameRecord.created_at) : null
 
-    // Extract Buka Shift (first IN) and Tutup Shift (last OUT) timestamps
+    // Extract Buka Shift (first IN) and Tutup Shift (last OUT) timestamps for THIS outlet
     const inAtts = outletAttDate.filter(a => a.type === 'in')
     const outAtts = outletAttDate.filter(a => a.type === 'out')
 
@@ -424,10 +448,10 @@ export default function MonitoringPage() {
       : null
     const closingTimeStr = lastOut ? formatWIBTime(lastOut.ts_server) : null
 
-    // Last attendance record & timestamp per staff on targetDateStr
-    const staffState = new Map<string, { type: 'in' | 'out'; timeStr: string }>()
+    // POS Kuncian status calculation for THIS outlet
+    const thisOutletStaffState = new Map<string, { type: 'in' | 'out'; timeStr: string }>()
     outletAttDate.forEach(a => {
-      staffState.set(a.outlet_staff_id, {
+      thisOutletStaffState.set(a.outlet_staff_id, {
         type: a.type,
         timeStr: formatWIBTime(a.ts_server)
       })
@@ -437,8 +461,8 @@ export default function MonitoringPage() {
     let posColor = 'bg-red-50 text-red-700 border-red-200'
     let PosIcon = Lock
     
-    const hasAnyoneIn = Array.from(staffState.values()).some(s => s.type === 'in')
-    const isEveryoneOut = staffState.size > 0 && Array.from(staffState.values()).every(s => s.type === 'out')
+    const hasAnyoneIn = Array.from(thisOutletStaffState.values()).some(s => s.type === 'in')
+    const isEveryoneOut = thisOutletStaffState.size > 0 && Array.from(thisOutletStaffState.values()).every(s => s.type === 'out')
 
     if (isEveryoneOut) {
       posStatus = closingTimeStr ? `Terkunci - Tutup Shift (${closingTimeStr})` : 'Terkunci - Tutup'
@@ -461,8 +485,8 @@ export default function MonitoringPage() {
 
     // Filter staff for crewStatusFilter
     const visibleStaff = outletStaff.filter(staff => {
-      const lastAtt = staffState.get(staff.id)
-      const isPresent = lastAtt?.type === 'in'
+      const staffAtts = staffAttMap.get(staff.id) || []
+      const isPresent = staffAtts.some(a => a.type === 'in')
       if (crewStatusFilter === 'PRESENT' && !isPresent) return false
       if (crewStatusFilter === 'NOT_PRESENT' && isPresent) return false
       return true
@@ -475,9 +499,9 @@ export default function MonitoringPage() {
 
     if (crewStatusFilter !== 'ALL' && visibleStaff.length === 0) return null
 
-    // Multi-day filter: if multi-day view, only show crew who actually attended on that day (unless single day)
+    // Multi-day filter: if multi-day view, only show crew who actually attended on that day
     const displayedStaff = isMultiDay 
-      ? visibleStaff.filter(s => staffState.has(s.id)) 
+      ? visibleStaff.filter(s => staffAttMap.has(s.id)) 
       : visibleStaff
 
     if (isMultiDay && displayedStaff.length === 0) return null
@@ -557,19 +581,41 @@ export default function MonitoringPage() {
           ) : (
             <ul className="space-y-1.5">
               {displayedStaff.map(staff => {
-                const attData = staffState.get(staff.id)
+                const staffAtts = staffAttMap.get(staff.id) || []
+                const attAtThisOutlet = staffAtts.filter(a => a.outlet_id === outlet.id)
+                const latestAttThisOutlet = attAtThisOutlet.length > 0 ? attAtThisOutlet[attAtThisOutlet.length - 1] : null
+
                 let attLabel = 'Belum Absen'
                 let attColor = 'bg-red-100 text-red-700 border border-red-100'
                 let attDot = 'bg-red-500'
+                let timeStr = ''
 
-                if (attData?.type === 'in') {
-                  attLabel = 'Hadir'
-                  attColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                  attDot = 'bg-emerald-500'
-                } else if (attData?.type === 'out') {
-                  attLabel = 'Pulang'
-                  attColor = 'bg-slate-100 text-slate-700 border border-slate-200'
-                  attDot = 'bg-slate-400'
+                if (latestAttThisOutlet) {
+                  if (latestAttThisOutlet.type === 'in') {
+                    attLabel = 'Hadir'
+                    attColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    attDot = 'bg-emerald-500'
+                  } else {
+                    attLabel = 'Pulang'
+                    attColor = 'bg-slate-100 text-slate-700 border border-slate-200'
+                    attDot = 'bg-slate-400'
+                  }
+                  timeStr = formatWIBTime(latestAttThisOutlet.ts_server)
+                } else if (staffAtts.length > 0) {
+                  const latestRemoteAtt = staffAtts[staffAtts.length - 1]
+                  const remoteOutlet = outlets.find(o => o.id === latestRemoteAtt.outlet_id)
+                  const remoteShortName = remoteOutlet ? cleanOutletShortName(remoteOutlet.name) : 'Outlet Lain'
+                  
+                  if (latestRemoteAtt.type === 'in') {
+                    attLabel = `Hadir di ${remoteShortName}`
+                    attColor = 'bg-blue-100 text-blue-800 border border-blue-200 shadow-2xs font-extrabold'
+                    attDot = 'bg-blue-500'
+                  } else {
+                    attLabel = `Pulang di ${remoteShortName}`
+                    attColor = 'bg-slate-100 text-slate-700 border border-slate-200'
+                    attDot = 'bg-slate-400'
+                  }
+                  timeStr = formatWIBTime(latestRemoteAtt.ts_server)
                 }
 
                 return (
@@ -584,14 +630,14 @@ export default function MonitoringPage() {
                       </div>
                     </div>
 
-                    <div className={`flex flex-col items-end shrink-0`}>
+                    <div className="flex flex-col items-end shrink-0">
                       <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold ${attColor}`}>
                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${attDot}`} />
                         <span className="whitespace-nowrap uppercase">{attLabel}</span>
                       </div>
-                      {attData?.timeStr && (
+                      {timeStr && (
                         <span className="text-[9px] font-mono font-bold text-slate-500 flex items-center gap-0.5 mt-0.5">
-                          <Clock size={9} /> {attData.timeStr}
+                          <Clock size={9} /> {timeStr}
                         </span>
                       )}
                     </div>

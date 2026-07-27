@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useDeferredValue } from 'rea
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Plus, Minus, Trash2, ShoppingBag, Loader2,
-  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, CreditCard, Camera, ThumbsUp,
+  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, CreditCard, Camera, ThumbsUp, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -22,7 +22,7 @@ import { fetchWithTimeout } from '@/lib/offline-utils'
 import { createLocalOrder } from '@/lib/offline'
 import { QRCodeSVG } from 'qrcode.react'
 
-type Mode = 'walkin' | 'online' | 'endorse'
+type Mode = 'walkin' | 'online' | 'endorse' | 'website'
 
 interface Line {
   item: MenuItem
@@ -33,7 +33,7 @@ interface Line {
   package_choices?: Record<string, string>
 }
 
-type Payment = 'cash' | 'qris' | 'card'
+type Payment = 'cash' | 'qris' | 'card' | 'va'
 
 export default function OrderManualPage() {
   const supabase = createClient()
@@ -41,8 +41,7 @@ export default function OrderManualPage() {
   const { outletId, outletName, loaded } = useMyOutlet()
   const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
 
-  // Mode halaman: "walkin" (pelanggan datang langsung ke kasir) atau
-  // "online" (input pesanan dari channel eksternal). Default walk-in.
+  // Mode halaman: "walkin" (pelanggan datang langsung ke kasir), "online" (Food Apps), "website" (backup order website/WA), atau "endorse"
   const [mode, setMode] = useState<Mode>('walkin')
 
   const [items, setItems] = useState<MenuItem[]>([])
@@ -62,6 +61,7 @@ export default function OrderManualPage() {
   const [channel, setChannel] = useState<string | null>(null)
   const [payment, setPayment] = useState<Payment | null>(null)
   const [customerName, setCustomerName] = useState('')
+  const [pickupTime, setPickupTime] = useState('')
   const [promoSubsidy, setPromoSubsidy] = useState<string>('')
 
   const [cartOpen, setCartOpen] = useState(false) // bottom sheet di mobile
@@ -150,9 +150,10 @@ export default function OrderManualPage() {
     if (newMode !== mode) {
       setMode(newMode)
       setLines([])
-      setChannel(null)
+      setChannel(newMode === 'website' ? 'website' : null)
       setPayment(null)
       setCustomerName('')
+      setPickupTime('')
       setPromoSubsidy('')
       setSearch('')
       setActiveCat('all')
@@ -459,7 +460,8 @@ export default function OrderManualPage() {
   const needsMoreForPromo = isGlobalPromoActive && globalPromo.min_purchase && subtotalAmount > 0 && subtotalAmount < globalPromo.min_purchase;
   const missingAmount = needsMoreForPromo ? (globalPromo.min_purchase || 0) - subtotalAmount : 0;
 
-  const canSubmit = lineList.length > 0 && !!channel && !!payment && !!customerName.trim() && !submitting
+  const activeChannel = mode === 'website' ? 'website' : channel
+  const canSubmit = lineList.length > 0 && !!activeChannel && !!payment && !!customerName.trim() && (mode !== 'website' || !!pickupTime.trim()) && !submitting
 
   // ── Submit ────────────────────────────────────────────────────────────────
   async function handleSubmit(amountReceived: number | null, proofUrl?: string | null) {
@@ -467,19 +469,25 @@ export default function OrderManualPage() {
     setSubmitting(true)
     setError(null)
 
-    if (['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') && promoSubsidy === '') {
+    const reqChannel = mode === 'website' ? 'website' : channel
+
+    if (['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(reqChannel || '') && promoSubsidy === '') {
       setError('Promo Apps wajib diisi untuk Food Apps (bisa isi 0)')
       setSubmitting(false)
       return
     }
 
+    const finalCustomerName = mode === 'website' && pickupTime.trim()
+      ? `${customerName.trim()} [Jam Ambil: ${pickupTime.trim()}]`
+      : customerName.trim()
+
     const payload = {
-      channel,
+      channel: reqChannel,
       payment_method: payment,
-      customer_name: customerName,
+      customer_name: finalCustomerName,
       amount_received: payment === 'cash' ? amountReceived : undefined,
       payment_proof_url: proofUrl,
-      promo_subsidy: ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? Number(promoSubsidy) : 0,
+      promo_subsidy: ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(reqChannel || '') ? Number(promoSubsidy) : 0,
       items: lineList.map((l) => ({
         menu_item_id: l.item.id,
         quantity: l.quantity,
@@ -820,17 +828,17 @@ export default function OrderManualPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-gray-900 leading-tight">
-            {mode === 'walkin' ? 'Order Offline — Pesanan Baru' : mode === 'endorse' ? 'Order Endorse' : 'Input Food Apps'}
+            {mode === 'walkin' ? 'Order Offline — Pesanan Baru' : mode === 'endorse' ? 'Order Endorse' : mode === 'website' ? 'Order Website — Backup Mandiri' : 'Input Food Apps'}
           </h1>
           <p className="text-sm text-gray-500 leading-tight">
-            {mode === 'walkin' ? 'Catat pesanan pelanggan secara offline / langsung' : mode === 'endorse' ? 'Catat pesanan endorse dengan harga Rp 0' : 'Input pesanan dari aplikasi makanan'}
+            {mode === 'walkin' ? 'Catat pesanan pelanggan secara offline / langsung' : mode === 'endorse' ? 'Catat pesanan endorse dengan harga Rp 0' : mode === 'website' ? 'Input cadangan pesanan via Website / WA' : 'Input pesanan dari aplikasi makanan'}
           </p>
         </div>
       </div>
 
-      {/* Tab switch: Order Offline / Food Apps */}
+      {/* Tab switch: Order Offline / Food Apps / Order Website / Endorse */}
       <div className="flex flex-col gap-3 mb-5">
-        <div className="inline-flex bg-gray-100 rounded-xl p-1 self-start">
+        <div className="inline-flex bg-gray-100 rounded-xl p-1 self-start flex-wrap gap-1">
           <button
             onClick={() => handleSwitchMode('walkin')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'walkin' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
@@ -844,6 +852,12 @@ export default function OrderManualPage() {
             <Globe className="w-4 h-4" /> Food Apps
           </button>
           <button
+            onClick={() => handleSwitchMode('website')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'website' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Globe className="w-4 h-4 text-blue-500" /> Order Website
+          </button>
+          <button
             onClick={() => handleSwitchMode('endorse')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'endorse' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
@@ -852,12 +866,21 @@ export default function OrderManualPage() {
         </div>
         
         {showInfo && (
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-3 relative animate-[popIn_.2s_ease-out]">
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3.5 flex items-start gap-3 relative animate-[popIn_.2s_ease-out]">
             <span className="shrink-0 bg-blue-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">i</span>
-            <div className="text-sm text-blue-800 pr-6">
-              <b>Order Offline</b> digunakan untuk pelanggan yang datang langsung atau memesan offline di kasir toko tanpa perantara aplikasi. <br/>
-              <b>Food Apps</b> digunakan untuk mencatat pesanan yang masuk dari aplikasi pihak ketiga seperti GrabFood, GoFood, dll. <br/>
-              <b>Endorse</b> digunakan untuk mencatat pesanan endorsement atau gratis (Rp 0). Stok menu akan tetap berkurang secara normal.
+            <div className="text-sm text-blue-900 pr-6 leading-relaxed font-medium">
+              {mode === 'website' ? (
+                <>
+                  <b>Panduan Order Website (Backup):</b> Tab ini khusus dipakai jika pelanggan memesan lewat <b>WhatsApp (WA)</b> atau saat <b>Website Order Online sedang ada kendala/gangguan</b>. Kasir dapat menginput pesanan manual, mengisi <b>Waktu Jam Ambil</b>, dan memilih pembayaran (<b>QRIS</b> atau <b>Virtual Account / VA</b>).
+                </>
+              ) : (
+                <>
+                  <b>Order Offline</b> digunakan untuk pelanggan yang datang langsung atau memesan offline di kasir toko tanpa perantara aplikasi. <br/>
+                  <b>Food Apps</b> digunakan untuk mencatat pesanan yang masuk dari aplikasi pihak ketiga seperti GrabFood, GoFood, dll. <br/>
+                  <b>Order Website</b> digunakan sebagai cadangan jika pemesanan via WA/Website pelanggan berkendala. <br/>
+                  <b>Endorse</b> digunakan untuk mencatat pesanan endorsement atau gratis (Rp 0). Stok menu tetap berkurang normal.
+                </>
+              )}
             </div>
             <button 
               onClick={() => setShowInfo(false)}
@@ -1039,6 +1062,9 @@ export default function OrderManualPage() {
             />
           ) : (
             <CartPanel
+              mode={mode}
+              pickupTime={pickupTime}
+              setPickupTime={setPickupTime}
               lineList={lineList}
               totalItems={totalItems}
               totalPrice={totalPrice}
@@ -1115,6 +1141,9 @@ export default function OrderManualPage() {
               />
             ) : (
               <CartPanel
+                mode={mode}
+                pickupTime={pickupTime}
+                setPickupTime={setPickupTime}
                 lineList={lineList}
                 totalItems={totalItems}
                 totalPrice={totalPrice}
@@ -1401,6 +1430,9 @@ function CartPanel(props: {
   setPayment: (p: Payment) => void
   customerName: string
   setCustomerName: (v: string) => void
+  pickupTime?: string
+  setPickupTime?: (v: string) => void
+  mode?: Mode
   promoSubsidy: string
   setPromoSubsidy: (v: string) => void
   setQty: (id: string, qty: number) => void
@@ -1420,7 +1452,7 @@ function CartPanel(props: {
 }) {
   const {
     lineList, totalItems, totalPrice, channel, payment, setPayment,
-    customerName, setCustomerName, promoSubsidy, setPromoSubsidy, setQty, setNote, canSubmit, submitting, error, onSubmit,
+    customerName, setCustomerName, pickupTime, setPickupTime, mode, promoSubsidy, setPromoSubsidy, setQty, setNote, canSubmit, submitting, error, onSubmit,
     calculateItemPrice, globalDiscount, globalPromo, needsMoreForPromo, missingAmount, embedded,
     onlineQrisOpen, setOnlineQrisOpen
   } = props
@@ -1546,9 +1578,24 @@ function CartPanel(props: {
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="Misal: Budi"
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors text-sm"
+              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors text-sm font-medium"
             />
           </div>
+
+          {/* Waktu Jam Ambil khusus Order Website */}
+          {mode === 'website' && (
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-blue-600" /> Waktu Jam Ambil (Wajib)
+              </label>
+              <input
+                type="time"
+                value={pickupTime || ''}
+                onChange={(e) => setPickupTime && setPickupTime(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors text-sm font-bold text-gray-800"
+              />
+            </div>
+          )}
 
           {/* Promo Apps untuk Food Apps */}
           {['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') && (
@@ -1568,21 +1615,40 @@ function CartPanel(props: {
 
           {/* Metode bayar */}
           <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">3. Metode Pembayaran</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setPayment('qris')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-              >
-                <QrCode className="w-4 h-4" /> QRIS
-              </button>
-              <button
-                onClick={() => setPayment('cash')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-              >
-                <Banknote className="w-4 h-4" /> Tunai
-              </button>
-            </div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+              {mode === 'website' ? '2. Metode Pembayaran' : '3. Metode Pembayaran'}
+            </label>
+            {mode === 'website' ? (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setPayment('qris')}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                >
+                  <QrCode className="w-4 h-4" /> QRIS
+                </button>
+                <button
+                  onClick={() => setPayment('va')}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'va' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                >
+                  <CreditCard className="w-4 h-4 text-purple-600" /> Virtual Account (VA)
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setPayment('qris')}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                >
+                  <QrCode className="w-4 h-4" /> QRIS
+                </button>
+                <button
+                  onClick={() => setPayment('cash')}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                >
+                  <Banknote className="w-4 h-4" /> Tunai
+                </button>
+              </div>
+            )}
           </div>
           
           {/* Input tunai + kembalian */}

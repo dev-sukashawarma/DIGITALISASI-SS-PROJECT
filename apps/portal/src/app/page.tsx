@@ -19,11 +19,23 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     const supabase = createSupabaseBrowserClient()
-    const email = normalizeLoginIdentifier(identifier)
+    let email = identifier.trim()
+    if (!email.includes('@')) {
+      const { data: staffMatch } = await supabase
+        .from('outlet_staff')
+        .select('email')
+        .eq('username', email)
+        .maybeSingle()
+      if (staffMatch?.email) {
+        email = staffMatch.email
+      } else {
+        email = `${email}@outlet.local`
+      }
+    }
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       setLoading(false)
-      const hint = !identifier.includes('@') ? ' Jika Anda admin/owner, gunakan email lengkap.' : ''
+      const hint = !identifier.includes('@') ? ' Jika Anda admin/owner/leader, gunakan email lengkap.' : ''
       setError(`Email atau kata sandi salah.${hint}`)
       return
     }

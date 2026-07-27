@@ -57,71 +57,10 @@ export default function RekapPage() {
     queryKey: ["rekap", selectedOutletId, date],
     enabled: !!selectedOutletId,
     queryFn: async () => {
-      const [attRes, staffRes, localCfgRes, globalCfgRes] = await Promise.all([
-        supabase
-          .from("attendance")
-          .select("id,type,ts_server,ts_client,status,selfie_url,outlet_staff_id,telat_menit")
-          .eq("outlet_id", selectedOutletId)
-          .gte("ts_server", `${date}T00:00:00`)
-          .lte("ts_server", `${date}T23:59:59`)
-          .order("ts_server", { ascending: false }),
-        supabase
-          .from("outlet_staff")
-          .select("id,name")
-          .eq("outlet_id", selectedOutletId)
-          .eq("status", "active"),
-        supabase
-          .from("outlet_attendance_config")
-          .select("jam_masuk,jam_keluar")
-          .eq("outlet_id", selectedOutletId)
-          .maybeSingle(),
-        supabase
-          .from("global_settings")
-          .select("value")
-          .eq("key", "global_attendance_config")
-          .maybeSingle()
-      ]);
-
-      const activeStaff = staffRes.data || [];
-      const nameById = new Map(activeStaff.map((s) => [s.id, s.name]));
-      const rawRows = (attRes.data as unknown as (Omit<Row, "outlet_staff"> & { outlet_staff_id: string })[]) || [];
-      const dbRows: (Row & { outlet_staff_id: string })[] = rawRows.map((r) => ({
-        ...r,
-        outlet_staff: { name: nameById.get(r.outlet_staff_id) ?? "-" },
-      }));
-      let cfg = localCfgRes.data;
-      if (!cfg && globalCfgRes.data?.value) {
-        try {
-          cfg = typeof globalCfgRes.data.value === "string" ? JSON.parse(globalCfgRes.data.value) : globalCfgRes.data.value;
-        } catch (e) {}
-      }
-
-      dbRows.forEach(r => {
-        if (r.status === "telat" && r.type === "in" && cfg?.jam_masuk) {
-          r.delay_minutes = r.telat_menit ?? calculateDelayMinutes(r.ts_server, cfg.jam_masuk);
-        }
-        if (r.status === "pulang_telat" && r.type === "out" && cfg?.jam_keluar) {
-          r.delay_minutes = r.telat_menit ?? calculateDelayMinutes(r.ts_server, cfg.jam_keluar);
-        }
-        if (r.status === "lebih_awal" && r.type === "out" && cfg?.jam_keluar) {
-          r.delay_minutes = r.telat_menit ?? Math.abs(calculateDelayMinutes(r.ts_server, cfg.jam_keluar));
-        }
-      });
-
-      const inRecords = new Set(dbRows.filter(r => r.type === "in").map(r => r.outlet_staff_id));
-      const virtualAlphas: Row[] = activeStaff
-        .filter(staff => !inRecords.has(staff.id))
-        .map(staff => ({
-          id: `virtual-alpha-${staff.id}`,
-          type: "in" as const,
-          ts_server: `${date}T23:59:59`,
-          ts_client: null,
-          status: "alpha" as const,
-          selfie_url: null,
-          outlet_staff: { name: staff.name },
-        }));
-
-      return [...dbRows, ...virtualAlphas];
+      const res = await fetch(`/api/attendance/rekap?outlet_id=${selectedOutletId}&date=${date}`);
+      const resData = await res.json();
+      if (!resData.ok) throw new Error(resData.error || "Gagal memuat rekap");
+      return (resData.rows || []) as Row[];
     },
   });
 

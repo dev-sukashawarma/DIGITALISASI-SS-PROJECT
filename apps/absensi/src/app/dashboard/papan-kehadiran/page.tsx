@@ -57,33 +57,10 @@ export default function PapanKehadiranPage() {
     queryKey: ["papan-kehadiran", selectedOutletId, today],
     enabled: !!selectedOutletId,
     queryFn: async () => {
-      const [{ data: staff }, { data: recs }, { data: alerts }, { data: localCfg }, { data: globalCfg }] = await Promise.all([
-        supabase.from("outlet_staff").select("id,name,role").eq("outlet_id", selectedOutletId).eq("status", "active"),
-        supabase.from("attendance").select("outlet_staff_id,type,status,ts_server,selfie_url,telat_menit")
-          .eq("outlet_id", selectedOutletId).gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
-        supabase.from("attendance").select("id,outlet_staff_id,status,ts_server,gps_lat,gps_lng")
-          .eq("outlet_id", selectedOutletId)
-          .in("status", ["fake_gps_blocked", "teleportation_blocked"])
-          .gte("ts_server", `${today}T00:00:00`).lte("ts_server", `${today}T23:59:59`),
-        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,toleransi_menit").eq("outlet_id", selectedOutletId).maybeSingle(),
-        supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
-      ]);
-      let cfg = localCfg;
-      if (!cfg && globalCfg?.value) {
-        try {
-          cfg = typeof globalCfg.value === "string" ? JSON.parse(globalCfg.value) : globalCfg.value;
-        } catch(e) {}
-      }
-      if (!cfg) return null;
-      const boardData = computeBoard((staff as BoardStaff[]) ?? [], (recs as BoardRecord[]) ?? [], cfg);
-      
-      const staffMap = new Map((staff ?? []).map(s => [s.id, s.name]));
-      const formattedAlerts = (alerts ?? []).map(a => ({
-        ...a,
-        staff_name: staffMap.get(a.outlet_staff_id) || "Staf"
-      }));
-
-      return { ...boardData, securityAlerts: formattedAlerts };
+      const res = await fetch(`/api/attendance/papan?outlet_id=${selectedOutletId}&date=${today}`);
+      const resData = await res.json();
+      if (!resData.ok) throw new Error(resData.error || "Gagal memuat papan kehadiran");
+      return resData;
     },
   });
 

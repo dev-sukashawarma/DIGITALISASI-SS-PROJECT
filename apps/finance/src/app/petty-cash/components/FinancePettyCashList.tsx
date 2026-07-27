@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Wallet, Clock, History, Filter, Store, Building2, CheckCircle2, XCircle, Send, ArrowRight, Loader2, Camera, X, Download } from 'lucide-react'
+import { Wallet, Clock, History, Filter, Store, Building2, CheckCircle2, XCircle, Send, ArrowRight, Loader2, Camera, X, Download, Search } from 'lucide-react'
 import { FinanceApprovalModal } from './FinanceApprovalModal'
 import { usePettyCashRequests, useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
 import { tanggalWaktu, relativeTime } from '@/lib/format'
@@ -107,6 +107,9 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
 
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedOutletFilter, setSelectedOutletFilter] = useState('all')
+
   const allReviewRequests = React.useMemo(() => {
     return allRequests?.filter(r => 
       r.status === 'forwarded_to_finance' || 
@@ -121,15 +124,46 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
     ) || []
   }, [allRequests])
   
-  const filteredReviewRequests = React.useMemo(() => {
-    return allReviewRequests.filter(r => {
-      if (reviewFilter === 'unprocessed') return r.status === 'forwarded_to_finance'
-      if (reviewFilter === 'ready_handover') return r.status === 'approved_by_finance'
-      return true
+  const uniqueOutlets = React.useMemo(() => {
+    const outlets = new Map<string, { id: string, name: string }>()
+    allRequests?.forEach(r => {
+      if (r.outlet_id && r.outlet) {
+        outlets.set(r.outlet_id, { id: r.outlet_id, name: r.outlet.name })
+      }
     })
-  }, [allReviewRequests, reviewFilter])
+    return Array.from(outlets.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [allRequests])
 
-  const requests = activeTab === 'review' ? filteredReviewRequests : allHistoryRequests
+  const filteredRequests = React.useMemo(() => {
+    let source = activeTab === 'review' ? allReviewRequests : allHistoryRequests
+
+    // Filter by Review Status
+    if (activeTab === 'review') {
+      if (reviewFilter === 'unprocessed') source = source.filter(r => r.status === 'forwarded_to_finance')
+      if (reviewFilter === 'ready_handover') source = source.filter(r => r.status === 'approved_by_finance')
+    }
+
+    // Filter by Outlet
+    if (selectedOutletFilter !== 'all') {
+      source = source.filter(r => r.outlet_id === selectedOutletFilter)
+    }
+
+    // Filter by Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      source = source.filter(r => {
+        const matchOutlet = r.outlet?.name?.toLowerCase().includes(q)
+        const reasonStr = (r.reason || '') + ' ' + (r.description || '')
+        const matchReason = reasonStr.toLowerCase().includes(q)
+        const matchBank = r.bank_name?.toLowerCase().includes(q) || r.bank_account_name?.toLowerCase().includes(q)
+        return matchOutlet || matchReason || matchBank
+      })
+    }
+
+    return source
+  }, [activeTab, allReviewRequests, allHistoryRequests, reviewFilter, selectedOutletFilter, searchQuery])
+
+  const requests = filteredRequests
 
   const handleOpenModal = (req: PettyCashTopup) => {
     setSelectedRequest(req)
@@ -233,46 +267,84 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
         </button>
       </div>
 
-      {/* SUB-FILTER CHIPS FOR REVIEW TAB */}
-      {activeTab === 'review' && (
-        <div className="bg-white/80 backdrop-blur-md border border-slate-200/70 p-2.5 rounded-2xl flex flex-wrap items-center gap-2 shadow-2xs">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-2">
-            <Filter className="w-3.5 h-3.5 text-amber-500" /> Filter:
-          </span>
-          <button
-            onClick={() => setReviewFilter('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-              reviewFilter === 'all'
-                ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            Semua ({allReviewRequests.length})
-          </button>
-          <button
-            onClick={() => setReviewFilter('unprocessed')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-              reviewFilter === 'unprocessed'
-                ? 'bg-amber-500 text-white border-amber-500 shadow-2xs'
-                : 'bg-amber-50 text-amber-800 border-amber-200/80 hover:bg-amber-100'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            Menunggu Acc Finance ({unprocessedCount})
-          </button>
-          <button
-            onClick={() => setReviewFilter('ready_handover')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-              reviewFilter === 'ready_handover'
-                ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                : 'bg-emerald-50 text-emerald-800 border-emerald-200/80 hover:bg-emerald-100'
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Sudah Dicairkan ({readyHandoverCount})
-          </button>
+      {/* FILTER & SEARCH BAR */}
+      <div className="bg-white/80 backdrop-blur-md border border-slate-200/70 p-3 rounded-2xl flex flex-col sm:flex-row flex-wrap items-center justify-between gap-3 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {activeTab === 'review' && (
+            <>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-2">
+                <Filter className="w-3.5 h-3.5 text-amber-500" /> Filter:
+              </span>
+              <button
+                onClick={() => setReviewFilter('all')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                  reviewFilter === 'all'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                Semua ({allReviewRequests.length})
+              </button>
+              <button
+                onClick={() => setReviewFilter('unprocessed')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                  reviewFilter === 'unprocessed'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-2xs'
+                    : 'bg-amber-50 text-amber-800 border-amber-200/80 hover:bg-amber-100'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                Menunggu Acc Finance ({unprocessedCount})
+              </button>
+              <button
+                onClick={() => setReviewFilter('ready_handover')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                  reviewFilter === 'ready_handover'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200/80 hover:bg-emerald-100'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Sudah Dicairkan ({readyHandoverCount})
+              </button>
+              <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
+            </>
+          )}
+
+          {/* OUTLET FILTER */}
+          <div className="relative">
+            <Store className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+            <select
+              value={selectedOutletFilter}
+              onChange={(e) => setSelectedOutletFilter(e.target.value)}
+              className="pl-8 pr-8 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl focus:outline-none focus:border-amber-500 appearance-none cursor-pointer"
+            >
+              <option value="all">Semua Outlet</option>
+              {uniqueOutlets.map(o => (
+                <option key={o.id} value={o.id}>{o.name}</option>
+              ))}
+            </select>
+            {/* Custom select arrow */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* SEARCH BAR */}
+        <div className="relative w-full sm:w-64">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Cari outlet, alasan, bank..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl focus:outline-none focus:border-amber-500 placeholder-slate-400"
+          />
+        </div>
+      </div>
 
       {/* CONTENT LIST */}
       {!requests || requests.length === 0 ? (

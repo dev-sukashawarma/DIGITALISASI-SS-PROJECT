@@ -226,7 +226,7 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   }
 
   return (
-    <div className="space-y-6 max-w-4xl animate-fade-in pb-12">
+    <div className="space-y-6 animate-fade-in pb-12">
       {/* Price Sync Modal */}
       {showPriceSync && (
         <PriceSyncModal

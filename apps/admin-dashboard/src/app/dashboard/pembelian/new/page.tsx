@@ -100,7 +100,7 @@ export default function NewPOPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl animate-fade-in pb-12">
+    <div className="space-y-6 animate-fade-in pb-12">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button 

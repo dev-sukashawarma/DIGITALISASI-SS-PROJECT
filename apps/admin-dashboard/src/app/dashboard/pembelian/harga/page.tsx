@@ -28,7 +28,7 @@ export default function HargaPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12 max-w-6xl mx-auto">
+    <div className="space-y-6 animate-fade-in pb-12">
       {/* Header */}
       <PageHeader
         title="Harga & Fluktuasi Bahan Baku"

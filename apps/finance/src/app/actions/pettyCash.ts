@@ -6,17 +6,11 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@suka/auth'
 import { DisbursementMethod } from '@/lib/types'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk2MzI5MiwiZXhwIjoyMDk2NTM5MjkyfQ.Dy0QMAHfB8EU9BK-JuyRrBidpG6iM94t9RtiJ_viZz8'
 
 async function getSupabaseClient() {
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY)
-  }
-  const cookieStore = await cookies()
-  return createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: () => {},
-  })
+  return createClient(supabaseUrl, serviceRoleKey)
 }
 
 export async function processPettyCashFinanceCustomAmount({
@@ -72,7 +66,7 @@ export async function processPettyCashFinanceCustomAmount({
         newDescription = `${topup.description}\n\n📌 [Catatan Finance: Nominal disetujui Rp ${finalAmount.toLocaleString('id-ID')} dari diajukan Rp ${topup.amount.toLocaleString('id-ID')}]`
       }
 
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from('petty_cash_topups')
         .update({
           status: 'approved_by_finance',
@@ -84,8 +78,12 @@ export async function processPettyCashFinanceCustomAmount({
           description: newDescription
         })
         .eq('id', id)
+        .select()
 
       if (updateError) throw updateError
+      if (!updateData || updateData.length === 0) {
+        throw new Error('Gagal memperbarui status pencairan di database.')
+      }
 
       if (cashLocationId) {
         const { error: cashError } = await supabase
@@ -106,15 +104,19 @@ export async function processPettyCashFinanceCustomAmount({
         }
       }
     } else if (action === 'reject') {
-      const { error: rejectError } = await supabase
+      const { data: rejectData, error: rejectError } = await supabase
         .from('petty_cash_topups')
         .update({
           status: 'rejected',
           finance_approved_by: validUserId
         })
         .eq('id', id)
+        .select()
 
       if (rejectError) throw rejectError
+      if (!rejectData || rejectData.length === 0) {
+        throw new Error('Gagal memperbarui status penolakan di database.')
+      }
     } else {
       throw new Error(`Invalid action: ${action}`)
     }

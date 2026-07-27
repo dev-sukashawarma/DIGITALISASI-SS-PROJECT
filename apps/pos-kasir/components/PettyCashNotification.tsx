@@ -4,13 +4,34 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
-import { ArrowDownToLine, Wallet, X, Info } from 'lucide-react'
+import { ArrowDownToLine, Wallet, X, Info, MessageSquare } from 'lucide-react'
 
 interface PendingTopup {
   id: string
   amount: number
   description: string
   created_at: string
+}
+
+function parseFinanceNote(description?: string | null) {
+  if (!description) return { mainReason: '', financeNote: null }
+
+  const splitMarker = '📌 ['
+  if (description.includes(splitMarker)) {
+    const parts = description.split(splitMarker)
+    const mainReason = parts[0].trim()
+    const financeNote = parts[1].replace(/\]$/, '').trim()
+    return { mainReason, financeNote }
+  }
+
+  if (description.includes('(Catatan Finance:')) {
+    const parts = description.split('(Catatan Finance:')
+    const mainReason = parts[0].trim()
+    const financeNote = 'Catatan Finance:' + parts[1].replace(/\)$/, '').trim()
+    return { mainReason, financeNote }
+  }
+
+  return { mainReason: description, financeNote: null }
 }
 
 export default function PettyCashNotification() {
@@ -102,8 +123,10 @@ export default function PettyCashNotification() {
 
   if (!pendingTopup) return null
 
+  const { mainReason, financeNote } = parseFinanceNote(pendingTopup.description)
+
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in font-sans">
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200 relative">
         {/* Top Header Section */}
         <div className="p-6 pb-3 relative">
@@ -132,22 +155,35 @@ export default function PettyCashNotification() {
           {/* Nominal Display Card */}
           <div className="bg-gray-50/80 border border-gray-100 rounded-xl p-4 text-center">
             <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-              Nominal Dana
+              Nominal Dana Disetujui
             </span>
             <div className="text-2xl font-black text-gray-900 tracking-tight">
               +Rp {pendingTopup.amount.toLocaleString('id-ID')}
             </div>
-            {pendingTopup.description && (
+            {mainReason && (
               <p className="text-xs text-gray-600 mt-1.5 font-medium line-clamp-2">
-                "{pendingTopup.description}"
+                "{mainReason}"
               </p>
             )}
           </div>
 
+          {/* Highlighted Catatan Finance */}
+          {financeNote && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-950 font-semibold space-y-1">
+              <div className="flex items-center gap-1.5 text-amber-800 font-extrabold">
+                <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>Catatan Finance:</span>
+              </div>
+              <p className="text-[11px] text-amber-900 font-medium leading-relaxed">
+                {financeNote}
+              </p>
+            </div>
+          )}
+
           {/* Info callout */}
-          <div className="bg-amber-50/80 border border-amber-200/60 rounded-xl p-3 flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-900 font-medium leading-relaxed">
+          <div className="bg-blue-50/80 border border-blue-200/60 rounded-xl p-3 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-blue-900 font-medium leading-relaxed">
               Saldo Petty Cash <b>belum bertambah</b>. Klik tombol di bawah untuk mengonfirmasi penerimaan.
             </p>
           </div>
@@ -156,14 +192,14 @@ export default function PettyCashNotification() {
           <div className="pt-1 space-y-2">
             <button
               onClick={handleConfirm}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold rounded-xl text-xs transition-all shadow-sm shadow-blue-200 flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold rounded-xl text-xs transition-all shadow-sm shadow-blue-200 flex items-center justify-center gap-2 cursor-pointer"
             >
               <ArrowDownToLine className="w-4 h-4" />
               Buka & Terima Dana
             </button>
             <button
               onClick={handleDismiss}
-              className="w-full py-2 text-[11px] font-semibold text-gray-400 hover:text-gray-600 transition-colors text-center"
+              className="w-full py-2 text-[11px] font-semibold text-gray-400 hover:text-gray-600 transition-colors text-center cursor-pointer"
             >
               Nanti Saja
             </button>

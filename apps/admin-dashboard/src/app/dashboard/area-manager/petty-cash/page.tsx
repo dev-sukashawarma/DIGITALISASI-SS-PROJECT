@@ -24,6 +24,27 @@ interface TopupRequest {
   outlet?: { name: string; region?: string | null } | null
 }
 
+function parseFinanceNote(description?: string | null) {
+  if (!description) return { mainReason: '', financeNote: null }
+
+  const splitMarker = '📌 ['
+  if (description.includes(splitMarker)) {
+    const parts = description.split(splitMarker)
+    const mainReason = parts[0].trim()
+    const financeNote = parts[1].replace(/\]$/, '').trim()
+    return { mainReason, financeNote }
+  }
+
+  if (description.includes('(Catatan Finance:')) {
+    const parts = description.split('(Catatan Finance:')
+    const mainReason = parts[0].trim()
+    const financeNote = 'Catatan Finance:' + parts[1].replace(/\)$/, '').trim()
+    return { mainReason, financeNote }
+  }
+
+  return { mainReason: description, financeNote: null }
+}
+
 function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
   if (!imageUrl) return null
   return (
@@ -424,7 +445,20 @@ export default function AreaManagerPettyCashPage() {
                         )}
                       </div>
 
-                      <p className="font-bold text-slate-900 text-base">{req.description}</p>
+                      {(() => {
+                        const { mainReason, financeNote } = parseFinanceNote(req.description)
+                        return (
+                          <>
+                            <p className="font-bold text-slate-900 text-base">{mainReason}</p>
+                            {financeNote && (
+                              <div className="bg-amber-50 border border-amber-200 text-amber-950 rounded-xl p-2.5 text-xs font-semibold flex items-start gap-1.5 shadow-2xs mt-1">
+                                <span className="shrink-0 text-amber-700 font-bold">📌 Catatan Finance:</span>
+                                <span>{financeNote}</span>
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                       
                       <div className="flex flex-wrap items-center gap-2 pt-1">
                         <div className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200 inline-block font-medium">

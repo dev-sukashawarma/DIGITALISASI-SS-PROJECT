@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
-import { Wallet, X, Store, CreditCard, Building2, User, AlertCircle, CheckCircle2, XCircle, Trash2, Camera } from 'lucide-react'
+import { Wallet, X, Store, CreditCard, Building2, User, AlertCircle, CheckCircle2, XCircle, Trash2, Camera, MessageSquare } from 'lucide-react'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 import { relativeTime, tanggalWaktu } from '@/lib/format'
 import { useCashOverview } from '@/hooks/useCashData'
@@ -106,7 +106,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   const handleAction = async (type: 'approve' | 'reject') => {
     if (type === 'approve') {
       if (approvedAmount !== request.amount && !approvalNote.trim()) {
-        alert('Harap isi alasan perubahan nominal karena nominal yang disetujui berbeda dengan yang diajukan.')
+        alert('Harap isi catatan/keterangan Finance karena nominal yang disetujui berbeda dengan yang diajukan.')
         return
       }
       
@@ -230,20 +230,31 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
               </p>
             </div>
             
-            {approvedAmount !== request.amount && (
-              <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <label className="block text-xs font-bold text-suka-brown mb-2 uppercase tracking-wider">
-                  Alasan Perubahan Nominal <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={approvalNote}
-                  onChange={(e) => setApprovalNote(e.target.value)}
-                  placeholder="Contoh: Dana untuk X tidak disetujui karena..."
-                  className="w-full px-4 py-3 bg-white border-2 border-amber-300 rounded-xl font-medium text-sm text-suka-brown focus:outline-none focus:ring-0 focus:border-amber-500 transition-colors"
-                  rows={2}
-                />
-              </div>
-            )}
+            {/* Always visible Finance Note Input */}
+            <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+              <label className="block text-xs font-bold text-suka-brown mb-1.5 uppercase tracking-wider flex items-center gap-1">
+                <MessageSquare className="w-3.5 h-3.5 text-suka-orange" />
+                Catatan / Keterangan Finance{' '}
+                {approvedAmount !== request.amount ? (
+                  <span className="text-red-500 font-bold">* (Wajib diisi karena nominal berbeda)</span>
+                ) : (
+                  <span className="text-suka-gray-400 font-normal">(Opsional)</span>
+                )}
+              </label>
+              <textarea
+                value={approvalNote}
+                onChange={(e) => setApprovalNote(e.target.value)}
+                placeholder={
+                  approvedAmount !== request.amount
+                    ? "Contoh: Hanya disetujui Rp 300.000 karena sisa keperluan ditunda..."
+                    : "Tambahkan catatan instruksi pencairan untuk AM, Leader, dan Crew (opsional)..."
+                }
+                className={`w-full px-4 py-3 bg-white border-2 rounded-xl font-medium text-sm text-suka-brown focus:outline-none focus:ring-0 transition-colors ${
+                  approvedAmount !== request.amount ? 'border-amber-400 focus:border-amber-600' : 'border-suka-gray-200 focus:border-suka-orange'
+                }`}
+                rows={2}
+              />
+            </div>
           </div>
 
           {/* Reason Section */}

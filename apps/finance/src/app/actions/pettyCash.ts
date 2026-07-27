@@ -62,8 +62,14 @@ export async function processPettyCashFinanceCustomAmount({
       const finalAmount = approvedAmount ?? topup.amount
       
       let newDescription = topup.description
-      if (approvalNote) {
-        newDescription = `${topup.description}\n\n(Catatan Finance: ${approvalNote})`
+      if (approvalNote && approvalNote.trim()) {
+        if (approvedAmount && approvedAmount !== topup.amount) {
+          newDescription = `${topup.description}\n\n📌 [Catatan Finance (Acc Rp ${finalAmount.toLocaleString('id-ID')} dari Diajukan Rp ${topup.amount.toLocaleString('id-ID')}): ${approvalNote.trim()}]`
+        } else {
+          newDescription = `${topup.description}\n\n📌 [Catatan Finance: ${approvalNote.trim()}]`
+        }
+      } else if (approvedAmount && approvedAmount !== topup.amount) {
+        newDescription = `${topup.description}\n\n📌 [Catatan Finance: Nominal disetujui Rp ${finalAmount.toLocaleString('id-ID')} dari diajukan Rp ${topup.amount.toLocaleString('id-ID')}]`
       }
 
       const { error: updateError } = await supabase

@@ -11,6 +11,27 @@ import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 
 const formatRupiah = (val: number) => `Rp ${val.toLocaleString('id-ID')}`
 
+function parseFinanceNote(description?: string | null) {
+  if (!description) return { mainReason: '', financeNote: null }
+
+  const splitMarker = '📌 ['
+  if (description.includes(splitMarker)) {
+    const parts = description.split(splitMarker)
+    const mainReason = parts[0].trim()
+    const financeNote = parts[1].replace(/\]$/, '').trim()
+    return { mainReason, financeNote }
+  }
+
+  if (description.includes('(Catatan Finance:')) {
+    const parts = description.split('(Catatan Finance:')
+    const mainReason = parts[0].trim()
+    const financeNote = 'Catatan Finance:' + parts[1].replace(/\)$/, '').trim()
+    return { mainReason, financeNote }
+  }
+
+  return { mainReason: description, financeNote: null }
+}
+
 function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
   if (!imageUrl) return null
   return (
@@ -277,7 +298,19 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                       {formatRupiah(req.amount)}
                     </td>
                     <td className="py-3.5 px-5 text-suka-brown font-medium max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed text-xs">
-                      {req.reason || req.description}
+                      {(() => {
+                        const { mainReason, financeNote } = parseFinanceNote(req.reason || req.description)
+                        return (
+                          <div className="space-y-1">
+                            <div>{mainReason}</div>
+                            {financeNote && (
+                              <div className="bg-amber-50 border border-amber-200 text-amber-900 px-2 py-1 rounded-lg text-[11px] font-semibold mt-1">
+                                📌 {financeNote}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </td>
                     <td className="py-3.5 px-5 whitespace-nowrap">
                       <div className="flex flex-col items-start gap-1.5">

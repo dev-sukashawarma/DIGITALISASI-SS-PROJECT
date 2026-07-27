@@ -1,6 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue, SalesSource, SalesSummaryRow, Outlet } from '@/lib/types'
 import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
@@ -331,11 +332,10 @@ export async function getAttendanceReportData(
   filter: PeriodFilterValue,
   outlets: Outlet[]
 ): Promise<AttendanceRecordExt[]> {
-  const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: () => {}
-  })
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
   // 1. Fetch Staff & Outlets for Mapping
   const [{ data: staffList }, { data: outletsList }] = await Promise.all([

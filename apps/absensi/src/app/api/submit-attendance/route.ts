@@ -22,9 +22,20 @@ export async function POST(req: Request) {
       .select("outlet_id, face_descriptor, role")
       .eq("id", body.outlet_staff_id).single();
       
-    if (!target) return NextResponse.json({ ok: false, reason: "staff_not_found" }, { status: 404 });
     const isGlobalRole = ["spv", "owner", "admin", "admin_hr"].includes(target.role);
-    if (!isGlobalRole && target.outlet_id !== body.outlet_id) return NextResponse.json({ ok: false, reason: "cross_outlet" }, { status: 403 });
+    if (!isGlobalRole && target.outlet_id !== body.outlet_id) {
+      // Cek apakah outlet_id ini terdaftar untuk staff di tabel staff_outlets (misal: Leader multi-outlet)
+      const { data: allowedAssigned } = await admin
+        .from("staff_outlets")
+        .select("outlet_id")
+        .eq("staff_id", body.outlet_staff_id)
+        .eq("outlet_id", body.outlet_id)
+        .maybeSingle();
+
+      if (!allowedAssigned) {
+        return NextResponse.json({ ok: false, reason: "cross_outlet" }, { status: 403 });
+      }
+    }
     if (!target.face_descriptor) return NextResponse.json({ ok: false, reason: "not_enrolled" }, { status: 422 });
 
     // Validasi radius GPS server-side = GEOFENCE_RADIUS_M (konsisten dgn client) + toleransi akurasi

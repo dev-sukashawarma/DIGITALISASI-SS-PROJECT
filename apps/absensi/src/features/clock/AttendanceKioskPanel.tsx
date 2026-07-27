@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Spinner } from "@suka/design-system";
-import { Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin } from "lucide-react";
+import { Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin, Store } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
@@ -51,13 +51,66 @@ export function AttendanceKioskPanel() {
   const [modelError, setModelError] = useState<string | null>(null);
   const [outletName, setOutletName] = useState<string>("");
 
+  // Leader / Multi-outlet Support
+  const [assignedOutlets, setAssignedOutlets] = useState<{ id: string; name: string }[]>([]);
+  const [selectedOutletId, setSelectedOutletId] = useState<string>("");
+
+  const activeOutletId = selectedOutletId || outletStaff?.outlet_id || "";
+
   // Kiosk Integration — MODE 1:1: panel pribadi, kunci ke akun yang login.
   // Wajah orang lain (walau ter-enroll) ditolak; hanya pemilik akun yang bisa absen.
   const supabase = createClient();
-  const kiosk = useClockKiosk(outletStaff?.outlet_id || "", { lockToStaffId: outletStaff?.id });
+  const kiosk = useClockKiosk(activeOutletId, { lockToStaffId: outletStaff?.id });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const loopRef = useRef<number | null>(null);
   const router = useRouter();
+
+  // Load daftar outlet yang diampu / dibawahi oleh staf/leader dari staff_outlets
+  useEffect(() => {
+    if (!outletStaff) return;
+
+    let isMounted = true;
+    async function loadAssignedOutlets() {
+      const { data: soData } = await supabase
+        .from("staff_outlets")
+        .select("outlet_id, outlets(id, name)")
+        .eq("staff_id", outletStaff.id);
+
+      const list: { id: string; name: string }[] = [];
+      if (soData && soData.length > 0) {
+        soData.forEach((row: any) => {
+          if (row.outlets) {
+            const item = Array.isArray(row.outlets) ? row.outlets[0] : row.outlets;
+            if (item && item.id && !list.some((x) => x.id === item.id)) {
+              list.push({ id: item.id, name: item.name });
+            }
+          }
+        });
+      }
+
+      // Pastikan primary outlet dari outletStaff ada di list jika belum ada
+      if (outletStaff.outlet_id && !list.some((x) => x.id === outletStaff.outlet_id)) {
+        const { data: primaryOutlet } = await supabase
+          .from("outlets")
+          .select("id, name")
+          .eq("id", outletStaff.outlet_id)
+          .maybeSingle();
+        if (primaryOutlet) {
+          list.unshift({ id: primaryOutlet.id, name: primaryOutlet.name });
+        }
+      }
+
+      if (isMounted) {
+        setAssignedOutlets(list);
+        if (!selectedOutletId) {
+          setSelectedOutletId(outletStaff.outlet_id || (list[0]?.id ?? ""));
+        }
+      }
+    }
+
+    loadAssignedOutlets();
+    return () => { isMounted = false; };
+  }, [outletStaff]);
 
   useEffect(() => {
     if (kiosk.result) {
@@ -73,18 +126,16 @@ export function AttendanceKioskPanel() {
   }, [kiosk.result, router]);
 
   useEffect(() => {
-    if (!outletStaff?.outlet_id) return;
-    
-    const outletId = outletStaff.outlet_id;
+    if (!activeOutletId) return;
 
-    // Initial Load
+    // Initial Load for activeOutletId
     kiosk.loadCandidates();
     kiosk.flushQueue();
     loadRecords();
-    
+
     const fetchConfig = () => {
       Promise.all([
-        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", outletId).maybeSingle(),
+        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", activeOutletId).maybeSingle(),
         supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
       ]).then(([local, global]) => {
         let data = local.data;
@@ -101,8 +152,8 @@ export function AttendanceKioskPanel() {
       });
     };
     fetchConfig();
-      
-    supabase.from("outlets").select("is_active, name").eq("id", outletId).single()
+
+    supabase.from("outlets").select("is_active, name").eq("id", activeOutletId).single()
       .then(({ data }) => {
         if (data) {
           setIsOutletOpen(data.is_active);
@@ -111,11 +162,11 @@ export function AttendanceKioskPanel() {
       });
 
     // Realtime Subscriptions
-    const uniqueChannelName = `kiosk-realtime-${outletId}-${Math.random().toString(36).substring(2, 9)}`;
+    const uniqueChannelName = `kiosk-realtime-${activeOutletId}-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase.channel(uniqueChannelName)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${outletId}` },
+        { event: '*', schema: 'public', table: 'outlet_attendance_config', filter: `outlet_id=eq.${activeOutletId}` },
         () => { fetchConfig(); }
       )
       .on(
@@ -125,7 +176,7 @@ export function AttendanceKioskPanel() {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'outlets', filter: `id=eq.${outletId}` },
+        { event: '*', schema: 'public', table: 'outlets', filter: `id=eq.${activeOutletId}` },
         (payload) => {
           const newOutlet = payload.new as any;
           if (newOutlet && newOutlet.is_active !== undefined) {
@@ -136,7 +187,7 @@ export function AttendanceKioskPanel() {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'attendance', filter: `outlet_id=eq.${outletId}` },
+        { event: '*', schema: 'public', table: 'attendance', filter: `outlet_id=eq.${activeOutletId}` },
         () => {
           loadRecords();
         }
@@ -146,7 +197,7 @@ export function AttendanceKioskPanel() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [outletStaff?.outlet_id]);
+  }, [activeOutletId]);
 
   // Otomatis memicu pemindaian lokasi saat phase diset ke "locating" dan izin sudah diberikan
   useEffect(() => {
@@ -271,6 +322,41 @@ export function AttendanceKioskPanel() {
           )}
         </div>
       </div>
+
+      {/* Selector Outlet untuk Leader / Multi-Outlet */}
+      {assignedOutlets.length > 1 && (
+        <Card className="p-4 rounded-3xl border border-suka-orange/30 bg-gradient-to-r from-orange-50/90 to-amber-50/70 shadow-sm space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-suka-ink font-extrabold text-sm">
+              <Store className="text-suka-orange" size={18} />
+              <span>Pilih Outlet Absen</span>
+            </div>
+            <span className="rounded-full bg-suka-orange/10 border border-suka-orange/30 px-2.5 py-0.5 text-[10px] font-black text-suka-brown uppercase tracking-wider">
+              {outletStaff.role === "leader" ? "Leader Multi-Outlet" : "Multi-Outlet"}
+            </span>
+          </div>
+          <p className="text-xs text-gray-600 font-medium leading-relaxed">
+            Anda terdaftar di beberapa cabang. Silakan pilih lokasi outlet tempat Anda berada saat ini sebelum scan absen:
+          </p>
+          <div className="relative">
+            <select
+              value={activeOutletId}
+              onChange={(e) => {
+                const newId = e.target.value;
+                setSelectedOutletId(newId);
+                kiosk.checkLocation();
+              }}
+              className="w-full rounded-2xl border border-suka-orange/40 bg-white px-4 py-3 text-sm font-extrabold text-suka-ink shadow-sm outline-none focus:ring-2 focus:ring-suka-orange cursor-pointer transition-all"
+            >
+              {assignedOutlets.map((out) => (
+                <option key={out.id} value={out.id}>
+                  📍 {out.name} {out.id === outletStaff.outlet_id ? "(Utama)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        </Card>
+      )}
 
       {/* Camera (Absen) - POSISI ATAS */}
       <Card className={`relative overflow-hidden p-0 rounded-3xl flex flex-col justify-between border transition-all duration-500 shadow-lg ${

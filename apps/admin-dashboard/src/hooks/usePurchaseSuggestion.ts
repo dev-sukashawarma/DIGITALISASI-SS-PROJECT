@@ -9,9 +9,9 @@ export function usePurchaseSuggestion() {
     queryKey: ['purchase-suggestion'],
     staleTime: 2 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.from('purchase_suggestion_spv').select('*')
+      const { data, error } = await supabase.from('purchase_suggestion_spv').select('*, bahan_baku(kategori, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan)')
       if (error) throw error
-      const computed = (data as SuggestionRow[]).map((r) => computeSuggestion(r))
+      const computed = (data as unknown as SuggestionRow[]).map((r) => computeSuggestion(r))
       return sortSuggestions(computed)
     },
   })

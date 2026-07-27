@@ -7,10 +7,17 @@ export type SuggestionRow = {
   days_left: number | null
   permintaan_pending: number
   sudah_dipesan: number
+  bahan_baku?: {
+    kategori?: string
+    satuan_tengah?: string | null
+    faktor_tengah?: number | null
+    satuan_kecil?: string | null
+    faktor_tampilan?: number | null
+  } | null
 }
 
 export type Tingkat = 'mendesak' | 'menipis' | 'aman'
-export type SuggestionComputed = SuggestionRow & { qty_saran: number; tingkat: Tingkat }
+export type SuggestionComputed = SuggestionRow & { qty_saran: number; tingkat: Tingkat; kategori: string }
 
 const RANK: Record<Tingkat, number> = { mendesak: 0, menipis: 1, aman: 2 }
 
@@ -28,7 +35,10 @@ export function computeSuggestion(row: SuggestionRow, hariKedepan = 7): Suggesti
   } else {
     tingkat = 'aman'
   }
-  return { ...row, qty_saran, tingkat }
+  
+  const kategori = row.bahan_baku?.kategori || 'Tanpa Kategori'
+  
+  return { ...row, qty_saran, tingkat, kategori }
 }
 
 export function sortSuggestions(rows: SuggestionComputed[]): SuggestionComputed[] {

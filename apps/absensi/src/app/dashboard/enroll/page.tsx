@@ -54,13 +54,21 @@ export default function EnrollPage() {
   const loadStaff = useCallback(() => {
     if (!selectedOutletId) return;
     setLoadingStaff(true);
+
+    let primaryQuery = supabase
+      .from("outlet_staff")
+      .select("id, name, role, enrolled_at, status")
+      .eq("status", "active")
+      .neq("role", "kiosk");
+
+    if (outletStaff?.role === "spv") {
+      primaryQuery = primaryQuery.or(`outlet_id.eq.${selectedOutletId},id.eq.${outletStaff.id}`);
+    } else {
+      primaryQuery = primaryQuery.eq("outlet_id", selectedOutletId);
+    }
+
     Promise.all([
-      supabase
-        .from("outlet_staff")
-        .select("id, name, role, enrolled_at, status")
-        .eq("outlet_id", selectedOutletId)
-        .eq("status", "active")
-        .neq("role", "kiosk"),
+      primaryQuery,
       supabase
         .from("staff_outlets")
         .select("staff_id, outlet_staff!inner(id, name, role, status, enrolled_at)")
@@ -69,12 +77,21 @@ export default function EnrollPage() {
       .then(([primaryRes, assignedRes]) => {
         const staffMap = new Map<string, Staff>();
         (primaryRes.data || []).forEach((s) => {
-          staffMap.set(s.id, s as Staff);
+          // Tambahkan label "(Anda)" jika ini adalah user SPV yang sedang login
+          if (outletStaff?.id === s.id) {
+            staffMap.set(s.id, { ...s, name: `${s.name} (Anda)` } as Staff);
+          } else {
+            staffMap.set(s.id, s as Staff);
+          }
         });
         (assignedRes.data || []).forEach((row: any) => {
           const st = Array.isArray(row.outlet_staff) ? row.outlet_staff[0] : row.outlet_staff;
           if (st && st.status === "active" && st.role !== "kiosk" && !staffMap.has(st.id)) {
-            staffMap.set(st.id, { id: st.id, name: st.name, role: st.role, enrolled_at: st.enrolled_at });
+            if (outletStaff?.id === st.id) {
+              staffMap.set(st.id, { id: st.id, name: `${st.name} (Anda)`, role: st.role, enrolled_at: st.enrolled_at });
+            } else {
+              staffMap.set(st.id, { id: st.id, name: st.name, role: st.role, enrolled_at: st.enrolled_at });
+            }
           }
         });
         const combinedList = Array.from(staffMap.values()).sort((a, b) => a.name.localeCompare(b.name));
@@ -85,7 +102,7 @@ export default function EnrollPage() {
         toast.show("err", `Gagal memuat data staff: ${error.message}`);
         setLoadingStaff(false);
       });
-  }, [selectedOutletId, supabase, toast]);
+  }, [selectedOutletId, supabase, toast, outletStaff]);
 
   // Load staff when outlet changes
   useEffect(() => {

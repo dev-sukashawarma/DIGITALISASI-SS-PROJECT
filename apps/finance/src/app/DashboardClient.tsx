@@ -26,7 +26,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="bg-white/70 backdrop-blur-xl border border-suka-gray-200/60 rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+      <div className="bg-white/70 backdrop-blur-xl border border-suka-brown/10 rounded-3xl p-6 shadow-sm">
         <h1 className="text-2xl font-black text-suka-brown tracking-tight">Net Cash Dashboard</h1>
         <p className="text-xs font-bold text-suka-gray-400 mt-1">Monitoring saldo riil kas &amp; bank disandingkan dengan arus transaksi mutasi.</p>
       </div>
@@ -59,7 +59,7 @@ export default function DashboardPage() {
           ) : locations.length === 0 ? (
             <EmptyState title="Belum ada rekening/kas" description="Tambahkan di menu Rekening & Kas." />
           ) : (
-            <ul className="divide-y divide-suka-gray-100/80">
+            <ul className="divide-y divide-suka-brown/5">
               {locations.map((l) => (
                 <li key={l.id} className="flex items-center justify-between py-3.5 hover:bg-white/40 px-2 rounded-xl transition-all">
                   <div className="flex items-center gap-3">
@@ -84,14 +84,14 @@ export default function DashboardPage() {
           ) : txs.length === 0 ? (
             <EmptyState title="Belum ada transaksi" />
           ) : (
-            <ul className="divide-y divide-suka-gray-100">
+            <ul className="divide-y divide-suka-brown/5">
               {txs.slice(0, 8).map((t) => (
                 <li key={t.id} className="flex items-center justify-between py-3">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-suka-ink">
-                      {t.cash_location?.label ?? '—'} · <span className="text-suka-gray-500">{t.category ?? t.source_type}</span>
+                    <p className="truncate font-bold text-suka-brown">
+                      {t.cash_location?.label ?? '—'} · <span className="text-suka-gray-400 font-semibold">{t.category ?? t.source_type}</span>
                     </p>
-                    <p className="text-xs text-suka-gray-400">{tanggal(t.occurred_at)}</p>
+                    <p className="text-[10px] font-black tracking-wider uppercase text-suka-gray-400 mt-0.5">{tanggal(t.occurred_at)}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className={`font-bold ${t.direction === 'in' ? 'text-emerald-600' : 'text-red-600'}`}>

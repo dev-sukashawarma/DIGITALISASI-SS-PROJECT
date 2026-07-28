@@ -26,7 +26,7 @@ export function StatCard({
     blue: 'bg-blue-50 text-blue-600 border-blue-200/80 shadow-[0_2px_8px_rgba(59,130,246,0.12)]',
   }
   return (
-    <div className="bg-white/70 backdrop-blur-xl border border-suka-gray-200/60 rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:bg-white/90 transition-all duration-300 flex items-center gap-4 group relative overflow-hidden">
+    <div className="bg-white/70 backdrop-blur-xl border border-suka-brown/10 rounded-3xl p-5 shadow-sm hover:shadow-md hover:bg-white/90 transition-all duration-300 flex items-center gap-4 group relative overflow-hidden">
       {icon && (
         <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition-all ${iconTone[tone]}`}>
           {icon}
@@ -58,8 +58,8 @@ export function TxStatusBadge({ status }: { status: CashTxStatus }) {
 
 export function SectionCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <div className="bg-white/70 backdrop-blur-xl border border-suka-gray-200/60 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] overflow-hidden">
-      <div className="flex items-center justify-between border-b border-suka-gray-100 px-6 py-4 bg-white/40">
+    <div className="bg-white/70 backdrop-blur-xl border border-suka-brown/10 rounded-3xl shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between border-b border-suka-brown/5 px-6 py-4 bg-white/40">
         <h2 className="font-extrabold text-suka-brown text-sm uppercase tracking-tight">{title}</h2>
         {action}
       </div>

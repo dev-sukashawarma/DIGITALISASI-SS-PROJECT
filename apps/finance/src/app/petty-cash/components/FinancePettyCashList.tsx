@@ -229,58 +229,61 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
   const readyHandoverCount = allReviewRequests.filter(r => r.status === 'approved_by_finance').length
 
   return (
-    <div className="space-y-5 font-sans">
+    <div className="space-y-6 font-sans">
       
       {/* TABS NAVIGATION */}
-      <div className="bg-slate-100/80 backdrop-blur-md rounded-2xl border border-slate-200/60 p-1.5 flex flex-wrap gap-1.5 shadow-2xs">
+      <div className="inline-flex bg-white/60 backdrop-blur-xl rounded-2xl border border-suka-brown/5 p-1.5 shadow-sm">
         <button
           onClick={() => setActiveTab('review')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
             activeTab === 'review'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+              ? 'bg-suka-orange/10 text-suka-orange shadow-sm'
+              : 'text-suka-gray-500 hover:text-suka-brown hover:bg-white/50'
           }`}
         >
           <Clock className="w-4 h-4 text-amber-500" />
           Butuh Review & Pencairan
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            activeTab === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600'
+            activeTab === 'review' ? 'bg-orange-100 text-suka-orange' : 'bg-suka-brown/10 text-suka-brown'
           }`}>
             {allReviewRequests.length}
           </span>
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
             activeTab === 'history'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+              ? 'bg-suka-orange/10 text-suka-orange shadow-sm'
+              : 'text-suka-gray-500 hover:text-suka-brown hover:bg-white/50'
           }`}
         >
           <History className="w-4 h-4 text-blue-500" />
           Riwayat Pencairan
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            activeTab === 'history' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-600'
+            activeTab === 'history' ? 'bg-blue-100 text-blue-800' : 'bg-suka-brown/10 text-suka-brown'
           }`}>
             {allHistoryRequests.length}
           </span>
         </button>
       </div>
 
-      {/* FILTER & SEARCH BAR */}
-      <div className="bg-white/80 backdrop-blur-md border border-slate-200/70 p-3 rounded-2xl flex flex-col sm:flex-row flex-wrap items-center justify-between gap-3 shadow-2xs">
+      {/* MAIN CONTENT CONTAINER */}
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm overflow-hidden flex flex-col">
+        
+        {/* FILTER & SEARCH BAR */}
+        <div className="p-4 sm:px-6 border-b border-suka-brown/5 flex flex-col sm:flex-row flex-wrap items-center justify-between gap-4 bg-white/40">
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {activeTab === 'review' && (
             <>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-2">
+              <span className="text-[10px] font-black text-suka-gray-400 uppercase tracking-widest flex items-center gap-1.5 px-2">
                 <Filter className="w-3.5 h-3.5 text-amber-500" /> Filter:
               </span>
               <button
                 onClick={() => setReviewFilter('all')}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
                   reviewFilter === 'all'
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    ? 'bg-suka-brown text-white border-suka-brown shadow-sm'
+                    : 'bg-white text-suka-brown/70 border-suka-brown/20 hover:border-suka-brown hover:text-suka-brown'
                 }`}
               >
                 Semua ({allReviewRequests.length})
@@ -307,17 +310,17 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Sudah Dicairkan ({readyHandoverCount})
               </button>
-              <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
+              <div className="w-px h-6 bg-suka-brown/10 mx-1 hidden sm:block"></div>
             </>
           )}
 
           {/* OUTLET FILTER */}
           <div className="relative">
-            <Store className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+            <Store className="w-3.5 h-3.5 absolute left-3 top-2.5 text-suka-gray-400" />
             <select
               value={selectedOutletFilter}
               onChange={(e) => setSelectedOutletFilter(e.target.value)}
-              className="pl-8 pr-8 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl focus:outline-none focus:border-amber-500 appearance-none cursor-pointer"
+              className="pl-8 pr-8 py-1.5 bg-suka-cream/50 border border-suka-brown/20 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange text-suka-brown text-xs font-bold rounded-xl outline-none appearance-none cursor-pointer transition-all"
             >
               <option value="all">Semua Outlet</option>
               {uniqueOutlets.map(o => (
@@ -325,7 +328,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
               ))}
             </select>
             {/* Custom select arrow */}
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-suka-gray-400">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
               </svg>
@@ -335,28 +338,28 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
 
         {/* SEARCH BAR */}
         <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-suka-gray-400" />
           <input
             type="text"
             placeholder="Cari outlet, alasan, bank..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl focus:outline-none focus:border-amber-500 placeholder-slate-400"
+            className="w-full pl-8 pr-3 py-1.5 bg-suka-cream/50 border border-suka-brown/20 text-suka-brown text-xs font-bold rounded-xl focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange placeholder-suka-gray-400 transition-all"
           />
         </div>
       </div>
 
       {/* CONTENT LIST */}
       {!requests || requests.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-200/70 p-12 text-center shadow-xs max-w-md mx-auto my-6 space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 text-amber-500 flex items-center justify-center mx-auto shadow-2xs">
+        <div className="p-16 text-center space-y-3 bg-white/40 w-full flex flex-col items-center justify-center min-h-[300px]">
+          <div className="w-16 h-16 rounded-3xl bg-orange-50/80 border border-orange-100 text-suka-orange flex items-center justify-center shadow-sm">
             <Wallet className="w-7 h-7" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-800 text-base">
+            <h3 className="font-bold text-suka-brown text-base">
               {activeTab === 'review' ? 'Tidak Ada Pengajuan Butuh Tindakan' : 'Belum Ada Riwayat'}
             </h3>
-            <p className="text-xs text-slate-400 font-medium mt-1 leading-relaxed">
+            <p className="text-xs text-suka-gray-400 font-medium mt-1 leading-relaxed">
               {activeTab === 'review' 
                 ? 'Belum ada pengajuan petty cash baru yang diteruskan oleh Area Manager.' 
                 : 'Seluruh riwayat pencairan petty cash akan tercatat di sini.'}
@@ -364,11 +367,10 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200/70 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[750px] whitespace-nowrap">
-              <thead>
-                <tr className="bg-slate-50/80 text-slate-500 text-[10px] uppercase font-black tracking-wider border-b border-slate-100">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left border-collapse min-w-[750px] whitespace-nowrap">
+            <thead>
+              <tr className="bg-suka-cream/40 text-suka-gray-500 text-[10px] uppercase font-black tracking-wider border-b border-suka-brown/5">
                   <th className="py-3.5 px-5">Tanggal</th>
                   <th className="py-3.5 px-5">Outlet</th>
                   <th className="py-3.5 px-5">Rekening Tujuan</th>
@@ -378,35 +380,35 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                   <th className="py-3.5 px-5 text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
+              <tbody className="divide-y divide-suka-brown/5 text-xs">
                 {requests.map((req) => (
-                  <tr key={req.id} className="hover:bg-amber-50/20 transition-colors">
+                  <tr key={req.id} className="hover:bg-orange-50/30 transition-colors">
                     <td className="py-4 px-5 whitespace-nowrap" title={tanggalWaktu(req.created_at)}>
-                      <div className="font-extrabold text-slate-800 text-xs">{relativeTime(req.created_at)}</div>
-                      <div className="text-[10px] text-slate-400 font-medium">{tanggalWaktu(req.created_at)}</div>
+                      <div className="font-black text-suka-brown text-xs">{relativeTime(req.created_at)}</div>
+                      <div className="text-[10px] text-suka-gray-400 font-bold uppercase tracking-wider">{tanggalWaktu(req.created_at)}</div>
                     </td>
-                    <td className="py-4 px-5 font-bold text-slate-800">
+                    <td className="py-4 px-5 font-bold text-suka-brown">
                       <div className="flex items-center gap-1.5 text-xs">
-                        <Store className="w-3.5 h-3.5 text-amber-500" />
+                        <Store className="w-3.5 h-3.5 text-suka-orange" />
                         {req.outlet?.name || '-'}
                       </div>
                     </td>
                     <td className="py-4 px-5 text-xs">
                       {req.bank_name ? (
-                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-200/70 inline-block space-y-0.5">
-                          <div className="font-extrabold text-slate-800 flex items-center gap-1 text-[11px]">
-                            <Building2 className="w-3 h-3 text-amber-500" /> {req.bank_name} - <span className="font-mono">{req.bank_account_number}</span>
+                        <div className="bg-suka-cream/50 p-2 rounded-xl border border-suka-brown/10 inline-block space-y-0.5">
+                          <div className="font-black text-suka-brown flex items-center gap-1 text-[11px]">
+                            <Building2 className="w-3 h-3 text-suka-orange" /> {req.bank_name} - <span className="font-mono">{req.bank_account_number}</span>
                           </div>
-                          <div className="text-[10px] font-semibold text-slate-400">a.n {req.bank_account_name || '-'}</div>
+                          <div className="text-[10px] font-bold text-suka-gray-500">a.n {req.bank_account_name || '-'}</div>
                         </div>
                       ) : (
-                        <span className="text-slate-400 italic text-[11px]">Belum ada</span>
+                        <span className="text-suka-gray-400 italic text-[11px]">Belum ada</span>
                       )}
                     </td>
-                    <td className="py-4 px-5 font-black text-slate-900 whitespace-nowrap text-sm">
+                    <td className="py-4 px-5 font-black text-suka-brown whitespace-nowrap text-sm">
                       {formatRupiah(req.amount)}
                     </td>
-                    <td className="py-4 px-5 text-slate-700 font-medium max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed text-xs">
+                    <td className="py-4 px-5 text-suka-brown font-medium max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed text-xs">
                       {(() => {
                         const { mainReason, financeNote } = parseFinanceNote(req.reason || req.description)
                         return (
@@ -474,7 +476,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                       {req.status === 'forwarded_to_finance' && activeTab === 'review' && (
                         <button
                           onClick={() => handleOpenModal(req)}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white rounded-xl font-bold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
                         >
                           <Wallet className="w-4 h-4" />
                           Proses / Acc
@@ -497,6 +499,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
           </div>
         </div>
       )}
+      </div>
 
       {selectedRequest && (
         <FinanceApprovalModal 

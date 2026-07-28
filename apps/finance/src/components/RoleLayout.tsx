@@ -37,9 +37,9 @@ export function RoleLayout({ brand, brandAccent, navGroups, homePath, defaultTit
   return (
     <div className="flex h-screen overflow-hidden bg-suka-cream">
       {/* Sidebar */}
-      <aside className="hidden w-64 shrink-0 border-r border-suka-gray-200 bg-white md:flex md:flex-col print:hidden">
-        <div className="p-5 border-b border-suka-gray-100">
-          <div className="text-xl font-extrabold text-suka-brown tracking-tight">{brand}<span className="text-suka-orange">{brandAccent}</span></div>
+      <aside className="hidden w-64 shrink-0 border-r border-suka-brown/10 bg-white/80 backdrop-blur-xl md:flex md:flex-col print:hidden shadow-[4px_0_24px_rgba(44,24,16,0.02)] z-20">
+        <div className="p-5 border-b border-suka-brown/5 flex items-center gap-3">
+          <div className="text-xl font-black text-suka-brown tracking-tight leading-none">{brand}<span className="text-suka-orange">{brandAccent}</span></div>
         </div>
         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-6 text-sm">
           {navGroups.map((group) => (
@@ -54,14 +54,15 @@ export function RoleLayout({ brand, brandAccent, navGroups, homePath, defaultTit
                     <Link
                       key={href}
                       href={href}
-                      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition-colors ${
+                      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition-all relative group ${
                         active
-                          ? 'bg-suka-orange/10 text-suka-orange'
-                          : 'text-gray-500 hover:bg-suka-gray-50 hover:text-suka-ink'
+                          ? 'bg-suka-orange/10 text-suka-orange shadow-sm'
+                          : 'text-suka-gray-500 hover:bg-suka-gray-50 hover:text-suka-brown'
                       }`}
                     >
-                      <Icon size={18} className={active ? 'text-suka-orange' : 'text-suka-gray-400'} />
-                      <span className="flex-1">{label}</span>
+                      <Icon className={`w-5 h-5 transition-colors ${active ? 'text-suka-orange' : 'text-suka-gray-400 group-hover:text-suka-brown'}`} />
+                      <span className="flex-1 truncate">{label}</span>
+                      {active && <div className="w-1.5 h-1.5 rounded-full bg-suka-orange animate-pulse" />}
                     </Link>
                   )
                 })}
@@ -74,9 +75,9 @@ export function RoleLayout({ brand, brandAccent, navGroups, homePath, defaultTit
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white border-b border-suka-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center gap-3 shadow-sm flex-shrink-0 print:hidden">
+        <header className="bg-white/75 backdrop-blur-xl border-b border-suka-brown/10 px-4 sm:px-6 py-3.5 flex justify-between items-center gap-3 shadow-[0_2px_12px_rgba(44,24,16,0.02)] flex-shrink-0 print:hidden">
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-extrabold text-suka-brown tracking-tight truncate">
+            <h1 className="text-base sm:text-lg font-black text-suka-brown tracking-tight truncate">
               {currentLink?.label ?? defaultTitle}
             </h1>
             {outletStaff && (
@@ -122,21 +123,21 @@ export function RoleLayout({ brand, brandAccent, navGroups, homePath, defaultTit
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <nav className="md:hidden flex-shrink-0 border-t border-suka-gray-200 bg-white flex items-center justify-around px-2 py-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden z-40 relative">
+        <nav className="md:hidden fixed bottom-3 left-3 right-3 z-40 bg-white/90 backdrop-blur-xl rounded-full border border-suka-brown/10 shadow-[0_8px_30px_rgba(44,24,16,0.12)] flex items-center justify-around px-2 py-1.5 print:hidden">
           {allLinks.map(({ href, label, icon: Icon }) => {
             const active = currentNavPath === href
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center justify-center w-full py-1 gap-1 transition-colors ${
-                  active ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-gray-600'
+                className={`flex flex-col items-center justify-center w-full py-1 gap-1 transition-all ${
+                  active ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-brown'
                 }`}
               >
-                <div className={`p-1.5 rounded-full ${active ? 'bg-suka-orange/10' : 'bg-transparent'}`}>
-                  <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                <div className={`p-1.5 rounded-full transition-all ${active ? 'bg-suka-orange/10 text-suka-orange' : 'bg-transparent'}`}>
+                  <Icon size={18} strokeWidth={active ? 2.5 : 2} />
                 </div>
-                <span className={`text-[10px] ${active ? 'font-extrabold text-suka-orange' : 'font-medium'}`}>
+                <span className={`text-[9px] ${active ? 'font-black text-suka-orange' : 'font-semibold'}`}>
                   {label}
                 </span>
               </Link>

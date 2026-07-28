@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+
 
 async function getAuthedClient() {
   const cookieStore = await cookies()

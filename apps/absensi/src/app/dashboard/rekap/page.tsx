@@ -51,7 +51,7 @@ const PERIOD_OPTIONS = [
 export default function RekapPage() {
   const { outletStaff } = useAuth();
   const supabase = createClient();
-  const [period, setPeriod] = useState("bulan_ini");
+  const [period, setPeriod] = useState("hari_ini");
   const [customStart, setCustomStart] = useState(() => dayjs().startOf("month").format("YYYY-MM-DD"));
   const [customEnd, setCustomEnd] = useState(() => dayjs().format("YYYY-MM-DD"));
   const [filterStatus, setFilterStatus] = useState("semua");

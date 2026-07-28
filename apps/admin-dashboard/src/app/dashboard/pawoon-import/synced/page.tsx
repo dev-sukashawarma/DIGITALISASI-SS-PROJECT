@@ -1,5 +1,5 @@
 
-import { createClient } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import SyncedFilters from './SyncedFilters';
 
@@ -10,7 +10,7 @@ export default async function SyncedPawoonDataPage({
 }: {
     searchParams: Promise<{ outlet?: string; from?: string; to?: string }>;
 }) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const params = await searchParams;
 
     // Fetch outlets for filter dropdown and summary

@@ -91,7 +91,14 @@ export default async function PawoonProfitPage({
                         quantity, 
                         unit_price, 
                         subtotal,
-                        menu_items ( hpp_override )
+                        menu_items ( 
+                            hpp_override,
+                            is_package,
+                            package_items:menu_packages!package_id (
+                                quantity,
+                                component:menu_items!menu_item_id ( hpp_override )
+                            )
+                        )
                     `)
                     .in('order_id', chunk)
             );
@@ -123,7 +130,26 @@ export default async function PawoonProfitPage({
         
         const outletType = orderOutletMap.get(item.order_id) || 'outlet';
         
-        let baseHpp = item.menu_items?.hpp_override || 0;
+        let baseHpp = 0;
+        let isMissing = false;
+        
+        if (item.menu_items?.is_package) {
+            if (item.menu_items?.hpp_override !== null) {
+                baseHpp = item.menu_items.hpp_override;
+            } else {
+                let pkgHpp = 0;
+                let pkgMissing = false;
+                item.menu_items.package_items?.forEach((pkg: any) => {
+                    if (pkg.component?.hpp_override === null) pkgMissing = true;
+                    pkgHpp += (pkg.component?.hpp_override || 0) * (pkg.quantity || 1);
+                });
+                baseHpp = pkgHpp;
+                isMissing = pkgMissing || (item.menu_items.package_items?.length === 0);
+            }
+        } else {
+            baseHpp = item.menu_items?.hpp_override || 0;
+            isMissing = item.menu_items?.hpp_override === null;
+        }
         
         // HPP Mitra Rule: HPP Pusat + 10%
         if (outletType === 'mitra' && baseHpp > 0) {
@@ -141,7 +167,7 @@ export default async function PawoonProfitPage({
                 omset: 0,
                 hppTotal: 0,
                 hppUnit: baseHpp, // we just store the last one seen, if it crosses outlet types it might be weird, but usually filtered by outlet
-                missingHpp: item.menu_items?.hpp_override === null,
+                missingHpp: isMissing,
                 outletType: outletType
             };
         }
@@ -150,7 +176,7 @@ export default async function PawoonProfitPage({
         itemSummary[item.menu_item_id].omset += item.subtotal;
         itemSummary[item.menu_item_id].hppTotal += itemTotalHpp;
         // if this item has missing HPP, flag it
-        if (item.menu_items?.hpp_override === null) {
+        if (isMissing) {
              itemSummary[item.menu_item_id].missingHpp = true;
         }
     });

@@ -197,22 +197,28 @@ export async function upsertOpnameItems(
   if (!items.length) return
 
   const authedClient = await getAuthedClient()
+  const staffId = await getCurrentStaffId(authedClient)
 
-  // Verifikasi outlet dari opname pertama (semua items harus punya opname_id sama)
   const opnameId = items[0].opname_id
   const serviceClient = makeServiceClient()
 
+  // Verifikasi opname ada dan dibuat oleh staff yang sedang login
+  // (atau masih dalam status draft/pending yang bisa diedit)
   const { data: opname, error: opnameErr } = await serviceClient
     .from('opname')
-    .select('outlet_id')
+    .select('outlet_id, created_by, status')
     .eq('id', opnameId)
     .maybeSingle()
 
   if (opnameErr) throw new Error(opnameErr.message)
   if (!opname) throw new Error('Opname tidak ditemukan')
 
-  // Pastikan staff bisa akses outlet tersebut
-  await assertOutletAccessible(authedClient, opname.outlet_id)
+  // Guard: hanya pembuat opname (atau status masih bisa diedit) yang boleh upsert item
+  const isOwner = opname.created_by === staffId
+  const isEditable = ['draft', 'pending_approval'].includes(opname.status)
+  if (!isOwner || !isEditable) {
+    throw new Error('Forbidden: hanya pembuat opname yang bisa mengisi item')
+  }
 
   const { error } = await serviceClient
     .from('opname_item')

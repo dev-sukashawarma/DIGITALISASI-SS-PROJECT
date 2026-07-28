@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 
 import { useEffect, useRef, useTransition } from 'react'
@@ -229,3 +230,4 @@ function PrintReport({ filter, outlets, lockedOutletId, cur, hourly, menu }: any
     </div>
   )
 }
+

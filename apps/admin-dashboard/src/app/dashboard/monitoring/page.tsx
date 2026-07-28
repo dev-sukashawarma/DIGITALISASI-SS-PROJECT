@@ -147,7 +147,7 @@ function CustomDateRangePopover({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 p-4 w-[280px] max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 p-4 w-[280px] max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-xl z-[9999] animate-in fade-in zoom-in-95 duration-200">
           <h4 className="text-sm font-bold text-slate-900 mb-3">Pilih Rentang Tanggal</h4>
           <div className="space-y-3">
             <div>
@@ -618,6 +618,8 @@ export default function MonitoringPage() {
                   timeStr = formatWIBTime(latestRemoteAtt.ts_server)
                 }
 
+                const livePresence = crewLocations.find(c => c.staff_id === staff.id)
+                
                 return (
                   <li key={`${staff.id}-${targetDateStr}`} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-2 pr-2 min-w-0">
@@ -626,7 +628,14 @@ export default function MonitoringPage() {
                       </div>
                       <div className="min-w-0">
                         <span className="text-xs font-bold text-slate-800 truncate block" title={staff.name}>{staff.name}</span>
-                        <span className="text-[9px] uppercase font-bold text-suka-orange block">{staff.role}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] uppercase font-bold text-suka-orange block">{staff.role}</span>
+                          {livePresence && (livePresence.device_os || livePresence.device_model) && (
+                            <span className="text-[8px] font-bold text-purple-600 bg-purple-50 border border-purple-100 px-1 rounded uppercase tracking-tighter" title={`Device: ${livePresence.device_model || 'Unknown'} - ${livePresence.device_os || 'Unknown'}`}>
+                              {livePresence.device_model || livePresence.device_os}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -691,9 +700,9 @@ export default function MonitoringPage() {
       ) : (
         <div className="flex flex-col gap-6 animate-fade-in">
           {/* Unified Clean Filter Toolbar Bar */}
-          <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 relative z-20">
+          <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 relative z-30">
             {/* Sleek Modern Date Presets */}
-            <div className="bg-slate-100/90 p-1 rounded-xl border border-slate-200/60 flex items-center gap-1 text-xs font-bold overflow-x-auto">
+            <div className="bg-slate-100/90 p-1 rounded-xl border border-slate-200/60 flex flex-wrap sm:flex-nowrap items-center gap-1 text-xs font-bold">
               {(['yesterday', 'today', '7d', '30d'] as const).map((p) => {
                 const isActive = currentPreset === p
                 const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : '30 Hari'

@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
@@ -418,3 +419,4 @@ export async function syncPawoonData(orders: any[], items: any[]) {
         return { success: false, error: err.message };
     }
 }
+

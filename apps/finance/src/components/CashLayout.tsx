@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, User, Coins, Loader2, Receipt, Menu, X, ClipboardCheck } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 

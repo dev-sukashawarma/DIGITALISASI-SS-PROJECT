@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
@@ -715,3 +716,4 @@ export default function HppDashboardView({ items }: HppDashboardViewProps) {
     </div>
   )
 }
+

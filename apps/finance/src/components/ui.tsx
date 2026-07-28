@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import type { CashTxStatus } from '@/lib/types'
 
-import { Card, Badge } from '@suka/design-system'
+import { Badge } from '@suka/design-system'
 
 export function StatCard({
   label,

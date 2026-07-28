@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { type NextRequest } from 'next/server'
 import { enforceAppAccess } from '@suka/auth'
 

@@ -19,48 +19,51 @@ export default async function PawoonProfitPage({
         .select('id, name, type, is_active')
         .order('name');
 
-    const selectedOutletId = params.outlet || 'ALL';
+    const selectedOutletId = params.outlet || '';
     const fromDate = params.from || '';
     const toDate = params.to || '';
+
+    // If no outlet is selected and no date is selected, skip heavy fetching
+    const shouldFetchData = selectedOutletId !== '';
 
     // Fetch all synced orders metadata
     const allSyncedOrders: any[] = [];
     let fromIndex = 0;
     const step = 1000;
     
-    // We only need orders that are POS synced
-    let query = supabase
-        .from('orders')
-        .select('id, outlet_id, created_at, source')
-        .not('external_order_id', 'is', null)
-        .eq('source', 'pos');
+    if (shouldFetchData) {
+        let query = supabase
+            .from('orders')
+            .select('id, outlet_id, created_at, source')
+            .not('external_order_id', 'is', null)
+            .eq('source', 'pos');
 
-    if (selectedOutletId !== 'ALL') {
-        query = query.eq('outlet_id', selectedOutletId);
-    }
-    
-    // To simplify the date filtering, we fetch all in the range if provided
-    if (fromDate) {
-        query = query.gte('created_at', fromDate);
-    }
-    if (toDate) {
-        const toDateEnd = new Date(toDate);
-        toDateEnd.setHours(23, 59, 59, 999);
-        query = query.lte('created_at', toDateEnd.toISOString());
-    }
-
-    // Chunking to get all orders
-    while (true) {
-        const { data } = await query.range(fromIndex, fromIndex + step - 1);
-            
-        if (data && data.length > 0) {
-            allSyncedOrders.push(...data);
+        if (selectedOutletId !== 'ALL') {
+            query = query.eq('outlet_id', selectedOutletId);
         }
         
-        if (!data || data.length < step) {
-            break;
+        if (fromDate) {
+            query = query.gte('created_at', fromDate);
         }
-        fromIndex += step;
+        if (toDate) {
+            const toDateEnd = new Date(toDate);
+            toDateEnd.setHours(23, 59, 59, 999);
+            query = query.lte('created_at', toDateEnd.toISOString());
+        }
+
+        // Chunking to get all orders
+        while (true) {
+            const { data } = await query.range(fromIndex, fromIndex + step - 1);
+                
+            if (data && data.length > 0) {
+                allSyncedOrders.push(...data);
+            }
+            
+            if (!data || data.length < step) {
+                break;
+            }
+            fromIndex += step;
+        }
     }
 
     const orderIds = allSyncedOrders.map(o => o.id);

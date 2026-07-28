@@ -178,10 +178,12 @@ export async function fetchPendingOpnameApprovals(outletId?: string) {
  * Upsert item-item opname ke tabel opname_item.
  *
  * Menggunakan service-role client karena RLS pada tabel opname_item tidak
- * memiliki policy INSERT/UPDATE untuk crew biasa. Guard dilakukan di sini:
- * - User harus terautentikasi
- * - opname_id yang dikirim harus dimiliki outlet yang bisa diakses user
- * Dengan begitu bypass RLS tetap aman secara bisnis.
+ * memiliki policy INSERT/UPDATE untuk crew biasa.
+ *
+ * Return { error } alih-alih throw: di Next.js production, Server Action
+ * yang throw Error menghasilkan pesan generic "An error occurred in the
+ * Server Components render" yang tidak berguna. Dengan return, client
+ * menerima pesan asli.
  */
 export async function upsertOpnameItems(
   items: Array<{
@@ -193,38 +195,43 @@ export async function upsertOpnameItems(
     flagged: boolean
     catatan?: string | null
   }>
-): Promise<void> {
-  if (!items.length) return
+): Promise<{ error: string | null }> {
+  try {
+    if (!items.length) return { error: null }
 
-  const authedClient = await getAuthedClient()
-  const staffId = await getCurrentStaffId(authedClient)
+    // Verifikasi user terautentikasi
+    const authedClient = await getAuthedClient()
+    const staffId = await getCurrentStaffId(authedClient)
 
-  const opnameId = items[0].opname_id
-  const serviceClient = makeServiceClient()
+    const opnameId = items[0].opname_id
+    const serviceClient = makeServiceClient()
 
-  // Verifikasi opname ada dan dibuat oleh staff yang sedang login
-  // (atau masih dalam status draft/pending yang bisa diedit)
-  const { data: opname, error: opnameErr } = await serviceClient
-    .from('opname')
-    .select('outlet_id, created_by, status')
-    .eq('id', opnameId)
-    .maybeSingle()
+    // Verifikasi opname ada dan dibuat oleh staff yang sedang login
+    const { data: opname, error: opnameErr } = await serviceClient
+      .from('opname')
+      .select('outlet_id, created_by, status')
+      .eq('id', opnameId)
+      .maybeSingle()
 
-  if (opnameErr) throw new Error(opnameErr.message)
-  if (!opname) throw new Error('Opname tidak ditemukan')
+    if (opnameErr) return { error: `DB error: ${opnameErr.message}` }
+    if (!opname) return { error: 'Opname tidak ditemukan' }
 
-  // Guard: hanya pembuat opname (atau status masih bisa diedit) yang boleh upsert item
-  const isOwner = opname.created_by === staffId
-  const isEditable = ['draft', 'pending_approval'].includes(opname.status)
-  if (!isOwner || !isEditable) {
-    throw new Error('Forbidden: hanya pembuat opname yang bisa mengisi item')
+    // Guard: hanya pembuat opname yang boleh upsert item, dan status harus editable
+    const isOwner = opname.created_by === staffId
+    const isEditable = ['draft', 'pending_approval'].includes(opname.status)
+    if (!isOwner || !isEditable) {
+      return { error: `Forbidden: Anda (${staffId}) bukan pembuat opname ini (${opname.created_by}), status: ${opname.status}` }
+    }
+
+    const { error } = await serviceClient
+      .from('opname_item')
+      .upsert(items, { onConflict: 'opname_id,bahan_baku_id' })
+
+    if (error) return { error: `Upsert gagal: ${error.message}` }
+    return { error: null }
+  } catch (e: any) {
+    return { error: `Server error: ${e?.message ?? String(e)}` }
   }
-
-  const { error } = await serviceClient
-    .from('opname_item')
-    .upsert(items, { onConflict: 'opname_id,bahan_baku_id' })
-
-  if (error) throw new Error(error.message)
 }
 
 /**

@@ -79,7 +79,8 @@ export function useOpnameActions() {
   const upsertItems = useCallback(async (items: Partial<OpnameItem>[]) => {
     // Pakai server action (service role) karena RLS tabel opname_item
     // tidak mengizinkan INSERT langsung dari client session crew biasa.
-    await upsertOpnameItems(items as Parameters<typeof upsertOpnameItems>[0])
+    const result = await upsertOpnameItems(items as Parameters<typeof upsertOpnameItems>[0])
+    if (result.error) throw new Error(result.error)
   }, [])
 
   const setPendingApproval = useCallback(async (opnameId: string) => {

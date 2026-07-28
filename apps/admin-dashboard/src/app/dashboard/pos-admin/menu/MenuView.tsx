@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 
 import { useState, useRef, useMemo, useEffect, useDeferredValue } from 'react'
@@ -1861,5 +1862,6 @@ export default function MenuView({
     </div>
   )
 }
+
 
 

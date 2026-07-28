@@ -52,6 +52,8 @@ export type CrewLocation = {
   speed?: number
   heading?: number
   device_type?: 'KASIR' | 'PERSONAL' | 'OFFLINE'
+  device_os?: string | null
+  device_model?: string | null
   isOffline?: boolean
   updated_at: string
 }
@@ -164,6 +166,14 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
                           {crew.lat.toFixed(6)}, {crew.lng.toFixed(6)}
                         </div>
                       </div>
+                      {(crew.device_os || crew.device_model) && (
+                        <div className="col-span-2">
+                          <div className="text-gray-500 text-[9px]">DEVICE</div>
+                          <div className="text-purple-300 tracking-tight">
+                            {crew.device_model || 'Unknown'} • {crew.device_os || 'Unknown'}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   

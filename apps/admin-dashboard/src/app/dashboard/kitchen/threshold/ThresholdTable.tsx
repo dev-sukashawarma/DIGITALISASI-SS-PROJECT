@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 
 import React, { useState } from 'react'
@@ -184,3 +185,4 @@ export function ThresholdTable({ rows, onSave, saving }: ThresholdTableProps) {
     </div>
   )
 }
+

@@ -39,6 +39,7 @@
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
+    "@types/ua-parser-js": "^0.7.39",
     "fake-indexeddb": "^6.0.0",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.32",

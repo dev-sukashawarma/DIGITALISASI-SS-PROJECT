@@ -829,15 +829,7 @@ export default function ShiftPage() {
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-gray-900 truncate">{top.description}</p>
                                 <p className={`text-[11px] font-semibold uppercase mt-0.5 ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-red-500' : 'text-blue-500'}`}>
-                                  Top Up Petty Cash (
-                                  {top.status === 'pending' ? '⏳ Menunggu Review Leader' : 
-                                   top.status === 'forwarded_to_area_manager' ? '⏳ Menunggu Review Area Manager' :
-                                   top.status === 'forwarded_to_finance' ? '⏳ Menunggu Pencairan Finance' :
-                                   top.status === 'rejected' ? '❌ Ditolak' : 
-                                   top.status === 'approved_by_finance' ? `🟢 Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Area Manager'}` :
-                                   top.status === 'forwarded_by_area_manager' ? '🟢 Dana dipegang Leader' :
-                                   top.status === 'forwarded_by_leader' ? '✅ Dana siap diterima Kasir' :
-                                   `✅ Selesai${(top as any).disbursement_method ? ` - ${(top as any).disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`})
+                                  Top Up Petty Cash ({top.status === 'pending' ? '⏳ Menunggu Review Leader' : top.status === 'forwarded_to_area_manager' ? '⏳ Menunggu Review Area Manager' : top.status === 'forwarded_to_finance' ? '⏳ Menunggu Pencairan Finance' : top.status === 'rejected' ? '❌ Ditolak' : top.status === 'approved_by_finance' ? `🟢 Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Area Manager'}` : `✅ Selesai${(top as any).disbursement_method ? ` - ${(top as any).disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`})
                                 </p>
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
                                   <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{top.creator?.name ?? '—'}</span>
@@ -853,16 +845,6 @@ export default function ShiftPage() {
                                   className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center gap-1 cursor-pointer"
                                 >
                                   <Camera className="w-3 h-3 text-emerald-600" /> Bukti Transfer Finance
-                                </button>
-                              )}
-                              {top.status === 'forwarded_by_leader' && (
-                                <button
-                                  data-tour="terima-dana-btn"
-                                  onClick={() => handleReceiveFunds(top.id)}
-                                  disabled={isSubmitting}
-                                  className="text-[10px] font-bold text-white bg-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 relative z-[10001]"
-                                >
-                                  Terima Dana
                                 </button>
                               )}
                             </div>

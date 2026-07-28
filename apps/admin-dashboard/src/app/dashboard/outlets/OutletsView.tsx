@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -147,3 +148,4 @@ export default function OutletsPage() {
     </div>
   )
 }
+

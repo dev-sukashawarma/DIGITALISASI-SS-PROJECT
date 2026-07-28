@@ -14,12 +14,13 @@ export default function DispatchRequestPage() {
   const supabase = createSupabaseBrowserClient()
 
   useEffect(() => {
-    supabase.from('outlets').select('id,name').then(({ data }) => setOutlets(data ?? []))
+    supabase.from('outlets').select('id,name').limit(200).then(({ data }) => setOutlets(data ?? []))
     // Fetch pending requests
     supabase.from('internal_requests')
       .select('id, outlet_id, status')
       .eq('status', 'PENDING')
       .order('created_at', { ascending: false })
+      .limit(200)
       .then(({ data }) => setRequests(data ?? []))
   }, [supabase])
 

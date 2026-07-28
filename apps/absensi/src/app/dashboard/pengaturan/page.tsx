@@ -12,8 +12,8 @@ export default async function PengaturanAbsensiPage() {
 
   const [globalRes, outletsRes, outletConfigsRes] = await Promise.all([
     supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle(),
-    supabase.from("outlets").select("id, name, is_active").order("name"),
-    supabase.from("outlet_attendance_config").select("*")
+    supabase.from("outlets").select("id, name, is_active").order("name").limit(200),
+    supabase.from("outlet_attendance_config").select("*").limit(200)
   ]);
 
   let cfgRaw = globalRes.data?.value;

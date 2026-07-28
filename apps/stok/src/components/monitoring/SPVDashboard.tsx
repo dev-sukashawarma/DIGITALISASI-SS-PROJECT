@@ -59,6 +59,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
   // Collapsible sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
 
   // Notification dropdown open state
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -661,18 +662,36 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                   {/* Sub-header with search & filters */}
                   <div className="p-4 md:p-6 border-b border-suka-brown/10 flex flex-col gap-4 bg-white z-10 flex-shrink-0 shadow-sm">
                     <div className="flex justify-between items-center flex-wrap gap-4">
-                      <h3 className="text-base md:text-lg font-black text-suka-brown uppercase tracking-tight">
-                        DETAIL STOK: {visibleOutlets.find(o => o.outlet_id === selectedOutletId)?.outlet_name.replace('SUKA SHAWARMA ', '')}
-                      </h3>
-                      <div className="relative w-full sm:w-auto">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50 text-sm">🔍</span>
-                        <input
-                          className="pl-9 pr-4 py-2 bg-suka-cream/50 border border-suka-brown/20 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-sm w-full sm:w-64 transition-all font-bold placeholder-suka-brown/40"
-                          placeholder="Cari nama bahan..."
-                          type="text"
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                          className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-suka-cream/80 border border-suka-brown/20 hover:border-suka-orange text-suka-brown text-xs font-bold transition-all active:scale-95 shadow-2xs"
+                          title={isSidebarCollapsed ? "Tampilkan Sidebar Outlet" : "Sembunyikan Sidebar Outlet"}
+                        >
+                          <span>{isSidebarCollapsed ? "▶ Outlet" : "◀ Outlet"}</span>
+                        </button>
+                        <h3 className="text-base md:text-lg font-black text-suka-brown uppercase tracking-tight">
+                          DETAIL STOK: {visibleOutlets.find(o => o.outlet_id === selectedOutletId)?.outlet_name.replace('SUKA SHAWARMA ', '')}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-auto flex-1 sm:flex-initial">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50 text-sm">🔍</span>
+                          <input
+                            className="pl-9 pr-4 py-2 bg-suka-cream/50 border border-suka-brown/20 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-sm w-full sm:w-64 transition-all font-bold placeholder-suka-brown/40"
+                            placeholder="Cari nama bahan..."
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                          />
+                        </div>
+                        <button
+                          onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
+                          className="hidden lg:flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-suka-cream/80 border border-suka-brown/20 hover:border-suka-orange text-suka-brown text-xs font-bold transition-all active:scale-95 shadow-2xs"
+                          title={isRightSidebarCollapsed ? "Tampilkan Panel Kanan" : "Sembunyikan Panel Kanan"}
+                        >
+                          <span>{isRightSidebarCollapsed ? "◀ Panel" : "Panel ▶"}</span>
+                        </button>
                       </div>
                     </div>
 
@@ -852,77 +871,134 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               )}
             </section>
 
-            {/* Right Column: Action & Predictive Hub (Action Drawer) */}
-            <aside className="w-full lg:w-[320px] xl:w-[23%] bg-suka-cream/50 overflow-visible lg:overflow-y-auto p-4 flex flex-col gap-6 flex-shrink-0 border-t lg:border-t-0 border-suka-brown/20">
-              {/* Widget: Estimasi Produksi (khusus kitchen) */}
-              {outletStaff?.role === 'kitchen' && currentOutletItems.length > 0 && (
-                <ProductionEstimateWidget items={currentOutletItems} />
-              )}
+            {/* Right Column: Action & Predictive Hub (Collapsible) */}
+            <aside className={`w-full lg:flex flex-col gap-4 flex-shrink-0 bg-suka-cream/50 border-t lg:border-t-0 border-suka-brown/20 transition-all duration-300 ${
+              isRightSidebarCollapsed 
+                ? 'lg:w-[60px] p-2 overflow-hidden items-center' 
+                : 'lg:w-[320px] xl:w-[23%] p-4 overflow-y-auto'
+            }`}>
+              {/* Header Toggle inside Right Sidebar */}
+              <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2 w-full">
+                {!isRightSidebarCollapsed && (
+                  <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
+                    Panel Aktivitas & Permintaan
+                  </h3>
+                )}
+                <button
+                  onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
+                  className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-suka-brown/15 text-suka-brown hover:bg-suka-brown/5 text-xs font-bold transition-all mx-auto"
+                  title={isRightSidebarCollapsed ? "Buka Panel Kanan" : "Sembunyikan Panel Kanan"}
+                >
+                  {isRightSidebarCollapsed ? "←" : "→"}
+                </button>
+              </div>
 
-              {/* Widget 0: Approval Permintaan */}
-              <details className="group bg-white rounded-2xl border border-suka-brown/20 shadow-sm">
-                <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
-                  <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
-                    <span>📝</span> Approval Permintaan
+              {isRightSidebarCollapsed ? (
+                /* Collapsed Icon Action Bar */
+                <div className="hidden lg:flex flex-col items-center gap-3 py-2 w-full">
+                  {outletStaff?.role === 'kitchen' && currentOutletItems.length > 0 && (
+                    <button 
+                      onClick={() => setIsRightSidebarCollapsed(false)}
+                      className="w-9 h-9 rounded-xl bg-white border border-suka-brown/20 flex items-center justify-center text-sm shadow-2xs hover:border-suka-orange hover:scale-105 transition-all"
+                      title="Buka Estimasi Produksi"
+                    >
+                      🧪
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setIsRightSidebarCollapsed(false)}
+                    className="w-9 h-9 rounded-xl bg-white border border-suka-brown/20 flex items-center justify-center text-sm shadow-2xs hover:border-suka-orange hover:scale-105 transition-all relative"
+                    title="Buka Approval Permintaan"
+                  >
+                    <span>📝</span>
                     {pendingApprovals.length > 0 && (
-                      <span className="ml-1 bg-suka-orange text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                      <span className="absolute -top-1 -right-1 bg-suka-orange text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
                         {pendingApprovals.length}
                       </span>
                     )}
-                  </h3>
-                  <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
-                </summary>
-                <div className="max-h-[300px] overflow-y-auto px-4 pb-4">
-                  <ApprovalList />
+                  </button>
+                  <button 
+                    onClick={() => setIsRightSidebarCollapsed(false)}
+                    className="w-9 h-9 rounded-xl bg-white border border-suka-brown/20 flex items-center justify-center text-sm shadow-2xs hover:border-suka-orange hover:scale-105 transition-all"
+                    title="Buka Live Activity"
+                  >
+                    ⚡
+                  </button>
                 </div>
-              </details>
-
-              {/* Widget 3: Live Activity Feed */}
-              <details className="group bg-white rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)]">
-                <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
-                  <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
-                    <span>⚡</span> Live Activity
-                  </h3>
-                  <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
-                </summary>
-                <div className="space-y-2.5 max-h-[300px] overflow-y-auto px-4 pb-4">
-                  {selectedOutletId ? (
-                    recentLedger.filter(l => l.outlet_id === selectedOutletId).slice(0, 5).length === 0 ? (
-                      <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
-                        Belum ada aktivitas hari ini
-                      </p>
-                    ) : (
-                      recentLedger.filter(l => l.outlet_id === selectedOutletId).slice(0, 5).map((l) => {
-                        const dateObj = new Date(l.created_at);
-                        const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-                        const isAdd = l.qty > 0;
-                        return (
-                          <div key={l.id} className="p-2.5 bg-suka-cream/5 border border-suka-brown/10 rounded-xl flex flex-col gap-1 text-[11px]">
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-suka-ink uppercase tracking-wide truncate max-w-[120px]">{l.item_name}</span>
-                              <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-black ${
-                                isAdd ? 'bg-suka-green/10 text-suka-green' : 'bg-red-50 text-[#ba1a1a]'
-                              }`}>
-                                {formatCompositeDelta(l.qty, l.satuan ?? '', l.satuan_kecil, l.faktor_tampilan)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center text-[9px] text-suka-brown/50">
-                              <span className="bg-suka-brown/5 px-1.5 py-0.5 rounded uppercase font-semibold">
-                                {l.tipe.replace('_', ' ')}
-                              </span>
-                              <span className="font-mono">{timeStr}</span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )
-                  ) : (
-                    <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
-                      Pilih outlet untuk melihat log aktivitas
-                    </p>
+              ) : (
+                /* Expanded Content */
+                <>
+                  {/* Widget: Estimasi Produksi (khusus kitchen) */}
+                  {outletStaff?.role === 'kitchen' && currentOutletItems.length > 0 && (
+                    <ProductionEstimateWidget items={currentOutletItems} />
                   )}
-                </div>
-              </details>
+
+                  {/* Widget 0: Approval Permintaan */}
+                  <details className="group bg-white rounded-2xl border border-suka-brown/20 shadow-sm" open>
+                    <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
+                      <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
+                        <span>📝</span> Approval Permintaan
+                        {pendingApprovals.length > 0 && (
+                          <span className="ml-1 bg-suka-orange text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                            {pendingApprovals.length}
+                          </span>
+                        )}
+                      </h3>
+                      <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
+                    </summary>
+                    <div className="max-h-[300px] overflow-y-auto px-4 pb-4">
+                      <ApprovalList />
+                    </div>
+                  </details>
+
+                  {/* Widget 3: Live Activity Feed */}
+                  <details className="group bg-white rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)]" open>
+                    <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
+                      <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
+                        <span>⚡</span> Live Activity
+                      </h3>
+                      <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
+                    </summary>
+                    <div className="space-y-2.5 max-h-[300px] overflow-y-auto px-4 pb-4">
+                      {selectedOutletId ? (
+                        recentLedger.filter(l => l.outlet_id === selectedOutletId).slice(0, 5).length === 0 ? (
+                          <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
+                            Belum ada aktivitas hari ini
+                          </p>
+                        ) : (
+                          recentLedger.filter(l => l.outlet_id === selectedOutletId).slice(0, 5).map((l) => {
+                            const dateObj = new Date(l.created_at);
+                            const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                            const isAdd = l.qty > 0;
+                            return (
+                              <div key={l.id} className="p-2.5 bg-suka-cream/5 border border-suka-brown/10 rounded-xl flex flex-col gap-1 text-[11px]">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold text-suka-ink uppercase tracking-wide truncate max-w-[120px]">{l.item_name}</span>
+                                  <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-black ${
+                                    isAdd ? 'bg-suka-green/10 text-suka-green' : 'bg-red-50 text-[#ba1a1a]'
+                                  }`}>
+                                    {formatCompositeDelta(l.qty, l.satuan ?? '', l.satuan_kecil, l.faktor_tampilan)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center text-[9px] text-suka-brown/50">
+                                  <span className="bg-suka-brown/5 px-1.5 py-0.5 rounded uppercase font-semibold">
+                                    {l.tipe.replace('_', ' ')}
+                                  </span>
+                                  <span className="font-mono">{timeStr}</span>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )
+                      ) : (
+                        <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
+                          Pilih outlet untuk melihat log aktivitas
+                        </p>
+                      )}
+                    </div>
+                  </details>
+                </>
+              )}
             </aside>
           </div>
         )}

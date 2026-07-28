@@ -164,7 +164,10 @@ export async function createLocalOrder(input: CreateLocalOrderInput): Promise<{ 
       payload: {
         url: input.apiUrl,
         method: 'POST',
-        body: JSON.stringify(input.apiPayload),
+        body: JSON.stringify({
+          ...input.apiPayload,
+          order_number: orderNumber
+        }),
       },
       status: 'pending',
       created_at: Date.now(),

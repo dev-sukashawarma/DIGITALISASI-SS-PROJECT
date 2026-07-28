@@ -144,8 +144,8 @@ export async function getPettyCashData(
 
   // 1. Fetch Staff & User Mapping for Real Crew Names
   const [{ data: staffList }, { data: userList }] = await Promise.all([
-    supabase.from('outlet_staff').select('id, name, role, outlet_id'),
-    supabase.from('users').select('id, name, username')
+    supabase.from('outlet_staff').select('id, name, role, outlet_id').limit(1000),
+    supabase.from('users').select('id, name, username').limit(1000)
   ])
 
   const staffMap = new Map((staffList || []).map((s) => [s.id, s.name]))
@@ -165,6 +165,7 @@ export async function getPettyCashData(
     .from('shifts')
     .select('*, outlets(name)')
     .order('end_time', { ascending: false })
+    .limit(500)
 
   if (filter.outletId && filter.outletId !== 'all') {
     shiftQuery = shiftQuery.eq('outlet_id', filter.outletId)
@@ -175,6 +176,7 @@ export async function getPettyCashData(
     .from('petty_cash_expenses')
     .select('*, outlets(name)')
     .order('created_at', { ascending: false })
+    .limit(1000)
 
   if (filter.from) {
     expenseQuery = expenseQuery.gte('expense_date', filter.from)
@@ -191,6 +193,7 @@ export async function getPettyCashData(
     .select('*, outlets(name)')
     .eq('status', 'completed')
     .order('created_at', { ascending: false })
+    .limit(500)
 
   if (filter.from) {
     topupQuery = topupQuery.gte('created_at', `${filter.from}T00:00:00.000Z`)
@@ -340,8 +343,8 @@ export async function getAttendanceReportData(
 
   // 1. Fetch Staff & Outlets for Mapping
   const [{ data: staffList }, { data: outletsList }] = await Promise.all([
-    supabase.from('outlet_staff').select('id, name, role'),
-    supabase.from('outlets').select('id, name')
+    supabase.from('outlet_staff').select('id, name, role').limit(1000),
+    supabase.from('outlets').select('id, name').limit(500)
   ])
 
   const staffMap = new Map((staffList || []).map((s) => [s.id, s]))
@@ -369,6 +372,7 @@ export async function getAttendanceReportData(
     .from('attendance')
     .select('*')
     .order('ts_server', { ascending: false })
+    .limit(1000)
 
   if (filter.from) {
     query = query.gte('ts_server', `${filter.from}T00:00:00.000Z`)

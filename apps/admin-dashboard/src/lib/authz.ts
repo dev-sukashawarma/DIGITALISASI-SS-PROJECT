@@ -1,4 +1,4 @@
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 
 /**
  * Gerbang otorisasi server-side untuk Server Action yang memakai service-role

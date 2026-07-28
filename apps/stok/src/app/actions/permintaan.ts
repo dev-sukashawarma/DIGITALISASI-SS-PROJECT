@@ -259,9 +259,10 @@ export async function fetchCrosscheckStok(
   outletId: string,
   bahanBakuIds: string[]
 ): Promise<Record<string, { outletStok: number; gudangStok: number }>> {
-  // Dipakai dari ApprovalModal (konteks approval permintaan) — gerbang yang
-  // sama dengan approve/tolak, bukan sekadar baca bebas lintas outlet.
-  await requirePermintaanApprover()
+  // Dipakai dari ApprovalModal yang dibuka oleh viewer maupun approver.
+  // Cukup viewer-level (spv/leader/kitchen/admin/owner); approve/tolak
+  // sendiri tetap memanggil requirePermintaanApprover di action-nya.
+  await requirePermintaanViewer()
 
   if (!bahanBakuIds.length) return {}
 

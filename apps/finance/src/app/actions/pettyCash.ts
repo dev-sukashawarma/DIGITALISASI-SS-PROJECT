@@ -27,31 +27,47 @@ async function getSupabaseClient() {
   })
 }
 
-export async function processPettyCashFinanceCustomAmount({
-  id,
-  action,
-  method = 'transfer',
-  cashLocationId,
-  proofOfTransferUrl,
-  approvedAmount,
-  approvalNote,
-}: {
-  id: string
-  action: 'approve' | 'reject'
-  method?: DisbursementMethod
-  cashLocationId?: string | null
-  proofOfTransferUrl?: string | null
-  approvedAmount?: number | null
-  approvalNote?: string | null
-  /** @deprecated diabaikan — userId diambil dari sesi server, bukan dari client */
-  userId?: string
-}) {
+export async function processPettyCashFinanceCustomAmount(formData: FormData) {
   try {
+    const id = formData.get('id') as string
+    const action = formData.get('action') as 'approve' | 'reject'
+    const method = (formData.get('method') as DisbursementMethod) || 'transfer'
+    const cashLocationId = formData.get('cashLocationId') as string | null
+    const proofFile = formData.get('proofFile') as File | null
+    const approvedAmountStr = formData.get('approvedAmount') as string | null
+    const approvedAmount = approvedAmountStr ? Number(approvedAmountStr) : null
+    const approvalNote = formData.get('approvalNote') as string | null
+
     // Server Action = endpoint POST publik; RPC finance_process_petty_cash
     // (SECURITY DEFINER) tidak cek role sama sekali, jadi gerbang wajib di sini.
     const { userId: validUserId } = await requireRole(FINANCE_STAFF_ROLES)
 
     const supabase = await getSupabaseClient()
+
+    let proofOfTransferUrl: string | null = null
+    if (proofFile && proofFile.size > 0) {
+      const ext = proofFile.name.split('.').pop() || 'jpg'
+      const cleanName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`
+      const storagePath = `finance-proofs/${cleanName}`
+      
+      const buffer = await proofFile.arrayBuffer()
+      const { error: upErr } = await supabase.storage
+        .from('finance-proofs')
+        .upload(storagePath, buffer, {
+          contentType: proofFile.type
+        })
+        
+      if (upErr) {
+        console.warn('Failed to upload proof:', upErr)
+        throw new Error('Gagal mengupload bukti pencairan: ' + upErr.message)
+      }
+      
+      const { data: pubData } = supabase.storage
+        .from('finance-proofs')
+        .getPublicUrl(storagePath)
+        
+      proofOfTransferUrl = pubData.publicUrl
+    }
 
     const { data: topup, error: fetchError } = await supabase
       .from('petty_cash_topups')

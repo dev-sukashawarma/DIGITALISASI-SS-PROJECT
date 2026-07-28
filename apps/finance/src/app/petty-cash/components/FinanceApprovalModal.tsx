@@ -5,13 +5,18 @@ import { Wallet, X, Store, CreditCard, Building2, User, AlertCircle, CheckCircle
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 import { relativeTime, tanggalWaktu } from '@/lib/format'
 import { useCashOverview } from '@/hooks/useCashData'
-import { createClient } from '@/lib/supabase'
 
 interface FinanceApprovalModalProps {
   isOpen: boolean
   onClose: () => void
   request: PettyCashTopup
-  onApprove: (method: DisbursementMethod, cashLocationId?: string, proofOfTransferUrl?: string, approvedAmount?: number, approvalNote?: string) => Promise<void>
+  onApprove: (
+    method: DisbursementMethod,
+    cashLocationId?: string,
+    proofFile?: File | null,
+    approvedAmount?: number,
+    approvalNote?: string
+  ) => Promise<void>
   onReject: () => Promise<void>
 }
 
@@ -123,33 +128,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
     setActionType(type)
     try {
       if (type === 'approve') {
-        let uploadedUrl: string | undefined = undefined
-
-        if (proofFile) {
-          try {
-            const supabase = createClient()
-            const ext = proofFile.name.split('.').pop() || 'jpg'
-            const cleanName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`
-            const storagePath = `finance-proofs/${cleanName}`
-            
-            const { error: upErr } = await supabase.storage
-              .from('finance-proofs')
-              .upload(storagePath, proofFile)
-              
-            if (!upErr) {
-              const { data: pubData } = supabase.storage
-                .from('finance-proofs')
-                .getPublicUrl(storagePath)
-              uploadedUrl = pubData.publicUrl
-            } else {
-              console.warn('Storage upload error, proceeding without image:', upErr)
-            }
-          } catch (e) {
-            console.warn('Failed to upload proof image:', e)
-          }
-        }
-
-        await onApprove(method, cashLocationId || undefined, uploadedUrl, approvedAmount, approvalNote)
+        await onApprove(method, cashLocationId || undefined, proofFile, approvedAmount, approvalNote)
       } else {
         await onReject()
       }

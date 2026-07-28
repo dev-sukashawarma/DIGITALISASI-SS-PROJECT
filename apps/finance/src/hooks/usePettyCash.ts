@@ -119,7 +119,7 @@ export function useProcessPettyCashFinance() {
       action, 
       method = 'transfer', 
       cashLocationId,
-      proofOfTransferUrl,
+      proofFile,
       approvedAmount,
       approvalNote
     }: { 
@@ -127,24 +127,20 @@ export function useProcessPettyCashFinance() {
       action: 'approve' | 'reject';
       method?: DisbursementMethod;
       cashLocationId?: string;
-      proofOfTransferUrl?: string;
+      proofFile?: File | null;
       approvedAmount?: number;
       approvalNote?: string;
     }) => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      const userId = user?.id || '00000000-0000-0000-0000-000000000000'
+      const formData = new FormData()
+      formData.append('id', id)
+      formData.append('action', action)
+      formData.append('method', method)
+      if (cashLocationId) formData.append('cashLocationId', cashLocationId)
+      if (proofFile) formData.append('proofFile', proofFile)
+      if (approvedAmount != null) formData.append('approvedAmount', approvedAmount.toString())
+      if (approvalNote) formData.append('approvalNote', approvalNote)
 
-      const result = await processPettyCashFinanceCustomAmount({
-        id,
-        action,
-        method,
-        cashLocationId: cashLocationId || null,
-        proofOfTransferUrl: proofOfTransferUrl || null,
-        approvedAmount: approvedAmount ?? null,
-        approvalNote: approvalNote || null,
-        userId
-      })
+      const result = await processPettyCashFinanceCustomAmount(formData)
       
       if (!result.success) {
         throw new Error(result.error || 'Gagal memproses pencairan')
@@ -157,14 +153,11 @@ export function useProcessPettyCashFinance() {
 }
 
 export function useForwardPettyCashFinance() {
-  const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const { data: { user } } = await supabase.auth.getUser()
-      const userId = user?.id || '00000000-0000-0000-0000-000000000000'
-      const result = await forwardPettyCashFinance({ id, userId })
+      const result = await forwardPettyCashFinance({ id })
       if (!result.success) {
         throw new Error(result.error || 'Gagal meneruskan dana')
       }

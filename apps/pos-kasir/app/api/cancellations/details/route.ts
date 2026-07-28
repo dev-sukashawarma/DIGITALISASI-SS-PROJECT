@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getRequestStaff } from '@/lib/authz'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,20 +16,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Missing token' }, { status: 400 })
     }
 
-    // Ambil data sesi/role dari cookie yang diinject oleh middleware
-    const cookieHeader = req.headers.get('cookie') || ''
-    let role: string | null = null
-    const cacheMatch = cookieHeader.match(/_suka_staff_cache=([^;]+)/)
-    
-    if (cacheMatch && cacheMatch[1]) {
-      try {
-        const decoded = decodeURIComponent(cacheMatch[1])
-        const parsed = JSON.parse(decoded)
-        role = parsed.role
-      } catch (e) {
-        console.error('Failed to parse staff cache cookie', e)
-      }
-    }
+    // `role` di sini HANYA dipakai untuk hint UI (sembunyikan tombol approve
+    // di halaman kalau jelas-jelas bukan approver) -- gerbang yang
+    // sebenarnya ada di action/route.ts (requireApprover), jadi walau field
+    // ini dipalsukan/kosong, tidak membuka celah apa pun. Dulu dibaca dari
+    // cookie cache client (`_suka_staff_cache`) yang gampang dipalsukan
+    // browser -- diganti ke sesi tervalidasi server supaya hint-nya sendiri
+    // juga akurat.
+    const requestStaff = await getRequestStaff()
+    const role = requestStaff?.role ?? null
 
     // 1. Dapatkan request pembatalan berdasarkan token
     const { data: request, error: reqErr } = await supabase

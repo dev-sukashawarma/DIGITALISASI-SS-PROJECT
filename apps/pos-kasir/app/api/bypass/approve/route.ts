@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireApprover } from '@/lib/authz'
 
 export const dynamic = 'force-dynamic'
+
+const BYPASS_APPROVER_ROLES = ['spv', 'leader', 'admin']
+
+const APPROVAL_ERROR_MESSAGES: Record<string, string> = {
+  not_logged_in: 'Anda harus login terlebih dahulu di aplikasi pos-kasir sebelum menyetujui/menolak, lalu buka link ini lagi.',
+  wrong_role: 'Akun Anda tidak berwenang menyetujui bypass absensi ini.',
+  self_approval: 'Anda tidak bisa menyetujui/menolak pengajuan bypass Anda sendiri.',
+  outlet_mismatch: 'Pengajuan ini di luar cakupan outlet Anda.',
+}
 
 // Data dari DB (reason/nama kasir/nama outlet) diketik manusia dan TIDAK boleh
 // masuk mentah ke HTML: halaman ini dibuka SPV/owner, dan cookie sesi di sini
@@ -44,13 +54,25 @@ export async function GET(req: NextRequest) {
     // Fetch Bypass Request data
     const { data: request, error: fetchError } = await supabase
       .from('bypass_requests')
-      .select('id, status, requested_by_name, reason, created_at, outlets(name)')
+      .select('id, status, requested_by_name, requested_by, reason, created_at, outlets(name)')
       .eq('id', id)
       .single()
 
     if (fetchError || !request) {
       return new NextResponse(
         generateHtmlMsg('Pengajuan Tidak Ditemukan', 'Data pengajuan bypass tidak ditemukan atau ID salah.', false),
+        { headers: HTML_HEADERS }
+      )
+    }
+
+    // Gerbang otorisasi: siapa pun yang tahu URL ini bukan berarti berhak
+    // menyetujui — link WA dikirim ke SPV, tapi kasir yang mengajukan tetap
+    // bisa membuka link yang sama. Cek dilakukan di GET (agar form aksi tak
+    // pernah ditampilkan ke yang tak berhak) DAN diulang di POST (di bawah).
+    const gateCheck = await requireApprover(BYPASS_APPROVER_ROLES, request.requested_by)
+    if (!gateCheck.ok) {
+      return new NextResponse(
+        generateHtmlMsg('Tidak Berwenang', APPROVAL_ERROR_MESSAGES[gateCheck.reason], false),
         { headers: HTML_HEADERS }
       )
     }
@@ -155,13 +177,23 @@ export async function POST(req: NextRequest) {
     // Verify status
     const { data: request, error: fetchError } = await supabase
       .from('bypass_requests')
-      .select('status')
+      .select('status, requested_by')
       .eq('id', id)
       .single()
 
     if (fetchError || !request) {
       return new NextResponse(
         generateHtmlMsg('Validasi Gagal', 'Data tidak ditemukan.', false),
+        { headers: HTML_HEADERS }
+      )
+    }
+
+    // Cek ulang di POST -- GET cuma menampilkan form, mutasi sebenarnya
+    // terjadi di sini, jadi ini yang WAJIB jadi baris pertahanan terakhir.
+    const gateCheck = await requireApprover(BYPASS_APPROVER_ROLES, request.requested_by)
+    if (!gateCheck.ok) {
+      return new NextResponse(
+        generateHtmlMsg('Tidak Berwenang', APPROVAL_ERROR_MESSAGES[gateCheck.reason], false),
         { headers: HTML_HEADERS }
       )
     }

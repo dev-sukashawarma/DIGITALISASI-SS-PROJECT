@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireApprover } from '@/lib/authz'
 
 export const dynamic = 'force-dynamic'
+
+const TOPUP_APPROVER_ROLES = ['leader']
+
+const APPROVAL_ERROR_MESSAGES: Record<string, string> = {
+  not_logged_in: 'Anda harus login terlebih dahulu di aplikasi pos-kasir sebelum menyetujui/menolak, lalu buka link ini lagi.',
+  wrong_role: 'Akun Anda tidak berwenang menyetujui top up ini (khusus Leader outlet).',
+  self_approval: 'Anda tidak bisa menyetujui/menolak pengajuan top up Anda sendiri.',
+  outlet_mismatch: 'Pengajuan ini di luar cakupan outlet Anda.',
+}
 
 // description diketik kasir dan TIDAK boleh masuk mentah ke HTML: halaman ini
 // dibuka owner, dan cookie sesi di sini ber-domain '.sukashawarma.com'
@@ -56,7 +66,7 @@ export async function GET(req: NextRequest) {
     const { data: topup, error: fetchError } = await supabase
       .from('petty_cash_topups')
       .select(`
-        id, status, approval_token, amount, description, created_at
+        id, status, approval_token, amount, description, created_at, created_by, outlet_id
       `)
       .eq('id', id)
       .single()
@@ -76,6 +86,17 @@ export async function GET(req: NextRequest) {
     if (!timingSafeEqual(String(topup.approval_token ?? ''), token)) {
       return new NextResponse(
         generateHtmlMsg('Top Up Tidak Ditemukan', 'Data top up tidak ditemukan atau link tidak valid.', false),
+        { headers: HTML_HEADERS }
+      )
+    }
+
+    // Gerbang otorisasi: token yang valid saja tidak cukup -- kasir pemohon
+    // ikut membuat token itu di browsernya sendiri (kasir/shift/page.tsx),
+    // jadi dia tetap tahu token walau tak seharusnya bisa approve.
+    const gateCheck = await requireApprover(TOPUP_APPROVER_ROLES, topup.created_by, topup.outlet_id)
+    if (!gateCheck.ok) {
+      return new NextResponse(
+        generateHtmlMsg('Tidak Berwenang', APPROVAL_ERROR_MESSAGES[gateCheck.reason], false),
         { headers: HTML_HEADERS }
       )
     }
@@ -180,13 +201,23 @@ export async function POST(req: NextRequest) {
     // Verify token & status
     const { data: topup, error: fetchError } = await supabase
       .from('petty_cash_topups')
-      .select('status, approval_token, amount')
+      .select('status, approval_token, amount, created_by, outlet_id')
       .eq('id', id)
       .single()
 
     if (fetchError || !topup || !timingSafeEqual(String(topup.approval_token ?? ''), token)) {
       return new NextResponse(
         generateHtmlMsg('Validasi Gagal', 'Data tidak ditemukan atau link tidak valid.', false),
+        { headers: HTML_HEADERS }
+      )
+    }
+
+    // Cek ulang di POST -- GET cuma menampilkan form, mutasi sebenarnya
+    // terjadi di sini, jadi ini yang WAJIB jadi baris pertahanan terakhir.
+    const gateCheck = await requireApprover(TOPUP_APPROVER_ROLES, topup.created_by, topup.outlet_id)
+    if (!gateCheck.ok) {
+      return new NextResponse(
+        generateHtmlMsg('Tidak Berwenang', APPROVAL_ERROR_MESSAGES[gateCheck.reason], false),
         { headers: HTML_HEADERS }
       )
     }

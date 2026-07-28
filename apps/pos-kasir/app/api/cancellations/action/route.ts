@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireApprover } from '@/lib/authz'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+const CANCELLATION_APPROVER_ROLES = ['leader', 'spv', 'admin']
 
 export async function POST(req: Request) {
   try {
@@ -33,6 +36,22 @@ export async function POST(req: Request) {
     // 3. Cek status
     if (request.status !== 'pending') {
       return NextResponse.json({ error: `Link ini sudah digunakan. Status saat ini: ${request.status}.` }, { status: 400 })
+    }
+
+    // 4. Gerbang otorisasi: pemegang token saja tidak cukup. Token sempat
+    // "singgah" di response yang diterima browser si pemohon sendiri
+    // (lihat request/route.ts) -- tanpa cek ini, kasir bisa approve
+    // pembatalannya sendiri. requester_id dari kolom yang di-stempel DB
+    // (migration 20260728110000), bukan dari token/body.
+    const approval = await requireApprover(CANCELLATION_APPROVER_ROLES, request.requested_by)
+    if (!approval.ok) {
+      const messages: Record<typeof approval.reason, string> = {
+        not_logged_in: 'Anda harus login terlebih dahulu di aplikasi pos-kasir sebelum menyetujui/menolak, lalu buka link ini lagi.',
+        wrong_role: 'Akun Anda tidak berwenang menyetujui pembatalan pesanan ini.',
+        self_approval: 'Anda tidak bisa menyetujui/menolak pengajuan pembatalan Anda sendiri.',
+        outlet_mismatch: 'Pengajuan ini di luar cakupan outlet Anda.',
+      }
+      return NextResponse.json({ error: messages[approval.reason], reason: approval.reason }, { status: 403 })
     }
 
     const newStatus = action === 'approve' ? 'approved' : 'rejected'

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getRequestStaff } from '@/lib/authz'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,6 +13,16 @@ export async function POST(req: Request) {
 
     if (!order_id || !reason) {
       return NextResponse.json({ error: 'Missing order_id or reason' }, { status: 400 })
+    }
+
+    // Insert di bawah pakai service-role client -> trigger DB
+    // (stamp_requested_by_from_auth) tidak bisa menstempel auth.uid() karena
+    // konteksnya bukan sesi user. Wajib diverifikasi & dikirim eksplisit di
+    // sini supaya kolom requested_by bisa dipercaya untuk cek approver≠requester
+    // di action/route.ts.
+    const staff = await getRequestStaff()
+    if (!staff) {
+      return NextResponse.json({ error: 'Sesi tidak ditemukan, silakan login ulang.' }, { status: 401 })
     }
 
     // 1. Dapatkan outlet_id dari order
@@ -61,7 +72,8 @@ export async function POST(req: Request) {
         // Perlu untuk restore status yang benar kalau ditolak — order bisa
         // diajukan cancel dari status 'pending' MAUPUN 'preparing', jangan
         // hardcode balik ke 'pending' (lihat action/route.ts).
-        previous_order_status: order.status
+        previous_order_status: order.status,
+        requested_by: staff.id
       })
       .select('token')
       .single()

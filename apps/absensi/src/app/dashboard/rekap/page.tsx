@@ -34,6 +34,8 @@ type StaffSummary = {
   total_alpha: number;
   total_cepat: number;
   latest_photo_url: string | null;
+  latest_in: Row | null;
+  latest_out: Row | null;
   rows: Row[];
 };
 
@@ -119,6 +121,8 @@ export default function RekapPage() {
           total_alpha: 0,
           total_cepat: 0,
           latest_photo_url: null,
+          latest_in: null,
+          latest_out: null,
           rows: []
         });
       }
@@ -128,6 +132,8 @@ export default function RekapPage() {
       if (r.selfie_url && !s.latest_photo_url) {
         s.latest_photo_url = r.selfie_url;
       }
+      if (r.type === "in" && r.status !== "alpha" && !s.latest_in) s.latest_in = r;
+      if (r.type === "out" && !s.latest_out) s.latest_out = r;
       
       if (r.type === "in" && r.status !== "alpha") s.total_masuk++;
       if (r.status === "telat" || r.status === "pulang_telat") s.total_telat++;
@@ -280,6 +286,28 @@ export default function RekapPage() {
                   {staff.total_alpha > 0 && <span className="font-medium text-rose-600">{staff.total_alpha} Alpha</span>}
                   {staff.total_cepat > 0 && <span className="font-medium text-sky-600">{staff.total_cepat} Plg Cepat</span>}
                 </div>
+                {(staff.latest_in || staff.latest_out) && (
+                  <div className="flex items-center gap-4 mt-2 text-xs">
+                    {staff.latest_in && (
+                      <div className="flex items-center gap-1.5 text-slate-600 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                        <LogIn size={12} className="text-emerald-500" />
+                        <span>In: <span className="font-semibold text-slate-800">{jam(staff.latest_in.ts_server)}</span></span>
+                        {(staff.latest_in.delay_minutes || staff.latest_in.telat_menit) ? (
+                          <span className="text-rose-500 ml-1 font-medium">Telat {staff.latest_in.delay_minutes || staff.latest_in.telat_menit}m</span>
+                        ) : null}
+                      </div>
+                    )}
+                    {staff.latest_out && (
+                      <div className="flex items-center gap-1.5 text-slate-600 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                        <LogOut size={12} className="text-amber-500" />
+                        <span>Out: <span className="font-semibold text-slate-800">{jam(staff.latest_out.ts_server)}</span></span>
+                        {(staff.latest_out.delay_minutes || staff.latest_out.telat_menit) ? (
+                          <span className="text-rose-500 ml-1 font-medium">Cepat {staff.latest_out.delay_minutes || staff.latest_out.telat_menit}m</span>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="shrink-0 text-slate-300 group-hover:text-slate-600 transition-colors">

@@ -17,6 +17,7 @@ interface HppMenuItem {
   price: number
   channelPrices: Record<string, number>
   availableOnlineChannels: string[] | null
+  isAvailable: boolean
   isAvailableOnline: boolean
   isPackage: boolean
   hpp: number | null
@@ -39,7 +40,7 @@ function rupiah(n: number) {
   return 'Rp ' + Math.round(n).toLocaleString('id-ID')
 }
 
-export default function HppDashboardView({ items }: HppDashboardViewProps) {
+export default function HppDashboardView({ items, channels }: HppDashboardViewProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -131,32 +132,19 @@ export default function HppDashboardView({ items }: HppDashboardViewProps) {
       res = res.filter(r => r.name.toLowerCase().includes(q))
     }
 
-    // Custom Category Sort Order
-    const categoryOrder = [
-      'original ayam',
-      'original sapi',
-      'mix',
-      'suka suka',
-      'suka drink',
-      'topping',
-      'paket combo'
-    ]
-
-    const getCategoryRank = (categoryName: string) => {
-      const lower = (categoryName || '').toLowerCase().trim()
-      const index = categoryOrder.indexOf(lower)
-      return index !== -1 ? index : categoryOrder.length // If not found, put it at the end
-    }
-
-    // Sort by Category Rank, then by name
+    // Sort by categoryOrder, then sortOrder, then name to exactly match POS Menu
     const sortedByCategory = [...res].sort((a, b) => {
-      const rankA = getCategoryRank(a.category)
-      const rankB = getCategoryRank(b.category)
-      
-      if (rankA !== rankB) {
-        return rankA - rankB
+      // 1. Sort by Category Order
+      if (a.categoryOrder !== b.categoryOrder) {
+        return a.categoryOrder - b.categoryOrder
       }
       
+      // 2. Sort by Item Sort Order
+      if (a.sortOrder !== b.sortOrder) {
+        return a.sortOrder - b.sortOrder
+      }
+      
+      // 3. Fallback to Alphabetical
       return a.name.localeCompare(b.name)
     })
 
@@ -231,6 +219,14 @@ export default function HppDashboardView({ items }: HppDashboardViewProps) {
     return <span className="text-red-600 font-bold">{margin.toFixed(1)}%</span>
   }
 
+  const renderMarginTextOnly = (hpp: number | null, price: number) => {
+    if (hpp === null || price <= 0) return <span className="text-gray-400 text-[10px]">—</span>
+    const margin = ((price - hpp) / price) * 100
+    if (margin >= 35) return <span className="text-green-600 font-bold text-[10px]">+{margin.toFixed(1)}%</span>
+    if (margin >= 20) return <span className="text-amber-600 font-bold text-[10px]">{margin.toFixed(1)}%</span>
+    return <span className="text-red-600 font-bold text-[10px]">{margin.toFixed(1)}%</span>
+  }
+
   // Save Pusat Override
   const handleSavePusatHpp = async (itemId: string, name: string) => {
     try {
@@ -238,9 +234,33 @@ export default function HppDashboardView({ items }: HppDashboardViewProps) {
       const val = pusatHppValue.trim() === '' ? null : Math.round(Number(pusatHppValue))
       const { error } = await supabase.from('menu_items').update({ hpp_override: val }).eq('id', itemId)
       if (error) throw error
-      toast.success(val === null ? `HPP Pusat untuk "${name}" direset ke BOM` : `HPP Pusat "${name}" diset ke ${rupiah(val)}`)
+
+      // Auto update Mitra HPP (+10%)
+      const mitraVal = val === null ? null : Math.round(val * 1.1)
+      const payload = outlets.map(o => {
+        const existing = allOutletPrices.find(p => p.menu_item_id === itemId && p.outlet_id === o.id)
+        return {
+          menu_item_id: itemId,
+          outlet_id: o.id,
+          is_available: existing ? existing.is_available : true,
+          price: existing ? existing.price : null,
+          hpp_override: mitraVal
+        }
+      })
+      
+      const { error: mitraError } = await supabase.from('menu_outlet_prices').upsert(payload, { onConflict: 'menu_item_id,outlet_id' })
+      if (mitraError) console.error("Gagal auto-update HPP Mitra", mitraError)
+
+      toast.success(val === null ? `HPP Pusat untuk "${name}" direset ke BOM` : `HPP Pusat "${name}" diset ke ${rupiah(val)}, HPP Mitra otomatis disesuaikan (+10%)`)
       setEditingPusatId(null)
+      
+      // We need to refresh data from server to reflect new mitra prices
       router.refresh()
+      
+      // Delay slightly for toast and router refresh to catch up
+      setTimeout(() => {
+        window.location.reload()
+      }, 500)
     } catch (e: any) {
       toast.error(e.message || 'Gagal menyimpan HPP')
     } finally {
@@ -395,54 +415,33 @@ export default function HppDashboardView({ items }: HppDashboardViewProps) {
             <thead className="bg-gray-50/80 border-b border-gray-100 text-gray-500 text-[11px] uppercase tracking-wider font-extrabold sticky top-0 z-10">
               <tr>
                 <th className="px-5 py-4 w-10"></th>
-                <th 
-                  onClick={() => handleSort('name')}
-                  className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors"
-                >
-                  <div className="flex items-center">
-                    Menu
-                    <SortIndicator field="name" />
-                  </div>
+                <th onClick={() => handleSort('name')} className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors">
+                  <div className="flex items-center">Menu<SortIndicator field="name" /></div>
                 </th>
-                <th 
-                  onClick={() => handleSort('price')}
-                  className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors text-right"
-                >
-                  <div className="flex items-center justify-end">
-                    Harga Jual (Pusat)
-                    <SortIndicator field="price" />
-                  </div>
+                <th className="px-5 py-4">
+                  Channel
                 </th>
-                <th 
-                  onClick={() => handleSort('hpp')}
-                  className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors text-right"
-                >
-                  <div className="flex items-center justify-end">
-                    HPP Aktif Pusat
-                    <SortIndicator field="hpp" />
-                  </div>
+                <th onClick={() => handleSort('price')} className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors text-right">
+                  <div className="flex items-center justify-end">Harga Jual<SortIndicator field="price" /></div>
                 </th>
-                <th 
-                  onClick={() => handleSort('margin')}
-                  className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors text-center"
-                >
-                  <div className="flex items-center justify-center">
-                    Profit / Margin
-                    <SortIndicator field="margin" />
-                  </div>
+                <th onClick={() => handleSort('hpp')} className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors text-right">
+                  <div className="flex items-center justify-end">HPP Pusat<SortIndicator field="hpp" /></div>
                 </th>
-                <th className="px-5 py-4 text-center">Distribusi Mitra</th>
+                <th onClick={() => handleSort('margin')} className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors text-right">
+                  <div className="flex items-center justify-end">Profit Pusat<SortIndicator field="margin" /></div>
+                </th>
+                <th className="px-5 py-4 text-right">
+                  HPP Mitra
+                </th>
+                <th className="px-5 py-4 text-right">
+                  Profit Mitra
+                </th>
                 <th className="px-5 py-4 text-right">
                   {sortField !== 'default' ? (
-                    <button 
-                      onClick={() => handleSort('default')}
-                      className="text-[10px] font-bold text-suka-primary bg-suka-primary/10 px-2 py-1 rounded hover:bg-suka-primary/20"
-                    >
+                    <button onClick={() => handleSort('default')} className="text-[10px] font-bold text-suka-primary bg-suka-primary/10 px-2 py-1 rounded hover:bg-suka-primary/20">
                       Kembali ke Kategori
                     </button>
-                  ) : (
-                    'Aksi'
-                  )}
+                  ) : 'Aksi'}
                 </th>
               </tr>
             </thead>
@@ -451,9 +450,84 @@ export default function HppDashboardView({ items }: HppDashboardViewProps) {
                 const effHpp = row.hppOverride !== null ? row.hppOverride : row.hpp
                 const profit = effHpp !== null ? row.price - effHpp : null
                 
-                // Distribusi Stats
                 const activeMitras = allOutletPrices.filter(p => p.menu_item_id === row.id && p.is_available).length
                 const totalMitras = outlets.length
+                
+                const mitraPrices = allOutletPrices.filter(p => p.menu_item_id === row.id && p.is_available);
+                let avgMitraHpp: number | null = null;
+                if (mitraPrices.length > 0) {
+                   const hpps = mitraPrices.map(p => p.hpp_override).filter(h => h !== null) as number[];
+                   if (hpps.length > 0) {
+                     avgMitraHpp = Math.round(hpps.reduce((a,b) => a+b, 0) / hpps.length);
+                   }
+                }
+                
+                // Fallback to +10% of Pusat HPP
+                if (avgMitraHpp === null && effHpp !== null) {
+                  avgMitraHpp = Math.round(effHpp * 1.1);
+                }
+                const profitMitra = avgMitraHpp !== null ? row.price - avgMitraHpp : null;
+
+                // Compute visible online channels
+                const visibleChannels: { label: string, price: number }[] = [];
+                
+                const isOfflineAvailable = row.isAvailable !== false && (
+                  row.isAvailableOnline === false ||
+                  row.availableOnlineChannels === null ||
+                  row.availableOnlineChannels === undefined ||
+                  !Array.isArray(row.availableOnlineChannels) ||
+                  row.availableOnlineChannels.includes('pos_kasir')
+                );
+
+                if (row.isAvailableOnline !== false) {
+                  const activeRowChannels = (channels || []).filter(ch => {
+                    const slug = ch.name.toLowerCase().replace(/\s+/g, '');
+                    if (row.availableOnlineChannels === null || row.availableOnlineChannels === undefined) return true;
+                    return row.availableOnlineChannels.some(
+                      c => {
+                        const cleanC = c.toLowerCase().replace(/\s+/g, '');
+                        return cleanC === slug || (slug === 'tiktokgo' && (cleanC === 'tiktokgo' || cleanC === 'tiktok_go' || cleanC === 'tiktok'));
+                      }
+                    );
+                  });
+
+                  const foodAppSlugs = ['gofood', 'grabfood', 'shopeefood'];
+                  const activeFoodApps = activeRowChannels.filter(ch => foodAppSlugs.includes(ch.name.toLowerCase().replace(/\s+/g, '')));
+                  const otherChannels = activeRowChannels.filter(ch => !foodAppSlugs.includes(ch.name.toLowerCase().replace(/\s+/g, '')));
+
+                  if (activeFoodApps.length > 0) {
+                    let explicitPrice: number | undefined = undefined;
+                    for (const app of activeFoodApps) {
+                      const s = app.name.toLowerCase().replace(/\s+/g, '');
+                      if (row.channelPrices[s] && Number(row.channelPrices[s]) > 0) {
+                        explicitPrice = Number(row.channelPrices[s]);
+                        break;
+                      }
+                    }
+                    visibleChannels.push({
+                      label: 'FOODAPPS',
+                      price: explicitPrice ?? row.price
+                    });
+                  }
+
+                  for (const ch of otherChannels) {
+                    const slug = ch.name.toLowerCase().replace(/\s+/g, '');
+                    const explicitPrice = row.channelPrices[slug] || (slug === 'tiktokgo' ? row.channelPrices['tiktok_go'] : undefined);
+                    visibleChannels.push({
+                      label: ch.name === 'TikTok Go' ? 'TIKTOK GO' : ch.name.toUpperCase(),
+                      price: (explicitPrice !== undefined && explicitPrice !== null && Number(explicitPrice) > 0) ? explicitPrice : row.price
+                    });
+                  }
+                }
+
+                // Prepare unified channel array for row alignment
+                const channelRows: { label: string, price: number }[] = [];
+                if (isOfflineAvailable) {
+                  channelRows.push({ label: 'OFFLINE', price: row.price });
+                }
+                visibleChannels.forEach(vc => channelRows.push(vc));
+
+                const rowClasses = "flex items-center h-8 border-b border-gray-100 last:border-0";
 
                 return (
                   <tr key={row.id} className="hover:bg-gray-50/60 transition-colors group">
@@ -464,10 +538,33 @@ export default function HppDashboardView({ items }: HppDashboardViewProps) {
                       {row.name}
                       <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{row.category}</div>
                     </td>
-                    <td className="px-5 py-4 text-right font-bold text-gray-900">
-                      {rupiah(row.price)}
+                    
+                    {/* Channel Column */}
+                    <td className="py-4">
+                      <div className="flex flex-col">
+                        {channelRows.map((ch, idx) => (
+                          <div key={`ch-${idx}`} className={rowClasses}>
+                            <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 ${ch.label === 'OFFLINE' ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {ch.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </td>
-                    <td className="px-5 py-4 text-right whitespace-nowrap">
+
+                    {/* Harga Jual Column */}
+                    <td className="py-4 text-right">
+                      <div className="flex flex-col">
+                        {channelRows.map((ch, idx) => (
+                          <div key={`pr-${idx}`} className={`${rowClasses} justify-end px-5`}>
+                            <span className="font-bold text-gray-900">{rupiah(ch.price)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+
+                    {/* HPP Pusat Column */}
+                    <td className="px-5 py-4 text-right align-middle">
                       {editingPusatId === row.id ? (
                         <div className="flex items-center justify-end gap-1.5">
                           <input
@@ -491,37 +588,63 @@ export default function HppDashboardView({ items }: HppDashboardViewProps) {
                               {effHpp !== null ? rupiah(effHpp) : <span className="text-red-400 text-xs italic">Belum Set</span>}
                             </div>
                             {row.hppOverride !== null && row.hpp !== null && (
-                              <div className="text-[9px] text-gray-400 mt-0.5">BOM: {rupiah(row.hpp)}</div>
+                              <div className="text-[9px] text-gray-400 mt-0.5 whitespace-nowrap">BOM: {rupiah(row.hpp)}</div>
                             )}
                           </div>
-                          <button onClick={() => { setEditingPusatId(row.id); setPusatHppValue(row.hppOverride !== null ? String(row.hppOverride) : ''); }} className="opacity-0 group-hover/edit:opacity-100 p-1 text-gray-400 hover:text-suka-primary transition-opacity">
+                          <button onClick={() => { setEditingPusatId(row.id); setPusatHppValue(row.hppOverride !== null ? String(row.hppOverride) : ''); }} className="opacity-0 group-hover/edit:opacity-100 p-1 w-6 h-6 flex items-center justify-center shrink-0 text-gray-400 hover:text-suka-primary transition-opacity rounded hover:bg-gray-100">
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-4 text-center">
-                      {profit !== null ? (
-                        <div className="flex flex-col items-center">
-                          <span className="font-bold text-[13px] text-gray-900">{rupiah(profit)}</span>
-                          <div className="mt-1">{renderMargin(effHpp, row.price)}</div>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
+
+                    {/* Profit Pusat Column */}
+                    <td className="py-4 text-right">
+                      <div className="flex flex-col">
+                        {channelRows.map((ch, idx) => {
+                          const profit = effHpp !== null ? ch.price - effHpp : null;
+                          return (
+                            <div key={`pft-pst-${idx}`} className={`${rowClasses} justify-end gap-2 px-5`}>
+                              {profit !== null ? (
+                                <>
+                                  <span className="font-bold text-gray-900 text-sm text-right w-[70px]">{rupiah(profit)}</span>
+                                  <div className="w-12 text-right">{renderMarginTextOnly(effHpp, ch.price)}</div>
+                                </>
+                              ) : (
+                                <span className="text-gray-400 text-sm w-[90px] text-right">—</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </td>
-                    <td className="px-5 py-4 text-center">
-                      {isLoadingOutlets ? (
-                        <span className="animate-pulse bg-gray-200 h-5 w-16 rounded-full inline-block"></span>
-                      ) : activeMitras > 0 ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-bold border border-green-200">
-                          <Store className="w-3 h-3" /> {activeMitras}/{totalMitras} Mitra
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-50 text-gray-500 rounded-full text-xs font-bold border border-gray-200">
-                          Tidak Aktif
-                        </span>
-                      )}
+
+                    {/* HPP Mitra Column */}
+                    <td className="px-5 py-4 text-right align-middle">
+                      <div className="font-bold text-blue-600">
+                        {avgMitraHpp !== null ? rupiah(avgMitraHpp) : <span className="text-gray-400 text-xs italic">Belum Set</span>}
+                      </div>
+                    </td>
+
+                    {/* Profit Mitra Column */}
+                    <td className="py-4 text-right">
+                      <div className="flex flex-col">
+                        {channelRows.map((ch, idx) => {
+                          const profitMitra = avgMitraHpp !== null ? ch.price - avgMitraHpp : null;
+                          return (
+                            <div key={`pft-mtr-${idx}`} className={`${rowClasses} justify-end gap-2 px-5`}>
+                              {profitMitra !== null ? (
+                                <>
+                                  <span className="font-bold text-blue-700 text-sm text-right w-[70px]">{rupiah(profitMitra)}</span>
+                                  <div className="w-12 text-right">{renderMarginTextOnly(avgMitraHpp, ch.price)}</div>
+                                </>
+                              ) : (
+                                <span className="text-gray-400 text-sm w-[90px] text-right">—</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-right">
                       <button
@@ -600,27 +723,88 @@ export default function HppDashboardView({ items }: HppDashboardViewProps) {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        <tr>
-                          <td className="px-4 py-3 font-bold text-gray-900 flex items-center gap-2"><Store className="w-4 h-4 text-gray-400"/> Offline (Kasir)</td>
-                          <td className="px-4 py-3 text-right font-medium">{rupiah(selectedMenu.price)}</td>
-                          <td className="px-4 py-3 text-right">
-                            {activeBOM ? <div className="font-bold text-green-600">{rupiah(selectedMenu.price - activeBOM)}</div> : '-'}
-                          </td>
-                        </tr>
-                        {Object.entries(selectedMenu.channelPrices || {}).map(([ch, price]) => (
-                          <tr key={ch}>
-                            <td className="px-4 py-3 font-bold text-gray-700 flex items-center gap-2">
-                              <Globe className="w-4 h-4 text-gray-300"/> {ch.toUpperCase()}
-                            </td>
-                            <td className="px-4 py-3 text-right font-medium">{rupiah(price)}</td>
-                            <td className="px-4 py-3 text-right">
-                              {activeBOM ? <div className="font-bold text-green-600">{rupiah(price - activeBOM)}</div> : '-'}
-                            </td>
-                          </tr>
-                        ))}
-                        {Object.keys(selectedMenu.channelPrices || {}).length === 0 && (
-                          <tr><td colSpan={3} className="px-4 py-3 text-center text-xs text-gray-400">Belum ada harga online spesifik</td></tr>
-                        )}
+                        {(() => {
+                          const isOfflineDrawerAvailable = selectedMenu.isAvailable !== false && (
+                            selectedMenu.isAvailableOnline === false ||
+                            selectedMenu.availableOnlineChannels === null ||
+                            selectedMenu.availableOnlineChannels === undefined ||
+                            !Array.isArray(selectedMenu.availableOnlineChannels) ||
+                            selectedMenu.availableOnlineChannels.includes('pos_kasir')
+                          );
+                          if (!isOfflineDrawerAvailable) return null;
+                          return (
+                            <tr>
+                              <td className="px-4 py-3 font-bold text-gray-900 flex items-center gap-2"><Store className="w-4 h-4 text-gray-400"/> Offline (Kasir)</td>
+                              <td className="px-4 py-3 text-right font-medium">{rupiah(selectedMenu.price)}</td>
+                              <td className="px-4 py-3 text-right">
+                                {activeBOM ? <div className="font-bold text-green-600">{rupiah(selectedMenu.price - activeBOM)}</div> : '-'}
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                        {(() => {
+                          if (selectedMenu.isAvailableOnline === false) return null;
+                          
+                          const activeDrawerChannels = (channels || []).filter(ch => {
+                            const slug = ch.name.toLowerCase().replace(/\s+/g, '');
+                            if (selectedMenu.availableOnlineChannels === null || selectedMenu.availableOnlineChannels === undefined) return true;
+                            return selectedMenu.availableOnlineChannels.some(
+                              c => {
+                                const cleanC = c.toLowerCase().replace(/\s+/g, '');
+                                return cleanC === slug || (slug === 'tiktokgo' && (cleanC === 'tiktokgo' || cleanC === 'tiktok_go' || cleanC === 'tiktok'));
+                              }
+                            );
+                          });
+
+                          const foodAppSlugs = ['gofood', 'grabfood', 'shopeefood'];
+                          const activeFoodApps = activeDrawerChannels.filter(ch => foodAppSlugs.includes(ch.name.toLowerCase().replace(/\s+/g, '')));
+                          const otherChannels = activeDrawerChannels.filter(ch => !foodAppSlugs.includes(ch.name.toLowerCase().replace(/\s+/g, '')));
+
+                          return (
+                            <>
+                              {activeFoodApps.length > 0 && (() => {
+                                let explicitPrice: number | undefined = undefined;
+                                for (const app of activeFoodApps) {
+                                  const s = app.name.toLowerCase().replace(/\s+/g, '');
+                                  if (selectedMenu.channelPrices[s] && Number(selectedMenu.channelPrices[s]) > 0) {
+                                    explicitPrice = Number(selectedMenu.channelPrices[s]);
+                                    break;
+                                  }
+                                }
+                                const displayPrice = explicitPrice ?? selectedMenu.price;
+                                return (
+                                  <tr>
+                                    <td className="px-4 py-3 font-bold text-gray-700 flex items-center gap-2">
+                                      <Globe className="w-4 h-4 text-gray-300"/> FOODAPPS
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-medium">{rupiah(displayPrice)}</td>
+                                    <td className="px-4 py-3 text-right">
+                                      {activeBOM ? <div className="font-bold text-green-600">{rupiah(displayPrice - activeBOM)}</div> : '-'}
+                                    </td>
+                                  </tr>
+                                );
+                              })()}
+
+                              {otherChannels.map(ch => {
+                                const slug = ch.name.toLowerCase().replace(/\s+/g, '');
+                                const explicitPrice = selectedMenu.channelPrices[slug] || (slug === 'tiktokgo' ? selectedMenu.channelPrices['tiktok_go'] : undefined);
+                                const displayPrice = (explicitPrice !== undefined && explicitPrice !== null && Number(explicitPrice) > 0) ? explicitPrice : selectedMenu.price;
+                                
+                                return (
+                                  <tr key={ch.id}>
+                                    <td className="px-4 py-3 font-bold text-gray-700 flex items-center gap-2">
+                                      <Globe className="w-4 h-4 text-gray-300"/> {ch.name === 'TikTok Go' ? 'TIKTOK GO' : ch.name.toUpperCase()}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-medium">{rupiah(displayPrice)}</td>
+                                    <td className="px-4 py-3 text-right">
+                                      {activeBOM ? <div className="font-bold text-green-600">{rupiah(displayPrice - activeBOM)}</div> : '-'}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </>
+                          );
+                        })()}
                       </tbody>
                     </table>
                   </div>

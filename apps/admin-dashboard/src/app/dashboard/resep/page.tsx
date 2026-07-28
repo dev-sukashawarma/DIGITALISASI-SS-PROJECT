@@ -23,7 +23,7 @@ export default async function ResepPage() {
       .eq('scope', 'global'),
     supabase
       .from('sales_channels')
-      .select('id, name, color')
+      .select('id, name')
       .eq('is_active', true)
       .order('name'),
   ])
@@ -114,6 +114,7 @@ export default async function ResepPage() {
       price: Number(menu.price) || 0,
       hppOverride: menu.hpp_override !== null && menu.hpp_override !== undefined ? Number(menu.hpp_override) : null,
       channelPrices: (menu.channel_prices as Record<string, number>) || {},
+      isAvailable: menu.is_available !== false,
       isAvailableOnline: !!menu.is_available_online,
       availableOnlineChannels: (menu.available_online_channels as string[] | null) ?? null,
       isPackage,

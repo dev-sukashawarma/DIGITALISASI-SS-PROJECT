@@ -10,6 +10,7 @@ import { TargetCombobox } from '@/components/TargetCombobox'
 import CountUp from 'react-countup'
 import { Wallet, TrendingDown, Search, Award } from 'lucide-react'
 import { CATEGORY_META } from '@/lib/expenseCategories'
+import { motion } from 'framer-motion'
 import dynamic from 'next/dynamic'
 
 const ExpenseDistributionChart = dynamic(
@@ -86,7 +87,7 @@ export default function ExpensesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Pengeluaran" description="Analisis pengeluaran operasional">
+      <PageHeader title="Pengeluaran" description="Analisis pengeluaran operasional" icon={Wallet}>
         <div className="flex flex-wrap gap-3 mt-3">
           <input type="month" value={month} onChange={e => setMonth(e.target.value)}
             className="border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20" />
@@ -108,8 +109,16 @@ export default function ExpensesPage() {
       {loading || wasteLoading ? (
         <StatTilesSkeleton count={3} />
       ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="flex flex-col lg:flex-row items-start gap-6">
+          {/* ── KIRI: SUMMARY KPI ────────────────────────── */}
+          <div className="w-full lg:w-1/3 xl:w-[35%] flex flex-col gap-6 shrink-0 lg:sticky lg:top-6">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={{ visible: { transition: { staggerChildren: 0.05 } }, hidden: {} }}
+              className="flex flex-col gap-4"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
             <StatTile
               label="Total Pengeluaran"
               value={<><span className="text-lg align-top">Rp </span><CountUp end={totalAmount} duration={1} separator="." /></>}
@@ -140,14 +149,17 @@ export default function ExpensesPage() {
                 accent="red"
               />
             )}
+              </div>
+            </motion.div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Section title={`Distribusi ${titleText}`} className="lg:col-span-2">
+          {/* ── KANAN: ANALISIS GRAFIK ─────────────────────────────── */}
+          <div className="w-full lg:w-2/3 xl:w-[65%] flex flex-col gap-6 min-w-0">
+            <Section title={`Distribusi ${titleText}`}>
               <ExpenseDistributionChart byCategory={byCategory} totalOutlet={totalAmount} />
             </Section>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

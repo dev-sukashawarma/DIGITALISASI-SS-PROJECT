@@ -73,13 +73,19 @@ export default function ExpenseInputView({ initialOutlets, initialExpenses }: { 
   ]
 
   return (
-    <div className="space-y-6 max-w-2xl animate-fade-in">
-      <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
-        <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Input Pengeluaran (Rekap Bulanan)</h2>
-        <p className="text-xs text-suka-gray-500 font-medium">Isi/koreksi rekap bulanan per outlet atau pusat. Menyimpan menimpa nilai bulan yang sama.</p>
-        <div className="flex flex-wrap gap-3 mt-3">
+    <div className="space-y-8 font-sans animate-fade-in max-w-2xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Pengeluaran</p>
+          <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Input Rekap</h1>
+          <p className="text-suka-ink/60 mt-2 font-medium">Isi/koreksi rekap bulanan per outlet atau pusat. Menyimpan menimpa nilai bulan yang sama.</p>
+        </div>
+      </div>
+
+      <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] border border-suka-brown/5 shadow-sm">
+        <div className="flex flex-wrap gap-4 items-center">
           <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-            className="border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20" />
+            className="border border-suka-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all" />
           <TargetCombobox 
             options={selectOptions}
             value={target}

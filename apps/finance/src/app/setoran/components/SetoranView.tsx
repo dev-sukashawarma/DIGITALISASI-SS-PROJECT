@@ -72,13 +72,16 @@ export function SetoranView({
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-suka-brown">Setoran Tunai</h1>
-        <p className="text-suka-gray-500">
-          <b>Hop-1:</b> outlet setor tunai ke Kas Pusat. Setelah tervalidasi, setor Kas Pusat ke bank di{' '}
-          <Link href="/transfer" className="font-semibold text-suka-orange underline">Transfer</Link> (Hop-2).
-        </p>
+    <div className="space-y-8 font-sans">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Arus Kas</p>
+          <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Setoran Tunai</h1>
+          <p className="text-suka-ink/60 mt-2 font-medium">
+            <b>Hop-1:</b> outlet setor tunai ke Kas Pusat. Setelah tervalidasi, setor Kas Pusat ke bank di{' '}
+            <Link href="/transfer" className="font-semibold text-suka-orange underline">Transfer</Link> (Hop-2).
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

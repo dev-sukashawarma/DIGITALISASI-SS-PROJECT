@@ -83,11 +83,12 @@ export function LokasiView({
   const isPending = createLocation.isPending || updateLocation.isPending
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 font-sans">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-suka-brown">Rekening &amp; Kas</h1>
-          <p className="text-suka-gray-500">Kelola rekening bank dan kas tunai (mis. Kas Pusat).</p>
+          <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Master Data</p>
+          <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Rekening &amp; Kas</h1>
+          <p className="text-suka-ink/60 mt-2 font-medium">Kelola rekening bank dan kas tunai (mis. Kas Pusat).</p>
         </div>
         {isChecker && (
           <Button onClick={() => {
@@ -96,8 +97,8 @@ export function LokasiView({
             } else {
               reset(); setShowForm(true);
             }
-          }} className="flex items-center gap-2">
-            <Plus size={16} /> Tambah
+          }} className="flex items-center gap-2 rounded-full px-6 py-2.5 bg-suka-orange hover:bg-suka-orange/90 text-white shadow-lg shadow-suka-orange/20 font-bold transition-all hover:scale-105 active:scale-95">
+            <Plus size={18} /> Tambah
           </Button>
         )}
       </div>

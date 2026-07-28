@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import type { CashTxStatus } from '@/lib/types'
-
+import { motion } from 'framer-motion'
 import { Badge } from '@suka/design-system'
 
 export function StatCard({
@@ -19,25 +19,42 @@ export function StatCard({
   hint?: string
 }) {
   const iconTone: Record<string, string> = {
-    default: 'bg-suka-gray-100 text-suka-gray-600 border-suka-gray-200',
-    green: 'bg-emerald-50 text-emerald-600 border-emerald-200/80 shadow-[0_2px_8px_rgba(16,185,129,0.12)]',
-    orange: 'bg-orange-50 text-suka-orange border-orange-200/80 shadow-[0_2px_8px_rgba(234,88,12,0.12)]',
-    red: 'bg-red-50 text-red-600 border-red-200/80 shadow-[0_2px_8px_rgba(239,68,68,0.12)]',
-    blue: 'bg-blue-50 text-blue-600 border-blue-200/80 shadow-[0_2px_8px_rgba(59,130,246,0.12)]',
+    default: 'bg-suka-gray-100 text-suka-gray-600',
+    green: 'bg-emerald-50 text-emerald-600',
+    orange: 'bg-orange-50 text-suka-orange',
+    red: 'bg-red-50 text-red-600',
+    blue: 'bg-blue-50 text-blue-600',
   }
+
+  const bgTone: Record<string, string> = {
+    default: 'group-hover:bg-suka-gray-50',
+    green: 'group-hover:bg-emerald-50/30',
+    orange: 'group-hover:bg-orange-50/30',
+    red: 'group-hover:bg-red-50/30',
+    blue: 'group-hover:bg-blue-50/30',
+  }
+
   return (
-    <div className="bg-white/70 backdrop-blur-xl border border-suka-brown/10 rounded-3xl p-5 shadow-sm hover:shadow-md hover:bg-white/90 transition-all duration-300 flex items-center gap-4 group relative overflow-hidden">
-      {icon && (
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition-all ${iconTone[tone]}`}>
-          {icon}
+    <motion.div 
+      whileHover={{ y: -4, scale: 1.01 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      className={`bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl hover:shadow-suka-brown/5 border border-suka-brown/5 transition-all duration-300 flex flex-col justify-between group relative overflow-hidden ${bgTone[tone]}`}
+    >
+      <div className="absolute right-0 top-0 w-32 h-32 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-bl-full -z-0 pointer-events-none ${iconTone[tone].split(' ')[0]}"></div>
+      
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-4">
+          {icon && (
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${iconTone[tone]}`}>
+              {icon}
+            </div>
+          )}
         </div>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black uppercase tracking-widest text-suka-gray-400">{label}</p>
-        <p className="truncate text-xl font-black text-suka-brown tracking-tight mt-0.5">{value}</p>
-        {hint && <p className="text-[10px] font-semibold text-suka-gray-400 mt-1">{hint}</p>}
+        <p className="text-[11px] font-bold uppercase tracking-wider text-suka-ink/60 mb-1">{label}</p>
+        <div className="text-3xl font-display text-suka-ink tracking-tight">{value}</div>
+        {hint && <p className="text-[10px] font-semibold text-suka-orange mt-2">{hint}</p>}
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -58,12 +75,17 @@ export function TxStatusBadge({ status }: { status: CashTxStatus }) {
 
 export function SectionCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <div className="bg-white/70 backdrop-blur-xl border border-suka-brown/10 rounded-3xl shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between border-b border-suka-brown/5 px-6 py-4 bg-white/40">
-        <h2 className="font-extrabold text-suka-brown text-sm uppercase tracking-tight">{title}</h2>
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+      className="bg-white rounded-[2rem] shadow-sm border border-suka-brown/5 overflow-hidden"
+    >
+      <div className="flex items-center justify-between px-6 py-5 border-b border-suka-brown/5">
+        <h2 className="font-display text-xl text-suka-brown tracking-wide">{title}</h2>
         {action}
       </div>
       <div className="p-6">{children}</div>
-    </div>
+    </motion.div>
   )
 }

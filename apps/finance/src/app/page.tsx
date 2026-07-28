@@ -14,9 +14,6 @@ export default async function DashboardPage() {
     redirect('/area-manager/petty-cash')
   }
 
-  if (staff?.role === 'admin' || staff?.role === 'admin_finance' || staff?.role === 'owner') {
-    redirect('/petty-cash')
-  }
-
+  // admin, admin_finance, dan owner sekarang bisa melihat Dashboard di root (/)
   return <DashboardClient />
 }

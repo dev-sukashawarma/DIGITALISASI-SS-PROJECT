@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react'
 import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import { rupiah } from '@/lib/format'
 import { Crown } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 export function TopMenus({ rows }: { rows: AggregatedMenuSales[] }) {
   const [mode, setMode] = useState<'qty' | 'revenue'>('qty')
@@ -56,7 +57,15 @@ export function TopMenus({ rows }: { rows: AggregatedMenuSales[] }) {
             Belum ada data menu
           </div>
         ) : (
-          <div className="space-y-4">
+          <motion.div 
+            initial="hidden"
+            animate="visible"
+            variants={{
+              visible: { transition: { staggerChildren: 0.05 } },
+              hidden: {},
+            }}
+            className="space-y-4"
+          >
             {list.map((m, i) => {
               const currentValue = m[mode]
               const percentOfMax = maxValue > 0 ? (currentValue / maxValue) * 100 : 0
@@ -70,7 +79,14 @@ export function TopMenus({ rows }: { rows: AggregatedMenuSales[] }) {
               ]
               
               return (
-                <div key={m.name} className="space-y-1.5 group">
+                <motion.div 
+                  key={m.name} 
+                  variants={{
+                    hidden: { opacity: 0, y: 10 },
+                    visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+                  }}
+                  className="space-y-1.5 group"
+                >
                   <div className="flex justify-between items-center text-xs">
                     <div className="flex items-center gap-2 font-bold text-suka-ink truncate mr-4">
                       {/* Stylized Rank Badge */}
@@ -98,10 +114,10 @@ export function TopMenus({ rows }: { rows: AggregatedMenuSales[] }) {
                       }}
                     />
                   </div>
-                </div>
+                </motion.div>
               )
             })}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

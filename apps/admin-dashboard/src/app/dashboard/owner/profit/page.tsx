@@ -14,6 +14,7 @@ import { rupiah } from '@/lib/format'
 import { PageHeader, StatTile, Section, StatTilesSkeleton } from '@/components/ui'
 import CountUp from 'react-countup'
 import { TrendingUp, Percent, ArrowLeftRight, TrendingDown, Boxes, Layers, Building2 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import dynamic from 'next/dynamic'
 
 const ProfitCashFlowChart = dynamic(
@@ -136,7 +137,7 @@ export default function ProfitPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Untung Rugi" description="Perbandingan omzet penjualan vs biaya operasional">
+      <PageHeader title="Untung Rugi" description="Perbandingan omzet penjualan vs biaya operasional" icon={ArrowLeftRight}>
         <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} />
       </PageHeader>
 
@@ -149,9 +150,17 @@ export default function ProfitPage() {
       {loading ? (
         <StatTilesSkeleton count={3} />
       ) : (
-        <>
-          <Section title="Alur Laba Rugi (Profit & Loss)">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="flex flex-col lg:flex-row items-start gap-6">
+          {/* ── KIRI: SUMMARY KPI ────────────────────────── */}
+          <div className="w-full lg:w-1/3 xl:w-[35%] flex flex-col gap-6 shrink-0 lg:sticky lg:top-6">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={{ visible: { transition: { staggerChildren: 0.05 } }, hidden: {} }}
+              className="flex flex-col gap-4"
+            >
+              <Section title="Alur Laba Rugi (Profit & Loss)">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
               <StatTile
                 label="Omzet Kotor (Gross)"
                 value={<><span className="text-lg align-top">Rp </span><CountUp end={actualGrossRevenue} duration={1} separator="." /></>}
@@ -216,26 +225,33 @@ export default function ProfitPage() {
                 accent={displayLaba >= 0 ? 'orange' : 'red'}
                 tooltip="Hasil keuntungan murni akhir setelah semua biaya dipotong."
               />
-            </div>
-          </Section>
+                </div>
+              </Section>
+            </motion.div>
+          </div>
 
-          {/* Cash Flow Comparison Chart */}
+          {/* ── KANAN: ANALISIS GRAFIK & TABEL ─────────────────────────────── */}
+          <div className="w-full lg:w-2/3 xl:w-[65%] flex flex-col gap-6 min-w-0">
+            {/* Cash Flow Comparison Chart */}
           <Section title="Arus Kas Penjualan vs Pengeluaran">
             <ProfitCashFlowChart byDate={byDate} />
           </Section>
 
           {/* Outlet Profitability Leaderboard Table */}
           {isAllOutlets && (
-            <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
+            <motion.div 
+              variants={{ hidden: { opacity: 0, y: 15 }, visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } } }}
+              className="bg-white/80 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm overflow-hidden"
+            >
               <div className="px-6 py-4 border-b border-suka-gray-100 flex justify-between items-center">
-                <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Profitabilitas per Outlet</h3>
-                <span className="text-xs font-bold text-suka-gray-500 uppercase">Diurutkan dari Profit Bersih Tertinggi</span>
+                <h3 className="font-bold text-suka-brown text-sm tracking-tight uppercase">Profitabilitas per Outlet</h3>
+                <span className="text-xs font-semibold text-suka-gray-500 uppercase">Diurutkan dari Profit Bersih Tertinggi</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
+                    <tr className="bg-suka-cream/20 text-left text-suka-gray-500 font-semibold border-b border-suka-brown/5">
                       <th className="py-3 px-6 w-12 text-center">#</th>
                       <th className="py-3 px-6">Nama Outlet</th>
                       <th className="py-3 px-6 text-right">Omzet Kotor</th>
@@ -248,7 +264,15 @@ export default function ProfitPage() {
                       <th className="py-3 px-6 text-center">Margin %</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-suka-gray-100 font-medium">
+                  <motion.tbody 
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                      visible: { transition: { staggerChildren: 0.05 } },
+                      hidden: {},
+                    }}
+                    className="divide-y divide-suka-gray-100 font-medium text-suka-ink"
+                  >
                     {outletBreakdown.length === 0 ? (
                       <tr>
                         <td colSpan={9} className="py-8 text-center text-suka-gray-400">Belum ada aktivitas bisnis pada periode ini</td>
@@ -257,13 +281,20 @@ export default function ProfitPage() {
                       outletBreakdown.map((row, index) => {
                         const isProfit = row.net >= 0
                         const marginColor = row.margin >= 20 
-                          ? 'text-suka-green bg-green-50' 
+                          ? 'text-emerald-800 bg-emerald-50 border-emerald-200/80' 
                           : row.margin >= 5 
-                          ? 'text-suka-orange bg-suka-cream' 
-                          : 'text-red-700 bg-red-50'
+                          ? 'text-amber-800 bg-amber-50 border-amber-200/80' 
+                          : 'text-rose-800 bg-rose-50 border-rose-200/80'
 
                         return (
-                          <tr key={row.id} className="hover:bg-suka-cream/20 transition-colors">
+                          <motion.tr 
+                            key={row.id} 
+                            variants={{
+                              hidden: { opacity: 0, y: 10 },
+                              visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+                            }}
+                            className="hover:bg-orange-50/30 transition-colors group"
+                          >
                             <td className="py-3.5 px-6 text-center text-suka-gray-400 font-bold">{index + 1}</td>
                             <td className="py-3.5 px-6 text-suka-ink font-bold">{row.name.replace('SUKA SHAWARMA ', '')}</td>
                             <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.omzet)}</td>
@@ -272,24 +303,25 @@ export default function ProfitPage() {
                             <td className="py-3.5 px-6 text-right text-suka-gray-600">-{rupiah(row.hpp + row.waste)}</td>
                             <td className="py-3.5 px-6 text-right text-suka-gray-600">{rupiah(row.labaKotor)}</td>
                             <td className="py-3.5 px-6 text-right text-suka-gray-600">-{rupiah(row.expense)}</td>
-                            <td className={`py-3.5 px-6 text-right font-extrabold ${isProfit ? 'text-suka-green' : 'text-red-700'}`}>
+                            <td className={`py-3.5 px-6 text-right font-bold ${isProfit ? 'text-suka-green' : 'text-rose-600'}`}>
                               {rupiah(row.net)}
                             </td>
                             <td className="py-3.5 px-6 text-center">
-                              <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${marginColor}`}>
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border ${marginColor}`}>
                                 {row.margin.toFixed(1)}%
                               </span>
                             </td>
-                          </tr>
+                          </motion.tr>
                         )
                       })
                     )}
-                  </tbody>
+                  </motion.tbody>
                 </table>
               </div>
-            </div>
+            </motion.div>
           )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   )

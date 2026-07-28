@@ -27,11 +27,16 @@ export const Sidebar = () => {
   const [openDoor, setOpenDoor] = useState<string | null>(activeGroupTitle ?? groups[0]?.title ?? null)
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-suka-gray-200 bg-white md:flex md:flex-col print:hidden">
-      <div className="p-5 border-b border-suka-gray-100">
-        <div className="text-xl font-extrabold text-suka-brown tracking-tight">
-          {role === 'LEADER' ? 'Leader' : role === 'AREA_MANAGER' ? 'AreaManager' : 'Admin'}
-          <span className="text-suka-orange">Hub</span>
+    <aside className="hidden w-[260px] shrink-0 bg-transparent text-white md:flex md:flex-col print:hidden z-40 relative">
+      <div className="p-6 pb-2 text-center flex flex-col items-center justify-center">
+        <div className="w-14 h-14 mb-2 rounded-full overflow-hidden flex items-center justify-center bg-white/5 shadow-inner border border-white/10">
+          <img src="/logo.png" alt="Suka Shawarma Logo" className="w-full h-full object-cover" />
+        </div>
+        <div className="text-lg font-extrabold text-white tracking-tight leading-tight">
+          Suka<span className="text-suka-orange">Admin</span>
+        </div>
+        <div className="text-[9px] font-black uppercase tracking-[0.2em] text-suka-orange/80 mt-1">
+          Digital Hub
         </div>
       </div>
 
@@ -51,14 +56,14 @@ export const Sidebar = () => {
                       <Link
                         key={href}
                         href={href}
-                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition-colors ${
+                        className={`group flex items-center gap-3 rounded-xl mx-2 px-3 py-2.5 font-bold transition-all active:scale-95 ${
                           active
-                            ? 'bg-suka-orange/10 text-suka-orange'
-                            : 'text-gray-600 hover:bg-suka-gray-50 hover:text-suka-ink'
+                            ? 'bg-white text-[#4A1713] shadow-md'
+                            : 'text-white/70 hover:bg-white/10 hover:text-white'
                         }`}
                       >
-                        <Icon size={18} className={active ? 'text-suka-orange' : 'text-suka-gray-400'} />
-                        <span className="flex-1">{label}</span>
+                        <Icon size={18} className={active ? 'text-[#4A1713]' : 'text-white/50 group-hover:text-white/80'} />
+                        <span className="flex-1 text-sm">{label}</span>
                       </Link>
                     )
                   })}
@@ -69,32 +74,34 @@ export const Sidebar = () => {
                   <button
                     type="button"
                     onClick={() => setOpenDoor(isOpen ? null : group.title)}
-                    className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition-colors ${
-                      doorActive ? 'text-suka-brown' : 'text-suka-ink'
-                    } hover:bg-suka-gray-50`}
+                    className="w-full flex items-center justify-between px-4 py-2.5 mt-2 mb-1 transition-all active:scale-95 group hover:bg-white/5 rounded-xl"
                   >
-                    <DoorIcon size={18} className={doorActive ? 'text-suka-orange' : 'text-suka-gray-400'} />
-                    <span className="flex-1 text-left">{group.title}</span>
-                    <ChevronDown size={16} className={`text-suka-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    <div className="flex items-center gap-3">
+                      <DoorIcon size={16} className="text-suka-orange/70 group-hover:text-suka-orange transition-colors" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-suka-orange/80 group-hover:text-suka-orange transition-colors">
+                        {group.title}
+                      </span>
+                    </div>
+                    <ChevronDown size={14} className={`text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {/* Dropdown Items */}
                   {isOpen && (
-                    <div className="mt-0.5 mb-1 ml-3 pl-3 border-l border-suka-gray-100 space-y-0.5">
+                    <div className="space-y-0.5 ml-2">
                       {group.items.map(({ href, label, icon: Icon }) => {
                         const active = isItemActive(href, pathname)
                         return (
                           <Link
                             key={href}
                             href={href}
-                            className={`flex items-center gap-3 rounded-xl px-3 py-2 font-medium transition-colors ${
+                            className={`group flex items-center gap-3 rounded-xl mx-2 px-3 py-2 font-semibold transition-all active:scale-95 ${
                               active
-                                ? 'bg-suka-orange/10 text-suka-orange'
-                                : 'text-gray-600 hover:bg-suka-gray-50 hover:text-suka-ink'
+                                ? 'bg-white text-[#4A1713] shadow-md'
+                                : 'text-white/70 hover:bg-white/10 hover:text-white'
                             }`}
                           >
-                            <Icon size={16} className={active ? 'text-suka-orange' : 'text-gray-400'} />
-                            <span className="flex-1">{label}</span>
+                            <Icon size={16} className={active ? 'text-[#4A1713]' : 'text-white/50 group-hover:text-white/80'} />
+                            <span className="flex-1 text-[13px]">{label}</span>
                             {href === '/dashboard/hr/leave' && pendingCount > 0 && (
                               <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                                 {pendingCount}
@@ -112,12 +119,12 @@ export const Sidebar = () => {
         })}
       </div>
 
-      <div className="p-4 border-t border-suka-gray-100 space-y-2">
+      <div className="p-4 space-y-2 relative z-10">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-[13px] text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all active:scale-95 shadow-sm"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-bold text-[13px] text-white/60 hover:text-white hover:bg-white/10 transition-all active:scale-95"
         >
-          <LogOut size={16} className="text-red-500" />
+          <LogOut size={16} />
           Logout
         </button>
       </div>

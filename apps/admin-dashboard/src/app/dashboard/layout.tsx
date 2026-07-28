@@ -8,11 +8,13 @@ import { CommandMenu } from '@/components/layout/CommandMenu'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-suka-cream">
+    <div className="flex h-screen w-full overflow-hidden bg-[#4A1713] relative">
+      {/* Decorative Glow - Kept strictly inside by overflow-hidden */}
+      <div className="absolute bottom-[-10rem] left-[-10rem] w-[30rem] h-[30rem] bg-suka-orange/20 blur-[120px] rounded-full pointer-events-none z-0" />
       <CommandMenu />
       <RealtimeMount />
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden bg-[#FDF9F3] md:rounded-l-[2.5rem] shadow-[-10px_0_30px_rgba(0,0,0,0.2)] relative z-10 transition-all">
         <Header />
         <SwipeableLayout>
           <main className="flex-1 overflow-y-auto w-full">

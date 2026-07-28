@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Wallet, Clock, History, Filter, Store, Building2, CheckCircle2, XCircle, Send, ArrowRight, Loader2, Camera, X, Download, Search } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { FinanceApprovalModal } from './FinanceApprovalModal'
 import { usePettyCashRequests, useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
 import { tanggalWaktu, relativeTime } from '@/lib/format'
@@ -235,7 +236,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
       <div className="inline-flex bg-white/60 backdrop-blur-xl rounded-2xl border border-suka-brown/5 p-1.5 shadow-sm">
         <button
           onClick={() => setActiveTab('review')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
             activeTab === 'review'
               ? 'bg-suka-orange/10 text-suka-orange shadow-sm'
               : 'text-suka-gray-500 hover:text-suka-brown hover:bg-white/50'
@@ -243,7 +244,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
         >
           <Clock className="w-4 h-4 text-amber-500" />
           Butuh Review & Pencairan
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
             activeTab === 'review' ? 'bg-orange-100 text-suka-orange' : 'bg-suka-brown/10 text-suka-brown'
           }`}>
             {allReviewRequests.length}
@@ -251,7 +252,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
             activeTab === 'history'
               ? 'bg-suka-orange/10 text-suka-orange shadow-sm'
               : 'text-suka-gray-500 hover:text-suka-brown hover:bg-white/50'
@@ -259,7 +260,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
         >
           <History className="w-4 h-4 text-blue-500" />
           Riwayat Pencairan
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
             activeTab === 'history' ? 'bg-blue-100 text-blue-800' : 'bg-suka-brown/10 text-suka-brown'
           }`}>
             {allHistoryRequests.length}
@@ -275,12 +276,12 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {activeTab === 'review' && (
             <>
-              <span className="text-[10px] font-black text-suka-gray-400 uppercase tracking-widest flex items-center gap-1.5 px-2">
+              <span className="text-xs font-semibold text-suka-gray-400 uppercase tracking-wider flex items-center gap-1.5 px-2">
                 <Filter className="w-3.5 h-3.5 text-amber-500" /> Filter:
               </span>
               <button
                 onClick={() => setReviewFilter('all')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
                   reviewFilter === 'all'
                     ? 'bg-suka-brown text-white border-suka-brown shadow-sm'
                     : 'bg-white text-suka-brown/70 border-suka-brown/20 hover:border-suka-brown hover:text-suka-brown'
@@ -290,7 +291,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
               </button>
               <button
                 onClick={() => setReviewFilter('unprocessed')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
                   reviewFilter === 'unprocessed'
                     ? 'bg-amber-500 text-white border-amber-500 shadow-2xs'
                     : 'bg-amber-50 text-amber-800 border-amber-200/80 hover:bg-amber-100'
@@ -301,7 +302,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
               </button>
               <button
                 onClick={() => setReviewFilter('ready_handover')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
                   reviewFilter === 'ready_handover'
                     ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
                     : 'bg-emerald-50 text-emerald-800 border-emerald-200/80 hover:bg-emerald-100'
@@ -368,47 +369,56 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
         </div>
       ) : (
         <div className="overflow-x-auto w-full">
-          <table className="w-full text-left border-collapse min-w-[750px] whitespace-nowrap">
+          <table className="w-full text-left text-sm border-collapse min-w-[750px] whitespace-nowrap">
             <thead>
-              <tr className="bg-suka-cream/40 text-suka-gray-500 text-[10px] uppercase font-black tracking-wider border-b border-suka-brown/5">
-                  <th className="py-3.5 px-5">Tanggal</th>
-                  <th className="py-3.5 px-5">Outlet</th>
-                  <th className="py-3.5 px-5">Rekening Tujuan</th>
-                  <th className="py-3.5 px-5">Nominal</th>
-                  <th className="py-3.5 px-5">Alasan / Keperluan</th>
-                  <th className="py-3.5 px-5">Status / Bukti</th>
-                  <th className="py-3.5 px-5 text-right">Aksi</th>
+              <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
+                  <th className="py-3 px-5 font-semibold">Tanggal</th>
+                  <th className="py-3 px-5 font-semibold">Outlet</th>
+                  <th className="py-3 px-5 font-semibold">Rekening Tujuan</th>
+                  <th className="py-3 px-5 font-semibold">Nominal</th>
+                  <th className="py-3 px-5 font-semibold">Alasan / Keperluan</th>
+                  <th className="py-3 px-5 font-semibold">Status / Bukti</th>
+                  <th className="py-3 px-5 font-semibold text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-suka-brown/5 text-xs">
+              <motion.tbody 
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  visible: { transition: { staggerChildren: 0.05 } },
+                  hidden: {},
+                }}
+                className="divide-y divide-suka-brown/5"
+              >
                 {requests.map((req) => (
-                  <tr key={req.id} className="hover:bg-orange-50/30 transition-colors">
-                    <td className="py-4 px-5 whitespace-nowrap" title={tanggalWaktu(req.created_at)}>
-                      <div className="font-black text-suka-brown text-xs">{relativeTime(req.created_at)}</div>
-                      <div className="text-[10px] text-suka-gray-400 font-bold uppercase tracking-wider">{tanggalWaktu(req.created_at)}</div>
+                  <motion.tr 
+                    variants={{
+                      hidden: { opacity: 0, y: 10 },
+                      visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+                    }}
+                    key={req.id} 
+                    className="hover:bg-orange-50/30 transition-colors group"
+                  >
+                    <td className="py-3 px-5 whitespace-nowrap text-suka-gray-500" title={tanggalWaktu(req.created_at)}>
+                      {tanggalWaktu(req.created_at)}
                     </td>
-                    <td className="py-4 px-5 font-bold text-suka-brown">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <Store className="w-3.5 h-3.5 text-suka-orange" />
-                        {req.outlet?.name || '-'}
-                      </div>
+                    <td className="py-3 px-5 font-semibold text-suka-ink">
+                      {req.outlet?.name || '-'}
                     </td>
-                    <td className="py-4 px-5 text-xs">
+                    <td className="py-3 px-5">
                       {req.bank_name ? (
-                        <div className="bg-suka-cream/50 p-2 rounded-xl border border-suka-brown/10 inline-block space-y-0.5">
-                          <div className="font-black text-suka-brown flex items-center gap-1 text-[11px]">
-                            <Building2 className="w-3 h-3 text-suka-orange" /> {req.bank_name} - <span className="font-mono">{req.bank_account_number}</span>
-                          </div>
-                          <div className="text-[10px] font-bold text-suka-gray-500">a.n {req.bank_account_name || '-'}</div>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-suka-ink">{req.bank_name} - {req.bank_account_number}</span>
+                          <span className="text-xs text-suka-gray-500">a.n {req.bank_account_name || '-'}</span>
                         </div>
                       ) : (
-                        <span className="text-suka-gray-400 italic text-[11px]">Belum ada</span>
+                        <span className="text-suka-gray-400 italic">Belum ada</span>
                       )}
                     </td>
-                    <td className="py-4 px-5 font-black text-suka-brown whitespace-nowrap text-sm">
+                    <td className="py-3 px-5 font-bold text-suka-ink group-hover:scale-105 transition-transform origin-left">
                       {formatRupiah(req.amount)}
                     </td>
-                    <td className="py-4 px-5 text-suka-brown font-medium max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed text-xs">
+                    <td className="py-3 px-5 text-suka-gray-600 max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed">
                       {(() => {
                         const { mainReason, financeNote } = parseFinanceNote(req.reason || req.description)
                         return (
@@ -423,40 +433,40 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                         )
                       })()}
                     </td>
-                    <td className="py-4 px-5 whitespace-nowrap">
+                    <td className="py-3 px-5 whitespace-nowrap">
                       <div className="flex flex-col items-start gap-1.5">
                         {req.status === 'forwarded_to_finance' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 font-bold text-[11px] rounded-lg border border-amber-200/80">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 font-medium text-xs rounded-lg border border-amber-200/80">
                             <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Acc Finance
                           </span>
                         )}
                         {req.status === 'approved_by_finance' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 font-bold text-[11px] rounded-lg border border-emerald-200/80">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 font-medium text-xs rounded-lg border border-emerald-200/80">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Dicairkan (Teruskan ke AM)
                           </span>
                         )}
                         {req.status === 'forwarded_by_finance' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-800 font-bold text-[11px] rounded-lg border border-blue-200/80">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-800 font-medium text-xs rounded-lg border border-blue-200/80">
                             <ArrowRight className="w-3.5 h-3.5 text-blue-600" /> Diserahkan ke AM
                           </span>
                         )}
                         {req.status === 'forwarded_by_area_manager' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-800 font-bold text-[11px] rounded-lg border border-indigo-200/80">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-800 font-medium text-xs rounded-lg border border-indigo-200/80">
                             <ArrowRight className="w-3.5 h-3.5 text-indigo-600" /> Diserahkan ke Leader
                           </span>
                         )}
                         {req.status === 'forwarded_by_leader' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-800 font-bold text-[11px] rounded-lg border border-purple-200/80">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-800 font-medium text-xs rounded-lg border border-purple-200/80">
                             <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" /> Diserahkan ke Crew
                           </span>
                         )}
                         {req.status === 'completed' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-600 text-white font-bold text-[11px] rounded-lg shadow-2xs">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-600 text-white font-medium text-xs rounded-lg shadow-2xs">
                             <CheckCircle2 className="w-3.5 h-3.5" /> Selesai
                           </span>
                         )}
                         {req.status === 'rejected' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 font-bold text-[11px] rounded-lg border border-red-200/80">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 font-medium text-xs rounded-lg border border-red-200/80">
                             <XCircle className="w-3.5 h-3.5 text-red-500" /> Ditolak
                           </span>
                         )}
@@ -465,18 +475,18 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                           <button
                             type="button"
                             onClick={() => setSelectedProofUrl(req.proof_of_transfer_url || null)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-lg border border-emerald-200/80 transition-colors shadow-2xs cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium text-xs rounded-lg border border-emerald-200/80 transition-colors shadow-2xs cursor-pointer"
                           >
                             <Camera className="w-3.5 h-3.5 text-emerald-600" /> Lihat Bukti Transfer
                           </button>
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-5 text-right whitespace-nowrap">
+                    <td className="py-3 px-5 text-right whitespace-nowrap">
                       {req.status === 'forwarded_to_finance' && activeTab === 'review' && (
                         <button
                           onClick={() => handleOpenModal(req)}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white rounded-xl font-bold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white rounded-lg font-medium text-sm transition-all shadow-sm active:scale-95 cursor-pointer"
                         >
                           <Wallet className="w-4 h-4" />
                           Proses / Acc
@@ -485,16 +495,16 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                       {req.status === 'approved_by_finance' && activeTab === 'review' && (
                         <button
                           onClick={() => handleForwardToAreaManager(req)}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition-all shadow-sm active:scale-95 cursor-pointer"
                         >
                           <Send className="w-4 h-4" />
                           Serahkan ke AM
                         </button>
                       )}
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
-              </tbody>
+              </motion.tbody>
             </table>
           </div>
       )}

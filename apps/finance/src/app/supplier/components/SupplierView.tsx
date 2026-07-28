@@ -51,10 +51,13 @@ export function SupplierView({
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-suka-brown">Pembayaran Supplier</h1>
-        <p className="text-suka-gray-500">Bayar PO yang sudah diterima. Tiap pembayaran jadi transaksi kas untuk di-approve.</p>
+    <div className="space-y-8 font-sans">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Pembayaran</p>
+          <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Pembayaran Supplier</h1>
+          <p className="text-suka-ink/60 mt-2 font-medium">Bayar PO yang sudah diterima. Tiap pembayaran jadi transaksi kas untuk di-approve.</p>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-suka-gray-200 bg-white p-4 shadow-sm">

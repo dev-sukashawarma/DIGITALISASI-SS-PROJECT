@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/ui'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { PettyCashReportView, type PettyCashTransaction, type DailyPettyCashSummary } from '@/components/owner/PettyCashReportView'
 import type { PeriodFilterValue, Outlet } from '@/lib/types'
-import { Printer } from 'lucide-react'
+import { Printer, Wallet } from 'lucide-react'
 
 interface PettyCashPageClientProps {
   filter: PeriodFilterValue
@@ -46,8 +46,9 @@ export default function PettyCashPageClient({
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="Laporan Petty Cash (Khusus)"
+        title="Laporan Petty Cash"
         description="Laporan rincian mutasi kas kecil, pengeluaran operasional, rekap saldo harian, dan bukti nota transaksi"
+        icon={Wallet}
       >
         <div className="flex flex-col sm:flex-row items-center gap-2">
           <PeriodFilter

@@ -11,7 +11,7 @@
   --color-suka-orange: #f29744;
   --color-suka-brown: #701604;
   --color-suka-ink: #400a07;
-  --color-suka-cream: #fff7ed;
+  --color-suka-cream: #FDF9F3;
   --color-suka-green: #0a7d2c;
   --color-suka-gray-50: #f9fafb;
   --color-suka-gray-100: #f3f4f6;
@@ -107,7 +107,7 @@
     min-height: 100%;
     font-family: "Plus Jakarta Sans", system-ui, sans-serif;
     color: #400a07; /* Suka Ink */
-    background-color: #fff7ed; /* Suka Cream */
+    background-color: #FDF9F3; /* Suka Cream */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

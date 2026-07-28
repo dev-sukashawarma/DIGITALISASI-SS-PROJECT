@@ -102,7 +102,7 @@ export default function OwnerDashboardView({
             <PeriodFilter value={filter} onChange={handleFilterChange} outlets={outlets} lockedOutletId={lockedOutletId} hideSource />
             <button
               onClick={() => window.print()}
-              className="w-full sm:w-auto px-4 py-2 bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+              className="w-full sm:w-auto px-4 py-2 bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-xs transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
             >
               <Printer size={15} /> Cetak PDF
             </button>

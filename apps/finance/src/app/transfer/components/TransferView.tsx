@@ -53,10 +53,13 @@ export function TransferView({
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-suka-brown">Transfer Kas</h1>
-        <p className="text-suka-gray-500">Pindah dana antar lokasi, mis. setor <b>Kas Pusat → Bank</b>. Tercatat dua-kaki, langsung terrekonsiliasi.</p>
+    <div className="space-y-8 font-sans">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Arus Kas</p>
+          <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Transfer Kas</h1>
+          <p className="text-suka-ink/60 mt-2 font-medium">Pindah dana antar lokasi, mis. setor <b>Kas Pusat → Bank</b>. Tercatat dua-kaki, langsung terrekonsiliasi.</p>
+        </div>
       </div>
 
       <SectionCard title="Transfer Baru">

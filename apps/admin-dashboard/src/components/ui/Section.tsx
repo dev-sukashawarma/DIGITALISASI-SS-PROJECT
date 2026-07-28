@@ -22,7 +22,7 @@ export function Section({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className={`bg-white rounded-2xl border border-suka-gray-200 shadow-sm ${className}`}>
+    <div className={`bg-white/80 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm ${className}`}>
       {title && (
         collapsible ? (
           <button
@@ -30,12 +30,12 @@ export function Section({
             onClick={() => setOpen((v) => !v)}
             className="w-full flex items-center justify-between px-5 sm:px-6 py-4 text-left"
           >
-            <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">{title}</h3>
+            <h3 className="font-bold text-suka-brown text-sm tracking-tight uppercase">{title}</h3>
             <ChevronDown className={`w-5 h-5 text-suka-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>
         ) : (
           <div className="px-5 sm:px-6 pt-5 sm:pt-6">
-            <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">{title}</h3>
+            <h3 className="font-bold text-suka-brown text-sm tracking-tight uppercase">{title}</h3>
           </div>
         )
       )}

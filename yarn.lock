@@ -248,12 +248,7 @@
   resolved "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-7.29.7.tgz"
   integrity sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg==
 
-"@babel/helper-validator-identifier@^8.0.0":
-  version "8.0.4"
-  resolved "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-8.0.4.tgz"
-  integrity sha512-4wFaiLd0bVo4cIoTXI3zKI038NIWE/cr3jvBjejOVYVxV/m8Ltav1USiGzG1fmS5J2RhgEOgXNNK46cRPnRsrg==
-
-"@babel/helper-validator-identifier@^8.0.4":
+"@babel/helper-validator-identifier@^8.0.0", "@babel/helper-validator-identifier@^8.0.4":
   version "8.0.4"
   resolved "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-8.0.4.tgz"
   integrity sha512-4wFaiLd0bVo4cIoTXI3zKI038NIWE/cr3jvBjejOVYVxV/m8Ltav1USiGzG1fmS5J2RhgEOgXNNK46cRPnRsrg==
@@ -1596,6 +1591,76 @@
   dependencies:
     fast-glob "3.3.1"
 
+"@next/swc-darwin-arm64@15.5.19", "@next/swc-darwin-arm64@16.2.9":
+  version "16.2.9"
+  resolved "https://registry.npmjs.org/@next/swc-darwin-arm64/-/swc-darwin-arm64-16.2.9.tgz"
+  integrity sha512-HkfxNYUCmcct0Xsqib5KxqMSHV4AHJq857BNRchyBDs4YS19aHzVfn1kDuBYKqLLQBjXgnkIsjV2Kd4d2wzYhw==
+
+"@next/swc-darwin-arm64@15.5.22":
+  version "15.5.22"
+  resolved "https://registry.npmjs.org/@next/swc-darwin-arm64/-/swc-darwin-arm64-15.5.22.tgz"
+  integrity sha512-/VISwtffSg8+fVvBbXdglsvruCsdbBC4dG25iU6xascKVqfQKsj/OtjGnOEkIS7pX5GB9e9/r5QprpicsGL3gw==
+
+"@next/swc-darwin-x64@15.5.19", "@next/swc-darwin-x64@16.2.9":
+  version "16.2.9"
+  resolved "https://registry.npmjs.org/@next/swc-darwin-x64/-/swc-darwin-x64-16.2.9.tgz"
+  integrity sha512-7IAtK4MeybpqRV9GRABWEhJ62mOS+rzWOzOTFie4cSEtm12xsoOMJRcECoZx3FHPzFAqN/IJtHqWAFOLfl152w==
+
+"@next/swc-darwin-x64@15.5.22":
+  version "15.5.22"
+  resolved "https://registry.npmjs.org/@next/swc-darwin-x64/-/swc-darwin-x64-15.5.22.tgz"
+  integrity sha512-NiA9ve8hbiuhG/Q17a2mZDRVxMTtg3rTOgjLnDaLlE+AEPAQlkkuKrfePEbeOrgYmX0U2KGX4EVEn09hXU5GlQ==
+
+"@next/swc-linux-arm64-gnu@15.5.19", "@next/swc-linux-arm64-gnu@16.2.9":
+  version "16.2.9"
+  resolved "https://registry.npmjs.org/@next/swc-linux-arm64-gnu/-/swc-linux-arm64-gnu-16.2.9.tgz"
+  integrity sha512-hBD75iWpUtkL9SmQmcRhmLomn9jgkPzCEkbOcLgHymPEKzv+6ONy13RRiIEz/iEObjkS2Jlb5gYS2XGoS3X4rw==
+
+"@next/swc-linux-arm64-gnu@15.5.22":
+  version "15.5.22"
+  resolved "https://registry.npmjs.org/@next/swc-linux-arm64-gnu/-/swc-linux-arm64-gnu-15.5.22.tgz"
+  integrity sha512-vAPa9vltW+UW/KWtjXeSUFgV3wb1x9d/BeyC6WFI6eBpL0D2f70oGwtOp6193mNW3qusrpgBzMQferPf+Zh8Dw==
+
+"@next/swc-linux-arm64-musl@15.5.19", "@next/swc-linux-arm64-musl@16.2.9":
+  version "16.2.9"
+  resolved "https://registry.npmjs.org/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-16.2.9.tgz"
+  integrity sha512-qZTI3pf9SGc/obr8NkQAekBxmp1QK+kVm+VAf3BALLfFAj+1kUhkTxmrWpVos9R/UYIA8AWX2p6cGI5WdwzVUA==
+
+"@next/swc-linux-arm64-musl@15.5.22":
+  version "15.5.22"
+  resolved "https://registry.npmjs.org/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-15.5.22.tgz"
+  integrity sha512-iknK80pWlNDnkdSr13bd8mMuG3Z2oTxODwsZHvuMY7caMk77+rBLdHVWsy8v2EVa3ZojJ/+wJX5fnq8va6Gv8A==
+
+"@next/swc-linux-x64-gnu@15.5.19", "@next/swc-linux-x64-gnu@16.2.9":
+  version "16.2.9"
+  resolved "https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.2.9.tgz"
+  integrity sha512-xm0HfRNX+UkH4R3c18ynswjj5o5uEj/7iI9p9omdtTSIsRCzQqkGMA+10nzJ4EHnYC3as65IMhbbl5fWRUWHYg==
+
+"@next/swc-linux-x64-gnu@15.5.22":
+  version "15.5.22"
+  resolved "https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-15.5.22.tgz"
+  integrity sha512-penuEdkwU2OOAiS+n4LE8T/VIoCfAI01QcLZTJ2xc3+l4Q22L/DzURocmI2LU1b+8BMQoLAP1Sze3uYAZT05Bg==
+
+"@next/swc-linux-x64-musl@15.5.19", "@next/swc-linux-x64-musl@16.2.9":
+  version "16.2.9"
+  resolved "https://registry.npmjs.org/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-16.2.9.tgz"
+  integrity sha512-QumimHkGEG6vM3PfEDWKyKen03NcqLOkeKB1EfcPe7VxzmEiCa4jNnMyBn/US5zcd/VE1CI+O8Ovb3lfjVHfGw==
+
+"@next/swc-linux-x64-musl@15.5.22":
+  version "15.5.22"
+  resolved "https://registry.npmjs.org/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-15.5.22.tgz"
+  integrity sha512-ZM0BKJm3FZ+guG6WT6PcyOLtp6paZ5tngcJC/uUKvLW4Y0TQnnVi1+UGdo8Q6Yxp5gaS82pmC1rD/oFlhkWB3g==
+
+"@next/swc-win32-arm64-msvc@15.5.19", "@next/swc-win32-arm64-msvc@16.2.9":
+  version "16.2.9"
+  resolved "https://registry.npmjs.org/@next/swc-win32-arm64-msvc/-/swc-win32-arm64-msvc-16.2.9.tgz"
+  integrity sha512-hzQpKZvw8rAwI6A2uQh6SacCSvNAXaIkPNsWwzqqfRiIMiXMfH936skDhz1OO6KpvdKkJrgHHtqQOq5PIXOvdQ==
+
+"@next/swc-win32-arm64-msvc@15.5.22":
+  version "15.5.22"
+  resolved "https://registry.npmjs.org/@next/swc-win32-arm64-msvc/-/swc-win32-arm64-msvc-15.5.22.tgz"
+  integrity sha512-rY/YaumrZaS0//94BnHLF5VSRp0GFUO4GvXNuoCBb0cGSci96yO+p1JaNL2aq9YZAYv9cuZRziV02x5IQH/wjg==
+
 "@next/swc-win32-x64-msvc@15.5.19":
   version "15.5.19"
   resolved "https://registry.npmjs.org/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-15.5.19.tgz"
@@ -1636,6 +1701,14 @@
   version "1.0.39"
   resolved "https://registry.npmjs.org/@nolyfill/is-core-module/-/is-core-module-1.0.39.tgz"
   integrity sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==
+
+"@number-flow/react@^0.6.2":
+  version "0.6.2"
+  resolved "https://registry.npmjs.org/@number-flow/react/-/react-0.6.2.tgz"
+  integrity sha512-WjZuV4aA+vhRCgCF+adGLgFVVAJ8vdvq6EchRT2FiBIgElTXtDOA3YgkcMr9UHpvpS9v4H70AB5wZv0D9jc3QA==
+  dependencies:
+    esm-env "^1.1.4"
+    number-flow "0.6.2"
 
 "@playwright/test@^1.49.0":
   version "1.61.0"
@@ -1972,7 +2045,7 @@
   resolved "https://registry.npmjs.org/@standard-schema/utils/-/utils-0.3.0.tgz"
   integrity sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==
 
-"@suka/absensi@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\absensi":
+"@suka/absensi@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\absensi":
   version "0.0.1"
   resolved "file:apps/absensi"
   dependencies:
@@ -1992,7 +2065,7 @@
     react-dom "^19.0.0-rc.0"
     react-swipeable "^7.0.2"
 
-"@suka/admin-dashboard@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\admin-dashboard":
+"@suka/admin-dashboard@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\admin-dashboard":
   version "0.0.1"
   resolved "file:apps/admin-dashboard"
   dependencies:
@@ -2029,18 +2102,18 @@
     xlsx "^0.18.5"
     zod "^4.4.3"
 
-"@suka/auth@*", "@suka/auth@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\packages\\auth":
+"@suka/auth@*", "@suka/auth@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\packages\\auth":
   version "0.0.1"
   resolved "file:packages/auth"
   dependencies:
     "@supabase/ssr" "^0.5.1"
     "@supabase/supabase-js" "^2.45.0"
 
-"@suka/design-system@*", "@suka/design-system@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\packages\\design-system":
+"@suka/design-system@*", "@suka/design-system@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\packages\\design-system":
   version "0.0.1"
   resolved "file:packages/design-system"
 
-"@suka/distribusi@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\distribusi":
+"@suka/distribusi@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\distribusi":
   version "0.0.1"
   resolved "file:apps/distribusi"
   dependencies:
@@ -2056,7 +2129,7 @@
     react "^19.0.0-rc.0"
     react-dom "^19.0.0-rc.0"
 
-"@suka/finance@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\finance":
+"@suka/finance@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\finance":
   version "0.0.1"
   resolved "file:apps/finance"
   dependencies:
@@ -2072,13 +2145,13 @@
     react-dom "^19.0.0-rc.0"
     sonner "^1.4.0"
 
-"@suka/offline-queue@*", "@suka/offline-queue@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\packages\\offline-queue":
+"@suka/offline-queue@*", "@suka/offline-queue@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\packages\\offline-queue":
   version "0.0.1"
   resolved "file:packages/offline-queue"
   dependencies:
     idb-keyval "^6.2.1"
 
-"@suka/owner-dashboard@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\owner-dashboard":
+"@suka/owner-dashboard@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\owner-dashboard":
   version "0.0.1"
   resolved "file:apps/owner-dashboard"
   dependencies:
@@ -2098,7 +2171,7 @@
     sonner "^1.4.0"
     zustand "^4.5.4"
 
-"@suka/portal@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\portal":
+"@suka/portal@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\portal":
   version "0.1.0"
   resolved "file:apps/portal"
   dependencies:
@@ -2110,13 +2183,13 @@
     react "^19.0.0"
     react-dom "^19.0.0"
 
-"@suka/realtime@*", "@suka/realtime@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\packages\\realtime":
+"@suka/realtime@*", "@suka/realtime@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\packages\\realtime":
   version "0.0.1"
   resolved "file:packages/realtime"
   dependencies:
     "@suka/auth" "*"
 
-"@suka/stok@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\stok":
+"@suka/stok@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\stok":
   version "0.0.1"
   resolved "file:apps/stok"
   dependencies:
@@ -2166,21 +2239,13 @@
     "@supabase/phoenix" "0.4.5"
     tslib "2.8.1"
 
-"@supabase/ssr@^0.2.0":
+"@supabase/ssr@^0.2.0", "@supabase/ssr@^0.5.1":
   version "0.2.0"
   resolved "https://registry.npmjs.org/@supabase/ssr/-/ssr-0.2.0.tgz"
   integrity sha512-fvnIU5bvl00JFa9umoaDwnYVnea9CjPC9vVrismSJSI46yVzUwERTCSIjd37vz5pgCa8mYxZi/UvtMnJaCKFvw==
   dependencies:
     cookie "^0.5.0"
     ramda "^0.29.0"
-
-"@supabase/ssr@^0.5.1":
-  version "0.5.2"
-  resolved "https://registry.npmjs.org/@supabase/ssr/-/ssr-0.5.2.tgz"
-  integrity sha512-n3plRhr2Bs8Xun1o4S3k1CDv17iH5QY9YcoEvXX3bxV1/5XSasA0mNXYycFmADIdtdE6BG9MRjP5CGIs8qxC8A==
-  dependencies:
-    "@types/cookie" "^0.6.0"
-    cookie "^0.7.0"
 
 "@supabase/storage-js@2.110.7":
   version "2.110.7"
@@ -2786,11 +2851,6 @@
   version "2.0.7"
   resolved "https://registry.npmjs.org/@types/trusted-types/-/trusted-types-2.0.7.tgz"
   integrity sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==
-
-"@types/ua-parser-js@^0.7.39":
-  version "0.7.39"
-  resolved "https://registry.npmjs.org/@types/ua-parser-js/-/ua-parser-js-0.7.39.tgz"
-  integrity sha512-P/oDfpofrdtF5xw433SPALpdSchtJmY7nsJItf8h3KXqOslkbySh8zq4dSWXH2oTjRvJ5PczVEoCZPow6GicLg==
 
 "@types/use-sync-external-store@^0.0.6":
   version "0.0.6"
@@ -4700,6 +4760,11 @@ eslint@^8.57.0:
     strip-ansi "^6.0.1"
     text-table "^0.2.0"
 
+esm-env@^1.1.4:
+  version "1.2.2"
+  resolved "https://registry.npmjs.org/esm-env/-/esm-env-1.2.2.tgz"
+  integrity sha512-Epxrv+Nr/CaL4ZcFGPJIYLWFom+YeV1DqMLHJoEd9SYRxNbaFruBwfEX/kkHUJf55j2+TUbmDcmuilbP1TmXHA==
+
 espree@^9.6.0, espree@^9.6.1:
   version "9.6.1"
   resolved "https://registry.npmjs.org/espree/-/espree-9.6.1.tgz"
@@ -5072,7 +5137,7 @@ frac@~1.1.2:
   resolved "https://registry.npmjs.org/frac/-/frac-1.1.2.tgz"
   integrity sha512-w/XBfkibaTl3YDqASwfDUqkna4Z2p9cFSr1aHDt0WoMTECnRfBOv2WArlZILlqgWlmdIlALXGpM2AOhEk5W3IA==
 
-framer-motion@^11.0.3:
+framer-motion@^11.0.3, framer-motion@^11.18.2:
   version "11.18.2"
   resolved "https://registry.npmjs.org/framer-motion/-/framer-motion-11.18.2.tgz"
   integrity sha512-5F5Och7wrvtLVElIpclDT0CBzMVg3dL22B64aZwHtsIY8RB4mXICLrkajK4G9R+ieSAGcgrLeae2SeUTg2pr6w==
@@ -6634,6 +6699,13 @@ nullthrows@^1.1.1:
   resolved "https://registry.npmjs.org/nullthrows/-/nullthrows-1.1.1.tgz"
   integrity sha512-2vPPEi+Z7WqML2jZYddDIfy5Dqb0r2fze2zTxNNknZaFpVHU3mFB3R+DWeJWGVx0ecvttSGlJTI+WG+8Z4cDWw==
 
+number-flow@0.6.2:
+  version "0.6.2"
+  resolved "https://registry.npmjs.org/number-flow/-/number-flow-0.6.2.tgz"
+  integrity sha512-MCnImG4Q5vPwhSXnov56nOuyyKn6LC+Qd7II1UiKc+ACRtug5iAtn0+CwXNxM38AC5lSowEY+oYEtZX2qMnUyw==
+  dependencies:
+    esm-env "^1.1.4"
+
 nwsapi@^2.2.12:
   version "2.2.24"
   resolved "https://registry.npmjs.org/nwsapi/-/nwsapi-2.2.24.tgz"
@@ -7573,7 +7645,7 @@ recharts@^2.12.7:
     tiny-invariant "^1.3.1"
     victory-vendor "^36.6.8"
 
-recharts@^3.8.1:
+recharts@^3.8.1, recharts@^3.9.1:
   version "3.9.1"
   resolved "https://registry.npmjs.org/recharts/-/recharts-3.9.1.tgz"
   integrity sha512-WMcwlXcB7l+BbxiEdyClkG+1sxrMHNZpzT577LEvU4+rXPd8oTAy1wXk72hnk2KOOmxuLvw3z5DtXT7HEAydtg==
@@ -8030,7 +8102,7 @@ sharp@^0.34.3, sharp@^0.34.5:
     "@img/sharp-win32-ia32" "0.34.5"
     "@img/sharp-win32-x64" "0.34.5"
 
-"shawarma-kiosk@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\apps\\pos-kasir":
+"shawarma-kiosk@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\apps\\pos-kasir":
   version "1.0.0"
   resolved "file:apps/pos-kasir"
   dependencies:
@@ -8382,7 +8454,7 @@ styled-jsx@5.1.6:
   dependencies:
     client-only "0.0.1"
 
-"superapp@file:C:\\Users\\Creator MPB\\OneDrive\\Desktop\\New folder\\DIGITALISASI-SS-PROJECT\\mobile\\superapp":
+"superapp@file:D:\\MIT\\CLAUDE CODE PROJECT\\SS DIGITAL PROJECT\\mobile\\superapp":
   version "1.0.0"
   resolved "file:mobile/superapp"
   dependencies:

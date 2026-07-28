@@ -233,8 +233,8 @@ export default function KruChecklistPage() {
         .select("type")
         .eq("outlet_staff_id", outletStaff!.id)
         .eq("type", "in")
-        .gte("ts_server", `${today}T00:00:00`)
-        .lte("ts_server", `${today}T23:59:59`)
+        .gte("ts_server", `${today}T00:00:00+07:00`)
+        .lte("ts_server", `${today}T23:59:59+07:00`)
         .limit(1);
       return (data?.length ?? 0) > 0;
     }
@@ -629,8 +629,8 @@ export default function KruChecklistPage() {
                 const { error } = await supabase.from("attendance")
                   .delete()
                   .eq("outlet_id", selectedOutletId)
-                  .gte("ts_server", `${todayStr}T00:00:00`)
-                  .lte("ts_server", `${todayStr}T23:59:59`);
+                  .gte("ts_server", `${todayStr}T00:00:00+07:00`)
+                  .lte("ts_server", `${todayStr}T23:59:59+07:00`);
                 if (error) toast.show("err", "Gagal reset log absensi. " + error.message);
                 else {
                   toast.show("ok", "Log absensi hari ini dihapus. Silakan refresh halaman.");

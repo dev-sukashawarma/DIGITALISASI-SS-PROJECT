@@ -21,6 +21,8 @@ export async function POST(req: Request) {
       .from("outlet_staff")
       .select("outlet_id, face_descriptor, role")
       .eq("id", body.outlet_staff_id).single();
+
+    if (!target) return NextResponse.json({ ok: false, reason: "staff_not_found" }, { status: 404 });
       
     const isGlobalRole = ["spv", "owner", "admin", "admin_hr"].includes(target.role);
     if (!isGlobalRole && target.outlet_id !== body.outlet_id) {

@@ -13,7 +13,7 @@ import { PermissionModal } from "@/components/PermissionModal";
 import { loadFaceModels } from "@/lib/face/recognizer";
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
-import { formatDistanceMeters } from "@/lib/gps";
+import { formatDistanceMeters, haversineMeters } from "@/lib/gps";
 
 dayjs.locale("id");
 
@@ -78,7 +78,7 @@ export function AttendanceKioskPanel() {
     async function loadAssignedOutlets() {
       let list: AssignedOutlet[] = [];
       try {
-        const res = await fetch(`/api/staff-outlets?staff_id=${outletStaff.id}`);
+        const res = await fetch(`/api/staff-outlets?staff_id=${outletStaff!.id}`);
         const resData = await res.json();
         if (resData.ok && Array.isArray(resData.outlets)) {
           list = resData.outlets;
@@ -87,10 +87,10 @@ export function AttendanceKioskPanel() {
         console.error("Failed to fetch /api/staff-outlets:", err);
       }
 
-      if (list.length === 0 && outletStaff.outlet_id) {
+      if (list.length === 0 && outletStaff!.outlet_id) {
         list = [{
-          id: outletStaff.outlet_id,
-          name: outletStaff.outlets?.name || "Outlet Utama",
+          id: outletStaff!.outlet_id,
+          name: outletStaff!.outlets?.name || "Outlet Utama",
           lat: null,
           lng: null,
         }];

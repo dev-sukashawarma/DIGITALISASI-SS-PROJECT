@@ -33,8 +33,8 @@ export async function GET(request: Request) {
         .from('attendance')
         .select('id, type, ts_server, ts_client, status, selfie_url, outlet_staff_id, telat_menit')
         .eq('outlet_id', outlet_id)
-        .gte('ts_server', `${date}T00:00:00`)
-        .lte('ts_server', `${date}T23:59:59`)
+        .gte('ts_server', `${date}T00:00:00+07:00`)
+        .lte('ts_server', `${date}T23:59:59+07:00`)
         .order('ts_server', { ascending: false }),
 
       supabaseService
@@ -99,7 +99,7 @@ export async function GET(request: Request) {
       .map((staff) => ({
         id: `virtual-alpha-${staff.id}`,
         type: 'in' as const,
-        ts_server: `${date}T23:59:59`,
+        ts_server: `${date}T23:59:59+07:00`,
         ts_client: null,
         status: 'alpha' as const,
         selfie_url: null,

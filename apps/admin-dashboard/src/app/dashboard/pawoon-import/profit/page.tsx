@@ -68,26 +68,35 @@ export default async function PawoonProfitPage({
     // Fetch all order items for these orders and join menu_items
     const allOrderItems: any[] = [];
     if (orderIds.length > 0) {
-        // Chunking order items fetching because array could be large
+        // Parallel fetching because array could be large
         const chunkSize = 500;
+        const chunks = [];
         for (let i = 0; i < orderIds.length; i += chunkSize) {
-            const chunk = orderIds.slice(i, i + chunkSize);
-            const { data: itemsData } = await supabase
-                .from('order_items')
-                .select(`
-                    order_id, 
-                    menu_item_id, 
-                    menu_item_name, 
-                    quantity, 
-                    unit_price, 
-                    subtotal,
-                    menu_items ( hpp_override )
-                `)
-                .in('order_id', chunk);
-                
-            if (itemsData) {
-                allOrderItems.push(...itemsData);
-            }
+            chunks.push(orderIds.slice(i, i + chunkSize));
+        }
+        
+        // Batch promises to avoid overloading connection pool
+        for (let i = 0; i < chunks.length; i += 10) {
+            const batch = chunks.slice(i, i + 10);
+            const promises = batch.map(chunk => 
+                supabase
+                    .from('order_items')
+                    .select(`
+                        order_id, 
+                        menu_item_id, 
+                        menu_item_name, 
+                        quantity, 
+                        unit_price, 
+                        subtotal,
+                        menu_items ( hpp_override )
+                    `)
+                    .in('order_id', chunk)
+            );
+            
+            const results = await Promise.all(promises);
+            results.forEach(res => {
+                if (res.data) allOrderItems.push(...res.data);
+            });
         }
     }
 

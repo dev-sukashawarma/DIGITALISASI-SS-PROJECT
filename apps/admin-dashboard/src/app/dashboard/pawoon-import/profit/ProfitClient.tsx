@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Store, Calendar, TrendingUp, AlertCircle, DollarSign, PieChart, Info } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Store, Calendar, TrendingUp, AlertCircle, DollarSign, PieChart, Info, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 export default function ProfitClient({
     outlets,
@@ -32,6 +32,10 @@ export default function ProfitClient({
     const [filterFrom, setFilterFrom] = useState(fromDate);
     const [filterTo, setFilterTo] = useState(toDate);
 
+    // Table states
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'profit', direction: 'desc' });
+
     const applyFilters = () => {
         const params = new URLSearchParams();
         if (filterOutlet !== 'ALL') params.set('outlet', filterOutlet);
@@ -57,6 +61,64 @@ export default function ProfitClient({
 
     const hasMissingHpp = itemSummary.some(item => item.missingHpp);
     const isDataLoaded = selectedOutletId !== '';
+
+    // Handle Sorting
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'desc';
+        if (sortConfig.key === key && sortConfig.direction === 'desc') {
+            direction = 'asc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const SortIcon = ({ columnKey }: { columnKey: string }) => {
+        if (sortConfig.key !== columnKey) return <ArrowUpDown className="w-3.5 h-3.5 ml-1 inline-block opacity-40 group-hover:opacity-100" />;
+        return sortConfig.direction === 'asc' ? 
+            <ArrowUp className="w-3.5 h-3.5 ml-1 inline-block text-suka-primary" /> : 
+            <ArrowDown className="w-3.5 h-3.5 ml-1 inline-block text-suka-primary" />;
+    };
+
+    // Filter and Sort Data
+    const processedSummary = useMemo(() => {
+        let data = [...itemSummary];
+
+        // 1. Search
+        if (searchQuery.trim() !== '') {
+            const lowerQuery = searchQuery.toLowerCase();
+            data = data.filter(item => item.name.toLowerCase().includes(lowerQuery));
+        }
+
+        // 2. Sort
+        data.sort((a, b) => {
+            const profitA = a.omset - a.hppTotal;
+            const profitB = b.omset - b.hppTotal;
+
+            let valA, valB;
+            switch (sortConfig.key) {
+                case 'name':
+                    valA = a.name; valB = b.name; break;
+                case 'qty':
+                    valA = a.qty; valB = b.qty; break;
+                case 'omset':
+                    valA = a.omset; valB = b.omset; break;
+                case 'hppUnit':
+                    valA = a.hppUnit; valB = b.hppUnit; break;
+                case 'hppTotal':
+                    valA = a.hppTotal; valB = b.hppTotal; break;
+                case 'profit':
+                    valA = profitA; valB = profitB; break;
+                default:
+                    valA = profitA; valB = profitB;
+            }
+
+            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        return data;
+    }, [itemSummary, searchQuery, sortConfig]);
+
 
     return (
         <div className="space-y-6">
@@ -188,36 +250,62 @@ export default function ProfitClient({
 
                     {/* Table Detail */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h3 className="font-bold text-lg text-gray-800">Rincian Penjualan per Menu</h3>
-                            {selectedOutletId === 'ALL' && (
-                                <p className="text-xs text-gray-500 flex items-center gap-1">
-                                    <Info className="w-3.5 h-3.5" /> 
-                                    Catatan: Anda sedang melihat semua outlet. HPP/pcs yang tampil mungkin bervariasi antara Cabang & Mitra.
-                                </p>
-                            )}
+                        <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center bg-gray-50/50 gap-4">
+                            <div>
+                                <h3 className="font-bold text-lg text-gray-800">Rincian Penjualan per Menu</h3>
+                                {selectedOutletId === 'ALL' && (
+                                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                        <Info className="w-3.5 h-3.5" /> 
+                                        Catatan: Anda sedang melihat semua outlet. HPP/pcs yang tampil mungkin bervariasi antara Cabang & Mitra.
+                                    </p>
+                                )}
+                            </div>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Search className="h-4 w-4 text-gray-400" />
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Cari menu..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full md:w-64"
+                                />
+                            </div>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-white border-b border-gray-100 text-gray-500 text-[11px] uppercase tracking-wider font-extrabold">
                                     <tr>
-                                        <th className="px-6 py-4">Menu Item</th>
-                                        <th className="px-6 py-4 text-center">Qty</th>
-                                        <th className="px-6 py-4 text-right">Omset</th>
-                                        <th className="px-6 py-4 text-right">HPP / pcs</th>
-                                        <th className="px-6 py-4 text-right">Total Modal (HPP)</th>
-                                        <th className="px-6 py-4 text-right">Laba Kotor</th>
+                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('name')}>
+                                            Menu Item <SortIcon columnKey="name" />
+                                        </th>
+                                        <th className="px-6 py-4 text-center cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('qty')}>
+                                            Qty <SortIcon columnKey="qty" />
+                                        </th>
+                                        <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('omset')}>
+                                            Omset <SortIcon columnKey="omset" />
+                                        </th>
+                                        <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('hppUnit')}>
+                                            HPP / pcs <SortIcon columnKey="hppUnit" />
+                                        </th>
+                                        <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('hppTotal')}>
+                                            Total Modal (HPP) <SortIcon columnKey="hppTotal" />
+                                        </th>
+                                        <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('profit')}>
+                                            Laba Kotor <SortIcon columnKey="profit" />
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {itemSummary.map((item, idx) => {
+                                    {processedSummary.map((item, idx) => {
                                         const profit = item.omset - item.hppTotal;
                                         return (
                                             <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
                                                 <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
                                                     {item.name}
                                                     {item.missingHpp && (
-                                                        <span className="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Set HPP!</span>
+                                                        <span className="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Set HPP!</span>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 text-center font-bold text-gray-700">{item.qty.toLocaleString('id-ID')}</td>
@@ -233,10 +321,14 @@ export default function ProfitClient({
                                             </tr>
                                         );
                                     })}
-                                    {itemSummary.length === 0 && (
+                                    {processedSummary.length === 0 && (
                                         <tr>
                                             <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
-                                                Tidak ada data penjualan untuk filter ini.
+                                                {searchQuery ? (
+                                                    <>Tidak ada menu yang sesuai dengan pencarian "<strong>{searchQuery}</strong>".</>
+                                                ) : (
+                                                    <>Tidak ada data penjualan untuk filter ini.</>
+                                                )}
                                             </td>
                                         </tr>
                                     )}

@@ -171,6 +171,26 @@ export default function RekapPage() {
     }
   }, [staffSummaries]);
 
+  const detailByDate = useMemo(() => {
+    if (!selectedStaff) return [];
+    const groups = new Map<string, { in?: Row, out?: Row, alpha?: Row, dateTs: string }>();
+
+    for (const r of selectedStaff.rows) {
+      const d = dayjs(r.ts_server).format("DD MMM YYYY");
+      const existing = groups.get(d) || { dateTs: r.ts_server };
+      if (r.status === "alpha") {
+        existing.alpha = r;
+      } else if (r.type === "in") {
+        existing.in = r;
+      } else if (r.type === "out") {
+        existing.out = r;
+      }
+      groups.set(d, existing);
+    }
+
+    return Array.from(groups.values()).sort((a, b) => new Date(b.dateTs).getTime() - new Date(a.dateTs).getTime());
+  }, [selectedStaff]);
+
   const STAT = [
     { label: "Kehadiran (Masuk)", value: globalSummary.masuk, bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-100" },
     { label: "Terlambat", value: globalSummary.telat, bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-100" },
@@ -375,39 +395,103 @@ export default function RekapPage() {
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-              {selectedStaff.rows.length === 0 ? (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+              {detailByDate.length === 0 ? (
                 <div className="text-center p-8 text-slate-500">Tidak ada riwayat detail.</div>
               ) : (
-                selectedStaff.rows.map(r => (
-                  <div key={r.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-start gap-3">
-                    {r.selfie_url ? (
-                      <img 
-                        src={selfieUrl(r.selfie_url)} 
-                        alt="selfie" 
-                        onClick={() => setPreview(selfieUrl(r.selfie_url!))}
-                        className="h-14 w-14 shrink-0 cursor-pointer rounded-xl object-cover border border-slate-100 bg-slate-100" 
-                      />
-                    ) : (
-                      <div className="h-14 w-14 shrink-0 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-300">
-                         <X size={24} />
+                detailByDate.map(day => {
+                  const isAlpha = !day.in && day.alpha;
+                  const dateStr = formatTanggal(day.dateTs);
+
+                  return (
+                    <div key={dateStr} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-50">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{dateStr}</span>
+                        {isAlpha && <StatusPill kind="alpha" className="text-[10px] px-2 py-0.5">Alpha</StatusPill>}
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0 pt-0.5">
-                       <div className="flex justify-between items-start mb-1">
-                          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{formatTanggal(r.ts_server)}</span>
-                          <StatusPill kind={r.status} className="capitalize text-[10px] px-2 py-0.5">
-                            {formatStatusText(r.status)} {r.delay_minutes ? `${r.delay_minutes}m` : ""}
-                          </StatusPill>
-                       </div>
-                       <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-                          {r.type === "in" ? <LogIn size={14} className="text-emerald-500" /> : <LogOut size={14} className="text-amber-500" />}
-                          {r.type === "in" ? "Masuk" : "Keluar"}
-                          {r.status !== "alpha" && <span className="ml-1 text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded-md">{jam(r.ts_server)}</span>}
-                       </div>
+                      
+                      {!isAlpha && (
+                        <div className="flex flex-col gap-3">
+                          {/* Masuk */}
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5">
+                              {day.in?.selfie_url ? (
+                                <img 
+                                  src={selfieUrl(day.in.selfie_url)} 
+                                  alt="selfie masuk"
+                                  onClick={() => setPreview(selfieUrl(day.in!.selfie_url!))}
+                                  className="h-10 w-10 shrink-0 cursor-pointer rounded-xl object-cover border border-slate-200 bg-slate-100" 
+                                />
+                              ) : (
+                                <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300">
+                                   <LogIn size={18} />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                                  <LogIn size={14} className="text-emerald-500" />
+                                  Masuk
+                                </div>
+                                {day.in && (
+                                  <StatusPill kind={day.in.status} className="capitalize text-[10px] px-2 py-0.5">
+                                    {formatStatusText(day.in.status)} {day.in.delay_minutes ? `${day.in.delay_minutes}m` : ""}
+                                  </StatusPill>
+                                )}
+                              </div>
+                              <div className="text-sm mt-0.5">
+                                {day.in ? (
+                                  <span className="font-mono text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded-md">{jam(day.in.ts_server)}</span>
+                                ) : (
+                                  <span className="text-slate-400 italic text-xs">Belum / Tidak ada data</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Pulang */}
+                          <div className="flex items-start gap-3 pt-3 border-t border-slate-50">
+                            <div className="mt-0.5">
+                              {day.out?.selfie_url ? (
+                                <img 
+                                  src={selfieUrl(day.out.selfie_url)} 
+                                  alt="selfie pulang"
+                                  onClick={() => setPreview(selfieUrl(day.out!.selfie_url!))}
+                                  className="h-10 w-10 shrink-0 cursor-pointer rounded-xl object-cover border border-slate-200 bg-slate-100" 
+                                />
+                              ) : (
+                                <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300">
+                                   <LogOut size={18} />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                                  <LogOut size={14} className="text-amber-500" />
+                                  Pulang
+                                </div>
+                                {day.out && (
+                                  <StatusPill kind={day.out.status} className="capitalize text-[10px] px-2 py-0.5">
+                                    {formatStatusText(day.out.status)} {day.out.delay_minutes ? `${day.out.delay_minutes}m` : ""}
+                                  </StatusPill>
+                                )}
+                              </div>
+                              <div className="text-sm mt-0.5">
+                                {day.out ? (
+                                  <span className="font-mono text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded-md">{jam(day.out.ts_server)}</span>
+                                ) : (
+                                  <span className="text-slate-400 italic text-xs">Belum Absen Pulang</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

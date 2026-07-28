@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Card } from '@suka/design-system'
 import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit'
+import { getWasteReportDetailsForLedger, getStaffNameForLedger } from '@/app/actions/ledgerDetailServer'
+import Image from 'next/image'
 
 const LABEL_MAP: Record<string, string> = {
   terima_kiriman: 'Terima Kiriman',
@@ -31,22 +33,36 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
           .maybeSingle()
         if (err) throw err
         if (!data) throw new Error('Data ledger tidak ditemukan atau Anda tidak memiliki akses.')
-        setL(data)
+        
+        let finalData = { ...data };
 
-        if (data.created_by) {
-          const { data: staff } = await supabase
-            .from('outlet_staff')
-            .select('name')
-            .eq('id', data.created_by)
-            .maybeSingle()
-          if (staff) {
-            setCreatorName(staff.name)
-          } else {
-            setCreatorName('Sistem')
+        if (data.ref_waste_id) {
+          const wasteReport = await getWasteReportDetailsForLedger(data.ref_waste_id)
+          
+          if (wasteReport) {
+            finalData.waste_photo_url = wasteReport.photo_url;
+            finalData.waste_created_at = wasteReport.created_at;
+            finalData.waste_updated_at = wasteReport.updated_at;
+            
+            finalData.waste_reporter_name = Array.isArray(wasteReport.reported_by_staff) 
+              ? wasteReport.reported_by_staff[0]?.name 
+              : wasteReport.reported_by_staff?.name;
+              
+            finalData.waste_approver_name = Array.isArray(wasteReport.approved_by_staff)
+              ? wasteReport.approved_by_staff[0]?.name
+              : wasteReport.approved_by_staff?.name;
           }
+        } 
+        
+        // Fetch generic creator for non-waste transactions or if reporter is missing
+        if (data.created_by) {
+          const staffName = await getStaffNameForLedger(data.created_by)
+          finalData.generic_creator_name = staffName ? staffName : 'Sistem';
         } else {
-          setCreatorName('Sistem')
+          finalData.generic_creator_name = 'Sistem';
         }
+
+        setL(finalData);
       } catch (err: any) {
         setError(`Gagal muat ledger: ${err.message || err}`)
       }
@@ -89,24 +105,64 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
       </div>
 
       <div className="space-y-4">
-        <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
-          <span className="text-xs font-bold text-[#544437]/70">Waktu Transaksi</span>
-          <span className="text-xs font-semibold text-[#1e1b15]">
-            {new Date(l.created_at).toLocaleString('id-ID', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </span>
-        </div>
-
-        {creatorName && (
-          <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
-            <span className="text-xs font-bold text-[#544437]/70">Dibuat Oleh</span>
-            <span className="text-xs font-semibold text-[#1e1b15]">{creatorName}</span>
-          </div>
+        {l.ref_waste_id ? (
+          <>
+            <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
+              <span className="text-xs font-bold text-[#544437]/70">Waktu Dilaporkan</span>
+              <span className="text-xs font-semibold text-[#1e1b15]">
+                {l.waste_created_at ? new Date(l.waste_created_at).toLocaleString('id-ID', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }) : '-'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
+              <span className="text-xs font-bold text-[#544437]/70">Dilaporkan Oleh</span>
+              <span className="text-xs font-semibold text-[#1e1b15]">{l.waste_reporter_name || 'Tidak Diketahui'}</span>
+            </div>
+            
+            <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
+              <span className="text-xs font-bold text-[#544437]/70">Waktu Disetujui</span>
+              <span className="text-xs font-semibold text-[#1e1b15]">
+                {l.waste_updated_at ? new Date(l.waste_updated_at).toLocaleString('id-ID', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }) : '-'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
+              <span className="text-xs font-bold text-[#544437]/70">Disetujui Oleh</span>
+              <span className="text-xs font-semibold text-[#1e1b15]">{l.waste_approver_name || l.generic_creator_name || 'Sistem'}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
+              <span className="text-xs font-bold text-[#544437]/70">Waktu Transaksi</span>
+              <span className="text-xs font-semibold text-[#1e1b15]">
+                {new Date(l.created_at).toLocaleString('id-ID', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            </div>
+            <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
+              <span className="text-xs font-bold text-[#544437]/70">Dibuat Oleh</span>
+              <span className="text-xs font-semibold text-[#1e1b15]">{l.generic_creator_name || 'Sistem'}</span>
+            </div>
+          </>
         )}
 
         <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
@@ -136,6 +192,21 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
             <span className="text-xs font-medium text-gray-600 bg-[#fff8f1]/50 p-2.5 rounded-lg border border-[#d9c2b2]/20">
               {l.catatan}
             </span>
+          </div>
+        )}
+
+        {l.waste_photo_url && (
+          <div className="flex flex-col gap-1.5 border-b border-[#d9c2b2]/10 pb-3.5">
+            <span className="text-xs font-bold text-[#544437]/70">Foto Lampiran</span>
+            <div className="mt-2 w-full max-w-sm h-64 relative rounded-xl overflow-hidden border border-[#d9c2b2]/30 shadow-sm bg-[#faf2e9]">
+              <Image 
+                src={l.waste_photo_url} 
+                alt="Foto Lampiran Waste" 
+                fill 
+                className="object-contain"
+                sizes="(max-width: 768px) 100vw, 384px"
+              />
+            </div>
           </div>
         )}
 

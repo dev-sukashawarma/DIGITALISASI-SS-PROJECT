@@ -93,5 +93,12 @@ export interface WasteReport {
   status: WasteStatus; rejection_reason: string | null
   reported_by: string | null; approved_by: string | null
   created_at: string; updated_at: string
-  bahan_baku?: { nama: string; satuan: string } | null
+  bahan_baku?: { 
+    nama: string; 
+    satuan: string;
+    satuan_tengah?: string | null;
+    faktor_tengah?: number | null;
+    satuan_kecil?: string | null;
+    faktor_tampilan?: number | null;
+  } | null
 }

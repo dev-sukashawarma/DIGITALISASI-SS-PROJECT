@@ -168,8 +168,15 @@
     "faktor_konversi": 1000
   },
   {
-    "nama": "CUP + TUTUP",
-    "kategori": "kemasan",
+    "nama": "CUP",
+    "kategori": "minuman",
+    "satuan": "pcs",
+    "satuan_kecil": "Pcs",
+    "faktor_konversi": 1
+  },
+  {
+    "nama": "TUTUP",
+    "kategori": "minuman",
     "satuan": "pcs",
     "satuan_kecil": "Pcs",
     "faktor_konversi": 1
@@ -246,7 +253,7 @@
   },
   {
     "nama": "STIKER",
-    "kategori": "kemasan",
+    "kategori": "minuman",
     "satuan": "Roll",
     "satuan_kecil": "Pcs",
     "faktor_konversi": 100
@@ -256,13 +263,6 @@
     "kategori": "Lain-lain",
     "satuan": "Dus",
     "satuan_kecil": "Roll",
-    "faktor_konversi": 1
-  },
-  {
-    "nama": "test",
-    "kategori": "Lain-lain",
-    "satuan": "Blok",
-    "satuan_kecil": null,
     "faktor_konversi": 1
   },
   {

@@ -6,6 +6,10 @@
  * remainder konsisten bertanda negatif — mis. -33.1 pcs → "-33 pcs - 0.3 kg"
  * (bukan "-34 pcs + 2.7 kg" dari Math.floor yang membingungkan secara visual).
  */
+function round2(num: number): number {
+  return Math.round(num * 100) / 100;
+}
+
 export function formatCompositeSaldo(
   qty: number,
   satuan: string,
@@ -15,7 +19,7 @@ export function formatCompositeSaldo(
 ): string {
   if (!satuanKecil || !faktorTampilan) {
     // Fallback tanpa tanda '+': saldo = total absolut, beda dari delta (pergerakan bertanda).
-    return `${qty} ${satuan}`
+    return `${round2(qty)} ${satuan}`
   }
 
   // Gunakan Math.trunc (bukan Math.floor) agar whole selalu bertanda sama dengan qty.
@@ -68,7 +72,7 @@ export function formatTriUnitSaldo(
       if (remainder !== 0) parts.push(`${Math.abs(remainder)} ${satuanTengah}`)
       return (qty < 0 ? "-" : "") + parts.join(joiner)
     }
-    return `${qty} ${satuanBesar}`
+    return `${round2(qty)} ${satuanBesar}`
   }
 
   if (satuanTengah && faktorTengah) {
@@ -121,7 +125,7 @@ export function formatCompositeDelta(
   faktorTampilan: number | null
 ): string {
   if (!satuanKecil || !faktorTampilan) {
-    return `${qty > 0 ? '+' : ''}${qty} ${satuan}`
+    return `${qty > 0 ? '+' : ''}${round2(qty)} ${satuan}`
   }
   const converted = Math.round(qty * faktorTampilan * 100) / 100
   return `${converted > 0 ? '+' : ''}${converted} ${satuanKecil}`

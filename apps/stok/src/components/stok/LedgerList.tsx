@@ -8,6 +8,58 @@ import { useLedgerTransaksiDetail } from '@/hooks/useLedger';
 import { useOutletScope } from '@/hooks/useOutletScope';
 import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
 
+const DELIVERY_UNITS: Record<string, { label: string; factorFromLarge: number }> = {
+  'SAOS CABE': { label: 'kg', factorFromLarge: 16.5 },
+  'SAOS TOMAT': { label: 'kg', factorFromLarge: 16.5 },
+  'SAOS SAMYANG': { label: 'kg', factorFromLarge: 20 },
+  'MAYONAISE': { label: 'kg', factorFromLarge: 12 },
+  'MAYONES': { label: 'kg', factorFromLarge: 12 },
+  'KULIT 25': { label: 'pack', factorFromLarge: 1 },
+  'KULIT 28': { label: 'pack', factorFromLarge: 1 },
+  'KULIT 32': { label: 'pack', factorFromLarge: 1 },
+  'AYAM': { label: 'kg', factorFromLarge: 1 },
+  'SAPI': { label: 'pcs', factorFromLarge: 1 },
+  'KENTANG': { label: 'kg', factorFromLarge: 4 },
+  'KEJU': { label: 'pack', factorFromLarge: 24 },
+  'TUM': { label: 'kg', factorFromLarge: 1 },
+  'BAWANG': { label: 'kg', factorFromLarge: 1 },
+  'TEPUNG': { label: 'kg', factorFromLarge: 1 },
+  'MINYAK SAYUR': { label: 'kompan', factorFromLarge: 1 },
+  'MINYAK': { label: 'kompan', factorFromLarge: 1 },
+  'FOIL': { label: 'roll', factorFromLarge: 24 },
+  'SARUNG TANGAN BENING': { label: 'pack', factorFromLarge: 1 },
+  'HAND GLOVE': { label: 'pack', factorFromLarge: 1 },
+  'KERTAS STRUK': { label: 'roll', factorFromLarge: 1 },
+  'THERMAL STRUK': { label: 'roll', factorFromLarge: 1 },
+  'PLASTIK BENING': { label: 'pack', factorFromLarge: 5 },
+  'PLASTIK BESAR': { label: 'pack', factorFromLarge: 5 },
+  'PLASTIK KECIL': { label: 'pack', factorFromLarge: 5 },
+  'POLYBAG': { label: 'pack', factorFromLarge: 5 },
+  'PLASTIK MERAH': { label: 'pack', factorFromLarge: 5 },
+  'PAPER WRAP': { label: 'pack', factorFromLarge: 1 },
+  'POWDER TEH': { label: 'kg', factorFromLarge: 1 },
+  'POWDER JERUK': { label: 'kg', factorFromLarge: 1 },
+  'CUP': { label: 'pcs', factorFromLarge: 1 },
+  'TUTUP': { label: 'pcs', factorFromLarge: 1 },
+  'SEDOTAN': { label: 'pack', factorFromLarge: 1 },
+  'STIKER': { label: 'lembar', factorFromLarge: 100 },
+  'MIE': { label: 'bungkus', factorFromLarge: 40 },
+  'SAYUR': { label: 'kg', factorFromLarge: 1 },
+  'ES BATU CRYSTAL': { label: 'bal', factorFromLarge: 1 },
+  'ES BATU': { label: 'bal', factorFromLarge: 1 }
+};
+
+function formatDeliveryUnit(qty: number, bahanName: string, isSaldo: boolean = false): string | null {
+  const mapping = DELIVERY_UNITS[bahanName.toUpperCase()];
+  if (!mapping) return null;
+  // qty is stored in large unit in ledger summaries and details, except wait: 
+  // formatCompositeDelta normally multiplies qty * faktor_tampilan.
+  // Actually, qty is in large unit. So we just multiply by factorFromLarge.
+  const converted = Math.round(qty * mapping.factorFromLarge * 100) / 100;
+  const sign = (!isSaldo && converted > 0) ? '+' : '';
+  return `${sign}${converted} ${mapping.label}`;
+}
+
 const LABEL: Record<string, string> = {
   terima_kiriman: 'Terima Kiriman',
   pemakaian: 'Pemakaian',
@@ -44,7 +96,7 @@ export function transaksiLabel(t: LedgerTransaksiSummary): { title: string; subt
   if (t.ref_shipment_id) {
     // Generate a short ID (e.g. SJ-A1B2C3) from the UUID
     const shortId = t.ref_shipment_id.split('-')[0].toUpperCase();
-    return { title: 'Terima Kiriman', subtitle: `Surat Jalan #${shortId}` };
+    return { title: (t.single_qty && t.single_qty < 0) ? 'Kirim SJ' : 'Terima Kiriman', subtitle: `Surat Jalan #${shortId}` };
   }
   if (t.ref_transfer_id) {
     return { title: 'Transfer Stok', subtitle: null };
@@ -105,7 +157,7 @@ function getRelativeTimeString(dateStr: string) {
   return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-function TransaksiExpandedDetail({ outletId, transaksiKey }: { outletId: string; transaksiKey: string }) {
+function TransaksiExpandedDetail({ outletId, transaksiKey, isDelivery }: { outletId: string; transaksiKey: string; isDelivery: boolean }) {
   const { rows, loading, error } = useLedgerTransaksiDetail(outletId, transaksiKey, true);
 
   if (loading) return <p className="text-[10px] font-bold text-[#544437]/50 py-2 animate-pulse">Memuat detail...</p>;
@@ -151,10 +203,10 @@ function TransaksiExpandedDetail({ outletId, transaksiKey }: { outletId: string;
                   <span className="font-bold text-[#1e1b15] uppercase truncate pr-2">{bahan?.nama ?? 'Bahan'}</span>
                   <span className="text-right flex-shrink-0">
                     <span className={r.qty > 0 ? 'text-[#0a7d2c] font-bold' : 'text-[#ba1a1a] font-bold'}>
-                      {formatCompositeDelta(r.qty, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
+                      {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(r.qty, bahan.nama, false) ?? formatCompositeDelta(r.qty, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)) : formatCompositeDelta(r.qty, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
                     </span>
                     <span className="text-[#544437]/50 font-medium">
-                      {' '}→ sisa {formatCompositeSaldo(r.saldo_sesudah, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
+                      {' '}→ sisa {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(r.saldo_sesudah, bahan.nama, true) ?? formatCompositeSaldo(r.saldo_sesudah, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)) : formatCompositeSaldo(r.saldo_sesudah, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
                     </span>
                   </span>
                 </div>
@@ -250,6 +302,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           const { title, subtitle } = transaksiLabel(t);
           const isManual = t.jumlah_bahan === 1 && !t.ref_order_id && !t.ref_opname_id && !t.ref_shipment_id && !t.ref_transfer_id;
           const isPending = t.single_tipe === 'waste_pending';
+          const isDelivery = !!t.ref_shipment_id || t.single_tipe === 'transfer_keluar' || (t.single_catatan?.includes('KIRIM SJ') ?? false);
           const relativeTime = getRelativeTimeString(t.created_at);
           const isExpanded = expandedKey === t.transaksi_key;
           const detailId = `transaksi-detail-${t.transaksi_key}`;
@@ -286,7 +339,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
                 {isManual ? (
                   <>
                     <p className={`font-bold text-sm ${(t.single_qty ?? 0) > 0 ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
-                      {formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
+                      {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(t.single_qty ?? 0, bahan.nama, false) ?? formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)) : formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
                     </p>
                     {isPending ? (
                       <p className="text-[9px] text-[#e67e22] font-bold bg-[#fff8f1] px-2 py-0.5 rounded border border-[#e67e22]/20 inline-block mt-1">
@@ -294,7 +347,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
                       </p>
                     ) : (
                       <p className="text-[9px] text-[#544437]/60 font-bold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#d9c2b2]/20 inline-block mt-1">
-                        Saldo: {formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
+                        Saldo: {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(t.single_saldo_sesudah ?? 0, bahan.nama, true) ?? formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)) : formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
                       </p>
                     )}
                   </>
@@ -346,7 +399,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
 
               {isExpanded && selectedOutletId && (
                 <div id={detailId}>
-                  <TransaksiExpandedDetail outletId={selectedOutletId} transaksiKey={t.transaksi_key} />
+                  <TransaksiExpandedDetail outletId={selectedOutletId} transaksiKey={t.transaksi_key} isDelivery={isDelivery} />
                 </div>
               )}
             </div>

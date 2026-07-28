@@ -48,7 +48,8 @@ const KITCHEN_UNIT_OVERRIDES: Record<string, { largeLabel: string, smallLabel: s
   'POLYBAG': { largeLabel: 'bal', smallLabel: 'pack', factor: 5, toBaseUnit: (l, s) => l + s / 5 },
   'POWDER TEH': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
   'POWDER JERUK': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
-  'CUP + TUTUP': { largeLabel: 'pack', smallLabel: 'pcs', factor: 25, toBaseUnit: (l, s) => l + s / 25 }, 
+  'CUP': { largeLabel: 'pack', smallLabel: 'pcs', factor: 25, toBaseUnit: (l, s) => l + s / 25 }, 
+  'TUTUP': { largeLabel: 'pack', smallLabel: 'pcs', factor: 25, toBaseUnit: (l, s) => l + s / 25 }, 
   'JINTEN': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l * 1000 + s) / 1000 }, 
   'CENGKEH': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
   'KETUMBAR': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l * 1000 + s) / 1000 }, 
@@ -84,7 +85,8 @@ const OUTLET_UNIT_OVERRIDES: Record<string, { largeLabel: string, smallLabel: st
   'POLYBAG': { largeLabel: 'pack', smallLabel: 'lembar', factor: 5, toBaseUnit: (l, s) => (l * 5 + s) / 25 },
   'POWDER TEH': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
   'POWDER JERUK': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => l + s / 1000 },
-  'CUP + TUTUP': { largeLabel: 'pack', smallLabel: 'pcs', factor: 25, toBaseUnit: (l, s) => l + s / 25 }, 
+  'CUP': { largeLabel: 'pack', smallLabel: 'pcs', factor: 25, toBaseUnit: (l, s) => l + s / 25 }, 
+  'TUTUP': { largeLabel: 'pack', smallLabel: 'pcs', factor: 25, toBaseUnit: (l, s) => l + s / 25 }, 
   'ES BATU': { largeLabel: 'kg', smallLabel: 'gram', factor: 1000, toBaseUnit: (l, s) => (l * 1000 + s) / 1000 }
 };
 

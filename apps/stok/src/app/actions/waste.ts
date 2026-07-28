@@ -221,3 +221,14 @@ export async function fetchMyWasteReports() {
   if (error) throw new Error(error.message)
   return data
 }
+
+export async function getWasteReportDetails(id: string) {
+  const supabase = makeServiceClient()
+  const { data, error } = await supabase
+    .from('stok_waste_reports')
+    .select('photo_url, created_at, updated_at, reported_by_staff:outlet_staff!reported_by(name), approved_by_staff:outlet_staff!approved_by(name)')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data
+}

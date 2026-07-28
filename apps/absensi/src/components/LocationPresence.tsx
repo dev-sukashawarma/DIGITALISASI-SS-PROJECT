@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getDeviceInfo } from '@/lib/device'
 
 export function LocationPresence({ 
   outletId, 
@@ -49,12 +50,16 @@ export function LocationPresence({
                 lastLat = lat
                 lastLng = lng
                 
+                const { os, device } = getDeviceInfo(navigator.userAgent)
+                
                 await room.track({
                   outlet_id: outletId,
                   staff_id: staffId,
                   staff_name: staffName,
                   role: role,
                   device_type: 'PERSONAL',
+                  device_os: os,
+                  device_model: device,
                   lat,
                   lng,
                   accuracy,

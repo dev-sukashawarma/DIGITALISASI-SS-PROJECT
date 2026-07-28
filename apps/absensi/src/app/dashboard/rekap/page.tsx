@@ -45,12 +45,16 @@ const PERIOD_OPTIONS = [
   { label: "Hari Ini", value: "hari_ini" },
   { label: "Kemarin", value: "kemarin" },
   { label: "Bulan Ini", value: "bulan_ini" },
+  { label: "Kustom...", value: "custom" },
 ];
 
 export default function RekapPage() {
   const { outletStaff } = useAuth();
   const supabase = createClient();
   const [period, setPeriod] = useState("bulan_ini");
+  const [customStart, setCustomStart] = useState(() => dayjs().startOf("month").format("YYYY-MM-DD"));
+  const [customEnd, setCustomEnd] = useState(() => dayjs().format("YYYY-MM-DD"));
+  const [filterStatus, setFilterStatus] = useState("semua");
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<StaffSummary | null>(null);
 
@@ -78,12 +82,16 @@ export default function RekapPage() {
         start = now.startOf("month").format("YYYY-MM-DD");
         end = now.format("YYYY-MM-DD");
         break;
+      case "custom":
+        start = customStart;
+        end = customEnd;
+        break;
       default:
         start = now.format("YYYY-MM-DD");
         end = start;
     }
     return { startDate: start, endDate: end };
-  }, [period]);
+  }, [period, customStart, customEnd]);
 
   const { data: rows = [], isPending } = useQuery({
     queryKey: ["rekap", selectedOutletId, startDate, endDate],
@@ -141,8 +149,18 @@ export default function RekapPage() {
       if (r.status === "lebih_awal") s.total_cepat++;
     });
     
-    return Array.from(map.values()).sort((a,b) => a.name.localeCompare(b.name));
-  }, [rows]);
+    let result = Array.from(map.values()).sort((a,b) => a.name.localeCompare(b.name));
+    if (filterStatus !== "semua") {
+      result = result.filter(s => {
+        if (filterStatus === "masuk") return s.total_masuk > 0;
+        if (filterStatus === "telat") return s.total_telat > 0;
+        if (filterStatus === "alpha") return s.total_alpha > 0;
+        if (filterStatus === "lebih_awal") return s.total_cepat > 0;
+        return true;
+      });
+    }
+    return result;
+  }, [rows, filterStatus]);
 
   const globalSummary = useMemo(() => {
     return {
@@ -167,13 +185,20 @@ export default function RekapPage() {
         title="Rekap & Riwayat"
         subtitle="Laporan ringkasan & detail kehadiran per karyawan"
         action={
-          <div className="flex w-full items-center gap-2 sm:w-auto">
+          <div className="flex w-full items-center gap-2 sm:w-auto flex-wrap sm:flex-nowrap">
             <Select
               value={period}
               onChange={val => setPeriod(val)}
               options={PERIOD_OPTIONS}
-              className="w-[150px]"
+              className="w-[140px]"
             />
+            {period === "custom" && (
+              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm h-[40px]">
+                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="text-sm outline-none bg-transparent text-slate-700 font-medium" />
+                <span className="text-slate-400 font-medium">-</span>
+                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} min={customStart} className="text-sm outline-none bg-transparent text-slate-700 font-medium" />
+              </div>
+            )}
             <button
               onClick={() => exportCsv()}
               className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 transition-colors shadow-sm cursor-pointer"
@@ -251,6 +276,18 @@ export default function RekapPage() {
 
       <div className="flex items-center justify-between mt-4">
         <span className="text-lg font-bold text-slate-800">Ringkasan Karyawan</span>
+        <Select
+          value={filterStatus}
+          onChange={val => setFilterStatus(val)}
+          options={[
+            { label: "Semua Status", value: "semua" },
+            { label: "Hadir", value: "masuk" },
+            { label: "Telat", value: "telat" },
+            { label: "Alpha", value: "alpha" },
+            { label: "Pulang Cepat", value: "lebih_awal" }
+          ]}
+          className="w-[160px]"
+        />
       </div>
 
       {/* Staff List */}

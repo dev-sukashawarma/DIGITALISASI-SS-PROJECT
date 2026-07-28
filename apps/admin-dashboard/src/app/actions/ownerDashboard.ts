@@ -28,6 +28,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   let q = supabase
     .from('sales_hourly_scoped')
     .select('outlet_id, sales_source, sales_date, sales_hour, omzet, jumlah_order_completed')
+    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
     .gte('sales_date', filter.from)
     .lte('sales_date', filter.to)
 
@@ -42,6 +43,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   let ordersQ = supabase
     .from('orders')
     .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, total_amount, order_items(subtotal)')
+    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
     .eq('status', 'completed')
     .gte('created_at', fromStart.toISOString())
     .lte('created_at', toEnd.toISOString())
@@ -164,6 +166,7 @@ export async function getPettyCashData(
   let shiftQuery = supabase
     .from('shifts')
     .select('*, outlets(name)')
+    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
     .order('end_time', { ascending: false })
     .limit(500)
 
@@ -175,6 +178,7 @@ export async function getPettyCashData(
   let expenseQuery = supabase
     .from('petty_cash_expenses')
     .select('*, outlets(name)')
+    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
     .order('created_at', { ascending: false })
     .limit(1000)
 
@@ -191,6 +195,7 @@ export async function getPettyCashData(
   let topupQuery = supabase
     .from('petty_cash_topups')
     .select('*, outlets(name)')
+    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
     .eq('status', 'completed')
     .order('created_at', { ascending: false })
     .limit(500)
@@ -371,6 +376,7 @@ export async function getAttendanceReportData(
   let query = supabase
     .from('attendance')
     .select('*')
+    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
     .order('ts_server', { ascending: false })
     .limit(1000)
 

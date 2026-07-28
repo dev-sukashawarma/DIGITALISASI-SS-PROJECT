@@ -28,6 +28,7 @@ export async function getAggregatedMenuSales(filter: PeriodFilterValue): Promise
   let q = supabase
     .from('menu_sales_scoped')
     .select('menu_name, qty, revenue')
+    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
     .gte('sales_date', filter.from)
     .lte('sales_date', filter.to)
     

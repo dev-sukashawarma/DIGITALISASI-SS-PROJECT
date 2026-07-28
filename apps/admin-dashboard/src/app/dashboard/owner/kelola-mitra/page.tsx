@@ -21,6 +21,7 @@ export default async function KelolaMitraPage() {
   const { data: allOutlets } = await supabase
     .from('outlets')
     .select('id, name')
+    .neq('id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
     .order('name', { ascending: true })
     
   // 3. Ambil semua saran masuk

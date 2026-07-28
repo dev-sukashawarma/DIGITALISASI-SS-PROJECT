@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, Button, Input } from '@suka/design-system'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
@@ -83,7 +83,6 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
       const delta = adjDirection === 'in' ? finalQty : -finalQty
       const targetSaldo = existingSaldo + delta
 
-      const selisihLabel = `Selisih: ${delta > 0 ? '+' : ''}${delta} ${selectedBahan.satuan}`
       const text = `Penyesuaian: ${adjDirection === 'in' ? 'Penambahan' : 'Pengurangan'} ${qty} ${unitName} -> Target: ${formatTriUnitSaldo(
         targetSaldo,
         selectedBahan.satuan,

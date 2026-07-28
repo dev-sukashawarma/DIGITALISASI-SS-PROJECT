@@ -497,7 +497,6 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
               </tbody>
             </table>
           </div>
-        </div>
       )}
       </div>
 

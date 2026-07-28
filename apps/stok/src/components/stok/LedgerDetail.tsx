@@ -18,7 +18,6 @@ const LABEL_MAP: Record<string, string> = {
 
 export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
   const [l, setL] = useState<any | null>(null)
-  const [creatorName, setCreatorName] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -44,13 +43,15 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
             finalData.waste_created_at = wasteReport.created_at;
             finalData.waste_updated_at = wasteReport.updated_at;
             
-            finalData.waste_reporter_name = Array.isArray(wasteReport.reported_by_staff) 
-              ? wasteReport.reported_by_staff[0]?.name 
-              : wasteReport.reported_by_staff?.name;
+            const reportedBy = wasteReport.reported_by_staff as any;
+            finalData.waste_reporter_name = Array.isArray(reportedBy) 
+              ? reportedBy[0]?.name 
+              : reportedBy?.name;
               
-            finalData.waste_approver_name = Array.isArray(wasteReport.approved_by_staff)
-              ? wasteReport.approved_by_staff[0]?.name
-              : wasteReport.approved_by_staff?.name;
+            const approvedBy = wasteReport.approved_by_staff as any;
+            finalData.waste_approver_name = Array.isArray(approvedBy)
+              ? approvedBy[0]?.name
+              : approvedBy?.name;
           }
         } 
         

@@ -1,6 +1,5 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@suka/auth'
@@ -12,7 +11,6 @@ import { DisbursementMethod } from '@/lib/types'
 // untuk tahap mereka sendiri, TAPI bukan untuk aksi di file ini.
 const FINANCE_STAFF_ROLES = ['admin_finance', 'admin', 'owner']
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
 async function getSupabaseClient() {
   const cookieStore = await cookies()
   return createSupabaseServerClient({
@@ -34,7 +32,7 @@ export async function processPettyCashFinanceCustomAmount(formData: FormData) {
 
     // Server Action = endpoint POST publik; RPC finance_process_petty_cash
     // (SECURITY DEFINER) tidak cek role sama sekali, jadi gerbang wajib di sini.
-    const { userId: validUserId } = await requireRole(FINANCE_STAFF_ROLES)
+    await requireRole(FINANCE_STAFF_ROLES)
 
     const supabase = await getSupabaseClient()
 

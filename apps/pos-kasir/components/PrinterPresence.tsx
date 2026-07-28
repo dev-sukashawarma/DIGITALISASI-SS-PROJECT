@@ -22,9 +22,10 @@ export default function PrinterPresence() {
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
+          const currentDevice = usePrinterStore.getState().device
           await room.track({
             outlet_id: outletId,
-            is_connected: !!device,
+            is_connected: !!currentDevice,
             updated_at: new Date().toISOString()
           })
         }

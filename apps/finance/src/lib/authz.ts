@@ -42,7 +42,7 @@ export async function requireRole(
     throw new Error('Unauthorized: sesi tidak ditemukan')
   }
 
-  const { data: staff, error: staffError } = await makeServiceClient()
+  const { data: staff, error: staffError } = await authedClient
     .from('outlet_staff')
     .select('role, status')
     .eq('id', user.id)

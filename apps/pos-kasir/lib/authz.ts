@@ -26,7 +26,7 @@ export async function getRequestStaff(): Promise<RequestStaff | null> {
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: staff } = await createServiceClient()
+  const { data: staff } = await supabase
     .from('outlet_staff')
     .select('id, role, outlet_id, status')
     .eq('id', user.id)

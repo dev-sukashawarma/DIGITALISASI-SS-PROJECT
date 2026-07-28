@@ -26,8 +26,7 @@ export async function requireRole(
     throw new Error('Unauthorized: sesi tidak ditemukan')
   }
 
-  const service = createServiceClient()
-  const { data: staff, error: staffError } = await service
+  const { data: staff, error: staffError } = await supabase
     .from('outlet_staff')
     .select('role, status')
     .eq('id', user.id)

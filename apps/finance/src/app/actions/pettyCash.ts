@@ -12,8 +12,8 @@ import { DisbursementMethod } from '@/lib/types'
 // untuk tahap mereka sendiri, TAPI bukan untuk aksi di file ini.
 const FINANCE_STAFF_ROLES = ['admin_finance', 'admin', 'owner']
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NjMyOTIsImV4cCI6MjA5NjUzOTI5Mn0.RdsvP6OKs6aiRnqqd02BYiv5gzbh4uGqO88dapo0Gso'
 
 async function getSupabaseClient() {
   if (serviceRoleKey) {
@@ -27,31 +27,47 @@ async function getSupabaseClient() {
   })
 }
 
-export async function processPettyCashFinanceCustomAmount({
-  id,
-  action,
-  method = 'transfer',
-  cashLocationId,
-  proofOfTransferUrl,
-  approvedAmount,
-  approvalNote,
-}: {
-  id: string
-  action: 'approve' | 'reject'
-  method?: DisbursementMethod
-  cashLocationId?: string | null
-  proofOfTransferUrl?: string | null
-  approvedAmount?: number | null
-  approvalNote?: string | null
-  /** @deprecated diabaikan — userId diambil dari sesi server, bukan dari client */
-  userId?: string
-}) {
+export async function processPettyCashFinanceCustomAmount(formData: FormData) {
   try {
+    const id = formData.get('id') as string
+    const action = formData.get('action') as 'approve' | 'reject'
+    const method = (formData.get('method') as DisbursementMethod) || 'transfer'
+    const cashLocationId = formData.get('cashLocationId') as string | null
+    const proofFile = formData.get('proofFile') as File | null
+    const approvedAmountStr = formData.get('approvedAmount') as string | null
+    const approvedAmount = approvedAmountStr ? Number(approvedAmountStr) : null
+    const approvalNote = formData.get('approvalNote') as string | null
+
     // Server Action = endpoint POST publik; RPC finance_process_petty_cash
     // (SECURITY DEFINER) tidak cek role sama sekali, jadi gerbang wajib di sini.
     const { userId: validUserId } = await requireRole(FINANCE_STAFF_ROLES)
 
     const supabase = await getSupabaseClient()
+
+    let proofOfTransferUrl: string | null = null
+    if (proofFile && proofFile.size > 0) {
+      const ext = proofFile.name.split('.').pop() || 'jpg'
+      const cleanName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`
+      const storagePath = `finance-proofs/${cleanName}`
+      
+      const buffer = await proofFile.arrayBuffer()
+      const { error: upErr } = await supabase.storage
+        .from('finance-proofs')
+        .upload(storagePath, buffer, {
+          contentType: proofFile.type
+        })
+        
+      if (upErr) {
+        console.warn('Failed to upload proof:', upErr)
+        throw new Error('Gagal mengupload bukti pencairan: ' + upErr.message)
+      }
+      
+      const { data: pubData } = supabase.storage
+        .from('finance-proofs')
+        .getPublicUrl(storagePath)
+        
+      proofOfTransferUrl = pubData.publicUrl
+    }
 
     const { data: topup, error: fetchError } = await supabase
       .from('petty_cash_topups')

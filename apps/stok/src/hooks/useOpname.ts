@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useOfflineQueue } from '@suka/offline-queue'
 import type { Opname, OpnameItem } from '@/types/stok'
 import { useRealtimeInvalidate } from '@suka/realtime'
+import { upsertOpnameItems } from '@/app/actions/opname'
 
 export function useOpnameList(outletId: string | null | undefined) {
   const { data, isLoading } = useQuery({
@@ -76,9 +77,9 @@ export function useOpnameActions() {
   }, [])
 
   const upsertItems = useCallback(async (items: Partial<OpnameItem>[]) => {
-    const { error } = await supabase.from('opname_item')
-      .upsert(items, { onConflict: 'opname_id,bahan_baku_id' })
-    if (error) throw error
+    // Pakai server action (service role) karena RLS tabel opname_item
+    // tidak mengizinkan INSERT langsung dari client session crew biasa.
+    await upsertOpnameItems(items as Parameters<typeof upsertOpnameItems>[0])
   }, [])
 
   const setPendingApproval = useCallback(async (opnameId: string) => {

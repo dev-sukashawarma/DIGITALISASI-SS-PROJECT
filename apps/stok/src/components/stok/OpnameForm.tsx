@@ -233,6 +233,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
             bahan_baku_id: b.id,
             qty_fisik: qtyFisik,
             qty_system: qtySystem,
+            selisih,
             flagged: isSelisihFlagged(selisih, qtySystem, b.satuan, b.satuan_kecil),
           };
         });

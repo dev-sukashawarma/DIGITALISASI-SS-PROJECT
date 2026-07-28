@@ -175,6 +175,53 @@ export async function fetchPendingOpnameApprovals(outletId?: string) {
 }
 
 /**
+ * Upsert item-item opname ke tabel opname_item.
+ *
+ * Menggunakan service-role client karena RLS pada tabel opname_item tidak
+ * memiliki policy INSERT/UPDATE untuk crew biasa. Guard dilakukan di sini:
+ * - User harus terautentikasi
+ * - opname_id yang dikirim harus dimiliki outlet yang bisa diakses user
+ * Dengan begitu bypass RLS tetap aman secara bisnis.
+ */
+export async function upsertOpnameItems(
+  items: Array<{
+    opname_id: string
+    bahan_baku_id: string
+    qty_fisik: number
+    qty_system: number
+    selisih: number
+    flagged: boolean
+    catatan?: string | null
+  }>
+): Promise<void> {
+  if (!items.length) return
+
+  const authedClient = await getAuthedClient()
+
+  // Verifikasi outlet dari opname pertama (semua items harus punya opname_id sama)
+  const opnameId = items[0].opname_id
+  const serviceClient = makeServiceClient()
+
+  const { data: opname, error: opnameErr } = await serviceClient
+    .from('opname')
+    .select('outlet_id')
+    .eq('id', opnameId)
+    .maybeSingle()
+
+  if (opnameErr) throw new Error(opnameErr.message)
+  if (!opname) throw new Error('Opname tidak ditemukan')
+
+  // Pastikan staff bisa akses outlet tersebut
+  await assertOutletAccessible(authedClient, opname.outlet_id)
+
+  const { error } = await serviceClient
+    .from('opname_item')
+    .upsert(items, { onConflict: 'opname_id,bahan_baku_id' })
+
+  if (error) throw new Error(error.message)
+}
+
+/**
  * Hitung jumlah opname pending — untuk badge notifikasi di nav.
  */
 export async function countPendingOpnameApprovals(outletId?: string): Promise<number> {

@@ -215,12 +215,20 @@ export default async function SyncedPawoonDataPage({
                         </div>
                     )}
                 </div>
-                <Link
-                    href="/dashboard/pawoon-import"
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors text-sm"
-                >
-                    ← Kembali ke Migrasi
-                </Link>
+                <div className="flex gap-3">
+                    <Link
+                        href="/dashboard/pawoon-import/profit"
+                        className="bg-suka-primary hover:bg-suka-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm shadow-sm"
+                    >
+                        Laporan Profit
+                    </Link>
+                    <Link
+                        href="/dashboard/pawoon-import"
+                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+                    >
+                        Kembali ke Import
+                    </Link>
+                </div>
             </div>
 
             {/* Filters */}

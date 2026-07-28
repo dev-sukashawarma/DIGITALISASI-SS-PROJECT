@@ -10,8 +10,8 @@ Sesuai hasil *brainstorming*, fitur ini akan dibangun dengan **Pendekatan HPP Fi
    Menggunakan tabel `orders` dan `order_items` yang di-_filter_ khusus dengan kondisi `source = 'pos'`.
    
 2. **Sumber Data Modal (HPP)**:
-   - **Untuk Outlet Internal (Cabang)**: Sistem akan mengambil HPP dari tabel master `menu_items` pada kolom `hpp_override`.
-   - **Untuk Outlet Mitra**: Sistem akan mengecek tabel `menu_outlet_prices` terlebih dahulu. Tabel ini menyimpan nilai `hpp_override` khusus per outlet (misal: HPP yang sudah di-_markup_ +10% dari HPP pusat). Jika data HPP khusus mitra ini ada, sistem akan menggunakannya. Jika kosong, akan kembali menggunakan HPP pusat sebagai _fallback_.
+   - **Untuk Outlet Internal (Cabang)**: Sistem akan mengambil HPP dari tabel master `menu_items` pada kolom `hpp_override` (HPP Pusat).
+   - **Untuk Outlet Mitra**: Sistem akan secara otomatis menghitung `HPP Mitra = HPP Pusat + 10%`. Hal ini mengunci standar margin pusat tanpa harus bergantung pada pengecekan tabel `menu_outlet_prices` yang mungkin belum terisi.
 
 3. **Perhitungan Margin**:
    - `Omset` = `unit_price` × `quantity`

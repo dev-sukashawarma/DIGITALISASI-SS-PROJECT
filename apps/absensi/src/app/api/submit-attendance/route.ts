@@ -17,11 +17,23 @@ export async function POST(req: Request) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const admin = createClient(supabaseUrl, serviceKey);
 
-    const { data: target } = await admin
+    if (!body.outlet_staff_id || typeof body.match_distance !== "number") {
+      return NextResponse.json({ ok: false, reason: "invalid_payload" }, { status: 400 });
+    }
+
+    const { data: target, error: targetError } = await admin
       .from("outlet_staff")
-      .select("outlet_id, face_descriptor, role")
-      .eq("id", body.outlet_staff_id).single();
-      
+      .select("outlet_id, face_descriptor, role, status")
+      .eq("id", body.outlet_staff_id)
+      .maybeSingle();
+
+    if (targetError || !target) {
+      return NextResponse.json({ ok: false, reason: "staff_not_found" }, { status: 404 });
+    }
+    if (target.status !== "active") {
+      return NextResponse.json({ ok: false, reason: "staff_inactive" }, { status: 403 });
+    }
+
     const isGlobalRole = ["spv", "owner", "admin", "admin_hr"].includes(target.role);
     if (!isGlobalRole && target.outlet_id !== body.outlet_id) {
       // Cek apakah outlet_id ini terdaftar untuk staff di tabel staff_outlets (misal: Leader multi-outlet)

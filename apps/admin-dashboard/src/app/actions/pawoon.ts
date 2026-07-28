@@ -5,6 +5,7 @@ import * as xlsx from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
+import { requireRole } from '@/lib/authz';
 
 // Setup Supabase (Server side)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -13,6 +14,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function previewPawoonFile(formData: FormData) {
     try {
+        // Server Action = endpoint POST publik; import Pawoon adalah operasi
+        // admin, bukan sekadar preview tanpa konsekuensi (baca file + query DB).
+        await requireRole(['admin', 'owner']);
+
         const file = formData.get('file') as File;
         if (!file) {
             return { success: false, error: "No file provided" };
@@ -396,6 +401,10 @@ export async function previewPawoonFile(formData: FormData) {
 
 export async function syncPawoonData(orders: any[], items: any[]) {
     try {
+        // Service-role bulk insert langsung ke `orders`/`order_items` — wajib
+        // gerbang server-side sendiri, ini bukan operasi read-only.
+        await requireRole(['admin', 'owner']);
+
         if (orders.length === 0) return { success: true, message: "No data to insert" };
 
         const { error: errOrders } = await supabase.from('orders').insert(orders);

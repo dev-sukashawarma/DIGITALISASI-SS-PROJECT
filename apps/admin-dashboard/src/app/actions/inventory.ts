@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { dispatchRequest } from '@/lib/inventory'
+import { requireRole, assertOutletAccessible } from '@/lib/authz'
 
 // Inisialisasi Supabase menggunakan Service Role agar bisa bypass RLS saat eksekusi backend
 function getSupabase() {
@@ -12,12 +13,16 @@ function getSupabase() {
 
 /**
  * Server Action: Memproses dan mengirim request dari Kitchen ke Outlet (FIFO).
+ * Barang benar-benar keluar gudang — hanya Kitchen/admin/owner yang boleh
+ * memutuskan pengeluaran (server-side gate, guard UI tidak melindungi
+ * Server Action ini dari panggilan langsung).
  */
 export async function dispatchRequestAction(params: {
   requestId: string
   kitchenLocationId: string
 }) {
   try {
+    await requireRole(['kitchen', 'admin', 'owner'])
     const supabase = getSupabase()
     const result = await dispatchRequest(supabase, params)
     return result // returns { success, message }
@@ -40,8 +45,11 @@ export async function createRequestAction(params: {
   }[]
 }) {
   try {
+    // outletId datang mentah dari client — pastikan caller memang berhak atas
+    // outlet itu (accessible_outlet_ids(), sama seperti sumber kebenaran RLS).
+    await assertOutletAccessible(params.outletId)
     const supabase = getSupabase()
-    
+
     // 1. Buat Request Header
     const { data: reqData, error: reqError } = await supabase
       .from('internal_requests')

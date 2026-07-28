@@ -210,12 +210,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Gagal menyimpan item pesanan' }, { status: 500 })
   }
 
-  // Increment usage for applied promos
+  // Increment usage for applied promos. RPC returns FALSE (bukan error) kalau
+  // limit sudah terlampaui — order sudah terlanjur commit dengan diskon ini,
+  // jadi tak bisa dibatalkan di titik ini; minimal matikan promonya supaya
+  // tak terus dipakai melebihi limit, dan log keras untuk rekonsiliasi manual.
   if (appliedPromoIds.size > 0) {
     for (const promoId of Array.from(appliedPromoIds)) {
-      const { error: incError } = await supabaseService.rpc('increment_promo_usage', { p_promo_id: promoId })
+      const { data: incremented, error: incError } = await supabaseService.rpc('increment_promo_usage', { p_promo_id: promoId })
       if (incError) {
         console.error(`Gagal increment promo usage untuk ${promoId}:`, incError)
+      } else if (incremented === false) {
+        console.error(`[PROMO LIMIT EXCEEDED] Order ${order.id} pakai promo ${promoId} melebihi usage_limit — usage TIDAK bertambah, diskon SUDAH diterapkan di order ini. Perlu rekonsiliasi manual.`)
+        await supabaseService.from('outlet_promos').update({ is_active: false }).eq('id', promoId)
       }
     }
   }

@@ -58,9 +58,12 @@ export async function POST(req: Request) {
     
     const { error: updateOrderErr } = await supabase
       .from('orders')
-      .update({ 
+      .update({
         cancellation_status: newStatus,
-        status: newStatus === 'approved' ? 'cancelled' : 'pending' // kalau di-reject kembali ke pending
+        // Kalau ditolak, order harus kembali ke status SEBELUM pembatalan
+        // diajukan — bisa 'pending' ATAU 'preparing', bukan selalu 'pending'.
+        // Fallback 'pending' hanya untuk baris lama sebelum kolom ini ada.
+        status: newStatus === 'approved' ? 'cancelled' : (request.previous_order_status ?? 'pending')
       })
       .eq('id', request.order_id)
 

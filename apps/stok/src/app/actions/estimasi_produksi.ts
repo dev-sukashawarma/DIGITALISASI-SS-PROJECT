@@ -1,11 +1,28 @@
 'use server'
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
+import { createSupabaseServerClient } from '@suka/auth'
+import { assertOutletAccessible } from '@/lib/stok/outletAccess'
 
 function makeServiceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+// Server Action = endpoint POST publik; makeServiceClient() bypass RLS, jadi
+// wajib gerbang sesi+scope-outlet sendiri sebelum baca data resep/BOM
+// (rahasia dagang) — lihat CLAUDE.md § Server Action authz gap.
+async function getAuthedClient() {
+  const cookieStore = await cookies()
+  return createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (toSet) =>
+      toSet.forEach(({ name, value, options }) =>
+        cookieStore.set(name, value, options as any)
+      ),
+  })
 }
 
 export interface EstimasiIngredient {
@@ -26,8 +43,9 @@ export interface EstimasiRecipe {
 }
 
 export async function fetchEstimasiRecipes(outletId: string): Promise<EstimasiRecipe[]> {
+  await assertOutletAccessible(await getAuthedClient(), outletId)
   const supabase = makeServiceClient()
-  
+
   // 1. Ambil resep aktif dan scope sesuai outlet
   const { data: resepData, error: resepError } = await supabase
     .from('resep')

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/authz'
 
 export async function GET() {
   const supabase = createServiceClient() // Using service client to bypass RLS for fetching settings
@@ -23,8 +24,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = createServiceClient() // Service client bypasses RLS
-  
+
   try {
+    // API route middleware hanya cek session-punya-app-access, bukan role —
+    // route ini menimpa global_settings company-wide (termasuk print layout
+    // & brand logo semua outlet), wajib admin/owner.
+    await requireRole(['admin', 'owner'])
+
     const body = await request.json()
     
     // Process base64 image upload for brand_logo

@@ -4,7 +4,13 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@suka/auth'
+import { requireRole } from '@/lib/authz'
 import { DisbursementMethod } from '@/lib/types'
+
+// Role yang benar-benar boleh memproses tahap Finance (approve/reject/forward
+// dana). `leader`/`area_manager` punya akses app `finance` (ROLE_APP_ACCESS)
+// untuk tahap mereka sendiri, TAPI bukan untuk aksi di file ini.
+const FINANCE_STAFF_ROLES = ['admin_finance', 'admin', 'owner']
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -29,7 +35,6 @@ export async function processPettyCashFinanceCustomAmount({
   proofOfTransferUrl,
   approvedAmount,
   approvalNote,
-  userId
 }: {
   id: string
   action: 'approve' | 'reject'
@@ -38,9 +43,14 @@ export async function processPettyCashFinanceCustomAmount({
   proofOfTransferUrl?: string | null
   approvedAmount?: number | null
   approvalNote?: string | null
-  userId: string
+  /** @deprecated diabaikan — userId diambil dari sesi server, bukan dari client */
+  userId?: string
 }) {
   try {
+    // Server Action = endpoint POST publik; RPC finance_process_petty_cash
+    // (SECURITY DEFINER) tidak cek role sama sekali, jadi gerbang wajib di sini.
+    const { userId: validUserId } = await requireRole(FINANCE_STAFF_ROLES)
+
     const supabase = await getSupabaseClient()
 
     const { data: topup, error: fetchError } = await supabase
@@ -58,7 +68,17 @@ export async function processPettyCashFinanceCustomAmount({
       throw new Error(`Top up is not ready for finance processing (status: ${topup.status})`)
     }
 
-    const validUserId = (userId && userId !== '00000000-0000-0000-0000-000000000000') ? userId : null
+    // approvedAmount datang dari client — jangan pernah percaya mentah.
+    // Boleh menurunkan nominal (acc sebagian), tidak boleh menaikkan di atas
+    // yang diajukan, dan tidak boleh negatif/nol.
+    if (approvedAmount != null) {
+      if (!Number.isFinite(approvedAmount) || approvedAmount <= 0) {
+        throw new Error('Nominal disetujui tidak valid')
+      }
+      if (approvedAmount > topup.amount) {
+        throw new Error('Nominal disetujui tidak boleh melebihi nominal yang diajukan')
+      }
+    }
 
     // 1. Panggil RPC resmi PostgreSQL finance_process_petty_cash (SECURITY DEFINER)
     // RPC ini dijamin sukses 100% tanpa terhadang RLS di lingkungan manapun.
@@ -112,8 +132,10 @@ export async function processPettyCashFinanceCustomAmount({
   }
 }
 
-export async function forwardPettyCashFinance({ id, userId }: { id: string, userId: string }) {
+export async function forwardPettyCashFinance({ id }: { id: string, userId?: string }) {
   try {
+    const { userId: validUserId } = await requireRole(FINANCE_STAFF_ROLES)
+
     const supabase = await getSupabaseClient()
     const { data: topup, error: fetchError } = await supabase
       .from('petty_cash_topups')
@@ -137,9 +159,9 @@ export async function forwardPettyCashFinance({ id, userId }: { id: string, user
       throw new Error(rpcError.message || 'Gagal meneruskan dana via RPC')
     }
     
-    // Also record the user who forwarded it
-    if (userId && userId !== '00000000-0000-0000-0000-000000000000') {
-      await supabase.from('petty_cash_topups').update({ finance_forwarded_by: userId, finance_forwarded_at: new Date().toISOString() }).eq('id', id)
+    // Rekam siapa yang meneruskan dana — dari sesi terverifikasi, bukan dari client.
+    {
+      await supabase.from('petty_cash_topups').update({ finance_forwarded_by: validUserId, finance_forwarded_at: new Date().toISOString() }).eq('id', id)
     }
 
     revalidatePath('/petty-cash')

@@ -1,11 +1,28 @@
 'use server'
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
+import { createSupabaseServerClient } from '@suka/auth'
+import { assertOutletAccessible } from '@/lib/stok/outletAccess'
 
 function makeServiceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+// Server Action = endpoint POST publik; makeServiceClient() bypass RLS, jadi
+// wajib gerbang sesi+scope-outlet sendiri (lihat CLAUDE.md § Server Action
+// authz gap) sebelum baca resep/BOM atau jalankan kalkulasi kebutuhan bahan.
+async function getAuthedClient() {
+  const cookieStore = await cookies()
+  return createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (toSet) =>
+      toSet.forEach(({ name, value, options }) =>
+        cookieStore.set(name, value, options as any)
+      ),
+  })
 }
 
 export interface ResepMenu {
@@ -28,8 +45,9 @@ export interface CalculatedBahan {
 // fetchActiveResep — ambil daftar resep menu yang aktif
 // ---------------------------------------------------------------------------
 export async function fetchActiveResep(outletId: string): Promise<ResepMenu[]> {
+  await assertOutletAccessible(await getAuthedClient(), outletId)
   const supabase = makeServiceClient()
-  
+
   const { data, error } = await supabase
     .from('resep')
     .select('id, nama, menu_item_ref')
@@ -81,7 +99,8 @@ export async function calculateBahanBakuRequest(
   targets: { resep_id: string; qty_target: number }[]
 ): Promise<CalculatedBahan[]> {
   if (targets.length === 0) return []
-  
+
+  await assertOutletAccessible(await getAuthedClient(), outletId)
   const supabase = makeServiceClient()
   const { data, error } = await supabase.rpc('calculate_bahan_baku_request', {
     p_outlet_id: outletId,

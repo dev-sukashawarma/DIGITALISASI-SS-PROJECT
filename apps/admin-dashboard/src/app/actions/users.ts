@@ -3,6 +3,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
+import { requireRole } from '@/lib/authz'
 import type { StaffFormValues } from '@/lib/types'
 
 // We need a Service Role client to create users
@@ -13,6 +14,10 @@ function getAdminSupabase() {
 }
 
 export async function createStaffSync(values: StaffFormValues) {
+  // Server Action = endpoint POST publik; mint akun baru (termasuk role admin)
+  // wajib gerbang server-side sendiri, guard UI tidak cukup.
+  await requireRole(['admin', 'owner'])
+
   const admin = getAdminSupabase()
   let orderOnline: any = null
   try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }

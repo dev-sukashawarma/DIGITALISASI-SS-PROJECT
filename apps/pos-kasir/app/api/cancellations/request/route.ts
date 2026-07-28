@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     // 1. Dapatkan outlet_id dari order
     const { data: order, error: orderErr } = await supabase
       .from('orders')
-      .select('outlet_id, order_number, customer_name, total_amount')
+      .select('outlet_id, order_number, customer_name, total_amount, status')
       .eq('id', order_id)
       .single()
 
@@ -57,7 +57,11 @@ export async function POST(req: Request) {
       .insert({
         order_id,
         reason,
-        expires_at: expiresAt.toISOString()
+        expires_at: expiresAt.toISOString(),
+        // Perlu untuk restore status yang benar kalau ditolak — order bisa
+        // diajukan cancel dari status 'pending' MAUPUN 'preparing', jangan
+        // hardcode balik ke 'pending' (lihat action/route.ts).
+        previous_order_status: order.status
       })
       .select('token')
       .single()

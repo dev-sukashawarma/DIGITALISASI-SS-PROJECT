@@ -37,7 +37,7 @@ export default function ProfitClient({
         if (filterOutlet !== 'ALL') params.set('outlet', filterOutlet);
         if (filterFrom) params.set('from', filterFrom);
         if (filterTo) params.set('to', filterTo);
-        router.push(\`/dashboard/pawoon-import/profit?\${params.toString()}\`);
+        router.push(`/dashboard/pawoon-import/profit?${params.toString()}`);
     };
 
     const resetFilters = () => {

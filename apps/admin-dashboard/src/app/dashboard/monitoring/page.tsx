@@ -250,7 +250,7 @@ export default function MonitoringPage() {
 
       const [outRes, stfRes, mapRes, attRes, catRes, recRes, opnRes] = await Promise.all([
         supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
-        supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader']),
+        supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader', 'spv']),
         supabase.from('staff_outlets').select('staff_id, outlet_id'),
         supabase.from('attendance')
           .select('outlet_id, outlet_staff_id, type, ts_server')
@@ -411,8 +411,9 @@ export default function MonitoringPage() {
 
   // Helper render per outlet card for a specific date
   const renderOutletCardForDate = (outlet: Outlet, targetDateStr: string) => {
-    // 1. Staff belonging to this outlet (either primary outlet_id OR mapped in staff_outlets)
+    // 1. Staff belonging to this outlet (either primary outlet_id OR mapped in staff_outlets) OR spv
     const outletStaff = staffList.filter(s => 
+      s.role === 'spv' ||
       s.outlet_id === outlet.id || 
       staffOutletMappings.some(m => m.staff_id === s.id && m.outlet_id === outlet.id)
     )

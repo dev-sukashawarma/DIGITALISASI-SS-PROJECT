@@ -93,7 +93,7 @@ DECLARE
   v_sj surat_jalan;
   v_item JSONB;
 BEGIN
-  IF NOT EXISTS (
+  IF auth.role() != 'service_role' AND NOT EXISTS (
     SELECT 1 FROM outlet_staff
     WHERE id = auth.uid() AND status = 'active' AND role IN ('kitchen', 'admin', 'owner')
   ) THEN
@@ -131,7 +131,7 @@ DECLARE
   v_document_number text;
   v_verification_code text;
 BEGIN
-  IF NOT EXISTS (
+  IF auth.role() != 'service_role' AND NOT EXISTS (
     SELECT 1 FROM outlet_staff
     WHERE id = auth.uid() AND status = 'active' AND role IN ('kitchen', 'admin', 'owner')
   ) THEN

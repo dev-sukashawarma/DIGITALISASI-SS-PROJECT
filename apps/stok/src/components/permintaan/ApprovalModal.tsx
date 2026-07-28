@@ -5,7 +5,7 @@ import { useBahanBaku } from '@/hooks/useBahanBaku'
 import type { PermintaanWithItems } from '@/types/permintaan'
 import { fetchCrosscheckStok } from '@/app/actions/permintaan'
 import { calculateBahanBakuRequest } from '@/app/actions/permintaan_target'
-import { convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
+import { convertToDistribusiUnit, convertToBaseUnit, formatTriUnitSaldo } from '@/lib/format/compositeUnit'
 
 interface Props {
   permintaan: PermintaanWithItems
@@ -221,7 +221,7 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
                     <p className="text-[10px] text-[#544437]/60 mt-0.5 animate-pulse">Memuat stok...</p>
                   ) : crosscheckData && crosscheckData[it.bahan_baku_id] ? (
                     <p className="text-[10px] text-[#544437] mt-0.5 font-medium">
-                      Stok Outlet: {crosscheckData[it.bahan_baku_id].outletStok} {it.satuan} | Stok Gudang: {crosscheckData[it.bahan_baku_id].gudangStok} {it.satuan}
+                      Stok Outlet: {b ? formatTriUnitSaldo(crosscheckData[it.bahan_baku_id].outletStok, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan) : `${Math.round(crosscheckData[it.bahan_baku_id].outletStok * 100) / 100} ${it.satuan ?? ''}`} | Stok Gudang: {b ? formatTriUnitSaldo(crosscheckData[it.bahan_baku_id].gudangStok, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan) : `${Math.round(crosscheckData[it.bahan_baku_id].gudangStok * 100) / 100} ${it.satuan ?? ''}`}
                     </p>
                   ) : (
                     <p className="text-[10px] text-[#544437]/60 mt-0.5">(Stok tidak dapat dimuat)</p>

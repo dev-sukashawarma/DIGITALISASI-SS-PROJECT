@@ -535,7 +535,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         {activeTab === 'overview' && (
           <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
             {/* Left Column: Outlets (Collapsible) - Desktop Only */}
-            <aside className={`hidden lg:block ${isSidebarCollapsed ? 'lg:w-[60px] p-2' : 'lg:w-[250px] xl:w-[22%] p-6'} bg-suka-cream/50 border-r border-suka-brown/20 overflow-y-auto space-y-6 transition-all duration-300 flex-shrink-0`}>
+            <aside className={`hidden lg:block ${isSidebarCollapsed ? 'lg:w-[100px] p-3' : 'lg:w-[300px] xl:w-[25%] p-6'} bg-suka-cream/50 border-r border-suka-brown/20 overflow-y-auto space-y-6 transition-all duration-300 flex-shrink-0`}>
               <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2">
                 {!isSidebarCollapsed && (
                   <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
@@ -586,17 +586,21 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                               <button
                                 key={outlet.outlet_id}
                                 onClick={() => setSelectedOutletId(outlet.outlet_id)}
-                                className={`flex items-center justify-center p-2 rounded-lg border relative transition-all ${
+                                className={`flex flex-col items-center justify-center py-2 px-1 w-full rounded-xl border relative transition-all ${
                                   isActive
-                                    ? 'border-suka-orange bg-white shadow-sm'
-                                    : 'border-suka-brown/10 bg-white hover:border-suka-orange/30'
+                                    ? 'border-suka-orange bg-white shadow-sm ring-1 ring-suka-orange'
+                                    : 'border-suka-brown/10 bg-white hover:border-suka-orange/50 hover:bg-orange-50'
                                 }`}
                                 title={`${cleanName} (${outlet.status === 'below' ? 'Kritis' : outlet.status === 'warning' ? 'Menipis' : 'Aman'})`}
                               >
-                                <span className={`w-3.5 h-3.5 rounded-full ${statusCircleColor} flex items-center justify-center text-[8px] text-white font-bold`}>
-                                  {outlet.status !== 'ok' ? (outlet.status === 'below' ? outlet.kritisCount : outlet.menipisCount) : ''}
+                                <div className="relative mb-1">
+                                  <span className={`w-4 h-4 rounded-full ${statusCircleColor} flex items-center justify-center text-[9px] text-white font-bold`}>
+                                    {outlet.status !== 'ok' ? (outlet.status === 'below' ? outlet.kritisCount : outlet.menipisCount) : ''}
+                                  </span>
+                                </div>
+                                <span className={`text-[10px] font-black tracking-wider ${isActive ? 'text-suka-orange' : 'text-suka-brown'}`}>
+                                  {shortName}
                                 </span>
-                                <span className="absolute -top-1 -right-1 text-[8px] font-black text-suka-brown/40">{shortName}</span>
                               </button>
                             );
                           }

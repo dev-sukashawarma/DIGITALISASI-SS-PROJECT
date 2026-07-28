@@ -7,7 +7,7 @@ import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays, Store } fro
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { useRealtimeInvalidate } from "@suka/realtime";
-import { computeBoard, type BoardStaff, type BoardRecord, type BoardRow } from "@/features/board/board";
+import { type BoardRow } from "@/features/board/board";
 import { PageHeader, InfoPill } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
 import { OutletSwitcher } from "@/components/OutletSwitcher";
@@ -120,7 +120,7 @@ export default function PapanKehadiranPage() {
   const telatPct = summary.total > 0 ? (summary.telat / summary.total) * 100 : 0;
   const alphaPct = summary.total > 0 ? (summary.alpha / summary.total) * 100 : 0;
 
-  const filteredRows = data.rows.filter(r => filterStatus === "semua" || r.state === filterStatus);
+  const filteredRows = data.rows.filter((r: BoardRow) => filterStatus === "semua" || r.state === filterStatus);
 
   return (
     <div className="space-y-5">
@@ -194,7 +194,7 @@ export default function PapanKehadiranPage() {
         </div>
         <div className="rounded-2xl border border-suka-gray-200 bg-white divide-y divide-suka-gray-200/70 overflow-hidden">
           {filteredRows.length === 0 && <EmptyState icon={<Users size={28} />} title="Belum ada staff" />}
-          {filteredRows.map((r) => {
+          {filteredRows.map((r: BoardRow) => {
             const p = PILL[r.state];
             return (
               <div key={r.id} className="flex items-center gap-3 px-3.5 py-3 sm:px-4">

@@ -48,6 +48,12 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const [permissionState, setPermissionState] = useState<"prompt" | "requesting" | "denied" | "granted">("prompt");
   const [permissionError, setPermissionError] = useState<string | null>(null);
 
+  // FEATURE FLAG / TOGGLE: Server Match (Opsi 1) vs Client Match (Legacy)
+  const [matchMode, setMatchMode] = useState<"server" | "client">((process.env.NEXT_PUBLIC_FACE_MATCH_MODE as "server" | "client") || "server");
+  const [serverDescriptor, setServerDescriptor] = useState<number[] | null>(null);
+  const lastTickRef = useRef<number>(0);
+  const lastLivenessRef = useRef<number>(0);
+
   // Check initial permissions state on mount and add listeners for settings updates
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -375,26 +381,65 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   /** Dipanggil per-frame oleh layar saat phase idle: deteksi + identify. */
   const tick = useCallback(async (video: HTMLVideoElement) => {
     if (busyRef.current || phase !== "idle" || !outletId) return;
+    
+    // THROTTLING: Batasi deteksi wajah (human.detect) maksimal ~4 FPS (setiap 250ms)
+    // agar HP low-end tidak overheat/patah-patah
+    const now = Date.now();
+    if (now - lastTickRef.current < 250) return;
+    lastTickRef.current = now;
+
     busyRef.current = true;
     try {
       const human = await getHuman();
       const res = await human.detect(video);
       if (!res.face || res.face.length === 0 || !res.face[0].embedding) return;
-      const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
-      if (found.id === "unknown") {
+      
+      let foundId = "unknown";
+      let foundName = "Unknown";
+      let foundSim = 0;
+
+      if (matchMode === "client") {
+        // --- MODE KLIEN (LEGACY) ---
+        const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
+        foundId = found.id;
+        foundName = found.name;
+        foundSim = found.bestSimilarity;
+      } else {
+        // --- MODE SERVER (OPSI 1) ---
+        const desc = Array.from(res.face[0].embedding);
+        const apiRes = await fetch("/api/face-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ descriptor: desc, outletId, lockToStaffId })
+        });
+        const data = await apiRes.json();
+        
+        if (data.ok && data.staffId) {
+          foundId = data.staffId;
+          foundName = data.name;
+          foundSim = data.similarity;
+          if (data.descriptor) {
+            setServerDescriptor(data.descriptor);
+          }
+        } else {
+          foundSim = data.bestSimilarity || 0;
+        }
+      }
+
+      if (foundId === "unknown") {
         const msg = lockToStaffId
-          ? `Wajah tidak cocok dengan akun ini. Pastikan Anda yang absen. (Skor: ${found.bestSimilarity.toFixed(4)})`
-          : `Wajah tidak dikenal (Skor kemiripan tertinggi: ${found.bestSimilarity.toFixed(4)})`;
+          ? `Wajah tidak cocok dengan akun ini. Pastikan Anda yang absen. (Skor: ${foundSim.toFixed(4)})`
+          : `Wajah tidak dikenal (Skor kemiripan tertinggi: ${foundSim.toFixed(4)})`;
         setResult({ ok: false, message: msg });
         setPhase("result");
         scheduleReset(3000);
         return;
       }
-      const next = await decideAction(found.id);
+      const next = await decideAction(foundId);
 
       if (next === "done") {
-        setWho({ id: found.id, name: found.name });
-        setResult({ ok: true, message: `${found.name} sudah absen masuk & keluar hari ini` });
+        setWho({ id: foundId, name: foundName });
+        setResult({ ok: true, message: `${foundName} sudah absen masuk & keluar hari ini` });
         setPhase("result");
         scheduleReset(2500);
         return;
@@ -416,7 +461,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         return;
       }
 
-      setWho({ id: found.id, name: found.name });
+      setWho({ id: foundId, name: foundName });
       setAction(next);
       setChallenge(pickChallenge());
       setPhase("identified");
@@ -424,12 +469,18 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     } finally {
       busyRef.current = false;
     }
-  }, [phase, outletId, decideAction]);
+  }, [phase, outletId, decideAction, matchMode, lockToStaffId]);
 
   /** Dipanggil per-frame saat phase liveness; selesaikan saat lulus. */
   const livenessRef = useRef<ReturnType<typeof createLivenessDetector> | null>(null);
   const runLiveness = useCallback(async (video: HTMLVideoElement) => {
     if (phase !== "liveness" || !who || !challenge || !outletId) return;
+    
+    // THROTTLING untuk liveness agar tidak terlalu berat
+    const now = Date.now();
+    if (now - lastLivenessRef.current < 200) return; // ~5 FPS
+    lastLivenessRef.current = now;
+
     if (busyRef.current) return;
     busyRef.current = true;
     // Pastikan detector ada lalu pegang referensinya di variabel lokal. Selama
@@ -455,8 +506,16 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       // Jeda 3 detik memberi waktu untuk menyelesaikan gerakan tanpa langsung gagal.
       let isFaceMatch = false;
       if (res.face[0].embedding) {
-        const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
-        isFaceMatch = (found.id === who.id);
+        const liveDesc = Array.from(res.face[0].embedding);
+        if (matchMode === "server" && serverDescriptor) {
+          // Hanya bandingkan dengan descriptor yang dikembalikan oleh server (Opsi 1)
+          const found = identifyStaff(liveDesc, [{ id: who.id, name: who.name, descriptor: serverDescriptor }]);
+          isFaceMatch = (found.id === who.id);
+        } else {
+          // Bandingkan dengan seluruh kandidat (Mode Legacy Client)
+          const found = identifyStaff(liveDesc, candidatesRef.current);
+          isFaceMatch = (found.id === who.id);
+        }
       }
 
       if (!isFaceMatch) {
@@ -485,9 +544,23 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         livenessRef.current = null;
         // Pengecekan final saat lolos liveness (harus frontal dan cocok)
         if (!res.face[0].embedding) return;
-        const found = identifyStaff(Array.from(res.face[0].embedding), candidatesRef.current);
-        if (found.id === "unknown" || found.id !== who.id) {
-          setResult({ ok: false, message: `Wajah harus orang yang sama. Silakan ulangi. (Skor: ${found.bestSimilarity.toFixed(4)})` });
+        const liveDesc = Array.from(res.face[0].embedding);
+        
+        let finalMatch = false;
+        let finalSim = 0;
+        
+        if (matchMode === "server" && serverDescriptor) {
+          const found = identifyStaff(liveDesc, [{ id: who.id, name: who.name, descriptor: serverDescriptor }]);
+          finalMatch = (found.id === who.id);
+          finalSim = found.bestSimilarity;
+        } else {
+          const found = identifyStaff(liveDesc, candidatesRef.current);
+          finalMatch = (found.id === who.id);
+          finalSim = found.bestSimilarity;
+        }
+
+        if (!finalMatch) {
+          setResult({ ok: false, message: `Wajah harus orang yang sama. Silakan ulangi. (Skor: ${finalSim.toFixed(4)})` });
           setPhase("result");
           scheduleReset(3000);
           return;
@@ -497,7 +570,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     } finally {
       busyRef.current = false;
     }
-  }, [phase, who, challenge, outletId]);
+  }, [phase, who, challenge, outletId, matchMode, serverDescriptor]);
 
   /**
    * True bila semua item WAJIB pada checklist fase "tutup" sudah dicentang hari ini.
@@ -615,6 +688,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     setTimeout(() => {
       setPhase(locationLockedRef.current ? "idle" : "locating");
       setWho(null); setChallenge(null); setResult(null);
+      setServerDescriptor(null);
       livenessRef.current = null;
       livenessWarningStartRef.current = null;
     }, delay);
@@ -629,7 +703,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   return { phase, who, action, challenge, challengeLabel: challenge ? CHALLENGE_LABEL[challenge] : "", result,
            loadCandidates, tick, runLiveness, flushQueue, isOnline: queue.isOnline, pending: queue.pending,
            checkLocation, gpsDistance, deviceCoords, deviceAccuracy,
-           permissionState, permissionError, requestPermissions };
+           permissionState, permissionError, requestPermissions,
+           matchMode, setMatchMode };
 }
 
 function gagalText(reason: string): string {

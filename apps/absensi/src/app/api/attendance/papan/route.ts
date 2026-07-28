@@ -33,16 +33,16 @@ export async function GET(request: Request) {
         .from('attendance')
         .select('outlet_staff_id, type, status, ts_server, selfie_url, telat_menit')
         .eq('outlet_id', outlet_id)
-        .gte('ts_server', `${date}T00:00:00`)
-        .lte('ts_server', `${date}T23:59:59`),
+        .gte('ts_server', `${date}T00:00:00+07:00`)
+        .lte('ts_server', `${date}T23:59:59+07:00`),
 
       supabaseService
         .from('attendance')
         .select('id, outlet_staff_id, status, ts_server, gps_lat, gps_lng')
         .eq('outlet_id', outlet_id)
         .in('status', ['fake_gps_blocked', 'teleportation_blocked'])
-        .gte('ts_server', `${date}T00:00:00`)
-        .lte('ts_server', `${date}T23:59:59`),
+        .gte('ts_server', `${date}T00:00:00+07:00`)
+        .lte('ts_server', `${date}T23:59:59+07:00`),
 
       supabaseService
         .from('outlet_attendance_config')

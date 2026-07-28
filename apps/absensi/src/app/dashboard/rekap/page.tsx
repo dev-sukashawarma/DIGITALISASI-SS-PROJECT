@@ -26,17 +26,7 @@ type Row = {
 
 const SELFIE_BUCKET = "selfies";
 
-function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
-  const [h, m] = jamMasuk.split(":").map(Number);
-  const serverTime = new Date(tsServer);
-  
-  const expectedTime = new Date(tsServer);
-  expectedTime.setHours(h, m, 0, 0);
-  
-  const diffMs = serverTime.getTime() - expectedTime.getTime();
-  if (diffMs <= 0) return 0;
-  return Math.floor(diffMs / 60000);
-}
+
 
 export default function RekapPage() {
   const { outletStaff } = useAuth();

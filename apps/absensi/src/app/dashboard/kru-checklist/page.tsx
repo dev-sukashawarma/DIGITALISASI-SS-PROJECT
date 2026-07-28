@@ -52,7 +52,6 @@ const ChecklistItemRow = React.memo(({
   qc: any;
 }) => {
   const toast = useToast();
-  const [isTicking, setIsTicking] = useState(false);
 
   const isTicked = !!tick;
   const isMe = tick?.ticked_by === outletStaff?.id;
@@ -71,7 +70,24 @@ const ChecklistItemRow = React.memo(({
       return;
     }
 
-    setIsTicking(true);
+    const previousTicks = qc.getQueryData(["checklist-ticks", recordId]);
+    
+    // Optimistic Update
+    qc.setQueryData(["checklist-ticks", recordId], (old: TickRow[] = []) => {
+      if (isTicked) {
+        return old.filter(t => t.item_id !== item.id);
+      } else {
+        const newTick: TickRow = {
+          id: "temp-" + Date.now(),
+          item_id: item.id,
+          ticked_by: outletStaff.id,
+          ticked_at: new Date().toISOString(),
+          outlet_staff: { name: outletStaff.name }
+        };
+        return [...old, newTick];
+      }
+    });
+
     try {
       const res = await fetch('/api/checklist/toggle', {
         method: 'POST',
@@ -90,29 +106,27 @@ const ChecklistItemRow = React.memo(({
       }
       const json = await res.json();
       if (json.error) throw new Error(json.error);
-      qc.invalidateQueries({ queryKey: ["checklist-ticks", recordId] });
     } catch (err: any) {
       const errMsg = err?.message || "Gagal menyimpan progress";
       toast.show("err", errMsg);
       console.error("[toggleTick]", err);
+      // Revert optimistic update
+      qc.setQueryData(["checklist-ticks", recordId], previousTicks);
     }
-    setIsTicking(false);
   };
 
   return (
     <button
-      disabled={isTicking || locked}
+      disabled={locked}
       onClick={toggleTick}
       className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl my-0.5 text-left transition-all duration-200 ${
         isTicked
           ? "bg-green-50 hover:bg-green-100"
           : "hover:bg-slate-50"
-      } ${isTicking ? "opacity-50 cursor-wait" : locked ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+      } ${locked ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
     >
       <div className={`flex-shrink-0 transition-all duration-200 ${isTicked ? "text-suka-green" : "text-gray-300 hover:text-suka-orange"}`}>
-        {isTicking ? (
-          <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
-        ) : isTicked ? (
+        {isTicked ? (
           <CheckCircle2 size={24} />
         ) : (
           <Circle size={24} />
@@ -233,8 +247,8 @@ export default function KruChecklistPage() {
         .select("type")
         .eq("outlet_staff_id", outletStaff!.id)
         .eq("type", "in")
-        .gte("ts_server", `${today}T00:00:00`)
-        .lte("ts_server", `${today}T23:59:59`)
+        .gte("ts_server", `${today}T00:00:00+07:00`)
+        .lte("ts_server", `${today}T23:59:59+07:00`)
         .limit(1);
       return (data?.length ?? 0) > 0;
     }
@@ -297,15 +311,21 @@ export default function KruChecklistPage() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "daily_checklist_ticks", filter: `record_id=eq.${recordId}` },
         async (payload) => {
-          const { data: staffData } = await supabase
-            .from("outlet_staff")
-            .select("name")
-            .eq("id", payload.new.ticked_by)
-            .single();
+          let staffName = null;
+          if (outletStaff && payload.new.ticked_by === outletStaff.id) {
+            staffName = outletStaff.name;
+          } else {
+            const { data: staffData } = await supabase
+              .from("outlet_staff")
+              .select("name")
+              .eq("id", payload.new.ticked_by)
+              .single();
+            staffName = staffData?.name;
+          }
           qc.setQueryData(["checklist-ticks", recordId], (old: TickRow[] = []) => {
             return [
               ...old.filter(t => t.item_id !== payload.new.item_id),
-              { ...payload.new as TickRow, outlet_staff: staffData }
+              { ...payload.new as TickRow, outlet_staff: { name: staffName } }
             ];
           });
         }
@@ -322,7 +342,7 @@ export default function KruChecklistPage() {
       .subscribe();
 
     return () => { supabase.removeChannel(ch); };
-  }, [recordId, qc, supabase]);
+  }, [recordId, qc, supabase, outletStaff?.id, outletStaff?.name]);
 
   // Memoized data structures for O(1) lookups and derived state
   const ticksMap = useMemo(() => {
@@ -629,8 +649,8 @@ export default function KruChecklistPage() {
                 const { error } = await supabase.from("attendance")
                   .delete()
                   .eq("outlet_id", selectedOutletId)
-                  .gte("ts_server", `${todayStr}T00:00:00`)
-                  .lte("ts_server", `${todayStr}T23:59:59`);
+                  .gte("ts_server", `${todayStr}T00:00:00+07:00`)
+                  .lte("ts_server", `${todayStr}T23:59:59+07:00`);
                 if (error) toast.show("err", "Gagal reset log absensi. " + error.message);
                 else {
                   toast.show("ok", "Log absensi hari ini dihapus. Silakan refresh halaman.");

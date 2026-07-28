@@ -17,7 +17,6 @@ export default async function SyncedPawoonDataPage({
     const { data: outlets } = await supabase
         .from('outlets')
         .select('id, name, type, is_active')
-        .eq('is_active', true)
         .order('name');
 
     const selectedOutletId = params.outlet || 'ALL';
@@ -258,7 +257,10 @@ export default async function SyncedPawoonDataPage({
                                                     const sum = syncedSummary[outlet.id];
                                                     return (
                                                         <li key={outlet.id} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                                                            <span className={`font-bold ${sum ? 'text-gray-700' : 'text-gray-400'}`}>{outlet.name}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`font-bold ${sum ? 'text-gray-700' : 'text-gray-400'}`}>{outlet.name}</span>
+                                                                {!outlet.is_active && <span className="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Tutup</span>}
+                                                            </div>
                                                             <div className="flex items-center gap-3">
                                                                 {sum ? (
                                                                     <>
@@ -289,7 +291,10 @@ export default async function SyncedPawoonDataPage({
                                                     const sum = syncedSummary[outlet.id];
                                                     return (
                                                         <li key={outlet.id} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
-                                                            <span className={`font-bold ${sum ? 'text-amber-900' : 'text-amber-600 opacity-60'}`}>{outlet.name}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`font-bold ${sum ? 'text-amber-900' : 'text-amber-600 opacity-60'}`}>{outlet.name}</span>
+                                                                {!outlet.is_active && <span className="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Tutup</span>}
+                                                            </div>
                                                             <div className="flex items-center gap-3">
                                                                 {sum ? (
                                                                     <>

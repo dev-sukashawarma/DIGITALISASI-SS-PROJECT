@@ -2,6 +2,7 @@ import { type NextRequest } from 'next/server'
 import { enforceAppAccess } from '@suka/auth'
 
 export function middleware(request: NextRequest) {
+  // @ts-expect-error type mismatch between package workspaces
   return enforceAppAccess(request, 'absensi', { rootRewritePath: '/dashboard' })
 }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import dayjs from 'dayjs';
 
 const supabaseService = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,14 +10,20 @@ const supabaseService = createClient(
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const outlet_id = searchParams.get('outlet_id');
-  const date = searchParams.get('date') || new Date().toISOString().slice(0, 10);
+  const dateParam = searchParams.get('date');
+  let start_date = searchParams.get('start_date');
+  let end_date = searchParams.get('end_date');
+
+  if (!start_date || !end_date) {
+    start_date = dateParam || dayjs().format('YYYY-MM-DD');
+    end_date = dateParam || dayjs().format('YYYY-MM-DD');
+  }
 
   if (!outlet_id) {
     return NextResponse.json({ error: 'outlet_id is required' }, { status: 400 });
   }
 
   try {
-    // 1. Fetch staff list for outlet (primary staff + multi-outlet assigned staff from staff_outlets)
     const [primaryStaffRes, assignedStaffRes, attRes, localCfgRes, globalCfgRes] = await Promise.all([
       supabaseService
         .from('outlet_staff')
@@ -33,8 +40,8 @@ export async function GET(request: Request) {
         .from('attendance')
         .select('id, type, ts_server, ts_client, status, selfie_url, outlet_staff_id, telat_menit')
         .eq('outlet_id', outlet_id)
-        .gte('ts_server', `${date}T00:00:00+07:00`)
-        .lte('ts_server', `${date}T23:59:59+07:00`)
+        .gte('ts_server', `${start_date}T00:00:00+07:00`)
+        .lte('ts_server', `${end_date}T23:59:59+07:00`)
         .order('ts_server', { ascending: false }),
 
       supabaseService
@@ -50,7 +57,6 @@ export async function GET(request: Request) {
         .maybeSingle()
     ]);
 
-    // Merge primary and multi-outlet assigned staff
     const activeStaffMap = new Map<string, { id: string; name: string; role: string }>();
 
     (primaryStaffRes.data || []).forEach((s) => {
@@ -80,7 +86,6 @@ export async function GET(request: Request) {
       } catch (e) {}
     }
 
-    // Calculate delay minutes if status is telat/pulang_telat/lebih_awal
     dbRows.forEach((r: any) => {
       if (r.status === 'telat' && r.type === 'in' && cfg?.jam_masuk) {
         const [h, m] = cfg.jam_masuk.split(':').map(Number);
@@ -92,23 +97,47 @@ export async function GET(request: Request) {
       }
     });
 
-    // Virtual Alphas for staff who haven't clocked in
-    const inRecords = new Set(dbRows.filter((r) => r.type === 'in').map((r) => r.outlet_staff_id));
-    const virtualAlphas = activeStaff
-      .filter((staff) => !inRecords.has(staff.id))
-      .map((staff) => ({
-        id: `virtual-alpha-${staff.id}`,
-        type: 'in' as const,
-        ts_server: `${date}T23:59:59+07:00`,
-        ts_client: null,
-        status: 'alpha' as const,
-        selfie_url: null,
-        outlet_staff: { name: staff.name },
-      }));
+    const todayStr = dayjs().format('YYYY-MM-DD');
+    const virtualAlphas: any[] = [];
+    
+    let curr = dayjs(start_date);
+    const end = dayjs(end_date);
+    
+    while (curr.isBefore(end) || curr.isSame(end, 'day')) {
+      const dStr = curr.format('YYYY-MM-DD');
+      
+      if (dStr > todayStr) {
+        curr = curr.add(1, 'day');
+        continue;
+      }
+      
+      const inRecordsForDay = new Set(
+        dbRows
+          .filter((r) => r.type === 'in' && r.ts_server.startsWith(dStr))
+          .map((r) => r.outlet_staff_id)
+      );
+      
+      activeStaff.forEach((staff) => {
+        if (!inRecordsForDay.has(staff.id)) {
+          virtualAlphas.push({
+            id: `virtual-alpha-${staff.id}-${dStr}`,
+            type: 'in',
+            ts_server: `${dStr}T23:59:59+07:00`,
+            ts_client: null,
+            status: 'alpha',
+            selfie_url: null,
+            outlet_staff_id: staff.id,
+            outlet_staff: { name: staff.name },
+          });
+        }
+      });
+      
+      curr = curr.add(1, 'day');
+    }
 
     return NextResponse.json({
       ok: true,
-      rows: [...dbRows, ...virtualAlphas],
+      rows: [...dbRows, ...virtualAlphas].sort((a, b) => new Date(b.ts_server).getTime() - new Date(a.ts_server).getTime()),
       activeStaff,
     });
   } catch (err: any) {

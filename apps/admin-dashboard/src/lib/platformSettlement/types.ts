@@ -20,8 +20,6 @@ export interface SettlementRow {
   promoMerchant: number;
   /** Komisi platform. SELALU disimpan positif walau di file aslinya negatif. */
   commission: number;
-  /** Opsional: ID pesanan unik. Jika ada, dipakai untuk menghitung trxCount agar baris item dari pesanan yang sama tidak dihitung dobel. */
-  orderId?: string;
 }
 
 /** Agregat per outlet per tanggal — bentuk yang benar-benar disimpan ke DB. */

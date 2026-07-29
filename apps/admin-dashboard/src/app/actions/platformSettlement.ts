@@ -324,7 +324,6 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
       const rows: SettlementRow[] = parser.parse(await file.arrayBuffer());
 
       const dailyMap = new Map<string, SettlementDaily>();
-      const dailyOrders = new Map<string, Set<string>>();
 
       for (const r of rows) {
         if (map.closed[r.storeId]) continue;
@@ -338,33 +337,15 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
         if (!allowedOutletIds.includes(oId)) continue;
         if (oName) outletNames.set(oId, oName);
         const key = `${oId}|${r.date}`;
-        
-        let ordersSet = dailyOrders.get(key);
-        if (!ordersSet) {
-          ordersSet = new Set<string>();
-          dailyOrders.set(key, ordersSet);
-        }
-
-        let isNewTrx = false;
-        if (r.orderId) {
-          if (!ordersSet.has(r.orderId)) {
-            ordersSet.add(r.orderId);
-            isNewTrx = true;
-          }
-        } else {
-          isNewTrx = true; // Fallback: 1 baris = 1 order
-        }
-
         const ex = dailyMap.get(key);
         if (ex) {
           ex.omzetKotor += r.omzetKotor; ex.promoMerchant += r.promoMerchant;
-          ex.commission += r.commission; 
-          if (isNewTrx) ex.trxCount += 1;
+          ex.commission += r.commission; ex.trxCount += 1;
         } else {
           dailyMap.set(key, {
             storeId: r.storeId, storeName: r.storeName, outletName: oName, outletId: oId,
             date: r.date, omzetKotor: r.omzetKotor, promoMerchant: r.promoMerchant,
-            commission: r.commission, trxCount: isNewTrx ? 1 : 0,
+            commission: r.commission, trxCount: 1,
           });
         }
       }

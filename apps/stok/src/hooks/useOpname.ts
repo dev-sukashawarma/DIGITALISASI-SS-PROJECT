@@ -67,6 +67,28 @@ export function useOpnameActions() {
       .not('status', 'eq', 'rejected')
       .maybeSingle()
 
+    // Kompensasi 1-hari (29 Juli 2026): outlet yang kena bug opname pagi itu
+    // (RLS/kolom generated/pesan error salah) boleh opname ulang hari ini
+    // kalau opname 'harian' hari ini sudah finalized — dibuat sebagai opname
+    // kedua bertipe 'ad_hoc' (bukan reuse row lama) supaya tidak bentrok unique
+    // index uniq_opname_harian_per_day (hanya berlaku utk tipe='harian').
+    // Dibatasi maksimal 2 opname/hari/outlet. HAPUS blok ini setelah 29/07/2026.
+    const COMPENSATION_DATE = '2026-07-29'
+    if (existing && existing.status === 'finalized' && todayWIB === COMPENSATION_DATE) {
+      const { count } = await supabase.from('opname')
+        .select('id', { count: 'exact', head: true })
+        .eq('outlet_id', outletId)
+        .eq('tanggal', todayWIB)
+        .not('status', 'eq', 'rejected')
+
+      if ((count ?? 0) < 2) {
+        const { data, error } = await supabase.from('opname')
+          .insert({ outlet_id: outletId, tipe: 'ad_hoc', status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
+        if (error) throw error
+        return data as Opname
+      }
+    }
+
     if (existing) return existing as Opname
 
     // Tidak ada opname hari ini → buat baru

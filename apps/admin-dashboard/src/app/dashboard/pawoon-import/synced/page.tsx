@@ -297,10 +297,21 @@ export default async function SyncedPawoonDataPage({
                                             <ul className="space-y-3">
                                                 {mitraOutlets.map((outlet) => {
                                                     const sum = syncedSummary[outlet.id];
+                                                    // Outlet yang sudah diverifikasi lengkap datanya
+                                                    const VERIFIED_OUTLETS = ['MITRA CICURUG'];
+                                                    const isVerified = VERIFIED_OUTLETS.includes(outlet.name.toUpperCase());
+                                                    
                                                     return (
                                                         <li key={outlet.id} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
                                                             <div className="flex items-center gap-2">
-                                                                <span className={`font-bold ${sum ? 'text-amber-900' : 'text-amber-600 opacity-60'}`}>{outlet.name}</span>
+                                                                <span className={`font-bold ${sum ? 'text-amber-900' : 'text-amber-600 opacity-60'} flex items-center gap-1.5`}>
+                                                                    {outlet.name}
+                                                                    {isVerified && (
+                                                                        <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                                        </svg>
+                                                                    )}
+                                                                </span>
                                                                 {!outlet.is_active && <span className="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Tutup</span>}
                                                             </div>
                                                             <div className="flex items-center gap-3">

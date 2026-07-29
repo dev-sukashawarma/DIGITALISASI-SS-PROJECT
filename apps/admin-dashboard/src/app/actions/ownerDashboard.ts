@@ -49,9 +49,24 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     .lte('created_at', toEnd.toISOString())
 
   if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
+  
+  let settlementQ = supabase
+    .from('platform_settlements')
+    .select('outlet_id, sales_date, platform, gross_amount, platform_fee, promo_merchant')
+    .gte('sales_date', filter.from)
+    .lte('sales_date', filter.to)
+  if (filter.outletId !== 'all') settlementQ = settlementQ.eq('outlet_id', filter.outletId)
 
-  const [{ data, error }, { data: ordersData }] = await Promise.all([q, ordersQ])
+  const [{ data, error }, { data: ordersData }, { data: settlementData }] = await Promise.all([q, ordersQ, settlementQ])
   if (error) throw new Error(error.message)
+
+  const settlementMap = new Map<string, any>()
+  for (const s of settlementData || []) {
+    let srcKey = s.platform.toLowerCase()
+    if (srcKey === 'tiktokgo') srcKey = 'tiktok'
+    const key = `${s.outlet_id}|${srcKey}|${s.sales_date}`
+    settlementMap.set(key, s)
+  }
 
   // Map deductions per `${outlet_id}|${sales_source}|${sales_date}`
   const deductionsMap = new Map<string, number>()
@@ -85,6 +100,19 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     const key = `${r.outlet_id}|${rSrcKey}|${r.sales_date}`
     const existing = acc.get(key)
     const deductionCell = deductionsMap.get(key) || 0
+    const setl = settlementMap.get(key)
+    
+    let platform_fee = 0
+    let promo_merchant = 0
+    let selisih_pencatatan = 0
+    
+    if (setl) {
+      platform_fee = setl.platform_fee || 0
+      promo_merchant = setl.promo_merchant || 0
+      const posGross = Number(r.omzet) || 0
+      const setlGross = Number(setl.gross_amount) || 0
+      selisih_pencatatan = posGross - setlGross
+    }
 
     if (existing) {
       existing.omzet += Number(r.omzet)
@@ -99,6 +127,9 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
         sales_date: r.sales_date,
         omzet: Number(r.omzet),
         total_deductions: deductionCell,
+        platform_fee: platform_fee,
+        promo_merchant: promo_merchant,
+        selisih_pencatatan: selisih_pencatatan,
         jumlah_order_completed: Number(r.jumlah_order_completed),
         jumlah_order_all: Number(r.jumlah_order_completed),
       })

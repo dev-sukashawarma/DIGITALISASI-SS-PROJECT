@@ -141,6 +141,8 @@ export interface SalesSummaryRow {
   jumlah_order_all: number
   total_deductions?: number
   platform_fee?: number
+  promo_merchant?: number
+  selisih_pencatatan?: number
 }
 
 export interface MenuSalesRow {

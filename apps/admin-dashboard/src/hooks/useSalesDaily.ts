@@ -47,8 +47,25 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         
       if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
       
-      const { data: ordersData, error: ordersErr } = await ordersQ
+      let settlementQ = supabase
+        .from('platform_settlements')
+        .select('outlet_id, sales_date, platform, gross_amount, platform_fee, promo_merchant')
+        .gte('sales_date', filter.from)
+        .lte('sales_date', filter.to)
+      if (filter.outletId !== 'all') settlementQ = settlementQ.eq('outlet_id', filter.outletId)
+      
+      const [ { data: ordersData, error: ordersErr }, { data: settlementData, error: settlementErr } ] = await Promise.all([ ordersQ, settlementQ ])
+      
       if (ordersErr) console.error("Error fetching orders for deductions", ordersErr)
+      if (settlementErr) console.error("Error fetching settlements", settlementErr)
+      
+      const settlementMap = new Map<string, any>()
+      for (const s of settlementData || []) {
+        let srcKey = s.platform.toLowerCase()
+        if (srcKey === 'tiktokgo') srcKey = 'tiktok'
+        const key = `${s.outlet_id}|${srcKey}|${s.sales_date}`
+        settlementMap.set(key, s)
+      }
       
       const deductionsMap = new Map<string, { discount: number, platformFee: number }>()
       for (const o of ordersData || []) {
@@ -85,6 +102,19 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         const src = (r.sales_source || 'pos').toLowerCase()
         const key = `${r.outlet_id}|${src}|${r.sales_date}`
         const ded = deductionsMap.get(key) || { discount: 0, platformFee: 0 }
+        const setl = settlementMap.get(key)
+        
+        let platform_fee = ded.platformFee || 0
+        let promo_merchant = 0
+        let selisih_pencatatan = 0
+        
+        if (setl) {
+          platform_fee = setl.platform_fee || 0
+          promo_merchant = setl.promo_merchant || 0
+          const posGross = Number(r.omzet) || 0
+          const setlGross = Number(setl.gross_amount) || 0
+          selisih_pencatatan = posGross - setlGross
+        }
 
         return {
           outlet_id: r.outlet_id,
@@ -95,7 +125,9 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
           jumlah_order_completed: Number(r.jumlah_order_completed),
           jumlah_order_all: Number(r.jumlah_order_completed),
           total_deductions: ded.discount,
-          platform_fee: ded.platformFee,
+          platform_fee: platform_fee,
+          promo_merchant: promo_merchant,
+          selisih_pencatatan: selisih_pencatatan,
         }
       })
     },

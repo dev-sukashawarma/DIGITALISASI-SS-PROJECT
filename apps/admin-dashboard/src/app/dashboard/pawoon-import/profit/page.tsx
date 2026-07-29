@@ -36,7 +36,8 @@ export default async function PawoonProfitPage({
             .from('orders')
             .select('id, outlet_id, created_at, source')
             .not('external_order_id', 'is', null)
-            .eq('source', 'pos');
+            .eq('source', 'pos')
+            .eq('status', 'completed');
 
         if (selectedOutletId !== 'ALL') {
             query = query.eq('outlet_id', selectedOutletId);

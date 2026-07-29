@@ -258,23 +258,25 @@ export async function previewPawoonFile(formData: FormData) {
             };
         }
         
-        // Find existing orders to skip
-        let existingReceipts = new Set<string>();
+        // Find existing orders to skip or update
+        let existingReceiptsMap = new Map<string, string>(); // receipt -> db order id
         const batchSize = 100;
         const receiptsArr = Array.from(ordersMap.keys());
         
         for (let i = 0; i < receiptsArr.length; i += batchSize) {
             const batch = receiptsArr.slice(i, i + batchSize);
             const { data: existing } = await supabase.from('orders')
-                .select('external_order_id')
+                .select('id, external_order_id, status')
                 .in('external_order_id', batch);
             if (existing) {
-                existing.forEach(o => existingReceipts.add(o.external_order_id));
+                existing.forEach(o => existingReceiptsMap.set(o.external_order_id, o.id));
             }
         }
+        const existingReceipts = new Set(existingReceiptsMap.keys());
 
         const ordersToInsert: any[] = [];
         const itemsToInsert: any[] = [];
+        const ordersToVoid: string[] = []; // DB order IDs that need to be updated to cancelled
         let duplicateCount = 0;
         
         // --- Calculate Summary for ALL DATA (Raw Excel File) ---
@@ -374,6 +376,11 @@ export async function previewPawoonFile(formData: FormData) {
                 itemsToInsert.push(...items);
             } else {
                 duplicateCount++;
+                // If the order already exists in DB but is now void/cancelled in Excel → flag for update
+                if ((isCancelled || isRefund)) {
+                    const dbOrderId = existingReceiptsMap.get(receipt);
+                    if (dbOrderId) ordersToVoid.push(dbOrderId);
+                }
             }
         });
 
@@ -385,6 +392,7 @@ export async function previewPawoonFile(formData: FormData) {
                 totalOmsetVoid: totalOmsetVoid,
                 duplicatesSkipped: duplicateCount,
                 transactionsToInsert: ordersToInsert.length,
+                voidStatusUpdates: ordersToVoid.length,
                 totalOmset: totalOmset,
                 totalOmsetGross: totalOmsetGross,
                 itemSalesTracker: Object.values(itemSalesTracker),
@@ -395,7 +403,8 @@ export async function previewPawoonFile(formData: FormData) {
             },
             data: {
                 orders: ordersToInsert,
-                items: itemsToInsert
+                items: itemsToInsert,
+                ordersToVoid: ordersToVoid
             }
         };
 
@@ -404,21 +413,36 @@ export async function previewPawoonFile(formData: FormData) {
     }
 }
 
-export async function syncPawoonData(orders: any[], items: any[]) {
+export async function syncPawoonData(orders: any[], items: any[], ordersToVoid: string[] = []) {
     try {
-        // Service-role bulk insert langsung ke `orders`/`order_items` — wajib
-        // gerbang server-side sendiri, ini bukan operasi read-only.
         await requireRole(['admin', 'owner']);
 
-        if (orders.length === 0) return { success: true, message: "No data to insert" };
+        // Update voided orders status
+        if (ordersToVoid.length > 0) {
+            const batchSize = 100;
+            for (let i = 0; i < ordersToVoid.length; i += batchSize) {
+                const batch = ordersToVoid.slice(i, i + batchSize);
+                const { error: errVoid } = await supabase
+                    .from('orders')
+                    .update({ status: 'cancelled' })
+                    .in('id', batch);
+                if (errVoid) throw new Error('Failed to update voided orders: ' + errVoid.message);
+            }
+        }
 
-        const { error: errOrders } = await supabase.from('orders').insert(orders);
-        if (errOrders) throw new Error("Failed to insert orders: " + errOrders.message);
+        if (orders.length === 0 && ordersToVoid.length === 0) {
+            return { success: true, message: 'No data to insert or update' };
+        }
+
+        if (orders.length > 0) {
+            const { error: errOrders } = await supabase.from('orders').insert(orders);
+            if (errOrders) throw new Error('Failed to insert orders: ' + errOrders.message);
+            
+            const { error: errItems } = await supabase.from('order_items').insert(items);
+            if (errItems) throw new Error('Failed to insert items: ' + errItems.message);
+        }
         
-        const { error: errItems } = await supabase.from('order_items').insert(items);
-        if (errItems) throw new Error("Failed to insert items: " + errItems.message);
-        
-        return { success: true, insertedOrders: orders.length };
+        return { success: true, insertedOrders: orders.length, voidedOrders: ordersToVoid.length };
     } catch (err: any) {
         return { success: false, error: err.message };
     }

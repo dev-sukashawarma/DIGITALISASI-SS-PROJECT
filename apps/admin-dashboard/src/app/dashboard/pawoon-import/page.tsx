@@ -53,7 +53,7 @@ export default function PawoonImportPage() {
         setErrorMsg('');
         
         try {
-            const result = await syncPawoonData(previewResult.data.orders, previewResult.data.items);
+            const result = await syncPawoonData(previewResult.data.orders, previewResult.data.items, previewResult.data.ordersToVoid || []);
             if (result.success) {
                 setSyncSuccess(true);
                 setPreviewResult(null);
@@ -222,11 +222,14 @@ export default function PawoonImportPage() {
                     <div className="p-6 bg-gray-50 flex justify-end">
                         <button 
                             onClick={handleSync}
-                            disabled={isLoading || previewResult.summary.transactionsToInsert === 0}
+                            disabled={isLoading || (previewResult.summary.transactionsToInsert === 0 && (previewResult.summary.voidStatusUpdates || 0) === 0)}
                             className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold shadow-sm shadow-green-200 hover:bg-green-700 disabled:opacity-50 transition-all active:scale-95 flex flex-col items-center justify-center"
                         >
                             <span>{isLoading ? 'Menyinkronkan...' : 'Sync ke Database Real'}</span>
-                            {!isLoading && <span className="text-xs font-normal opacity-90">({previewResult.summary.transactionsToInsert} pesanan baru, {previewResult.summary.duplicatesSkipped} di-skip)</span>}
+                            {!isLoading && <span className="text-xs font-normal opacity-90">
+                                ({previewResult.summary.transactionsToInsert} pesanan baru, {previewResult.summary.duplicatesSkipped} di-skip
+                                {(previewResult.summary.voidStatusUpdates || 0) > 0 && `, ${previewResult.summary.voidStatusUpdates} void diupdate`})
+                            </span>}
                         </button>
                     </div>
                 </div>

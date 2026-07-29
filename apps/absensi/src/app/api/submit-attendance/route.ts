@@ -260,20 +260,20 @@ export async function POST(req: Request) {
     } else {
       const [h, m] = cfg.jam_masuk.split(":").map(Number);
       
-      const jamMasukDeadline = new Date(local);
-      jamMasukDeadline.setHours(h, m, 0, 0);
+      const expectedTime = new Date(local);
+      expectedTime.setHours(h, m, 0, 0);
 
-      const toleransiDeadline = new Date(local);
-      toleransiDeadline.setHours(h, m + cfg.toleransi_menit, 0, 0);
+      // Hitung selisih dalam menit (misal 13:00:59 - 13:00:00 = 59s -> floor(59/60) = 0 menit)
+      const diffMins = Math.floor((local.getTime() - expectedTime.getTime()) / 60000);
 
-      if (local.getTime() <= jamMasukDeadline.getTime()) {
+      if (diffMins <= 0) {
         status = "tepat";
-      } else if (local.getTime() <= toleransiDeadline.getTime()) {
+      } else if (diffMins <= cfg.toleransi_menit) {
         status = "telat_toleransi";
-        telat_menit = Math.floor((local.getTime() - jamMasukDeadline.getTime()) / 60000);
+        telat_menit = diffMins;
       } else {
         status = "telat";
-        telat_menit = Math.floor((local.getTime() - jamMasukDeadline.getTime()) / 60000);
+        telat_menit = diffMins;
       }
     }
 

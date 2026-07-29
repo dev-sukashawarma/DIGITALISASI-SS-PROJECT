@@ -62,7 +62,11 @@ export default function BriefingBanner() {
     queryKey: ['target_progress', outletId],
     queryFn: async () => {
       const supabase = createClient()
-      const { data: rows } = await supabase.rpc('get_my_target_progress')
+      const { data: rows, error } = await supabase.rpc('get_my_target_progress', { p_outlet_id: outletId })
+      if (error) {
+        console.error('Error fetching target progress:', error)
+        return null
+      }
       const row = Array.isArray(rows) ? rows[0] : null
       if (!row) return null
       return {

@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { previewAllSettlementFiles, syncAllSettlementData } from '@/app/actions/platformSettlement';
 import type { MultiPlatformSummary } from '@/app/actions/platformSettlement';
+import { useOutlets } from '@/hooks/useOutlets';
 
 const PLATFORMS = [
   { id: 'shopeefood', label: 'ShopeeFood', accept: '.xlsx,.xls', color: 'orange', emoji: '🟠' },
@@ -15,14 +16,26 @@ const rp = (n: number) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
 const pct = (a: number, b: number) => b > 0 ? ((a / b) * 100).toFixed(1) + '%' : '-';
 
 export default function PlatformSettlementPage() {
+  const { data: outlets = [] } = useOutlets();
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [selectedOutlets, setSelectedOutlets] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<MultiPlatformSummary | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [syncMsg, setSyncMsg] = useState('');
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const toggleOutlet = (id: string) => {
+    setSelectedOutlets((prev) =>
+      prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id]
+    );
+    setSummary(null); setErrorMsg(''); setSyncMsg('');
+  };
+
+  const selectAll = () => setSelectedOutlets(outlets.map((o) => o.id));
+  const clearAll = () => setSelectedOutlets([]);
 
   const handleFile = (platformId: string, file: File | null) => {
     setFiles((prev) => ({ ...prev, [platformId]: file }));
@@ -34,10 +47,12 @@ export default function PlatformSettlementPage() {
   const handlePreview = async () => {
     if (!from || !to) { setErrorMsg('Pilih periode terlebih dahulu.'); return; }
     if (filesUploaded === 0) { setErrorMsg('Upload minimal 1 file settlement.'); return; }
+    if (selectedOutlets.length === 0) { setErrorMsg('Pilih minimal 1 outlet.'); return; }
     setLoading(true); setErrorMsg(''); setSyncMsg('');
     try {
       const fd = new FormData();
       fd.append('from', from); fd.append('to', to);
+      fd.append('outletIds', JSON.stringify(selectedOutlets));
       for (const p of PLATFORMS) {
         if (files[p.id]) fd.append(`file_${p.id}`, files[p.id]!);
       }
@@ -77,8 +92,8 @@ export default function PlatformSettlementPage() {
 
       {/* ── STEP 1: Periode ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="font-bold text-lg mb-4 text-gray-800">1. Pilih Periode</h2>
-        <div className="flex flex-wrap gap-4 items-center">
+        <h2 className="font-bold text-lg mb-4 text-gray-800">1. Pilih Periode & Outlet</h2>
+        <div className="flex flex-wrap gap-4 items-center mb-5">
           <div className="flex flex-col gap-1">
             <label className="text-xs text-gray-500 font-medium">Dari Tanggal</label>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
@@ -93,6 +108,36 @@ export default function PlatformSettlementPage() {
             <div className="mt-4 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg font-medium">
               Periode: {from} s/d {to}
             </div>
+          )}
+        </div>
+
+        {/* Outlet selector */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs text-gray-500 font-medium">Pilih Outlet yang akan direkonsiliasi</label>
+            <div className="flex gap-2">
+              <button onClick={selectAll} className="text-xs text-blue-600 hover:underline">Pilih Semua</button>
+              <span className="text-gray-300">|</span>
+              <button onClick={clearAll} className="text-xs text-red-500 hover:underline">Hapus Semua</button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {outlets.map((o) => (
+              <button
+                key={o.id}
+                onClick={() => toggleOutlet(o.id)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  selectedOutlets.includes(o.id)
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
+                }`}
+              >
+                {o.name}
+              </button>
+            ))}
+          </div>
+          {selectedOutlets.length > 0 && (
+            <p className="text-xs text-gray-400 mt-2">{selectedOutlets.length} outlet dipilih</p>
           )}
         </div>
       </div>

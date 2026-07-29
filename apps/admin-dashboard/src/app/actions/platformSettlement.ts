@@ -294,6 +294,10 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
     const periodeTo = String(formData.get('to') ?? '');
     if (!periodeFrom || !periodeTo) return { success: false, error: 'Periode belum dipilih.' };
 
+    const outletIdsRaw = String(formData.get('outletIds') ?? '[]');
+    const allowedOutletIds: string[] = JSON.parse(outletIdsRaw);
+    if (allowedOutletIds.length === 0) return { success: false, error: 'Pilih minimal 1 outlet.' };
+
     const platformIds = ['shopeefood', 'grabfood', 'gofood', 'tiktokgo'];
 
     const { data: outletsData, error: outletsErr } = await supabase.from('outlets').select('id, name');
@@ -329,6 +333,8 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
           unmappedStores.push({ platform, storeId: r.storeId, storeName: r.storeName, omzetKotor: r.omzetKotor });
           continue;
         }
+        // Filter hanya outlet yang dipilih user
+        if (!allowedOutletIds.includes(oId)) continue;
         if (oName) outletNames.set(oId, oName);
         const key = `${oId}|${r.date}`;
         const ex = dailyMap.get(key);

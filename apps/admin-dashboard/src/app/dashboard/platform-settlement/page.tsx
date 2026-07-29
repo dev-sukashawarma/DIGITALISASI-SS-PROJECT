@@ -264,11 +264,10 @@ export default function PlatformSettlementPage() {
                   <tr className="bg-gray-50 text-gray-500 text-xs uppercase">
                     <th className="p-3 border-b">Outlet</th>
                     <th className="p-3 border-b text-right">Omzet Kotor (Settlement)</th>
+                    <th className="p-3 border-b text-right bg-amber-50">Diskon Merchant</th>
                     <th className="p-3 border-b text-right bg-red-50">Admin Fee</th>
-                    <th className="p-3 border-b text-right bg-amber-50">Promo</th>
-                    <th className="p-3 border-b text-right bg-blue-50">Pawoon (POS)</th>
-                    <th className="p-3 border-b text-right">Selisih</th>
-                    <th className="p-3 border-b text-center">Status</th>
+                    <th className="p-3 border-b text-right bg-green-50 text-green-800">Netto Cair</th>
+                    <th className="p-3 border-b text-right bg-gray-100 border-l-2 border-gray-200">Ref: Pawoon (POS)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -276,17 +275,10 @@ export default function PlatformSettlementPage() {
                     <tr key={o.outletId} className="border-b hover:bg-gray-50 transition-colors">
                       <td className="p-3 font-semibold text-gray-800">{o.outletName}</td>
                       <td className="p-3 text-right font-semibold">{rp(o.omzetKotor)}</td>
-                      <td className="p-3 text-right text-red-700 bg-red-50/30 font-semibold">-{rp(o.adminFee)}</td>
                       <td className="p-3 text-right text-amber-700 bg-amber-50/30">-{rp(o.promo)}</td>
-                      <td className="p-3 text-right text-blue-700 bg-blue-50/30 font-semibold">{rp(o.pawoonOmzet)}</td>
-                      <td className={`p-3 text-right font-semibold ${o.selisih > 0 ? 'text-orange-600' : o.selisih < 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                        {o.selisih > 0 ? '+' : ''}{rp(o.selisih)}
-                      </td>
-                      <td className="p-3 text-center">
-                        {o.status === 'ok' && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">✅ OK</span>}
-                        {o.status === 'selisih' && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-semibold">⚠️ Selisih</span>}
-                        {o.status === 'no-data' && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">Tak ada data Pawoon</span>}
-                      </td>
+                      <td className="p-3 text-right text-red-700 bg-red-50/30 font-semibold">-{rp(o.adminFee)}</td>
+                      <td className="p-3 text-right text-green-700 bg-green-50/50 font-bold">{rp(o.nettoCair)}</td>
+                      <td className="p-3 text-right text-gray-500 bg-gray-50 border-l-2 border-gray-200">{rp(o.pawoonOmzet)}</td>
                     </tr>
                   ))}
                 </tbody>

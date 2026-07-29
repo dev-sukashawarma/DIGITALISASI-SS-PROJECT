@@ -269,9 +269,8 @@ export interface MultiPlatformSummary {
     omzetKotor: number;
     adminFee: number;
     promo: number;
+    nettoCair: number;
     pawoonOmzet: number;
-    selisih: number;
-    status: 'ok' | 'selisih' | 'no-data';
   }[];
   unmappedStores: { platform: string; storeId: string; storeName: string; omzetKotor: number }[];
   allDaily: { platform: string; sourceFile: string; daily: SettlementDaily[] }[];
@@ -399,14 +398,14 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
     const allOutletIds = new Set([...outletOmzet.keys()]);
     const perOutlet: MultiPlatformSummary['perOutlet'] = [...allOutletIds].map((id) => {
       const omzet = outletOmzet.get(id) ?? 0;
+      const adminFee = outletAdminFee.get(id) ?? 0;
+      const promo = outletPromo.get(id) ?? 0;
+      const nettoCair = omzet - adminFee - promo;
       const pawoon = pawoonByOutlet.get(id)?.omzet ?? 0;
-      const selisih = omzet - pawoon;
-      const status: 'ok' | 'selisih' | 'no-data' =
-        pawoon === 0 ? 'no-data' : Math.abs(selisih) < omzet * 0.01 ? 'ok' : 'selisih';
+
       return {
         outletId: id, outletName: outletNames.get(id) ?? id,
-        omzetKotor: omzet, adminFee: outletAdminFee.get(id) ?? 0,
-        promo: outletPromo.get(id) ?? 0, pawoonOmzet: pawoon, selisih, status,
+        omzetKotor: omzet, adminFee, promo, nettoCair, pawoonOmzet: pawoon
       };
     }).sort((a, b) => b.omzetKotor - a.omzetKotor);
 

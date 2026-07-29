@@ -298,7 +298,7 @@ export default async function SyncedPawoonDataPage({
                                                 {mitraOutlets.map((outlet) => {
                                                     const sum = syncedSummary[outlet.id];
                                                     // Outlet yang sudah diverifikasi lengkap datanya
-                                                    const VERIFIED_OUTLETS = ['MITRA CICURUG'];
+                                                    const VERIFIED_OUTLETS = ['MITRA CICURUG', 'MITRA CISEENG'];
                                                     const isVerified = VERIFIED_OUTLETS.includes(outlet.name.toUpperCase());
                                                     
                                                     return (

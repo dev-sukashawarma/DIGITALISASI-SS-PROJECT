@@ -366,23 +366,34 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
 
     if (perPlatform.length === 0) return { success: false, error: 'Tidak ada file yang berhasil diproses.' };
 
-    // Pembanding Pawoon — gabung food_apps + tiktok_go sesuai platform yang diupload
+    // Pembanding Pawoon — query langsung ke sales_daily_scoped berdasarkan sales_source
+    // Food apps dari Pawoon disimpan dengan sales_source = 'grabfood' (semua food apps digabung)
+    // TikTok Go disimpan dengan sales_source = 'tiktok'
     const hasTiktok = perPlatform.some((p) => p.platform === 'tiktokgo');
     const hasFoodApps = perPlatform.some((p) => ['shopeefood', 'grabfood', 'gofood'].includes(p.platform));
-    const channels = [...(hasFoodApps ? ['food_apps'] : []), ...(hasTiktok ? ['tiktok_go'] : [])];
+    
+    const salesSources: string[] = [
+      ...(hasFoodApps ? ['grabfood', 'shopeefood', 'gofood', 'online'] : []),
+      ...(hasTiktok ? ['tiktok', 'tiktokgo'] : []),
+    ];
 
     const pawoonByOutlet = new Map<string, { omzet: number; trx: number }>();
-    for (const channel of channels) {
-      const { data: sd } = await supabase.rpc('channel_gross_by_outlet', {
-        p_from: periodeFrom, p_to: periodeTo, p_channel: channel,
-      });
-      for (const row of (sd ?? []) as any[]) {
-        const cur = pawoonByOutlet.get(row.outlet_id) ?? { omzet: 0, trx: 0 };
-        cur.omzet += Number(row.omzet_kotor) || 0;
-        cur.trx += Number(row.trx_count) || 0;
-        pawoonByOutlet.set(row.outlet_id, cur);
-      }
+    
+    let pawoonQ = supabase
+      .from('sales_daily_scoped')
+      .select('outlet_id, sales_source, omzet, jumlah_order_completed')
+      .gte('sales_date', periodeFrom)
+      .lte('sales_date', periodeTo)
+      .in('sales_source', salesSources);
+
+    const { data: pawoonData } = await pawoonQ;
+    for (const row of (pawoonData ?? []) as any[]) {
+      const cur = pawoonByOutlet.get(row.outlet_id) ?? { omzet: 0, trx: 0 };
+      cur.omzet += Number(row.omzet) || 0;
+      cur.trx += Number(row.jumlah_order_completed) || 0;
+      pawoonByOutlet.set(row.outlet_id, cur);
     }
+
 
     const allOutletIds = new Set([...outletOmzet.keys()]);
     const perOutlet: MultiPlatformSummary['perOutlet'] = [...allOutletIds].map((id) => {

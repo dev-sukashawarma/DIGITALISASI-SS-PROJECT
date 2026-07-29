@@ -448,7 +448,10 @@ export async function getAttendanceReportData(
     if (r.type === 'in') {
       item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       item.raw_photo_in = r.selfie_url || null
-      if (r.status === 'telat' || r.status === 'terlambat') {
+      if (r.status === 'telat_toleransi') {
+        item.status = 'telat_toleransi'
+        item.late_minutes = r.telat_menit || 0
+      } else if (r.status === 'telat' || r.status === 'terlambat') {
         item.status = 'terlambat'
         item.late_minutes = r.telat_menit || 0
       }

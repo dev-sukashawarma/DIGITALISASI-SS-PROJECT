@@ -18,7 +18,7 @@ type Row = {
   type: "in" | "out";
   ts_server: string;
   ts_client: string | null;
-  status: "tepat" | "telat" | "alpha" | "lebih_awal" | "pulang_telat";
+  status: "tepat" | "telat" | "telat_toleransi" | "alpha" | "lebih_awal" | "pulang_telat";
   selfie_url: string | null;
   outlet_staff_id: string;
   outlet_staff: { name: string } | null;
@@ -31,6 +31,7 @@ type StaffSummary = {
   name: string;
   total_masuk: number;
   total_telat: number;
+  total_telat_toleransi: number;
   total_alpha: number;
   total_cepat: number;
   latest_photo_url: string | null;
@@ -126,6 +127,7 @@ export default function RekapPage() {
           name: r.outlet_staff?.name || "-",
           total_masuk: 0,
           total_telat: 0,
+          total_telat_toleransi: 0,
           total_alpha: 0,
           total_cepat: 0,
           latest_photo_url: null,
@@ -145,6 +147,7 @@ export default function RekapPage() {
       
       if (r.type === "in" && r.status !== "alpha") s.total_masuk++;
       if (r.status === "telat" || r.status === "pulang_telat") s.total_telat++;
+      if (r.status === "telat_toleransi") s.total_telat_toleransi++;
       if (r.status === "alpha") s.total_alpha++;
       if (r.status === "lebih_awal") s.total_cepat++;
     });
@@ -154,6 +157,7 @@ export default function RekapPage() {
       result = result.filter(s => {
         if (filterStatus === "masuk") return s.total_masuk > 0;
         if (filterStatus === "telat") return s.total_telat > 0;
+        if (filterStatus === "telat_toleransi") return s.total_telat_toleransi > 0;
         if (filterStatus === "alpha") return s.total_alpha > 0;
         if (filterStatus === "lebih_awal") return s.total_cepat > 0;
         return true;
@@ -165,7 +169,7 @@ export default function RekapPage() {
   const globalSummary = useMemo(() => {
     return {
       masuk: staffSummaries.reduce((acc, s) => acc + s.total_masuk, 0),
-      telat: staffSummaries.reduce((acc, s) => acc + s.total_telat, 0),
+      telat: staffSummaries.reduce((acc, s) => acc + s.total_telat + s.total_telat_toleransi, 0),
       alpha: staffSummaries.reduce((acc, s) => acc + s.total_alpha, 0),
       cepat: staffSummaries.reduce((acc, s) => acc + s.total_cepat, 0),
     }
@@ -262,6 +266,7 @@ export default function RekapPage() {
   function formatStatusText(status: string) {
     switch (status) {
       case "telat": return "Masuk Telat";
+      case "telat_toleransi": return "Telat (Toleransi)";
       case "lebih_awal": return "Pulang Cepat";
       case "pulang_telat": return "Pulang Lama";
       case "tepat": return "Tepat Waktu";
@@ -303,6 +308,7 @@ export default function RekapPage() {
             { label: "Semua Status", value: "semua" },
             { label: "Hadir", value: "masuk" },
             { label: "Telat", value: "telat" },
+            { label: "Telat (Toleransi)", value: "telat_toleransi" },
             { label: "Alpha", value: "alpha" },
             { label: "Pulang Cepat", value: "lebih_awal" }
           ]}
@@ -340,6 +346,7 @@ export default function RekapPage() {
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-slate-500">
                   <span className="font-medium text-emerald-600">{staff.total_masuk} Hadir</span>
                   {staff.total_telat > 0 && <span className="font-medium text-amber-600">{staff.total_telat} Telat</span>}
+                  {staff.total_telat_toleransi > 0 && <span className="font-medium text-yellow-600">{staff.total_telat_toleransi} Telat (Tol)</span>}
                   {staff.total_alpha > 0 && <span className="font-medium text-rose-600">{staff.total_alpha} Alpha</span>}
                   {staff.total_cepat > 0 && <span className="font-medium text-sky-600">{staff.total_cepat} Plg Cepat</span>}
                 </div>

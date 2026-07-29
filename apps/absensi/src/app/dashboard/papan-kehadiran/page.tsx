@@ -14,6 +14,7 @@ import { OutletSwitcher } from "@/components/OutletSwitcher";
 
 const PILL: Record<BoardRow["state"], { icon: React.ReactNode; label: (t: string | null, d: number | null) => string }> = {
   masuk:  { icon: <LogIn size={13} />,  label: (t) => `Masuk ${t}` },
+  telat_toleransi: { icon: <Clock4 size={13} />, label: (t, d) => `Telat (Toleransi) ${d ? d + ' mnt' : t}` },
   telat:  { icon: <Clock4 size={13} />, label: (t, d) => `Masuk Telat ${d ? d + ' mnt' : t}` },
   keluar: { icon: <LogOut size={13} />, label: (t) => `Pulang ${t}` },
   lebih_awal: { icon: <LogOut size={13} />, label: (t) => `Pulang Cepat ${t}` },
@@ -26,6 +27,7 @@ const SELFIE_BUCKET = "selfies";
 
 const LEGEND = [
   { key: "hadir", label: "Hadir", dot: "bg-suka-green" },
+  { key: "telat_toleransi", label: "Telat (Tol)", dot: "bg-yellow-400" },
   { key: "telat", label: "Telat", dot: "bg-amber-500" },
   { key: "belum", label: "Belum hadir", dot: "bg-gray-300" },
   { key: "alpha", label: "Alpha", dot: "bg-red-500" },
@@ -114,9 +116,10 @@ export default function PapanKehadiranPage() {
   }
 
   const { summary } = data;
-  const present = summary.hadir + summary.telat;
+  const present = summary.hadir + summary.telat + summary.telat_toleransi;
   const pct = summary.total > 0 ? Math.round((present / summary.total) * 100) : 0;
   const hadirPct = summary.total > 0 ? (summary.hadir / summary.total) * 100 : 0;
+  const telatTolPct = summary.total > 0 ? (summary.telat_toleransi / summary.total) * 100 : 0;
   const telatPct = summary.total > 0 ? (summary.telat / summary.total) * 100 : 0;
   const alphaPct = summary.total > 0 ? (summary.alpha / summary.total) * 100 : 0;
 
@@ -159,6 +162,7 @@ export default function PapanKehadiranPage() {
         </div>
         <div className="flex h-2.5 overflow-hidden rounded-full bg-suka-gray-50">
           <div className="bg-suka-green transition-all duration-700" style={{ width: `${hadirPct}%` }} />
+          <div className="bg-yellow-400 transition-all duration-700" style={{ width: `${telatTolPct}%` }} />
           <div className="bg-amber-500 transition-all duration-700" style={{ width: `${telatPct}%` }} />
           <div className="bg-red-500 transition-all duration-700" style={{ width: `${alphaPct}%` }} />
         </div>
@@ -182,6 +186,7 @@ export default function PapanKehadiranPage() {
             options={[
               { label: "Semua Status", value: "semua" },
               { label: "Masuk Tepat", value: "masuk" },
+              { label: "Telat (Toleransi)", value: "telat_toleransi" },
               { label: "Masuk Telat", value: "telat" },
               { label: "Belum Hadir", value: "belum" },
               { label: "Alpha", value: "alpha" },

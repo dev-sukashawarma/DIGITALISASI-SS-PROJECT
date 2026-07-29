@@ -16,5 +16,5 @@ export type AttendancePayload = {
 };
 
 export type SubmitResult =
-  | { ok: true; status: "tepat" | "telat"; ts_server: string; attendance_id: string }
+  | { ok: true; status: "tepat" | "telat" | "telat_toleransi"; ts_server: string; attendance_id: string }
   | { ok: false; reason: string; distance_m?: number };

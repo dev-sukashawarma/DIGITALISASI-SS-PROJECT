@@ -14,7 +14,7 @@ export function useLeaveRequests(status?: LeaveStatus) {
         .select(`
           id, staff_id, leave_type, start_date, end_date, days,
           reason, status, approved_by, approved_at, rejection_note,
-          created_at,
+          created_at, attachment_url,
           outlet_staff!leave_requests_staff_id_fkey(name, role, leave_quota)
         `)
         .order('created_at', { ascending: false })

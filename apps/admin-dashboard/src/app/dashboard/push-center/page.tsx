@@ -76,7 +76,7 @@ export default function PushCenterPage() {
           'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          title,
+          title: `Pesan Dari Owner: ${title}`,
           body,
           url,
           broadcast: true // Assuming edge function supports this or we'll need to update it

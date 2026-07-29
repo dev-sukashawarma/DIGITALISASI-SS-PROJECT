@@ -201,6 +201,7 @@ export interface LeaveRequest {
   approved_by: string | null
   approved_at: string | null
   rejection_note: string | null
+  attachment_url?: string | null
   created_at: string
   outlet_staff?: { name: string; role: string; leave_quota: number | null }
 }

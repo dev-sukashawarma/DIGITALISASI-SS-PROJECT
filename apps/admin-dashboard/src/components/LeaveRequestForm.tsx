@@ -11,6 +11,7 @@ interface LeaveFormValues {
   end_date: string
   days: number
   reason: string
+  file?: File | null
 }
 
 const inputClass =
@@ -40,6 +41,7 @@ export function LeaveRequestForm({
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [reason, setReason] = useState('')
+  const [file, setFile] = useState<File | null>(null)
 
   const days = useMemo(() => calcDays(startDate, endDate), [startDate, endDate])
 
@@ -51,7 +53,7 @@ export function LeaveRequestForm({
   const quota = selectedStaff?.leave_quota ?? 0
   const exceedsQuota = days > 0 && days > quota
 
-  const valid = staffId && startDate && endDate && days > 0
+  const valid = staffId && startDate && endDate && days > 0 && (leaveType !== 'sick' || file !== null)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -63,6 +65,7 @@ export function LeaveRequestForm({
       end_date: endDate,
       days,
       reason: reason.trim(),
+      file: leaveType === 'sick' ? file : null,
     })
   }
 
@@ -106,6 +109,20 @@ export function LeaveRequestForm({
           <option value="other">Lainnya</option>
         </select>
       </div>
+
+      {/* File Upload (Sakit) */}
+      {leaveType === 'sick' && (
+        <div>
+          <label className={labelClass}>Bukti / Surat Sakit <span className="text-red-500">*</span></label>
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className={inputClass}
+            required
+          />
+        </div>
+      )}
 
       {/* Dates */}
       <div className="grid grid-cols-2 gap-4">

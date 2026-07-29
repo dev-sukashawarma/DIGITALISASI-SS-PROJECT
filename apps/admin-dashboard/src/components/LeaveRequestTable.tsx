@@ -1,6 +1,7 @@
 'use client'
 
-import { CheckCircle, XCircle } from 'lucide-react'
+import { useState } from 'react'
+import { CheckCircle, XCircle, FileImage, X } from 'lucide-react'
 import type { LeaveRequest, LeaveStatus } from '@/lib/types'
 
 const leaveTypeLabel: Record<string, string> = {
@@ -46,8 +47,11 @@ export function LeaveRequestTable({
   onApprove: (r: LeaveRequest) => void
   onReject: (r: LeaveRequest) => void
 }) {
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-suka-gray-200 bg-white shadow-sm">
+    <>
+      <div className="overflow-hidden rounded-2xl border border-suka-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-suka-gray-200 bg-suka-gray-50/60 text-gray-500">
@@ -56,7 +60,7 @@ export function LeaveRequestTable({
               <th className="px-4 py-3 font-semibold">Jenis Cuti</th>
               <th className="px-4 py-3 font-semibold">Tanggal</th>
               <th className="px-4 py-3 font-semibold">Durasi</th>
-              <th className="px-4 py-3 font-semibold">Alasan</th>
+              <th className="px-4 py-3 font-semibold">Alasan & Bukti</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 text-right font-semibold">Aksi</th>
             </tr>
@@ -91,9 +95,19 @@ export function LeaveRequestTable({
                   {r.days} hari
                 </td>
 
-                {/* Reason */}
                 <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate" title={r.reason ?? ''}>
-                  {r.reason || '-'}
+                  <div className="flex items-center gap-2">
+                    <span className="truncate">{r.reason || '-'}</span>
+                    {r.attachment_url && (
+                      <button
+                        onClick={() => setSelectedImage(r.attachment_url || null)}
+                        className="text-suka-brown hover:text-suka-ink transition-colors"
+                        title="Lihat Bukti"
+                      >
+                        <FileImage size={16} />
+                      </button>
+                    )}
+                  </div>
                 </td>
 
                 {/* Status */}
@@ -135,5 +149,31 @@ export function LeaveRequestTable({
         </table>
       </div>
     </div>
+
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-h-full max-w-full rounded-xl bg-white p-2 shadow-2xl">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setSelectedImage(null)
+              }}
+              className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white shadow-lg hover:bg-red-600 transition-colors"
+            >
+              <X size={18} />
+            </button>
+            <img 
+              src={selectedImage} 
+              alt="Bukti Pengajuan" 
+              className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
+    </>
   )
 }

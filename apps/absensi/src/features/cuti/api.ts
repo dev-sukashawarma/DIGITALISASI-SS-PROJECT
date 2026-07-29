@@ -17,6 +17,7 @@ export interface Leave {
   status: LeaveStatus; // HR status
   rejection_note: string | null;
   created_at: string;
+  file?: File | null;
 }
 
 export interface LeaveBalance {
@@ -105,6 +106,24 @@ export function useSubmitLeave() {
     mutationFn: async (payload: Partial<Leave>) => {
       const supabase = createClient();
       
+      let attachment_url: string | null = null;
+      if (payload.file) {
+        const fileExt = payload.file.name.split('.').pop();
+        const fileName = `${Date.now()}_${payload.staff_id}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('hr-attachments')
+          .upload(fileName, payload.file);
+          
+        if (uploadError) throw new Error(`Gagal upload bukti: ${uploadError.message}`);
+        
+        const { data: publicUrlData } = supabase.storage
+          .from('hr-attachments')
+          .getPublicUrl(fileName);
+          
+        attachment_url = publicUrlData.publicUrl;
+      }
+      
       const { data, error } = await supabase
         .from('leave_requests')
         .insert([{
@@ -116,6 +135,7 @@ export function useSubmitLeave() {
           reason: payload.reason,
           status_spv: payload.status_spv,
           status: payload.status,
+          attachment_url,
         }])
         .select()
         .single();

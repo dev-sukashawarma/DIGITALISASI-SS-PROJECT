@@ -30,3 +30,17 @@ DROP POLICY IF EXISTS "All authenticated users can upload selfies" ON storage.ob
 CREATE POLICY "Public can view selfies" ON storage.objects FOR SELECT USING (bucket_id = 'selfies');
 CREATE POLICY "All authenticated users can upload selfies" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'selfies' AND auth.role() = 'authenticated');
 CREATE POLICY "All authenticated users can update selfies" ON storage.objects FOR UPDATE USING (bucket_id = 'selfies' AND auth.role() = 'authenticated');
+
+-- 3. Create 'hr-attachments' bucket for Cuti/Izin/Sakit uploads
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'hr-attachments', 'hr-attachments', true, 10485760, ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf']
+) ON CONFLICT DO NOTHING;
+
+-- Policies for 'hr-attachments'
+DROP POLICY IF EXISTS "Public can view hr-attachments" ON storage.objects;
+DROP POLICY IF EXISTS "All authenticated users can upload hr-attachments" ON storage.objects;
+
+CREATE POLICY "Public can view hr-attachments" ON storage.objects FOR SELECT USING (bucket_id = 'hr-attachments');
+CREATE POLICY "All authenticated users can upload hr-attachments" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'hr-attachments' AND auth.role() = 'authenticated');
+CREATE POLICY "All authenticated users can update hr-attachments" ON storage.objects FOR UPDATE USING (bucket_id = 'hr-attachments' AND auth.role() = 'authenticated');

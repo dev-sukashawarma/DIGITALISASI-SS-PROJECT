@@ -372,16 +372,9 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
 
     if (perPlatform.length === 0) return { success: false, error: 'Tidak ada file yang berhasil diproses.' };
 
-    // Pembanding Pawoon — query langsung ke sales_daily_scoped berdasarkan sales_source
-    // Food apps dari Pawoon disimpan dengan sales_source = 'grabfood' (semua food apps digabung)
-    // TikTok Go disimpan dengan sales_source = 'tiktok'
-    const hasTiktok = perPlatform.some((p) => p.platform === 'tiktokgo');
-    const hasFoodApps = perPlatform.some((p) => ['shopeefood', 'grabfood', 'gofood'].includes(p.platform));
-    
-    const salesSources: string[] = [
-      ...(hasFoodApps ? ['grabfood', 'shopeefood', 'gofood', 'online'] : []),
-      ...(hasTiktok ? ['tiktok', 'tiktokgo'] : []),
-    ];
+    // Pembanding Pawoon — selalu ambil SEMUA channel food delivery (food apps + tiktok go)
+    // karena omzet kotor Pawoon = gabungan keduanya, tidak dibedakan per platform
+    const salesSources = ['grabfood', 'shopeefood', 'gofood', 'online', 'tiktok', 'tiktokgo'];
 
     const pawoonByOutlet = new Map<string, { omzet: number; trx: number }>();
     

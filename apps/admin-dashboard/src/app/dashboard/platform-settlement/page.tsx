@@ -238,7 +238,10 @@ export default function PlatformSettlementPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {s.perPlatform.map((p) => (
                   <div key={p.platform} className="border border-gray-100 rounded-xl p-3 bg-gray-50">
-                    <p className="font-bold text-sm text-gray-800 mb-2">{p.label}</p>
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="font-bold text-sm text-gray-800">{p.label}</p>
+                      <p className="text-xs bg-white border px-2 py-0.5 rounded-md font-medium text-gray-600">{p.trx.toLocaleString('id-ID')} trx</p>
+                    </div>
                     <p className="text-xs text-gray-500">Omzet Kotor</p>
                     <p className="font-semibold text-gray-900 text-sm">{rp(p.omzetKotor)}</p>
                     <p className="text-xs text-gray-500 mt-1">Admin Fee</p>

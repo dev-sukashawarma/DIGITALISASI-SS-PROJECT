@@ -191,7 +191,6 @@ export async function upsertOpnameItems(
     bahan_baku_id: string
     qty_fisik: number
     qty_system: number
-    selisih: number
     flagged: boolean
     catatan?: string | null
   }>

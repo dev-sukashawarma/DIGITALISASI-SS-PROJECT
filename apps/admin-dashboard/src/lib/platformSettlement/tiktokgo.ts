@@ -57,6 +57,7 @@ export const tiktokgoParser: PlatformParser = {
     const cPayment = col('Payment amount');
     const cPlatformInc = col('Platform incentive');
     const cSettlement = col('Settlement amount');
+    const cOrderId = col('Store order ID');
 
     const out: SettlementRow[] = [];
     for (let i = HEADER_ROW + 1; i < grid.length; i++) {
@@ -84,6 +85,8 @@ export const tiktokgoParser: PlatformParser = {
       const commission = settlement > 0 ? Math.max(0, baseMerchant - settlement) : 0;
 
       const location = String(r[cLocation] ?? '').trim();
+      const orderId = String(r[cOrderId] ?? '').trim();
+
       out.push({
         storeId: location, // laporan TikTok tidak memuat ID toko numerik
         storeName: location,
@@ -91,6 +94,7 @@ export const tiktokgoParser: PlatformParser = {
         omzetKotor,
         promoMerchant,
         commission,
+        orderId,
       });
     }
 

@@ -38,19 +38,12 @@ export default function ProfitPage() {
 
   // Calculations — pisah pengeluaran outlet (dibebankan ke P&L outlet) vs pusat (company-wide).
   // Note: r.omzet in DB (sales_daily_scoped) is SUM(total_amount), which is actually Net Revenue
-  const actualNetRevenuePos = useMemo(() => sales.rows.reduce((sum, r) => sum + r.omzet, 0), [sales.rows])
+  const actualNetRevenue = useMemo(() => sales.rows.reduce((sum, r) => sum + r.omzet, 0), [sales.rows])
   const totalPotongan = useMemo(() => sales.rows.reduce((sum, r) => sum + (r.total_deductions || 0), 0), [sales.rows])
   const totalPlatformFee = useMemo(() => sales.rows.reduce((sum, r) => sum + (r.platform_fee || 0), 0), [sales.rows])
-  const totalPromoMerchant = useMemo(() => sales.rows.reduce((sum, r) => sum + (r.promo_merchant || 0), 0), [sales.rows])
-  const totalSelisih = useMemo(() => sales.rows.reduce((sum, r) => sum + (r.selisih_pencatatan || 0), 0), [sales.rows])
+  const totalDeductions = totalPotongan + totalPlatformFee
   
-  const totalDeductions = totalPotongan + totalPlatformFee + totalPromoMerchant + totalSelisih
-  
-  // Gross Revenue murni dari POS = POS Net (total_amount) + POS Discount
-  const actualGrossRevenue = actualNetRevenuePos + totalPotongan
-  
-  // Net Revenue = Gross - SEMUA potongan (termasuk fee platform dan selisih)
-  const actualNetRevenue = actualGrossRevenue - totalDeductions
+  const actualGrossRevenue = actualNetRevenue + totalDeductions
 
   const pengeluaranOutletBulanan = useMemo(
     () => expenses.rows.filter(r => r.scope === 'outlet' && r.source === 'monthly').reduce((sum, r) => sum + r.amount, 0),
@@ -75,50 +68,47 @@ export default function ProfitPage() {
 
   // Outlets breakdown
   const outletBreakdown = useMemo(() => {
-    const map = new Map<string, { name: string; omzet: number; posDiscount: number; platformFee: number; promoMerchant: number; selisih: number; expense: number; hpp: number; waste: number }>()
+    const map = new Map<string, { name: string; omzet: number; deductions: number; expense: number; hpp: number; waste: number }>()
 
     outlets.forEach(o => {
-      map.set(o.id, { name: o.name, omzet: 0, posDiscount: 0, platformFee: 0, promoMerchant: 0, selisih: 0, expense: 0, hpp: 0, waste: 0 })
+      map.set(o.id, { name: o.name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 })
     })
 
     sales.rows.forEach(s => {
-      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, posDiscount: 0, platformFee: 0, promoMerchant: 0, selisih: 0, expense: 0, hpp: 0, waste: 0 }
+      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.omzet += s.omzet
-      cur.posDiscount += (s.total_deductions || 0)
-      cur.platformFee += (s.platform_fee || 0)
-      cur.promoMerchant += (s.promo_merchant || 0)
-      cur.selisih += (s.selisih_pencatatan || 0)
+      cur.deductions += (s.total_deductions || 0) + (s.platform_fee || 0)
       map.set(s.outlet_id, cur)
     })
 
     expenses.rows.forEach(e => {
       if (e.scope !== 'outlet' || !e.outlet_id) return
-      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name ?? 'Outlet Tidak Dikenal', omzet: 0, posDiscount: 0, platformFee: 0, promoMerchant: 0, selisih: 0, expense: 0, hpp: 0, waste: 0 }
+      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name ?? 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.expense += e.amount
       map.set(e.outlet_id, cur)
     })
 
     hpp.rows.forEach(h => {
-      const cur = map.get(h.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, posDiscount: 0, platformFee: 0, promoMerchant: 0, selisih: 0, expense: 0, hpp: 0, waste: 0 }
+      const cur = map.get(h.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.hpp += h.hpp
       map.set(h.outlet_id, cur)
     })
 
     waste.rows.forEach(w => {
-      const cur = map.get(w.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, posDiscount: 0, platformFee: 0, promoMerchant: 0, selisih: 0, expense: 0, hpp: 0, waste: 0 }
+      const cur = map.get(w.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.waste += w.nilai_waste
       map.set(w.outlet_id, cur)
     })
 
     return [...map.entries()]
       .map(([id, val]) => {
-        const grossRev = val.omzet + val.posDiscount
-        const totalDeductions = val.posDiscount + val.platformFee + val.promoMerchant + val.selisih
-        const netRev = grossRev - totalDeductions
+        // Fix: val.omzet is actually Net Revenue
+        const netRev = val.omzet
+        const grossRev = val.omzet + val.deductions
         const labaKotor = netRev - val.hpp
         const net = labaKotor - val.expense - val.waste
         const margin = netRev > 0 ? (net / netRev) * 100 : 0
-        return { id, name: val.name, omzet: grossRev, deductions: totalDeductions, netRev, expense: val.expense, hpp: val.hpp, waste: val.waste, labaKotor, net, margin }
+        return { id, name: val.name, omzet: grossRev, deductions: val.deductions, netRev, expense: val.expense, hpp: val.hpp, waste: val.waste, labaKotor, net, margin }
       })
       .filter(item => item.omzet > 0 || item.expense > 0 || item.hpp > 0 || item.waste > 0)
       .sort((a, b) => b.net - a.net)
@@ -182,14 +172,14 @@ export default function ProfitPage() {
               <StatTile
                 label="Total Potongan & Fee"
                 value={<><span className="text-lg align-top">-Rp </span><CountUp end={totalDeductions} duration={1} separator="." /></>}
-                sub={`Diskon POS: ${rupiah(totalPotongan)} | Aplikasi: ${rupiah(totalPlatformFee)} | Promo: ${rupiah(totalPromoMerchant)} | Selisih: ${rupiah(totalSelisih)}`}
+                sub={`Diskon: ${rupiah(totalPotongan)} | Aplikasi: ${rupiah(totalPlatformFee)}`}
                 icon={TrendingDown}
                 accent="red"
-                tooltip="Berapa uang yang hilang untuk diskon kustomer, komisi platform, promo merchant, dan selisih omzet settlement."
+                tooltip="Berapa uang yang hilang untuk diskon kustomer dan estimasi komisi platform (Grab/GoFood/Tiktok)."
               />
               <StatTile
                 label="Pendapatan Bersih (Net)"
-                value={<><span className="text-lg align-top">Rp </span><CountUp end={actualNetRevenue} duration={1} separator="." /></>}
+                value={<><span className="text-lg align-top">Rp </span><CountUp end={netRevenue} duration={1} separator="." /></>}
                 sub="Uang riil masuk ke sistem"
                 icon={TrendingUp}
                 accent="green"

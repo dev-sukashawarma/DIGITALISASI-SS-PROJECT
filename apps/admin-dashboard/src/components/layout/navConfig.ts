@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, AlertTriangle, UserCheck
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, AlertTriangle, UserCheck, Percent
 } from 'lucide-react'
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING'
@@ -152,6 +152,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: UploadCloud, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/pawoon-import/synced', label: 'Data Tersinkron', shortLabel: 'Tersinkron', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/pawoon-import/mapping', label: 'Mapping Menu Pawoon', shortLabel: 'Mapping', icon: ArrowRightLeft, roles: ['ADMIN', 'OWNER'] },
+      { href: '/dashboard/platform-settlement', label: 'Settlement Food Apps', shortLabel: 'Food Apps', icon: Percent, roles: ['ADMIN', 'OWNER'] },
     ],
   },
 ]

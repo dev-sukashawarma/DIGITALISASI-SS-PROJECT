@@ -85,7 +85,7 @@ export async function middleware(request: NextRequest) {
   // Device self-order HARUS sudah di-login kan kasir via QR (role 'kiosk').
   // Halaman pesan pelanggan ('/', menu, checkout, dst) tidak boleh dibuka
   // kalau device belum punya sesi kiosk aktif.
-  const PUBLIC_PATHS = ['/kiosk/qr-login', '/panduan', '/cancellations/approve']
+  const PUBLIC_PATHS = ['/kiosk/qr-login', '/panduan', '/cancellations/approve', '/~offline']
   const isPublicPath = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + '/'))
   const isApiPath = path.startsWith('/api')
   const isDashboardPath = path.startsWith('/admin') || path.startsWith('/kasir')

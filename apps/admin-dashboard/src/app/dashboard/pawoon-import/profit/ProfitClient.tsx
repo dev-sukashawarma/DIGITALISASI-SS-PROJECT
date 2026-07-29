@@ -2,13 +2,22 @@
 
 import { useRouter } from 'next/navigation';
 import React, { useState, useMemo } from 'react';
-import { Store, Calendar, TrendingUp, AlertCircle, DollarSign, PieChart, Info, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, CornerDownRight } from 'lucide-react';
+import { Store, Calendar, TrendingUp, AlertCircle, DollarSign, PieChart, Info, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, CornerDownRight, Radio } from 'lucide-react';
+import { pawoonMenuOrderIndex } from '@/lib/pawoonMenuOrder';
+
+const CHANNEL_OPTIONS = [
+    { value: 'ALL', label: 'Semua Channel' },
+    { value: 'offline', label: 'Offline' },
+    { value: 'food_apps', label: 'Food Apps' },
+    { value: 'tiktok_go', label: 'TikTok Go' },
+];
 
 export default function ProfitClient({
     outlets,
     selectedOutletId,
     fromDate,
     toDate,
+    selectedChannel,
     totalOmset,
     totalHpp,
     grossProfit,
@@ -20,6 +29,7 @@ export default function ProfitClient({
     selectedOutletId: string;
     fromDate: string;
     toDate: string;
+    selectedChannel: string;
     totalOmset: number;
     totalHpp: number;
     grossProfit: number;
@@ -31,10 +41,11 @@ export default function ProfitClient({
     const [filterOutlet, setFilterOutlet] = useState(selectedOutletId);
     const [filterFrom, setFilterFrom] = useState(fromDate);
     const [filterTo, setFilterTo] = useState(toDate);
+    const [filterChannel, setFilterChannel] = useState(selectedChannel);
 
     // Table states
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'profit', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'menu', direction: 'asc' });
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     const toggleRow = (id: string) => {
@@ -49,6 +60,7 @@ export default function ProfitClient({
         if (filterOutlet !== 'ALL') params.set('outlet', filterOutlet);
         if (filterFrom) params.set('from', filterFrom);
         if (filterTo) params.set('to', filterTo);
+        if (filterChannel !== 'ALL') params.set('channel', filterChannel);
         router.push(`/dashboard/pawoon-import/profit?${params.toString()}`);
     };
 
@@ -56,6 +68,7 @@ export default function ProfitClient({
         setFilterOutlet('ALL');
         setFilterFrom('');
         setFilterTo('');
+        setFilterChannel('ALL');
         router.push('/dashboard/pawoon-import/profit');
     };
 
@@ -103,6 +116,8 @@ export default function ProfitClient({
 
             let valA, valB;
             switch (sortConfig.key) {
+                case 'menu':
+                    valA = pawoonMenuOrderIndex(a.name); valB = pawoonMenuOrderIndex(b.name); break;
                 case 'name':
                     valA = a.name; valB = b.name; break;
                 case 'qty':
@@ -194,7 +209,22 @@ export default function ProfitClient({
                         className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 transition-all font-medium text-sm text-gray-700"
                     />
                 </div>
-                
+
+                <div className="space-y-1.5 flex-1 min-w-[160px]">
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <Radio className="w-3.5 h-3.5" /> Channel Penjualan
+                    </label>
+                    <select
+                        value={filterChannel}
+                        onChange={(e) => setFilterChannel(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium text-sm"
+                    >
+                        {CHANNEL_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+                </div>
+
                 <div className="flex gap-2 w-full md:w-auto">
                     <button
                         onClick={applyFilters}
@@ -300,8 +330,8 @@ export default function ProfitClient({
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-white border-b border-gray-100 text-gray-500 text-[11px] uppercase tracking-wider font-extrabold">
                                     <tr>
-                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('name')}>
-                                            Menu Item <SortIcon columnKey="name" />
+                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('menu')}>
+                                            Menu Item <SortIcon columnKey="menu" />
                                         </th>
                                         <th className="px-6 py-4 text-center cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('qty')}>
                                             Qty <SortIcon columnKey="qty" />

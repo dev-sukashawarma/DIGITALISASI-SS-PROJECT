@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 import { requireRole } from '@/lib/authz';
+import { pawoonMenuOrderIndex } from '@/lib/pawoonMenuOrder';
 
 // Setup Supabase (Server side)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -414,6 +415,9 @@ export async function previewPawoonFile(formData: FormData) {
             }
         });
 
+        const sortByMenuOrder = (a: any, b: any) =>
+            pawoonMenuOrderIndex(a.systemName) - pawoonMenuOrderIndex(b.systemName);
+
         return {
             success: true,
             summary: {
@@ -425,10 +429,10 @@ export async function previewPawoonFile(formData: FormData) {
                 voidStatusUpdates: ordersToVoid.length,
                 totalOmset: totalOmset,
                 totalOmsetGross: totalOmsetGross,
-                itemSalesTracker: Object.values(itemSalesTracker),
+                itemSalesTracker: Object.values(itemSalesTracker).sort(sortByMenuOrder),
                 byDate: Object.values(summaryByDate).map(s => ({
                     ...s,
-                    itemSalesTracker: Object.values(s.itemSalesTrackerMap)
+                    itemSalesTracker: Object.values(s.itemSalesTrackerMap).sort(sortByMenuOrder)
                 })),
             },
             data: {

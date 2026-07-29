@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function PawoonProfitPage({
     searchParams,
 }: {
-    searchParams: Promise<{ outlet?: string; from?: string; to?: string }>;
+    searchParams: Promise<{ outlet?: string; from?: string; to?: string; channel?: string }>;
 }) {
     const supabase = await createClient();
     const params = await searchParams;
@@ -22,6 +22,8 @@ export default async function PawoonProfitPage({
     const selectedOutletId = params.outlet || '';
     const fromDate = params.from || '';
     const toDate = params.to || '';
+    // 'ALL' | 'offline' | 'food_apps' | 'tiktok_go'
+    const selectedChannel = params.channel || 'ALL';
 
     // If no outlet is selected and no date is selected, skip heavy fetching
     const shouldFetchData = selectedOutletId !== '';
@@ -137,19 +139,31 @@ export default async function PawoonProfitPage({
     // docs/superpowers/specs/2026-07-29-pawoon-data-discrepancy-analysis.md.
     // Breakdown per-item di bawah tetap pakai item.subtotal (satu-satunya proxy omset per menu
     // yang ada) — makanya totalOmset (headline) bisa sedikit beda dari SUM(itemSummary.omset).
-    const totalOmset = allSyncedOrders.reduce((sum, o) => {
+    // CATATAN filter channel: orders.total_amount adalah angka per-STRUK (bisa campur beberapa
+    // channel dalam 1 struk), jadi tidak bisa dipotong per channel. Saat filter channel aktif,
+    // totalOmset otomatis jatuh balik ke SUM(item.subtotal) yang sudah difilter channel di bawah.
+    const totalOmsetFromOrders = allSyncedOrders.reduce((sum, o) => {
         const sign = o.status === 'cancelled' ? -1 : 1;
         return sum + (o.total_amount || 0) * sign;
     }, 0);
 
+    let totalOmsetFromItems = 0;
     let totalHpp = 0;
     const itemSummary: Record<string, any> = {};
+    const qualifyingOrderIds = new Set<string>();
 
     allOrderItems.forEach(item => {
+        // Use item.channel as the source of truth (set during Pawoon import from product name prefix)
+        // Falls back to 'offline' for POS kasir data (default value)
+        const rawItemChannel = item.channel || 'offline';
+        if (selectedChannel !== 'ALL' && rawItemChannel !== selectedChannel) return;
+        qualifyingOrderIds.add(item.order_id);
+
         // NET: order cancelled (void) mengurangi qty/hpp, bukan di-exclude.
         const sign = orderStatusMap.get(item.order_id) === 'cancelled' ? -1 : 1;
         const signedQty = item.quantity * sign;
         const signedSubtotal = item.subtotal * sign;
+        totalOmsetFromItems += signedSubtotal;
 
         const outletType = orderOutletMap.get(item.order_id) || 'outlet';
 
@@ -182,9 +196,6 @@ export default async function PawoonProfitPage({
         const itemTotalHpp = baseHpp * signedQty;
         totalHpp += itemTotalHpp;
 
-        // Use item.channel as the source of truth (set during Pawoon import from product name prefix)
-        // Falls back to 'offline' for POS kasir data (default value)
-        const rawItemChannel = item.channel || 'offline';
         let channelGroup = 'OFFLINE';
         if (rawItemChannel === 'food_apps') channelGroup = 'FOOD APPS';
         else if (rawItemChannel === 'tiktok_go') channelGroup = 'TIKTOK GO';
@@ -224,6 +235,12 @@ export default async function PawoonProfitPage({
     const summaryList = Object.values(itemSummary)
         .sort((a, b) => b.omset - a.omset); // Sort by omset descending
 
+    // Filter channel aktif -> orders.total_amount tak bisa dipotong per channel (1 struk bisa
+    // campur channel), jatuh balik ke SUM(item.subtotal) yang sudah difilter. Filter channel = ALL
+    // -> tetap pakai orders.total_amount (match persis Grand Total Excel, lihat catatan di atas).
+    const totalOmset = selectedChannel === 'ALL' ? totalOmsetFromOrders : totalOmsetFromItems;
+    const totalOrders = selectedChannel === 'ALL' ? allSyncedOrders.length : qualifyingOrderIds.size;
+
     const grossProfit = totalOmset - totalHpp;
     const marginPct = totalOmset > 0 ? (grossProfit / totalOmset) * 100 : 0;
 
@@ -242,17 +259,18 @@ export default async function PawoonProfitPage({
                 </div>
             </div>
 
-            <ProfitClient 
+            <ProfitClient
                 outlets={outlets || []}
                 selectedOutletId={selectedOutletId}
                 fromDate={fromDate}
                 toDate={toDate}
+                selectedChannel={selectedChannel}
                 totalOmset={totalOmset}
                 totalHpp={totalHpp}
                 grossProfit={grossProfit}
                 marginPct={marginPct}
                 itemSummary={summaryList}
-                totalOrders={allSyncedOrders.length}
+                totalOrders={totalOrders}
             />
         </div>
     );

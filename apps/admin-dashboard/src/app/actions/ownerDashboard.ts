@@ -52,9 +52,9 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   
   let settlementQ = supabase
     .from('platform_settlements')
-    .select('outlet_id, sales_date, platform, gross_amount, platform_fee, promo_merchant')
-    .gte('sales_date', filter.from)
-    .lte('sales_date', filter.to)
+    .select('outlet_id, tanggal, platform, omzet_kotor, commission, promo_merchant')
+    .gte('tanggal', filter.from)
+    .lte('tanggal', filter.to)
   if (filter.outletId !== 'all') settlementQ = settlementQ.eq('outlet_id', filter.outletId)
 
   const [{ data, error }, { data: ordersData }, { data: settlementData }] = await Promise.all([q, ordersQ, settlementQ])
@@ -64,7 +64,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   for (const s of settlementData || []) {
     let srcKey = s.platform.toLowerCase()
     if (srcKey === 'tiktokgo') srcKey = 'tiktok'
-    const key = `${s.outlet_id}|${srcKey}|${s.sales_date}`
+    const key = `${s.outlet_id}|${srcKey}|${s.tanggal}`
     settlementMap.set(key, s)
   }
 
@@ -107,10 +107,10 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     let selisih_pencatatan = 0
     
     if (setl) {
-      platform_fee = setl.platform_fee || 0
+      platform_fee = setl.commission || 0
       promo_merchant = setl.promo_merchant || 0
       const posGross = Number(r.omzet) || 0
-      const setlGross = Number(setl.gross_amount) || 0
+      const setlGross = Number(setl.omzet_kotor) || 0
       selisih_pencatatan = posGross - setlGross
     }
 

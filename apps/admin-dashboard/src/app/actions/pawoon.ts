@@ -153,7 +153,7 @@ export async function previewPawoonFile(formData: FormData) {
                 itemChannel = 'food_apps';
             } else if (productName.startsWith('BEST SELLER') || category === 'SS TIKTOK GO') {
                 channel = 'tiktokgo';
-                salesSourceTag = 'tiktokgo';
+                salesSourceTag = 'tiktok';
                 itemChannel = 'tiktok_go';
             } else {
                 channel = null;

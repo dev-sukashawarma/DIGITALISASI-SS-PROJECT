@@ -218,8 +218,11 @@ export async function upsertOpnameItems(
     // Guard: hanya pembuat opname yang boleh upsert item, dan status harus editable
     const isOwner = opname.created_by === staffId
     const isEditable = ['draft', 'pending_approval'].includes(opname.status)
-    if (!isOwner || !isEditable) {
-      return { error: `Forbidden: Anda (${staffId}) bukan pembuat opname ini (${opname.created_by}), status: ${opname.status}` }
+    if (!isEditable) {
+      return { error: 'Anda telah melakukan opname hari ini. Opname harian hanya bisa dilakukan satu kali per outlet.' }
+    }
+    if (!isOwner) {
+      return { error: 'Forbidden: hanya pembuat opname yang bisa mengisi item ini' }
     }
 
     const { error } = await serviceClient

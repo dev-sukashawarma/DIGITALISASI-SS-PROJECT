@@ -240,7 +240,9 @@ export default function PlatformSettlementPage() {
                   <div key={p.platform} className="border border-gray-100 rounded-xl p-3 bg-gray-50">
                     <div className="flex justify-between items-start mb-2">
                       <p className="font-bold text-sm text-gray-800">{p.label}</p>
-                      <p className="text-xs bg-white border px-2 py-0.5 rounded-md font-medium text-gray-600">{p.trx.toLocaleString('id-ID')} trx</p>
+                      <p className="text-xs bg-white border px-2 py-0.5 rounded-md font-medium text-gray-600">
+                        {p.trx.toLocaleString('id-ID')} {p.platform === 'tiktokgo' ? 'voucher' : 'trx'}
+                      </p>
                     </div>
                     <p className="text-xs text-gray-500">Omzet Kotor</p>
                     <p className="font-semibold text-gray-900 text-sm">{rp(p.omzetKotor)}</p>

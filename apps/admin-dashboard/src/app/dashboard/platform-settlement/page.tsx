@@ -236,21 +236,41 @@ export default function PlatformSettlementPage() {
             <div>
               <h3 className="font-semibold text-sm text-gray-600 mb-3 uppercase tracking-wide">Rincian per Platform</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {s.perPlatform.map((p) => (
-                  <div key={p.platform} className="border border-gray-100 rounded-xl p-3 bg-gray-50">
-                    <div className="flex justify-between items-start mb-2">
-                      <p className="font-bold text-sm text-gray-800">{p.label}</p>
-                      <p className="text-xs bg-white border px-2 py-0.5 rounded-md font-medium text-gray-600">
-                        {p.trx.toLocaleString('id-ID')} {p.platform === 'tiktokgo' ? 'voucher' : 'trx'}
-                      </p>
+                {(() => {
+                  const foodAppsKeys = ['shopeefood', 'grabfood', 'gofood'];
+                  const foodApps = s.perPlatform.filter(p => foodAppsKeys.includes(p.platform));
+                  const others = s.perPlatform.filter(p => !foodAppsKeys.includes(p.platform));
+                  
+                  const combined = [...others];
+                  if (foodApps.length > 0) {
+                    combined.unshift({
+                      platform: 'foodapps',
+                      label: 'Food Apps (Shopee, Grab, Gojek)',
+                      fileName: foodApps.map(f => f.fileName).join(', '),
+                      omzetKotor: foodApps.reduce((sum, f) => sum + f.omzetKotor, 0),
+                      adminFee: foodApps.reduce((sum, f) => sum + f.adminFee, 0),
+                      promo: foodApps.reduce((sum, f) => sum + f.promo, 0),
+                      trx: foodApps.reduce((sum, f) => sum + f.trx, 0),
+                      rowsToWrite: 0
+                    });
+                  }
+                  
+                  return combined.map((p) => (
+                    <div key={p.platform} className="border border-gray-100 rounded-xl p-3 bg-gray-50">
+                      <div className="flex justify-between items-start mb-2">
+                        <p className="font-bold text-sm text-gray-800">{p.label}</p>
+                        <p className="text-xs bg-white border px-2 py-0.5 rounded-md font-medium text-gray-600">
+                          {p.trx.toLocaleString('id-ID')} {p.platform === 'tiktokgo' ? 'voucher' : 'trx'}
+                        </p>
+                      </div>
+                      <p className="text-xs text-gray-500">Omzet Kotor</p>
+                      <p className="font-semibold text-gray-900 text-sm">{rp(p.omzetKotor)}</p>
+                      <p className="text-xs text-gray-500 mt-1">Admin Fee</p>
+                      <p className="font-semibold text-red-700 text-sm">-{rp(p.adminFee)} ({pct(p.adminFee, p.omzetKotor)})</p>
+                      <p className="text-xs text-gray-400 mt-1 truncate max-w-[150px]" title={p.fileName}>{p.fileName}</p>
                     </div>
-                    <p className="text-xs text-gray-500">Omzet Kotor</p>
-                    <p className="font-semibold text-gray-900 text-sm">{rp(p.omzetKotor)}</p>
-                    <p className="text-xs text-gray-500 mt-1">Admin Fee</p>
-                    <p className="font-semibold text-red-700 text-sm">-{rp(p.adminFee)} ({pct(p.adminFee, p.omzetKotor)})</p>
-                    <p className="text-xs text-gray-400 mt-1 truncate">{p.fileName}</p>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             </div>
           </div>

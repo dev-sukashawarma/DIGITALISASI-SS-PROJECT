@@ -10,6 +10,7 @@ const CHANNEL_OPTIONS = [
     { value: 'offline', label: 'Offline' },
     { value: 'food_apps', label: 'Food Apps' },
     { value: 'tiktok_go', label: 'TikTok Go' },
+    { value: 'food_apps_tiktok', label: 'Food Apps + TikTok Go' },
 ];
 
 export default function ProfitClient({

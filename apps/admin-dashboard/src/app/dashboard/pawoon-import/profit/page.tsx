@@ -156,7 +156,13 @@ export default async function PawoonProfitPage({
         // Use item.channel as the source of truth (set during Pawoon import from product name prefix)
         // Falls back to 'offline' for POS kasir data (default value)
         const rawItemChannel = item.channel || 'offline';
-        if (selectedChannel !== 'ALL' && rawItemChannel !== selectedChannel) return;
+        if (selectedChannel !== 'ALL') {
+            if (selectedChannel === 'food_apps_tiktok') {
+                if (rawItemChannel !== 'food_apps' && rawItemChannel !== 'tiktok_go') return;
+            } else if (rawItemChannel !== selectedChannel) {
+                return;
+            }
+        }
         qualifyingOrderIds.add(item.order_id);
 
         // NET: order cancelled (void) mengurangi qty/hpp, bukan di-exclude.

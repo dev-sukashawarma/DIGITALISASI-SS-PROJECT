@@ -380,7 +380,7 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
     const pawoonByOutlet = new Map<string, { omzet: number; trx: number }>();
     
     let pawoonQ = supabase
-      .from('sales_daily_scoped')
+      .from('sales_daily_spv')
       .select('outlet_id, sales_source, omzet, jumlah_order_completed')
       .gte('sales_date', periodeFrom)
       .lte('sales_date', periodeTo)

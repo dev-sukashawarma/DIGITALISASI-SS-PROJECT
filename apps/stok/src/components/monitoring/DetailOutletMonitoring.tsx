@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList, fetchOutletItemsDetail } from '@/lib/queries/monitoring';
-import { getBahanBakuSource } from '@suka/design-system';
+import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
 
 function formatLedgerType(type: string): string {
   const map: Record<string, string> = {

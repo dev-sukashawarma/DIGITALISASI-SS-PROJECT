@@ -1,4 +1,4 @@
-import { Badge } from '@suka/design-system'
+import { Badge } from '@suka/design-system/src/components/Badge'
 import type { StokLevel } from '@/types/stok'
 
 const MAP: Record<StokLevel, { label: string; icon: string; variant: string }> = {

@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@suka/design-system'
+import { Button } from '@suka/design-system/src/components/Button'
 import { useAuth } from '@suka/auth'
 
 export const Header = () => {

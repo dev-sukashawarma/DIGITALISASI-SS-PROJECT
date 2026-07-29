@@ -8,7 +8,8 @@ import { useCrewMonitoringData, useMonitoringRealtime } from '@/hooks/useMonitor
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
-import { Skeleton, Avatar } from '@suka/design-system';
+import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
+import { Avatar } from '@suka/design-system/src/components/Avatar';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { BottomNav } from '@/components/common/BottomNav';
 import { formatCompositeSaldo } from '@/lib/format/compositeUnit';

@@ -1,6 +1,6 @@
 'use client'
 
-import { ServerError } from '@suka/design-system'
+import { ServerError } from '@suka/design-system/src/components/ServerError'
 import './globals.css'
 
 export default function GlobalError({

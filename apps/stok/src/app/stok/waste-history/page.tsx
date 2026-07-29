@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react'
 import { useAuth } from '@suka/auth'
 import { toast } from 'sonner'
-import { Card } from '@suka/design-system'
+import { Card } from '@suka/design-system/src/components/Card'
 import { useMyWasteHistory } from '@/hooks/useWaste'
 import { BottomNav } from '@/components/common/BottomNav'
 import type { WasteReport, WasteStatus } from '@/types/stok'

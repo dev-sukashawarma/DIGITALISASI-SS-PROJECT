@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
-import { Skeleton } from '@suka/design-system';
+import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
 
 
 interface CrewListProps {

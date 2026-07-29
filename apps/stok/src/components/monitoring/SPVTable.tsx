@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
-import { Skeleton, getBahanBakuSource } from '@suka/design-system';
+import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
+import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
 
 
 /** Konsisten dengan kategori di admin-dashboard: item core, bumbu, minuman, kemasan, lainnya */

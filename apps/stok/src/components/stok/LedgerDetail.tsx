@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Card } from '@suka/design-system'
+import { Card } from '@suka/design-system/src/components/Card'
 import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit'
 import { getWasteReportDetailsForLedger, getStaffNameForLedger } from '@/app/actions/ledgerDetailServer'
 import Image from 'next/image'

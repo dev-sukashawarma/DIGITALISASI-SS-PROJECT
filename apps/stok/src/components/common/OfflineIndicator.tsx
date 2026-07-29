@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Badge } from '@suka/design-system'
+import { Badge } from '@suka/design-system/src/components/Badge'
 
 export const OfflineIndicator = () => {
   const [isOnline, setIsOnline] = useState(true)

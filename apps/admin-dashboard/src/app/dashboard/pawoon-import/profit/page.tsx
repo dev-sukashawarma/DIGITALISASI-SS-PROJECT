@@ -72,7 +72,8 @@ export default async function PawoonProfitPage({
     const allOrderItems: any[] = [];
     if (orderIds.length > 0) {
         // Parallel fetching because array could be large
-        const chunkSize = 500;
+        // Use a smaller chunk size (100) to avoid 414 URI Too Long errors in PostgREST GET requests
+        const chunkSize = 100;
         const chunks = [];
         for (let i = 0; i < orderIds.length; i += chunkSize) {
             chunks.push(orderIds.slice(i, i + chunkSize));
@@ -91,6 +92,7 @@ export default async function PawoonProfitPage({
                         quantity, 
                         unit_price, 
                         subtotal,
+                        channel,
                         menu_items ( 
                             hpp_override,
                             is_package,
@@ -105,6 +107,7 @@ export default async function PawoonProfitPage({
             
             const results = await Promise.all(promises);
             results.forEach(res => {
+                if (res.error) console.error('Error fetching order items chunk:', res.error);
                 if (res.data) allOrderItems.push(...res.data);
             });
         }
@@ -159,8 +162,17 @@ export default async function PawoonProfitPage({
         const itemTotalHpp = baseHpp * item.quantity;
         totalHpp += itemTotalHpp;
 
-        if (!itemSummary[item.menu_item_id]) {
-            itemSummary[item.menu_item_id] = {
+        // Use item.channel as the source of truth (set during Pawoon import from product name prefix)
+        // Falls back to 'offline' for POS kasir data (default value)
+        const rawItemChannel = item.channel || 'offline';
+        let channelGroup = 'OFFLINE';
+        if (rawItemChannel === 'food_apps') channelGroup = 'FOOD APPS';
+        else if (rawItemChannel === 'tiktok_go') channelGroup = 'TIKTOK GO';
+
+        const summaryKey = item.menu_item_id;
+
+        if (!itemSummary[summaryKey]) {
+            itemSummary[summaryKey] = {
                 id: item.menu_item_id,
                 name: item.menu_item_name,
                 qty: 0,
@@ -168,17 +180,25 @@ export default async function PawoonProfitPage({
                 hppTotal: 0,
                 hppUnit: baseHpp, // we just store the last one seen, if it crosses outlet types it might be weird, but usually filtered by outlet
                 missingHpp: isMissing,
-                outletType: outletType
+                outletType: outletType,
+                channels: {}
             };
         }
         
-        itemSummary[item.menu_item_id].qty += item.quantity;
-        itemSummary[item.menu_item_id].omset += item.subtotal;
-        itemSummary[item.menu_item_id].hppTotal += itemTotalHpp;
+        itemSummary[summaryKey].qty += item.quantity;
+        itemSummary[summaryKey].omset += item.subtotal;
+        itemSummary[summaryKey].hppTotal += itemTotalHpp;
         // if this item has missing HPP, flag it
         if (isMissing) {
-             itemSummary[item.menu_item_id].missingHpp = true;
+             itemSummary[summaryKey].missingHpp = true;
         }
+
+        if (!itemSummary[summaryKey].channels[channelGroup]) {
+            itemSummary[summaryKey].channels[channelGroup] = { qty: 0, omset: 0, hppTotal: 0 };
+        }
+        itemSummary[summaryKey].channels[channelGroup].qty += item.quantity;
+        itemSummary[summaryKey].channels[channelGroup].omset += item.subtotal;
+        itemSummary[summaryKey].channels[channelGroup].hppTotal += itemTotalHpp;
     });
 
     const summaryList = Object.values(itemSummary)

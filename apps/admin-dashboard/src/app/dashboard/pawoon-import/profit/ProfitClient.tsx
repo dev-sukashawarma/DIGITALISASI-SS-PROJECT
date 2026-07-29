@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useMemo } from 'react';
-import { Store, Calendar, TrendingUp, AlertCircle, DollarSign, PieChart, Info, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Store, Calendar, TrendingUp, AlertCircle, DollarSign, PieChart, Info, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, CornerDownRight } from 'lucide-react';
 
 export default function ProfitClient({
     outlets,
@@ -35,6 +35,14 @@ export default function ProfitClient({
     // Table states
     const [searchQuery, setSearchQuery] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'profit', direction: 'desc' });
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+    const toggleRow = (id: string) => {
+        const newSet = new Set(expandedRows);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setExpandedRows(newSet);
+    };
 
     const applyFilters = () => {
         const params = new URLSearchParams();
@@ -99,6 +107,10 @@ export default function ProfitClient({
                     valA = a.name; valB = b.name; break;
                 case 'qty':
                     valA = a.qty; valB = b.qty; break;
+                case 'hargaJual':
+                    valA = a.qty > 0 ? a.omset / a.qty : 0; 
+                    valB = b.qty > 0 ? b.omset / b.qty : 0; 
+                    break;
                 case 'omset':
                     valA = a.omset; valB = b.omset; break;
                 case 'hppUnit':
@@ -118,6 +130,17 @@ export default function ProfitClient({
 
         return data;
     }, [itemSummary, searchQuery, sortConfig]);
+
+    const getChannelBadge = (channel: string) => {
+        switch (channel) {
+            case 'FOOD APPS':
+                return <span className="bg-orange-100 text-orange-700 px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap border border-orange-200">FOOD APPS</span>;
+            case 'TIKTOK GO':
+                return <span className="bg-gray-800 text-white px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap border border-gray-900">TIKTOK GO</span>;
+            default:
+                return <span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap border border-gray-200">OFFLINE</span>;
+        }
+    };
 
 
     return (
@@ -283,14 +306,17 @@ export default function ProfitClient({
                                         <th className="px-6 py-4 text-center cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('qty')}>
                                             Qty <SortIcon columnKey="qty" />
                                         </th>
-                                        <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('omset')}>
-                                            Omset <SortIcon columnKey="omset" />
+                                        <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('hargaJual')}>
+                                            Harga Jual / pcs <SortIcon columnKey="hargaJual" />
                                         </th>
                                         <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('hppUnit')}>
                                             HPP / pcs <SortIcon columnKey="hppUnit" />
                                         </th>
                                         <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('hppTotal')}>
                                             Total Modal (HPP) <SortIcon columnKey="hppTotal" />
+                                        </th>
+                                        <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('omset')}>
+                                            Omset <SortIcon columnKey="omset" />
                                         </th>
                                         <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-50 group" onClick={() => handleSort('profit')}>
                                             Laba Kotor <SortIcon columnKey="profit" />
@@ -300,30 +326,55 @@ export default function ProfitClient({
                                 <tbody className="divide-y divide-gray-50">
                                     {processedSummary.map((item, idx) => {
                                         const profit = item.omset - item.hppTotal;
+                                        const hargaJual = item.qty > 0 ? item.omset / item.qty : 0;
+                                        const isExpanded = expandedRows.has(item.id);
                                         return (
-                                            <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
-                                                <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
-                                                    {item.name}
-                                                    {item.missingHpp && (
-                                                        <span className="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Set HPP!</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-center font-bold text-gray-700">{item.qty.toLocaleString('id-ID')}</td>
-                                                <td className="px-6 py-4 text-right font-medium text-gray-900">{formatRp(item.omset)}</td>
-                                                <td className="px-6 py-4 text-right text-gray-500">
-                                                    {formatRp(item.hppUnit)}
-                                                    {item.outletType === 'mitra' && !item.missingHpp && (
-                                                        <div className="text-[9px] text-amber-600 font-bold mt-0.5">(+10% Mitra)</div>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-right text-red-500 font-medium">{formatRp(item.hppTotal)}</td>
-                                                <td className="px-6 py-4 text-right font-bold text-green-600">{formatRp(profit)}</td>
-                                            </tr>
+                                            <React.Fragment key={idx}>
+                                                <tr onClick={() => toggleRow(item.id)} className="hover:bg-gray-50/80 transition-colors cursor-pointer">
+                                                    <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
+                                                        {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                                                        {item.name}
+                                                        {item.missingHpp && (
+                                                            <span className="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Set HPP!</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center font-bold text-gray-700">{item.qty.toLocaleString('id-ID')}</td>
+                                                    <td className="px-6 py-4 text-right font-medium text-gray-900">{formatRp(hargaJual)}</td>
+                                                    <td className="px-6 py-4 text-right text-gray-500">
+                                                        {formatRp(item.hppUnit)}
+                                                        {item.outletType === 'mitra' && !item.missingHpp && (
+                                                            <div className="text-[9px] text-amber-600 font-bold mt-0.5">(+10% Mitra)</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right text-red-500 font-medium">{formatRp(item.hppTotal)}</td>
+                                                    <td className="px-6 py-4 text-right font-bold text-blue-600">{formatRp(item.omset)}</td>
+                                                    <td className="px-6 py-4 text-right font-bold text-green-600">{formatRp(profit)}</td>
+                                                </tr>
+                                                {isExpanded && item.channels && Object.keys(item.channels).map(ch => {
+                                                    const chData = item.channels[ch];
+                                                    const chHargaJual = chData.qty > 0 ? chData.omset / chData.qty : 0;
+                                                    const chProfit = chData.omset - chData.hppTotal;
+                                                    return (
+                                                        <tr key={`${item.id}-${ch}`} className="bg-gray-50/50 border-l-4 border-l-suka-primary">
+                                                            <td className="px-6 py-3 pl-12 flex items-center">
+                                                                <CornerDownRight className="w-4 h-4 text-gray-300 mr-2" />
+                                                                {getChannelBadge(ch)}
+                                                            </td>
+                                                            <td className="px-6 py-3 text-center text-sm font-semibold text-gray-600">{chData.qty.toLocaleString('id-ID')}</td>
+                                                            <td className="px-6 py-3 text-right text-sm text-gray-700">{formatRp(chHargaJual)}</td>
+                                                            <td className="px-6 py-3 text-right text-sm text-gray-400">{formatRp(item.hppUnit)}</td>
+                                                            <td className="px-6 py-3 text-right text-sm text-red-400">{formatRp(chData.hppTotal)}</td>
+                                                            <td className="px-6 py-3 text-right text-sm font-semibold text-blue-500">{formatRp(chData.omset)}</td>
+                                                            <td className="px-6 py-3 text-right text-sm font-semibold text-green-500">{formatRp(chProfit)}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </React.Fragment>
                                         );
                                     })}
                                     {processedSummary.length === 0 && (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                                            <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
                                                 {searchQuery ? (
                                                     <>Tidak ada menu yang sesuai dengan pencarian "<strong>{searchQuery}</strong>".</>
                                                 ) : (

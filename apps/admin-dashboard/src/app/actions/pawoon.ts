@@ -141,20 +141,23 @@ export async function previewPawoonFile(formData: FormData) {
                 }
             }
 
-            // Tentukan channel berdasarkan nama produk/kategori Pawoon
-            // PENTING: nilai 'food_apps' adalah tag generik Pawoon, bukan ID channel valid.
-            // Simpan sebagai null agar resolveOrderSource pakai sales_source='grabfood' dengan benar.
+            // Tentukan channel berdasarkan nama produk di Pawoon (SUMBER KEBENARAN)
+            // Prefix nama produk di Pawoon adalah penanda channel yang 100% akurat
             let channel: string | null = null;
             let salesSourceTag = 'pos';
-            if (productName.includes('FOOD APPS') || category === 'FOOD APPS') {
-                channel = null;          // resolveOrderSource akan pakai sales_source
+            let itemChannel: 'offline' | 'food_apps' | 'tiktok_go' = 'offline';
+            if (productName.startsWith('FOOD APPS') || category === 'FOOD APPS') {
+                channel = null;
                 salesSourceTag = 'grabfood';
-            } else if (productName.includes('BEST SELLER - ') || category === 'SS TIKTOK GO') {
-                channel = 'tiktokgo';   // tiktokgo terdaftar di CHANNELS[]
+                itemChannel = 'food_apps';
+            } else if (productName.startsWith('BEST SELLER') || category === 'SS TIKTOK GO') {
+                channel = 'tiktokgo';
                 salesSourceTag = 'tiktokgo';
+                itemChannel = 'tiktok_go';
             } else {
                 channel = null;
                 salesSourceTag = 'pos';
+                itemChannel = 'offline';
             }
 
             let orderStatus = 'completed';
@@ -227,6 +230,7 @@ export async function previewPawoonFile(formData: FormData) {
                     quantity: chunkQty,
                     unit_price: Math.abs(price),
                     subtotal: chunkQty * Math.abs(price),
+                    channel: itemChannel,
                     created_at: order.created_at,
                     _systemName: mapConfig.name || mapConfig.system_name || productName
                 });

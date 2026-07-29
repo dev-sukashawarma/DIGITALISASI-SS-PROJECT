@@ -266,8 +266,11 @@ export async function POST(req: Request) {
       const toleransiDeadline = new Date(local);
       toleransiDeadline.setHours(h, m + cfg.toleransi_menit, 0, 0);
 
-      if (local.getTime() <= toleransiDeadline.getTime()) {
+      if (local.getTime() <= jamMasukDeadline.getTime()) {
         status = "tepat";
+      } else if (local.getTime() <= toleransiDeadline.getTime()) {
+        status = "telat_toleransi";
+        telat_menit = Math.floor((local.getTime() - jamMasukDeadline.getTime()) / 60000);
       } else {
         status = "telat";
         telat_menit = Math.floor((local.getTime() - jamMasukDeadline.getTime()) / 60000);

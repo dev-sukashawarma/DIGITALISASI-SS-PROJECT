@@ -91,7 +91,7 @@ export function AttendanceReportView({
     let alfa = 0
     for (const r of filteredData) {
       if (r.status === 'hadir') hadir++
-      else if (r.status === 'terlambat') terlambat++
+      else if (r.status === 'terlambat' || r.status === 'telat_toleransi') terlambat++
       else if (['izin', 'sakit', 'cuti'].includes(r.status)) izinSakit++
       else if (r.status === 'alfa') alfa++
     }
@@ -173,6 +173,7 @@ export function AttendanceReportView({
             >
               <option value="all">Semua Status Kehadiran</option>
               <option value="hadir">Hadir Tepat Waktu</option>
+              <option value="telat_toleransi">Telat (Toleransi)</option>
               <option value="terlambat">Terlambat</option>
               <option value="izin">Izin</option>
               <option value="sakit">Sakit</option>
@@ -328,6 +329,16 @@ export function AttendanceReportView({
                             <Clock size={12} /> Terlambat
                           </span>
                           <p className="text-[11px] font-bold text-amber-700">
+                            + {row.late_minutes} menit
+                          </p>
+                        </div>
+                      )}
+                      {row.status === 'telat_toleransi' && (
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2.5 py-1 text-[10px] font-bold text-yellow-800 border border-yellow-300">
+                            <Clock size={12} /> Telat (Toleransi)
+                          </span>
+                          <p className="text-[11px] font-bold text-yellow-700">
                             + {row.late_minutes} menit
                           </p>
                         </div>

@@ -2,7 +2,7 @@ export type BoardStaff = { id: string; name: string; role: string };
 export type BoardRecord = {
   outlet_staff_id: string;
   type: "in" | "out";
-  status: "tepat" | "telat" | "alpha" | "lebih_awal" | "pulang_telat";
+  status: "tepat" | "telat" | "alpha" | "lebih_awal" | "pulang_telat" | "telat_toleransi";
   ts_server: string;
   selfie_url?: string | null;
   telat_menit?: number | null;
@@ -14,7 +14,7 @@ export type BoardConfig = {
   toleransi_menit: number;
 };
 
-export type BoardState = "masuk" | "telat" | "keluar" | "belum" | "alpha" | "lebih_awal" | "pulang_telat";
+export type BoardState = "masuk" | "telat" | "telat_toleransi" | "keluar" | "belum" | "alpha" | "lebih_awal" | "pulang_telat";
 export type BoardRow = { 
   id: string; 
   name: string; 
@@ -24,7 +24,7 @@ export type BoardRow = {
   selfie_url: string | null;
   delay_minutes: number | null;
 };
-export type BoardSummary = { hadir: number; telat: number; belum: number; alpha: number; total: number };
+export type BoardSummary = { hadir: number; telat: number; telat_toleransi: number; belum: number; alpha: number; total: number };
 
 function jam(ts: string): string {
   return new Date(ts).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -77,8 +77,10 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
       return { id: s.id, name: s.name, role: s.role, state, time: jam(outRec.ts_server), selfie_url: outRec.selfie_url || null, delay_minutes };
     }    
     if (inRec) {
-      const state: BoardState = inRec.status === "telat" ? "telat" : "masuk";
-      const delay_minutes = state === "telat" ? (inRec.telat_menit ?? calculateDelayMinutes(inRec.ts_server, config.jam_masuk)) : null;
+      let state: BoardState = "masuk";
+      if (inRec.status === "telat") state = "telat";
+      if (inRec.status === "telat_toleransi") state = "telat_toleransi";
+      const delay_minutes = (state === "telat" || state === "telat_toleransi") ? (inRec.telat_menit ?? calculateDelayMinutes(inRec.ts_server, config.jam_masuk)) : null;
       return { id: s.id, name: s.name, role: s.role, state, time: jam(inRec.ts_server), selfie_url: inRec.selfie_url || null, delay_minutes };
     }
     
@@ -93,6 +95,7 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
   const summary: BoardSummary = {
     hadir: rows.filter((r) => r.state === "masuk" || r.state === "keluar").length,
     telat: rows.filter((r) => r.state === "telat").length,
+    telat_toleransi: rows.filter((r) => r.state === "telat_toleransi").length,
     belum: rows.filter((r) => r.state === "belum").length,
     alpha: rows.filter((r) => r.state === "alpha").length,
     total: staff.length,

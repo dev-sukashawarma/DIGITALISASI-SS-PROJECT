@@ -239,3 +239,205 @@ export async function syncSettlementData(payload: {
     return { success: false as const, error: err?.message || 'Gagal menyimpan data.' };
   }
 }
+
+// ── Multi-platform preview ──────────────────────────────────────────────────
+// Menerima hingga 4 file (satu per platform) + rentang tanggal manual dari user.
+// Mengembalikan rekap gabungan seluruh platform vs Pawoon.
+
+export interface MultiPlatformSummary {
+  periodeFrom: string;
+  periodeTo: string;
+  totalOmzetKotor: number;
+  totalAdminFee: number;
+  totalPromo: number;
+  totalTrx: number;
+  pawoonOmzetKotor: number;
+  pawoonTrxCount: number;
+  perPlatform: {
+    platform: string;
+    label: string;
+    fileName: string;
+    omzetKotor: number;
+    adminFee: number;
+    promo: number;
+    trx: number;
+    rowsToWrite: number;
+  }[];
+  perOutlet: {
+    outletId: string;
+    outletName: string;
+    omzetKotor: number;
+    adminFee: number;
+    promo: number;
+    pawoonOmzet: number;
+    selisih: number;
+    status: 'ok' | 'selisih' | 'no-data';
+  }[];
+  unmappedStores: { platform: string; storeId: string; storeName: string; omzetKotor: number }[];
+  allDaily: { platform: string; sourceFile: string; daily: SettlementDaily[] }[];
+}
+
+const PLATFORM_LABELS: Record<string, string> = {
+  shopeefood: 'ShopeeFood',
+  grabfood: 'GrabFood',
+  gofood: 'GoFood',
+  tiktokgo: 'TikTok Go',
+};
+
+export async function previewAllSettlementFiles(formData: FormData): Promise<
+  { success: true; summary: MultiPlatformSummary } | { success: false; error: string }
+> {
+  try {
+    await requireRole(['admin', 'owner']);
+
+    const periodeFrom = String(formData.get('from') ?? '');
+    const periodeTo = String(formData.get('to') ?? '');
+    if (!periodeFrom || !periodeTo) return { success: false, error: 'Periode belum dipilih.' };
+
+    const platformIds = ['shopeefood', 'grabfood', 'gofood', 'tiktokgo'];
+
+    const { data: outletsData, error: outletsErr } = await supabase.from('outlets').select('id, name');
+    if (outletsErr) return { success: false, error: `Gagal memuat outlet: ${outletsErr.message}` };
+    const outletIdByName = new Map<string, string>(
+      (outletsData ?? []).map((o) => [String(o.name).trim().toLowerCase(), o.id as string])
+    );
+
+    const outletOmzet = new Map<string, number>();
+    const outletAdminFee = new Map<string, number>();
+    const outletPromo = new Map<string, number>();
+    const outletNames = new Map<string, string>();
+
+    const perPlatform: MultiPlatformSummary['perPlatform'] = [];
+    const unmappedStores: MultiPlatformSummary['unmappedStores'] = [];
+    const allDaily: MultiPlatformSummary['allDaily'] = [];
+
+    for (const platform of platformIds) {
+      const file = formData.get(`file_${platform}`) as File | null;
+      if (!file) continue;
+
+      const map = storeMap[platform] ?? { byStoreId: {}, byName: {}, closed: {} };
+      const parser = getParser(platform);
+      const rows: SettlementRow[] = parser.parse(await file.arrayBuffer());
+
+      const dailyMap = new Map<string, SettlementDaily>();
+
+      for (const r of rows) {
+        if (map.closed[r.storeId]) continue;
+        const oName = map.byStoreId[r.storeId] ?? map.byName[r.storeName.trim().toLowerCase()] ?? null;
+        const oId = oName ? outletIdByName.get(oName.trim().toLowerCase()) ?? null : null;
+        if (!oId) {
+          unmappedStores.push({ platform, storeId: r.storeId, storeName: r.storeName, omzetKotor: r.omzetKotor });
+          continue;
+        }
+        if (oName) outletNames.set(oId, oName);
+        const key = `${oId}|${r.date}`;
+        const ex = dailyMap.get(key);
+        if (ex) {
+          ex.omzetKotor += r.omzetKotor; ex.promoMerchant += r.promoMerchant;
+          ex.commission += r.commission; ex.trxCount += 1;
+        } else {
+          dailyMap.set(key, {
+            storeId: r.storeId, storeName: r.storeName, outletName: oName, outletId: oId,
+            date: r.date, omzetKotor: r.omzetKotor, promoMerchant: r.promoMerchant,
+            commission: r.commission, trxCount: 1,
+          });
+        }
+      }
+
+      const daily = [...dailyMap.values()];
+      const pOmzet = daily.reduce((s, d) => s + d.omzetKotor, 0);
+      const pFee = daily.reduce((s, d) => s + d.commission, 0);
+      const pPromo = daily.reduce((s, d) => s + d.promoMerchant, 0);
+      const pTrx = daily.reduce((s, d) => s + d.trxCount, 0);
+
+      perPlatform.push({
+        platform, label: PLATFORM_LABELS[platform] ?? platform, fileName: file.name,
+        omzetKotor: pOmzet, adminFee: pFee, promo: pPromo, trx: pTrx, rowsToWrite: daily.length,
+      });
+
+      for (const d of daily) {
+        const id = d.outletId!;
+        outletOmzet.set(id, (outletOmzet.get(id) ?? 0) + d.omzetKotor);
+        outletAdminFee.set(id, (outletAdminFee.get(id) ?? 0) + d.commission);
+        outletPromo.set(id, (outletPromo.get(id) ?? 0) + d.promoMerchant);
+      }
+      allDaily.push({ platform, sourceFile: file.name, daily });
+    }
+
+    if (perPlatform.length === 0) return { success: false, error: 'Tidak ada file yang berhasil diproses.' };
+
+    // Pembanding Pawoon — gabung food_apps + tiktok_go sesuai platform yang diupload
+    const hasTiktok = perPlatform.some((p) => p.platform === 'tiktokgo');
+    const hasFoodApps = perPlatform.some((p) => ['shopeefood', 'grabfood', 'gofood'].includes(p.platform));
+    const channels = [...(hasFoodApps ? ['food_apps'] : []), ...(hasTiktok ? ['tiktok_go'] : [])];
+
+    const pawoonByOutlet = new Map<string, { omzet: number; trx: number }>();
+    for (const channel of channels) {
+      const { data: sd } = await supabase.rpc('channel_gross_by_outlet', {
+        p_from: periodeFrom, p_to: periodeTo, p_channel: channel,
+      });
+      for (const row of (sd ?? []) as any[]) {
+        const cur = pawoonByOutlet.get(row.outlet_id) ?? { omzet: 0, trx: 0 };
+        cur.omzet += Number(row.omzet_kotor) || 0;
+        cur.trx += Number(row.trx_count) || 0;
+        pawoonByOutlet.set(row.outlet_id, cur);
+      }
+    }
+
+    const allOutletIds = new Set([...outletOmzet.keys()]);
+    const perOutlet: MultiPlatformSummary['perOutlet'] = [...allOutletIds].map((id) => {
+      const omzet = outletOmzet.get(id) ?? 0;
+      const pawoon = pawoonByOutlet.get(id)?.omzet ?? 0;
+      const selisih = omzet - pawoon;
+      const status: 'ok' | 'selisih' | 'no-data' =
+        pawoon === 0 ? 'no-data' : Math.abs(selisih) < omzet * 0.01 ? 'ok' : 'selisih';
+      return {
+        outletId: id, outletName: outletNames.get(id) ?? id,
+        omzetKotor: omzet, adminFee: outletAdminFee.get(id) ?? 0,
+        promo: outletPromo.get(id) ?? 0, pawoonOmzet: pawoon, selisih, status,
+      };
+    }).sort((a, b) => b.omzetKotor - a.omzetKotor);
+
+    return {
+      success: true,
+      summary: {
+        periodeFrom, periodeTo,
+        totalOmzetKotor: perPlatform.reduce((s, p) => s + p.omzetKotor, 0),
+        totalAdminFee: perPlatform.reduce((s, p) => s + p.adminFee, 0),
+        totalPromo: perPlatform.reduce((s, p) => s + p.promo, 0),
+        totalTrx: perPlatform.reduce((s, p) => s + p.trx, 0),
+        pawoonOmzetKotor: [...pawoonByOutlet.values()].reduce((s, v) => s + v.omzet, 0),
+        pawoonTrxCount: [...pawoonByOutlet.values()].reduce((s, v) => s + v.trx, 0),
+        perPlatform, perOutlet, unmappedStores, allDaily,
+      },
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Terjadi kesalahan tak terduga.' };
+  }
+}
+
+export async function syncAllSettlementData(allDaily: MultiPlatformSummary['allDaily']) {
+  try {
+    const { userId } = await requireRole(['admin', 'owner']);
+    let totalSaved = 0;
+    for (const { platform, sourceFile, daily } of allDaily) {
+      const records = daily.filter((d) => d.outletId).map((d) => ({
+        platform, outlet_id: d.outletId, tanggal: d.date,
+        omzet_kotor: d.omzetKotor, promo_merchant: d.promoMerchant,
+        commission: d.commission, trx_count: d.trxCount,
+        source_file: sourceFile, imported_at: new Date().toISOString(), imported_by: userId,
+      }));
+      const BATCH = 500;
+      for (let i = 0; i < records.length; i += BATCH) {
+        const { error } = await supabase
+          .from('platform_settlements')
+          .upsert(records.slice(i, i + BATCH), { onConflict: 'platform,outlet_id,tanggal' });
+        if (error) throw new Error(error.message);
+      }
+      totalSaved += records.length;
+    }
+    return { success: true as const, savedRows: totalSaved };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || 'Gagal menyimpan data.' };
+  }
+}

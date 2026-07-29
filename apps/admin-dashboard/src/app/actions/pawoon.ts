@@ -238,14 +238,21 @@ export async function previewPawoonFile(formData: FormData) {
             }
             
             // Tracker logic
+            // NOTE: field ini ("offline", "food_apps", "tiktok") = NET (qty Excel apa adanya, termasuk
+            // baris Void yang qty-nya negatif) — cocok untuk validasi terhadap Grand Total Excel.
+            // Varian "Completed Only" (metodologi sama dengan Laporan Laba Kotor) dihitung terpisah
+            // di bawah setelah ordersMap final (butuh status final per receipt, bukan status per-baris —
+            // lihat Bug E fix di atas: 1 receipt bisa punya baris completed + void yang mengubah status
+            // order secara keseluruhan). Lihat docs/superpowers/specs/2026-07-29-pawoon-data-discrepancy-analysis.md
+            // section 4b untuk kenapa dua definisi ini sengaja dipisah & ditampilkan berdampingan di UI.
             const systemName = mapConfig.name || mapConfig.system_name || productName;
             if (!itemSalesTracker[systemName]) {
-                itemSalesTracker[systemName] = { systemName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0 };
+                itemSalesTracker[systemName] = { systemName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0, offlineCompleted: 0, food_appsCompleted: 0, tiktokCompleted: 0 };
             }
             if (salesSourceTag === 'pos') itemSalesTracker[systemName].offline += qty;
             else if (salesSourceTag === 'grabfood') itemSalesTracker[systemName].food_apps += qty;
             else if (salesSourceTag === 'tiktokgo') itemSalesTracker[systemName].tiktok += qty;
-            
+
             itemSalesTracker[systemName].totalRevenue += (qty * price);
         }
 
@@ -355,17 +362,40 @@ export async function previewPawoonFile(formData: FormData) {
             order.items.forEach((item: any) => {
                 const sName = item._systemName;
                 if (!summaryByDate[dateKey].itemSalesTrackerMap[sName]) {
-                    summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0 };
+                    summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0, offlineCompleted: 0, food_appsCompleted: 0, tiktokCompleted: 0 };
                 }
                 // Bug C+D fix: item.quantity dan item.subtotal di-simpan sebagai Math.abs().
                 // Void order harus MENGURANGI qty dan revenue, bukan menambah.
                 const qtyEffect = (isCancelled || order._isRefund) ? -item.quantity : item.quantity;
                 const revenueEffect = (isCancelled || order._isRefund) ? -item.subtotal : item.subtotal;
-                if (order.sales_source === 'pos') summaryByDate[dateKey].itemSalesTrackerMap[sName].offline += qtyEffect;
-                else if (order.sales_source === 'grabfood') summaryByDate[dateKey].itemSalesTrackerMap[sName].food_apps += qtyEffect;
-                else if (order.sales_source === 'tiktokgo') summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktok += qtyEffect;
-                
+                // PENTING: pakai item.channel (dihitung per-baris Excel saat item di-push), BUKAN
+                // order.sales_source (field level-order yang bisa ke-override "baris terakhir menang"
+                // untuk struk yang campur channel dalam 1 transaksi — lihat bug yang sama persis di
+                // docs/superpowers/specs/2026-07-29-pawoon-data-discrepancy-analysis.md section 6).
+                if (item.channel === 'offline') summaryByDate[dateKey].itemSalesTrackerMap[sName].offline += qtyEffect;
+                else if (item.channel === 'food_apps') summaryByDate[dateKey].itemSalesTrackerMap[sName].food_apps += qtyEffect;
+                else if (item.channel === 'tiktok_go') summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktok += qtyEffect;
+
                 summaryByDate[dateKey].itemSalesTrackerMap[sName].totalRevenue += revenueEffect;
+
+                // "Completed Only" = metodologi sama dengan Laporan Laba Kotor (profit page):
+                // pakai status FINAL order (setelah semua baris receipt diproses, termasuk Bug E fix),
+                // exclude cancelled/refund sepenuhnya (bukan netting).
+                if (isCompleted) {
+                    if (!itemSalesTracker[sName]) {
+                        itemSalesTracker[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0, offlineCompleted: 0, food_appsCompleted: 0, tiktokCompleted: 0 };
+                    }
+                    if (item.channel === 'offline') {
+                        itemSalesTracker[sName].offlineCompleted += item.quantity;
+                        summaryByDate[dateKey].itemSalesTrackerMap[sName].offlineCompleted += item.quantity;
+                    } else if (item.channel === 'food_apps') {
+                        itemSalesTracker[sName].food_appsCompleted += item.quantity;
+                        summaryByDate[dateKey].itemSalesTrackerMap[sName].food_appsCompleted += item.quantity;
+                    } else if (item.channel === 'tiktok_go') {
+                        itemSalesTracker[sName].tiktokCompleted += item.quantity;
+                        summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktokCompleted += item.quantity;
+                    }
+                }
             });
 
             if (!existingReceipts.has(receipt)) {

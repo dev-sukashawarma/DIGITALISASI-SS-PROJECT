@@ -32,12 +32,15 @@ export default async function PawoonProfitPage({
     const step = 1000;
     
     if (shouldFetchData) {
+        // NET methodology (match Excel Grand Total Pawoon): fetch completed DAN cancelled,
+        // lalu qty/omset order cancelled dikurangkan (bukan di-exclude total) saat agregasi di bawah.
+        // Lihat docs/superpowers/specs/2026-07-29-pawoon-data-discrepancy-analysis.md section 7.
         let query = supabase
             .from('orders')
-            .select('id, outlet_id, created_at, source')
+            .select('id, outlet_id, created_at, source, status, total_amount')
             .not('external_order_id', 'is', null)
             .eq('source', 'pos')
-            .eq('status', 'completed');
+            .in('status', ['completed', 'cancelled']);
 
         if (selectedOutletId !== 'ALL') {
             query = query.eq('outlet_id', selectedOutletId);
@@ -115,28 +118,44 @@ export default async function PawoonProfitPage({
     }
 
     // Process data to calculate profit
-    // Map order ID to outlet type to apply +10% rule
+    // Map order ID to outlet type (+10% rule) dan status (buat sign NET) sekaligus
     const orderOutletMap = new Map<string, any>();
+    const orderStatusMap = new Map<string, string>();
     const outletTypeMap = new Map<string, string>();
-    
+
     outlets?.forEach(o => outletTypeMap.set(o.id, o.type));
-    
+
     allSyncedOrders.forEach(o => {
         orderOutletMap.set(o.id, outletTypeMap.get(o.outlet_id) || 'outlet');
+        orderStatusMap.set(o.id, o.status);
     });
 
-    let totalOmset = 0;
+    // Total Pendapatan (Omset) headline: pakai orders.total_amount (angka Total asli Pawoon,
+    // termasuk diskon/service charge/pembulatan transaksi), BUKAN jumlah order_items.subtotal
+    // (cuma harga x qty per baris, tidak termasuk penyesuaian level-transaksi). Ini supaya match
+    // persis Grand Total di halaman Migrasi Pawoon. Lihat section 7 di
+    // docs/superpowers/specs/2026-07-29-pawoon-data-discrepancy-analysis.md.
+    // Breakdown per-item di bawah tetap pakai item.subtotal (satu-satunya proxy omset per menu
+    // yang ada) — makanya totalOmset (headline) bisa sedikit beda dari SUM(itemSummary.omset).
+    const totalOmset = allSyncedOrders.reduce((sum, o) => {
+        const sign = o.status === 'cancelled' ? -1 : 1;
+        return sum + (o.total_amount || 0) * sign;
+    }, 0);
+
     let totalHpp = 0;
     const itemSummary: Record<string, any> = {};
 
     allOrderItems.forEach(item => {
-        totalOmset += item.subtotal;
-        
+        // NET: order cancelled (void) mengurangi qty/hpp, bukan di-exclude.
+        const sign = orderStatusMap.get(item.order_id) === 'cancelled' ? -1 : 1;
+        const signedQty = item.quantity * sign;
+        const signedSubtotal = item.subtotal * sign;
+
         const outletType = orderOutletMap.get(item.order_id) || 'outlet';
-        
+
         let baseHpp = 0;
         let isMissing = false;
-        
+
         if (item.menu_items?.is_package) {
             if (item.menu_items?.hpp_override !== null) {
                 baseHpp = item.menu_items.hpp_override;
@@ -154,13 +173,13 @@ export default async function PawoonProfitPage({
             baseHpp = item.menu_items?.hpp_override || 0;
             isMissing = item.menu_items?.hpp_override === null;
         }
-        
+
         // HPP Mitra Rule: HPP Pusat + 10%
         if (outletType === 'mitra' && baseHpp > 0) {
             baseHpp = Math.round(baseHpp * 1.10);
         }
-        
-        const itemTotalHpp = baseHpp * item.quantity;
+
+        const itemTotalHpp = baseHpp * signedQty;
         totalHpp += itemTotalHpp;
 
         // Use item.channel as the source of truth (set during Pawoon import from product name prefix)
@@ -185,9 +204,9 @@ export default async function PawoonProfitPage({
                 channels: {}
             };
         }
-        
-        itemSummary[summaryKey].qty += item.quantity;
-        itemSummary[summaryKey].omset += item.subtotal;
+
+        itemSummary[summaryKey].qty += signedQty;
+        itemSummary[summaryKey].omset += signedSubtotal;
         itemSummary[summaryKey].hppTotal += itemTotalHpp;
         // if this item has missing HPP, flag it
         if (isMissing) {
@@ -197,8 +216,8 @@ export default async function PawoonProfitPage({
         if (!itemSummary[summaryKey].channels[channelGroup]) {
             itemSummary[summaryKey].channels[channelGroup] = { qty: 0, omset: 0, hppTotal: 0 };
         }
-        itemSummary[summaryKey].channels[channelGroup].qty += item.quantity;
-        itemSummary[summaryKey].channels[channelGroup].omset += item.subtotal;
+        itemSummary[summaryKey].channels[channelGroup].qty += signedQty;
+        itemSummary[summaryKey].channels[channelGroup].omset += signedSubtotal;
         itemSummary[summaryKey].channels[channelGroup].hppTotal += itemTotalHpp;
     });
 

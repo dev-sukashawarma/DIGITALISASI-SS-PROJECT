@@ -169,7 +169,7 @@ export default function PawoonImportPage() {
                                     Total Omset (Rp {(displayedSummary.totalOmsetGross || displayedSummary.totalOmset).toLocaleString('id-ID')}) - Void (Rp {(displayedSummary.totalOmsetVoid || 0).toLocaleString('id-ID')})
                                 </p>
                                 <p className={`text-xs font-bold mt-1 ${((displayedSummary.totalOmsetGross || displayedSummary.totalOmset) - (displayedSummary.totalOmsetVoid || 0)) === displayedSummary.totalOmset ? 'text-green-600' : 'text-red-600'}`}>
-                                    Validasi Excel: Rp {displayedSummary.totalOmset.toLocaleString('id-ID')} 
+                                    Validasi Excel: Rp {displayedSummary.totalOmset.toLocaleString('id-ID')}
                                     {((displayedSummary.totalOmsetGross || displayedSummary.totalOmset) - (displayedSummary.totalOmsetVoid || 0)) === displayedSummary.totalOmset ? ' (Match ✅)' : ' (Beda ❌)'}
                                 </p>
                             </div>

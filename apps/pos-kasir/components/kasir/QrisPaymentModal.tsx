@@ -24,7 +24,7 @@ export function QrisPaymentModal({
   onSubmit: (paymentProofFile?: File | null) => void
   submitting: boolean
 }) {
-  const [qrisMode, setQrisMode] = useState<'static' | 'transfer'>('transfer')
+  const [qrisMode, setQrisMode] = useState<'static' | 'transfer'>('static')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isCameraActive, setIsCameraActive] = useState(false)
@@ -34,10 +34,7 @@ export function QrisPaymentModal({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const qrData = `shawarma-kasir://pay?amount=${totalPrice}`
-  const qrImageUrl = isOnline
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrData)}&bgcolor=ffffff&color=1e293b&margin=10`
-    : '/qris-static.png'
+  const qrImageUrl = '/qris-static.png'
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -131,39 +128,36 @@ export function QrisPaymentModal({
           
           <div className="flex bg-gray-100 p-1 rounded-xl mb-5">
             <button
-              onClick={() => {}}
-              disabled={true}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all opacity-50 cursor-not-allowed bg-gray-100 text-gray-500`}
+              onClick={() => setQrisMode('static')}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${qrisMode === 'static' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
-              Scan (Statis) - Sedang Diperbaiki
+              Scan QRIS
             </button>
             <button
               onClick={() => setQrisMode('transfer')}
               className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${qrisMode === 'transfer' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
-              Transfer (Bukti)
+              Foto Bukti
             </button>
           </div>
 
           <div className="flex flex-col items-center">
             {qrisMode === 'static' ? (
-              <>
-                <div className="bg-white p-4 rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.05)] border border-gray-100 mb-4 inline-block">
-                  {isOnline ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={qrImageUrl} alt="QRIS" width={200} height={200} className="rounded-xl mx-auto" />
-                  ) : (
-                    <div className="w-[200px] h-[200px] flex items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl relative overflow-hidden flex-col">
-                      <QrCode className="w-12 h-12 text-gray-400 mb-2" />
-                      <p className="text-sm font-bold text-gray-600">QRIS STATIS</p>
-                      <p className="text-xs text-gray-500 mt-1">Mode Offline</p>
-                    </div>
-                  )}
+              <div className="flex flex-col items-center w-full">
+                <div className="bg-white p-4 rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.05)] border border-gray-100 mb-4 inline-block w-full max-w-[280px]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={qrImageUrl} alt="QRIS Suka Shawarma" className="w-full h-auto object-contain rounded-xl mx-auto" />
                 </div>
-                <div className="bg-amber-50 text-amber-700 text-xs px-3 py-2 rounded-lg font-medium border border-amber-200 mb-6 text-center">
-                  Fitur QRIS Dinamis sedang diperbaiki / akan datang. Gunakan QRIS Statis meja kasir untuk saat ini.
-                </div>
-              </>
+                <p className="text-sm text-gray-500 mb-6 text-center">
+                  Minta pelanggan untuk scan kode QR di atas dan masukkan nominal sesuai Total Bayar.
+                </p>
+                <button
+                  onClick={() => setQrisMode('transfer')}
+                  className="w-full bg-blue-50 text-blue-600 font-bold py-3.5 rounded-xl transition-colors hover:bg-blue-100 mb-4 border border-blue-100"
+                >
+                  Lanjut ke Foto Bukti
+                </button>
+              </div>
             ) : (
               <div className="w-full mb-6">
                 <p className="text-sm text-gray-600 mb-3 text-center">Silakan ambil foto bukti transfer pelanggan menggunakan kamera.</p>
@@ -276,17 +270,19 @@ export function QrisPaymentModal({
               <p className="text-3xl font-black text-amber-500">{formatRupiah(totalPrice)}</p>
             </div>
 
-            <button
-              onClick={() => onSubmit(selectedFile)}
-              disabled={submitting || (qrisMode === 'transfer' && !selectedFile)}
-              className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95"
-            >
-              {submitting ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
-              ) : (
-                <><CheckCircle2 className="w-5 h-5" /> Proses Pembayaran</>
-              )}
-            </button>
+            {qrisMode === 'transfer' && (
+              <button
+                onClick={() => onSubmit(selectedFile)}
+                disabled={submitting || (qrisMode === 'transfer' && !selectedFile)}
+                className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                {submitting ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
+                ) : (
+                  <><CheckCircle2 className="w-5 h-5" /> Proses Pembayaran</>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

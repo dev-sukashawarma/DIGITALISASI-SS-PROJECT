@@ -74,7 +74,13 @@ export function useOpnameActions() {
     // index uniq_opname_harian_per_day (hanya berlaku utk tipe='harian').
     // Dibatasi maksimal 2 opname/hari/outlet. HAPUS blok ini setelah 29/07/2026.
     const COMPENSATION_DATE = '2026-07-29'
-    if (existing && existing.status === 'finalized' && todayWIB === COMPENSATION_DATE) {
+    const JATIASIH_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440012'
+    const JATIASIH_DATE = '2026-07-30'
+    
+    const isCompensation = todayWIB === COMPENSATION_DATE
+    const isJatiasihException = outletId === JATIASIH_OUTLET_ID && todayWIB === JATIASIH_DATE
+
+    if (existing && existing.status === 'finalized' && (isCompensation || isJatiasihException)) {
       const { count } = await supabase.from('opname')
         .select('id', { count: 'exact', head: true })
         .eq('outlet_id', outletId)

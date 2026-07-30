@@ -56,9 +56,9 @@ export async function getAreaManagerPettyCashTopups() {
       outlets: outletMap.get(r.outlet_id) || null
     }))
 
-    return { success: true, data: formattedData }
+    return { success: true, data: formattedData, outlets: bogorOutlets }
   } catch (err: any) {
     console.error('Error fetching AM petty cash:', err)
-    return { success: false, error: err.message, data: [] }
+    return { success: false, error: err.message, data: [], outlets: [] }
   }
 }

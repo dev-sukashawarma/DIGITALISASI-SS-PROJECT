@@ -1,12 +1,18 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { CheckCircle2, Clock, Store, ShieldCheck, Send, History, Filter, XCircle, ArrowRight, Loader2, RefreshCw, Camera, X, Download, User } from 'lucide-react'
+import { 
+  CheckCircle2, Clock, Store, ShieldCheck, History, 
+  XCircle, ArrowRight, Loader2, RefreshCw, Camera, 
+  X, Download, User, Check, AlertCircle, ChevronRight, FileText,
+  Calendar, MapPin, Filter, ChevronDown
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import { formatRelativeTime, formatDateTime } from '@/lib/date'
 import { toast } from 'sonner'
 import { getAreaManagerPettyCashTopups } from './actions'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface TopupRequest {
   id: string
@@ -46,112 +52,166 @@ function parseFinanceNote(description?: string | null) {
 }
 
 function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
-  if (!imageUrl) return null
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
-      <div className="relative bg-white rounded-2xl overflow-hidden shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col border border-slate-200">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center">
-              <Camera className="w-4 h-4" />
+    <AnimatePresence>
+      {imageUrl && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="relative bg-white rounded-2xl overflow-hidden shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 flex items-center justify-between border-b border-slate-100">
+              <h3 className="font-semibold text-slate-900 px-2 text-sm">Lampiran Bukti Transfer</h3>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <h3 className="font-bold text-slate-900 text-sm">Foto Bukti Transfer Finance</h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-slate-50">
-          <img src={imageUrl} alt="Bukti Transfer" className="max-h-[65vh] w-auto object-contain rounded-xl shadow-sm border border-slate-200" />
-        </div>
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0 text-xs">
-          <span className="text-slate-500 font-medium">Lampiran Bukti Transfer Resmi</span>
-          <a
-            href={imageUrl}
-            target="_blank"
-            rel="noreferrer"
-            download="Bukti_Transfer_Petty_Cash.jpg"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm"
-          >
-            <Download className="w-3.5 h-3.5" /> Unduh Foto Utuh
-          </a>
-        </div>
-      </div>
-    </div>
+            
+            <div className="p-4 overflow-y-auto flex-1 flex items-center justify-center bg-slate-50/50">
+              <img 
+                src={imageUrl} 
+                alt="Bukti Transfer" 
+                className="max-h-[60vh] w-auto object-contain rounded-lg shadow-sm border border-slate-200/60" 
+              />
+            </div>
+            
+            <div className="p-4 bg-white border-t border-slate-100 flex justify-end">
+              <a
+                href={imageUrl}
+                target="_blank"
+                rel="noreferrer"
+                download="Bukti_Transfer.jpg"
+                className="inline-flex items-center gap-2 px-5 py-2 bg-[#4a1c15] text-white rounded-lg font-medium text-sm hover:bg-[#38130e] transition-colors"
+              >
+                <Download className="w-4 h-4" /> Unduh Dokumen
+              </a>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 
-function formatRole(role?: string) {
-  if (!role) return 'Staff'
-  const map: Record<string, string> = {
-    leader: 'Leader',
-    area_manager: 'Area Manager',
-    admin_finance: 'Finance',
-    crew: 'Crew',
-    admin: 'Admin',
-    owner: 'Owner',
-    spv: 'Supervisor'
-  }
-  return map[role] || role.replace('_', ' ').toUpperCase()
+function CustomSelect({ 
+  value, 
+  onChange, 
+  options, 
+  icon: Icon,
+  placeholder = 'Pilih...'
+}: { 
+  value: string; 
+  onChange: (val: string) => void; 
+  options: { label: string; value: string }[];
+  icon: any;
+  placeholder?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const selectedLabel = options.find(o => o.value === value)?.label || placeholder
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between gap-3 pl-8 pr-3 py-1.5 bg-white border border-slate-200/60 text-slate-600 rounded-md text-xs font-medium focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400 shadow-sm hover:bg-slate-50 transition-colors"
+      >
+        <span className="truncate">{selectedLabel}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      <Icon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+      
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 5 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-0 sm:right-auto sm:left-0 top-full mt-1.5 w-48 sm:w-56 bg-white border border-slate-100 rounded-lg shadow-xl z-50 overflow-hidden"
+            >
+              <div className="max-h-60 overflow-y-auto py-1">
+                {options.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      onChange(opt.value)
+                      setIsOpen(false)
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                      value === opt.value ? 'bg-[#4a1c15] text-white font-medium' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  )
 }
 
 export default function AreaManagerPettyCashPage() {
   const supabase = createClient()
   const [requests, setRequests] = useState<TopupRequest[]>([])
+  const [availableOutlets, setAvailableOutlets] = useState<{name: string, region: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isProcessing, setIsProcessing] = useState<string | null>(null)
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
-  const [userProfile, setUserProfile] = useState<{ name: string; role: string } | null>(null)
 
-  // Tabs: 'review' | 'history'
+  // Status Filters
   const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')
-
-  // Sub-filters
   const [reviewFilter, setReviewFilter] = useState<'all' | 'unapproved' | 'ready_handover'>('all')
   const [historyFilter, setHistoryFilter] = useState<'all' | 'acc_finance' | 'forwarded_leader' | 'completed' | 'rejected'>('all')
+
+  // Additional Filters
+  const [outletFilter, setOutletFilter] = useState<string>('all')
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days'>('all')
 
   const loadRequests = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true)
     else setIsRefreshing(true)
 
     try {
-      const [res, { data: authUser }] = await Promise.all([
-        getAreaManagerPettyCashTopups(),
-        supabase.auth.getUser()
-      ])
-
-      if (authUser?.user && !userProfile) {
-        const { data: staff } = await supabase
-          .from('outlet_staff')
-          .select('name, role')
-          .eq('id', authUser.user.id)
-          .maybeSingle()
-        if (staff) setUserProfile(staff)
-      }
-
+      const res = await getAreaManagerPettyCashTopups()
       if (!res.success) throw new Error(res.error)
 
       if (res.data) {
-        const bogorRequests = res.data.map((r: any) => ({
+        const mapped = res.data.map((r: any) => ({
           ...r,
           outlet: r.outlets ? { name: r.outlets.name, region: r.outlets.region } : null
         }))
-
-        setRequests(bogorRequests)
+        setRequests(mapped)
+      }
+      
+      if (res.outlets) {
+        setAvailableOutlets(res.outlets)
       }
     } catch (err: any) {
       console.error(err)
-      if (!isSilent) toast.error('Gagal memuat data petty cash: ' + err.message)
+      if (!isSilent) toast.error('Gagal memuat data: ' + err.message)
     } finally {
       setLoading(false)
       setIsRefreshing(false)
     }
-  }, [supabase, userProfile])
+  }, [])
 
   useEffect(() => {
     loadRequests()
@@ -161,16 +221,11 @@ export default function AreaManagerPettyCashPage() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'petty_cash_topups' },
-        () => {
-          loadRequests(true)
-        }
+        () => loadRequests(true)
       )
       .subscribe()
 
-    const interval = setInterval(() => {
-      loadRequests(true)
-    }, 15000)
-
+    const interval = setInterval(() => loadRequests(true), 15000)
     return () => {
       clearInterval(interval)
       supabase.removeChannel(channel)
@@ -178,23 +233,17 @@ export default function AreaManagerPettyCashPage() {
   }, [loadRequests, supabase])
 
   async function handleApprove(id: string) {
-    if (!confirm('Setujui pengajuan ini dan teruskan ke Finance?')) return
+    if (!confirm('Setujui pengajuan ini?')) return
     setIsProcessing(id)
-
-    const prevRequests = [...requests]
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'forwarded_to_finance' } : r))
-
+    const prev = [...requests]
+    setRequests(p => p.map(r => r.id === id ? { ...r, status: 'forwarded_to_finance' } : r))
     try {
-      const { error } = await supabase.rpc('area_manager_process_petty_cash', {
-        p_topup_id: id,
-        p_action: 'approve'
-      })
+      const { error } = await supabase.rpc('area_manager_process_petty_cash', { p_topup_id: id, p_action: 'approve' })
       if (error) throw error
-
-      toast.success('Pengajuan disetujui & diteruskan ke Finance!')
+      toast.success('Disetujui!')
     } catch (err: any) {
-      setRequests(prevRequests)
-      toast.error('Gagal menyetujui pengajuan: ' + err.message)
+      setRequests(prev)
+      toast.error('Gagal: ' + err.message)
     } finally {
       setIsProcessing(null)
       loadRequests(true)
@@ -202,23 +251,17 @@ export default function AreaManagerPettyCashPage() {
   }
 
   async function handleReject(id: string) {
-    if (!confirm('Tolak pengajuan ini? Status akan menjadi Ditolak.')) return
+    if (!confirm('Tolak pengajuan ini?')) return
     setIsProcessing(id)
-
-    const prevRequests = [...requests]
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'rejected' } : r))
-
+    const prev = [...requests]
+    setRequests(p => p.map(r => r.id === id ? { ...r, status: 'rejected' } : r))
     try {
-      const { error } = await supabase.rpc('area_manager_process_petty_cash', {
-        p_topup_id: id,
-        p_action: 'reject'
-      })
+      const { error } = await supabase.rpc('area_manager_process_petty_cash', { p_topup_id: id, p_action: 'reject' })
       if (error) throw error
-
-      toast.error('Pengajuan telah ditolak.')
+      toast.error('Ditolak.')
     } catch (err: any) {
-      setRequests(prevRequests)
-      toast.error('Gagal menolak pengajuan: ' + err.message)
+      setRequests(prev)
+      toast.error('Gagal menolak: ' + err.message)
     } finally {
       setIsProcessing(null)
       loadRequests(true)
@@ -226,469 +269,369 @@ export default function AreaManagerPettyCashPage() {
   }
 
   async function handleForwardToLeader(id: string) {
-    if (!confirm('Teruskan penyerahan dana ke Leader Cabang?')) return
+    if (!confirm('Serahkan dana ke Leader?')) return
     setIsProcessing(id)
-
-    const prevRequests = [...requests]
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'forwarded_by_area_manager' } : r))
-
+    const prev = [...requests]
+    setRequests(p => p.map(r => r.id === id ? { ...r, status: 'forwarded_by_area_manager' } : r))
     try {
-      const { error } = await supabase.rpc('area_manager_forward_funds', {
-        p_topup_id: id
-      })
+      const { error } = await supabase.rpc('area_manager_forward_funds', { p_topup_id: id })
       if (error) throw error
-
-      toast.success('Dana berhasil diserahkan ke Leader!')
+      toast.success('Diserahkan ke Leader!')
     } catch (err: any) {
-      setRequests(prevRequests)
-      toast.error('Gagal penyerahan dana: ' + err.message)
+      setRequests(prev)
+      toast.error('Gagal menyerahkan: ' + err.message)
     } finally {
       setIsProcessing(null)
       loadRequests(true)
     }
   }
 
-  const allReviewRequests = requests.filter(r => 
-    r.status === 'pending' ||
-    r.status === 'forwarded_to_area_manager' || 
-    r.status === 'approved_by_finance' || 
-    r.status === 'forwarded_by_finance'
-  )
+  // Filter options
+  const outletOptions = [
+    { label: 'Semua Outlet', value: 'all' },
+    ...availableOutlets.map(o => ({ label: o.name, value: o.name }))
+  ]
   
-  const allHistoryRequests = requests.filter(r => 
-    r.status !== 'pending' &&
-    r.status !== 'forwarded_to_area_manager' && 
-    r.status !== 'approved_by_finance' && 
-    r.status !== 'forwarded_by_finance'
-  )
+  const dateOptions = [
+    { label: 'Semua Tanggal', value: 'all' },
+    { label: 'Hari Ini', value: 'today' },
+    { label: 'Kemarin', value: 'yesterday' },
+    { label: '7 Hari Terakhir', value: '7days' },
+    { label: '30 Hari Terakhir', value: '30days' },
+  ]
 
-  const filteredReviewRequests = allReviewRequests.filter(r => {
-    if (reviewFilter === 'unapproved') {
-      return r.status === 'pending' || r.status === 'forwarded_to_area_manager'
-    }
-    if (reviewFilter === 'ready_handover') {
-      return r.status === 'approved_by_finance' || r.status === 'forwarded_by_finance'
-    }
+  // Date filter helper
+  const isDateInRange = (dateStr: string, range: string) => {
+    if (range === 'all') return true
+    
+    const date = new Date(dateStr)
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const requestDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    
+    const diffTime = today.getTime() - requestDate.getTime()
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (range === 'today') return diffDays === 0
+    if (range === 'yesterday') return diffDays === 1
+    if (range === '7days') return diffDays >= 0 && diffDays <= 7
+    if (range === '30days') return diffDays >= 0 && diffDays <= 30
+    
+    return true
+  }
+
+  const allReview = requests.filter(r => ['pending', 'forwarded_to_area_manager', 'approved_by_finance', 'forwarded_by_finance'].includes(r.status))
+  const allHistory = requests.filter(r => !['pending', 'forwarded_to_area_manager', 'approved_by_finance', 'forwarded_by_finance'].includes(r.status))
+
+  const filteredReview = allReview.filter(r => {
+    if (reviewFilter === 'unapproved' && !['pending', 'forwarded_to_area_manager'].includes(r.status)) return false
+    if (reviewFilter === 'ready_handover' && !['approved_by_finance', 'forwarded_by_finance'].includes(r.status)) return false
+    
+    if (outletFilter !== 'all' && r.outlet?.name !== outletFilter) return false
+    if (!isDateInRange(r.created_at, dateFilter)) return false
+
     return true
   })
 
-  const filteredHistoryRequests = allHistoryRequests.filter(r => {
-    if (historyFilter === 'acc_finance') return r.status === 'forwarded_to_finance'
-    if (historyFilter === 'forwarded_leader') return r.status === 'forwarded_by_area_manager'
-    if (historyFilter === 'completed') return r.status === 'forwarded_by_leader' || r.status === 'completed'
-    if (historyFilter === 'rejected') return r.status === 'rejected'
+  const filteredHistory = allHistory.filter(r => {
+    if (historyFilter === 'acc_finance' && r.status !== 'forwarded_to_finance') return false
+    if (historyFilter === 'forwarded_leader' && r.status !== 'forwarded_by_area_manager') return false
+    if (historyFilter === 'completed' && !['forwarded_by_leader', 'completed'].includes(r.status)) return false
+    if (historyFilter === 'rejected' && r.status !== 'rejected') return false
+
+    if (outletFilter !== 'all' && r.outlet?.name !== outletFilter) return false
+    if (!isDateInRange(r.created_at, dateFilter)) return false
+
     return true
   })
-
-  const unapprovedCount = allReviewRequests.filter(r => r.status === 'pending' || r.status === 'forwarded_to_area_manager').length
-  const readyHandoverCount = allReviewRequests.filter(r => r.status === 'approved_by_finance' || r.status === 'forwarded_by_finance').length
-
-  const accFinanceCount = allHistoryRequests.filter(r => r.status === 'forwarded_to_finance').length
-  const forwardedLeaderCount = allHistoryRequests.filter(r => r.status === 'forwarded_by_area_manager').length
-  const completedCount = allHistoryRequests.filter(r => r.status === 'forwarded_by_leader' || r.status === 'completed').length
-  const rejectedCount = allHistoryRequests.filter(r => r.status === 'rejected').length
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6 font-sans">
+    <div className="w-full max-w-5xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-500 font-sans">
       
-      {/* HEADER BAR - Solid Clean UI */}
-      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              Dashboard Area Manager - Approval Petty Cash
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-              {userProfile && (
-                <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md mr-2">
-                  USER: {userProfile.name} ({formatRole(userProfile.role)})
-                </span>
-              )}
-              Review pengajuan dana dari cabang Wilayah Bogor & kelola serah terima ke Leader.
-            </p>
-          </div>
+      {/* Sleek Page Header (Minimalist) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">Dana Operasional Cabang</h2>
+          <p className="text-sm text-slate-500 mt-0.5">Kelola dan setujui pengajuan petty cash dari tim outlet.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => loadRequests(false)}
+            disabled={loading || isRefreshing}
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200/60 text-slate-600 rounded-md text-xs font-medium hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50 shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-slate-900' : ''}`} />
+            Muat Ulang
+          </button>
+        </div>
+      </div>
+
+      {/* Segmented Control for Tabs (Startup Aesthetic) */}
+      <div className="bg-slate-100/70 p-1 rounded-lg inline-flex w-full sm:w-auto">
+        {[
+          { id: 'review', label: 'Butuh Review', count: allReview.length },
+          { id: 'history', label: 'Riwayat', count: allHistory.length }
+        ].map(tab => {
+          const isActive = activeTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                isActive 
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.label}
+              <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] leading-none ${
+                isActive ? 'bg-slate-100 text-slate-900 font-semibold' : 'bg-slate-200/50 text-slate-500'
+              }`}>
+                {tab.count}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Filters Area */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200/60 pb-4">
+        
+        {/* Status Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          {activeTab === 'review' ? (
+            <>
+              {[
+                { id: 'all', label: 'Semua Status' },
+                { id: 'unapproved', label: 'Belum di-ACC' },
+                { id: 'ready_handover', label: 'Siap Diserahkan' },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setReviewFilter(f.id as any)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+                    reviewFilter === f.id 
+                      ? 'bg-[#4a1c15] border-[#4a1c15] text-white shadow-sm' 
+                      : 'bg-white border-slate-200/60 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              {[
+                { id: 'all', label: 'Semua Riwayat' },
+                { id: 'acc_finance', label: 'Proses Finance' },
+                { id: 'completed', label: 'Selesai' },
+                { id: 'rejected', label: 'Ditolak' },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setHistoryFilter(f.id as any)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+                    historyFilter === f.id 
+                      ? 'bg-slate-800 border-slate-800 text-white shadow-sm' 
+                      : 'bg-white border-slate-200/60 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </>
+          )}
         </div>
 
-        <button
-          onClick={() => loadRequests(false)}
-          disabled={loading || isRefreshing}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer disabled:opacity-50"
-          title="Refresh Data"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-indigo-600' : ''}`} />
-          {isRefreshing ? 'Memperbarui...' : 'Refresh Realtime'}
-        </button>
-      </div>
-
-      {/* TABS NAVIGATION */}
-      <div className="flex border-b border-slate-200 gap-2 overflow-x-auto pb-1">
-        <button
-          onClick={() => setActiveTab('review')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'review'
-              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          Butuh Review & Serah Terima ({allReviewRequests.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'history'
-              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          Riwayat Pengajuan Area Manager ({allHistoryRequests.length})
-        </button>
-      </div>
-
-      {/* TAB 1: REVIEW / ACTION NEEDED */}
-      {activeTab === 'review' && (
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mr-1">
-              <Filter className="w-3.5 h-3.5" /> Filter:
-            </span>
-            <button
-              onClick={() => setReviewFilter('all')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                reviewFilter === 'all'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              Semua ({allReviewRequests.length})
-            </button>
-            <button
-              onClick={() => setReviewFilter('unapproved')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                reviewFilter === 'unapproved'
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              Belum di-ACC ({unapprovedCount})
-            </button>
-            <button
-              onClick={() => setReviewFilter('ready_handover')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                reviewFilter === 'ready_handover'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100'
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Siap Diserahkan ({readyHandoverCount})
-            </button>
+        {/* Global Select Filters (Outlet & Date) - Custom UI */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto z-20">
+          <div className="flex-1 lg:flex-none">
+            <CustomSelect 
+              value={outletFilter}
+              onChange={setOutletFilter}
+              options={outletOptions}
+              icon={MapPin}
+            />
           </div>
+          <div className="flex-1 lg:flex-none">
+            <CustomSelect 
+              value={dateFilter}
+              onChange={(val) => setDateFilter(val as any)}
+              options={dateOptions}
+              icon={Calendar}
+            />
+          </div>
+        </div>
+      </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            {loading ? (
-              <div className="p-8 space-y-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="p-4 bg-slate-50 rounded-xl animate-pulse flex items-center justify-between">
-                    <div className="space-y-2 flex-1">
-                      <div className="h-4 bg-slate-200 rounded w-1/4" />
-                      <div className="h-5 bg-slate-200 rounded w-1/2" />
+      {/* List Container */}
+      <div className="space-y-3 z-10 relative">
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-24 bg-white/50 border border-slate-200/40 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <AnimatePresence mode="popLayout">
+            {activeTab === 'review' && filteredReview.length === 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="py-16 text-center"
+              >
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-emerald-50 rounded-full mb-3 text-emerald-600 ring-4 ring-emerald-50/50">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-semibold text-slate-900">Semua Selesai</h3>
+                <p className="text-sm text-slate-500 mt-1">Tidak ada data yang sesuai filter saat ini.</p>
+              </motion.div>
+            )}
+
+            {activeTab === 'history' && filteredHistory.length === 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="py-16 text-center text-sm text-slate-500"
+              >
+                Tidak ada riwayat yang ditemukan.
+              </motion.div>
+            )}
+
+            {/* Render Items */}
+            {(activeTab === 'review' ? filteredReview : filteredHistory).map((req) => {
+              const { mainReason, financeNote } = parseFinanceNote(req.description)
+              const isPending = req.status === 'pending' || req.status === 'forwarded_to_area_manager'
+              const isReady = req.status === 'approved_by_finance' || req.status === 'forwarded_by_finance'
+              
+              return (
+                <motion.div 
+                  layout
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  key={req.id} 
+                  className="group bg-white rounded-xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-slate-300 transition-all p-4 sm:p-5 flex flex-col md:flex-row md:items-center gap-5"
+                >
+                  {/* Info Section */}
+                  <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                    
+                    {/* Metadata Header */}
+                    <div className="flex items-center gap-2.5 text-[11px] font-semibold tracking-wide uppercase text-slate-400">
+                      <span className="text-[#4a1c15] flex items-center gap-1">
+                        <Store className="w-3.5 h-3.5" />
+                        {req.outlet?.name}
+                      </span>
+                      <span className="text-slate-300">•</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatRelativeTime(req.created_at)}
+                      </span>
+                      <span className="text-slate-300 hidden sm:inline">•</span>
+                      <span className="hidden sm:inline">ID: {req.id.slice(0, 8)}</span>
                     </div>
-                    <div className="h-10 bg-slate-200 rounded w-28 shrink-0" />
+
+                    {/* Main Title */}
+                    <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate leading-tight">
+                      {mainReason}
+                    </h3>
+                    
+                    {/* Requestor & Account */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-slate-500">
+                      <span className="flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5" /> 
+                        {req.created_by_staff?.name || 'Leader'}
+                      </span>
+                      <span className="hidden sm:inline text-slate-300">|</span>
+                      {req.bank_name ? (
+                        <span className="truncate">
+                          <strong className="text-slate-700">{req.bank_name}</strong> {req.bank_account_number} (a.n {req.bank_account_name})
+                        </span>
+                      ) : (
+                        <span className="italic text-slate-400">Informasi rekening tidak tersedia</span>
+                      )}
+                    </div>
+
+                    {/* Finance Note Alert */}
+                    {financeNote && (
+                      <div className="mt-2 inline-flex items-start gap-1.5 bg-amber-50/50 text-amber-800 border border-amber-100/50 px-2.5 py-1.5 rounded text-xs">
+                        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-500" />
+                        <span className="font-medium leading-relaxed">{financeNote}</span>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            ) : filteredReviewRequests.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 font-medium">
-                Tidak ada pengajuan pada kategori ini.
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {filteredReviewRequests.map((req) => (
-                  <div key={req.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/60 transition-colors">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold text-slate-800 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                          <Store className="w-3.5 h-3.5 text-slate-500" /> {req.outlet?.name || 'Unknown Outlet'}
-                        </span>
 
-                        {req.created_by_staff ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-900 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">
-                            <User className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Pengaju: <b className="text-blue-950 font-extrabold">{req.created_by_staff.name}</b> ({formatRole(req.created_by_staff.role)})</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
-                            <User className="w-3.5 h-3.5 text-slate-500" />
-                            <span>Pengaju: Leader Outlet</span>
-                          </span>
-                        )}
-
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200" title={formatDateTime(req.created_at)}>
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          {formatRelativeTime(req.created_at)}
-                        </span>
-                        {(req.status === 'pending' || req.status === 'forwarded_to_area_manager') && (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg">
-                            <Clock className="w-3.5 h-3.5 text-amber-600" /> BELUM DI-ACC (MENUNGGU AM)
-                          </span>
-                        )}
-                        {(req.status === 'approved_by_finance' || req.status === 'forwarded_by_finance') && (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" /> DICAIRKAN FINANCE (SERAHKAN KE LEADER)
-                          </span>
-                        )}
+                  {/* Right Section (Amount + Status/Actions) */}
+                  <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center shrink-0 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6 gap-3">
+                    
+                    <div className="text-left md:text-right">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
+                        {activeTab === 'review' ? (isPending ? 'Menunggu ACC' : 'Siap Cair') : 'Total Pengajuan'}
                       </div>
-
-                      {(() => {
-                        const { mainReason, financeNote } = parseFinanceNote(req.description)
-                        return (
-                          <>
-                            <p className="font-bold text-slate-900 text-base">{mainReason}</p>
-                            {financeNote && (
-                              <div className="bg-amber-50 border border-amber-200 text-amber-950 rounded-xl p-2.5 text-xs font-semibold flex items-start gap-1.5 shadow-2xs mt-1">
-                                <span className="shrink-0 text-amber-700 font-bold">📌 Catatan Finance:</span>
-                                <span>{financeNote}</span>
-                              </div>
-                            )}
-                          </>
-                        )
-                      })()}
-                      
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        <div className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200 inline-block font-medium">
-                          <span className="font-bold text-slate-900">Rekening Tujuan: </span>
-                          {req.bank_name ? (
-                            <span>{req.bank_name} - <b className="font-mono text-slate-900">{req.bank_account_number}</b> (a.n {req.bank_account_name || '-'})</span>
-                          ) : (
-                            <span className="italic text-slate-400">Belum ada</span>
-                          )}
-                        </div>
-
-                        {req.proof_of_transfer_url && (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedProofUrl(req.proof_of_transfer_url || null)}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-xl border border-emerald-200 transition-colors shadow-xs cursor-pointer"
-                          >
-                            <Camera className="w-4 h-4 text-emerald-600" />
-                            <span>Lihat Bukti Transfer Finance</span>
-                          </button>
-                        )}
+                      <div className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+                        {formatRupiah(req.amount)}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
-                      <div className="text-left md:text-right">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">Nominal</p>
-                        <p className="text-xl font-black text-blue-600">{formatRupiah(req.amount)}</p>
-                      </div>
-
-                      <div className="flex gap-2">
-                        {(req.status === 'pending' || req.status === 'forwarded_to_area_manager') && (
+                    {/* Review Actions */}
+                    {activeTab === 'review' && (
+                      <div className="flex items-center gap-2">
+                        {isPending && (
                           <>
                             <button
                               onClick={() => handleReject(req.id)}
                               disabled={isProcessing === req.id}
-                              className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs transition-colors disabled:opacity-50 cursor-pointer border border-red-200"
+                              className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                             >
                               Tolak
                             </button>
                             <button
                               onClick={() => handleApprove(req.id)}
                               disabled={isProcessing === req.id}
-                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl font-bold text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#4a1c15] text-white rounded-md text-xs font-semibold hover:bg-[#38130e] shadow-sm transition-colors"
                             >
-                              {isProcessing === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                              Acc & Ke Finance
+                              {isProcessing === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                              ACC
                             </button>
                           </>
                         )}
-
-                        {(req.status === 'approved_by_finance' || req.status === 'forwarded_by_finance') && (
+                        {isReady && (
                           <button
                             onClick={() => handleForwardToLeader(req.id)}
                             disabled={isProcessing === req.id}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl font-bold text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-slate-900 text-white rounded-md text-xs font-semibold hover:bg-slate-800 shadow-sm transition-colors"
                           >
-                            {isProcessing === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                            Serahkan ke Leader
+                            {isProcessing === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Serahkan'}
+                            {!isProcessing && <ArrowRight className="w-3.5 h-3.5" />}
                           </button>
                         )}
                       </div>
-                    </div>
+                    )}
+
+                    {/* History Actions / Status */}
+                    {activeTab === 'history' && (
+                      <div className="flex items-center gap-2">
+                        {req.status === 'forwarded_to_finance' && <span className="inline-flex items-center px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200/50 rounded text-[10px] font-bold uppercase tracking-wider">Di Finance</span>}
+                        {(req.status === 'completed' || req.status === 'forwarded_by_leader') && <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/50 rounded text-[10px] font-bold uppercase tracking-wider">Selesai</span>}
+                        {req.status === 'rejected' && <span className="inline-flex items-center px-2 py-1 bg-red-50 text-red-700 border border-red-200/50 rounded text-[10px] font-bold uppercase tracking-wider">Ditolak</span>}
+                        
+                        {req.proof_of_transfer_url && (
+                          <button
+                            onClick={() => setSelectedProofUrl(req.proof_of_transfer_url || null)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 text-slate-600 rounded hover:bg-slate-50 transition-colors text-[10px] font-bold uppercase tracking-wider"
+                          >
+                            <FileText className="w-3 h-3" /> Bukti
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
+        )}
+      </div>
 
-      {/* TAB 2: RIWAYAT PENGAJUAN AREA MANAGER */}
-      {activeTab === 'history' && (
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mr-1">
-              <Filter className="w-3.5 h-3.5" /> Filter Riwayat:
-            </span>
-            <button
-              onClick={() => setHistoryFilter('all')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                historyFilter === 'all'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              Semua ({allHistoryRequests.length})
-            </button>
-            <button
-              onClick={() => setHistoryFilter('acc_finance')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                historyFilter === 'acc_finance'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              Sudah di-ACC (Ke Finance) ({accFinanceCount})
-            </button>
-            <button
-              onClick={() => setHistoryFilter('forwarded_leader')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                historyFilter === 'forwarded_leader'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
-              }`}
-            >
-              <ArrowRight className="w-3.5 h-3.5" />
-              Diserahkan ke Leader ({forwardedLeaderCount})
-            </button>
-            <button
-              onClick={() => setHistoryFilter('completed')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                historyFilter === 'completed'
-                  ? 'bg-emerald-700 text-white shadow-xs'
-                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Selesai (Crew Terima) ({completedCount})
-            </button>
-            <button
-              onClick={() => setHistoryFilter('rejected')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                historyFilter === 'rejected'
-                  ? 'bg-red-600 text-white shadow-xs'
-                  : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
-              }`}
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              Ditolak ({rejectedCount})
-            </button>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[700px]">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
-                    <th className="px-6 py-3.5 font-bold">Waktu / Tanggal</th>
-                    <th className="px-6 py-3.5 font-bold">Outlet & Pengaju</th>
-                    <th className="px-6 py-3.5 font-bold">Nominal</th>
-                    <th className="px-6 py-3.5 font-bold">Alasan / Keperluan</th>
-                    <th className="px-6 py-3.5 font-bold">Status Progress</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-slate-400 font-medium">
-                        Memuat data riwayat...
-                      </td>
-                    </tr>
-                  ) : filteredHistoryRequests.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-slate-400 font-medium">
-                        Tidak ada riwayat pengajuan pada kategori ini.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredHistoryRequests.map((r) => (
-                      <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-slate-600" title={formatDateTime(r.created_at)}>
-                          <div className="font-bold text-slate-900">{formatRelativeTime(r.created_at)}</div>
-                          <div className="text-[11px] text-slate-400 font-normal">{formatDateTime(r.created_at)}</div>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-slate-900">
-                          <div className="flex items-center gap-1.5">
-                            <Store className="w-4 h-4 text-slate-400" />
-                            {r.outlet?.name || '-'}
-                          </div>
-                          <div className="text-xs text-blue-800 font-extrabold mt-1 flex items-center gap-1">
-                            <User className="w-3 h-3 text-blue-600" />
-                            {r.created_by_staff ? `${r.created_by_staff.name} (${formatRole(r.created_by_staff.role)})` : 'Leader Outlet'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 font-black text-blue-600">{formatRupiah(r.amount)}</td>
-                        <td className="px-6 py-4 text-slate-800 max-w-xs truncate font-medium">{r.description}</td>
-                        <td className="px-6 py-4">
-                          {r.status === 'forwarded_to_finance' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-800 font-bold text-xs rounded-lg border border-blue-200">
-                              <Clock className="w-3.5 h-3.5" /> ACC AM (Menunggu Finance)
-                            </span>
-                          )}
-                          {r.status === 'forwarded_by_area_manager' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 font-bold text-xs rounded-lg border border-emerald-200">
-                              <ArrowRight className="w-3.5 h-3.5" /> Diserahkan ke Leader
-                            </span>
-                          )}
-                          {r.status === 'forwarded_by_leader' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 font-bold text-xs rounded-lg border border-emerald-200">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Diserahkan ke Crew
-                            </span>
-                          )}
-                          {r.status === 'completed' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white font-bold text-xs rounded-lg">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Selesai (Crew Terima)
-                            </span>
-                          )}
-                          {r.status === 'rejected' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 font-bold text-xs rounded-lg border border-red-200">
-                              <XCircle className="w-3.5 h-3.5" /> Ditolak
-                            </span>
-                          )}
-
-                          {r.proof_of_transfer_url && (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedProofUrl(r.proof_of_transfer_url || null)}
-                              className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-lg border border-emerald-200 transition-colors cursor-pointer"
-                            >
-                              <Camera className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Bukti</span>
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <ProofImageLightbox
-        imageUrl={selectedProofUrl}
-        onClose={() => setSelectedProofUrl(null)}
-      />
+      <ProofImageLightbox imageUrl={selectedProofUrl} onClose={() => setSelectedProofUrl(null)} />
     </div>
   )
 }

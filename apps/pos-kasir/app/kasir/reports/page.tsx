@@ -77,18 +77,23 @@ async function fetchOutletAnalytics(
 
     if (range === 'today') {
       p_start.setHours(0, 0, 0, 0)
+      p_end.setHours(23, 59, 59, 999)
     } else if (range === 'yesterday') {
       p_start.setDate(p_start.getDate() - 1)
       p_start.setHours(0, 0, 0, 0)
-      p_end.setHours(0, 0, 0, 0)
+      p_end.setDate(p_end.getDate() - 1)
+      p_end.setHours(23, 59, 59, 999)
     } else if (range === '7days') {
       p_start.setDate(p_start.getDate() - 7)
       p_start.setHours(0, 0, 0, 0)
+      p_end.setHours(23, 59, 59, 999)
     } else if (range === '30days') {
       p_start.setDate(p_start.getDate() - 30)
       p_start.setHours(0, 0, 0, 0)
+      p_end.setHours(23, 59, 59, 999)
     } else if (range === 'all') {
       p_start = new Date(0)
+      p_end.setHours(23, 59, 59, 999)
     } else if (range === 'custom' && customStart && customEnd) {
       p_start = new Date(customStart)
       p_start.setHours(0, 0, 0, 0)
@@ -98,7 +103,7 @@ async function fetchOutletAnalytics(
 
     let ordersQuery = supabase
       .from('orders')
-      .select('id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, cancellation_user_name, void_reason, cancellation_reason, order_items(id, menu_item_name, quantity, subtotal)')
+      .select('id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, voided_by, void_reason, cancellation_reason, order_items(id, menu_item_name, quantity, subtotal)')
       .eq('outlet_id', outletId)
       .gte('created_at', p_start.toISOString())
       .lte('created_at', p_end.toISOString())
@@ -237,18 +242,23 @@ async function fetchPaginatedOrders(
     
     if (range === 'today') {
       p_start.setHours(0, 0, 0, 0)
+      p_end.setHours(23, 59, 59, 999)
     } else if (range === 'yesterday') {
       p_start.setDate(p_start.getDate() - 1)
       p_start.setHours(0, 0, 0, 0)
-      p_end.setHours(0, 0, 0, 0)
+      p_end.setDate(p_end.getDate() - 1)
+      p_end.setHours(23, 59, 59, 999)
     } else if (range === '7days') {
       p_start.setDate(p_start.getDate() - 7)
       p_start.setHours(0, 0, 0, 0)
+      p_end.setHours(23, 59, 59, 999)
     } else if (range === '30days') {
       p_start.setDate(p_start.getDate() - 30)
       p_start.setHours(0, 0, 0, 0)
+      p_end.setHours(23, 59, 59, 999)
     } else if (range === 'all') {
       p_start = new Date(0)
+      p_end.setHours(23, 59, 59, 999)
     } else if (range === 'custom' && customStart && customEnd) {
       p_start = new Date(customStart)
       p_start.setHours(0, 0, 0, 0)

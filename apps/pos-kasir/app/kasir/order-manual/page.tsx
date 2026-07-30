@@ -1634,16 +1634,22 @@ function CartPanel(props: {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setPayment('qris')}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 font-bold text-xs lg:text-sm whitespace-nowrap transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
                 >
                   <QrCode className="w-4 h-4" /> QRIS
                 </button>
                 <button
+                  onClick={() => setPayment('card')}
+                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 font-bold text-xs lg:text-sm whitespace-nowrap transition-all active:scale-95 ${payment === 'card' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                >
+                  <CreditCard className="w-4 h-4" /> Debit
+                </button>
+                <button
                   onClick={() => setPayment('cash')}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 font-bold text-xs lg:text-sm whitespace-nowrap transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
                 >
                   <Banknote className="w-4 h-4" /> Tunai
                 </button>
@@ -1733,28 +1739,18 @@ function CartPanel(props: {
           <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
         )}
 
-        {/* Konfirmasi / Tampilkan QRIS */}
-        {payment === 'qris' ? (
-          <button
-            onClick={() => setOnlineQrisOpen(true)}
-            disabled={!canSubmit}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
-            <QrCode className="w-5 h-5" /> Tampilkan QRIS
-          </button>
-        ) : (
-          <button
-            onClick={() => onSubmit(amountReceived)}
-            disabled={payment === 'cash' ? !canPayCash : !canSubmit}
-            className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm shadow-amber-200 flex items-center justify-center gap-2 transition-all active:scale-95"
-          >
-            {submitting ? (
-              <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
-            ) : (
-              <><CheckCircle2 className="w-5 h-5" /> Konfirmasi (Diproses)</>
-            )}
-          </button>
-        )}
+        {/* Konfirmasi Pesanan */}
+        <button
+          onClick={() => onSubmit(amountReceived)}
+          disabled={payment === 'cash' ? !canPayCash : !canSubmit}
+          className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm shadow-amber-200 flex items-center justify-center gap-2 transition-all active:scale-95"
+        >
+          {submitting ? (
+            <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
+          ) : (
+            <><CheckCircle2 className="w-5 h-5" /> Konfirmasi (Diproses)</>
+          )}
+        </button>
         {!canSubmit && !submitting && (
           <p className="text-xs text-gray-400 text-center -mt-1">
             {lineList.length === 0 ? 'Pilih minimal 1 menu' : !channel ? 'Pilih channel dulu' : !customerName.trim() ? 'Nama customer wajib diisi' : !payment ? 'Pilih metode pembayaran' : ''}
@@ -1767,19 +1763,7 @@ function CartPanel(props: {
         )}
       </div>
 
-      {/* ── Modal QRIS Online ── */}
-      <QrisPaymentModal
-        isOpen={onlineQrisOpen}
-        onClose={() => setOnlineQrisOpen(false)}
-        totalPrice={totalPrice}
-        isOnline={true}
-        isFoodApp={['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '')}
-        submitting={submitting}
-        onSubmit={(proofUrl: any) => {
-          setOnlineQrisOpen(false)
-          onSubmit(null, typeof proofUrl === 'string' ? proofUrl : null)
-        }}
-      />
+
 
     </div>
   )

@@ -482,9 +482,16 @@ const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50
                 Tunggu QRIS
               </div>
             ) : (order as any).cancellation_status === 'pending_approval' ? (
-              <div className="flex-1 bg-yellow-50 text-yellow-600 font-bold py-3.5 rounded-xl border border-yellow-200 flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Menunggu Persetujuan Batal
+              <div className="flex-1 bg-yellow-50 text-yellow-600 font-bold py-2 px-3 rounded-xl border border-yellow-200 flex flex-col items-center justify-center gap-0.5">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Menunggu Persetujuan Batal
+                </div>
+                {(order as any).cancellation_user_name && (
+                  <span className="text-[10px] font-medium opacity-80">
+                    Oleh: {(order as any).cancellation_user_name}
+                  </span>
+                )}
               </div>
             ) : isPending ? (
               <>

@@ -249,7 +249,7 @@ export default function ShiftPage() {
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
           supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('updated_at', shiftData.start_time)
+          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel, status, cancellation_user_name, void_reason, cancellation_reason').eq('outlet_id', outletId).in('status', ['completed', 'cancelled']).gte('updated_at', shiftData.start_time)
         ])
 
         const [processedExpenses, processedTopups] = await Promise.all([
@@ -851,23 +851,29 @@ export default function ShiftPage() {
                           </div>
                         )
                       } else {
-                        const sale = item.data as CashOrder
+                        const sale = item.data as CashOrder & { status?: string, cancellation_user_name?: string, void_reason?: string, cancellation_reason?: string }
+                        const isCancelled = sale.status === 'cancelled'
                         return (
-                          <div key={`sale-${sale.id}-${idx}`} className="p-4 flex items-start justify-between gap-3 hover:bg-gray-50">
+                          <div key={`sale-${sale.id}-${idx}`} className={`p-4 flex items-start justify-between gap-3 hover:bg-gray-50 ${isCancelled ? 'opacity-60 bg-gray-50/80' : ''}`}>
                             <div className="flex items-start gap-3 min-w-0">
-                              <div className="shrink-0 w-11 h-11 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
+                              <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${isCancelled ? 'bg-gray-100 text-gray-400' : 'bg-emerald-50 text-emerald-500'}`}>
                                 <Wallet className="w-5 h-5" />
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-bold text-gray-900 truncate">Pesanan #{sale.order_number}</p>
-                                <p className="text-[11px] font-semibold text-gray-400 uppercase mt-0.5">Penjualan {sale.channel ? `(Food Apps - ${sale.channel})` : '(Tunai)'}</p>
+                                <p className={`text-sm font-bold text-gray-900 truncate ${isCancelled ? 'line-through text-gray-500' : ''}`}>Pesanan #{sale.order_number}</p>
+                                <p className="text-[11px] font-semibold text-gray-400 uppercase mt-0.5">
+                                  Penjualan {sale.channel ? `(Food Apps - ${sale.channel})` : '(Tunai)'} {isCancelled && <span className="text-red-500 ml-1 font-bold">(DIBATALKAN)</span>}
+                                </p>
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
                                   <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(sale.created_at)}</span>
                                 </div>
+                                {isCancelled && sale.cancellation_user_name && (
+                                  <p className="text-[10px] font-medium text-red-500 mt-1 italic">Dibatalkan oleh: {sale.cancellation_user_name}</p>
+                                )}
                               </div>
                             </div>
                             <div className="flex flex-col items-end shrink-0 gap-1.5">
-                              <span className="text-sm font-black text-emerald-600">+{formatRupiah(sale.total_amount)}</span>
+                              <span className={`text-sm font-black ${isCancelled ? 'text-gray-400 line-through' : 'text-emerald-600'}`}>+{formatRupiah(sale.total_amount)}</span>
                             </div>
                           </div>
                         )

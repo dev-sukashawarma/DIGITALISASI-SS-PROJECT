@@ -411,6 +411,12 @@ export default function AdminOrdersPage() {
                         })}
                         {' · '}{order.order_items.filter(oi => !oi.menu_item_name.includes('|PARENT|')).length} pesanan utama
                       </p>
+                      
+                      {order.status === 'cancelled' && (order as any).cancellation_user_name && (
+                        <p className="text-xs text-red-500 font-medium mt-1">
+                          Dibatalkan oleh: {(order as any).cancellation_user_name}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -530,6 +536,15 @@ export default function AdminOrdersPage() {
                     {order.notes && (
                       <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 text-sm text-amber-800 break-words whitespace-pre-wrap">
                         <span className="font-semibold">Catatan: </span>{order.notes}
+                      </div>
+                    )}
+
+                    {order.status === 'cancelled' && ((order as any).cancellation_reason || (order as any).void_reason) && (
+                      <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3 text-sm text-red-800 break-words whitespace-pre-wrap">
+                        <span className="font-semibold">Alasan Batal: </span>{(order as any).cancellation_reason || (order as any).void_reason}
+                        {(order as any).cancellation_user_name && (
+                          <div className="text-xs text-red-600 mt-1">Diajukan oleh: {(order as any).cancellation_user_name}</div>
+                        )}
                       </div>
                     )}
 

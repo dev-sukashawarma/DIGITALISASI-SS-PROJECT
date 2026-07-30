@@ -98,7 +98,7 @@ async function fetchOutletAnalytics(
 
     let ordersQuery = supabase
       .from('orders')
-      .select('id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, order_items(id, menu_item_name, quantity, subtotal)')
+      .select('id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, cancellation_user_name, void_reason, cancellation_reason, order_items(id, menu_item_name, quantity, subtotal)')
       .eq('outlet_id', outletId)
       .gte('created_at', p_start.toISOString())
       .lte('created_at', p_end.toISOString())
@@ -1089,7 +1089,9 @@ export default function ReportsPage() {
                     paginatedData.map((order: any) => (
                       <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
                         <td className="px-5 py-4 font-bold text-gray-900">
-                          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number}</span>
+                          <span className={`px-2 py-1 rounded-md ${order.status === 'cancelled' ? 'bg-red-100 text-red-600 line-through' : 'bg-gray-100 text-gray-600'}`}>
+                            #{order.order_number}
+                          </span>
                         </td>
                         <td className="px-5 py-4 text-gray-500 font-medium text-xs">
                           {new Date(order.created_at).toLocaleString('id-ID', {
@@ -1097,8 +1099,16 @@ export default function ReportsPage() {
                             hour: '2-digit', minute: '2-digit'
                           })}
                         </td>
-                        <td className="px-5 py-4 text-gray-600 truncate max-w-[250px] font-medium" title={(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}>
-                          {(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}
+                        <td className="px-5 py-4 text-gray-600 truncate max-w-[250px] font-medium">
+                          <div title={(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}>
+                            {(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}
+                          </div>
+                          {order.status === 'cancelled' && (order.cancellation_user_name || order.cancellation_reason || order.void_reason) && (
+                            <div className="text-[10px] mt-1 text-red-500 font-bold whitespace-normal leading-tight">
+                              [BATAL] {order.cancellation_user_name ? `Oleh: ${order.cancellation_user_name}` : ''}
+                              {order.cancellation_reason || order.void_reason ? ` - Alasan: ${order.cancellation_reason || order.void_reason}` : ''}
+                            </div>
+                          )}
                         </td>
                         <td className="px-5 py-4">
                           {order.channel ? (

@@ -25,6 +25,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Sesi tidak ditemukan, silakan login ulang.' }, { status: 401 })
     }
 
+    // Ambil nama crew untuk histori
+    const { data: staffData } = await supabase
+      .from('outlet_staff')
+      .select('name')
+      .eq('id', staff.id)
+      .single()
+    const staffName = staffData?.name || 'Unknown'
+
     // 1. Dapatkan outlet_id dari order
     const { data: order, error: orderErr } = await supabase
       .from('orders')
@@ -82,12 +90,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to create cancellation request' }, { status: 500 })
     }
 
+    // 4b. Update nama crew & alasan di orders agar tampil di histori
+    await supabase
+      .from('orders')
+      .update({ 
+        cancellation_user_name: staffName,
+        cancellation_reason: reason 
+      })
+      .eq('id', order_id)
+
     // 5. Generate Magic Link
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://pos.sukashawarma.com' // Ganti jika perlu
     const magicLink = `${baseUrl}/cancellations/approve?token=${request.token}`
 
     // 6. Generate WA URL
-    const message = `*PERMINTAAN PEMBATALAN PESANAN*\n\nOutlet: ${outletName}\nNo Order: ${order.order_number}\nPelanggan: ${order.customer_name}\nTotal: Rp ${order.total_amount.toLocaleString('id-ID')}\nAlasan: ${reason}\n\nSilakan klik link berikut untuk *MENYETUJUI* atau *MENOLAK* pembatalan ini (link hanya berlaku 1 kali):\n\n${magicLink}`
+    const message = `*PERMINTAAN PEMBATALAN PESANAN*\n\nOutlet: ${outletName}\nNo Order: ${order.order_number}\nPelanggan: ${order.customer_name}\nTotal: Rp ${order.total_amount.toLocaleString('id-ID')}\nAlasan: ${reason}\nDiajukan Oleh: ${staffName}\n\nSilakan klik link berikut untuk *MENYETUJUI* atau *MENOLAK* pembatalan ini (link hanya berlaku 1 kali):\n\n${magicLink}`
     
     // Format WA number: Ensure starts with 62 or +62
     let phone = leaderPhone.replace(/\D/g, '')

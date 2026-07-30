@@ -338,6 +338,11 @@ const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50
                 <span className="uppercase font-bold text-[9px] tracking-wider bg-slate-200/80 px-2 py-0.5 rounded text-slate-800">
                   {order.payment_method?.toUpperCase() || 'CASH'}
                 </span>
+                {order.cashier_name && (
+                  <span className="font-semibold text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
+                    Kasir: {order.cashier_name}
+                  </span>
+                )}
               </div>
             </div>
           </div>

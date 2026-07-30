@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   order_id       UUID          REFERENCES orders(id) ON DELETE CASCADE,
   menu_item_id   UUID          REFERENCES menu_items(id) ON DELETE SET NULL,
   menu_item_name TEXT          NOT NULL,
-  quantity       INTEGER       NOT NULL CHECK (quantity > 0 AND quantity <= 10),
+  quantity       INTEGER       NOT NULL CHECK (quantity > 0),
   unit_price     DECIMAL(10,2) NOT NULL,
   subtotal       DECIMAL(10,2) NOT NULL,
   created_at     TIMESTAMPTZ   DEFAULT NOW()

@@ -222,7 +222,6 @@ function CartItemRow({
               </span>
               <button
                 onClick={() => updateQuantity(cartItemId, quantity + 1)}
-                disabled={quantity >= 10}
                 className="w-7 h-7 bg-amber-500 text-white hover:bg-amber-600
                   rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 shadow-sm"
               >

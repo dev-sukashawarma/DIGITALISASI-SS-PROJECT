@@ -43,8 +43,8 @@ export function validateCheckoutPayload(body: unknown): ValidationError[] {
       errors.push({ field: `items[${idx}].menu_item_id`, message: 'ID menu tidak valid' })
     }
     const qty = Number(i.quantity)
-    if (!Number.isInteger(qty) || qty < 1 || qty > 10) {
-      errors.push({ field: `items[${idx}].quantity`, message: 'Jumlah harus antara 1-10' })
+    if (!Number.isInteger(qty) || qty < 1) {
+      errors.push({ field: `items[${idx}].quantity`, message: 'Jumlah minimal 1' })
     }
   })
 

@@ -296,8 +296,7 @@ export default function ProductDetailClient({
               </button>
               <span className="w-12 text-center font-black text-gray-900 text-xl tabular-nums">{qty}</span>
               <button
-                onClick={() => setQty((q) => Math.min(10, q + 1))}
-                disabled={qty >= 10}
+                onClick={() => setQty((q) => q + 1)}
                 className="w-12 h-12 bg-amber-500 text-white shadow-md shadow-amber-500/20 rounded-full flex items-center justify-center transition-all hover:bg-amber-600 active:scale-95 disabled:opacity-30"
                 aria-label="Tambah"
               >

@@ -407,6 +407,11 @@ export default function OrderManualPage() {
   }, [])
 
   const setQty = useCallback((cartItemId: string, qty: number) => {
+    if (qty >= 100) {
+      if (!window.confirm(`Anda memasukkan jumlah ${qty} porsi. Apakah sudah benar?`)) {
+        return;
+      }
+    }
     setLines((prev) => {
       if (qty <= 0) {
         // If it's a parent, also remove children
@@ -414,7 +419,7 @@ export default function OrderManualPage() {
         prev.forEach(l => { if (l.parentId === cartItemId) toRemove.add(l.cartItemId) })
         return prev.filter(l => !toRemove.has(l.cartItemId))
       }
-      const newQty = Math.min(qty, 10);
+      const newQty = qty;
       return prev.map(l => {
         if (l.cartItemId === cartItemId) return { ...l, quantity: newQty }
         if (l.parentId === cartItemId) return { ...l, quantity: Math.min(l.quantity, newQty) }

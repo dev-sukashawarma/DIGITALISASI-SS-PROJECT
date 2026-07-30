@@ -21,6 +21,7 @@ export type AppName =
   | 'owner-dashboard'
   | 'admin-dashboard'
   | 'finance'
+  | 'manager'
 
 export type StaffStatus = 'active' | 'inactive' | 'on_leave'
 

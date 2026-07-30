@@ -25,6 +25,7 @@ const getAppUrls = async () => {
     'pos-kasir':       isLocal ? 'http://localhost:3004' : (process.env.NEXT_PUBLIC_APP_URL_POS_KASIR || 'https://pos.sukashawarma.com'),
     'owner-dashboard': isLocal ? 'http://localhost:3003' : (process.env.NEXT_PUBLIC_APP_URL_OWNER_DASHBOARD || 'https://owner.sukashawarma.com'),
     finance:           isLocal ? 'http://localhost:3020' : (process.env.NEXT_PUBLIC_APP_URL_FINANCE || 'https://finance.sukashawarma.com'),
+    manager:           isLocal ? 'http://localhost:3000' : (process.env.NEXT_PUBLIC_APP_URL_MANAGER || 'https://manager.sukashawarma.com'),
   } as Record<AppName, string>
 }
 
@@ -73,6 +74,7 @@ export default async function LauncherPage() {
     'pos-kasir':       { label: 'POS Kasir',        url: APP_URL['pos-kasir'],      desc: 'Transaksi penjualan & point of sale' },
     'owner-dashboard': { label: 'Owner Dashboard',  url: APP_URL['owner-dashboard'], desc: 'Laporan omzet & analisis keuangan' },
     finance:           { label: 'Finance',          url: APP_URL.finance,           desc: 'Keuangan, petty cash & pengajuan dana' },
+    manager:           { label: staff.role === 'regional_manager' ? 'Regional Manager Dashboard' : 'Manager App', url: APP_URL.manager, desc: 'Persetujuan operasional & monitoring area' },
   }
 
   // Configure greeting and styling banners based on user roles

@@ -14,7 +14,9 @@ Aplikasi ini akan di-hosting di `apps/manager` menggunakan arsitektur *Next.js A
 - **Global Data Filtering:** *Query* di semua halaman dashboard (seperti pendapatan dan *petty cash*) akan difilter berdasarkan array `outlet_id` yang dimiliki oleh Manager yang sedang *login*.
 
 ## 3. UI/UX Design
-- **Mobile-First & Modern:** Mengingat manager sering bekerja di lapangan, UI wajib *mobile-responsive* menggunakan navigasi bawah (*Bottom Navigation Bar*).
+- **Responsive Design (Mobile & Desktop):** 
+  - **Mobile:** Navigasi bawah (*Bottom Navigation Bar*) untuk mempermudah saat di lapangan.
+  - **Desktop:** Tampilan *dashboard* penuh dengan *Sidebar Navigation* dan *Grid Layout* yang optimal untuk layar lebar (PC/Laptop), ideal untuk *monitoring* mendalam di kantor.
 - **Consolidated Dashboard (Aggregated View):**
   - Halaman utama langsung merangkum total penjualan dari *seluruh* outlet yang dipegang.
   - Terdapat *Global Dropdown* di bagian *header* yang memungkinkan manager berpindah dari tampilan "Semua Outlet" menjadi "Outlet Spesifik" (misal, hanya melihat performa outlet Dramaga).

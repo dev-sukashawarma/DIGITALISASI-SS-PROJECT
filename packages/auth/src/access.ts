@@ -5,15 +5,15 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   admin: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'owner-dashboard', 'admin-dashboard', 'finance'],
   admin_hr: ['absensi', 'admin-dashboard'],
   owner: ['owner-dashboard', 'admin-dashboard', 'finance'],
-  regional_manager: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard'],
+  regional_manager: ['absensi', 'stok', 'distribusi', 'manager'],
   kitchen: ['stok', 'distribusi'],
-  leader: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'finance', 'admin-dashboard'],
+  leader: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'finance', 'admin-dashboard', 'manager'],
   crew: ['absensi', 'pos-kasir', 'stok', 'distribusi'],
   kiosk: ['pos-kasir'],
   mitra: ['admin-dashboard'],
   staff_pusat: ['absensi'],
   admin_finance: ['finance'],
-  area_manager: ['finance', 'admin-dashboard'],
+  area_manager: ['finance', 'admin-dashboard', 'manager'],
   purchasing: ['admin-dashboard'],
 }
 

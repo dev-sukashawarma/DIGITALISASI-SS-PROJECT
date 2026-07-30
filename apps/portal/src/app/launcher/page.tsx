@@ -85,6 +85,7 @@ export default async function LauncherPage() {
           gradient: 'from-amber-800 via-suka-ink to-amber-950',
           ringColor: 'ring-amber-500/50 shadow-amber-500/10'
         }
+      case 'regional_manager':
       case 'spv':
       case 'leader':
       case 'kitchen':

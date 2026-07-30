@@ -5,7 +5,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   admin: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'owner-dashboard', 'admin-dashboard', 'finance'],
   admin_hr: ['absensi', 'admin-dashboard'],
   owner: ['owner-dashboard', 'admin-dashboard', 'finance'],
-  spv: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard'],
+  regional_manager: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard'],
   kitchen: ['stok', 'distribusi'],
   leader: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'finance', 'admin-dashboard'],
   crew: ['absensi', 'pos-kasir', 'stok', 'distribusi'],

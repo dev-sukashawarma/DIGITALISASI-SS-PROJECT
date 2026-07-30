@@ -55,7 +55,7 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabaseService
     .from('outlet_staff')
-    .select('outlet_id, role')
+    .select('outlet_id, role, name')
     .eq('id', user.id)
     .single()
 
@@ -207,6 +207,7 @@ export async function POST(request: Request) {
   const baseOrder = {
     outlet_id,
     customer_name: customerName || null,
+    cashier_name: profile.name || null,
     payment_method: body.payment_method,
     total_amount: finalTotal,
     discount_amount: globalDiscount > 0 ? globalDiscount : null,

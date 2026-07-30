@@ -405,11 +405,20 @@ export default function AdminOrdersPage() {
                           <span className="text-sm font-semibold text-gray-700">{order.customer_name}</span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {new Date(order.created_at).toLocaleString('id-ID', {
-                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-                        })}
-                        {' · '}{order.order_items.filter(oi => !oi.menu_item_name.includes('|PARENT|')).length} pesanan utama
+                      <p className="text-xs text-gray-400 mt-0.5 flex items-center flex-wrap gap-1">
+                        <span>
+                          {new Date(order.created_at).toLocaleString('id-ID', {
+                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                        <span>{'·'}</span>
+                        <span>{order.order_items.filter(oi => !oi.menu_item_name.includes('|PARENT|')).length} pesanan</span>
+                        {(order as any).cashier_name && (
+                          <>
+                            <span>{'·'}</span>
+                            <span className="font-medium text-gray-600">Kasir: {(order as any).cashier_name}</span>
+                          </>
+                        )}
                       </p>
                       
                       {order.status === 'cancelled' && (order as any).cancellation_user_name && (

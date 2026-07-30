@@ -43,6 +43,7 @@ interface OrderRow {
   channel: string | null
   sales_source: string | null
   customer_name?: string | null
+  cashier_name?: string | null
   external_order_id?: string | null
   order_items: {
     id: string
@@ -1094,11 +1095,18 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                             })}
                           </td>
                           <td className="px-5 py-4 font-semibold text-gray-800 text-xs">
-                            {order.customer_name ? (
-                              <span className="bg-gray-50 text-gray-700 px-2 py-1 rounded-md border border-gray-200/60 inline-block font-medium">{order.customer_name}</span>
-                            ) : (
-                              <span className="text-gray-400 font-normal italic">-</span>
-                            )}
+                            <div className="flex flex-col gap-1.5 items-start">
+                              {order.customer_name ? (
+                                <span className="bg-gray-50 text-gray-700 px-2 py-1 rounded-md border border-gray-200/60 inline-block font-medium">{order.customer_name}</span>
+                              ) : (
+                                <span className="text-gray-400 font-normal italic">-</span>
+                              )}
+                              {order.cashier_name && (
+                                <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200/60 font-medium text-[10px] uppercase tracking-wider">
+                                  Kasir: {order.cashier_name}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-5 py-4 text-gray-600 font-medium">
                             <div className="flex flex-col gap-1.5">

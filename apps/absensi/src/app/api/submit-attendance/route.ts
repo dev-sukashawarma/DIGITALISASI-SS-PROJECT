@@ -295,6 +295,13 @@ export async function POST(req: Request) {
 
     if (error) return NextResponse.json({ ok: false, reason: "insert_failed", detail: error.message }, { status: 500 });
 
+    // Update outlet_staff.outlet_id to match the check-in location (so other apps like POS Kasir follow the check-in location)
+    if (body.type === "in" && target.outlet_id !== body.outlet_id) {
+      await admin.from("outlet_staff")
+        .update({ outlet_id: body.outlet_id })
+        .eq("id", body.outlet_staff_id);
+    }
+
     return NextResponse.json({ ok: true, status, ts_server: tsServer, attendance_id: body.id }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ ok: false, reason: "internal_error" }, { status: 500 });

@@ -10,7 +10,7 @@ export default function ApprovalsPage() {
       
       <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(44,24,16,0.02)] border border-suka-brown/5 overflow-hidden">
         <div className="p-4 border-b border-suka-brown/5 bg-suka-cream/30 flex justify-between items-center">
-          <h3 className="font-bold text-suka-brown">Antrean Petty Cash</h3>
+          <h3 className="font-bold text-suka-brown">Antrean Persetujuan Void</h3>
           <span className="bg-suka-orange/10 text-suka-orange text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-widest shadow-sm">2 Menunggu</span>
         </div>
         
@@ -24,12 +24,12 @@ export default function ApprovalsPage() {
                   <Clock size={12} /> 10 Menit lalu
                 </span>
               </div>
-              <p className="text-sm text-suka-gray-700 font-bold">Top Up Dana Operasional / Tukar Receh</p>
-              <p className="text-[11px] font-semibold text-suka-gray-400 mt-1 uppercase tracking-wider">Requested by: Rina (Kasir)</p>
+              <p className="text-sm text-suka-gray-700 font-bold">Void Transaksi #INV-12345 (Paket Nasi Kebuli)</p>
+              <p className="text-[11px] font-semibold text-suka-gray-400 mt-1 uppercase tracking-wider">Alasan: Pelanggan ganti pesanan • Requested by: Rina (Kasir)</p>
             </div>
             
             <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 mt-4 md:mt-0">
-              <span className="text-2xl sm:text-xl font-black text-suka-brown">Rp 500.000</span>
+              <span className="text-2xl sm:text-xl font-black text-suka-brown">Rp 35.000</span>
               <div className="flex gap-3 sm:gap-2">
                 <button className="flex items-center justify-center w-12 h-12 sm:w-10 sm:h-10 bg-white border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm shrink-0">
                   <X size={20} strokeWidth={3} />
@@ -50,12 +50,12 @@ export default function ApprovalsPage() {
                   <Clock size={12} /> 1 Jam lalu
                 </span>
               </div>
-              <p className="text-sm text-suka-gray-700 font-bold">Beli Sabun Cuci & Kantong Plastik</p>
-              <p className="text-[11px] font-semibold text-suka-gray-400 mt-1 uppercase tracking-wider">Requested by: Dodi (Kasir)</p>
+              <p className="text-sm text-suka-gray-700 font-bold">Void Transaksi #INV-67890 (2x Shawarma Ayam)</p>
+              <p className="text-[11px] font-semibold text-suka-gray-400 mt-1 uppercase tracking-wider">Alasan: Salah input menu • Requested by: Dodi (Kasir)</p>
             </div>
             
             <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 mt-4 md:mt-0">
-              <span className="text-2xl sm:text-xl font-black text-suka-brown">Rp 50.000</span>
+              <span className="text-2xl sm:text-xl font-black text-suka-brown">Rp 30.000</span>
               <div className="flex gap-3 sm:gap-2">
                 <button className="flex items-center justify-center w-12 h-12 sm:w-10 sm:h-10 bg-white border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm shrink-0">
                   <X size={20} strokeWidth={3} />

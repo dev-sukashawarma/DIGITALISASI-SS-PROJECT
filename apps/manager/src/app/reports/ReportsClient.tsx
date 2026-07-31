@@ -359,7 +359,7 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
                       ))}
                     </Pie>
                     <RechartsTooltip 
-                      formatter={(val: number) => [`${val} Transaksi`, 'Jumlah']}
+                      formatter={(val: any) => [`${val} Transaksi`, 'Jumlah']}
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                     />
                   </PieChart>
@@ -427,7 +427,7 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                 itemStyle={{ color: '#2c1810', fontWeight: 'bold' }}
                 labelStyle={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}
-                formatter={(val: number) => [`${val} Transaksi`, 'Total']}
+                formatter={(val: any) => [`${val} Transaksi`, 'Total']}
               />
               <Bar 
                 dataKey="orders" 

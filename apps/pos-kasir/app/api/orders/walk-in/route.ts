@@ -126,8 +126,8 @@ export async function POST(request: Request) {
     }
 
     const quantity = Number(reqItem.quantity)
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
-      return NextResponse.json({ error: `Jumlah untuk "${menuItem.name}" harus 1-10` }, { status: 400 })
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return NextResponse.json({ error: `Jumlah untuk "${menuItem.name}" minimal 1` }, { status: 400 })
     }
 
     let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)

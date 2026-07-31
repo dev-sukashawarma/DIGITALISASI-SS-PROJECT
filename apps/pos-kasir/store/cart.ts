@@ -43,11 +43,11 @@ export const useCart = create<CartStore>()(
           )
           if (existingIndex >= 0) {
             newCartItemId = state.items[existingIndex].cartItemId
-            const newItems = [...state.items]
+            const newItems = [...state.items];
             newItems[existingIndex] = {
               ...newItems[existingIndex],
-              quantity: Math.min(newItems[existingIndex].quantity + quantity, 10),
-            }
+              quantity: newItems[existingIndex].quantity + quantity,
+            };
             return { items: newItems }
           }
           newCartItemId = crypto.randomUUID()
@@ -77,7 +77,7 @@ export const useCart = create<CartStore>()(
             const toRemove = new Set([cartItemId, ...childrenToRemove]);
             return { items: state.items.filter((i) => !toRemove.has(i.cartItemId)) }
           }
-          const newQty = Math.min(quantity, 10);
+          const newQty = Math.max(1, quantity);
           return {
             items: state.items.map((i) => {
               if (i.cartItemId === cartItemId) {

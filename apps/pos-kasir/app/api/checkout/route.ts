@@ -119,9 +119,9 @@ export async function POST(request: Request) {
     }
 
     const quantity = Number(reqItem.quantity)
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+    if (!Number.isInteger(quantity) || quantity < 1) {
       return NextResponse.json(
-        { error: `Jumlah untuk "${menuItem.name}" harus antara 1-10` },
+        { error: `Jumlah untuk "${menuItem.name}" minimal 1` },
         { status: 400 }
       )
     }

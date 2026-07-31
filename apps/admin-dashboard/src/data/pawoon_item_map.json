@@ -284,6 +284,10 @@
     "BEST SELLER Triple Seru": {
       "system_id": "baa653b9-257f-476c-8639-279fee2db560",
       "name": "TRIPLE SERU"
+    },
+    "Custom Amount": {
+      "system_id": "c3ed7b19-d6e4-49a8-b927-cc895df61be1",
+      "system_name": "Custom Amount"
     }
   }
 }

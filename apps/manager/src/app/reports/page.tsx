@@ -145,24 +145,24 @@ export default async function ReportsPage({
 
   // Aggregate the data
   const completedOrders = (ordersData || []).filter((o: any) => o.status === 'completed');
-  const totalRevenue = completedOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0);
-  
+
+  // total_amount tersimpan SUDAH net (checkout/walk-in/manual sudah mengurangi
+  // discount_amount & promo_subsidy sebelum insert) — jangan dikurangi lagi di sini.
+  const netRevenue = completedOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0);
+
+  // Total Potongan: hanya deduksi yang benar-benar tercatat di order (diskon order-level
+  // & subsidi promo Food Apps). Diskon per-item yang dibakar langsung ke unit_price saat
+  // checkout tidak tercatat di kolom manapun, jadi tidak bisa direkonstruksi di sini.
   const totalDeductions = completedOrders.reduce((s: number, o: any) => {
-    const disc = Number(o.discount_amount) || 0;
-    const promo = Number(o.promo_subsidy) || 0;
-    if (disc > 0 || promo > 0) {
-      return s + disc + promo;
-    }
-    const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0);
-    const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0;
-    return s + itemDiff;
+    return s + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
   }, 0);
 
-  const netRevenue = Math.max(0, totalRevenue - totalDeductions);
+  // Omzet Kotor = net + deduksi yang tercatat (batas atas terbaik dari data yang tersedia).
+  const totalRevenue = netRevenue + totalDeductions;
   const totalOrders = completedOrders.length;
   const pendingCount = (ordersData || []).filter((o: any) => o.status === 'pending').length;
   const canceledCount = (ordersData || []).filter((o: any) => o.status === 'cancelled').length;
-  const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+  const avgOrderValue = totalOrders > 0 ? Math.round(netRevenue / totalOrders) : 0;
 
   const paymentBreakdown: Record<string, { count: number; revenue: number }> = {};
   const hourly = Array(24).fill(0);

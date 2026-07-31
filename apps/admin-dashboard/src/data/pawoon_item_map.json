@@ -288,6 +288,10 @@
     "Custom Amount": {
       "system_id": "08a57f8f-f212-4205-a3eb-fb88066ae1b8",
       "system_name": "Ice Tea"
+    },
+    "SUKA PREMIUS KRISPY": {
+      "system_id": "80ccdb39-5a87-4826-a71b-218f3e1b0eac",
+      "name": "SUKA PREMIUS CRISPY"
     }
   }
 }

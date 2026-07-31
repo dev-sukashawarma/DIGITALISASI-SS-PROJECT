@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computePosReportKpi } from './posReportKpi'
+import { computePosReportKpi, computeNetRevenueVoidAware } from './posReportKpi'
 
 // Aturan bisnis (owner, 2026-07-31):
 //   Gross Revenue = omzet SEBELUM dipotong apa pun
@@ -32,5 +32,39 @@ describe('computePosReportKpi', () => {
     const kpi = computePosReportKpi(1_000_000, 0, 400_000)
     expect(kpi.grossRevenue).toBe(1_000_000)
     expect(kpi.grossProfit).toBe(600_000)
+  })
+})
+
+// Kasus nyata: EMPANG 24 Juli 2026 (76 completed + 1 void, struk P7KY2P6LD8NY7
+// Rp94.000). Sebelum perbaikan, Gross Revenue menampilkan Rp4.015.000 (void
+// tidak mengurangi apa pun). Angka yang benar (NET, konsisten dgn halaman Laba
+// Kotor) adalah Rp3.921.000.
+describe('computeNetRevenueVoidAware', () => {
+  it('mengurangi omset dengan total_amount order cancelled', () => {
+    const orders = [
+      { status: 'completed', total_amount: 4_015_000 },
+      { status: 'cancelled', total_amount: 94_000 },
+    ]
+    expect(computeNetRevenueVoidAware(orders)).toBe(3_921_000)
+  })
+
+  it('mengabaikan status selain completed/cancelled', () => {
+    const orders = [
+      { status: 'completed', total_amount: 100_000 },
+      { status: 'pending', total_amount: 999_999 },
+    ]
+    expect(computeNetRevenueVoidAware(orders)).toBe(100_000)
+  })
+
+  it('tanpa order cancelled, hasilnya sama seperti sum completed biasa', () => {
+    const orders = [
+      { status: 'completed', total_amount: 50_000 },
+      { status: 'completed', total_amount: 30_000 },
+    ]
+    expect(computeNetRevenueVoidAware(orders)).toBe(80_000)
+  })
+
+  it('array kosong menghasilkan 0', () => {
+    expect(computeNetRevenueVoidAware([])).toBe(0)
   })
 })

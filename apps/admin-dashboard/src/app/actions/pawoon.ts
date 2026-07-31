@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { requireRole } from '@/lib/authz';
 import { pawoonMenuOrderIndex } from '@/lib/pawoonMenuOrder';
+import { resolvePawoonProductRow } from '@/lib/pawoonProduct';
 
 // Setup Supabase (Server side)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -38,6 +39,13 @@ export async function previewPawoonFile(formData: FormData) {
             itemMap = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
         } else {
             return { success: false, error: "Mapping file not found" };
+        }
+
+        // Load cutoffs
+        const cutoffsPath = path.join(process.cwd(), 'src', 'data', 'outlet_system_start_dates.json');
+        let cutoffMap: Record<string, string> = {};
+        if (fs.existsSync(cutoffsPath)) {
+            cutoffMap = JSON.parse(fs.readFileSync(cutoffsPath, 'utf8'));
         }
 
         // Load outlets
@@ -96,7 +104,18 @@ export async function previewPawoonFile(formData: FormData) {
             // We now process ALL statuses, especially 'Void' which contains negative values
             
             let productName = row[colIdx.product] ? row[colIdx.product].toString().trim() : '';
-            if (!productName || productName.startsWith('+')) continue; 
+
+            // Modifier gratis dibuang, modifier BERBAYAR (mis. " + EXTRA KEJU")
+            // diproses sebagai item — nilainya sudah ikut di kolom Total struk,
+            // jadi membuangnya membuat order_items lebih kecil dari total_amount.
+            // Lihat src/lib/pawoonProduct.ts untuk bukti & angkanya.
+            const rowDecision = resolvePawoonProductRow(
+                productName,
+                parseFloat(row[colIdx.price]) || 0,
+                parseInt(row[colIdx.qty]) || 1
+            );
+            if (rowDecision.action === 'skip') continue;
+            productName = rowDecision.lookupName;
 
             const rawOutlet = row[colIdx.outlet] ? row[colIdx.outlet].toString().trim() : '';
             let normalOutlet = rawOutlet.toLowerCase().replace('suka shawarma ', '').replace('mitra ', '').trim();
@@ -251,7 +270,7 @@ export async function previewPawoonFile(formData: FormData) {
                 itemSalesTracker[systemName] = { systemName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0, offlineCompleted: 0, food_appsCompleted: 0, tiktokCompleted: 0 };
             }
             if (salesSourceTag === 'pos') itemSalesTracker[systemName].offline += qty;
-            else if (salesSourceTag === 'grabfood') itemSalesTracker[systemName].food_apps += qty;
+            else if (['grabfood', 'gofood', 'shopeefood'].includes(salesSourceTag)) itemSalesTracker[systemName].food_apps += qty;
             else if (salesSourceTag === 'tiktokgo') itemSalesTracker[systemName].tiktok += qty;
 
             itemSalesTracker[systemName].totalRevenue += (qty * price);
@@ -268,14 +287,29 @@ export async function previewPawoonFile(formData: FormData) {
         
         // Find existing orders to skip or update
         let existingReceiptsMap = new Map<string, string>(); // receipt -> db order id
-        const batchSize = 100;
+        // batchSize 200, JANGAN dinaikkan lagi.
+        // `.in()` menaruh seluruh daftar ID di query string. Dengan 1.000 ID URL-nya
+        // terlalu panjang dan request-nya gagal (`TypeError: fetch failed`).
+        // Diukur 2026-07-31 pada file EMPANG 1.688 struk: batch 1.000 → 1 dari 2
+        // batch gagal, duplikat terdeteksi 688 (seharusnya 1.493); batch 500 & 200
+        // → 0 gagal, 1.493 tepat.
+        const batchSize = 200;
         const receiptsArr = Array.from(ordersMap.keys());
-        
+
         for (let i = 0; i < receiptsArr.length; i += batchSize) {
             const batch = receiptsArr.slice(i, i + batchSize);
-            const { data: existing } = await supabase.from('orders')
+            const { data: existing, error: existErr } = await supabase.from('orders')
                 .select('id, external_order_id, status')
                 .in('external_order_id', batch);
+            // WAJIB diperiksa. Versi lama hanya membaca `data`, sehingga batch yang
+            // gagal lolos tanpa jejak dan struk yang SUDAH ada dianggap baru —
+            // lalu insert-nya ditolak unique index dan seluruh proses simpan gagal.
+            if (existErr) {
+                return {
+                    success: false,
+                    error: `Gagal memeriksa duplikat (batch ${i / batchSize + 1} dari ${Math.ceil(receiptsArr.length / batchSize)}): ${existErr.message}. Preview dihentikan agar tidak menyimpan data dobel.`
+                };
+            }
             if (existing) {
                 existing.forEach(o => existingReceiptsMap.set(o.external_order_id, o.id));
             }
@@ -286,6 +320,8 @@ export async function previewPawoonFile(formData: FormData) {
         const itemsToInsert: any[] = [];
         const ordersToVoid: string[] = []; // DB order IDs that need to be updated to cancelled
         let duplicateCount = 0;
+        let postSystemSkippedCount = 0;
+        let postSystemSkippedOmset = 0;
         
         // --- Calculate Summary for ALL DATA (Raw Excel File) ---
         let totalOmset = 0;
@@ -297,6 +333,8 @@ export async function previewPawoonFile(formData: FormData) {
             transactionsCount: number,
             totalOmset: number,
             totalOmsetGross: number,
+            totalVoids: number,
+            totalOmsetVoid: number,
             itemSalesTrackerMap: Record<string, { systemName: string, offline: number, food_apps: number, tiktok: number, totalRevenue: number }>
         }> = {};
 
@@ -341,8 +379,11 @@ export async function previewPawoonFile(formData: FormData) {
                 summaryByDate[dateKey] = {
                     date: dateKey,
                     transactionsCount: 0,
+                    duplicatesSkipped: 0,
                     totalOmset: 0,
                     totalOmsetGross: 0,
+                    totalVoids: 0,
+                    totalOmsetVoid: 0,
                     itemSalesTrackerMap: {}
                 };
             }
@@ -355,7 +396,19 @@ export async function previewPawoonFile(formData: FormData) {
                 dateFinalTotal = order.raw_total;
             }
             summaryByDate[dateKey].totalOmset += dateFinalTotal;
-            
+
+            // Void PER TANGGAL — rumusnya harus identik dengan totalOmsetVoid global
+            // di atas. Tanpa ini, kartu ringkasan menghitung
+            // `totalOmsetGross - (totalOmsetVoid || 0)` dan jatuh ke 0 saat sebuah
+            // tanggal dipilih, sehingga void tidak pernah dikurangkan dan angkanya
+            // tidak cocok dengan Grand Total Excel (kasus nyata: EMPANG 1 Juli 2026,
+            // void Rp 38.000, kartu 5.613.500 vs Excel 5.575.500).
+            if (isCancelled && !isRefund) {
+                summaryByDate[dateKey].totalVoids++;
+                summaryByDate[dateKey].totalOmsetVoid +=
+                    (order.raw_total !== 0) ? Math.abs(order.raw_total) : order.gross_amount;
+            }
+
             if (isCompleted) {
                 summaryByDate[dateKey].totalOmsetGross += order.raw_total;
             }
@@ -399,7 +452,21 @@ export async function previewPawoonFile(formData: FormData) {
                 }
             });
 
-            if (!existingReceipts.has(receipt)) {
+            const cutoffDate = cutoffMap[order.outlet_id];
+            const isPostSystem = cutoffDate && dateKey >= cutoffDate;
+
+            if (isPostSystem) {
+                // Do not add to ordersToInsert, but we still tracked it in summaryByDate for preview
+                postSystemSkippedCount++;
+                summaryByDate[dateKey].postSystemCount =
+                    (summaryByDate[dateKey].postSystemCount || 0) + 1;
+                if (isCompleted) {
+                    postSystemSkippedOmset += order.raw_total;
+                }
+                
+                // If it's post-system, we do not want to void it either because it shouldn't have been synced in the first place,
+                // but just in case it was synced manually, we don't do anything to it here.
+            } else if (!existingReceipts.has(receipt)) {
                 const { items, gross_amount, _hasExplicitTotal, raw_total, _isRefund, ...orderData } = order;
                 ordersToInsert.push(orderData);
                 // Remove _systemName before insert
@@ -407,6 +474,7 @@ export async function previewPawoonFile(formData: FormData) {
                 itemsToInsert.push(...items);
             } else {
                 duplicateCount++;
+                summaryByDate[dateKey].duplicatesSkipped++;
                 // If the order already exists in DB but is now void/cancelled in Excel → flag for update
                 if ((isCancelled || isRefund)) {
                     const dbOrderId = existingReceiptsMap.get(receipt);
@@ -415,10 +483,57 @@ export async function previewPawoonFile(formData: FormData) {
             }
         });
 
+        // Isi tanggal yang KOSONG di Pawoon (tidak ada baris sama sekali) di antara
+        // tanggal pertama & terakhir yang ADA di file — sebelumnya tanggal-tanggal
+        // ini tidak pernah dapat entry `summaryByDate`, sehingga:
+        //   1. Tidak muncul di dropdown Filter Tanggal sama sekali (tidak bisa
+        //      dipilih untuk validasi).
+        //   2. Data "Data Sistem Saat Ini" untuk tanggal itu DIBUANG — query
+        //      overlap di bawah SUDAH menariknya dari DB, tapi guard
+        //      `if (summaryByDate[localDateStr])` menolaknya karena key belum ada.
+        // Contoh nyata: EMPANG DTP 1-30.xls hanya punya baris utk 1-20, 24, 29 —
+        // tanggal 21/22/23/25/26/27/28 hilang total dari preview meski mungkin
+        // ada aktivitas sistem yang perlu dibandingkan.
+        {
+            const existingDates = Object.keys(summaryByDate).sort();
+            if (existingDates.length > 1) {
+                const first = new Date(existingDates[0] + 'T00:00:00Z');
+                const last = new Date(existingDates[existingDates.length - 1] + 'T00:00:00Z');
+                for (let d = new Date(first); d <= last; d.setUTCDate(d.getUTCDate() + 1)) {
+                    const key = d.toISOString().slice(0, 10);
+                    if (!summaryByDate[key]) {
+                        summaryByDate[key] = {
+                            date: key,
+                            transactionsCount: 0,
+                            duplicatesSkipped: 0,
+                            totalOmset: 0,
+                            totalOmsetGross: 0,
+                            totalVoids: 0,
+                            totalOmsetVoid: 0,
+                            itemSalesTrackerMap: {}
+                        };
+                    }
+                }
+            }
+        }
+
         // --- Calculate System Overlap (Data Overlap Detection) ---
         const datesInFile = Object.keys(summaryByDate).sort();
         const outletIdsInFile = Array.from(new Set(Array.from(ordersMap.values()).map(o => o.outlet_id).filter(id => id)));
         
+        // Keterangan cutoff per outlet yang ada di file — supaya user tahu PERSIS
+        // tanggal mana yang jadi batas, bukan cuma diberi tahu "ada yang di-skip".
+        // cutoffDate null = outlet belum punya entri di outlet_system_start_dates.json,
+        // artinya TIDAK ADA perlindungan duplikasi untuk outlet itu.
+        const outletNameById = new Map<string, string>(
+            (outletsData || []).map((o: any) => [o.id, o.name])
+        );
+        const cutoffs = outletIdsInFile.map((id: string) => ({
+            outletId: id,
+            outletName: outletNameById.get(id) || id,
+            cutoffDate: cutoffMap[id] || null,
+        }));
+
         let totalOverlapCount = 0;
         let totalOverlapOmset = 0;
         
@@ -426,15 +541,53 @@ export async function previewPawoonFile(formData: FormData) {
             const minDate = datesInFile[0];
             const maxDate = datesInFile[datesInFile.length - 1];
             
+            const { data: menuItemsData } = await supabase.from('menu_items').select('id, name');
+            const menuItemsMap = new Map<string, string>();
+            if (menuItemsData) {
+                menuItemsData.forEach((m: any) => menuItemsMap.set(m.id, m.name));
+            }
+
             // Note: date keys are YYYY-MM-DD local time, but created_at is ISO string UTC
             // So we use a rough bound that covers the local days.
-            const { data: systemSales } = await supabase
-                .from('orders')
-                .select('created_at, total_amount, status')
-                .in('outlet_id', outletIdsInFile)
-                .gte('created_at', `${minDate}T00:00:00`)
-                .lte('created_at', `${maxDate}T23:59:59`);
-                
+            // "Overlap Sistem" = data yang diinput lewat SISTEM SENDIRI (kasir manual,
+            // online, kiosk) pada tanggal yang sama dengan file — gunanya membandingkan
+            // omset Pawoon vs input manual.
+            //
+            // DUA HAL YANG DULU SALAH DI SINI:
+            // 1. Hasil import Pawoon sendiri ikut terhitung sebagai "sistem", sehingga
+            //    tanggal yang outletnya masih 100% pakai Pawoon tetap tampil punya
+            //    "data sistem" (kasus EMPANG 8 Juli 2026: 115 order di DB, SEMUANYA
+            //    hasil import Pawoon, 0 input manual). Karena itu di-exclude di sini.
+            //    Pakai .or(...) — bukan .neq() — sebab order manual boleh ber-customer_name
+            //    NULL, dan `NULL <> 'Pawoon Import'` di SQL bernilai NULL (ikut terbuang).
+            // 2. `.limit(10000)` tidak berpengaruh: PostgREST memotong di `max-rows`
+            //    (1.000). Untuk file sebulan, sebagian besar tanggal jadi tercacah
+            //    separuh — itu sebab angka overlap tak pernah cocok dengan halaman
+            //    Laporan. Diganti pagination `.range()` sampai habis.
+            const pageSize = 1000;
+            const systemSales: any[] = [];
+            for (let from = 0; ; from += pageSize) {
+                const { data: page, error: pageErr } = await supabase
+                    .from('orders')
+                    .select('id, created_at, total_amount, status, order_items(menu_item_name, quantity, subtotal, channel, package_choices)')
+                    .in('outlet_id', outletIdsInFile)
+                    .or('customer_name.is.null,customer_name.neq.Pawoon Import')
+                    .gte('created_at', `${minDate}T00:00:00+07:00`)
+                    .lte('created_at', `${maxDate}T23:59:59.999+07:00`)
+                    .order('created_at', { ascending: true })
+                    .range(from, from + pageSize - 1);
+
+                if (pageErr) {
+                    return {
+                        success: false,
+                        error: `Gagal membaca data sistem untuk deteksi overlap: ${pageErr.message}`
+                    };
+                }
+                if (!page || page.length === 0) break;
+                systemSales.push(...page);
+                if (page.length < pageSize) break;
+            }
+
             if (systemSales) {
                 // Group by local date string
                 systemSales.forEach(sale => {
@@ -451,13 +604,67 @@ export async function previewPawoonFile(formData: FormData) {
                     
                     if (summaryByDate[localDateStr]) {
                         if (!summaryByDate[localDateStr].systemOverlap) {
-                            summaryByDate[localDateStr].systemOverlap = { count: 0, total: 0 };
+                            summaryByDate[localDateStr].systemOverlap = { 
+                                count: 0, 
+                                total: 0,
+                                itemSalesTrackerMap: {}
+                            };
                         }
                         summaryByDate[localDateStr].systemOverlap.count++;
                         summaryByDate[localDateStr].systemOverlap.total += Number(sale.total_amount);
                         
                         totalOverlapCount++;
                         totalOverlapOmset += Number(sale.total_amount);
+                        
+                        // Aggregate item sales
+                        if (sale.order_items && Array.isArray(sale.order_items)) {
+                            sale.order_items.forEach((item: any) => {
+                                let sName = item.menu_item_name || 'Unknown Item';
+                                // Clean up names like "Extra Keju|ID|xxx" or "Menu|PARENT|yyy"
+                                sName = sName.split('|')[0].trim();
+                                
+                                const trackItem = (name: string, qty: number, subtotal: number, channel: string) => {
+                                    if (!summaryByDate[localDateStr].systemOverlap.itemSalesTrackerMap[name]) {
+                                        summaryByDate[localDateStr].systemOverlap.itemSalesTrackerMap[name] = {
+                                            systemName: name,
+                                            offline: 0, food_apps: 0, tiktok: 0,
+                                            totalRevenue: 0, offlineCompleted: 0, food_appsCompleted: 0, tiktokCompleted: 0
+                                        };
+                                    }
+                                    
+                                    if (channel === 'offline' || !channel) {
+                                        summaryByDate[localDateStr].systemOverlap.itemSalesTrackerMap[name].offline += qty;
+                                        summaryByDate[localDateStr].systemOverlap.itemSalesTrackerMap[name].offlineCompleted += qty;
+                                    } else if (channel === 'food_apps') {
+                                        summaryByDate[localDateStr].systemOverlap.itemSalesTrackerMap[name].food_apps += qty;
+                                        summaryByDate[localDateStr].systemOverlap.itemSalesTrackerMap[name].food_appsCompleted += qty;
+                                    } else if (channel === 'tiktok_go') {
+                                        summaryByDate[localDateStr].systemOverlap.itemSalesTrackerMap[name].tiktok += qty;
+                                        summaryByDate[localDateStr].systemOverlap.itemSalesTrackerMap[name].tiktokCompleted += qty;
+                                    }
+                                    
+                                    summaryByDate[localDateStr].systemOverlap.itemSalesTrackerMap[name].totalRevenue += subtotal;
+                                };
+
+                                const qty = Number(item.quantity) || 0;
+                                const subtotal = Number(item.subtotal) || 0;
+                                
+                                // Track the main item
+                                trackItem(sName, qty, subtotal, item.channel);
+                                
+                                // Track addons from package_choices
+                                if (item.package_choices && typeof item.package_choices === 'object') {
+                                    Object.values(item.package_choices).forEach((choiceId: any) => {
+                                        const choiceName = menuItemsMap.get(choiceId);
+                                        if (choiceName) {
+                                            // Addons within package_choices typically don't have separate subtotals here
+                                            // They just inherit the quantity of the parent item
+                                            trackItem(choiceName, qty, 0, item.channel);
+                                        }
+                                    });
+                                }
+                            });
+                        }
                     }
                 });
             }
@@ -473,6 +680,9 @@ export async function previewPawoonFile(formData: FormData) {
                 totalVoids: totalVoids,
                 totalOmsetVoid: totalOmsetVoid,
                 duplicatesSkipped: duplicateCount,
+                postSystemSkippedCount: postSystemSkippedCount,
+                postSystemSkippedOmset: postSystemSkippedOmset,
+                cutoffs: cutoffs,
                 transactionsToInsert: ordersToInsert.length,
                 voidStatusUpdates: ordersToVoid.length,
                 totalOmset: totalOmset,
@@ -480,14 +690,28 @@ export async function previewPawoonFile(formData: FormData) {
                 totalOverlapCount: totalOverlapCount,
                 totalOverlapOmset: totalOverlapOmset,
                 itemSalesTracker: Object.values(itemSalesTracker).sort(sortByMenuOrder),
-                byDate: Object.values(summaryByDate).map(d => ({
-                    date: d.date,
-                    transactionsCount: d.transactionsCount,
-                    totalOmset: d.totalOmset,
-                    totalOmsetGross: d.totalOmsetGross,
-                    systemOverlap: (d as any).systemOverlap || null,
-                    itemSalesTracker: Object.values(d.itemSalesTrackerMap).sort(sortByMenuOrder)
-                })),
+                byDate: Object.values(summaryByDate).map(d => {
+                    let sysOverlap = (d as any).systemOverlap || null;
+                    if (sysOverlap && sysOverlap.itemSalesTrackerMap) {
+                        sysOverlap = {
+                            count: sysOverlap.count,
+                            total: sysOverlap.total,
+                            itemSalesTracker: Object.values(sysOverlap.itemSalesTrackerMap).sort(sortByMenuOrder)
+                        };
+                    }
+                    return {
+                        date: d.date,
+                        transactionsCount: d.transactionsCount,
+                        duplicatesSkipped: (d as any).duplicatesSkipped || 0,
+                        totalOmset: d.totalOmset,
+                        totalOmsetGross: d.totalOmsetGross,
+                        totalVoids: d.totalVoids,
+                        totalOmsetVoid: d.totalOmsetVoid,
+                        postSystemCount: (d as any).postSystemCount || 0,
+                        systemOverlap: sysOverlap,
+                        itemSalesTracker: Object.values(d.itemSalesTrackerMap).sort(sortByMenuOrder)
+                    };
+                }),
             },
             data: {
                 orders: ordersToInsert,
@@ -591,6 +815,164 @@ export async function updatePawoonMapping(newMappings: Record<string, string>) {
 
         fs.writeFileSync(mapPath, JSON.stringify(mapData, null, 4));
         return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function getOutletsForClear() {
+    try {
+        await requireRole(['admin', 'owner']);
+        const { data, error } = await supabase
+            .from('outlets')
+            .select('id, name')
+            .order('name');
+            
+        if (error) throw error;
+        return { success: true, outlets: data };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Hitung berapa order yang AKAN dihapus oleh `clearPawoonDataForOutlet` dengan
+ * parameter yang sama persis — dipakai UI untuk menampilkan angka sebelum user
+ * mengonfirmasi. Read-only.
+ */
+export async function countPawoonDataForOutlet(
+    outletId: string,
+    dateFrom?: string,
+    dateTo?: string
+) {
+    if (!outletId) return { success: false, error: 'Outlet ID is required' };
+    try {
+        await requireRole(['admin', 'owner']);
+
+        let q = supabase
+            .from('orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('outlet_id', outletId)
+            .eq('customer_name', 'Pawoon Import')
+            .not('external_order_id', 'is', null);
+        if (dateFrom) q = q.gte('created_at', `${dateFrom}T00:00:00+07:00`);
+        if (dateTo) q = q.lte('created_at', `${dateTo}T23:59:59.999+07:00`);
+
+        const { count, error } = await q;
+        if (error) throw error;
+        return { success: true, count: count ?? 0 };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Hapus order hasil import Pawoon untuk 1 outlet.
+ *
+ * `dateFrom`/`dateTo` (YYYY-MM-DD, waktu Asia/Jakarta) bersifat opsional dan
+ * membatasi penghapusan ke rentang tanggal tertentu — use case aslinya adalah
+ * membuang hari-hari yang OVERLAP dengan input manual kasir, bukan membuang
+ * seluruh riwayat import outlet tersebut. Tanpa rentang, perilakunya tetap
+ * seperti semula (hapus semua).
+ */
+export async function clearPawoonDataForOutlet(
+    outletId: string,
+    dateFrom?: string,
+    dateTo?: string
+) {
+    if (!outletId) return { success: false, error: 'Outlet ID is required' };
+
+    try {
+        // DELETE destruktif dengan service-role client (bypass RLS) — 'use server'
+        // bukan berarti privat, lihat komentar di @/lib/authz.
+        await requireRole(['admin', 'owner']);
+
+        const isDateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+        if (dateFrom && !isDateOnly(dateFrom)) return { success: false, error: 'Format dateFrom harus YYYY-MM-DD' };
+        if (dateTo && !isDateOnly(dateTo)) return { success: false, error: 'Format dateTo harus YYYY-MM-DD' };
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            return { success: false, error: 'dateFrom tidak boleh setelah dateTo' };
+        }
+
+        // created_at ditulis dengan offset +07:00 saat import, jadi batas rentang
+        // juga harus eksplisit +07:00 — kalau tidak, transaksi di sekitar tengah
+        // malam ikut/lolos secara tak terduga.
+        // FILTER KESELAMATAN — jangan pernah dilonggarkan.
+        // `customer_name` saja sudah memisahkan 21.002 order Pawoon dari data lain
+        // (audit 2026-07-31: 0 order Pawoon yang tanpa external_order_id), tapi
+        // nama customer bisa saja diketik manual oleh kasir. `external_order_id
+        // IS NOT NULL` adalah pagar kedua: order yang diinput manual TIDAK PERNAH
+        // punya kolom ini terisi, jadi mustahil ikut terhapus.
+        const withFilters = (q: any) => {
+            q = q
+                .eq('outlet_id', outletId)
+                .eq('customer_name', 'Pawoon Import')
+                .not('external_order_id', 'is', null);
+            if (dateFrom) q = q.gte('created_at', `${dateFrom}T00:00:00+07:00`);
+            if (dateTo) q = q.lte('created_at', `${dateTo}T23:59:59.999+07:00`);
+            return q;
+        };
+
+        // AMBIL-LALU-HAPUS BERULANG sampai tidak ada sisa.
+        //
+        // JANGAN diubah jadi "sekali SELECT semua id lalu hapus": PostgREST
+        // memotong hasil SELECT di `max-rows` (1.000 di proyek ini) dan batas itu
+        // TIDAK bisa dilampaui dengan .limit() dari client. Versi sebelumnya
+        // karena itu berhenti tepat di 1.000 baris dan melaporkannya sebagai
+        // sukses — outlet EMPANG tersisa 688 order yang tidak ikut terhapus
+        // (kejadian nyata 2026-07-31).
+        //
+        // Karena tiap putaran menghapus baris yang baru saja diambil, halaman
+        // berikutnya selalu diambil dari sisa yang belum terhapus — tidak perlu
+        // offset, dan tidak ada baris yang terlewat.
+        const pageSize = 500;
+        const maxLoops = 500; // pagar anti-loop-tak-berujung (maks 250.000 order)
+        let deleted = 0;
+
+        for (let loop = 0; loop < maxLoops; loop++) {
+            const { data: page, error: fetchError } = await withFilters(
+                supabase.from('orders').select('id').limit(pageSize)
+            );
+            if (fetchError) {
+                throw new Error(`Gagal membaca data (setelah ${deleted} order terhapus): ${fetchError.message}`);
+            }
+            if (!page || page.length === 0) {
+                return { success: true, count: deleted };
+            }
+
+            const chunk = page.map(o => o.id);
+
+            // withFilters tetap dipasang walau id-nya sudah hasil filter — supaya
+            // tidak ada jalur hapus yang lolos tanpa pagar keselamatan.
+            const { error: deleteError } = await withFilters(
+                supabase.from('orders').delete().in('id', chunk)
+            );
+
+            if (deleteError) {
+                // Fallback: manual cascade if foreign key prevents delete
+                if (deleteError.code === '23503') {
+                    await supabase.from('order_items').delete().in('order_id', chunk);
+                    const { error: retryError } = await withFilters(
+                        supabase.from('orders').delete().in('id', chunk)
+                    );
+                    if (retryError) {
+                        throw new Error(`Gagal menghapus setelah ${deleted} order terhapus: ${retryError.message}`);
+                    }
+                } else {
+                    throw new Error(`Gagal menghapus setelah ${deleted} order terhapus: ${deleteError.message}`);
+                }
+            }
+
+            deleted += chunk.length;
+        }
+
+        // Sampai di sini = pagar loop tercapai, masih mungkin ada sisa.
+        return {
+            success: true,
+            count: deleted,
+            incomplete: true,
+            message: `${deleted} order terhapus, tetapi batas pengaman tercapai. Jalankan sekali lagi untuk menghapus sisanya.`
+        };
     } catch (err: any) {
         return { success: false, error: err.message };
     }

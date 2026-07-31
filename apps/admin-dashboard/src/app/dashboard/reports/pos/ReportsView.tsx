@@ -13,7 +13,7 @@ import OrderSourceBadge from '@/components/OrderSourceBadge'
 import { resolveOrderSource } from '@/lib/order-source'
 import GoogleSheetsSettingsModal from '@/components/GoogleSheetsSettingsModal'
 import { useHppByChannel } from '@/hooks/useHppByChannel'
-import { computePosReportKpi } from '@/lib/posReportKpi'
+import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReportKpi'
 
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
@@ -366,8 +366,13 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
     const completed = filteredOrders.filter(o => o.status === 'completed')
     const totalOrders = completed.length
-    // o.total_amount adalah nilai net yang dibayarkan customer setelah diskon
-    const actualNetRevenue = completed.reduce((s, o) => s + Number(o.total_amount), 0)
+    // NET methodology (konsisten dengan halaman Laba Kotor, keputusan owner
+    // 2026-07-29): order completed ditambah, order cancelled (void) DIKURANGKAN.
+    // Cakupan lain di halaman ini (jumlah item terjual, best seller, breakdown
+    // pembayaran) SENGAJA tetap completed-only untuk saat ini — hanya kartu
+    // Gross Revenue/Gross Profit yang diperbaiki (2026-07-31, kasus EMPANG
+    // 24 Juli: void P7KY2P6LD8NY7 Rp94.000 dulu tidak mengurangi apa pun).
+    const actualNetRevenue = computeNetRevenueVoidAware(filteredOrders)
 
     // Hitung total selisih laci (variance) dari tutup shift
     const totalCashVariance = shifts.reduce((s, shift) => s + (shift.variance || 0), 0)
@@ -446,10 +451,14 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       })
       .reduce((sum, r) => sum + r.hpp, 0)
 
-    // CATATAN: Void Pawoon sudah disimpan dengan status='cancelled', sehingga SUDAH
-    // excluded dari actualNetRevenue (yang hanya menghitung status='completed').
-    // Tidak perlu deduksi tambahan — kalau dikurangi lagi = double-subtraction
-    // yang menyebabkan revenue laporan kurang sebesar total void (contoh Cibubur: Rp118.000).
+    // CATATAN (diperbarui 2026-07-31): actualNetRevenue SUDAH menghitung void
+    // (lihat computeNetRevenueVoidAware di atas) — JANGAN kurangi void lagi di
+    // sini, itu akan jadi double-subtract. Sebelum perbaikan 2026-07-31, void
+    // hanya di-exclude (bukan dikurangkan), sehingga kartu Gross Revenue lebih
+    // besar dari yang seharusnya (contoh: EMPANG 24 Juli, void Rp94.000 tidak
+    // pernah mengurangi Rp4.015.000). Riwayat sebelum itu: ada bug SEBALIKNYA
+    // (double-subtract) yang membuat revenue kurang sebesar total void — contoh
+    // Cibubur Rp118.000 — jadi dua arah kesalahan ini sama-sama pernah terjadi.
     const netRevenue = actualNetRevenue
 
     // Aturan bisnis (owner, 2026-07-31):

@@ -23,6 +23,31 @@ export interface PosReportKpi {
   grossProfit: number
 }
 
+/** Order minimal yang dibutuhkan {@link computeNetRevenueVoidAware}. */
+export interface RevenueOrder {
+  status: string
+  total_amount: number
+}
+
+/**
+ * Omset NET: order `completed` ditambah, order `cancelled` (void) DIKURANGKAN
+ * — bukan di-exclude total. Status selain keduanya (mis. `pending`) diabaikan.
+ *
+ * Konsisten dengan halaman Laba Kotor (`pawoon-import/profit/page.tsx`), yang
+ * memakai metodologi ini sejak keputusan owner 2026-07-29 supaya angkanya
+ * cocok dengan Grand Total Excel Pawoon. Sebelum perbaikan ini, kartu Gross
+ * Revenue di halaman Laporan POS mengecualikan order cancelled sepenuhnya
+ * (bukan menguranginya) — konfirmasi 2026-07-31 (EMPANG 24 Juli: order void
+ * P7KY2P6LD8NY7 Rp94.000 tidak pernah mengurangi Rp4.015.000).
+ */
+export function computeNetRevenueVoidAware(orders: RevenueOrder[]): number {
+  return orders.reduce((sum, o) => {
+    if (o.status === 'completed') return sum + Number(o.total_amount)
+    if (o.status === 'cancelled') return sum - Number(o.total_amount)
+    return sum
+  }, 0)
+}
+
 export function computePosReportKpi(
   netRevenue: number,
   totalDeductions: number,

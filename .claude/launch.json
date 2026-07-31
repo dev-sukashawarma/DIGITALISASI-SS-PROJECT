@@ -26,6 +26,12 @@
       "port": 3003
     },
     {
+      "name": "admin-dashboard",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["workspace", "@suka/admin-dashboard", "dev"],
+      "port": 3005
+    },
+    {
       "name": "finance",
       "runtimeExecutable": "yarn",
       "runtimeArgs": ["workspace", "@suka/finance", "dev"],

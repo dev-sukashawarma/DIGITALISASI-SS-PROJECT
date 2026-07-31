@@ -13,6 +13,7 @@ import OrderSourceBadge from '@/components/OrderSourceBadge'
 import { resolveOrderSource } from '@/lib/order-source'
 import GoogleSheetsSettingsModal from '@/components/GoogleSheetsSettingsModal'
 import { useHppByChannel } from '@/hooks/useHppByChannel'
+import { computePosReportKpi } from '@/lib/posReportKpi'
 
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
@@ -451,16 +452,18 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     // yang menyebabkan revenue laporan kurang sebesar total void (contoh Cibubur: Rp118.000).
     const netRevenue = actualNetRevenue
 
-    // "grossRevenue" di sini SEBENARNYA net (= actualNetRevenue), BUKAN gross
-    // sebelum promo/diskon — namanya dipertahankan sengaja karena identik
-    // dengan Grand Total di Pawoon Dashboard, dipakai untuk rekonsiliasi.
+    // Aturan bisnis (owner, 2026-07-31):
+    //   Gross Revenue = omzet SEBELUM dipotong apa pun
+    //   Gross Profit  = Gross Revenue - (Total COGS + Admin Platform)
+    // orders.total_amount SUDAH net, jadi gross direkonstruksi dgn menambahkan
+    // potongan kembali. Potongan lalu dikurangi lagi di grossProfit sehingga
+    // saling hapus — angka laba identik dengan (net - HPP), lihat unit test
+    // di src/lib/posReportKpi.test.ts.
     // TIDAK pakai SUM(item.subtotal) karena data Pawoon multi-row bisa punya
     // rounding kecil yang membuat hasil berbeda dari angka resmi Pawoon.
-    // JANGAN tambahkan totalDeductions balik ke sini (lihat kartu KPI di
-    // bawah, "Admin Platform" murni informatif, bukan pengurang).
-    const grossRevenue = actualNetRevenue
-
-    const grossProfit = netRevenue - totalHPP
+    const kpi = computePosReportKpi(actualNetRevenue, totalDeductions, totalHPP)
+    const grossRevenue = kpi.grossRevenue
+    const grossProfit = kpi.grossProfit
 
     return {
       completedOrders: completed,
@@ -739,20 +742,16 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
         <>
           {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-6">
-            {/* 1. Total Omzet — SENGAJA disamakan dengan Grand Total Pawoon (net,
-                 sudah setelah promo/diskon) untuk keperluan rekonsiliasi. BUKAN
-                 "sebelum potongan apa pun" — jangan dikurangi Admin Platform di
-                 bawah untuk dapat "net", karena sudah net. Lihat catatan
-                 analytics.grossRevenue di atas & memori orders-total-amount-is-net. */}
+            {/* 1. Gross Revenue — omzet SEBELUM potongan (net + promo/diskon). */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total Omzet</p>
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Revenue</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossRevenue)}</p>
               </div>
               <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Uang diterima (sama dengan Grand Total Pawoon), sudah setelah promo</p>
+                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Omzet sebelum potongan, semua sumber (Pawoon + sistem sendiri)</p>
               </div>
             </div>
 
@@ -778,7 +777,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               </div>
               <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Info saja — sudah ikut mengurangi Total Omzet di atas, jangan dikurangi lagi</p>
+                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Promo & diskon — ikut mengurangi Gross Profit</p>
               </div>
             </div>
 

@@ -4,7 +4,7 @@ import { requireApprover } from '@/lib/authz'
 
 export const dynamic = 'force-dynamic'
 
-const TOPUP_APPROVER_ROLES = ['leader']
+const TOPUP_APPROVER_ROLES = ['leader', 'spv', 'regional_manager']
 
 const APPROVAL_ERROR_MESSAGES: Record<string, string> = {
   not_logged_in: 'Anda harus login terlebih dahulu di aplikasi pos-kasir sebelum menyetujui/menolak, lalu buka link ini lagi.',

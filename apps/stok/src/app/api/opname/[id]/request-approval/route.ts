@@ -19,6 +19,6 @@ export async function POST(
   
   return NextResponse.json({ 
     success: true, 
-    message: 'Magic link has been sent to the leader.' 
+    message: 'Magic link has been sent to the leader/SPV/RM.' 
   });
 }

@@ -26,7 +26,7 @@ export default function PermintaanPage() {
 
   // Siapa yang MELIHAT panel persetujuan (termasuk SPV, untuk pengawasan)…
   const isKitchen = selectedOutletId === KITCHEN_OUTLET_ID
-    || ['admin', 'spv', 'owner', 'kitchen'].includes(outletStaff.role)
+    || ['admin', 'spv', 'regional_manager', 'owner', 'kitchen'].includes(outletStaff.role)
 
   // …dan siapa yang benar-benar boleh MEMUTUSKAN. Sengaja memakai predikat yang
   // sama dengan gerbang server (`requirePermintaanApprover`) supaya tampilan

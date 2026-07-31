@@ -81,7 +81,7 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const isGudangRole = outletStaff.role === 'admin' || outletStaff.role === 'spv' || outletStaff.role === 'owner' || outletStaff.role === 'kitchen';
+  const isGudangRole = outletStaff.role === 'admin' || outletStaff.role === 'spv' || outletStaff.role === 'regional_manager' || outletStaff.role === 'owner' || outletStaff.role === 'kitchen';
   const isAsal = data.outlet_asal_id === selectedOutletId;
   const isTujuan = data.outlet_tujuan_id === selectedOutletId;
 

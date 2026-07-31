@@ -5,7 +5,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { assertOutletAccessible } from '@/lib/stok/outletAccess'
 
-const THRESHOLD_EDITOR_ROLES = ['spv', 'leader', 'admin', 'owner', 'kitchen'] as const
+const THRESHOLD_EDITOR_ROLES = ['spv', 'leader', 'regional_manager', 'admin', 'owner', 'kitchen'] as const
 
 function makeServiceClient() {
   return createClient(

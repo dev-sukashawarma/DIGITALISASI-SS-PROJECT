@@ -38,7 +38,7 @@ export type WasteReportData = {
   photo_url: string;
 }
 
-const WASTE_APPROVER_ROLES = ['leader', 'spv', 'kitchen', 'admin', 'owner'] as const
+const WASTE_APPROVER_ROLES = ['leader', 'regional_manager', 'spv', 'kitchen', 'admin', 'owner'] as const
 
 /**
  * Cek role approver waste saja (tanpa scope outlet).

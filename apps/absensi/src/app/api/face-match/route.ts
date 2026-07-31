@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     let query = admin
       .from("outlet_staff")
       .select("id, name, face_descriptor")
-      .or(`outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap)`)
+      .or(`outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager)`)
       .not("face_descriptor", "is", null);
 
     if (lockToStaffId) {

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       .select('id, name, role')
       .eq('outlet_id', outlet_id)
       .eq('pin', pin)
-      .in('role', ['spv', 'kepala_outlet'])
+      .in('role', ['spv', 'kepala_outlet', 'regional_manager'])
       .eq('status', 'active')
       .single()
 

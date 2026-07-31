@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [moreOpen, setMoreOpen] = useState(false);
   const { unreadCount } = useLeaveNotifications();
 
-  const isSPV = ["admin", "admin_hr", "owner", "spv", "leader"].includes(outletStaff?.role || "");
+  const isSPV = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager"].includes(outletStaff?.role || "");
 
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },
@@ -205,7 +205,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur border-b border-gray-200">
           <h2 className="text-base font-bold text-suka-brown flex items-center gap-2 truncate">
             <Store size={20} className="shrink-0 text-suka-orange" />
-            <span className="truncate">{outletStaff?.role === "leader" || outletStaff?.role === "spv" ? "SukaAbsen Leader" : (outletStaff?.outlets?.name || "SukaAbsen")}</span>
+            <span className="truncate">{outletStaff?.role === "leader" || outletStaff?.role === "spv" || outletStaff?.role === "regional_manager" ? "SukaAbsen Leader" : (outletStaff?.outlets?.name || "SukaAbsen")}</span>
           </h2>
           <div className="w-7 h-7 rounded-full bg-suka-brown flex items-center justify-center text-white font-bold text-xs shrink-0">
             {outletStaff?.name?.charAt(0) || "?"}

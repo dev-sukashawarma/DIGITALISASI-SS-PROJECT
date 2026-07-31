@@ -36,7 +36,7 @@ export default function LoginPage() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: cleanPassword })
     if (error) {
       setLoading(false)
-      const hint = !identifier.includes('@') ? ' Jika Anda admin/owner/leader, gunakan email lengkap.' : ''
+      const hint = !identifier.includes('@') ? ' Jika Anda admin/owner/leader/regional manager, gunakan email lengkap.' : ''
       setError(`Email atau kata sandi salah.${hint}`)
       return
     }

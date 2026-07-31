@@ -101,7 +101,7 @@ async function requirePermintaanViewer(): Promise<Set<string>> {
 
   if (error) throw new Error(error.message)
   if (!staff || staff.status !== 'active' || !(isApproverRole(staff.role) || canApprovePermintaan(staff.role))) {
-    throw new Error('Forbidden: hanya leader/SPV/kitchen/admin/owner yang boleh melihat daftar permintaan pending')
+    throw new Error('Forbidden: hanya leader/SPV/RM/kitchen/admin/owner yang boleh melihat daftar permintaan pending')
   }
 
   return getAccessibleOutletIds(authedClient)

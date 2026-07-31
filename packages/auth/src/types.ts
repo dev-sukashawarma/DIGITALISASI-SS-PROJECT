@@ -2,6 +2,7 @@ export type Role =
   | 'admin'
   | 'admin_hr'
   | 'owner'
+  | 'spv'
   | 'regional_manager'
   | 'leader'
   | 'crew'

@@ -48,7 +48,7 @@ async function requireApproverIdentity() {
 
   if (error) throw new Error(error.message)
   if (!staff || staff.status !== 'active' || !canApproveOpname(staff.role)) {
-    throw new Error('Forbidden: hanya leader/SPV/kitchen yang boleh memproses approval opname')
+    throw new Error('Forbidden: hanya leader/SPV/RM/kitchen yang boleh memproses approval opname')
   }
 
   return { staffId, authedClient }

@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       .eq('outlet_id', body.outlet_id)
       .maybeSingle()
 
-    if (isMapped || ['admin', 'owner', 'spv', 'leader', 'korlap'].includes(profile.role)) {
+    if (isMapped || ['admin', 'owner', 'spv', 'leader', 'korlap', 'regional_manager'].includes(profile.role)) {
       outlet_id = body.outlet_id
     }
   }

@@ -248,7 +248,7 @@ export default function ShiftPage() {
 
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
+          supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},completed_at.gte.${shiftData.start_time}`),
           supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel, status, cancellation_user_name, void_reason, cancellation_reason').eq('outlet_id', outletId).in('status', ['completed', 'cancelled']).gte('updated_at', shiftData.start_time)
         ])
 
@@ -640,7 +640,9 @@ export default function ShiftPage() {
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-2">Shift Saat Ini Ditutup</h3>
             <p className="text-gray-500 text-sm mb-8 leading-relaxed">
-              Silakan hitung sisa modal di laci Anda saat ini (tidak termasuk petty cash) dan buka shift untuk memulai pencatatan transaksi tunai.
+              {pettyCashLocked
+                ? 'Saldo awal Petty Cash otomatis meneruskan sisa saldo dari closing shift sebelumnya. Klik Buka Shift untuk memulai.'
+                : 'Silakan masukkan saldo awal Petty Cash dan buka shift untuk memulai pencatatan transaksi.'}
             </p>
             <form onSubmit={handleOpenShift} className="space-y-4">
               <div className="text-left">

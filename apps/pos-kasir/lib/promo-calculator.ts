@@ -16,6 +16,23 @@ export interface BasePromo {
 
 const FOOD_APP_CHANNELS = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'];
 
+/**
+ * Harga acuan (list price) sebelum promo. Untuk channel yang punya harga
+ * sendiri (mis. GoFood di-markup untuk nutupi komisi), acuannya harga channel
+ * — BUKAN harga menu biasa, supaya markup channel tidak salah tercatat
+ * sebagai diskon negatif.
+ */
+export function resolveBasePrice(
+  originalPrice: number,
+  salesSource?: string,
+  channelPrices?: Record<string, number> | null
+): number {
+  if (salesSource && channelPrices && channelPrices[salesSource.toLowerCase()] !== undefined) {
+    return channelPrices[salesSource.toLowerCase()];
+  }
+  return originalPrice;
+}
+
 export function calculateItemPrice(
   originalPrice: number,
   menuId: string,
@@ -25,11 +42,8 @@ export function calculateItemPrice(
   channelPrices?: Record<string, number> | null
 ): number {
   const isFoodApp = salesSource ? FOOD_APP_CHANNELS.includes(salesSource.toLowerCase()) : false;
-  
-  let basePrice = originalPrice;
-  if (salesSource && channelPrices && channelPrices[salesSource.toLowerCase()] !== undefined) {
-    basePrice = channelPrices[salesSource.toLowerCase()];
-  }
+
+  const basePrice = resolveBasePrice(originalPrice, salesSource, channelPrices);
 
   const globalPromo = promos.find(p => p.scope === 'global' && p.is_active);
   const itemPromos = promos.filter(p => p.scope === 'item' && p.is_active);
@@ -88,4 +102,22 @@ export function calculateGlobalDiscount(
   promos: BasePromo[]
 ): number {
   return 0; // Global promos are now applied directly per-item in calculateItemPrice
+}
+
+/**
+ * Selisih antara harga acuan dan harga jual setelah promo, dikali quantity.
+ * Dipakai route pembuatan order untuk MENCATAT diskon per-item ke
+ * orders.discount_amount — sebelumnya diskon ini dibakar ke unit_price dan
+ * hilang, sehingga "Omzet Kotor" di laporan understated.
+ */
+export function calculateItemDiscount(
+  originalPrice: number,
+  unitPrice: number,
+  quantity: number,
+  opts?: { isGiveaway?: boolean }
+): number {
+  // Endorse/giveaway digratiskan sepenuhnya — bukan potongan penjualan, jadi
+  // tidak ikut Total Potongan (keputusan owner 2026-07-31).
+  if (opts?.isGiveaway) return 0;
+  return Math.max(0, (originalPrice - unitPrice) * quantity);
 }

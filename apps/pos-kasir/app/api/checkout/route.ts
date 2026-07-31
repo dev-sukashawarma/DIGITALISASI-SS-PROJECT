@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { validateCheckoutPayload } from '@/lib/validations'
 import type { CheckoutPayload } from '@/types'
-import { calculateItemPrice, calculateGlobalDiscount, BasePromo } from '@/lib/promo-calculator'
+import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, BasePromo } from '@/lib/promo-calculator'
 
 export async function POST(request: Request) {
   let body: unknown
@@ -97,6 +97,9 @@ export async function POST(request: Request) {
   const appliedPromoIds = new Set<string>()
 
   let subtotalAmount = 0
+  // Diskon per-item dicatat supaya "Omzet Kotor" di laporan bisa direkonstruksi
+  // (sebelumnya promo dibakar ke unit_price dan hilang dari DB).
+  let itemDiscountTotal = 0
 
   for (const reqItem of payload.items) {
     const menuItem = menuItems?.find((m) => m.id === reqItem.menu_item_id)
@@ -150,7 +153,9 @@ export async function POST(request: Request) {
     const subtotal = unitPrice * quantity
 
     subtotalAmount += subtotal
-    
+    // Kiosk tak punya harga per-channel, jadi acuannya harga menu apa adanya.
+    itemDiscountTotal += calculateItemDiscount(menuItem.price, unitPrice, quantity)
+
     // Embed relationship data using separators
     let finalName = menuItem.name
     if (reqItem.cartItemId) {
@@ -184,7 +189,9 @@ export async function POST(request: Request) {
       notes: null,
       payment_method: payload.payment_method,
       total_amount: finalTotal,
-      discount_amount: null, // Global discount is now embedded in item unit prices
+      // Diskon promo per-item — dicatat untuk laporan, TIDAK mengubah total tagihan
+      // (harga sudah didiskon di unit_price/subtotal di atas).
+      discount_amount: itemDiscountTotal > 0 ? itemDiscountTotal : null,
       status: 'pending',
     })
     .select('id, order_number')

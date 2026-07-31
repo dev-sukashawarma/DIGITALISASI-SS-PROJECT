@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { calculateItemPrice, calculateGlobalDiscount, BasePromo } from '@/lib/promo-calculator'
+import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, BasePromo } from '@/lib/promo-calculator'
 
 // Endpoint dipanggil dari halaman /kasir/order-manual (tab "Kasir Langsung")
 // saat kasir mencatat pesanan pelanggan yang datang LANGSUNG ke kasir.
@@ -112,6 +112,9 @@ export async function POST(request: Request) {
   }
 
   let total = 0
+  // Diskon per-item dicatat supaya "Omzet Kotor" di laporan bisa direkonstruksi.
+  // Order endorse dikecualikan (gratis-an bukan potongan penjualan).
+  let itemDiscountTotal = 0
 
   for (const reqItem of body.items) {
     const menuItem = menuItems?.find((m) => m.id === reqItem.menu_item_id)
@@ -134,6 +137,10 @@ export async function POST(request: Request) {
 
     const subtotal = unitPrice * quantity
     total += subtotal
+    // Walk-in selalu channel POS (tanpa harga per-channel), acuannya harga menu.
+    itemDiscountTotal += calculateItemDiscount(menuItem.price, unitPrice, quantity, {
+      isGiveaway: body.is_endorse,
+    })
 
     // Konvensi |NOTE|, |ID|, dan |PARENT| supaya hierarchy diparsing UI kasir & dapur
     const note = (reqItem.note ?? '').trim()
@@ -203,6 +210,7 @@ export async function POST(request: Request) {
 
   // ── Buat order langsung status 'preparing' (Diproses) ───────────────────
   const customerName = (body.customer_name ?? '').trim()
+  const recordedDiscount = globalDiscount + itemDiscountTotal
 
   const baseOrder = {
     outlet_id,
@@ -210,7 +218,9 @@ export async function POST(request: Request) {
     cashier_name: profile.name || null,
     payment_method: body.payment_method,
     total_amount: finalTotal,
-    discount_amount: globalDiscount > 0 ? globalDiscount : null,
+    // Diskon tercatat = global (kini selalu 0) + promo per-item. Hanya untuk
+    // laporan; total tagihan tidak berubah (harga sudah didiskon di unit_price).
+    discount_amount: recordedDiscount > 0 ? recordedDiscount : null,
     status: 'preparing',
     kitchen_receipt_printed: true,
     source: 'pos',

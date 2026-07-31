@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { calculateItemPrice, calculateGlobalDiscount, BasePromo } from '@/lib/promo-calculator'
+import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, resolveBasePrice, BasePromo } from '@/lib/promo-calculator'
 import { CHANNELS } from '@/lib/channels'
 
 // Endpoint dipanggil dari halaman /kasir/order-manual saat kasir membuat
@@ -138,6 +138,9 @@ export async function POST(request: Request) {
   }
 
   let total = 0
+  // Diskon per-item dicatat supaya "Omzet Kotor" di laporan bisa direkonstruksi.
+  // Harga acuan = harga channel bila ada (markup food apps BUKAN diskon).
+  let itemDiscountTotal = 0
 
   for (const reqItem of body.items) {
     const menuItem = menuItems?.find((m) => m.id === reqItem.menu_item_id)
@@ -157,6 +160,11 @@ export async function POST(request: Request) {
 
     const subtotal = unitPrice * quantity
     total += subtotal
+    itemDiscountTotal += calculateItemDiscount(
+      resolveBasePrice(menuItem.price, body.channel, menuItem.channel_prices),
+      unitPrice,
+      quantity
+    )
 
     // Konvensi |NOTE|, |ID|, dan |PARENT| supaya hierarchy diparsing UI kasir & dapur
     const note = (reqItem.note ?? '').trim()
@@ -227,6 +235,7 @@ export async function POST(request: Request) {
 
   // ── Buat order langsung status 'preparing' (Diproses) ───────────────────
   const customerName = (body.customer_name ?? '').trim()
+  const recordedDiscount = globalDiscount + itemDiscountTotal
   const mappedSource = body.channel === 'tiktokgo' ? 'tiktok' : body.channel;
   const validSalesSource = ['pos','online','gofood','grabfood','shopeefood','tiktok'].includes(mappedSource) ? mappedSource : 'pos';
 
@@ -236,7 +245,9 @@ export async function POST(request: Request) {
     cashier_name: profile.name || null,
     payment_method: body.payment_method,
     total_amount: finalTotal,
-    discount_amount: globalDiscount > 0 ? globalDiscount : null,
+    // Diskon tercatat = global (kini selalu 0) + promo per-item. Terpisah dari
+    // promo_subsidy (subsidi food apps yang diinput kasir). Hanya untuk laporan.
+    discount_amount: recordedDiscount > 0 ? recordedDiscount : null,
     status: 'preparing',
     source: 'manual',
     channel: body.channel,

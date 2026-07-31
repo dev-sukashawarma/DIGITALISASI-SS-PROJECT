@@ -482,3 +482,62 @@ export async function syncPawoonData(orders: any[], items: any[], ordersToVoid: 
     }
 }
 
+export async function getMenuItemsForMapping() {
+    try {
+        await requireRole(['admin', 'owner']);
+        const { data, error } = await supabase
+            .from('menu_items')
+            .select('id, name')
+            .order('name');
+        
+        if (error) throw new Error(error.message);
+        return { success: true, items: data };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function updatePawoonMapping(newMappings: Record<string, string>) {
+    try {
+        await requireRole(['admin', 'owner']);
+        const mapPath = path.join(process.cwd(), 'src', 'data', 'pawoon_item_map.json');
+        
+        if (!fs.existsSync(mapPath)) {
+            return { success: false, error: "Mapping file not found" };
+        }
+
+        const mapData = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
+        
+        if (!mapData.mapping) {
+            mapData.mapping = {};
+        }
+
+        const systemIds = Object.values(newMappings);
+        const { data: menuItems, error } = await supabase
+            .from('menu_items')
+            .select('id, name')
+            .in('id', systemIds);
+
+        if (error) throw new Error(error.message);
+
+        const idToNameMap: Record<string, string> = {};
+        menuItems.forEach(item => {
+            idToNameMap[item.id] = item.name;
+        });
+
+        for (const [pawoonName, systemId] of Object.entries(newMappings)) {
+            const systemName = idToNameMap[systemId];
+            if (systemName) {
+                mapData.mapping[pawoonName] = {
+                    system_id: systemId,
+                    system_name: systemName
+                };
+            }
+        }
+
+        fs.writeFileSync(mapPath, JSON.stringify(mapData, null, 4));
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}

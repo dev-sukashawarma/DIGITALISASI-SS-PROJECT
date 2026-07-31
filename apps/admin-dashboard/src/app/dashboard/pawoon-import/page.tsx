@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { previewPawoonFile, syncPawoonData } from '@/app/actions/pawoon';
+import { useState, useEffect } from 'react';
+import { previewPawoonFile, syncPawoonData, getMenuItemsForMapping, updatePawoonMapping } from '@/app/actions/pawoon';
 
 export default function PawoonImportPage() {
     const [file, setFile] = useState<File | null>(null);
@@ -10,6 +10,33 @@ export default function PawoonImportPage() {
     const [errorMsg, setErrorMsg] = useState('');
     const [syncSuccess, setSyncSuccess] = useState(false);
     const [selectedDate, setSelectedDate] = useState<string>('ALL');
+    const [menuItems, setMenuItems] = useState<any[]>([]);
+    const [newMappings, setNewMappings] = useState<Record<string, string>>({});
+    const [isSavingMapping, setIsSavingMapping] = useState(false);
+
+    useEffect(() => {
+        if (previewResult?.unmappedItems?.length > 0) {
+            getMenuItemsForMapping().then(res => {
+                if (res.success) setMenuItems(res.items);
+            });
+        }
+    }, [previewResult]);
+
+    const handleMappingChange = (pawoonName: string, systemId: string) => {
+        setNewMappings(prev => ({ ...prev, [pawoonName]: systemId }));
+    };
+
+    const handleSaveMapping = async () => {
+        setIsSavingMapping(true);
+        const res = await updatePawoonMapping(newMappings);
+        setIsSavingMapping(false);
+        if (res.success) {
+            setNewMappings({});
+            handlePreview();
+        } else {
+            setErrorMsg(res.error || 'Gagal menyimpan mapping');
+        }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -115,11 +142,38 @@ export default function PawoonImportPage() {
                     {previewResult.unmappedItems.length > 0 && (
                         <div className="mb-4">
                             <h3 className="font-semibold mb-2">Menu/Produk Tidak Dikenali:</h3>
-                            <ul className="list-disc pl-5">
+                            <div className="space-y-3">
                                 {previewResult.unmappedItems.map((item: string) => (
-                                    <li key={item} className="text-red-600">{item}</li>
+                                    <div key={item} className="flex flex-col md:flex-row md:items-center justify-between bg-white p-3 rounded border border-red-100">
+                                        <span className="text-red-700 font-medium mb-2 md:mb-0">{item}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm text-gray-500">Pilih menu sistem:</span>
+                                            <select 
+                                                className="border border-gray-300 rounded px-2 py-1 text-sm w-48 md:w-64"
+                                                value={newMappings[item] || ''}
+                                                onChange={(e) => handleMappingChange(item, e.target.value)}
+                                            >
+                                                <option value="">-- Pilih Menu --</option>
+                                                {menuItems.map(mi => (
+                                                    <option key={mi.id} value={mi.id}>{mi.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
                                 ))}
-                            </ul>
+                            </div>
+                            
+                            {Object.keys(newMappings).length > 0 && (
+                                <div className="mt-4 flex justify-end">
+                                    <button 
+                                        onClick={handleSaveMapping}
+                                        disabled={isSavingMapping}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium shadow-sm flex items-center transition-colors disabled:bg-blue-400"
+                                    >
+                                        {isSavingMapping ? 'Menyimpan...' : 'Simpan Mapping & Ulangi Preview'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                     

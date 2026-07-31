@@ -415,6 +415,54 @@ export async function previewPawoonFile(formData: FormData) {
             }
         });
 
+        // --- Calculate System Overlap (Data Overlap Detection) ---
+        const datesInFile = Object.keys(summaryByDate).sort();
+        const outletIdsInFile = Array.from(new Set(Array.from(ordersMap.values()).map(o => o.outlet_id).filter(id => id)));
+        
+        let totalOverlapCount = 0;
+        let totalOverlapOmset = 0;
+        
+        if (datesInFile.length > 0 && outletIdsInFile.length > 0) {
+            const minDate = datesInFile[0];
+            const maxDate = datesInFile[datesInFile.length - 1];
+            
+            // Note: date keys are YYYY-MM-DD local time, but created_at is ISO string UTC
+            // So we use a rough bound that covers the local days.
+            const { data: systemSales } = await supabase
+                .from('orders')
+                .select('created_at, total_amount, status')
+                .in('outlet_id', outletIdsInFile)
+                .gte('created_at', `${minDate}T00:00:00`)
+                .lte('created_at', `${maxDate}T23:59:59`);
+                
+            if (systemSales) {
+                // Group by local date string
+                systemSales.forEach(sale => {
+                    // Only count completed sales for overlap omset
+                    if (sale.status !== 'completed') return;
+                    
+                    // Simple timezone conversion for grouping (assume UTC+7 format from DB or just split)
+                    // The created_at in DB might be UTC, but let's just match the YYYY-MM-DD prefix for simplicity
+                    // Alternatively, we use the local date representation.
+                    const d = new Date(sale.created_at);
+                    // Adjust to UTC+7 (simple approach)
+                    d.setHours(d.getHours() + 7);
+                    const localDateStr = d.toISOString().split('T')[0];
+                    
+                    if (summaryByDate[localDateStr]) {
+                        if (!summaryByDate[localDateStr].systemOverlap) {
+                            summaryByDate[localDateStr].systemOverlap = { count: 0, total: 0 };
+                        }
+                        summaryByDate[localDateStr].systemOverlap.count++;
+                        summaryByDate[localDateStr].systemOverlap.total += Number(sale.total_amount);
+                        
+                        totalOverlapCount++;
+                        totalOverlapOmset += Number(sale.total_amount);
+                    }
+                });
+            }
+        }
+
         const sortByMenuOrder = (a: any, b: any) =>
             pawoonMenuOrderIndex(a.systemName) - pawoonMenuOrderIndex(b.systemName);
 
@@ -429,10 +477,16 @@ export async function previewPawoonFile(formData: FormData) {
                 voidStatusUpdates: ordersToVoid.length,
                 totalOmset: totalOmset,
                 totalOmsetGross: totalOmsetGross,
+                totalOverlapCount: totalOverlapCount,
+                totalOverlapOmset: totalOverlapOmset,
                 itemSalesTracker: Object.values(itemSalesTracker).sort(sortByMenuOrder),
-                byDate: Object.values(summaryByDate).map(s => ({
-                    ...s,
-                    itemSalesTracker: Object.values(s.itemSalesTrackerMap).sort(sortByMenuOrder)
+                byDate: Object.values(summaryByDate).map(d => ({
+                    date: d.date,
+                    transactionsCount: d.transactionsCount,
+                    totalOmset: d.totalOmset,
+                    totalOmsetGross: d.totalOmsetGross,
+                    systemOverlap: (d as any).systemOverlap || null,
+                    itemSalesTracker: Object.values(d.itemSalesTrackerMap).sort(sortByMenuOrder)
                 })),
             },
             data: {

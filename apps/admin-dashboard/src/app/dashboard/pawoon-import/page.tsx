@@ -213,7 +213,7 @@ export default function PawoonImportPage() {
                     </div>
                     
                     <div className="p-6 pt-0 border-b border-gray-100">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 mt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 mt-4">
                             <div className="bg-blue-50 p-4 rounded-xl flex flex-col justify-center">
                                 <p className="text-blue-600 text-sm font-medium mb-1">Grand Total</p>
                                 <p className="text-3xl font-bold text-blue-900 mt-1">
@@ -239,6 +239,18 @@ export default function PawoonImportPage() {
                                 <p className="text-gray-600 text-sm font-medium mb-1">Duplikat (Skip)</p>
                                 <p className="text-3xl font-bold text-gray-900 mt-1">
                                     {displayedSummary.duplicatesSkipped}
+                                </p>
+                            </div>
+
+                            <div className={`p-4 rounded-xl flex flex-col justify-center ${(selectedDate === 'ALL' ? displayedSummary.totalOverlapCount : displayedSummary.systemOverlap?.count) > 0 ? 'bg-orange-50 border border-orange-200' : 'bg-green-50 border border-green-100'}`}>
+                                <p className={`text-sm font-medium mb-1 ${(selectedDate === 'ALL' ? displayedSummary.totalOverlapCount : displayedSummary.systemOverlap?.count) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                                    Overlap Sistem
+                                </p>
+                                <p className={`text-2xl font-bold mt-1 ${(selectedDate === 'ALL' ? displayedSummary.totalOverlapCount : displayedSummary.systemOverlap?.count) > 0 ? 'text-orange-900' : 'text-green-900'}`}>
+                                    {selectedDate === 'ALL' ? (displayedSummary.totalOverlapCount || 0) : (displayedSummary.systemOverlap?.count || 0)} <span className="text-sm font-normal">transaksi</span>
+                                </p>
+                                <p className={`text-xs font-bold mt-2 ${(selectedDate === 'ALL' ? displayedSummary.totalOverlapCount : displayedSummary.systemOverlap?.count) > 0 ? 'text-orange-700' : 'text-green-700'}`}>
+                                    Rp {(selectedDate === 'ALL' ? (displayedSummary.totalOverlapOmset || 0) : (displayedSummary.systemOverlap?.total || 0)).toLocaleString('id-ID')}
                                 </p>
                             </div>
                         </div>

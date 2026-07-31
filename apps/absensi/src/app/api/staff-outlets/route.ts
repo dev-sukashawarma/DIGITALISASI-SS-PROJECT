@@ -74,7 +74,7 @@ export async function GET(req: Request) {
       .eq("id", staffId)
       .maybeSingle();
 
-    if (["spv", "owner", "admin", "admin_hr", "korlap"].includes(staffRoleData?.role || "")) {
+    if (["spv", "owner", "admin", "admin_hr", "korlap", "regional_manager"].includes(staffRoleData?.role || "")) {
       if (list.length <= 1) {
         const { data: allOutlets } = await admin
           .from("outlets")

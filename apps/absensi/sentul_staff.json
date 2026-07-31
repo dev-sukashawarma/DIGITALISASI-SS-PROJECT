@@ -1,0 +1,218 @@
+[
+  {
+    "id": "ba8d365a-dfb1-4d4c-9d0a-871c0aabc05c",
+    "name": "Admin HR",
+    "role": "admin_hr",
+    "outlet_id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/ba8d365a-dfb1-4d4c-9d0a-871c0aabc05c.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/ba8d365a-dfb1-4d4c-9d0a-871c0aabc05c"
+  },
+  {
+    "id": "8cab65f1-2cd8-4433-8ada-d21dc95408f0",
+    "name": "Owner Suka Shawarma",
+    "role": "admin",
+    "outlet_id": null,
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/8cab65f1-2cd8-4433-8ada-d21dc95408f0.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/8cab65f1-2cd8-4433-8ada-d21dc95408f0"
+  },
+  {
+    "id": "065c463a-fcd3-4f14-b04e-7c104207eb6c",
+    "name": "Chairul Rizky",
+    "role": "leader",
+    "outlet_id": "550e8400-e29b-41d4-a716-446655440005",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/065c463a-fcd3-4f14-b04e-7c104207eb6c.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/065c463a-fcd3-4f14-b04e-7c104207eb6c"
+  },
+  {
+    "id": "2d4ae4e5-5f56-410b-928d-3e49f99d72d9",
+    "name": "Abu Bakar",
+    "role": "leader",
+    "outlet_id": "550e8400-e29b-41d4-a716-446655440004",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/2d4ae4e5-5f56-410b-928d-3e49f99d72d9.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/2d4ae4e5-5f56-410b-928d-3e49f99d72d9"
+  },
+  {
+    "id": "6b41b068-0feb-47d3-aea8-bae94f75fc09",
+    "name": "Reza",
+    "role": "leader",
+    "outlet_id": "d9a2ef93-c298-4501-a471-1c5e2b3dff08",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/6b41b068-0feb-47d3-aea8-bae94f75fc09.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/6b41b068-0feb-47d3-aea8-bae94f75fc09"
+  },
+  {
+    "id": "fcdb3ada-0850-49da-b057-68f65cdbd743",
+    "name": "Rifqi",
+    "role": "crew",
+    "outlet_id": "43b7bbd1-1fd4-44b5-87ca-b07a271151af",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/fcdb3ada-0850-49da-b057-68f65cdbd743.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/fcdb3ada-0850-49da-b057-68f65cdbd743"
+  },
+  {
+    "id": "329ea998-9bfd-4cf2-8cdd-7ccaa9f5f267",
+    "name": "Owner",
+    "role": "owner",
+    "outlet_id": null,
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/329ea998-9bfd-4cf2-8cdd-7ccaa9f5f267.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/329ea998-9bfd-4cf2-8cdd-7ccaa9f5f267"
+  },
+  {
+    "id": "6440a568-d9f3-45d3-b7d7-16e4b3166ab2",
+    "name": "Admin Dev",
+    "role": "admin",
+    "outlet_id": null,
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/6440a568-d9f3-45d3-b7d7-16e4b3166ab2.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/6440a568-d9f3-45d3-b7d7-16e4b3166ab2"
+  },
+  {
+    "id": "b7201975-0900-4058-beab-9f254c25a986",
+    "name": "Admin 2",
+    "role": "admin",
+    "outlet_id": null,
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/b7201975-0900-4058-beab-9f254c25a986.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/b7201975-0900-4058-beab-9f254c25a986"
+  },
+  {
+    "id": "68be7da9-6fb2-4cd3-bb96-54c5abde82f5",
+    "name": "Owner",
+    "role": "owner",
+    "outlet_id": null,
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/68be7da9-6fb2-4cd3-bb96-54c5abde82f5.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/68be7da9-6fb2-4cd3-bb96-54c5abde82f5"
+  },
+  {
+    "id": "a39b77e1-481f-43f6-914e-04f90ab8c2b5",
+    "name": "Abdurrahman",
+    "role": "leader",
+    "outlet_id": "550e8400-e29b-41d4-a716-446655440002",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/a39b77e1-481f-43f6-914e-04f90ab8c2b5.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/a39b77e1-481f-43f6-914e-04f90ab8c2b5"
+  },
+  {
+    "id": "c53e923d-9681-4652-8d1c-e97b3721a74e",
+    "name": "Budi Korlap",
+    "role": "korlap",
+    "outlet_id": "550e8400-e29b-41d4-a716-446655440003",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/c53e923d-9681-4652-8d1c-e97b3721a74e.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/c53e923d-9681-4652-8d1c-e97b3721a74e"
+  },
+  {
+    "id": "e9f3e7a6-1287-4e6e-b8c1-ccddd528142e",
+    "name": "Leader Kitchen",
+    "role": "leader",
+    "outlet_id": "550e8400-e29b-41d4-a716-446655440001",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/e9f3e7a6-1287-4e6e-b8c1-ccddd528142e.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/e9f3e7a6-1287-4e6e-b8c1-ccddd528142e"
+  },
+  {
+    "id": "fa433b40-fe56-436b-971f-b728270815c9",
+    "name": "Superadmin 2",
+    "role": "admin",
+    "outlet_id": null,
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/fa433b40-fe56-436b-971f-b728270815c9.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/fa433b40-fe56-436b-971f-b728270815c9"
+  },
+  {
+    "id": "78cd9a59-ac3f-4e25-8766-75dcfdcc373f",
+    "name": "Muchtar",
+    "role": "leader",
+    "outlet_id": "550e8400-e29b-41d4-a716-446655440014",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/78cd9a59-ac3f-4e25-8766-75dcfdcc373f.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/78cd9a59-ac3f-4e25-8766-75dcfdcc373f"
+  },
+  {
+    "id": "caf351f1-ea40-4fff-99ce-a4af71c59d47",
+    "name": "Tri Rizky",
+    "role": "leader",
+    "outlet_id": "550e8400-e29b-41d4-a716-446655440006",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/caf351f1-ea40-4fff-99ce-a4af71c59d47.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/caf351f1-ea40-4fff-99ce-a4af71c59d47"
+  },
+  {
+    "id": "eb2ad99d-0cc9-4853-84a1-8e3c914eff6f",
+    "name": "Mulyadi",
+    "role": "leader",
+    "outlet_id": "550e8400-e29b-41d4-a716-446655440018",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/eb2ad99d-0cc9-4853-84a1-8e3c914eff6f.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/eb2ad99d-0cc9-4853-84a1-8e3c914eff6f"
+  },
+  {
+    "id": "659943f9-de69-4aef-8170-908ccb7d6593",
+    "name": "Raka",
+    "role": "crew",
+    "outlet_id": "43b7bbd1-1fd4-44b5-87ca-b07a271151af",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/659943f9-de69-4aef-8170-908ccb7d6593.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/659943f9-de69-4aef-8170-908ccb7d6593"
+  },
+  {
+    "id": "84aa8ad3-2268-432b-934b-353dda056c1d",
+    "name": "Leader Baru",
+    "role": "leader",
+    "outlet_id": "550e8400-e29b-41d4-a716-446655440002",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/84aa8ad3-2268-432b-934b-353dda056c1d.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/84aa8ad3-2268-432b-934b-353dda056c1d"
+  },
+  {
+    "id": "68c3c4be-9657-4575-94ad-b77d1f7b3262",
+    "name": "Super Admin",
+    "role": "admin",
+    "outlet_id": null,
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/68c3c4be-9657-4575-94ad-b77d1f7b3262.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/68c3c4be-9657-4575-94ad-b77d1f7b3262"
+  },
+  {
+    "id": "cb2a0402-a32c-4b8e-b240-1151a7f0c744",
+    "name": "Leader Suka Shawarma",
+    "role": "leader",
+    "outlet_id": "550e8400-e29b-41d4-a716-446655440002",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/cb2a0402-a32c-4b8e-b240-1151a7f0c744.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/cb2a0402-a32c-4b8e-b240-1151a7f0c744"
+  },
+  {
+    "id": "4f1d7a91-7ef8-49b1-977f-7074ca48ed6c",
+    "name": "Area Manager",
+    "role": "korlap",
+    "outlet_id": null,
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/4f1d7a91-7ef8-49b1-977f-7074ca48ed6c.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/4f1d7a91-7ef8-49b1-977f-7074ca48ed6c"
+  },
+  {
+    "id": "aa7ef8d2-4038-4cc6-a25d-c56153049631",
+    "name": "Leader Tes",
+    "role": "leader",
+    "outlet_id": "eb174b2b-ff69-47eb-97af-b6c824d3ce4a",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/aa7ef8d2-4038-4cc6-a25d-c56153049631.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/aa7ef8d2-4038-4cc6-a25d-c56153049631"
+  },
+  {
+    "id": "255275ee-d380-4755-a1de-27a968758e62",
+    "name": "Humam",
+    "role": "crew",
+    "outlet_id": "43b7bbd1-1fd4-44b5-87ca-b07a271151af",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/255275ee-d380-4755-a1de-27a968758e62.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/255275ee-d380-4755-a1de-27a968758e62"
+  },
+  {
+    "id": "7f703a2d-eace-4c1b-99f6-9a4ca08c7d90",
+    "name": "Fadil",
+    "role": "crew",
+    "outlet_id": "43b7bbd1-1fd4-44b5-87ca-b07a271151af",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/7f703a2d-eace-4c1b-99f6-9a4ca08c7d90.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/7f703a2d-eace-4c1b-99f6-9a4ca08c7d90"
+  },
+  {
+    "id": "805b7b81-5635-4320-ba75-13334424d681",
+    "name": "Abyansah",
+    "role": "leader",
+    "outlet_id": "d23e11b3-23f1-4f9a-b428-cc73e1aa9b90",
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/805b7b81-5635-4320-ba75-13334424d681.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/805b7b81-5635-4320-ba75-13334424d681"
+  },
+  {
+    "id": "0402a5b0-0b01-4d05-8653-02814bab4285",
+    "name": "Adam (SPV)",
+    "role": "spv",
+    "outlet_id": null,
+    "face_url_jpg": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/0402a5b0-0b01-4d05-8653-02814bab4285.jpg",
+    "face_url_no_ext": "https://khpkoreaaucvyqfhynfq.supabase.co/storage/v1/object/public/face-refs/0402a5b0-0b01-4d05-8653-02814bab4285"
+  }
+]

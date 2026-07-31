@@ -17,7 +17,7 @@ export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId:
   useEffect(() => {
     let mounted = true;
     async function load() {
-      const isSpv = outletStaff?.role === 'spv' || outletStaff?.role === 'admin';
+      const isSpv = outletStaff?.role === 'spv' || outletStaff?.role === 'admin' || outletStaff?.role === 'regional_manager';
       let ids: string[] = [];
       
       if (!isSpv) {

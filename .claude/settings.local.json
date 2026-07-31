@@ -32,7 +32,9 @@
       "Bash(curl -sL \"https://lh3.googleusercontent.com/aida/AP1WRLsRvopqS1bV6xRs8_MNgaMyoQMqE3u7WXSs7ArPk5bU-sbZN7w6DXvCOGmH-CUYYvqluj7Z_9CtgGmrkKcFzrhiDTkWFKKI9dzh9_7SrkNi4W4X_9cQ6gcBwmqjvGt2Q_JSyHLPvmKAyzbPKpoZL3X3YYZpErXRqHKixls575zgP1BLfhRolInH7pGiwksSwRc9GCzeUAWcR7f3mtrz-iCllswMrLJVNFIWABmcW2BHDMaxq5o1OEFoWOY\" -o r1_kiosk.png)",
       "Bash(curl -sL \"https://lh3.googleusercontent.com/aida/AP1WRLumkRi7O2161efSbVWa8CKH0Ny8lSEIuhkU5Oy7MQP6LB3djjF9TfG5TFizb15Jlb9eXDsikTReZxcFw1bNQjk5Vdn4DLZWmTOQRjg4HJ_PC7iUTKiPy0lXOUISWvRPxMOFJAUtC17GNyGwKqHmkfwT5IHBcy-HBX9TrOsHPxOpCRR5qJmmk3gxhqGcTbcrfWrn4RQmPrFlUic7uj_q64LuHo77wfyjdPvODqjfEHqbSIQ0UZhDLue-WCx-\" -o r2_login.png)",
       "Bash(supabase migration *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)"
     ]
   }
 }

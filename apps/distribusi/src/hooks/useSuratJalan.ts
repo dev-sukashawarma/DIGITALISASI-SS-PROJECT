@@ -18,7 +18,7 @@ export function useSuratJalanList(outlet_id?: string, status?: string) {
       try {
         let query = supabase.from('surat_jalan').select('*, outlets(name)')
 
-        const isGlobalPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff.role)
+        const isGlobalPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff.role)
 
         if (outlet_id) {
           query = query.eq('outlet_id', outlet_id)

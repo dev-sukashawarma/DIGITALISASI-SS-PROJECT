@@ -97,7 +97,7 @@ export function SuratJalanList() {
     const outletData = data.find((d) => d.id === sjId)
 
     // Load the PDF module (incl. ~320KB embedded logo) only when a PDF is actually generated.
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
     const hideQR = !isPusat
 
     const htmlContent = await generatePDFContent({
@@ -139,7 +139,7 @@ export function SuratJalanList() {
         </div>
         <div className="flex items-center gap-2">
           {outletStaff?.role === 'kitchen' && <PrinterStatus />}
-          {['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '') && (
+          {['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '') && (
             <Link
               href="/distribusi/surat-jalan/new"
               className="px-3 py-2 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-suka-orange/20 uppercase tracking-widest active:scale-95 flex items-center gap-1 cursor-pointer"

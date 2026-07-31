@@ -97,7 +97,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
   }
 
   useEffect(() => {
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
     const hideQR = !isPusat
 
     const loadPdfHtml = async () => {
@@ -154,7 +154,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   const handleDownloadPDF = async () => {
     if (!data) return
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
     const hideQR = !isPusat
 
     const items = await buildItemsWithFoto(data.surat_jalan_item)
@@ -194,7 +194,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
     )
   }
 
-  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
   if (!isPusatSender) {
     return (
       <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-24">

@@ -58,7 +58,7 @@ export function SuratJalanForm() {
   const [selectedBahan, setSelectedBahan] = useState('')
   const [qty, setQty] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
 
   if (!isPusatSender) {
     return (

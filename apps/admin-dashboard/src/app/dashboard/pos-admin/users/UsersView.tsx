@@ -273,6 +273,10 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                     <span className="font-bold text-gray-700 text-sm">SPV</span>
                   </label>
                   <label className="flex-[1_1_45%] flex items-center justify-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
+                    <input type="radio" name="role" value="regional_manager" checked={role === 'regional_manager'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
+                    <span className="font-bold text-gray-700 text-sm">Regional Manager</span>
+                  </label>
+                  <label className="flex-[1_1_45%] flex items-center justify-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
                     <input type="radio" name="role" value="owner" checked={role === 'owner'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
                     <span className="font-bold text-gray-700 text-sm">Owner</span>
                   </label>

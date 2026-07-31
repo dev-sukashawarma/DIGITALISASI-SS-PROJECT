@@ -40,7 +40,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Username dan role harus diisi' }, { status: 400 })
   }
 
-  const allowedRoles = ['crew', 'kiosk', 'spv', 'owner', 'leader', 'admin', 'kitchen']
+  const allowedRoles = ['crew', 'kiosk', 'spv', 'regional_manager', 'owner', 'leader', 'admin', 'kitchen']
   if (!allowedRoles.includes(role)) {
     return NextResponse.json({ error: 'Role tidak valid' }, { status: 400 })
   }

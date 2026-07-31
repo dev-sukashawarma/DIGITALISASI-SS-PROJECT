@@ -14,7 +14,7 @@ export function BottomNav({ activeTab }: BottomNavProps) {
 
   if (loading || !outletStaff) return null
 
-  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff.role)
+  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff.role)
   const isKitchen = outletStaff.role === 'kitchen'
 
   const handleNavigate = (path: string) => {

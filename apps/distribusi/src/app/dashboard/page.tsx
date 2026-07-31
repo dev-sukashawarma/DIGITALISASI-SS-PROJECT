@@ -42,7 +42,7 @@ export default function DashboardPage() {
   }
 
   // Load shipments for metrics
-  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
   const outletIdFilter = isPusat ? undefined : (outletStaff?.outlet_id ?? undefined)
 
   const { suratJalanList, loading: listLoading } = useSuratJalanList(outletIdFilter)

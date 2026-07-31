@@ -38,6 +38,7 @@ function roleBadge(role: string): string {
     kiosk: 'Kiosk',
     leader: 'Leader',
     spv: 'SPV',
+    regional_manager: 'Regional Manager',
     admin: 'Admin',
     admin_hr: 'Admin HR',
     owner: 'Owner',

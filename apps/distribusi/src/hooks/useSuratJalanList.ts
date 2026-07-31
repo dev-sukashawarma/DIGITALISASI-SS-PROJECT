@@ -25,7 +25,7 @@ async function fetchSuratJalan(dateFilter: DateFilter, outletStaff: any): Promis
     .select('id, outlet_id, status, created_at, document_number, outlets(name), surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
     .order('created_at', { ascending: false })
 
-  const isGlobalPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'owner'].includes(outletStaff?.role || '')
+  const isGlobalPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
 
   if (!isGlobalPusat && outletStaff) {
     if (outletStaff.role === 'leader') {

@@ -34,6 +34,10 @@ export interface AttendanceRecordExt {
   notes: string | null
   stealth_photo_in_url?: string | null
   stealth_photo_out_url?: string | null
+  gps_lat_in?: number | null
+  gps_lng_in?: number | null
+  gps_lat_out?: number | null
+  gps_lng_out?: number | null
 }
 
 interface AttendanceReportViewProps {
@@ -238,8 +242,21 @@ export function AttendanceReportView({
 
                     {/* Jam Masuk & Foto Kamera */}
                     <td className="p-3.5 text-center">
-                      <div className="font-mono font-bold text-slate-800 text-sm">
-                        {row.clock_in ? row.clock_in.slice(0, 5) : '-'}
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <div className="font-mono font-bold text-slate-800 text-sm">
+                          {row.clock_in ? row.clock_in.slice(0, 5) : '-'}
+                        </div>
+                        {row.gps_lat_in && row.gps_lng_in && (
+                          <a
+                            href={`https://www.google.com/maps?q=${row.gps_lat_in},${row.gps_lng_in}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:text-blue-700 transition-colors"
+                            title="Lihat Lokasi di Peta"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                          </a>
+                        )}
                       </div>
                       {row.stealth_photo_in_url ? (
                         <button
@@ -278,8 +295,21 @@ export function AttendanceReportView({
 
                     {/* Jam Pulang & Foto Kamera */}
                     <td className="p-3.5 text-center">
-                      <div className="font-mono font-bold text-slate-800 text-sm">
-                        {row.clock_out ? row.clock_out.slice(0, 5) : '-'}
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <div className="font-mono font-bold text-slate-800 text-sm">
+                          {row.clock_out ? row.clock_out.slice(0, 5) : '-'}
+                        </div>
+                        {row.gps_lat_out && row.gps_lng_out && (
+                          <a
+                            href={`https://www.google.com/maps?q=${row.gps_lat_out},${row.gps_lng_out}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:text-blue-700 transition-colors"
+                            title="Lihat Lokasi di Peta"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                          </a>
+                        )}
                       </div>
                       {row.stealth_photo_out_url ? (
                         <button

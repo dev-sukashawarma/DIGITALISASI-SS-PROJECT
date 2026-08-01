@@ -410,6 +410,10 @@ export async function getAttendanceReportData(
     clock_out: string | null
     raw_photo_in: string | null
     raw_photo_out: string | null
+    gps_lat_in: number | null
+    gps_lng_in: number | null
+    gps_lat_out: number | null
+    gps_lng_out: number | null
     status: string
     late_minutes: number
     out_status: string | null
@@ -436,6 +440,10 @@ export async function getAttendanceReportData(
         clock_out: null,
         raw_photo_in: null,
         raw_photo_out: null,
+        gps_lat_in: null,
+        gps_lng_in: null,
+        gps_lat_out: null,
+        gps_lng_out: null,
         status: 'hadir',
         late_minutes: 0,
         out_status: null,
@@ -448,6 +456,8 @@ export async function getAttendanceReportData(
     if (r.type === 'in') {
       item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       item.raw_photo_in = r.selfie_url || null
+      if (r.gps_lat) item.gps_lat_in = Number(r.gps_lat)
+      if (r.gps_lng) item.gps_lng_in = Number(r.gps_lng)
       if (r.status === 'telat_toleransi') {
         item.status = 'telat_toleransi'
         item.late_minutes = r.telat_menit || 0
@@ -458,6 +468,8 @@ export async function getAttendanceReportData(
     } else if (r.type === 'out') {
       item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       item.raw_photo_out = r.selfie_url || null
+      if (r.gps_lat) item.gps_lat_out = Number(r.gps_lat)
+      if (r.gps_lng) item.gps_lng_out = Number(r.gps_lng)
       item.out_status = r.status || 'tepat'
       item.out_minutes = r.telat_menit || 0
     }
@@ -486,6 +498,10 @@ export async function getAttendanceReportData(
         notes: item.notes,
         stealth_photo_in_url: signedIn,
         stealth_photo_out_url: signedOut,
+        gps_lat_in: item.gps_lat_in,
+        gps_lng_in: item.gps_lng_in,
+        gps_lat_out: item.gps_lat_out,
+        gps_lng_out: item.gps_lng_out,
       }
     })
   )

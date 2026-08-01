@@ -43,17 +43,15 @@ Contoh satu bahan (KENTANG) di empat outlet:
 
 Akibat yang terlihat pengguna: saldo tampil sebagai `6.500 Dus`, stok minus padahal fisik ada, dan selisih opname ribuan.
 
-### 1.2 Bug turunan yang sudah aktif di distribusi
+### 1.2 Risiko laten di distribusi (bukan bug aktif)
 
-`getDistribusiFactor` (`compositeUnit.ts`) mencocokkan **nama** `satuan_distribusi` dengan `satuan_tengah`/`satuan_kecil`. SAOS TOMAT punya `satuan_tengah = "Kg"` yang isinya **16.500 gram** (jeriken, bukan kilogram).
+`getDistribusiFactor` (`compositeUnit.ts`) memilih pembagi dengan mencocokkan **nama** `satuan_distribusi` terhadap `satuan_tengah`/`satuan_kecil`, plus satu tambalan khusus `'kg' + 'gram' → faktor_tampilan/1000`. Kalau tidak ada yang cocok, ia mengembalikan `1` **diam-diam** — angka gudang langsung dianggap satuan besar.
 
-| Bahan | Gudang ketik | Pembagi terpilih | Tersimpan | Arti sebenarnya |
-|---|---|---|---|---|
-| KENTANG | 10 kg | 10 (`Kg` = kilogram) | 1,0 Dus | 10 kg ✅ |
-| SAOS CABE | 11 kg | 16,5 (tambalan `gram/1000`) | 0,667 Dus | 11 kg ✅ |
-| **SAOS TOMAT** | 10 kg | **12** (`"Kg"` = jeriken) | 0,833 Dus | **165 kg** ❌ |
+**Status terverifikasi 2026-08-02:** dari 14 bahan aktif yang `satuan_distribusi`-nya berbeda dari `satuan`, **keempat belasnya menghasilkan pembagi yang benar.** Tidak ada salah hitung yang sedang berjalan. Dua di antaranya (`KERTAS STRUK`, `PLASTIK BESAR`) berfaktor `×1` karena datanya belum diisi — bukan salah hitung, tapi data kosong.
 
-Salah 16,5× tanpa error. Fungsi ini juga mengembalikan `1` diam-diam bila tidak ada nama yang cocok.
+Yang membuat ini tetap harus dibereskan: keputusan diambil dari **tulisan**, bukan dari angka. Contoh pemicunya sudah ada di DB — `SAOS TOMAT` punya `satuan_tengah = "Kg"` yang isinya **16.500 gram** (jeriken, bukan kilogram). Kalau bahan itu diaktifkan kembali, gudang mengetik `10` (kg) → pembagi terpilih `12` → tersimpan 0,833 Dus = **165 kg**, salah 16,5× tanpa error apa pun. Untuk sekarang tidak terjangkau karena `apps/distribusi/src/hooks/useBahanBaku.ts` memfilter `.eq('is_active', true)` dan baris itu non-aktif.
+
+Kesimpulan: perbaiki karena rapuh dan pemicunya sudah tersedia, bukan karena sedang merusak data.
 
 Rumus yang sama disalin di empat tempat: `compositeUnit.ts` (induk), `apps/distribusi/src/components/distribusi/SuratJalanForm.tsx`, `VerifikasiForm.tsx`, `SuratJalanDetail.tsx`.
 
@@ -66,7 +64,7 @@ Rumus yang sama disalin di empat tempat: `compositeUnit.ts` (induk), `apps/distr
 - DB menyimpan **satu angka** tanpa pecahan: gram / lembar / pcs.
 - Semua konversi terjadi di lapisan UI, tidak pernah di lapisan simpan.
 - Tampilan tetap berjenjang; jumlah tingkat mengikuti data bahan (3 tingkat: 15 bahan, 2 tingkat: 35 bahan, 1 tingkat: 3 bahan).
-- Cara input pengguna **tidak berubah**: pelaku opname (leader / regional_manager) tetap mengisi kotak Dus/Kompan/Gram, gudang tetap mengetik satu angka dalam `satuan_distribusi`.
+- Cara input pengguna **tidak berubah bentuknya**: pelaku opname (leader / regional_manager) tetap mengisi beberapa kotak bertingkat, gudang tetap mengetik satu angka dalam satuan yang ia pakai sehari-hari. Yang berubah: kotak opname mengikuti **wadah nyata** (§4.5 dan Lampiran A.4) dan gudang **memilih kemasan** alih-alih mengandalkan sistem menebak satuannya.
 
 Alternatif yang ditolak:
 
@@ -328,4 +326,81 @@ Rollback tidak menghapus data — hanya menghentikan penulisan bersatuan baru.
 5. **Lubang otorisasi `process_waterfall_deduction`** (migration `20300103000010`, sudah di DB live): `SECURITY DEFINER` tanpa `SET search_path`, `EXECUTE` terbuka untuk `PUBLIC`/`anon`/`authenticated` → siapa pun pemegang anon key bisa menulis baris `pemakaian` untuk outlet mana pun, dan `pemakaian` justru dikecualikan dari guard no-negative. Tabel `bahan_baku_substitusi` juga tanpa RLS dengan `anon = arwd`. Fungsi ini dipensiunkan oleh §2.2, tapi **selama masih ada di DB lubangnya aktif** — tutup terpisah, jangan menunggu rollout ini.
 6. **Nasib branch `feat/dual-packaging-variant`** — belum merge, migration gagal (`outlet_staff.auth_user_id` tidak ada). Perlu keputusan eksplisit: tutup branch dan serap Task 4–7 ke rancangan ini, atau rebase. Jangan dibiarkan menggantung, karena ia menyentuh berkas yang sama (`OpnameForm`, jalur terima kiriman).
 7. **Rincian kemasan dipakai untuk apa** — belum dijawab tuntas. Kalau untuk mencocokkan hitungan fisik saat opname, rancangan §4.5 sudah cukup. Kalau untuk menghitung nilai rupiah stok, perlu tambahan `harga_beli` per kemasan yang lengkap (lihat §4.6 dan isu #2 di sini).
-8. **Ranjau timestamp 2030** — migration baru wajib bernomor setelah `20300104000001`, dan sebelum menyentuh `trg_process_bom_stok` jalankan `grep -rn "trg_process_bom_stok" supabase/migrations/`.
+8. **12 bahan berfaktor `×1`** (Lampiran A.3) — belum dipakai resep, jadi belum melukai. Harus diisi atau dinonaktifkan sebelum dipakai; kalau tidak, potongan pertama langsung 1.000× kelebihan.
+9. **Duplikat bahan** yang tidak ada di acuan owner: `KERTAS STRUK` vs `THERMAL STRUK`, `TUTUP` vs `TUTUP PACK`, `ES BATU` vs `ES BATU CRYSTAL`, `MINYAK` vs `MINYAK SAYUR`, plus `PLASTIK BESAR` / `PLASTIK VACUM` / `PLASTIK VACUUM JUMBO` / `DUS PACKING`. Perlu keputusan: pensiunkan atau tetap.
+10. **Ranjau timestamp 2030** — migration baru wajib bernomor setelah `20300104000001`, dan sebelum menyentuh `trg_process_bom_stok` jalankan `grep -rn "trg_process_bom_stok" supabase/migrations/`.
+
+---
+
+## Lampiran A — Acuan resmi faktor satuan
+
+Dikonfirmasi owner 2026-08-01/02. **Ini sumber kebenaran faktor satuan.** Kode tidak boleh lagi menyimpulkan tingkat satuan dari nama (`'kg'`, `'Liter'`); ambil dari kolom faktor, dan kalau tidak bisa dipetakan, gagal keras.
+
+### A.1 Sudah cocok dengan DB (verifikasi 2026-08-02)
+
+| Bahan | Besar | Tengah | Kecil |
+|---|---|---|---|
+| SAOS CABE · SAOS TOMAT KOMPAN | Dus | Kompan ×3 | Gram ×16.500 |
+| SAOS CABE POUCH · SAOS TOMAT POUCH · MAYONAISE | Dus | Kg ×12 | Gram ×12.000 |
+| SAOS SAMYANG | Dus | Kg ×5 | Gram ×5.000 |
+| KENTANG | Dus | Kg ×10 | Gram ×10.000 |
+| BAWANG | Bal | Kg ×20 | Gram ×20.000 |
+| SAPI | Blok | Kg ×2 | Gram ×2.000 |
+| KEJU | Dus | Pack ×24 | Lembar ×240 |
+| PAPER WRAP | Ikat | Pack ×10 | Lembar ×5.000 |
+| KULIT 25 · KULIT 28 · KULIT 32 | Pack | — | Lembar ×20 |
+| AYAM · TUM · TEPUNG · SAYUR · POWDER TEH · POWDER JERUK | Kg | — | Gram ×1.000 |
+| FOIL | Dus | — | Roll ×24 |
+| MIE | Dus | — | Bungkus ×40 |
+| HAND GLOVE | Box | — | Lembar ×100 |
+| THERMAL STRUK | Pack | — | Roll ×10 |
+| CUP | Pack | — | Pcs ×25 |
+| TUTUP PACK | Pack | — | Pcs ×50 |
+| STIKER | Lembar | — | Pcs ×20 |
+| PLASTIK BENING · PLASTIK KECIL · PLASTIK MERAH · POLYBAG | Ikat | — | Pack ×5 |
+| ES BATU CRYSTAL | Bal | — | — |
+
+### A.2 Harus dikoreksi
+
+**1. `MINYAK SAYUR` — 1 kompan = 16 liter (keputusan owner 2026-08-02)**
+
+| Kolom | Sekarang | Seharusnya |
+|---|---|---|
+| `faktor_tengah` | 18 | **16** |
+| `faktor_tampilan` | 324.000 | **16.000** |
+| `faktor_konversi` | 18.000 | **1.000** |
+
+Ketiganya salah. Trigger memotong `qty ÷ 18.000` → minyak **terpotong 18× lebih sedikit** di 19 resep aktif. Membatalkan angka "16 liter" yang tercatat di `SS COGS SET/unit-reconciliation.md` (4 Juli) — sekarang dikonfirmasi ulang dan harus ditulis ke DB. Penyakitnya sama dengan `"Kg"` saos tomat: tingkat tengah dinamai `Liter` padahal isinya jeriken.
+
+**2. `SAOS TOMAT` sudah `is_active = false`, tapi masih dipakai 19 resep aktif**
+
+```
+SAOS TOMAT          aktif=false  fk=16500  → 19 resep menunjuk ke sini
+SAOS TOMAT KOMPAN   aktif=true   fk=5500   → 0 resep
+SAOS TOMAT POUCH    aktif=true   fk=1000   → 0 resep
+```
+
+Trigger BOM **tidak memfilter `is_active`**, jadi potongan tetap jalan dari baris usang dengan pembagi 16.500 (seharusnya 5.500) → **terpotong 3× lebih sedikit**. Resep harus dipindahkan ke bahan yang aktif. Ini juga asal `faktor_tampilan = 198.000` yang tidak ada di acuan owner.
+
+**3. `ES BATU` — dipakai 2 resep, qty 16, satuan Bal → Gram ×1.000**
+
+`unit-reconciliation.md` mencatat es batu dipakai per pcs (kemasan 62 pcs), bukan gram. Perlu dipastikan qty 16 itu gram atau pcs. Dampak kecil (2 resep).
+
+### A.3 Berfaktor `×1` — belum diisi, belum dipakai resep
+
+`CENGKEH` · `JINTEN` · `KAYU MANIS` · `KETUMBAR` · `KUNYIT` · `GARAM` · `SASA` · `TUTUP` · `KERTAS STRUK` · `PLASTIK BESAR` · `ES BATU CRYSTAL` · `MINYAK`
+
+Semuanya 0 resep → belum ada kerusakan. Tapi 1 kg = 1 gram: begitu satu masuk resep, potongan pertama langsung 1.000× kelebihan. Isi atau nonaktifkan sebelum dipakai.
+
+### A.4 Bentuk form opname
+
+Kotak yang muncul mengikuti tingkat bahan, **bukan selalu tiga**, dan tingkat "besar" dilewati kalau tidak pernah ada dalam wujud utuh di outlet:
+
+```
+SAOS CABE          Kompan [  ]  Gram   [  ]
+SAOS CABE POUCH    Kg     [  ]  Gram   [  ]
+KEJU               Pack   [  ]  Lembar [  ]
+AYAM               Kg     [  ]  Gram   [  ]
+STIKER             Lembar [  ]  Pcs    [  ]
+ES BATU CRYSTAL    Bal    [  ]
+```

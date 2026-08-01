@@ -121,20 +121,38 @@ export default async function ReportsPage({
     }
   }
 
+  let accessibleOutlets: string[] = [];
+  if (staff?.role === 'area_manager') {
+    const { data: so } = await supabaseAdmin.from('staff_outlets').select('outlet_id').eq('staff_id', staff.id);
+    if (so && so.length > 0) {
+      accessibleOutlets = so.map((s: any) => s.outlet_id);
+    } else {
+      accessibleOutlets = ['00000000-0000-0000-0000-000000000000'];
+    }
+  }
+
   // Handle Outlet Filter
   let permittedOutletId = outletFilter;
-  if (staff?.outlet_id) {
-    // If the staff is locked to an outlet, enforce it
-    permittedOutletId = staff.outlet_id;
-  }
   
-  if (permittedOutletId !== 'all') {
-    ordersQuery = ordersQuery.eq('outlet_id', permittedOutletId);
+  if (staff?.role === 'area_manager') {
+    if (permittedOutletId !== 'all' && accessibleOutlets.includes(permittedOutletId)) {
+       ordersQuery = ordersQuery.eq('outlet_id', permittedOutletId);
+    } else {
+       ordersQuery = ordersQuery.in('outlet_id', accessibleOutlets);
+    }
+  } else if (!staff || staff.role === 'regional_manager' || staff.role === 'director') {
+    if (permittedOutletId !== 'all') {
+      ordersQuery = ordersQuery.eq('outlet_id', permittedOutletId);
+    }
+  } else if (staff?.outlet_id) {
+    ordersQuery = ordersQuery.eq('outlet_id', staff.outlet_id);
   }
 
   // Fetch Outlets for the filter dropdown
-  let qOutlets = supabase.from('outlets').select('id, name').eq('is_active', true);
-  if (staff?.outlet_id) {
+  let qOutlets = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true);
+  if (staff?.role === 'area_manager') {
+    qOutlets = qOutlets.in('id', accessibleOutlets);
+  } else if (staff?.outlet_id && staff.role !== 'regional_manager' && staff.role !== 'director') {
     qOutlets = qOutlets.eq('id', staff.outlet_id);
   }
 
@@ -167,8 +185,14 @@ export default async function ReportsPage({
   const paymentBreakdown: Record<string, { count: number; revenue: number }> = {};
   const hourly = Array(24).fill(0);
   const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {};
+  const outletSalesMap: Record<string, { itemsSold: number, items: Record<string, { name: string, qty: number, revenue: number }> }> = {};
 
   completedOrders.forEach((o: any) => {
+    const outletId = o.outlet_id;
+    if (outletId) {
+      if (!outletSalesMap[outletId]) outletSalesMap[outletId] = { itemsSold: 0, items: {} };
+    }
+
     // Payment Breakdown
     const pm = o.payment_method || 'unknown';
     if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, revenue: 0 };
@@ -183,15 +207,29 @@ export default async function ReportsPage({
     // Best Sellers
     if (Array.isArray(o.order_items)) {
       o.order_items.forEach((oi: any) => {
-        const name = oi.menu_item_name || 'Item';
+        let name = oi.menu_item_name || 'Item';
+        if (name.includes('|')) {
+          name = name.split('|')[0].trim();
+        }
+        
+        const qty = Number(oi.quantity) || 0;
         if (!itemMap[name]) itemMap[name] = { name, qty: 0, revenue: 0 };
-        itemMap[name].qty += Number(oi.quantity) || 0;
+        itemMap[name].qty += qty;
         itemMap[name].revenue += Number(oi.subtotal) || 0;
+        
+        if (outletId) {
+          outletSalesMap[outletId].itemsSold += qty;
+          if (!outletSalesMap[outletId].items[name]) {
+            outletSalesMap[outletId].items[name] = { name, qty: 0, revenue: 0 };
+          }
+          outletSalesMap[outletId].items[name].qty += qty;
+          outletSalesMap[outletId].items[name].revenue += Number(oi.subtotal) || 0;
+        }
       });
     }
   });
 
-  const bestSellers = Object.values(itemMap).sort((a, b) => b.qty - a.qty).slice(0, 10);
+  const bestSellers = Object.values(itemMap).sort((a, b) => b.qty - a.qty);
   const totalItemsSold = Object.values(itemMap).reduce((sum, item) => sum + item.qty, 0);
 
   let maxHourlyCount = 0;
@@ -216,6 +254,7 @@ export default async function ReportsPage({
     hourly,
     peakHour,
     bestSellers,
+    outletSalesMap,
   };
 
   const outlets = outletsData || [];

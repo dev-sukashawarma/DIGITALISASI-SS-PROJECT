@@ -245,36 +245,15 @@ export default function MonitoringPage() {
     try {
       const fromDate = periodFilter.from
       const toDate = periodFilter.to
-      const start = new Date(`${fromDate}T00:00:00+07:00`).toISOString()
-      const end = new Date(`${toDate}T23:59:59+07:00`).toISOString()
+      const res = await fetch(`/api/monitoring?from=${fromDate}&to=${toDate}`)
+      if (!res.ok) throw new Error('Failed to fetch data')
+      const data = await res.json()
 
-      const [outRes, stfRes, mapRes, attRes, catRes, recRes, opnRes] = await Promise.all([
-        supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
-        supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader', 'spv']),
-        supabase.from('staff_outlets').select('staff_id, outlet_id'),
-        supabase.from('attendance')
-          .select('outlet_id, outlet_staff_id, type, ts_server')
-          .gte('ts_server', start)
-          .lte('ts_server', end)
-          .order('ts_server', { ascending: true }),
-        supabase.from('checklist_categories')
-          .select('id, outlet_id, checklist_items(id, is_required)')
-          .eq('phase', 'buka'),
-        supabase.from('daily_checklist_records')
-          .select('id, outlet_id, date')
-          .gte('date', fromDate)
-          .lte('date', toDate),
-        supabase.from('opname')
-          .select('id, outlet_id, created_at')
-          .gte('created_at', start)
-          .lte('created_at', end)
-      ])
-
-      const validOutlets = (outRes.data || []) as Outlet[]
+      const validOutlets = (data.outlets || []) as Outlet[]
       
       const reqMap: Record<string, string[]> = {}
-      if (catRes.data) {
-        catRes.data.forEach((cat: any) => {
+      if (data.checklistCategories) {
+        data.checklistCategories.forEach((cat: any) => {
           const outId = cat.outlet_id
           if (!reqMap[outId]) reqMap[outId] = []
           const reqItems = (cat.checklist_items || []).filter((i: any) => i.is_required).map((i: any) => i.id)
@@ -283,26 +262,23 @@ export default function MonitoringPage() {
       }
 
       const ticksMap: Record<string, string[]> = {}
-      if (recRes.data && recRes.data.length > 0) {
-        const recIds = recRes.data.map((r: any) => r.id)
-        const { data: tickRes } = await supabase.from('daily_checklist_ticks').select('item_id, record_id').in('record_id', recIds)
-        
-        if (tickRes) {
-          recRes.data.forEach((rec: any) => {
+      if (data.checklistRecords && data.checklistRecords.length > 0) {
+        if (data.checklistTicks) {
+          data.checklistRecords.forEach((rec: any) => {
             if (!ticksMap[rec.outlet_id]) ticksMap[rec.outlet_id] = []
-            const ticksForRec = tickRes.filter((t: any) => t.record_id === rec.id).map((t: any) => t.item_id)
+            const ticksForRec = data.checklistTicks.filter((t: any) => t.record_id === rec.id).map((t: any) => t.item_id)
             ticksMap[rec.outlet_id].push(...ticksForRec)
           })
         }
       }
 
       setOutlets(validOutlets)
-      setStaffList((stfRes.data || []) as Staff[])
-      setStaffOutletMappings((mapRes.data || []) as StaffOutletMap[])
-      setAttendances((attRes.data || []) as Attendance[])
+      setStaffList(data.staff || [])
+      setStaffOutletMappings(data.staffOutlets || [])
+      setAttendances(data.attendances || [])
       setChecklistReq(reqMap)
       setChecklistTicks(ticksMap)
-      setOpnames((opnRes.data || []) as Opname[])
+      setOpnames(data.opnames || [])
       
     } catch (err) {
       console.error(err)

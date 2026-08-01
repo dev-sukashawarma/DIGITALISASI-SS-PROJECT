@@ -75,10 +75,10 @@ export function useOpnameActions() {
     // Dibatasi maksimal 2 opname/hari/outlet. HAPUS blok ini setelah 29/07/2026.
     const COMPENSATION_DATE = '2026-07-29'
     const JATIASIH_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const JATIASIH_DATE = '2026-07-30'
+    const JATIASIH_DATES = ['2026-07-30', '2026-08-02']
     
     const isCompensation = todayWIB === COMPENSATION_DATE
-    const isJatiasihException = outletId === JATIASIH_OUTLET_ID && todayWIB === JATIASIH_DATE
+    const isJatiasihException = outletId === JATIASIH_OUTLET_ID && JATIASIH_DATES.includes(todayWIB)
 
     if (existing && existing.status === 'finalized' && (isCompensation || isJatiasihException)) {
       const { count } = await supabase.from('opname')

@@ -1690,7 +1690,7 @@
   dependencies:
     fast-glob "3.3.1"
 
-"@next/swc-darwin-arm64@15.5.19", "@next/swc-darwin-arm64@16.2.9":
+"@next/swc-darwin-arm64@15.5.19", "@next/swc-darwin-arm64@16.2.12", "@next/swc-darwin-arm64@16.2.9":
   version "16.2.9"
   resolved "https://registry.npmjs.org/@next/swc-darwin-arm64/-/swc-darwin-arm64-16.2.9.tgz"
   integrity sha512-HkfxNYUCmcct0Xsqib5KxqMSHV4AHJq857BNRchyBDs4YS19aHzVfn1kDuBYKqLLQBjXgnkIsjV2Kd4d2wzYhw==
@@ -1700,12 +1700,7 @@
   resolved "https://registry.npmjs.org/@next/swc-darwin-arm64/-/swc-darwin-arm64-15.5.22.tgz"
   integrity sha512-/VISwtffSg8+fVvBbXdglsvruCsdbBC4dG25iU6xascKVqfQKsj/OtjGnOEkIS7pX5GB9e9/r5QprpicsGL3gw==
 
-"@next/swc-darwin-arm64@16.2.12":
-  version "16.2.12"
-  resolved "https://registry.npmjs.org/@next/swc-darwin-arm64/-/swc-darwin-arm64-16.2.12.tgz"
-  integrity sha512-0W1R0teHWJrqKX0FH20IzzIWAOuGtBxPGuObrxy1lE8hQvCFj49KE8a3WUg0D7sq6rn6zkM4c7YGUnhudBS6oA==
-
-"@next/swc-darwin-x64@15.5.19", "@next/swc-darwin-x64@16.2.9":
+"@next/swc-darwin-x64@15.5.19", "@next/swc-darwin-x64@16.2.12", "@next/swc-darwin-x64@16.2.9":
   version "16.2.9"
   resolved "https://registry.npmjs.org/@next/swc-darwin-x64/-/swc-darwin-x64-16.2.9.tgz"
   integrity sha512-7IAtK4MeybpqRV9GRABWEhJ62mOS+rzWOzOTFie4cSEtm12xsoOMJRcECoZx3FHPzFAqN/IJtHqWAFOLfl152w==
@@ -1715,12 +1710,7 @@
   resolved "https://registry.npmjs.org/@next/swc-darwin-x64/-/swc-darwin-x64-15.5.22.tgz"
   integrity sha512-NiA9ve8hbiuhG/Q17a2mZDRVxMTtg3rTOgjLnDaLlE+AEPAQlkkuKrfePEbeOrgYmX0U2KGX4EVEn09hXU5GlQ==
 
-"@next/swc-darwin-x64@16.2.12":
-  version "16.2.12"
-  resolved "https://registry.npmjs.org/@next/swc-darwin-x64/-/swc-darwin-x64-16.2.12.tgz"
-  integrity sha512-Hy5Ls099+aFUmOLmIgPfLqNi6iCwhL3uQCssz5rWk+5Nkc6TUKCE83DY5BbNylfm3+mfwcSFnLRfrZDJhVxdtw==
-
-"@next/swc-linux-arm64-gnu@15.5.19", "@next/swc-linux-arm64-gnu@16.2.9":
+"@next/swc-linux-arm64-gnu@15.5.19", "@next/swc-linux-arm64-gnu@16.2.12", "@next/swc-linux-arm64-gnu@16.2.9":
   version "16.2.9"
   resolved "https://registry.npmjs.org/@next/swc-linux-arm64-gnu/-/swc-linux-arm64-gnu-16.2.9.tgz"
   integrity sha512-hBD75iWpUtkL9SmQmcRhmLomn9jgkPzCEkbOcLgHymPEKzv+6ONy13RRiIEz/iEObjkS2Jlb5gYS2XGoS3X4rw==
@@ -1730,12 +1720,7 @@
   resolved "https://registry.npmjs.org/@next/swc-linux-arm64-gnu/-/swc-linux-arm64-gnu-15.5.22.tgz"
   integrity sha512-vAPa9vltW+UW/KWtjXeSUFgV3wb1x9d/BeyC6WFI6eBpL0D2f70oGwtOp6193mNW3qusrpgBzMQferPf+Zh8Dw==
 
-"@next/swc-linux-arm64-gnu@16.2.12":
-  version "16.2.12"
-  resolved "https://registry.npmjs.org/@next/swc-linux-arm64-gnu/-/swc-linux-arm64-gnu-16.2.12.tgz"
-  integrity sha512-+YqU2h1cQkHsGfvjAsrSmst8UIFBibBGm5x3Xgel8NLMiDQtNOM4sM2GOEMvG5YiOBNeN/Ykk8cQC2S0Xrqljg==
-
-"@next/swc-linux-arm64-musl@15.5.19", "@next/swc-linux-arm64-musl@16.2.9":
+"@next/swc-linux-arm64-musl@15.5.19", "@next/swc-linux-arm64-musl@16.2.12", "@next/swc-linux-arm64-musl@16.2.9":
   version "16.2.9"
   resolved "https://registry.npmjs.org/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-16.2.9.tgz"
   integrity sha512-qZTI3pf9SGc/obr8NkQAekBxmp1QK+kVm+VAf3BALLfFAj+1kUhkTxmrWpVos9R/UYIA8AWX2p6cGI5WdwzVUA==
@@ -1745,12 +1730,7 @@
   resolved "https://registry.npmjs.org/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-15.5.22.tgz"
   integrity sha512-iknK80pWlNDnkdSr13bd8mMuG3Z2oTxODwsZHvuMY7caMk77+rBLdHVWsy8v2EVa3ZojJ/+wJX5fnq8va6Gv8A==
 
-"@next/swc-linux-arm64-musl@16.2.12":
-  version "16.2.12"
-  resolved "https://registry.npmjs.org/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-16.2.12.tgz"
-  integrity sha512-0qjhiYBaKAqF63LA1ZWAAnKTzFUguAaZiRa5etMLGGPj/B6uEVjtIZldIzFEp3wHlB0koK6aTzqPtSdplTCjoA==
-
-"@next/swc-linux-x64-gnu@15.5.19", "@next/swc-linux-x64-gnu@16.2.9":
+"@next/swc-linux-x64-gnu@15.5.19", "@next/swc-linux-x64-gnu@16.2.12", "@next/swc-linux-x64-gnu@16.2.9":
   version "16.2.9"
   resolved "https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.2.9.tgz"
   integrity sha512-xm0HfRNX+UkH4R3c18ynswjj5o5uEj/7iI9p9omdtTSIsRCzQqkGMA+10nzJ4EHnYC3as65IMhbbl5fWRUWHYg==
@@ -1760,12 +1740,7 @@
   resolved "https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-15.5.22.tgz"
   integrity sha512-penuEdkwU2OOAiS+n4LE8T/VIoCfAI01QcLZTJ2xc3+l4Q22L/DzURocmI2LU1b+8BMQoLAP1Sze3uYAZT05Bg==
 
-"@next/swc-linux-x64-gnu@16.2.12":
-  version "16.2.12"
-  resolved "https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.2.12.tgz"
-  integrity sha512-7A3q26W+h7gnA15uqBToNuDqBEFZZcqh0mW2mn4AJh/G5pdg2RVE3n4slzLEliASZFG3NmsbEzng/x2Sh09mBg==
-
-"@next/swc-linux-x64-musl@15.5.19", "@next/swc-linux-x64-musl@16.2.9":
+"@next/swc-linux-x64-musl@15.5.19", "@next/swc-linux-x64-musl@16.2.12", "@next/swc-linux-x64-musl@16.2.9":
   version "16.2.9"
   resolved "https://registry.npmjs.org/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-16.2.9.tgz"
   integrity sha512-QumimHkGEG6vM3PfEDWKyKen03NcqLOkeKB1EfcPe7VxzmEiCa4jNnMyBn/US5zcd/VE1CI+O8Ovb3lfjVHfGw==
@@ -1775,12 +1750,7 @@
   resolved "https://registry.npmjs.org/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-15.5.22.tgz"
   integrity sha512-ZM0BKJm3FZ+guG6WT6PcyOLtp6paZ5tngcJC/uUKvLW4Y0TQnnVi1+UGdo8Q6Yxp5gaS82pmC1rD/oFlhkWB3g==
 
-"@next/swc-linux-x64-musl@16.2.12":
-  version "16.2.12"
-  resolved "https://registry.npmjs.org/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-16.2.12.tgz"
-  integrity sha512-qSjL/uppm+cbh21s72Ss8gkiOhQ4dExWHNGOWy6eZV7STj5WsKehgxT61beSsOj+YYQuTplL376lOCdMQU5T8w==
-
-"@next/swc-win32-arm64-msvc@15.5.19", "@next/swc-win32-arm64-msvc@16.2.9":
+"@next/swc-win32-arm64-msvc@15.5.19", "@next/swc-win32-arm64-msvc@16.2.12", "@next/swc-win32-arm64-msvc@16.2.9":
   version "16.2.9"
   resolved "https://registry.npmjs.org/@next/swc-win32-arm64-msvc/-/swc-win32-arm64-msvc-16.2.9.tgz"
   integrity sha512-hzQpKZvw8rAwI6A2uQh6SacCSvNAXaIkPNsWwzqqfRiIMiXMfH936skDhz1OO6KpvdKkJrgHHtqQOq5PIXOvdQ==
@@ -1789,11 +1759,6 @@
   version "15.5.22"
   resolved "https://registry.npmjs.org/@next/swc-win32-arm64-msvc/-/swc-win32-arm64-msvc-15.5.22.tgz"
   integrity sha512-rY/YaumrZaS0//94BnHLF5VSRp0GFUO4GvXNuoCBb0cGSci96yO+p1JaNL2aq9YZAYv9cuZRziV02x5IQH/wjg==
-
-"@next/swc-win32-arm64-msvc@16.2.12":
-  version "16.2.12"
-  resolved "https://registry.npmjs.org/@next/swc-win32-arm64-msvc/-/swc-win32-arm64-msvc-16.2.12.tgz"
-  integrity sha512-X6hzsOUJac/e7AWSbn9gQ9nzHld1xWP5iyjHpYWvud8pufB679O1xg4JDyKr8Xd69Jvd+kM2Der6uftiZCmjYA==
 
 "@next/swc-win32-x64-msvc@15.5.19":
   version "15.5.19"

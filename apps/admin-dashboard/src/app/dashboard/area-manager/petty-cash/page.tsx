@@ -110,27 +110,37 @@ function CustomSelect({
   onChange, 
   options, 
   icon: Icon,
-  placeholder = 'Pilih...'
+  placeholder = 'Pilih...',
+  searchable = false
 }: { 
   value: string; 
   onChange: (val: string) => void; 
   options: { label: string; value: string }[];
   icon: any;
   placeholder?: string;
+  searchable?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [search, setSearch] = useState('')
   const selectedLabel = options.find(o => o.value === value)?.label || placeholder
+
+  const filteredOptions = searchable 
+    ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
+    : options
 
   return (
     <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-3 pl-8 pr-3 py-1.5 bg-white border border-slate-200/60 text-slate-600 rounded-md text-xs font-medium focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400 shadow-sm hover:bg-slate-50 transition-colors"
+        onClick={() => {
+          setIsOpen(!isOpen)
+          setSearch('')
+        }}
+        className="w-full sm:min-w-[200px] flex items-center justify-between gap-3 pl-9 pr-4 py-2.5 bg-white border border-slate-200/60 text-slate-700 rounded-lg text-sm font-medium focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400 shadow-sm hover:bg-slate-50 transition-colors"
       >
         <span className="truncate">{selectedLabel}</span>
-        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
-      <Icon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+      <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
       
       <AnimatePresence>
         {isOpen && (
@@ -141,23 +151,39 @@ function CustomSelect({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 5 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 sm:right-auto sm:left-0 top-full mt-1.5 w-48 sm:w-56 bg-white border border-slate-100 rounded-lg shadow-xl z-50 overflow-hidden"
+              className="absolute right-0 sm:right-auto sm:left-0 top-full mt-2 w-56 sm:w-64 bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden flex flex-col"
             >
-              <div className="max-h-60 overflow-y-auto py-1">
-                {options.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => {
-                      onChange(opt.value)
-                      setIsOpen(false)
-                    }}
-                    className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                      value === opt.value ? 'bg-[#4a1c15] text-white font-medium' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              {searchable && (
+                <div className="p-2 border-b border-slate-100 bg-slate-50/50">
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Cari outlet..."
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400 shadow-sm"
+                    autoFocus
+                  />
+                </div>
+              )}
+              <div className="max-h-64 overflow-y-auto p-1.5 space-y-0.5">
+                {filteredOptions.length > 0 ? (
+                  filteredOptions.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        onChange(opt.value)
+                        setIsOpen(false)
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                        value === opt.value ? 'bg-[#4a1c15] text-white font-medium shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-4 text-sm text-slate-500 text-center">Tidak ditemukan</div>
+                )}
               </div>
             </motion.div>
           </>
@@ -451,6 +477,7 @@ export default function AreaManagerPettyCashPage() {
               onChange={setOutletFilter}
               options={outletOptions}
               icon={MapPin}
+              searchable={true}
             />
           </div>
           <div className="flex-1 lg:flex-none">

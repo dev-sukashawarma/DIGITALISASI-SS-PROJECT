@@ -1,8 +1,7 @@
 'use client'
 
-import { Button } from '@suka/design-system'
 import { useAuth } from '@suka/auth'
-import { LogOut, User, Search } from 'lucide-react'
+import { LogOut, Search } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { labelForPath } from './navConfig'
 

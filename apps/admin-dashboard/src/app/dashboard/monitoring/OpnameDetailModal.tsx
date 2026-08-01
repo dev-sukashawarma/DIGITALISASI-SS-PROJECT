@@ -104,12 +104,18 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
       return false
     }
     // Tab filter
-    if (activeTab === 'SELISIH' && Number(item.selisih) === 0) return false
+    if (activeTab === 'SELISIH') {
+      const selisihNum = Math.round((Number(item.selisih) || 0) * 100) / 100
+      if (selisihNum === 0) return false
+    }
     if (activeTab === 'FLAGGED' && !item.flagged) return false
     return true
   })
 
-  const countSelisih = items.filter(i => Number(i.selisih) !== 0).length
+  const countSelisih = items.filter(i => {
+    const s = Math.round((Number(i.selisih) || 0) * 100) / 100
+    return s !== 0
+  }).length
   const countFlagged = items.filter(i => i.flagged).length
 
   // Outside click handler
@@ -245,16 +251,10 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                     </tr>
                   ) : (
                     filteredItems.map(item => {
-                      const selisihNum = Number(item.selisih) || 0
+                      const rawSelisih = Number(item.selisih) || 0
+                      const selisihNum = Math.round(rawSelisih * 100) / 100
                       const hasSelisih = selisihNum !== 0
                       const isMinus = selisihNum < 0
-                      
-                      let selisihColor = 'text-slate-400'
-                      let selisihBg = 'bg-slate-50'
-                      if (hasSelisih) {
-                        selisihColor = isMinus ? 'text-red-700' : 'text-emerald-700'
-                        selisihBg = isMinus ? 'bg-red-50' : 'bg-emerald-50'
-                      }
 
                       return (
                         <tr key={item.id} className={`hover:bg-slate-50 transition-colors ${item.flagged ? 'bg-red-50/40' : ''}`}>
@@ -319,7 +319,8 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                 </div>
               ) : (
                 filteredItems.map(item => {
-                  const selisihNum = Number(item.selisih) || 0
+                  const rawSelisih = Number(item.selisih) || 0
+                  const selisihNum = Math.round(rawSelisih * 100) / 100
                   const hasSelisih = selisihNum !== 0
                   const isMinus = selisihNum < 0
                   

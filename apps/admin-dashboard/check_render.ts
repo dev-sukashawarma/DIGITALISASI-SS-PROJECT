@@ -1,3 +1,4 @@
+// @ts-nocheck
 const channels = [
   { id: '1284ac2a-e753-4380-9f32-59219a322459', name: 'GoFood', is_active: true },
   { id: '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a', name: 'GrabFood', is_active: true },

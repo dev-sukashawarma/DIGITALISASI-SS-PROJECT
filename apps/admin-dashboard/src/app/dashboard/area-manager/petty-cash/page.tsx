@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { 
-  CheckCircle2, Clock, Store, ShieldCheck, History, 
-  XCircle, ArrowRight, Loader2, RefreshCw, Camera, 
-  X, Download, User, Check, AlertCircle, ChevronRight, FileText,
-  Calendar, MapPin, Filter, ChevronDown
+  CheckCircle2, Clock, Store, 
+  ArrowRight, Loader2, RefreshCw, 
+  X, Download, User, Check, AlertCircle, FileText,
+  Calendar, MapPin, ChevronDown
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
-import { formatRelativeTime, formatDateTime } from '@/lib/date'
+import { formatRelativeTime } from '@/lib/date'
 import { toast } from 'sonner'
 import { getAreaManagerPettyCashTopups } from './actions'
 import { motion, AnimatePresence } from 'framer-motion'

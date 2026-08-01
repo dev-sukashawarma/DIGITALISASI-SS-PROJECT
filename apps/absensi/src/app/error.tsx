@@ -1,7 +1,6 @@
 'use client'
 
 import { ServerError } from '@suka/design-system'
-import { useEffect } from 'react'
 
 export default function Error({
   error,

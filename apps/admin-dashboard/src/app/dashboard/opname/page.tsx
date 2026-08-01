@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
@@ -253,7 +253,6 @@ export default function OpnamePage() {
                 { value: 'ALL', label: 'Semua Outlet' },
                 ...outlets.map(o => ({ value: o.id, label: o.name }))
               ]}
-              icon={<Store className="w-4 h-4 text-slate-400" />}
               className="bg-slate-50"
               searchable={true}
               searchPlaceholder="Cari outlet..."

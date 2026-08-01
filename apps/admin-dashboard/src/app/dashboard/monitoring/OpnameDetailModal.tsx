@@ -29,11 +29,7 @@ function smartQty(num: number | null | undefined, satuan?: string): string {
   }).format(num)
 }
 
-/** Capitalise first letter of unit for display */
-function displayUnit(satuan: string): string {
-  if (!satuan) return ''
-  return satuan.charAt(0).toUpperCase() + satuan.slice(1).toLowerCase()
-}
+// Removed displayUnit to use raw database unit
 
 type OpnameItemDetail = {
   id: string
@@ -270,13 +266,13 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                           <td className="px-6 py-3 text-right">
                             <div className="flex flex-col items-end">
                               <span className="text-sm font-semibold text-slate-600 tabular-nums">{smartQty(Number(item.qty_system), item.bahan_baku.satuan)}</span>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{displayUnit(item.bahan_baku.satuan)}</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.bahan_baku.satuan}</span>
                             </div>
                           </td>
                           <td className="px-6 py-3 text-right">
                             <div className="flex flex-col items-end">
                               <span className="text-sm font-black text-slate-900 tabular-nums">{item.qty_fisik !== null ? smartQty(Number(item.qty_fisik), item.bahan_baku.satuan) : '-'}</span>
-                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{displayUnit(item.bahan_baku.satuan)}</span>
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.bahan_baku.satuan}</span>
                             </div>
                           </td>
                           <td className="px-6 py-3 text-right">
@@ -286,7 +282,7 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                                   {isMinus ? <TrendingDown size={13} /> : <TrendingUp size={13} />}
                                   <span className="text-sm tabular-nums">{smartQty(Math.abs(selisihNum), item.bahan_baku.satuan)}</span>
                                 </div>
-                                <span className={`text-[9px] font-bold uppercase tracking-widest ${isMinus ? 'text-red-500' : 'text-emerald-500'}`}>{isMinus ? 'Kurang' : 'Lebih'} · {displayUnit(item.bahan_baku.satuan)}</span>
+                                <span className={`text-[9px] font-bold uppercase tracking-widest ${isMinus ? 'text-red-500' : 'text-emerald-500'}`}>{isMinus ? 'Kurang' : 'Lebih'} · {item.bahan_baku.satuan}</span>
                               </div>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-xs font-bold text-slate-500">
@@ -343,7 +339,7 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                             <span className="text-xl font-bold text-slate-700 tabular-nums leading-none">
                               {smartQty(Number(item.qty_system), item.bahan_baku.satuan)}
                             </span>
-                            <span className="text-[10px] font-bold text-slate-400">{displayUnit(item.bahan_baku.satuan)}</span>
+                            <span className="text-[10px] font-bold text-slate-400">{item.bahan_baku.satuan}</span>
                           </div>
                         </div>
                         <div className="flex flex-col items-end text-right border-l border-slate-200/50 pl-3">
@@ -352,7 +348,7 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                             <span className="text-xl font-black text-slate-900 tabular-nums leading-none">
                               {item.qty_fisik !== null ? smartQty(Number(item.qty_fisik), item.bahan_baku.satuan) : '-'}
                             </span>
-                            <span className="text-[10px] font-bold text-slate-500">{displayUnit(item.bahan_baku.satuan)}</span>
+                            <span className="text-[10px] font-bold text-slate-500">{item.bahan_baku.satuan}</span>
                           </div>
                         </div>
                       </div>
@@ -365,7 +361,7 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                               {isMinus ? <TrendingDown size={16} /> : <TrendingUp size={16} />}
                               <div className="flex items-baseline gap-1">
                                 <span className="text-base tabular-nums leading-none">{smartQty(Math.abs(selisihNum), item.bahan_baku.satuan)}</span>
-                                <span className="text-[10px] font-bold">{displayUnit(item.bahan_baku.satuan)}</span>
+                                <span className="text-[10px] font-bold">{item.bahan_baku.satuan}</span>
                               </div>
                             </div>
                           </div>

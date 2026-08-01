@@ -34,7 +34,15 @@ const formatWIBTime = (tsServerStr: string) => {
   }
 };
 
-const getAMName = (outletName: string) => {
+const getAMName = (outletId: string, outletName: string, amMap: Map<string, string>, staffRole?: string, staffName?: string) => {
+  if (staffRole === 'area_manager') {
+    return staffName || 'Area Anda';
+  }
+  
+  if (amMap.has(outletId)) {
+    return amMap.get(outletId)!;
+  }
+
   const name = outletName.toUpperCase();
   
   if (name.includes('EMPANG') || name.includes('BCC') || name.includes('DRAMAGA') || name.includes('PALEDANG') || name.includes('CICURUG') || name.includes('CIMANGGU')) {
@@ -281,12 +289,21 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     outletOmzetMap.set(sale.outlet_id, current + Number(sale.omzet));
   });
 
+  const amMap = new Map<string, string>();
+  if (staffOutlets) {
+    staffOutlets.forEach((so: any) => {
+      if (so.outlet_staff && so.outlet_staff.role === 'area_manager') {
+        amMap.set(so.outlet_id, so.outlet_staff.name);
+      }
+    });
+  }
+
   const outletRanking = (outlets || [])
     .filter(o => o.is_active)
     .map(outlet => ({
       id: outlet.id,
       name: outlet.name,
-      amName: getAMName(outlet.name),
+      amName: getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name),
       omzet: outletOmzetMap.get(outlet.id) || 0
     }))
     .filter(o => o.amName !== 'Lainnya')
@@ -296,7 +313,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
 
   const groupedOutlets = new Map<string, any[]>();
   allOutlets.forEach(outlet => {
-    const amName = getAMName(outlet.name);
+    const amName = getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name);
     if (amName === 'Lainnya') return;
     
     const groupKey = amName;

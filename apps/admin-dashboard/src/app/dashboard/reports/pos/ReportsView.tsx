@@ -17,6 +17,7 @@ import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReport
 
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
+import { generateExecutiveItemReportPDF } from '@/utils/pdfExporter'
 
 interface ShiftRow {
   id: string
@@ -725,7 +726,28 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     return itemBreakdownSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
   }
   const downloadPDF = () => {
-    window.print()
+    if (analytics.completedOrders.length === 0) return
+
+    let dateRangeText = RANGE_LABELS[range]
+    if (range === 'custom' && (customStartDate || customEndDate)) {
+      dateRangeText = `${customStartDate || 'Awal'} s/d ${customEndDate || 'Sekarang'}`
+    }
+
+    const channelObj = availableChannels.find(c => c.key === selectedChannel)
+    const channelLabelText = selectedChannel === 'all' 
+      ? 'Semua Channel' 
+      : selectedChannel === 'food_apps' 
+        ? 'Semua Food Apps' 
+        : (channelObj?.label || selectedChannel)
+
+    generateExecutiveItemReportPDF({
+      outletName: selectedOutletName,
+      dateRangeLabel: dateRangeText,
+      channelLabel: channelLabelText,
+      grossRevenue: analytics.grossRevenue,
+      totalOrders: analytics.completedOrders.length,
+      bestSellers: analytics.bestSellers
+    })
   }
 
   return (
@@ -811,6 +833,16 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 </>
               )}
             </div>
+
+            <button
+              onClick={downloadPDF}
+              disabled={analytics.completedOrders.length === 0}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              title="Download Laporan PDF Rincian Item Terjual"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Download PDF Eksekutif</span>
+            </button>
           </div>
         </div>
       

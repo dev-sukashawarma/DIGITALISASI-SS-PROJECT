@@ -228,12 +228,52 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           const qtyFisik = Number(fisik[b.id]);
           const qtySystem = saldoOf[b.id] ?? 0;
           const selisih = computeSelisih(qtyFisik, qtySystem);
+          
+          // Generate raw input text for display in dashboard
+          let rawInputText = '';
+          let useComposite = false;
+          let compLabel = '';
+          let compLargeLabel = b.satuan;
+          
+          if (!['gram', 'ml'].includes(b.satuan.toLowerCase())) {
+            if (role === 'kitchen') {
+              const override = KITCHEN_UNIT_OVERRIDES[b.nama];
+              if (override) {
+                useComposite = true;
+                compLargeLabel = override.largeLabel;
+                compLabel = override.smallLabel;
+              } else if (b.satuan_tengah && b.faktor_tengah) {
+                useComposite = true;
+                compLabel = b.satuan_tengah;
+              }
+            } else {
+              const override = OUTLET_UNIT_OVERRIDES[b.nama];
+              if (override) {
+                useComposite = true;
+                compLargeLabel = override.largeLabel;
+                compLabel = override.smallLabel;
+              } else if (b.satuan_kecil && b.faktor_tampilan) {
+                useComposite = true;
+                compLabel = b.satuan_kecil;
+              }
+            }
+          }
+
+          if (useComposite) {
+            const cont = containerInput[b.id] || '0';
+            const rem = remainderInput[b.id] || '0';
+            rawInputText = `${cont} ${compLargeLabel} + ${rem} ${compLabel}`;
+          } else {
+            rawInputText = `${fisik[b.id]} ${b.satuan}`;
+          }
+
           return {
             opname_id: opname.id,
             bahan_baku_id: b.id,
             qty_fisik: qtyFisik,
             qty_system: qtySystem,
             flagged: isSelisihFlagged(selisih, qtySystem, b.satuan, b.satuan_kecil),
+            catatan: `[RAW] ${rawInputText}`,
           };
         });
 

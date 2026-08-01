@@ -252,6 +252,10 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                       const selisihNum = Math.round(rawSelisih * multiplier) / multiplier
                       const hasSelisih = selisihNum !== 0
                       const isMinus = selisihNum < 0
+                      const isRaw = item.catatan?.startsWith('[RAW]');
+                      const rawInputMatch = isRaw ? item.catatan?.match(/^\[RAW\] (.*)$/) : null;
+                      const qtyFisikText = rawInputMatch ? rawInputMatch[1] : null;
+                      const cleanCatatan = isRaw ? item.catatan?.replace(/^\[RAW\] .*?(?=\n|$)/, '').trim() : item.catatan;
 
                       return (
                         <tr key={item.id} className={`hover:bg-slate-50 transition-colors ${item.flagged ? 'bg-red-50/40' : ''}`}>
@@ -270,10 +274,16 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                             </div>
                           </td>
                           <td className="px-6 py-3 text-right">
-                            <div className="flex flex-col items-end">
-                              <span className="text-sm font-black text-slate-900 tabular-nums">{item.qty_fisik !== null ? smartQty(Number(item.qty_fisik), item.bahan_baku.satuan) : '-'}</span>
-                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.bahan_baku.satuan}</span>
-                            </div>
+                            {qtyFisikText ? (
+                              <div className="flex flex-col items-end">
+                                <span className="text-sm font-black text-slate-900 leading-none">{qtyFisikText}</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-end">
+                                <span className="text-sm font-black text-slate-900 tabular-nums">{item.qty_fisik !== null ? smartQty(Number(item.qty_fisik), item.bahan_baku.satuan) : '-'}</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.bahan_baku.satuan}</span>
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-3 text-right">
                             {hasSelisih ? (
@@ -291,9 +301,9 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                             )}
                           </td>
                           <td className="px-6 py-3">
-                            {item.catatan ? (
-                              <p className="text-xs font-medium text-slate-600 line-clamp-2 max-w-[200px]" title={item.catatan}>
-                                {item.catatan}
+                            {cleanCatatan ? (
+                              <p className="text-xs font-medium text-slate-600 line-clamp-2 max-w-[200px]" title={cleanCatatan}>
+                                {cleanCatatan}
                               </p>
                             ) : (
                               <span className="text-xs text-slate-300">-</span>
@@ -322,6 +332,10 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                   const selisihNum = Math.round(rawSelisih * multiplier) / multiplier
                   const hasSelisih = selisihNum !== 0
                   const isMinus = selisihNum < 0
+                  const isRaw = item.catatan?.startsWith('[RAW]');
+                  const rawInputMatch = isRaw ? item.catatan?.match(/^\[RAW\] (.*)$/) : null;
+                  const qtyFisikText = rawInputMatch ? rawInputMatch[1] : null;
+                  const cleanCatatan = isRaw ? item.catatan?.replace(/^\[RAW\] .*?(?=\n|$)/, '').trim() : item.catatan;
                   
                   return (
                     <div key={item.id} className={`bg-white rounded-2xl shadow-sm border p-4 ${item.flagged ? 'border-red-200' : 'border-slate-200'}`}>
@@ -344,12 +358,16 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                         </div>
                         <div className="flex flex-col items-end text-right border-l border-slate-200/50 pl-3">
                           <span className="text-[10px] text-slate-400 uppercase font-extrabold tracking-wider mb-1">Qty Fisik</span>
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-black text-slate-900 tabular-nums leading-none">
-                              {item.qty_fisik !== null ? smartQty(Number(item.qty_fisik), item.bahan_baku.satuan) : '-'}
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-500">{item.bahan_baku.satuan}</span>
-                          </div>
+                          {qtyFisikText ? (
+                            <span className="text-sm font-black text-slate-900 leading-none block break-words mt-1">{qtyFisikText}</span>
+                          ) : (
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-xl font-black text-slate-900 tabular-nums leading-none">
+                                {item.qty_fisik !== null ? smartQty(Number(item.qty_fisik), item.bahan_baku.satuan) : '-'}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500">{item.bahan_baku.satuan}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       
@@ -372,10 +390,10 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                         )}
                       </div>
 
-                      {item.catatan && (
+                      {cleanCatatan && cleanCatatan.length > 0 && (
                         <div className="mt-3 text-xs font-medium text-slate-600 bg-amber-50 p-3 rounded-xl border border-amber-100">
                           <span className="block text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Catatan</span>
-                          {item.catatan}
+                          {cleanCatatan}
                         </div>
                       )}
                     </div>

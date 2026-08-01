@@ -12,26 +12,26 @@ export async function getAreaManagerPettyCashTopups() {
   try {
     const supabase = getAdminClient()
 
-    // 1. Get Bogor region outlets (or unassigned/HQ)
+    // 1. Get all outlets
     const { data: outlets, error: outletErr } = await supabase
       .from('outlets')
       .select('id, name, region')
 
     if (outletErr) throw outletErr
 
-    const bogorOutlets = (outlets || []).filter(o => !o.region || o.region.toUpperCase() === 'BOGOR')
-    const bogorOutletIds = bogorOutlets.map(o => o.id)
-    const outletMap = new Map(bogorOutlets.map(o => [o.id, o]))
+    const allOutlets = outlets || []
+    const outletIds = allOutlets.map(o => o.id)
+    const outletMap = new Map(allOutlets.map(o => [o.id, o]))
 
-    if (bogorOutletIds.length === 0) {
+    if (outletIds.length === 0) {
       return { success: true, data: [] }
     }
 
-    // 2. Fetch topups for Bogor outlets
+    // 2. Fetch topups for all outlets
     const { data: topups, error: topupErr } = await supabase
       .from('petty_cash_topups')
       .select('id, outlet_id, amount, description, status, created_at, created_by, bank_name, bank_account_number, bank_account_name, proof_of_transfer_url')
-      .in('outlet_id', bogorOutletIds)
+      .in('outlet_id', outletIds)
       .order('created_at', { ascending: false })
       .limit(100)
 
@@ -56,7 +56,7 @@ export async function getAreaManagerPettyCashTopups() {
       outlets: outletMap.get(r.outlet_id) || null
     }))
 
-    return { success: true, data: formattedData, outlets: bogorOutlets }
+    return { success: true, data: formattedData, outlets: allOutlets }
   } catch (err: any) {
     console.error('Error fetching AM petty cash:', err)
     return { success: false, error: err.message, data: [], outlets: [] }

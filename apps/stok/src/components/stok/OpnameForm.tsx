@@ -229,11 +229,13 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           const qtySystem = saldoOf[b.id] ?? 0;
           const selisih = computeSelisih(qtyFisik, qtySystem);
           
-          // Generate raw input text for display in dashboard
           let rawInputText = '';
+          let rawSystemText = '';
+          let rawSelisihText = '';
           let useComposite = false;
           let compLabel = '';
           let compLargeLabel = b.satuan;
+          let resolveBase = (l: number, s: number) => l + s / 1; // dummy fallback
           
           if (!['gram', 'ml'].includes(b.satuan.toLowerCase())) {
             if (role === 'kitchen') {
@@ -242,9 +244,11 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                 useComposite = true;
                 compLargeLabel = override.largeLabel;
                 compLabel = override.smallLabel;
+                resolveBase = override.toBaseUnit;
               } else if (b.satuan_tengah && b.faktor_tengah) {
                 useComposite = true;
                 compLabel = b.satuan_tengah;
+                resolveBase = (l, s) => l + s / (b.faktor_tengah || 1);
               }
             } else {
               const override = OUTLET_UNIT_OVERRIDES[b.nama];
@@ -252,9 +256,11 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                 useComposite = true;
                 compLargeLabel = override.largeLabel;
                 compLabel = override.smallLabel;
+                resolveBase = override.toBaseUnit;
               } else if (b.satuan_kecil && b.faktor_tampilan) {
                 useComposite = true;
                 compLabel = b.satuan_kecil;
+                resolveBase = (l, s) => l + s / (b.faktor_tampilan || 1);
               }
             }
           }
@@ -263,9 +269,36 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
             const cont = containerInput[b.id] || '0';
             const rem = remainderInput[b.id] || '0';
             rawInputText = `${cont} ${compLargeLabel} + ${rem} ${compLabel}`;
+            
+            const formatComp = (val: number) => {
+               const absVal = Math.abs(val);
+               let l = 0;
+               while (resolveBase(l + 1, 0) <= absVal + 0.000001) { l++; }
+               const base0 = resolveBase(l, 0);
+               const base1 = resolveBase(l, 1);
+               const diff = base1 - base0;
+               let s = 0;
+               if (diff > 0) s = Math.round((absVal - base0) / diff);
+               
+               if (resolveBase(l, s) >= resolveBase(l + 1, 0) - 0.000001) {
+                  l++;
+                  s = 0;
+               }
+               
+               if (l === 0) return `${s} ${compLabel}`;
+               if (s === 0) return `${l} ${compLargeLabel}`;
+               return `${l} ${compLargeLabel} + ${s} ${compLabel}`;
+            };
+            
+            rawSystemText = formatComp(qtySystem);
+            rawSelisihText = formatComp(selisih);
           } else {
             rawInputText = `${fisik[b.id]} ${b.satuan}`;
+            rawSystemText = `${qtySystem} ${b.satuan}`;
+            rawSelisihText = `${Math.abs(selisih)} ${b.satuan}`;
           }
+
+          const rawData = { f: rawInputText, s: rawSystemText, d: rawSelisihText };
 
           return {
             opname_id: opname.id,
@@ -273,7 +306,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
             qty_fisik: qtyFisik,
             qty_system: qtySystem,
             flagged: isSelisihFlagged(selisih, qtySystem, b.satuan, b.satuan_kecil),
-            catatan: `[RAW] ${rawInputText}`,
+            catatan: `[RAW] ${JSON.stringify(rawData)}`,
           };
         });
 

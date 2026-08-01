@@ -253,9 +253,29 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                       const hasSelisih = selisihNum !== 0
                       const isMinus = selisihNum < 0
                       const isRaw = item.catatan?.startsWith('[RAW]');
-                      const rawInputMatch = isRaw ? item.catatan?.match(/^\[RAW\] (.*)$/) : null;
-                      const qtyFisikText = rawInputMatch ? rawInputMatch[1] : null;
-                      const cleanCatatan = isRaw ? item.catatan?.replace(/^\[RAW\] .*?(?=\n|$)/, '').trim() : item.catatan;
+                      let qtyFisikText = null;
+                      let qtySystemText = null;
+                      let selisihText = null;
+                      let cleanCatatan = item.catatan;
+
+                      if (isRaw) {
+                        try {
+                          const jsonStr = item.catatan!.replace(/^\[RAW\]\s*/, '');
+                          if (jsonStr.startsWith('{')) {
+                            const rawData = JSON.parse(jsonStr);
+                            qtyFisikText = rawData.f;
+                            qtySystemText = rawData.s;
+                            selisihText = rawData.d;
+                            cleanCatatan = null;
+                          } else {
+                            qtyFisikText = jsonStr;
+                            cleanCatatan = null;
+                          }
+                        } catch (e) {
+                          qtyFisikText = item.catatan!.replace(/^\[RAW\]\s*/, '');
+                          cleanCatatan = null;
+                        }
+                      }
 
                       return (
                         <tr key={item.id} className={`hover:bg-slate-50 transition-colors ${item.flagged ? 'bg-red-50/40' : ''}`}>
@@ -269,8 +289,14 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                           </td>
                           <td className="px-6 py-3 text-right">
                             <div className="flex flex-col items-end">
-                              <span className="text-sm font-semibold text-slate-600 tabular-nums">{smartQty(Number(item.qty_system), item.bahan_baku.satuan)}</span>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.bahan_baku.satuan}</span>
+                              {qtySystemText ? (
+                                <span className="text-sm font-semibold text-slate-600 leading-none">{qtySystemText}</span>
+                              ) : (
+                                <>
+                                  <span className="text-sm font-semibold text-slate-600 tabular-nums">{smartQty(Number(item.qty_system), item.bahan_baku.satuan)}</span>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.bahan_baku.satuan}</span>
+                                </>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-3 text-right">
@@ -290,9 +316,13 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                               <div className={`inline-flex flex-col items-center px-3 py-1.5 rounded-lg border text-xs font-black ${isMinus ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                                 <div className="flex items-center gap-1">
                                   {isMinus ? <TrendingDown size={13} /> : <TrendingUp size={13} />}
-                                  <span className="text-sm tabular-nums">{smartQty(Math.abs(selisihNum), item.bahan_baku.satuan)}</span>
+                                  {selisihText ? (
+                                    <span className="text-sm leading-none">{selisihText}</span>
+                                  ) : (
+                                    <span className="text-sm tabular-nums">{smartQty(Math.abs(selisihNum), item.bahan_baku.satuan)}</span>
+                                  )}
                                 </div>
-                                <span className={`text-[9px] font-bold uppercase tracking-widest ${isMinus ? 'text-red-500' : 'text-emerald-500'}`}>{isMinus ? 'Kurang' : 'Lebih'} · {item.bahan_baku.satuan}</span>
+                                <span className={`text-[9px] font-bold uppercase tracking-widest ${isMinus ? 'text-red-500' : 'text-emerald-500'} ${selisihText ? 'mt-1' : ''}`}>{isMinus ? 'Kurang' : 'Lebih'} {selisihText ? '' : `· ${item.bahan_baku.satuan}`}</span>
                               </div>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-xs font-bold text-slate-500">
@@ -333,9 +363,29 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                   const hasSelisih = selisihNum !== 0
                   const isMinus = selisihNum < 0
                   const isRaw = item.catatan?.startsWith('[RAW]');
-                  const rawInputMatch = isRaw ? item.catatan?.match(/^\[RAW\] (.*)$/) : null;
-                  const qtyFisikText = rawInputMatch ? rawInputMatch[1] : null;
-                  const cleanCatatan = isRaw ? item.catatan?.replace(/^\[RAW\] .*?(?=\n|$)/, '').trim() : item.catatan;
+                  let qtyFisikText = null;
+                  let qtySystemText = null;
+                  let selisihText = null;
+                  let cleanCatatan = item.catatan;
+
+                  if (isRaw) {
+                    try {
+                      const jsonStr = item.catatan!.replace(/^\[RAW\]\s*/, '');
+                      if (jsonStr.startsWith('{')) {
+                        const rawData = JSON.parse(jsonStr);
+                        qtyFisikText = rawData.f;
+                        qtySystemText = rawData.s;
+                        selisihText = rawData.d;
+                        cleanCatatan = null;
+                      } else {
+                        qtyFisikText = jsonStr;
+                        cleanCatatan = null;
+                      }
+                    } catch (e) {
+                      qtyFisikText = item.catatan!.replace(/^\[RAW\]\s*/, '');
+                      cleanCatatan = null;
+                    }
+                  }
                   
                   return (
                     <div key={item.id} className={`bg-white rounded-2xl shadow-sm border p-4 ${item.flagged ? 'border-red-200' : 'border-slate-200'}`}>
@@ -349,12 +399,16 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                       <div className="grid grid-cols-2 gap-3 bg-slate-50/50 p-3.5 rounded-xl border border-slate-100">
                         <div className="flex flex-col">
                           <span className="text-[10px] text-slate-400 uppercase font-extrabold tracking-wider mb-1">Qty Sistem</span>
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-slate-700 tabular-nums leading-none">
-                              {smartQty(Number(item.qty_system), item.bahan_baku.satuan)}
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-400">{item.bahan_baku.satuan}</span>
-                          </div>
+                          {qtySystemText ? (
+                            <span className="text-[13px] font-bold text-slate-700 leading-tight mt-1">{qtySystemText}</span>
+                          ) : (
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-xl font-bold text-slate-700 tabular-nums leading-none">
+                                {smartQty(Number(item.qty_system), item.bahan_baku.satuan)}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-400">{item.bahan_baku.satuan}</span>
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-col items-end text-right border-l border-slate-200/50 pl-3">
                           <span className="text-[10px] text-slate-400 uppercase font-extrabold tracking-wider mb-1">Qty Fisik</span>
@@ -378,8 +432,14 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                             <div className={`flex items-center gap-1.5 font-black ${isMinus ? 'text-red-700' : 'text-emerald-700'}`}>
                               {isMinus ? <TrendingDown size={16} /> : <TrendingUp size={16} />}
                               <div className="flex items-baseline gap-1">
-                                <span className="text-base tabular-nums leading-none">{smartQty(Math.abs(selisihNum), item.bahan_baku.satuan)}</span>
-                                <span className="text-[10px] font-bold">{item.bahan_baku.satuan}</span>
+                                {selisihText ? (
+                                  <span className="text-[13px] tabular-nums leading-tight font-black">{selisihText}</span>
+                                ) : (
+                                  <>
+                                    <span className="text-base tabular-nums leading-none">{smartQty(Math.abs(selisihNum), item.bahan_baku.satuan)}</span>
+                                    <span className="text-[10px] font-bold">{item.bahan_baku.satuan}</span>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>

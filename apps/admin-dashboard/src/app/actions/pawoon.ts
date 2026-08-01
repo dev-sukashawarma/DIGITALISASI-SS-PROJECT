@@ -152,11 +152,23 @@ export async function previewPawoonFile(formData: FormData) {
             
             let isoDate = new Date().toISOString();
             if (dateStr) {
-                const parts = dateStr.split(' ');
-                if (parts.length === 2) {
-                    const dparts = parts[0].split('-');
+                const cleanDateStr = dateStr.trim();
+                const parts = cleanDateStr.split(/\s+/);
+                if (parts.length >= 1) {
+                    const datePart = parts[0];
+                    const timePart = parts[1] || '00:00:00';
+                    const sep = datePart.includes('/') ? '/' : '-';
+                    const dparts = datePart.split(sep);
                     if (dparts.length === 3) {
-                        isoDate = `${dparts[2]}-${dparts[1]}-${dparts[0]}T${parts[1]}+07:00`;
+                        let year = dparts[0];
+                        let month = dparts[1];
+                        let day = dparts[2];
+                        if (year.length === 2 || parseInt(year) < 100) {
+                            day = dparts[0];
+                            month = dparts[1];
+                            year = dparts[2];
+                        }
+                        isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart}+07:00`;
                     }
                 }
             }

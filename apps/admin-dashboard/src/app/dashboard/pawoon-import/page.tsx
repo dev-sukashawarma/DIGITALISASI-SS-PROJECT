@@ -589,24 +589,28 @@ export default function PawoonImportPage() {
                                 );
                             }
 
-                            const datePostSystemOrders = (previewResult?.data?.postSystemOrders || []).filter((o: any) =>
-                                o.created_at && o.created_at.startsWith(selectedDate)
-                            );
+                            const selectedDateClean = selectedDate.trim();
+
+                            const datePostSystemOrders = (previewResult?.data?.postSystemOrders || []).filter((o: any) => {
+                                if (!o.created_at) return false;
+                                return o.created_at.startsWith(selectedDateClean) || o.created_at.split('T')[0] === selectedDateClean;
+                            });
                             const datePostSystemOrderIds = new Set(datePostSystemOrders.map((o: any) => o.id));
                             const datePostSystemItems = (previewResult?.data?.postSystemItems || []).filter((i: any) =>
                                 datePostSystemOrderIds.has(i.order_id)
                             );
 
-                            const dateNormalOrders = (previewResult?.data?.orders || []).filter((o: any) =>
-                                o.created_at && o.created_at.startsWith(selectedDate)
-                            );
+                            const dateNormalOrders = (previewResult?.data?.orders || []).filter((o: any) => {
+                                if (!o.created_at) return false;
+                                return o.created_at.startsWith(selectedDateClean) || o.created_at.split('T')[0] === selectedDateClean;
+                            });
                             const dateNormalOrderIds = new Set(dateNormalOrders.map((o: any) => o.id));
                             const dateNormalItems = (previewResult?.data?.items || []).filter((i: any) =>
                                 dateNormalOrderIds.has(i.order_id)
                             );
 
-                            const postCount = datePostSystemOrders.length;
-                            const normalCount = dateNormalOrders.length;
+                            const postCount = datePostSystemOrders.length > 0 ? datePostSystemOrders.length : (displayedSummary.postSystemCount || 0);
+                            const normalCount = dateNormalOrders.length > 0 ? dateNormalOrders.length : Math.max(0, (displayedSummary.transactionsCount || 0) - (displayedSummary.duplicatesSkipped || 0));
 
                             if (postCount === 0 && normalCount === 0) return null;
 
@@ -629,10 +633,12 @@ export default function PawoonImportPage() {
                                         {postCount > 0 && (
                                             <button
                                                 onClick={() => {
+                                                    const targetOrders = datePostSystemOrders.length > 0 ? datePostSystemOrders : (previewResult?.data?.postSystemOrders || []);
+                                                    const targetItems = datePostSystemOrders.length > 0 ? datePostSystemItems : (previewResult?.data?.postSystemItems || []);
                                                     if (confirm(`PAKSA SYNC TANGGAL ${selectedDate}:\n\nSimpan ${postCount} transaksi Pawoon tanggal ${selectedDate} ke database real?\n(Fitur ini digunakan jika crew lupa input manual di sistem baru)`)) {
                                                         handleSync(
-                                                            datePostSystemOrders,
-                                                            datePostSystemItems,
+                                                            targetOrders,
+                                                            targetItems,
                                                             `✅ Berhasil memaksa sync ${postCount} transaksi Pawoon tanggal ${selectedDate} ke Database Real!`,
                                                             selectedDate
                                                         );
@@ -647,10 +653,12 @@ export default function PawoonImportPage() {
                                         {normalCount > 0 && (
                                             <button
                                                 onClick={() => {
+                                                    const targetOrders = dateNormalOrders.length > 0 ? dateNormalOrders : (previewResult?.data?.orders || []);
+                                                    const targetItems = dateNormalOrders.length > 0 ? dateNormalItems : (previewResult?.data?.items || []);
                                                     if (confirm(`SYNC HANYA TANGGAL ${selectedDate}:\n\nSimpan ${normalCount} transaksi tanggal ${selectedDate} ke database real?`)) {
                                                         handleSync(
-                                                            dateNormalOrders,
-                                                            dateNormalItems,
+                                                            targetOrders,
+                                                            targetItems,
                                                             `✅ Berhasil menyinkronkan ${normalCount} transaksi tanggal ${selectedDate} ke Database Real!`,
                                                             selectedDate
                                                         );

@@ -61,6 +61,24 @@ async function fetchMyOutletFromNetwork(): Promise<MyOutletData> {
   let outletName = (profile.outlets as any)?.name ?? null;
   let outletRegion = (profile.outlets as any)?.region ?? null;
 
+  // Override outlet_id berdasarkan lokasi absen hari ini (jika karyawan BKO/mutasi harian)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const { data: attData } = await supabase.from('attendance')
+    .select('outlet_id, outlets(name, region)')
+    .eq('outlet_staff_id', userId)
+    .gte('created_at', today.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (attData && attData.outlet_id) {
+    outletId = attData.outlet_id;
+    outletName = (attData.outlets as any)?.name ?? outletName;
+    outletRegion = (attData.outlets as any)?.region ?? outletRegion;
+  }
+
   // Fallback untuk Admin yang ingin mengetes Kasir/Kiosk
   if ((profile as any).role === 'admin' && !outletId) {
     outletId = '550e8400-e29b-41d4-a716-446655440001'

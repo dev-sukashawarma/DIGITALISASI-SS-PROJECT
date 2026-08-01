@@ -20,11 +20,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, reason: "invalid_payload" }, { status: 400 });
     }
 
+    // Ambil tambahan staff dari staff_outlets
+    const { data: allowedStaffData } = await admin
+      .from("staff_outlets")
+      .select("staff_id")
+      .eq("outlet_id", outletId);
+      
+    const allowedStaffIds = (allowedStaffData || []).map((row: any) => row.staff_id);
+    let orQuery = `outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager)`;
+    if (allowedStaffIds.length > 0) {
+      orQuery += `,id.in.(${allowedStaffIds.join(',')})`;
+    }
+
     // Ambil kandidat
     let query = admin
       .from("outlet_staff")
       .select("id, name, face_descriptor")
-      .or(`outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager)`)
+      .or(orQuery)
       .not("face_descriptor", "is", null);
 
     if (lockToStaffId) {

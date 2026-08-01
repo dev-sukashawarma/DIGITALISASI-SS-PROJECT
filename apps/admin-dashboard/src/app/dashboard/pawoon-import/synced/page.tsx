@@ -298,7 +298,7 @@ export default async function SyncedPawoonDataPage({
                                                 {mitraOutlets.map((outlet) => {
                                                     const sum = syncedSummary[outlet.id];
                                                     // Outlet yang sudah diverifikasi lengkap datanya
-                                                    const VERIFIED_OUTLETS = ['MITRA CICURUG', 'MITRA CIBINONG', 'MITRA CISEENG', 'MITRA SENTUL', 'MITRA PEKAYON', 'PEKAYON', 'MITRA KALISARI', 'KALISARI', 'MITRA CIBUBUR', 'CIBUBUR', 'MITRA PALEDANG', 'PALEDANG'];
+                                                    const VERIFIED_OUTLETS = ['MITRA CICURUG', 'MITRA CIBINONG', 'MITRA CISEENG', 'MITRA SENTUL', 'MITRA PEKAYON', 'PEKAYON', 'MITRA KALISARI', 'KALISARI', 'MITRA CIBUBUR', 'CIBUBUR', 'MITRA PALEDANG', 'PALEDANG', 'MITRA CIMANGGU', 'CIMANGGU', 'BCC'];
                                                     const isVerified = VERIFIED_OUTLETS.includes(outlet.name.toUpperCase());
                                                     
                                                     const OUTLET_NOTES: Record<string, string> = {

@@ -108,38 +108,12 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
 
                   {/* Clock In */}
                   <td className="px-4 py-3 tabular-nums text-suka-gray-600">
-                    <div className="flex items-center gap-1.5">
-                      {fmtTime(row.clock_in)}
-                      {row.clock_in_lat && row.clock_in_lng && (
-                        <a 
-                          href={`https://www.google.com/maps/search/?api=1&query=${row.clock_in_lat},${row.clock_in_lng}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Lihat Lokasi Clock In"
-                          className="text-blue-500 hover:text-blue-600 transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                        </a>
-                      )}
-                    </div>
+                    {fmtTime(row.clock_in)}
                   </td>
 
                   {/* Clock Out */}
                   <td className="px-4 py-3 tabular-nums text-suka-gray-600">
-                    <div className="flex items-center gap-1.5">
-                      {fmtTime(row.clock_out)}
-                      {row.clock_out_lat && row.clock_out_lng && (
-                        <a 
-                          href={`https://www.google.com/maps/search/?api=1&query=${row.clock_out_lat},${row.clock_out_lng}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Lihat Lokasi Clock Out"
-                          className="text-blue-500 hover:text-blue-600 transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                        </a>
-                      )}
-                    </div>
+                    {fmtTime(row.clock_out)}
                   </td>
 
                   {/* Status Badge */}

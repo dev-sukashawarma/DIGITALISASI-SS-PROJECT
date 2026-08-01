@@ -286,7 +286,7 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                               </div>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-xs font-bold text-slate-500">
-                                <CheckCircle2 size={14} className="opacity-50" /> Sinkron
+                                <CheckCircle2 size={14} className="opacity-50" /> Balance
                               </span>
                             )}
                           </td>
@@ -367,7 +367,7 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                           </div>
                         ) : (
                           <div className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-500 font-bold text-sm">
-                            <CheckCircle2 size={16} className="opacity-50" /> Sinkron
+                            <CheckCircle2 size={16} className="opacity-50" /> Balance
                           </div>
                         )}
                       </div>

@@ -56,8 +56,8 @@ export default async function LauncherPage() {
 
   const APP_URL = await getAppUrls()
 
-  // Admin, Owner, Area Manager, dan Mitra tidak punya menu operasional di launcher → langsung ke admin-dashboard.
-  if (['admin', 'owner', 'mitra', 'area_manager', 'korlap', 'purchasing'].includes(staff.role)) {
+  // Admin, Owner, dan Mitra tidak punya menu operasional di launcher → langsung ke admin-dashboard.
+  if (['admin', 'owner', 'mitra', 'korlap', 'purchasing'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
   }
   const apps = accessibleApps(staff.role)

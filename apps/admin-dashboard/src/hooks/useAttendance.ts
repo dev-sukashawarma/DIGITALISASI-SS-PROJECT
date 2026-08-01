@@ -31,7 +31,49 @@ export function useAttendance(filter: AttendanceFilterValues) {
 
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []) as AttendanceLog[]
+      const logs = (data ?? []) as AttendanceLog[]
+
+      // Ambil data koordinat asli dari tabel attendance
+      const staffIds = Array.from(new Set(logs.map((l) => l.staff_id)))
+      if (staffIds.length > 0) {
+        const { data: rawAtt } = await supabase
+          .from('attendance')
+          .select('outlet_staff_id, type, gps_lat, gps_lng, ts_server')
+          .in('outlet_staff_id', staffIds)
+          .gte('ts_server', `${filter.dateFrom}T00:00:00.000Z`)
+          .lte('ts_server', `${filter.dateTo}T23:59:59.999Z`)
+          .not('gps_lat', 'is', null)
+
+        if (rawAtt) {
+          for (const log of logs) {
+            // Cari absen masuk (in) pada tanggal yang sama
+            const inRecord = rawAtt.find(
+              (r) =>
+                r.outlet_staff_id === log.staff_id &&
+                r.type === 'in' &&
+                r.ts_server.startsWith(log.date)
+            )
+            if (inRecord) {
+              log.clock_in_lat = inRecord.gps_lat
+              log.clock_in_lng = inRecord.gps_lng
+            }
+
+            // Cari absen pulang (out) pada tanggal yang sama
+            const outRecord = rawAtt.find(
+              (r) =>
+                r.outlet_staff_id === log.staff_id &&
+                r.type === 'out' &&
+                r.ts_server.startsWith(log.date)
+            )
+            if (outRecord) {
+              log.clock_out_lat = outRecord.gps_lat
+              log.clock_out_lng = outRecord.gps_lng
+            }
+          }
+        }
+      }
+
+      return logs
     },
   })
 }

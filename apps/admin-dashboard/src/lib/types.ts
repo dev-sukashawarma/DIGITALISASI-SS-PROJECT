@@ -170,6 +170,10 @@ export interface AttendanceLog {
   date: string
   clock_in: string | null
   clock_out: string | null
+  clock_in_lat?: number | null
+  clock_in_lng?: number | null
+  clock_out_lat?: number | null
+  clock_out_lng?: number | null
   status: AttendanceStatus
   late_minutes: number
   notes: string | null

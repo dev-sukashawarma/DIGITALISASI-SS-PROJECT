@@ -24,7 +24,7 @@ NPM="/opt/alt/alt-nodejs24/root/usr/lib/node_modules/npm/bin/npm-cli.js"
 NODE_BIN_DIR="/opt/alt/alt-nodejs24/root/usr/bin"
 SERVER_IP="103.77.106.237"
 
-ALL_APPS="portal absensi stok distribusi owner-dashboard admin-dashboard pos-kasir finance"
+ALL_APPS="portal absensi stok distribusi owner-dashboard admin-dashboard pos-kasir finance manager"
 
 # --- Map app -> subdomain (portal pakai app.sukashawarma.com) ---
 subdomain_for() {
@@ -37,6 +37,7 @@ subdomain_for() {
     admin-dashboard) echo "admin.sukashawarma.com" ;;
     pos-kasir)       echo "pos.sukashawarma.com" ;;
     finance)         echo "finance.sukashawarma.com" ;;
+    manager)         echo "manager.sukashawarma.com" ;;
     *)               echo "" ;;
   esac
 }

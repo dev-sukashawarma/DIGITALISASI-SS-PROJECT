@@ -65,6 +65,8 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
       else if (val === 'TIKTOK GO' || val.startsWith('TIKTOK')) tiktokStart = r + 1;
     }
 
+    var unmatchedItems = [];
+
     if (data.items && data.items.length > 0) {
       data.items.forEach(function(item) {
         var rawName = (item.menu_item_name || '').trim().toLowerCase();
@@ -119,11 +121,20 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
           var cellRange = sheet.getRange(matchedRow, targetCol);
           var currentVal = Number(cellRange.getValue()) || 0;
           cellRange.setValue(currentVal + qty);
+        } else {
+          unmatchedItems.push({
+            menu_item_name: item.menu_item_name,
+            channel: itemChannel,
+            quantity: qty
+          });
         }
       });
     }
 
-    return ContentService.createTextOutput(JSON.stringify({ result: "success" }))
+    return ContentService.createTextOutput(JSON.stringify({ 
+      result: "success", 
+      unmatched_items: unmatchedItems 
+    }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({ result: "error", error: error.message }))

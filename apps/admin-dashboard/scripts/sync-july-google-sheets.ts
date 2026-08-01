@@ -158,6 +158,18 @@ async function runBulkSync() {
 
         if (response.ok || response.type === 'opaque' || response.status === 200 || response.status === 302) {
           successRequests++;
+          
+          try {
+            const respJson = await response.json()
+            if (respJson && respJson.unmatched_items && respJson.unmatched_items.length > 0) {
+              console.warn(`[WARNING] Unmatched Menus on ${outlet} day ${day}:`)
+              respJson.unmatched_items.forEach((un: any) => {
+                console.warn(`  - Menu: "${un.menu_item_name}" | Channel: ${un.channel} | Qty: ${un.quantity}`)
+              })
+            }
+          } catch (parseErr) {
+            // Response might not be JSON if CORS or opaque
+          }
         } else {
           console.error(`Failed to sync ${outlet} day ${day}: ${response.status} ${response.statusText}`)
         }

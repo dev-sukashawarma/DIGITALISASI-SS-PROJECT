@@ -298,12 +298,18 @@ export default async function SyncedPawoonDataPage({
                                                 {mitraOutlets.map((outlet) => {
                                                     const sum = syncedSummary[outlet.id];
                                                     // Outlet yang sudah diverifikasi lengkap datanya
-                                                    const VERIFIED_OUTLETS = ['MITRA CICURUG', 'MITRA CIBINONG', 'MITRA CISEENG', 'MITRA SENTUL', 'MITRA PEKAYON', 'PEKAYON', 'MITRA KALISARI', 'KALISARI'];
+                                                    const VERIFIED_OUTLETS = ['MITRA CICURUG', 'MITRA CIBINONG', 'MITRA CISEENG', 'MITRA SENTUL', 'MITRA PEKAYON', 'PEKAYON', 'MITRA KALISARI', 'KALISARI', 'MITRA CIBUBUR', 'CIBUBUR'];
                                                     const isVerified = VERIFIED_OUTLETS.includes(outlet.name.toUpperCase());
                                                     
+                                                    const OUTLET_NOTES: Record<string, string> = {
+                                                        'MITRA CIBUBUR': 'Promo Food Apps tidak dimasukkan',
+                                                        'CIBUBUR': 'Promo Food Apps tidak dimasukkan'
+                                                    };
+                                                    const outletNote = OUTLET_NOTES[outlet.name.toUpperCase()];
+                                                    
                                                     return (
-                                                        <li key={outlet.id} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
-                                                            <div className="flex items-center gap-2">
+                                                        <li key={outlet.id} className="flex justify-between items-center text-sm bg-white p-3 rounded-lg border border-amber-100 shadow-sm flex-wrap gap-2">
+                                                            <div className="flex items-center gap-2 flex-wrap">
                                                                 <span className={`font-bold ${sum ? 'text-amber-900' : 'text-amber-600 opacity-60'} flex items-center gap-1.5`}>
                                                                     {outlet.name}
                                                                     {isVerified && (
@@ -312,6 +318,11 @@ export default async function SyncedPawoonDataPage({
                                                                         </svg>
                                                                     )}
                                                                 </span>
+                                                                {outletNote && (
+                                                                    <span className="bg-amber-100 text-amber-900 border border-amber-200 text-[11px] px-2 py-0.5 rounded font-medium">
+                                                                        📌 {outletNote}
+                                                                    </span>
+                                                                )}
                                                                 {!outlet.is_active && <span className="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Tutup</span>}
                                                             </div>
                                                             <div className="flex items-center gap-3">

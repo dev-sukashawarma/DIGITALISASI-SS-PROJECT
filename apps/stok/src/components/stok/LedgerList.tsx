@@ -7,6 +7,10 @@ import { useBahanBaku } from '@/hooks/useBahanBaku';
 import { useLedgerTransaksiDetail, useOrderDetails } from '@/hooks/useLedger';
 import { useOutletScope } from '@/hooks/useOutletScope';
 import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
+import { 
+  Search, Download, Upload, Receipt, Trash2, Scale, FileText, 
+  Clock, Package, PackageOpen, ChevronDown, ChevronUp, CheckCircle2 
+} from 'lucide-react';
 
 const DELIVERY_UNITS: Record<string, { label: string; factorFromLarge: number }> = {
   'SAOS CABE': { label: 'kg', factorFromLarge: 16.5 },
@@ -52,9 +56,6 @@ const DELIVERY_UNITS: Record<string, { label: string; factorFromLarge: number }>
 function formatDeliveryUnit(qty: number, bahanName: string, isSaldo: boolean = false): string | null {
   const mapping = DELIVERY_UNITS[bahanName.toUpperCase()];
   if (!mapping) return null;
-  // qty is stored in large unit in ledger summaries and details, except wait: 
-  // formatCompositeDelta normally multiplies qty * faktor_tampilan.
-  // Actually, qty is in large unit. So we just multiply by factorFromLarge.
   const converted = Math.round(qty * mapping.factorFromLarge * 100) / 100;
   const sign = (!isSaldo && converted > 0) ? '+' : '';
   return `${sign}${converted} ${mapping.label}`;
@@ -71,20 +72,25 @@ const LABEL: Record<string, string> = {
   waste_pending: 'Waste (Menunggu Verifikasi)',
 };
 
-const FILTER_LABELS: Record<string, string> = {
-  all: 'Semua',
-  inbound: 'Masuk 📥',
-  order: 'Order 🧾',
-  waste: 'Waste 🗑️',
-  outbound: 'Keluar 📤',
-  adjustment: 'Penyesuaian ⚖️',
+const FILTER_LABELS: Record<string, { label: string, icon: any }> = {
+  all: { label: 'Semua', icon: Package },
+  inbound: { label: 'Masuk', icon: Download },
+  order: { label: 'Order', icon: Receipt },
+  waste: { label: 'Waste', icon: Trash2 },
+  outbound: { label: 'Keluar', icon: Upload },
+  adjustment: { label: 'Penyesuaian', icon: Scale },
 };
+
+function cleanItemNames(text: string | null): string | null {
+  if (!text) return null;
+  return text.split(',').map(n => n.replace(/\|ID\|[^|]+/g, '').replace(/\|NOTE\|[^|]+/g, '').trim()).filter(Boolean).join(', ');
+}
 
 export function transaksiLabel(t: LedgerTransaksiSummary): { title: string; subtitle: string | null } {
   if (t.ref_order_id) {
     return { 
       title: t.order_number ? `Order #${t.order_number}` : 'Order Selesai', 
-      subtitle: t.order_items_names ? t.order_items_names : (t.order_number ? `Order #${t.order_number}` : null) 
+      subtitle: cleanItemNames(t.order_items_names) ?? (t.order_number ? `Order #${t.order_number}` : null) 
     };
   }
   if (t.ref_opname_id) {
@@ -94,7 +100,6 @@ export function transaksiLabel(t: LedgerTransaksiSummary): { title: string; subt
     return { title: 'Opname', subtitle: tanggal ? `${t.opname_tipe ?? ''} — ${tanggal}` : null };
   }
   if (t.ref_shipment_id) {
-    // Generate a short ID (e.g. SJ-A1B2C3) from the UUID
     const shortId = t.ref_shipment_id.split('-')[0].toUpperCase();
     return { title: (t.single_qty && t.single_qty < 0) ? 'Kirim SJ' : 'Terima Kiriman', subtitle: `Surat Jalan #${shortId}` };
   }
@@ -104,43 +109,35 @@ export function transaksiLabel(t: LedgerTransaksiSummary): { title: string; subt
   return { title: LABEL[t.single_tipe ?? ''] ?? (t.single_tipe ?? 'Manual'), subtitle: null };
 }
 
-const DEFAULT_ICON = '⚖️';
-const DEFAULT_BG_CLASS = 'bg-[#faf2e9] text-[#701604] border-[#d9c2b2]/40';
-
-/**
- * Single source of truth for transaction display classification (icon + background style),
- * layered on top of transaksiLabel's ref/tipe checks so the two never drift apart.
- */
-export function transaksiVisual(t: LedgerTransaksiSummary): { icon: string; bgClass: string } {
+export function transaksiVisual(t: LedgerTransaksiSummary) {
   if (t.ref_order_id) {
-    return { icon: '🧾', bgClass: 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10' };
+    return { icon: Receipt, iconColor: 'text-blue-500', bgClass: 'bg-blue-50 border-blue-100 text-blue-700' };
   }
   if (t.ref_opname_id) {
-    return { icon: '📋', bgClass: DEFAULT_BG_CLASS };
+    return { icon: FileText, iconColor: 'text-amber-500', bgClass: 'bg-amber-50 border-amber-100 text-amber-700' };
   }
   if (t.ref_shipment_id) {
-    return { icon: '📥', bgClass: 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25' };
+    return { icon: Download, iconColor: 'text-emerald-500', bgClass: 'bg-emerald-50 border-emerald-100 text-emerald-700' };
   }
   if (t.ref_transfer_id) {
-    return { icon: '📤', bgClass: 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10' };
+    return { icon: Upload, iconColor: 'text-orange-500', bgClass: 'bg-orange-50 border-orange-100 text-orange-700' };
   }
   if (t.single_tipe === 'terima_kiriman' || t.single_tipe === 'transfer_masuk') {
-    return { icon: '📥', bgClass: 'bg-[#93f997]/15 text-[#006e24] border-[#93f997]/25' };
+    return { icon: Download, iconColor: 'text-emerald-500', bgClass: 'bg-emerald-50 border-emerald-100 text-emerald-700' };
   }
   if (t.single_tipe === 'waste' || t.single_tipe === 'pemakaian') {
-    return { icon: '🗑️', bgClass: 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/10' };
+    return { icon: Trash2, iconColor: 'text-rose-500', bgClass: 'bg-rose-50 border-rose-100 text-rose-700' };
   }
   if (t.single_tipe === 'waste_pending') {
-    return { icon: '⏳', bgClass: 'bg-[#fff8f1] text-[#e67e22] border-[#e67e22]/30' };
+    return { icon: Clock, iconColor: 'text-amber-500', bgClass: 'bg-amber-50 border-amber-200 text-amber-700' };
   }
   if (t.single_tipe === 'transfer_keluar') {
-    return { icon: '📤', bgClass: 'bg-[#ffdcc2] text-[#904d00] border-[#ffdcc2]/10' };
+    return { icon: Upload, iconColor: 'text-orange-500', bgClass: 'bg-orange-50 border-orange-100 text-orange-700' };
   }
-  // adjustment / opname_selisih intentionally fall through to the default styling below.
   if (t.single_tipe === 'adjustment' || t.single_tipe === 'opname_selisih') {
-    return { icon: DEFAULT_ICON, bgClass: DEFAULT_BG_CLASS };
+    return { icon: Scale, iconColor: 'text-slate-500', bgClass: 'bg-slate-50 border-slate-200 text-slate-700' };
   }
-  return { icon: DEFAULT_ICON, bgClass: DEFAULT_BG_CLASS };
+  return { icon: Scale, iconColor: 'text-slate-500', bgClass: 'bg-slate-50 border-slate-200 text-slate-700' };
 }
 
 function getRelativeTimeString(dateStr: string) {
@@ -160,21 +157,24 @@ function getRelativeTimeString(dateStr: string) {
 function TransaksiExpandedDetail({ outletId, transaksiKey, isDelivery }: { outletId: string; transaksiKey: string; isDelivery: boolean }) {
   const { rows, loading, error } = useLedgerTransaksiDetail(outletId, transaksiKey, true);
 
-  if (loading) return <p className="text-[10px] font-bold text-[#544437]/50 py-2 animate-pulse">Memuat detail...</p>;
-  if (error) return <p className="text-[10px] font-bold text-[#ba1a1a] py-2">Gagal memuat: {error}</p>;
+  if (loading) return (
+    <div className="flex items-center gap-2 py-3 text-xs font-semibold text-gray-400 animate-pulse">
+      <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin"></div>
+      Memuat detail...
+    </div>
+  );
+  if (error) return <p className="text-xs font-bold text-rose-500 py-3 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Gagal memuat: {error}</p>;
 
-  // Group by extracted item name from catatan, or generic 'catatan' text, or fallback to 'Lainnya'
   const groupedRows: Record<string, typeof rows> = {};
   
   rows.forEach((r) => {
     let groupKey = 'Detail Transaksi';
     if (r.catatan) {
-      // Extract menu item name from "Penjualan Otomatis #123 (Menu Item Name)"
       const match = r.catatan.match(/\((.*?)\)$/);
       if (match && match[1]) {
-        groupKey = match[1]; // e.g. "ORIGINAL SAPI JUMBO"
+        groupKey = cleanItemNames(match[1]) || match[1];
       } else {
-        groupKey = r.catatan; // Fallback to full notes, e.g. "Penjualan Otomatis #123"
+        groupKey = r.catatan;
       }
     }
     
@@ -186,11 +186,12 @@ function TransaksiExpandedDetail({ outletId, transaksiKey, isDelivery }: { outle
   const showGroupHeaders = groupKeys.length > 1 || (groupKeys.length === 1 && groupKeys[0] !== 'Detail Transaksi' && !groupKeys[0].startsWith('Penjualan Otomatis #'));
 
   return (
-    <div className="mt-3 pt-3 border-t border-[#d9c2b2]/25 space-y-4">
+    <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
       {groupKeys.map((groupName) => (
-        <div key={groupName} className="space-y-2">
+        <div key={groupName} className="space-y-2.5">
           {showGroupHeaders && (
-            <h5 className="text-[9px] font-bold uppercase text-[#544437]/70 tracking-widest bg-[#faf2e9] px-2 py-1 rounded border border-[#d9c2b2]/30 inline-block mb-1">
+            <h5 className="text-[10px] font-bold uppercase text-gray-500 tracking-wider bg-gray-50 px-2 py-1 rounded inline-flex items-center gap-1.5 border border-gray-100">
+              <PackageOpen className="w-3 h-3" />
               {groupName}
             </h5>
           )}
@@ -199,13 +200,13 @@ function TransaksiExpandedDetail({ outletId, transaksiKey, isDelivery }: { outle
               const bahan = r.bahan_baku;
               const satuan = bahan?.satuan ?? '';
               return (
-                <div key={r.id} className={`flex justify-between items-center text-[10px] ${showGroupHeaders ? 'pl-2.5 border-l-2 border-[#d9c2b2]/30' : ''}`}>
-                  <span className="font-bold text-[#1e1b15] uppercase truncate pr-2">{bahan?.nama ?? 'Bahan'}</span>
+                <div key={r.id} className={`flex justify-between items-center text-xs ${showGroupHeaders ? 'pl-3 border-l-2 border-gray-100' : ''}`}>
+                  <span className="font-semibold text-gray-700 uppercase truncate pr-3">{bahan?.nama ?? 'Bahan'}</span>
                   <span className="text-right flex-shrink-0">
-                    <span className={r.qty > 0 ? 'text-[#0a7d2c] font-bold' : 'text-[#ba1a1a] font-bold'}>
+                    <span className={r.qty > 0 ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
                       {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(r.qty, bahan.nama, false) ?? formatCompositeDelta(r.qty, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)) : formatCompositeDelta(r.qty, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
                     </span>
-                    <span className="text-[#544437]/50 font-medium">
+                    <span className="text-gray-400 font-medium ml-1.5">
                       {' '}→ sisa {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(r.saldo_sesudah, bahan.nama, true) ?? formatCompositeSaldo(r.saldo_sesudah, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)) : formatCompositeSaldo(r.saldo_sesudah, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
                     </span>
                   </span>
@@ -222,16 +223,21 @@ function TransaksiExpandedDetail({ outletId, transaksiKey, isDelivery }: { outle
 function OrderExpandedDetail({ orderId }: { orderId: string }) {
   const { rows, loading, error } = useOrderDetails(orderId, true);
 
-  if (loading) return <p className="text-[10px] font-bold text-[#544437]/50 py-2 animate-pulse">Memuat detail pesanan...</p>;
-  if (error) return <p className="text-[10px] font-bold text-[#ba1a1a] py-2">Gagal memuat: {error}</p>;
-  if (rows.length === 0) return <p className="text-[10px] font-bold text-[#544437]/50 py-2">Tidak ada rincian pesanan.</p>;
+  if (loading) return (
+    <div className="flex items-center gap-2 py-3 text-xs font-semibold text-gray-400 animate-pulse">
+      <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin"></div>
+      Memuat detail pesanan...
+    </div>
+  );
+  if (error) return <p className="text-xs font-bold text-rose-500 py-3 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Gagal memuat: {error}</p>;
+  if (rows.length === 0) return <p className="text-xs font-medium text-gray-400 py-3">Tidak ada rincian pesanan.</p>;
 
   return (
-    <div className="mt-3 pt-3 border-t border-[#d9c2b2]/25 space-y-2">
+    <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
       {rows.map((r) => (
-        <div key={r.id} className="flex justify-between items-center text-[10px] bg-[#faf2e9]/50 px-2.5 py-1.5 rounded-lg border border-[#d9c2b2]/20">
-          <span className="font-bold text-[#1e1b15] uppercase truncate pr-2">{r.menu_item_name}</span>
-          <span className="text-right flex-shrink-0 font-bold text-[#701604]">
+        <div key={r.id} className="flex justify-between items-center text-xs bg-gray-50/50 px-3 py-2 rounded-xl border border-gray-100">
+          <span className="font-semibold text-gray-700 uppercase truncate pr-3">{r.menu_item_name}</span>
+          <span className="text-right flex-shrink-0 font-bold text-gray-900 bg-white px-2 py-1 rounded shadow-sm border border-gray-100">
             {r.quantity} Porsi
           </span>
         </div>
@@ -284,34 +290,36 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
   }, [items, searchTerm, activeFilter, bahanMap]);
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-3">
+    <div className="space-y-6">
+      <div className="space-y-4">
         <div className="relative">
           <input
             type="text"
-            className="w-full px-4 py-2.5 pl-9 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-medium transition-all shadow-sm"
+            className="w-full px-4 py-3 pl-10 rounded-2xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-sm text-gray-900 placeholder-gray-400 font-medium transition-all shadow-sm"
             placeholder="Cari nama bahan baku atau nomor order/opname..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#544437]/40 text-xs">🔍</span>
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
-          {Object.entries(FILTER_LABELS).map(([key, label]) => {
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
+          {Object.entries(FILTER_LABELS).map(([key, item]) => {
             const isActive = activeFilter === key;
+            const Icon = item.icon;
             return (
               <button
                 key={key}
                 type="button"
                 onClick={() => setActiveFilter(key)}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border whitespace-nowrap cursor-pointer shadow-sm ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold tracking-wide transition-all border whitespace-nowrap cursor-pointer shadow-sm ${
                   isActive
-                    ? 'bg-[#701604] border-[#701604] text-white shadow-sm'
-                    : 'bg-white border-[#d9c2b2]/40 text-[#544437]/80 hover:bg-[#fff8f1]/50'
+                    ? 'bg-gray-900 border-gray-900 text-white'
+                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
                 }`}
               >
-                {label}
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                {item.label}
               </button>
             );
           })}
@@ -328,53 +336,61 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           const isExpanded = expandedKey === t.transaksi_key;
           const detailId = `transaksi-detail-${t.transaksi_key}`;
 
-          const { icon, bgClass } = transaksiVisual(t);
+          const { icon: TransIcon, iconColor, bgClass } = transaksiVisual(t);
           const bahan = t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id] : undefined;
           const satuan = bahan?.satuan ?? '';
 
           const headerRow = (
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center w-full">
               <div className="flex items-center gap-3.5 min-w-0">
-                <span className={`w-10 h-10 rounded-xl border flex items-center justify-center text-lg flex-shrink-0 ${bgClass}`}>
-                  {icon}
+                <span className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 border ${bgClass}`}>
+                  <TransIcon className={`w-5 h-5 ${iconColor}`} />
                 </span>
-                <div className="truncate space-y-0.5">
+                <div className="truncate space-y-1 text-left">
                   <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
                       {title}
                     </span>
-                    <span className="text-[10px] text-[#544437]/50 font-medium">{relativeTime}</span>
+                    <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {relativeTime}
+                    </span>
                   </div>
-                  <h4 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide truncate">
+                  <h4 className="font-bold text-gray-900 text-sm tracking-tight truncate">
                     {isManual
                       ? (t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id]?.nama ?? 'Bahan Baku' : 'Bahan Baku')
                       : subtitle ?? `${t.jumlah_bahan} bahan`}
                   </h4>
                   {isManual && t.single_catatan && (
-                    <p className="text-[9px] text-[#544437]/60 font-medium truncate mt-0.5">📝 {t.single_catatan}</p>
+                    <p className="text-xs text-gray-500 font-medium truncate flex items-center gap-1.5">
+                      <FileText className="w-3 h-3" /> {t.single_catatan}
+                    </p>
                   )}
                 </div>
               </div>
 
-              <div className="text-right flex-shrink-0 space-y-0.5 pl-4">
+              <div className="text-right flex-shrink-0 space-y-1 pl-4">
                 {isManual ? (
                   <>
-                    <p className={`font-bold text-sm ${(t.single_qty ?? 0) > 0 ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
+                    <p className={`font-black text-sm ${(t.single_qty ?? 0) > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(t.single_qty ?? 0, bahan.nama, false) ?? formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)) : formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
                     </p>
                     {isPending ? (
-                      <p className="text-[9px] text-[#e67e22] font-bold bg-[#fff8f1] px-2 py-0.5 rounded border border-[#e67e22]/20 inline-block mt-1">
+                      <p className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
                         Menunggu Verifikasi
                       </p>
                     ) : (
-                      <p className="text-[9px] text-[#544437]/60 font-bold bg-[#faf2e9]/50 px-2 py-0.5 rounded border border-[#d9c2b2]/20 inline-block mt-1">
+                      <p className="text-[10px] text-gray-500 font-bold bg-gray-50 px-2 py-0.5 rounded border border-gray-200 inline-block">
                         Saldo: {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(t.single_saldo_sesudah ?? 0, bahan.nama, true) ?? formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)) : formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
                       </p>
                     )}
                   </>
                 ) : (
-                  <span className="text-[10px] font-bold text-[#701604]/70">
-                    {isExpanded ? '▲ Tutup' : '▼ Lihat Detail'}
+                  <span className="flex items-center justify-end gap-1 text-[11px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-lg border border-gray-200 transition-colors">
+                    {isExpanded ? (
+                      <>Tutup <ChevronUp className="w-3 h-3" /></>
+                    ) : (
+                      <>Detail <ChevronDown className="w-3 h-3" /></>
+                    )}
                   </span>
                 )}
               </div>
@@ -383,8 +399,8 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
 
           if (isManual) {
             const innerClasses = isPending
-              ? "bg-[#fffcf9] rounded-2xl border border-[#e67e22]/30 p-4 shadow-[0px_4px_12px_rgba(230,126,34,0.03)] mb-2.5 opacity-80"
-              : "bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md transition-all duration-200 mb-2.5 cursor-pointer active:scale-[0.98]";
+              ? "bg-white rounded-2xl border border-amber-200 p-4.5 shadow-sm mb-3 opacity-90 block"
+              : "bg-white rounded-2xl border border-gray-100 p-4.5 shadow-[0_4px_16px_rgba(0,0,0,0.02)] hover:border-gray-200 hover:shadow-md transition-all duration-200 mb-3 cursor-pointer active:scale-[0.98] block";
 
             const inner = (
               <div className={innerClasses}>
@@ -406,11 +422,11 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           return (
             <div
               key={t.transaksi_key}
-              className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md transition-all duration-200 mb-2.5"
+              className="bg-white rounded-2xl border border-gray-100 p-4.5 shadow-[0_4px_16px_rgba(0,0,0,0.02)] hover:border-gray-200 hover:shadow-md transition-all duration-200 mb-3"
             >
               <button
                 type="button"
-                className="w-full text-left cursor-pointer active:scale-[0.99] transition-all"
+                className="w-full text-left cursor-pointer active:scale-[0.99] transition-all focus:outline-none"
                 onClick={() => setExpandedKey(isExpanded ? null : t.transaksi_key)}
                 aria-expanded={isExpanded}
                 aria-controls={detailId}
@@ -432,13 +448,16 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
         })}
 
         {filteredItems.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-2xl border border-[#d9c2b2]/40 p-8 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
-            <span className="text-3xl">📭</span>
-            <p className="font-bold text-sm text-[#701604]/80 mt-2">Belum Ada Catatan Pergerakan</p>
-            <p className="text-xs text-gray-500 mt-1">Tidak ada transaksi yang cocok dengan pencarian atau filter.</p>
+          <div className="flex flex-col items-center justify-center py-16 bg-white rounded-3xl border border-gray-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)]">
+            <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4">
+              <Package className="w-8 h-8 text-gray-300" />
+            </div>
+            <p className="font-bold text-base text-gray-900">Belum Ada Catatan Pergerakan</p>
+            <p className="text-sm text-gray-500 mt-1 max-w-[250px] text-center">Tidak ada transaksi yang cocok dengan pencarian atau filter Anda saat ini.</p>
           </div>
         )}
       </div>
     </div>
   );
 }
+

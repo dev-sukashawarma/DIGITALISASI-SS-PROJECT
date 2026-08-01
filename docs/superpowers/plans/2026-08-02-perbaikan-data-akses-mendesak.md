@@ -18,6 +18,7 @@ Rencana ini turunan dari `docs/superpowers/specs/2026-08-01-satuan-kanonik-stok-
 - **JANGAN jalankan `supabase migration repair` sepihak.** Kalau `db push` terhalang migration remote-only milik orang lain, laporkan dan berhenti — jangan tandai apa pun `reverted`.
 - **JANGAN `UPDATE` / `INSERT` `stok_balance` langsung.** Semua perubahan saldo stok wajib lewat `ledger_stok`. Tidak ada task di rencana ini yang perlu menyentuh saldo.
 - **`outlet_staff.id` = `auth.users.id`.** Tidak ada kolom `auth_user_id` — menyebutnya membuat `CREATE POLICY` gagal.
+- **`supabase db push` DIGATE.** Subagent TIDAK BOLEH menjalankannya. Subagent hanya menulis berkas migration + menjalankan query verifikasi *sebelum* (read-only). Controller menjalankan keempat push sekaligus setelah user menyetujui, lalu menjalankan query verifikasi *sesudah*.
 - **Cek `git branch --show-current` sebelum commit.** Otomasi auto-commit di repo ini pernah menyapu berkas ke commit orang lain dengan pesan yang tidak berhubungan.
 - **Di luar cakupan, jangan disentuh:** peran `area_manager` (punya tabel `area_manager_outlets` sendiri + 4 commit aktif hari ini) dan peran `purchasing` (butuh keputusan bisnis apakah berhak lihat semua outlet).
 
@@ -104,7 +105,8 @@ $function$;
 - [ ] **Step 4: Terapkan**
 
 ```bash
-npx supabase db push
+# DIGATE: jangan dijalankan subagent. Controller yang push, setelah persetujuan user.
+# npx supabase db push
 ```
 
 Kalau gagal karena migration remote-only milik developer lain: **STOP, laporkan, jangan `migration repair`.**
@@ -199,7 +201,8 @@ WHERE nama = 'MINYAK SAYUR';
 - [ ] **Step 4: Terapkan**
 
 ```bash
-npx supabase db push
+# DIGATE: jangan dijalankan subagent. Controller yang push, setelah persetujuan user.
+# npx supabase db push
 ```
 
 - [ ] **Step 5: Verifikasi ground-truth**
@@ -223,7 +226,7 @@ selama ini 18x lebih kecil dari seharusnya di 19 resep."
 
 ---
 
-### Task 3: Pindahkan 19 resep dari `SAOS TOMAT` (non-aktif) ke `SAOS TOMAT KOMPAN`
+### Task 3: Pindahkan 19 resep dari `SAOS TOMAT` (non-aktif) ke `SAOS TOMAT POUCH`
 
 ```
 SAOS TOMAT          is_active=false  faktor_konversi=16500  <- 19 resep menunjuk ke sini
@@ -231,9 +234,11 @@ SAOS TOMAT KOMPAN   is_active=true   faktor_konversi=5500   <- 0 resep
 SAOS TOMAT POUCH    is_active=true   faktor_konversi=1000   <- 0 resep
 ```
 
-Trigger `trg_process_bom_stok` **tidak memfilter `is_active`**, jadi potongan tetap jalan dari baris usang dengan pembagi 16.500 alih-alih 5.500 → **terpotong 3× lebih sedikit**.
+Trigger `trg_process_bom_stok` **tidak memfilter `is_active`**, jadi potongan tetap jalan dari baris usang dengan pembagi 16.500.
 
-**Target = `SAOS TOMAT KOMPAN`**, mengikuti pola `SAOS CABE` yang strukturnya identik (Dus → Kompan ×3 → Gram ×16.500) dan sudah dipakai 19 resep yang sama. Kalau owner memutuskan POUCH sebagai default, hanya nama bahan di Step 3 yang berganti.
+**Target = `SAOS TOMAT POUCH`** (keputusan owner 2026-08-02). Didukung sebaran stok: POUCH ada di 8 outlet (GUDANG PUSAT 14, CIMANGGU 11, JAGAKARSA 24.000, JATIWARINGIN 6.000, EMPANG 5, SAWANGAN 4,1, PEKAYON 1.000, JATIASIH 1,0), sedangkan KOMPAN hanya di 2 (KALISARI 4,5 · PALEDANG 11.000).
+
+**DAMPAK — lebih tajam daripada opsi KOMPAN:** pembagi berubah dari 16.500 → **1.000**, jadi potongan tomat menjadi **16,5× lebih besar** (kalau KOMPAN hanya 3×). Selama ini tomat nyaris tidak terpotong. Saldo tomat di beberapa outlet akan turun tajam dan bisa menembus minus; itu tidak menggagalkan penjualan karena tipe `pemakaian` dikecualikan dari guard no-negative di `ledger_stamp_saldo`, dan saldo benar ditetapkan ulang oleh opname berikutnya.
 
 Trigger **tidak diubah** di task ini. Menambahkan filter `is_active` akan membuat potongan dilewati secara senyap — lebih buruk daripada potongan yang salah besaran. Pengawasannya lewat query di Step 6 yang dijadikan pemeriksaan berkala.
 
@@ -272,8 +277,12 @@ Buat `supabase/migrations/20300104000004_repoint_resep_saos_tomat.sql`:
 -- -> stok tomat terpotong 3x lebih sedikit dari seharusnya.
 --
 -- Acuan owner 2026-08-01: tomat hanya ada versi POUCH dan KOMPAN.
--- Target KOMPAN, mengikuti pola SAOS CABE (Dus -> Kompan x3 -> Gram x16.500)
--- yang dipakai 19 resep yang sama.
+-- Target POUCH (keputusan owner 2026-08-02), didukung sebaran stok: POUCH ada di
+-- 8 outlet, KOMPAN hanya 2.
+--
+-- DAMPAK: pembagi 16.500 -> 1.000, jadi potongan tomat 16,5x lebih besar.
+-- Saldo bisa minus; tidak menggagalkan penjualan ('pemakaian' dikecualikan dari
+-- guard no-negative) dan ditetapkan ulang oleh opname berikutnya.
 --
 -- Trigger sengaja TIDAK diubah: menambah filter is_active akan membuat potongan
 -- dilewati secara senyap, lebih buruk daripada salah besaran.
@@ -285,7 +294,7 @@ DECLARE
   v_n INT;
 BEGIN
   SELECT id INTO v_lama FROM public.bahan_baku WHERE nama = 'SAOS TOMAT' LIMIT 1;
-  SELECT id INTO v_baru FROM public.bahan_baku WHERE nama = 'SAOS TOMAT KOMPAN' AND is_active LIMIT 1;
+  SELECT id INTO v_baru FROM public.bahan_baku WHERE nama = 'SAOS TOMAT POUCH' AND is_active LIMIT 1;
 
   IF v_lama IS NULL THEN
     RAISE NOTICE 'SAOS TOMAT tidak ditemukan, tidak ada yang dipindah';
@@ -293,7 +302,7 @@ BEGIN
   END IF;
 
   IF v_baru IS NULL THEN
-    RAISE EXCEPTION 'SAOS TOMAT KOMPAN tidak ditemukan atau tidak aktif -- batalkan';
+    RAISE EXCEPTION 'SAOS TOMAT POUCH tidak ditemukan atau tidak aktif -- batalkan';
   END IF;
 
   UPDATE public.resep_item SET bahan_baku_id = v_baru WHERE bahan_baku_id = v_lama;
@@ -306,7 +315,8 @@ $$;
 - [ ] **Step 4: Terapkan**
 
 ```bash
-npx supabase db push
+# DIGATE: jangan dijalankan subagent. Controller yang push, setelah persetujuan user.
+# npx supabase db push
 ```
 
 Expected: notice `resep_item dipindah: 19 baris`.
@@ -317,7 +327,7 @@ Expected: notice `resep_item dipindah: 19 baris`.
 npx supabase db query "select b.nama, b.is_active, trim_scale(b.faktor_konversi) fk, count(ri.id) n_resep from bahan_baku b left join resep_item ri on ri.bahan_baku_id=b.id where b.nama like 'SAOS TOMAT%' group by b.nama, b.is_active, b.faktor_konversi order by b.nama;" --linked
 ```
 
-Expected: `SAOS TOMAT` → `n_resep=0`; `SAOS TOMAT KOMPAN` → `n_resep=19`.
+Expected: `SAOS TOMAT` → `n_resep=0`; `SAOS TOMAT POUCH` → `n_resep=19`; `SAOS TOMAT KOMPAN` → `n_resep=0`.
 
 - [ ] **Step 6: Pasang pemeriksaan berkala (jalankan, catat hasilnya, tidak perlu migration)**
 
@@ -332,10 +342,12 @@ Expected setelah task ini: **0 baris**. Query ini mendeteksi resep yang menunjuk
 ```bash
 git branch --show-current
 git add supabase/migrations/20300104000004_repoint_resep_saos_tomat.sql
-git commit -m "fix(resep): pindahkan 19 resep SAOS TOMAT ke SAOS TOMAT KOMPAN
+git commit -m "fix(resep): pindahkan 19 resep SAOS TOMAT ke SAOS TOMAT POUCH
 
 Bahan lama sudah is_active=false tapi trigger BOM tidak memfilter is_active,
-sehingga tomat terpotong 3x lebih sedikit (fk 16500 vs 5500)."
+sehingga tomat terpotong dengan pembagi 16500. Target POUCH (keputusan owner
+2026-08-02, POUCH tersedia di 8 outlet vs KOMPAN 2) -> pembagi 1000, potongan
+menjadi 16,5x lebih besar."
 ```
 
 ---
@@ -434,7 +446,8 @@ REVOKE INSERT, UPDATE, DELETE ON public.bahan_baku_substitusi FROM anon;
 - [ ] **Step 3: Terapkan**
 
 ```bash
-npx supabase db push
+# DIGATE: jangan dijalankan subagent. Controller yang push, setelah persetujuan user.
+# npx supabase db push
 ```
 
 - [ ] **Step 4: Verifikasi ground-truth**

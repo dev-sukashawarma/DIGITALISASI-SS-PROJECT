@@ -170,3 +170,24 @@ export function useLedgerActions() {
 
   return { addManual, addManualBatch }
 }
+
+export function useOrderDetails(orderId: string | null, enabled: boolean) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['order-details', orderId],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error: err } = await supabase
+        .from('order_items')
+        .select('id, menu_item_name, quantity')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true })
+      
+      if (err) throw err
+      return data ?? []
+    },
+    enabled: enabled && !!orderId,
+    staleTime: 60000,
+    gcTime: 5 * 60000,
+  })
+  return { rows: data ?? [], loading: isLoading, error: error ? (error as Error).message : null }
+}

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { LedgerTransaksiSummary } from '@/types/stok';
 import { useBahanBaku } from '@/hooks/useBahanBaku';
-import { useLedgerTransaksiDetail } from '@/hooks/useLedger';
+import { useLedgerTransaksiDetail, useOrderDetails } from '@/hooks/useLedger';
 import { useOutletScope } from '@/hooks/useOutletScope';
 import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
 
@@ -219,6 +219,27 @@ function TransaksiExpandedDetail({ outletId, transaksiKey, isDelivery }: { outle
   );
 }
 
+function OrderExpandedDetail({ orderId }: { orderId: string }) {
+  const { rows, loading, error } = useOrderDetails(orderId, true);
+
+  if (loading) return <p className="text-[10px] font-bold text-[#544437]/50 py-2 animate-pulse">Memuat detail pesanan...</p>;
+  if (error) return <p className="text-[10px] font-bold text-[#ba1a1a] py-2">Gagal memuat: {error}</p>;
+  if (rows.length === 0) return <p className="text-[10px] font-bold text-[#544437]/50 py-2">Tidak ada rincian pesanan.</p>;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[#d9c2b2]/25 space-y-2">
+      {rows.map((r) => (
+        <div key={r.id} className="flex justify-between items-center text-[10px] bg-[#faf2e9]/50 px-2.5 py-1.5 rounded-lg border border-[#d9c2b2]/20">
+          <span className="font-bold text-[#1e1b15] uppercase truncate pr-2">{r.menu_item_name}</span>
+          <span className="text-right flex-shrink-0 font-bold text-[#701604]">
+            {r.quantity} Porsi
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
   const { bahanBaku } = useBahanBaku();
   const { selectedOutletId } = useOutletScope();
@@ -399,7 +420,11 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
 
               {isExpanded && selectedOutletId && (
                 <div id={detailId}>
-                  <TransaksiExpandedDetail outletId={selectedOutletId} transaksiKey={t.transaksi_key} isDelivery={isDelivery} />
+                  {t.ref_order_id ? (
+                    <OrderExpandedDetail orderId={t.ref_order_id} />
+                  ) : (
+                    <TransaksiExpandedDetail outletId={selectedOutletId} transaksiKey={t.transaksi_key} isDelivery={isDelivery} />
+                  )}
                 </div>
               )}
             </div>

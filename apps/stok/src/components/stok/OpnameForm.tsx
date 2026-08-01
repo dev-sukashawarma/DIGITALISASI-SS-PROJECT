@@ -234,7 +234,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           let rawSelisihText = '';
           let useComposite = false;
           let compLabel = '';
-          let compLargeLabel = b.satuan;
+          let compLargeLabel: string = b.satuan;
           let resolveBase = (l: number, s: number) => l + s / 1; // dummy fallback
           
           if (!['gram', 'ml'].includes(b.satuan.toLowerCase())) {

@@ -50,10 +50,8 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
     var dayOfMonth = data.day_of_month || new Date(data.timestamp || new Date()).getDate(); // 1 - 31
     var targetCol = 4 + (dayOfMonth - 1); // Kolom D = Tanggal 1 (Index 4)
 
-    // 3. Tentukan Channel (OFFLINE, FOOD APPS, TIKTOK GO)
-    var channel = (data.channel || '').toLowerCase();
-    var isFoodApps = channel.includes('food') || channel.includes('gofood') || channel.includes('grabfood') || channel.includes('shopeefood');
-    var isTikTok = channel.includes('tiktok');
+    // 3. Tentukan Channel Global (Fallback)
+    var globalChannel = (data.channel || '').toLowerCase();
 
     // 4. Pindai seluruh Kolom A untuk menemukan posisi seksi OFFLINE, FOOD APPS, TIKTOK GO
     var lastRow = sheet.getLastRow();
@@ -73,6 +71,10 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
         var cleanName = rawName.replace(/^fa\s+/, '').trim();
         var qty = Number(item.quantity) || 0;
         if (qty <= 0) return;
+
+        var itemChannel = (item.channel || globalChannel).toLowerCase();
+        var isFoodApps = itemChannel.includes('food') || itemChannel.includes('gofood') || itemChannel.includes('grabfood') || itemChannel.includes('shopeefood') || itemChannel === 'food_apps';
+        var isTikTok = itemChannel.includes('tiktok') || itemChannel === 'tiktok_go';
 
         var matchedRow = -1;
 
@@ -225,7 +227,8 @@ export default function GoogleSheetsSettingsModal({ isOpen, onClose }: GoogleShe
         menu_item_name: 'Tes Suka Shawarma Ayam (Dummy)',
         quantity: 2,
         unit_price: 25000,
-        subtotal: 50000
+        subtotal: 50000,
+        channel: 'offline'
       }
     ]
 

@@ -191,7 +191,7 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
           <div className="flex flex-col gap-1.5 border-b border-[#d9c2b2]/10 pb-3.5">
             <span className="text-xs font-bold text-[#544437]/70">Catatan</span>
             <span className="text-xs font-medium text-gray-600 bg-[#fff8f1]/50 p-2.5 rounded-lg border border-[#d9c2b2]/20">
-              {l.catatan}
+              {l.catatan.replace(/\|ID\|[^|)]+/g, '').replace(/\|NOTE\|[^|)]+/g, '').replace(/\s+\)/g, ')').trim()}
             </span>
           </div>
         )}

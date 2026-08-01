@@ -14,7 +14,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   mitra: ['admin-dashboard'],
   staff_pusat: ['absensi'],
   admin_finance: ['finance'],
-  area_manager: ['finance', 'manager'],
+  area_manager: ['finance', 'manager', 'absensi', 'stok', 'distribusi'],
   purchasing: ['admin-dashboard'],
 }
 

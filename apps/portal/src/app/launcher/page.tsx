@@ -88,6 +88,7 @@ export default async function LauncherPage() {
           ringColor: 'ring-amber-500/50 shadow-amber-500/10'
         }
       case 'regional_manager':
+      case 'area_manager':
       case 'spv':
       case 'leader':
       case 'kitchen':

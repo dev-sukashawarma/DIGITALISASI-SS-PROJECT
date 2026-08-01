@@ -262,7 +262,8 @@ export default async function SyncedPawoonDataPage({
                                 'CIBUBUR', 'MITRA CIBUBUR',
                                 'PALEDANG', 'MITRA PALEDANG',
                                 'CIMANGGU', 'MITRA CIMANGGU', 'SUKA SHAWARMA CIMANGGU', 'BCC',
-                                'CIRENDEU', 'CIRENDEUU', 'MITRA CIRENDEU', 'SUKA SHAWARMA CIRENDEU'
+                                'CIRENDEU', 'CIRENDEUU', 'MITRA CIRENDEU', 'SUKA SHAWARMA CIRENDEU',
+                                'DEPOK SUKMAJAYA', 'SUKA SHAWARMA DEPOK SUKMAJAYA', 'DEPOK'
                             ];
 
                             const OUTLET_NOTES: Record<string, string> = {

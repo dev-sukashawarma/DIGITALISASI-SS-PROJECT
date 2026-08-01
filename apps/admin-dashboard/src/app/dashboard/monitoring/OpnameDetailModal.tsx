@@ -12,19 +12,16 @@ import { X, AlertCircle, CheckCircle2, Search, Filter, TrendingUp, TrendingDown 
  * - Everything else: show up to 1 decimal
  */
 const WEIGHT_UNITS = ['kg', 'gram', 'g', 'liter', 'ml', 'l']
-const COUNT_UNITS = ['pack', 'dus', 'ikat', 'buah', 'pcs', 'lembar', 'bungkus', 'tabung', 'blok', 'botol', 'kaleng', 'karton', 'sachet', 'kotak']
+
+function getUnitDecimals(satuan?: string): number {
+  const unit = (satuan || '').toLowerCase().trim()
+  if (WEIGHT_UNITS.includes(unit)) return 3
+  return 2
+}
 
 function smartQty(num: number | null | undefined, satuan?: string): string {
   if (num === null || num === undefined || isNaN(num)) return '-'
-  const unit = (satuan || '').toLowerCase().trim()
-  
-  let decimals = 1 // default
-  if (WEIGHT_UNITS.includes(unit)) {
-    decimals = 2
-  } else if (COUNT_UNITS.includes(unit)) {
-    // For count units, only show decimal if it's truly fractional
-    decimals = num % 1 === 0 ? 0 : 1
-  }
+  const decimals = getUnitDecimals(satuan)
   
   return new Intl.NumberFormat('id-ID', {
     minimumFractionDigits: 0,
@@ -113,7 +110,9 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
   })
 
   const countSelisih = items.filter(i => {
-    const s = Math.round((Number(i.selisih) || 0) * 100) / 100
+    const decimals = getUnitDecimals(i.bahan_baku.satuan)
+    const multiplier = Math.pow(10, decimals)
+    const s = Math.round((Number(i.selisih) || 0) * multiplier) / multiplier
     return s !== 0
   }).length
   const countFlagged = items.filter(i => i.flagged).length
@@ -252,7 +251,9 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                   ) : (
                     filteredItems.map(item => {
                       const rawSelisih = Number(item.selisih) || 0
-                      const selisihNum = Math.round(rawSelisih * 100) / 100
+                      const decimals = getUnitDecimals(item.bahan_baku.satuan)
+                      const multiplier = Math.pow(10, decimals)
+                      const selisihNum = Math.round(rawSelisih * multiplier) / multiplier
                       const hasSelisih = selisihNum !== 0
                       const isMinus = selisihNum < 0
 
@@ -320,7 +321,9 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
               ) : (
                 filteredItems.map(item => {
                   const rawSelisih = Number(item.selisih) || 0
-                  const selisihNum = Math.round(rawSelisih * 100) / 100
+                  const decimals = getUnitDecimals(item.bahan_baku.satuan)
+                  const multiplier = Math.pow(10, decimals)
+                  const selisihNum = Math.round(rawSelisih * multiplier) / multiplier
                   const hasSelisih = selisihNum !== 0
                   const isMinus = selisihNum < 0
                   

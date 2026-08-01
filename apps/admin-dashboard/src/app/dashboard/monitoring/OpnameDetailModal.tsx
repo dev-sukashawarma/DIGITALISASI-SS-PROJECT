@@ -126,9 +126,9 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
   }).replace(':', '.') + ' WIB' : ''
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
       <div 
-        className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200"
+        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-4xl h-[92vh] sm:h-auto sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-full sm:zoom-in-95 duration-300 border-t sm:border border-slate-200"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -189,23 +189,23 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
 
             {/* Toolbar */}
             <div className="p-4 lg:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50 border-b border-slate-100">
-              <div className="flex p-1 bg-slate-200/60 rounded-xl w-full sm:w-auto">
+              <div className="flex p-1.5 bg-slate-200/60 rounded-xl w-full sm:w-auto overflow-x-auto hide-scrollbar gap-1">
                 <button
                   onClick={() => setActiveTab('ALL')}
-                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${activeTab === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   Semua ({items.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('SELISIH')}
-                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === 'SELISIH' ? 'bg-white text-suka-orange shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${activeTab === 'SELISIH' ? 'bg-white text-suka-orange shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                  <AlertCircle size={14} className={activeTab === 'SELISIH' ? 'text-suka-orange' : 'text-slate-400'} />
+                  <AlertCircle size={16} className={activeTab === 'SELISIH' ? 'text-suka-orange' : 'text-slate-400'} />
                   Selisih ({countSelisih})
                 </button>
                 <button
                   onClick={() => setActiveTab('FLAGGED')}
-                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === 'FLAGGED' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${activeTab === 'FLAGGED' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   Ditandai ({countFlagged})
                 </button>
@@ -332,33 +332,42 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                         )}
                       </div>
                       
-                      <div className="flex justify-between items-center bg-slate-50/50 p-3 rounded-xl border border-slate-100">
-                        <div>
-                          <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Qty Sistem</span>
-                          <span className="text-sm font-semibold text-slate-700 tabular-nums">
-                            {smartQty(Number(item.qty_system), item.bahan_baku.satuan)} <span className="text-[10px] text-slate-400">{displayUnit(item.bahan_baku.satuan)}</span>
-                          </span>
+                      <div className="grid grid-cols-2 gap-3 bg-slate-50/50 p-3.5 rounded-xl border border-slate-100">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-slate-400 uppercase font-extrabold tracking-wider mb-1">Qty Sistem</span>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-bold text-slate-700 tabular-nums leading-none">
+                              {smartQty(Number(item.qty_system), item.bahan_baku.satuan)}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400">{displayUnit(item.bahan_baku.satuan)}</span>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Qty Fisik</span>
-                          <span className="text-sm font-black text-slate-900 tabular-nums">
-                            {item.qty_fisik !== null ? smartQty(Number(item.qty_fisik), item.bahan_baku.satuan) : '-'} <span className="text-[10px] text-slate-500">{displayUnit(item.bahan_baku.satuan)}</span>
-                          </span>
+                        <div className="flex flex-col items-end text-right border-l border-slate-200/50 pl-3">
+                          <span className="text-[10px] text-slate-400 uppercase font-extrabold tracking-wider mb-1">Qty Fisik</span>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-black text-slate-900 tabular-nums leading-none">
+                              {item.qty_fisik !== null ? smartQty(Number(item.qty_fisik), item.bahan_baku.satuan) : '-'}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500">{displayUnit(item.bahan_baku.satuan)}</span>
+                          </div>
                         </div>
                       </div>
                       
                       <div className="mt-3">
                         {hasSelisih ? (
-                          <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${isMinus ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest ${isMinus ? 'text-red-600/70' : 'text-emerald-600/70'}`}>Selisih {isMinus ? 'Kurang' : 'Lebih'}</span>
+                          <div className={`flex items-center justify-between px-3.5 py-3 rounded-xl border ${isMinus ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                            <span className={`text-[10px] font-extrabold uppercase tracking-widest ${isMinus ? 'text-red-600/80' : 'text-emerald-600/80'}`}>Selisih {isMinus ? 'Kurang' : 'Lebih'}</span>
                             <div className={`flex items-center gap-1.5 font-black ${isMinus ? 'text-red-700' : 'text-emerald-700'}`}>
-                              {isMinus ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
-                              <span className="text-sm tabular-nums">{smartQty(Math.abs(selisihNum), item.bahan_baku.satuan)} <span className="text-[10px]">{displayUnit(item.bahan_baku.satuan)}</span></span>
+                              {isMinus ? <TrendingDown size={16} /> : <TrendingUp size={16} />}
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-base tabular-nums leading-none">{smartQty(Math.abs(selisihNum), item.bahan_baku.satuan)}</span>
+                                <span className="text-[10px] font-bold">{displayUnit(item.bahan_baku.satuan)}</span>
+                              </div>
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 text-slate-500 font-bold text-xs">
-                            <CheckCircle2 size={14} className="opacity-50" /> Sinkron
+                          <div className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-500 font-bold text-sm">
+                            <CheckCircle2 size={16} className="opacity-50" /> Sinkron
                           </div>
                         )}
                       </div>

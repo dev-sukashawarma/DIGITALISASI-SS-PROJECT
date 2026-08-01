@@ -66,13 +66,26 @@ interface OrderRow {
   }[]
 }
 
-function getItemHpp(menuItem: any, outletType?: string): number {
-  if (!menuItem) return 0
+function getItemHpp(
+  menuItem: any, 
+  outletType?: string, 
+  fallbackName?: string, 
+  menuItemByNameMap?: Map<string, any>
+): number {
+  let itemObj = menuItem
+  if ((!itemObj || (!itemObj.hpp_override && !itemObj.is_package)) && fallbackName && menuItemByNameMap) {
+    const cleanKey = cleanItemName(fallbackName)
+    if (menuItemByNameMap.has(cleanKey)) {
+      itemObj = menuItemByNameMap.get(cleanKey)
+    }
+  }
+  if (!itemObj) return 0
+
   let baseHpp = 0
-  if (menuItem.hpp_override !== null && menuItem.hpp_override !== undefined) {
-    baseHpp = Number(menuItem.hpp_override)
-  } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
-    baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
+  if (itemObj.hpp_override !== null && itemObj.hpp_override !== undefined && Number(itemObj.hpp_override) > 0) {
+    baseHpp = Number(itemObj.hpp_override)
+  } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
+    baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
       const compHpp = pkg.component?.hpp_override || 0
       const qty = pkg.quantity || 1
       return sum + (compHpp * qty)
@@ -142,12 +155,23 @@ function extractOrderPackages(order: OrderRow) {
 export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [shifts, setShifts] = useState<ShiftRow[]>([])
+  const [menuItems, setMenuItems] = useState<any[]>([])
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
   const [selectedChannel, setSelectedChannel] = useState<string>('all')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [showGoogleSheetsModal, setShowGoogleSheetsModal] = useState(false)
+
+  const menuItemByNameMap = useMemo(() => {
+    const map = new Map<string, any>()
+    menuItems.forEach(mi => {
+      if (mi.name) {
+        map.set(cleanItemName(mi.name), mi)
+      }
+    })
+    return map
+  }, [menuItems])
   
   // Date Range State
   const [range, setRange] = useState<DateRangeType>('thisMonth')
@@ -343,9 +367,14 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       return all
     }
 
-    const [ordersData, { data: shiftsData }] = await Promise.all([fetchAllOrders(), qShifts])
+    const menuItemsQuery = supabase
+      .from('menu_items')
+      .select('id, name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))')
+
+    const [ordersData, { data: shiftsData }, { data: menuItemsData }] = await Promise.all([fetchAllOrders(), qShifts, menuItemsQuery])
     setOrders(ordersData)
     setShifts(shiftsData ?? [])
+    setMenuItems(menuItemsData ?? [])
     setLoading(false)
   }, [range, selectedOutlet, customStartDate, customEndDate])
 
@@ -436,7 +465,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       .reduce((sum, o) => {
         const outletType = outletTypeMap.get(o.outlet_id)
         return sum + o.order_items.reduce((itemSum, item) => {
-          const hpp = getItemHpp(item.menu_items, outletType);
+          const hpp = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap);
           return itemSum + (hpp * item.quantity);
         }, 0)
       }, 0)
@@ -538,7 +567,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       totalHPP,
       grossProfit
     }
-  }, [orders, shifts, selectedChannel, hppRows])
+  }, [orders, shifts, selectedChannel, hppRows, menuItemByNameMap])
 
   const selectedOutletName = selectedOutlet === 'all' 
     ? 'Semua Cabang' 
@@ -623,7 +652,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
         }
         
         const key = `${cleanName}-${groupLabel}`
-        const hppPerUnit = getItemHpp(item.menu_items, outletType)
+        const hppPerUnit = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap)
         
         if (!map.has(key)) {
           map.set(key, {
@@ -647,7 +676,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     })
     
     return Array.from(map.values()).sort((a, b) => b.qty - a.qty)
-  }, [filteredTableData, outlets])
+  }, [filteredTableData, outlets, menuItemByNameMap])
 
   const [itemBreakdownSearch, setItemBreakdownSearch] = useState('')
   const [itemBreakdownFilter, setItemBreakdownFilter] = useState('all')

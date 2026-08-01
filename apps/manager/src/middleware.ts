@@ -7,10 +7,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Skip enforceAppAccess untuk localhost development (opsional, tapi disamakan dengan admin-dashboard)
-  if (request.nextUrl.hostname === 'localhost') {
-    return undefined
-  }
   return enforceAppAccess(request as any, 'manager')
 }
 

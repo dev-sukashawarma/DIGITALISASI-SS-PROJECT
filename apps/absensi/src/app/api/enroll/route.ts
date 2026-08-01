@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@supabase/supabase-js";
 
-const SPV_ROLES = ["spv", "leader", "regional_manager", "admin", "admin_hr", "owner", "kitchen"];
+const SPV_ROLES = ["spv", "leader", "regional_manager", "area_manager", "admin", "admin_hr", "owner", "kitchen"];
 
 export async function POST(req: NextRequest) {
   try {

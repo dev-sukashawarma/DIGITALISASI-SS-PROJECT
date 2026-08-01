@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "staff_inactive" }, { status: 403 });
     }
 
-    const isGlobalRole = ["spv", "owner", "admin", "admin_hr", "regional_manager"].includes(target.role);
+    const isGlobalRole = ["spv", "owner", "admin", "admin_hr", "regional_manager", "area_manager"].includes(target.role);
     if (!isGlobalRole && target.outlet_id !== body.outlet_id) {
       // Cek apakah outlet_id ini terdaftar untuk staff di tabel staff_outlets (misal: Leader multi-outlet)
       const { data: allowedAssigned } = await admin

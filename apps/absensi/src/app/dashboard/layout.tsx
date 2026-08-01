@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [moreOpen, setMoreOpen] = useState(false);
   const { unreadCount } = useLeaveNotifications();
 
-  const isSPV = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager"].includes(outletStaff?.role || "");
+  const isSPV = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
 
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },

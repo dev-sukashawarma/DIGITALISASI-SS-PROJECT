@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { createSupabaseServerClient, getOutletStaff } from '@suka/auth';
 
-const PRIVILEGED_ROLES = new Set(['admin', 'owner', 'spv', 'kitchen']);
+const PRIVILEGED_ROLES = new Set(['admin', 'owner', 'spv', 'regional_manager', 'area_manager', 'kitchen']);
 
 /**
  * Verifikasi user yang login (via cookie session) berhak mengakses outlet_id

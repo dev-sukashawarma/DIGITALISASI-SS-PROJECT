@@ -81,7 +81,7 @@ export default function ChecklistManagementPage() {
   const { data: outlets = [] } = useQuery({
     queryKey: ["all-outlets"],
     queryFn: async () => {
-      const isSpv = outletStaff?.role === 'spv' || outletStaff?.role === 'admin' || outletStaff?.role === 'regional_manager';
+      const isSpv = outletStaff?.role === 'spv' || outletStaff?.role === 'admin' || outletStaff?.role === 'regional_manager' || outletStaff?.role === 'area_manager';
       let ids: string[] = [];
       if (!isSpv) {
         const { data: rpcData } = await supabase.rpc("accessible_outlet_ids");

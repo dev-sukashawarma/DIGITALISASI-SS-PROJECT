@@ -61,7 +61,7 @@ export default function EnrollPage() {
       .eq("status", "active")
       .neq("role", "kiosk");
 
-    if (outletStaff?.role === "spv" || outletStaff?.role === "regional_manager") {
+    if (outletStaff?.role === "spv" || outletStaff?.role === "regional_manager" || outletStaff?.role === "area_manager") {
       primaryQuery = primaryQuery.or(`outlet_id.eq.${selectedOutletId},id.eq.${outletStaff.id}`);
     } else {
       primaryQuery = primaryQuery.eq("outlet_id", selectedOutletId);

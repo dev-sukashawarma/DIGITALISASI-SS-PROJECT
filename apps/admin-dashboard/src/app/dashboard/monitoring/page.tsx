@@ -6,7 +6,7 @@ import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
 import type { PeriodFilterValue } from '@/lib/types'
 import { presetRange } from '@/lib/period'
-import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock } from 'lucide-react'
+import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardList, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import OpnameDetailModal from './OpnameDetailModal'
 
@@ -533,7 +533,7 @@ export default function MonitoringPage() {
                   title={`Lihat detail opname harian pada ${opnameTimeStr}`} 
                   className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 hover:bg-blue-200 transition-colors cursor-pointer px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-800 border border-blue-300/80 shadow-xs"
                 >
-                  <ClipboardCheck className="w-3 h-3 mr-1 text-blue-600" />
+                  <ClipboardList className="w-3 h-3 mr-1 text-blue-600" />
                   Opname {opnameTimeStr}
                 </button>
               ) : (
@@ -571,7 +571,7 @@ export default function MonitoringPage() {
               )}
               {opnameTimeStr && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 border border-blue-200/80" title="Waktu Input Opname Harian">
-                  <ClipboardCheck size={10} className="text-blue-600 shrink-0" />
+                  <ClipboardList size={10} className="text-blue-600 shrink-0" />
                   <span>Opname: {opnameTimeStr}</span>
                 </span>
               )}

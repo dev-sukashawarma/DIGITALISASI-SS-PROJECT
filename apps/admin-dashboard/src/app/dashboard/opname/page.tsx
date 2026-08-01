@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
-import { Calendar, ClipboardCheck, Store, CalendarClock, User, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Calendar, ClipboardList, Store, CalendarClock, User, ChevronRight, CheckCircle2 } from 'lucide-react'
 import { presetRange } from '@/lib/period'
 import OpnameDetailModal from '../monitoring/OpnameDetailModal'
 import { getOpnamesData } from './actions'
@@ -270,7 +270,7 @@ export default function OpnamePage() {
             </div>
           ) : opnames.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col items-center justify-center py-24">
-              <ClipboardCheck className="w-12 h-12 text-slate-300 mb-4" />
+              <ClipboardList className="w-12 h-12 text-slate-300 mb-4" />
               <p className="text-slate-600 font-bold">Belum ada laporan opname.</p>
               <p className="text-slate-400 text-sm mt-1 text-center max-w-sm">
                 Coba ubah filter rentang tanggal atau outlet untuk melihat data lainnya.

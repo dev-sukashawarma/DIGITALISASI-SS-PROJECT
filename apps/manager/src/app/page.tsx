@@ -203,7 +203,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
       qAttendance = qAttendance.in('outlet_id', accessibleOutlets);
       qStaffOutlets = qStaffOutlets.in('outlet_id', accessibleOutlets);
     }
-  } else if (!staff || staff.role === 'regional_manager' || staff.role === 'director') {
+  } else if (!staff || staff.role === 'regional_manager') {
     if (filterOutletId && filterOutletId !== 'all') {
       qToday = qToday.eq('outlet_id', filterOutletId);
       qYesterday = qYesterday.eq('outlet_id', filterOutletId);

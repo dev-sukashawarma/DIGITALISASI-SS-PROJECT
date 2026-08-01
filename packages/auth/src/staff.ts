@@ -32,6 +32,30 @@ export async function getOutletStaff(
     outlets: Array.isArray(data.outlets) ? data.outlets[0] : (data.outlets || null),
   }
 
+  // Override outlet_id berdasarkan lokasi absen hari ini (jika karyawan BKO/mutasi harian)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const { data: attData } = await supabase.from('attendance')
+    .select('outlet_id, outlets(name)')
+    .eq('outlet_staff_id', userId)
+    .gte('created_at', today.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (attData && attData.outlet_id) {
+    staff.outlet_id = attData.outlet_id;
+    if (staff.outlets && attData.outlets) {
+      staff.outlets = {
+        ...staff.outlets,
+        name: (attData.outlets as any).name || staff.outlets.name
+      };
+    } else if (attData.outlets) {
+      staff.outlets = { name: (attData.outlets as any).name };
+    }
+  }
+
   return { staff, error: null }
 }
 

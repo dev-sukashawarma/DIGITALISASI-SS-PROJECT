@@ -192,20 +192,20 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
               <div className="flex p-1 bg-slate-200/60 rounded-xl w-full sm:w-auto">
                 <button
                   onClick={() => setActiveTab('ALL')}
-                  className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   Semua ({items.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('SELISIH')}
-                  className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === 'SELISIH' ? 'bg-white text-suka-orange shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === 'SELISIH' ? 'bg-white text-suka-orange shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   <AlertCircle size={14} className={activeTab === 'SELISIH' ? 'text-suka-orange' : 'text-slate-400'} />
-                  Ada Selisih ({countSelisih})
+                  Selisih ({countSelisih})
                 </button>
                 <button
                   onClick={() => setActiveTab('FLAGGED')}
-                  className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === 'FLAGGED' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === 'FLAGGED' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   Ditandai ({countFlagged})
                 </button>
@@ -223,8 +223,8 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
               </div>
             </div>
 
-            {/* Table */}
-            <div className="flex-1 overflow-auto bg-white p-0 m-0">
+            {/* Table for Desktop */}
+            <div className="hidden md:block flex-1 overflow-auto bg-white p-0 m-0">
               <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead className="bg-slate-50/80 sticky top-0 z-10 backdrop-blur-sm">
                   <tr>
@@ -308,6 +308,71 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile View (Cards) */}
+            <div className="md:hidden flex-1 overflow-y-auto bg-slate-50 p-4 flex flex-col gap-3">
+              {filteredItems.length === 0 ? (
+                <div className="px-6 py-12 text-center bg-white rounded-2xl shadow-sm border border-slate-200">
+                  <Filter className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm font-bold text-slate-500">Tidak ada item yang sesuai filter</p>
+                </div>
+              ) : (
+                filteredItems.map(item => {
+                  const selisihNum = Number(item.selisih) || 0
+                  const hasSelisih = selisihNum !== 0
+                  const isMinus = selisihNum < 0
+                  
+                  return (
+                    <div key={item.id} className={`bg-white rounded-2xl shadow-sm border p-4 ${item.flagged ? 'border-red-200' : 'border-slate-200'}`}>
+                      <div className="flex justify-between items-start mb-3">
+                        <span className="font-extrabold text-slate-900 text-base">{item.bahan_baku.nama}</span>
+                        {item.flagged && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Flagged</span>
+                        )}
+                      </div>
+                      
+                      <div className="flex justify-between items-center bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                        <div>
+                          <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Qty Sistem</span>
+                          <span className="text-sm font-semibold text-slate-700 tabular-nums">
+                            {smartQty(Number(item.qty_system), item.bahan_baku.satuan)} <span className="text-[10px] text-slate-400">{displayUnit(item.bahan_baku.satuan)}</span>
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Qty Fisik</span>
+                          <span className="text-sm font-black text-slate-900 tabular-nums">
+                            {item.qty_fisik !== null ? smartQty(Number(item.qty_fisik), item.bahan_baku.satuan) : '-'} <span className="text-[10px] text-slate-500">{displayUnit(item.bahan_baku.satuan)}</span>
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3">
+                        {hasSelisih ? (
+                          <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${isMinus ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest ${isMinus ? 'text-red-600/70' : 'text-emerald-600/70'}`}>Selisih {isMinus ? 'Kurang' : 'Lebih'}</span>
+                            <div className={`flex items-center gap-1.5 font-black ${isMinus ? 'text-red-700' : 'text-emerald-700'}`}>
+                              {isMinus ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
+                              <span className="text-sm tabular-nums">{smartQty(Math.abs(selisihNum), item.bahan_baku.satuan)} <span className="text-[10px]">{displayUnit(item.bahan_baku.satuan)}</span></span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 text-slate-500 font-bold text-xs">
+                            <CheckCircle2 size={14} className="opacity-50" /> Sinkron
+                          </div>
+                        )}
+                      </div>
+
+                      {item.catatan && (
+                        <div className="mt-3 text-xs font-medium text-slate-600 bg-amber-50 p-3 rounded-xl border border-amber-100">
+                          <span className="block text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Catatan</span>
+                          {item.catatan}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
         )}

@@ -89,19 +89,19 @@ function CustomDateRangePopover({
     <div ref={rootRef} className="relative flex">
       <button
         onClick={() => setOpen(!open)}
-        className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs cursor-pointer ${
+        className={`px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-sm cursor-pointer ${
           isActive || open
             ? 'bg-suka-orange text-white shadow-sm font-extrabold'
             : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 font-bold'
         }`}
         title="Rentang tanggal kustom"
       >
-        <Calendar className="w-3.5 h-3.5" />
+        <Calendar className="w-4 h-4" />
         <span>Kustom</span>
       </button>
 
       {open && (
-        <div className="absolute top-full mt-2 left-0 sm:right-0 sm:left-auto bg-white p-4 rounded-xl shadow-xl border border-slate-200 z-50 flex flex-col gap-3 min-w-[280px]">
+        <div className="absolute top-full mt-2 left-0 right-0 sm:left-auto bg-white p-4 rounded-xl shadow-xl border border-slate-200 z-50 flex flex-col gap-3 min-w-[280px] w-max sm:w-auto">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Dari</label>
@@ -201,10 +201,10 @@ export default function OpnamePage() {
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
           
           {/* Period Filter */}
-          <div className="flex p-1 bg-slate-100 rounded-xl w-full md:w-auto overflow-x-auto hide-scrollbar">
+          <div className="flex p-1.5 bg-slate-100 rounded-xl w-full md:w-auto overflow-x-auto hide-scrollbar gap-1">
             <button
               onClick={() => setPeriod(presetRange('today'))}
-              className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
+              className={`px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-sm font-bold whitespace-nowrap cursor-pointer flex-1 md:flex-none ${
                 isPresetActive('today') ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
               }`}
             >
@@ -212,7 +212,7 @@ export default function OpnamePage() {
             </button>
             <button
               onClick={() => setPeriod(presetRange('yesterday'))}
-              className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
+              className={`px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-sm font-bold whitespace-nowrap cursor-pointer flex-1 md:flex-none ${
                 isPresetActive('yesterday') ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
               }`}
             >
@@ -220,7 +220,7 @@ export default function OpnamePage() {
             </button>
             <button
               onClick={() => setPeriod(presetRange('7d'))}
-              className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
+              className={`px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-sm font-bold whitespace-nowrap cursor-pointer flex-1 md:flex-none ${
                 isPresetActive('7d') ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
               }`}
             >
@@ -228,18 +228,20 @@ export default function OpnamePage() {
             </button>
             <button
               onClick={() => setPeriod(presetRange('30d'))}
-              className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs font-bold whitespace-nowrap cursor-pointer ${
+              className={`px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-sm font-bold whitespace-nowrap cursor-pointer flex-1 md:flex-none ${
                 isPresetActive('30d') ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
               }`}
             >
               30 Hari
             </button>
-            <CustomDateRangePopover
+            <div className="flex-1 md:flex-none flex items-center">
+              <CustomDateRangePopover
               from={period.from}
               to={period.to}
               onChange={setPeriod}
               isActive={isPresetActive('custom')}
             />
+            </div>
           </div>
 
           {/* Outlet Filter */}

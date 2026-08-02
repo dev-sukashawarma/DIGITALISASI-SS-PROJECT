@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
 import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
-import type { BahanBaku } from '@/types/stok';
+import { toSatuanBesar, formatSatuanBesar, formatCompositeInput } from '@/lib/stok/compositeQty';
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'Semua',
@@ -19,64 +19,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   kemasan: 'Packaging',
   lainnya: 'Lainnya',
 };
-
-// Helper for dynamic 3-level unit conversion
-function calculateTotalFisik(b: BahanBaku, input: { besar?: string; tengah?: string; kecil?: string }) {
-  const besar = Number(input.besar || 0);
-  const tengah = Number(input.tengah || 0);
-  const kecil = Number(input.kecil || 0);
-  
-  if (b.satuan_tengah && b.satuan_kecil) {
-    return (besar * (b.faktor_tengah || 1) * (b.faktor_konversi || 1)) + (tengah * (b.faktor_konversi || 1)) + kecil;
-  } else if (b.satuan_kecil) {
-    return (besar * (b.faktor_konversi || 1)) + kecil;
-  }
-  return besar;
-}
-
-function formatRawInput(b: BahanBaku, input: { besar?: string; tengah?: string; kecil?: string }) {
-  const parts = [];
-  if (input.besar && Number(input.besar) > 0) parts.push(`${input.besar} ${b.satuan}`);
-  if (b.satuan_tengah && input.tengah && Number(input.tengah) > 0) parts.push(`${input.tengah} ${b.satuan_tengah}`);
-  if (b.satuan_kecil && input.kecil && Number(input.kecil) > 0) parts.push(`${input.kecil} ${b.satuan_kecil}`);
-  return parts.length > 0 ? parts.join(' + ') : `0 ${b.satuan}`;
-}
-
-function formatSystemQty(b: BahanBaku, totalSmallestQty: number) {
-  let remaining = Math.abs(totalSmallestQty);
-  let besar = 0, tengah = 0, kecil = 0;
-
-  if (b.satuan_tengah && b.satuan_kecil) {
-    const unitTengahInKecil = b.faktor_konversi || 1;
-    const unitBesarInKecil = (b.faktor_tengah || 1) * unitTengahInKecil;
-
-    besar = Math.floor(remaining / unitBesarInKecil);
-    remaining = remaining % unitBesarInKecil;
-
-    tengah = Math.floor(remaining / unitTengahInKecil);
-    kecil = remaining % unitTengahInKecil;
-    
-    // Round to handle floating point issues
-    kecil = Math.round(kecil * 100) / 100;
-  } else if (b.satuan_kecil) {
-    const unitBesarInKecil = b.faktor_konversi || 1;
-    besar = Math.floor(remaining / unitBesarInKecil);
-    kecil = remaining % unitBesarInKecil;
-    
-    kecil = Math.round(kecil * 100) / 100;
-  } else {
-    besar = remaining;
-    besar = Math.round(besar * 100) / 100;
-  }
-
-  const parts = [];
-  if (besar > 0) parts.push(`${besar} ${b.satuan}`);
-  if (tengah > 0 && b.satuan_tengah) parts.push(`${tengah} ${b.satuan_tengah}`);
-  if (kecil > 0 && b.satuan_kecil) parts.push(`${kecil} ${b.satuan_kecil}`);
-
-  const formattedStr = parts.length > 0 ? parts.join(' + ') : `0 ${b.satuan}`;
-  return totalSmallestQty < 0 ? `-${formattedStr}` : formattedStr;
-}
 
 export function OpnameForm({ outletId, createdBy, role }: { outletId: string; createdBy: string; role?: string }) {
   const router = useRouter();
@@ -145,13 +87,13 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         })
         .map((b) => {
           const inp = inputs[b.id] || {};
-          const qtyFisik = calculateTotalFisik(b, inp);
+          const qtyFisik = toSatuanBesar(b, inp);
           const qtySystem = saldoOf[b.id] ?? 0;
           const selisih = computeSelisih(qtyFisik, qtySystem);
-          
-          const rawInputText = formatRawInput(b, inp);
-          const rawSystemText = formatSystemQty(b, qtySystem);
-          const rawSelisihText = formatSystemQty(b, selisih);
+
+          const rawInputText = formatCompositeInput(b, inp);
+          const rawSystemText = formatSatuanBesar(b, qtySystem);
+          const rawSelisihText = formatSatuanBesar(b, selisih);
 
           const rawData = { f: rawInputText, s: rawSystemText, d: rawSelisihText };
 

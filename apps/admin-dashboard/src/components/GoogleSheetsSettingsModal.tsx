@@ -33,13 +33,25 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
     
     if (outletName) {
       var sheets = spreadsheet.getSheets();
+      var oNameLower = outletName.toLowerCase();
+      // Bersihkan kata umum untuk dapat kata kunci lokasi (misal: "empang", "pajajaran")
+      var cleanKeywords = oNameLower.replace(/\b(suka|shawarma|mitra|cabang|gudang|pusat)\b/g, '').trim().split(/\s+/).filter(Boolean);
+
       for (var i = 0; i < sheets.length; i++) {
-        var sName = sheets[i].getName().toLowerCase();
-        var oName = outletName.toLowerCase();
-        if (sName.includes(oName) || oName.includes(sName)) {
+        var sNameLower = sheets[i].getName().toLowerCase();
+        // 1. Direct match or substring match
+        if (sNameLower.includes(oNameLower) || oNameLower.includes(sNameLower)) {
           sheet = sheets[i];
           break;
         }
+        // 2. Keyword match (misal "empang" ada di "SS EMPANG / JULY 2026")
+        for (var k = 0; k < cleanKeywords.length; k++) {
+          if (cleanKeywords[k].length >= 3 && sNameLower.includes(cleanKeywords[k])) {
+            sheet = sheets[i];
+            break;
+          }
+        }
+        if (sheet) break;
       }
     }
     if (!sheet) {
@@ -50,10 +62,8 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
     var dayOfMonth = data.day_of_month || new Date(data.timestamp || new Date()).getDate(); // 1 - 31
     var targetCol = 4 + (dayOfMonth - 1); // Kolom D = Tanggal 1 (Index 4)
 
-    // 3. Tentukan Channel (OFFLINE, FOOD APPS, TIKTOK GO)
-    var channel = (data.channel || '').toLowerCase();
-    var isFoodApps = channel.includes('food') || channel.includes('gofood') || channel.includes('grabfood') || channel.includes('shopeefood');
-    var isTikTok = channel.includes('tiktok');
+    // 3. Tentukan Channel Global (Fallback)
+    var globalChannel = (data.channel || '').toLowerCase();
 
     // 4. Pindai seluruh Kolom A untuk menemukan posisi seksi OFFLINE, FOOD APPS, TIKTOK GO
     var lastRow = sheet.getLastRow();
@@ -67,12 +77,39 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
       else if (val === 'TIKTOK GO' || val.startsWith('TIKTOK')) tiktokStart = r + 1;
     }
 
+    var unmatchedItems = [];
+    var overwrittenCells = {};
+
+    // 5. KAMUS PERBAIKAN TYPO (Kiri: Nama di Database POS | Kanan: Nama di Google Sheet)
+    var TYPO_MAPPINGS = {
+      "suka premius crispy": "suka premium crispy",
+      "suka premius krispy": "suka premium crispy",
+      "suka duo favorite": "suka duo favorit",
+      "shawarmie duo variant": "shawarmie duo varian",
+      "best seller 2 (sapi jumbo)": "best seller-sapi jumbo",
+      "best seller 2 (ayam jumbo)": "best seller-ayam jumbo",
+      "best seller (mix jumbo)": "best seller",
+      "best seller 2": "best seller",
+      "triple combo": "shawarma triple combo"
+    };
+
     if (data.items && data.items.length > 0) {
       data.items.forEach(function(item) {
         var rawName = (item.menu_item_name || '').trim().toLowerCase();
-        var cleanName = rawName.replace(/^fa\s+/, '').trim();
+        // Hapus prefix 'FA ' jika ada, dan ambil hanya nama menu sebelum karakter '|' (jika kebetulan masih ada)
+        var cleanName = rawName.replace(/^fa\s+/, '').split('|')[0].trim();
+        
+        // Terapkan perbaikan typo secara otomatis
+        if (TYPO_MAPPINGS[cleanName]) {
+          cleanName = TYPO_MAPPINGS[cleanName];
+        }
+
         var qty = Number(item.quantity) || 0;
         if (qty <= 0) return;
+
+        var itemChannel = (item.channel || globalChannel).toLowerCase();
+        var isFoodApps = itemChannel.includes('food') || itemChannel.includes('gofood') || itemChannel.includes('grabfood') || itemChannel.includes('shopeefood') || itemChannel === 'food_apps';
+        var isTikTok = itemChannel.includes('tiktok') || itemChannel === 'tiktok_go';
 
         var matchedRow = -1;
 
@@ -89,25 +126,50 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
           endR = (foodAppsStart > offlineStart) ? foodAppsStart : lastRow;
         }
 
-        // Cari baris nama menu
+        // Cari baris nama menu (Pass 1: EXACT MATCH)
         for (var r = startR - 1; r < endR; r++) {
           if (r >= menuColumnValues.length) break;
           var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
           var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
-          if (cellVal && (cleanCellVal === cleanName || cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
+          if (cellVal && cleanCellVal === cleanName) {
             matchedRow = r + 1;
             break;
           }
         }
 
+        // Pass 2: PARTIAL MATCH (jika exact match tidak ketemu)
+        if (matchedRow === -1) {
+          for (var r = startR - 1; r < endR; r++) {
+            if (r >= menuColumnValues.length) break;
+            var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
+            var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
+            if (cellVal && (cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
+              matchedRow = r + 1;
+              break;
+            }
+          }
+        }
+
         // Fallback: cari di seluruh Kolom A jika belum cocok di seksi spesifik
         if (matchedRow === -1) {
+          // Pass 1 Fallback: EXACT MATCH
           for (var r = 0; r < menuColumnValues.length; r++) {
             var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
             var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
-            if (cellVal && (cleanCellVal === cleanName || cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
+            if (cellVal && cleanCellVal === cleanName) {
               matchedRow = r + 1;
               break;
+            }
+          }
+          // Pass 2 Fallback: PARTIAL MATCH
+          if (matchedRow === -1) {
+            for (var r = 0; r < menuColumnValues.length; r++) {
+              var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
+              var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
+              if (cellVal && (cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
+                matchedRow = r + 1;
+                break;
+              }
             }
           }
         }
@@ -115,13 +177,34 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
         // Jika baris menu ditemukan, tambahkan qty (PCS) pada sel tanggal bersangkutan
         if (matchedRow > 0) {
           var cellRange = sheet.getRange(matchedRow, targetCol);
-          var currentVal = Number(cellRange.getValue()) || 0;
-          cellRange.setValue(currentVal + qty);
+          var cellKey = matchedRow + "-" + targetCol;
+          
+          if (data.event === 'BULK_SYNC_JULY') {
+            if (!overwrittenCells[cellKey]) {
+              cellRange.setValue(qty);
+              overwrittenCells[cellKey] = true;
+            } else {
+              var currentVal = Number(cellRange.getValue()) || 0;
+              cellRange.setValue(currentVal + qty);
+            }
+          } else {
+            var currentVal = Number(cellRange.getValue()) || 0;
+            cellRange.setValue(currentVal + qty);
+          }
+        } else {
+          unmatchedItems.push({
+            menu_item_name: item.menu_item_name,
+            channel: itemChannel,
+            quantity: qty
+          });
         }
       });
     }
 
-    return ContentService.createTextOutput(JSON.stringify({ result: "success" }))
+    return ContentService.createTextOutput(JSON.stringify({ 
+      result: "success", 
+      unmatched_items: unmatchedItems 
+    }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({ result: "error", error: error.message }))
@@ -225,17 +308,22 @@ export default function GoogleSheetsSettingsModal({ isOpen, onClose }: GoogleShe
         menu_item_name: 'Tes Suka Shawarma Ayam (Dummy)',
         quantity: 2,
         unit_price: 25000,
-        subtotal: 50000
+        subtotal: 50000,
+        channel: 'offline'
       }
     ]
 
     try {
       // First try via server proxy API to bypass browser CORS restriction
       let success = false
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
+      
       try {
         const proxyRes = await fetch('/api/integrations/google-sheets/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             url: url.trim(),
             order: dummyOrder,
@@ -249,12 +337,21 @@ export default function GoogleSheetsSettingsModal({ isOpen, onClose }: GoogleShe
         }
       } catch (proxyErr) {
         // Fallback to direct client-side fetch if proxy fails
-        success = await sendOrderToGoogleSheets(
-          url.trim(),
-          dummyOrder,
-          dummyItems,
-          'Cabang Uji Coba'
-        )
+        const fallbackController = new AbortController()
+        const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 15000)
+        try {
+          success = await sendOrderToGoogleSheets(
+            url.trim(),
+            dummyOrder,
+            dummyItems,
+            'Cabang Uji Coba',
+            (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, signal: fallbackController.signal })
+          )
+        } finally {
+          clearTimeout(fallbackTimeoutId)
+        }
+      } finally {
+        clearTimeout(timeoutId)
       }
 
       if (success) {

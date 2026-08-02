@@ -20,5 +20,18 @@ export function getChannel(id: string | null | undefined): ChannelConfig | null 
   if (['tiktok', 'tiktokgo', 'tiktok_go'].includes(norm)) {
     return CHANNELS.find((c) => c.id === 'tiktokgo') ?? null
   }
+  if (['grab', 'grabfood', 'grab_food'].includes(norm)) {
+    return CHANNELS.find((c) => c.id === 'grabfood') ?? null
+  }
+  if (['gofood', 'gojek', 'go_food'].includes(norm)) {
+    return CHANNELS.find((c) => c.id === 'gofood') ?? null
+  }
+  if (['shopee', 'shopeefood', 'shopee_food'].includes(norm)) {
+    return CHANNELS.find((c) => c.id === 'shopeefood') ?? null
+  }
+  if (['food_apps', 'foodapp', 'food_app'].includes(norm)) {
+    // Generic fallback for food apps if they just send 'food_apps'
+    return { id: 'generic_food_app', label: 'Food Apps', bg: '#F59E0B', fg: '#FFFFFF', mark: 'FA', lucide: 'globe' } as ChannelConfig
+  }
   return CHANNELS.find((c) => c.id === norm) ?? null
 }

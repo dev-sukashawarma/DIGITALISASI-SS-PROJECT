@@ -6,8 +6,9 @@ import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
 import type { PeriodFilterValue } from '@/lib/types'
 import { presetRange } from '@/lib/period'
-import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock } from 'lucide-react'
+import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardList, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import OpnameDetailModal from './OpnameDetailModal'
 
 const LiveLocationMap = dynamic(() => import('./LiveLocationMap'), { 
   ssr: false, 
@@ -188,6 +189,7 @@ export default function MonitoringPage() {
   const [selectedOutletId, setSelectedOutletId] = useState<string>('ALL')
   const [posStatusFilter, setPosStatusFilter] = useState<string>('ALL')
   const [crewStatusFilter, setCrewStatusFilter] = useState<string>('ALL')
+  const [selectedOpname, setSelectedOpname] = useState<{ id: string; outletName: string } | null>(null)
   
   // Period filter (Kemarin, Hari Ini, 7 Hari, 30 Hari, Kustom)
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>(() => {
@@ -525,11 +527,15 @@ export default function MonitoringPage() {
               </div>
             </div>
             <div className="flex flex-col gap-1.5 items-end">
-              {opnameTimeStr ? (
-                <span title={`Telah melakukan Opname harian pada ${opnameTimeStr}`} className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-800 border border-blue-300/80 shadow-xs animate-pulse">
-                  <ClipboardCheck className="w-3 h-3 mr-1 text-blue-600" />
+              {opnameTimeStr && opnameRecord ? (
+                <button 
+                  onClick={() => setSelectedOpname({ id: opnameRecord.id, outletName: outlet.name })}
+                  title={`Lihat detail opname harian pada ${opnameTimeStr}`} 
+                  className="flex shrink-0 items-center justify-center rounded-md bg-blue-100 hover:bg-blue-200 transition-colors cursor-pointer px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-800 border border-blue-300/80 shadow-xs"
+                >
+                  <ClipboardList className="w-3 h-3 mr-1 text-blue-600" />
                   Opname {opnameTimeStr}
-                </span>
+                </button>
               ) : (
                 <span title="Belum melakukan Opname harian" className="flex shrink-0 items-center justify-center rounded-md bg-slate-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 border border-slate-200">
                   Belum Opname
@@ -565,7 +571,7 @@ export default function MonitoringPage() {
               )}
               {opnameTimeStr && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 border border-blue-200/80" title="Waktu Input Opname Harian">
-                  <ClipboardCheck size={10} className="text-blue-600 shrink-0" />
+                  <ClipboardList size={10} className="text-blue-600 shrink-0" />
                   <span>Opname: {opnameTimeStr}</span>
                 </span>
               )}
@@ -832,6 +838,15 @@ export default function MonitoringPage() {
             })}
           </div>
         </div>
+      )}
+
+      {/* Detail Opname Modal */}
+      {selectedOpname && (
+        <OpnameDetailModal
+          opnameId={selectedOpname.id}
+          outletName={selectedOpname.outletName}
+          onClose={() => setSelectedOpname(null)}
+        />
       )}
     </div>
   )

@@ -1,7 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Clock, AlertTriangle, ListChecks } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, AlertTriangle, ListChecks, Calendar } from 'lucide-react';
 import RankingList from './RankingList';
+import { CustomDateFilter } from '../components/CustomDateFilter';
 import { cookies, headers } from 'next/headers';
 import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suka/auth';
 import { createClient } from '@supabase/supabase-js';
@@ -33,7 +34,15 @@ const formatWIBTime = (tsServerStr: string) => {
   }
 };
 
-const getAMName = (outletName: string) => {
+const getAMName = (outletId: string, outletName: string, amMap: Map<string, string>, staffRole?: string, staffName?: string) => {
+  if (staffRole === 'area_manager') {
+    return staffName || 'Area Anda';
+  }
+  
+  if (amMap.has(outletId)) {
+    return amMap.get(outletId)!;
+  }
+
   const name = outletName.toUpperCase();
   
   if (name.includes('EMPANG') || name.includes('BCC') || name.includes('DRAMAGA') || name.includes('PALEDANG') || name.includes('CICURUG') || name.includes('CIMANGGU')) {
@@ -93,6 +102,19 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     mainEndDate = yesterdayStr;
     prevStartDate = dayBeforeYesterdayStr;
     prevEndDate = dayBeforeYesterdayStr;
+  } else if (period === 'week') {
+    const lastWeekDate = new Date(now);
+    lastWeekDate.setDate(lastWeekDate.getDate() - 6);
+    mainStartDate = getJakartaDateString(lastWeekDate);
+    mainEndDate = todayStr;
+    
+    const prevWeekEndDate = new Date(lastWeekDate);
+    prevWeekEndDate.setDate(prevWeekEndDate.getDate() - 1);
+    const prevWeekStartDate = new Date(prevWeekEndDate);
+    prevWeekStartDate.setDate(prevWeekStartDate.getDate() - 6);
+    
+    prevStartDate = getJakartaDateString(prevWeekStartDate);
+    prevEndDate = getJakartaDateString(prevWeekEndDate);
   } else if (period === 'month') {
     mainStartDate = lastMonthStr;
     mainEndDate = todayStr;
@@ -104,6 +126,27 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     
     prevStartDate = getJakartaDateString(prevMonthDateStart);
     prevEndDate = getJakartaDateString(prevMonthDateEnd);
+  } else if (period === 'custom') {
+    const fromParam = searchParams?.from as string;
+    const toParam = searchParams?.to as string;
+    if (fromParam && toParam) {
+      mainStartDate = fromParam;
+      mainEndDate = toParam;
+      
+      const dFrom = new Date(fromParam);
+      const dTo = new Date(toParam);
+      const diffTime = Math.abs(dTo.getTime() - dFrom.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      const prevEndDateDate = new Date(dFrom);
+      prevEndDateDate.setDate(prevEndDateDate.getDate() - 1);
+      
+      const prevStartDateDate = new Date(prevEndDateDate);
+      prevStartDateDate.setDate(prevStartDateDate.getDate() - diffDays);
+
+      prevStartDate = getJakartaDateString(prevStartDateDate);
+      prevEndDate = getJakartaDateString(prevEndDateDate);
+    }
   }
 
   const supabaseAdmin = createClient(
@@ -111,17 +154,17 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  let qToday = supabase.from('sales_hourly_spv')
+  let qToday = supabaseAdmin.from('sales_hourly_spv')
     .select('outlet_id, omzet, jumlah_order_completed')
     .gte('sales_date', mainStartDate)
     .lte('sales_date', mainEndDate);
 
-  let qYesterday = supabase.from('sales_hourly_spv')
+  let qYesterday = supabaseAdmin.from('sales_hourly_spv')
     .select('omzet')
     .gte('sales_date', prevStartDate)
     .lte('sales_date', prevEndDate);
 
-  let qOutlets = supabase.from('outlets').select('id, name, is_active, region');
+  let qOutlets = supabaseAdmin.from('outlets').select('id, name, is_active, region');
   
   let qOrders = supabaseAdmin
     .from('orders')
@@ -130,18 +173,54 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .lte('created_at', new Date(`${mainEndDate}T23:59:59+07:00`).toISOString())
     .eq('status', 'completed');
 
-  let qAttendance = supabase.from('attendance')
+  let qAttendance = supabaseAdmin.from('attendance')
     .select('outlet_id, ts_server, type, outlet_staff_id')
     .gte('ts_server', new Date(`${mainEndDate}T00:00:00+07:00`).toISOString())
     .lte('ts_server', new Date(`${mainEndDate}T23:59:59+07:00`).toISOString())
     .eq('type', 'in')
     .order('ts_server', { ascending: true });
 
-  let qStaffOutlets = supabase.from('staff_outlets')
+  let qStaffOutlets = supabaseAdmin.from('staff_outlets')
     .select('outlet_id, outlet_staff(name, role)');
 
-  // If staff is bound to a specific outlet, filter data
-  if (staff?.outlet_id) {
+  let accessibleOutlets: string[] = [];
+  if (staff?.role === 'area_manager') {
+    const { data: so } = await supabaseAdmin.from('staff_outlets').select('outlet_id').eq('staff_id', staff.id);
+    if (so && so.length > 0) {
+      accessibleOutlets = so.map((s: any) => s.outlet_id);
+    } else {
+      accessibleOutlets = ['00000000-0000-0000-0000-000000000000'];
+    }
+  }
+
+  const filterOutletId = searchParams?.outlet_id as string | undefined;
+
+  if (staff?.role === 'area_manager') {
+    if (filterOutletId && filterOutletId !== 'all' && accessibleOutlets.includes(filterOutletId)) {
+      qToday = qToday.eq('outlet_id', filterOutletId);
+      qYesterday = qYesterday.eq('outlet_id', filterOutletId);
+      qOutlets = qOutlets.eq('id', filterOutletId);
+      qOrders = qOrders.eq('outlet_id', filterOutletId);
+      qAttendance = qAttendance.eq('outlet_id', filterOutletId);
+      qStaffOutlets = qStaffOutlets.eq('outlet_id', filterOutletId);
+    } else {
+      qToday = qToday.in('outlet_id', accessibleOutlets);
+      qYesterday = qYesterday.in('outlet_id', accessibleOutlets);
+      qOutlets = qOutlets.in('id', accessibleOutlets);
+      qOrders = qOrders.in('outlet_id', accessibleOutlets);
+      qAttendance = qAttendance.in('outlet_id', accessibleOutlets);
+      qStaffOutlets = qStaffOutlets.in('outlet_id', accessibleOutlets);
+    }
+  } else if (!staff || staff.role === 'regional_manager') {
+    if (filterOutletId && filterOutletId !== 'all') {
+      qToday = qToday.eq('outlet_id', filterOutletId);
+      qYesterday = qYesterday.eq('outlet_id', filterOutletId);
+      qOutlets = qOutlets.eq('id', filterOutletId);
+      qOrders = qOrders.eq('outlet_id', filterOutletId);
+      qAttendance = qAttendance.eq('outlet_id', filterOutletId);
+      qStaffOutlets = qStaffOutlets.eq('outlet_id', filterOutletId);
+    }
+  } else if (staff?.outlet_id) {
     qToday = qToday.eq('outlet_id', staff.outlet_id);
     qYesterday = qYesterday.eq('outlet_id', staff.outlet_id);
     qOutlets = qOutlets.eq('id', staff.outlet_id);
@@ -210,12 +289,21 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     outletOmzetMap.set(sale.outlet_id, current + Number(sale.omzet));
   });
 
+  const amMap = new Map<string, string>();
+  if (staffOutlets) {
+    staffOutlets.forEach((so: any) => {
+      if (so.outlet_staff && so.outlet_staff.role === 'area_manager') {
+        amMap.set(so.outlet_id, so.outlet_staff.name);
+      }
+    });
+  }
+
   const outletRanking = (outlets || [])
     .filter(o => o.is_active)
     .map(outlet => ({
       id: outlet.id,
       name: outlet.name,
-      amName: getAMName(outlet.name),
+      amName: getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name),
       omzet: outletOmzetMap.get(outlet.id) || 0
     }))
     .filter(o => o.amName !== 'Lainnya')
@@ -225,7 +313,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
 
   const groupedOutlets = new Map<string, any[]>();
   allOutlets.forEach(outlet => {
-    const amName = getAMName(outlet.name);
+    const amName = getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name);
     if (amName === 'Lainnya') return;
     
     const groupKey = amName;
@@ -242,7 +330,9 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
         <div className="flex bg-white rounded-lg p-1 shadow-sm border border-suka-brown/10 self-stretch sm:self-auto">
           <Link href="?period=today" className={`px-4 py-1.5 text-sm font-bold rounded-md flex-1 text-center transition-colors ${period === 'today' ? 'bg-suka-orange text-white' : 'text-suka-gray-500 hover:bg-suka-gray-50'}`}>Hari Ini</Link>
           <Link href="?period=yesterday" className={`px-4 py-1.5 text-sm font-bold rounded-md flex-1 text-center transition-colors ${period === 'yesterday' ? 'bg-suka-orange text-white' : 'text-suka-gray-500 hover:bg-suka-gray-50'}`}>Kemarin</Link>
+          <Link href="?period=week" className={`px-4 py-1.5 text-sm font-bold rounded-md flex-1 text-center transition-colors ${period === 'week' ? 'bg-suka-orange text-white' : 'text-suka-gray-500 hover:bg-suka-gray-50'}`}>7 Hari Terakhir</Link>
           <Link href="?period=month" className={`px-4 py-1.5 text-sm font-bold rounded-md flex-1 text-center transition-colors ${period === 'month' ? 'bg-suka-orange text-white' : 'text-suka-gray-500 hover:bg-suka-gray-50'}`}>1 Bulan Terakhir</Link>
+          <CustomDateFilter />
         </div>
       </div>
       

@@ -17,6 +17,7 @@ import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReport
 
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
+import { generateExecutiveItemReportPDF } from '@/utils/pdfExporter'
 
 interface ShiftRow {
   id: string
@@ -53,7 +54,48 @@ interface OrderRow {
     unit_price: number
     subtotal: number
     package_choices?: Record<string, string> | string | null
+    menu_items?: {
+      hpp_override?: number | null
+      is_package?: boolean
+      package_items?: {
+        quantity?: number
+        component?: {
+          hpp_override?: number | null
+        } | null
+      }[] | null
+    } | null
   }[]
+}
+
+function getItemHpp(
+  menuItem: any, 
+  outletType?: string, 
+  fallbackName?: string, 
+  menuItemByNameMap?: Map<string, any>
+): number {
+  let itemObj = menuItem
+  if ((!itemObj || (!itemObj.hpp_override && !itemObj.is_package)) && fallbackName && menuItemByNameMap) {
+    const cleanKey = cleanItemName(fallbackName)
+    if (menuItemByNameMap.has(cleanKey)) {
+      itemObj = menuItemByNameMap.get(cleanKey)
+    }
+  }
+  if (!itemObj) return 0
+
+  let baseHpp = 0
+  if (itemObj.hpp_override !== null && itemObj.hpp_override !== undefined && Number(itemObj.hpp_override) > 0) {
+    baseHpp = Number(itemObj.hpp_override)
+  } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
+    baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
+      const compHpp = pkg.component?.hpp_override || 0
+      const qty = pkg.quantity || 1
+      return sum + (compHpp * qty)
+    }, 0)
+  }
+  if (outletType === 'mitra' && baseHpp > 0) {
+    return Math.round(baseHpp * 1.10)
+  }
+  return baseHpp
 }
 
 type DateRangeType = 'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all' | 'custom'
@@ -114,12 +156,23 @@ function extractOrderPackages(order: OrderRow) {
 export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [shifts, setShifts] = useState<ShiftRow[]>([])
+  const [menuItems, setMenuItems] = useState<any[]>([])
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
   const [selectedChannel, setSelectedChannel] = useState<string>('all')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [showGoogleSheetsModal, setShowGoogleSheetsModal] = useState(false)
+
+  const menuItemByNameMap = useMemo(() => {
+    const map = new Map<string, any>()
+    menuItems.forEach(mi => {
+      if (mi.name) {
+        map.set(cleanItemName(mi.name), mi)
+      }
+    })
+    return map
+  }, [menuItems])
   
   // Date Range State
   const [range, setRange] = useState<DateRangeType>('thisMonth')
@@ -252,7 +305,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     const buildOrdersQuery = () => {
       let query = supabase
         .from('orders')
-        .select('*, order_items(*)')
+        .select('*, order_items(*, menu_items(hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))))')
         .order('created_at', { ascending: false })
       if (selectedOutlet !== 'all') query = query.eq('outlet_id', selectedOutlet)
       if (ordersGte) query = query.gte('created_at', ordersGte)
@@ -315,9 +368,14 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       return all
     }
 
-    const [ordersData, { data: shiftsData }] = await Promise.all([fetchAllOrders(), qShifts])
+    const menuItemsQuery = supabase
+      .from('menu_items')
+      .select('id, name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))')
+
+    const [ordersData, { data: shiftsData }, { data: menuItemsData }] = await Promise.all([fetchAllOrders(), qShifts, menuItemsQuery])
     setOrders(ordersData)
     setShifts(shiftsData ?? [])
+    setMenuItems(menuItemsData ?? [])
     setLoading(false)
   }, [range, selectedOutlet, customStartDate, customEndDate])
 
@@ -329,17 +387,20 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     
     // Channel standar agar user dapat selalu memilih sumber utama
     const defaults = [
-      { key: 'pos', label: 'POS Kasir' },
+      { key: 'pos_kasir', label: 'POS KASIR (Internal)' },
+      { key: 'pos_pawoon_all', label: 'POS PAWOON (Semua)' },
+      { key: 'pos_pawoon', label: 'POS PAWOON' },
+      { key: 'pos_fa', label: 'FA PAWOON' },
       { key: 'shopeefood', label: 'ShopeeFood' },
       { key: 'gofood', label: 'GoFood' },
       { key: 'grabfood', label: 'GrabFood' },
-      { key: 'tiktok', label: 'TikTok Shop' },
+      { key: 'tiktokgo', label: 'TikTok Shop' },
       { key: 'online', label: 'Website Online' },
     ]
     defaults.forEach(d => map.set(d.key, d))
 
     orders.forEach(o => {
-      const src = resolveOrderSource(o.channel, o.sales_source)
+      const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name)
       if (!map.has(src.key)) {
         map.set(src.key, { key: src.key, label: src.label })
       }
@@ -349,14 +410,33 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
   // ─── Derived Analytics ───
   const analytics = useMemo(() => {
-    const isFoodApp = (key: string) => ['shopeefood', 'grabfood', 'gofood', 'tiktokgo', 'tiktok', 'tiktok_go'].includes(key.toLowerCase())
+    const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps'].includes(ch.toLowerCase())
 
     const filteredOrders = selectedChannel === 'all' 
       ? orders 
       : selectedChannel === 'food_apps'
-        ? orders.filter(o => isFoodApp(resolveOrderSource(o.channel, o.sales_source).key))
+        ? orders.filter(o => isFoodApp(resolveOrderSource(o.channel, o.sales_source, o.customer_name).key))
+        : selectedChannel === 'pos_kasir'
+        ? orders.filter(o => resolveOrderSource(o.channel, o.sales_source, o.customer_name).key === 'pos_kasir')
+        : selectedChannel === 'pos_pawoon_all'
+        ? orders.filter(o => {
+            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name).key.toLowerCase()
+            return src === 'pos_pawoon' || src === 'pos_fa' || src === 'pos'
+          })
+        : selectedChannel === 'pos_pawoon'
+        ? orders.filter(o => {
+            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name).key.toLowerCase()
+            if (src !== 'pos_pawoon' && src !== 'pos') return false
+            return !o.order_items.some(item => item.menu_item_name.includes('FA'))
+          })
+        : selectedChannel === 'pos_fa'
+        ? orders.filter(o => {
+            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name).key.toLowerCase()
+            if (src !== 'pos_pawoon' && src !== 'pos') return false
+            return o.order_items.some(item => item.menu_item_name.includes('FA'))
+          })
         : orders.filter(o => {
-            const k = resolveOrderSource(o.channel, o.sales_source).key.toLowerCase()
+            const k = resolveOrderSource(o.channel, o.sales_source, o.customer_name).key.toLowerCase()
             const target = selectedChannel.toLowerCase()
             if (target === 'tiktokgo' || target === 'tiktok') {
               return ['tiktokgo', 'tiktok', 'tiktok_go'].includes(k)
@@ -376,6 +456,20 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
     // Hitung total selisih laci (variance) dari tutup shift
     const totalCashVariance = shifts.reduce((s, shift) => s + (shift.variance || 0), 0)
+
+    const outletTypeMap = new Map<string, string>()
+    outlets.forEach(o => outletTypeMap.set(o.id, o.type || 'outlet'))
+
+    // Calculate Total HPP using order_items menu_items
+    const totalHPP = filteredOrders
+      .filter(o => o.status !== 'cancelled' && o.status !== 'void')
+      .reduce((sum, o) => {
+        const outletType = outletTypeMap.get(o.outlet_id)
+        return sum + o.order_items.reduce((itemSum, item) => {
+          const hpp = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap);
+          return itemSum + (hpp * item.quantity);
+        }, 0)
+      }, 0)
 
     // Payment method breakdown
     const paymentBreakdown: Record<string, { count: number; revenue: number }> = {}
@@ -435,21 +529,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       return s + itemDiff
     }, 0)
 
-    // Calculate Total HPP
-    const totalHPP = hppRows
-      .filter(r => {
-        if (selectedOutlet !== 'all' && r.outlet_id !== selectedOutlet) return false
-        if (selectedChannel === 'all') return true
-        
-        const srcKey = resolveOrderSource(r.sales_source, r.sales_source).key.toLowerCase()
-        const target = selectedChannel.toLowerCase()
-        if (target === 'food_apps') return isFoodApp(srcKey)
-        if (target === 'tiktokgo' || target === 'tiktok') {
-          return ['tiktokgo', 'tiktok', 'tiktok_go'].includes(srcKey)
-        }
-        return srcKey === target
-      })
-      .reduce((sum, r) => sum + r.hpp, 0)
+
 
     // CATATAN (diperbarui 2026-07-31): actualNetRevenue SUDAH menghitung void
     // (lihat computeNetRevenueVoidAware di atas) — JANGAN kurangi void lagi di
@@ -488,7 +568,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       totalHPP,
       grossProfit
     }
-  }, [orders, shifts, selectedChannel, hppRows])
+  }, [orders, shifts, selectedChannel, hppRows, menuItemByNameMap])
 
   const selectedOutletName = selectedOutlet === 'all' 
     ? 'Semua Cabang' 
@@ -546,9 +626,13 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
   // Item Breakdown (Rekap)
   const itemBreakdownData = useMemo(() => {
-    const map = new Map<string, { name: string; groupLabel: string; qty: number; grossRevenue: number; netRevenue: number }>()
+    const map = new Map<string, { name: string; groupLabel: string; qty: number; grossRevenue: number; netRevenue: number; hppPerUnit: number; totalHpp: number }>()
+    const outletTypeMap = new Map<string, string>()
+    outlets.forEach(o => outletTypeMap.set(o.id, o.type || 'outlet'))
     
     filteredTableData.forEach(order => {
+      const outletType = outletTypeMap.get(order.outlet_id)
+      
       // Hitung subtotal kotor dari seluruh item di pesanan ini
       const orderSubtotal = order.order_items.reduce((sum, item) => sum + (item.subtotal || 0), 0)
       
@@ -569,6 +653,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
         }
         
         const key = `${cleanName}-${groupLabel}`
+        const hppPerUnit = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap)
         
         if (!map.has(key)) {
           map.set(key, {
@@ -576,7 +661,9 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             groupLabel,
             qty: 0,
             grossRevenue: 0,
-            netRevenue: 0
+            netRevenue: 0,
+            hppPerUnit,
+            totalHpp: 0
           })
         }
         
@@ -584,11 +671,13 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
         existing.qty += item.quantity
         existing.grossRevenue += item.subtotal
         existing.netRevenue += (item.subtotal * ratio)
+        existing.totalHpp += (hppPerUnit * item.quantity)
+        existing.hppPerUnit = existing.qty > 0 ? Math.round(existing.totalHpp / existing.qty) : hppPerUnit
       })
     })
     
     return Array.from(map.values()).sort((a, b) => b.qty - a.qty)
-  }, [filteredTableData])
+  }, [filteredTableData, outlets, menuItemByNameMap])
 
   const [itemBreakdownSearch, setItemBreakdownSearch] = useState('')
   const [itemBreakdownFilter, setItemBreakdownFilter] = useState('all')
@@ -637,7 +726,28 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     return itemBreakdownSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
   }
   const downloadPDF = () => {
-    window.print()
+    if (analytics.completedOrders.length === 0) return
+
+    let dateRangeText = RANGE_LABELS[range]
+    if (range === 'custom' && (customStartDate || customEndDate)) {
+      dateRangeText = `${customStartDate || 'Awal'} s/d ${customEndDate || 'Sekarang'}`
+    }
+
+    const channelObj = availableChannels.find(c => c.key === selectedChannel)
+    const channelLabelText = selectedChannel === 'all' 
+      ? 'Semua Channel' 
+      : selectedChannel === 'food_apps' 
+        ? 'Semua Food Apps' 
+        : (channelObj?.label || selectedChannel)
+
+    generateExecutiveItemReportPDF({
+      outletName: selectedOutletName,
+      dateRangeLabel: dateRangeText,
+      channelLabel: channelLabelText,
+      grossRevenue: analytics.grossRevenue,
+      totalOrders: analytics.completedOrders.length,
+      bestSellers: analytics.bestSellers
+    })
   }
 
   return (
@@ -723,6 +833,16 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 </>
               )}
             </div>
+
+            <button
+              onClick={downloadPDF}
+              disabled={analytics.completedOrders.length === 0}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              title="Download Laporan PDF Rincian Item Terjual"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Download PDF Eksekutif</span>
+            </button>
           </div>
         </div>
       
@@ -1172,14 +1292,14 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                             <button
                               type="button"
                               onClick={() => {
-                                const srcKey = resolveOrderSource(order.channel, order.sales_source).key
+                                const srcKey = resolveOrderSource(order.channel, order.sales_source, order.customer_name).key
                                 setSelectedChannel(prev => prev === srcKey ? 'all' : srcKey)
                                 setCurrentPage(1)
                               }}
                               className="hover:scale-105 active:scale-95 transition-all text-left inline-flex focus:outline-none cursor-pointer"
                               title="Klik untuk memfilter transaksi berdasarkan sumber ini"
                             >
-                              <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} size="sm" />
+                              <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} customerName={order.customer_name} size="sm" />
                             </button>
                           </td>
                           <td className="px-5 py-4">
@@ -1253,14 +1373,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                             </td>
                           </tr>
                         )}
-                        <tr className="border-t border-amber-200 bg-amber-50">
-                          <td colSpan={7} className="px-5 py-4 text-right uppercase tracking-wider text-sm font-extrabold text-gray-900">
-                            Total Pendapatan Bersih
-                          </td>
-                          <td className="px-5 py-4 text-right text-base font-extrabold text-emerald-600 whitespace-nowrap">
-                            {formatRupiah(totalNet)}
-                          </td>
-                        </tr>
                       </>
                     );
                   })()}
@@ -1321,7 +1433,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                   className="w-full sm:w-auto bg-white border border-gray-200 hover:border-gray-300 px-3 py-2 rounded-xl text-sm font-semibold text-gray-700 transition-all shadow-sm outline-none cursor-pointer"
                 >
                   <option value="all">Semua Kategori</option>
-                  <option value="OFFLINE">OFFLINE (POS Kasir)</option>
+                  <option value="OFFLINE">OFFLINE (POS PAWOON)</option>
                   <option value="FOOD APPS">FOOD APPS (GrabFood/GoFood/Shopee)</option>
                   <option value="TIKTOK">TIKTOK</option>
                   <option value="WEB ONLINE">WEB ONLINE</option>
@@ -1357,6 +1469,16 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                         Total Qty Terjual {renderItemBreakdownSortIcon('qty')}
                       </div>
                     </th>
+                    <th className="px-5 py-4 text-right cursor-default">
+                      <div className="flex items-center justify-end gap-2">
+                        HPP / Unit
+                      </div>
+                    </th>
+                    <th className="px-5 py-4 text-right cursor-default">
+                      <div className="flex items-center justify-end gap-2">
+                        Total HPP
+                      </div>
+                    </th>
                     <th 
                       className="px-5 py-4 text-right cursor-pointer hover:bg-gray-200 transition-colors group"
                       onClick={() => toggleItemBreakdownSort('grossRevenue')}
@@ -1385,6 +1507,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                           <td className="px-5 py-4 text-center font-bold text-gray-900">
                             {item.qty}
                           </td>
+                          <td className="px-5 py-4 text-right font-medium text-rose-600">
+                            {formatRupiah(item.hppPerUnit)}
+                          </td>
+                          <td className="px-5 py-4 text-right font-bold text-rose-700">
+                            {formatRupiah(item.totalHpp)}
+                          </td>
                           <td className="px-5 py-4 text-right font-bold text-gray-900">
                             {formatRupiah(item.grossRevenue)}
                           </td>
@@ -1404,34 +1532,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                           {filteredItemBreakdownData.reduce((acc, curr) => acc + curr.qty, 0)} Item
                         </span>
                       </td>
+                      <td className="px-5 py-3 text-right text-base text-rose-700 col-span-2" colSpan={2}>
+                        {formatRupiah(filteredItemBreakdownData.reduce((acc, curr) => acc + curr.totalHpp, 0))}
+                      </td>
                       <td className="px-5 py-3 text-right text-base text-amber-700">
                         {formatRupiah(filteredItemBreakdownData.reduce((acc, curr) => acc + curr.grossRevenue, 0))}
-                      </td>
-                    </tr>
-                    {(() => {
-                       const totalGross = filteredItemBreakdownData.reduce((acc, curr) => acc + curr.grossRevenue, 0)
-                       const totalNet = filteredItemBreakdownData.reduce((acc, curr) => acc + curr.netRevenue, 0)
-                       const discount = totalGross - totalNet
-                       if (discount > 0) {
-                         return (
-                           <tr>
-                             <td colSpan={3} className="px-5 py-3 text-right uppercase tracking-wider text-xs text-red-600">
-                               Potongan Diskon / Promo
-                             </td>
-                             <td className="px-5 py-3 text-right text-base text-red-600">
-                               - {formatRupiah(discount)}
-                             </td>
-                           </tr>
-                         )
-                       }
-                       return null
-                    })()}
-                    <tr>
-                      <td colSpan={3} className="px-5 py-4 text-right uppercase tracking-wider text-sm text-gray-900 font-extrabold border-t border-amber-200">
-                        Total Pendapatan Bersih
-                      </td>
-                      <td className="px-5 py-4 text-right text-lg text-emerald-600 font-extrabold border-t border-amber-200">
-                        {formatRupiah(filteredItemBreakdownData.reduce((acc, curr) => acc + curr.netRevenue, 0))}
                       </td>
                     </tr>
                   </tfoot>

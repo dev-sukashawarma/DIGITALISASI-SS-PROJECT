@@ -15,8 +15,6 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'Menu Utama',
     items: [
       { href: '/', label: 'Overview', icon: LayoutDashboard },
-      { href: '/transactions', label: 'Transaksi', icon: Receipt },
-      { href: '/approvals', label: 'Persetujuan', icon: CheckSquare },
       { href: '/reports', label: 'Laporan', icon: BarChart3 },
     ]
   },
@@ -24,6 +22,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'Manajemen',
     items: [
       { href: '/team', label: 'Tim / Kru', icon: Users },
+      { href: '/petty-cash', label: 'Petty Cash', icon: Receipt },
     ]
   }
 ];
@@ -37,6 +36,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
   const pathname = usePathname()
   const { outletStaff, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
 
   const brand = "SS"
   const brandAccent = "Manager"
@@ -102,31 +102,52 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
           </div>
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             {headerRight}
-            {outletStaff && (
-              <div className="hidden sm:flex items-center gap-2 bg-suka-cream px-3 py-1.5 rounded-full border border-suka-brown/5">
-                <div className="w-5 h-5 rounded-full bg-suka-brown/10 flex items-center justify-center">
-                  <User className="w-3.5 h-3.5 text-suka-brown" />
-                </div>
-                <span className="text-xs font-bold text-suka-brown">{outletStaff.name}</span>
-              </div>
-            )}
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={isLoggingOut}
-              onClick={async () => {
-                setIsLoggingOut(true)
-                try {
-                  await signOut()
-                } finally {
-                  setIsLoggingOut(false)
-                }
-              }}
-              className="flex items-center gap-1.5 !px-3 !py-1.5 !rounded-full border border-suka-brown/20 hover:border-suka-brown text-suka-brown font-bold text-xs cursor-pointer"
-            >
-              {isLoggingOut ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
-              {isLoggingOut ? 'Keluar...' : 'Keluar'}
-            </Button>
+            <div className="relative">
+              <button 
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="w-9 h-9 rounded-full bg-white flex items-center justify-center hover:bg-suka-gray-50 transition-colors border border-suka-brown/20 shadow-sm"
+              >
+                <User className="w-4 h-4 text-suka-brown" />
+              </button>
+              
+              {isUserMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1 z-50 overflow-hidden">
+                    {outletStaff && (
+                      <div className="px-4 py-3 border-b border-suka-brown/5 bg-suka-cream/30">
+                        <p className="text-sm font-bold text-suka-brown truncate">{outletStaff.name}</p>
+                        <p className="text-[11px] text-suka-gray-500 capitalize mt-0.5">{outletStaff.role.replace('_', ' ')}</p>
+                      </div>
+                    )}
+                    <div className="py-1">
+                      <Link 
+                        href={process.env.NEXT_PUBLIC_PORTAL_URL || "https://app.sukashawarma.com"} 
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-orange/10 hover:text-suka-orange transition-colors"
+                      >
+                        <LayoutDashboard className="w-4 h-4" />
+                        Kembali ke Portal
+                      </Link>
+                      <button 
+                        onClick={async () => {
+                          setIsLoggingOut(true)
+                          try {
+                            await signOut()
+                          } finally {
+                            setIsLoggingOut(false)
+                          }
+                        }}
+                        disabled={isLoggingOut}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors text-left"
+                      >
+                        {isLoggingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                        {isLoggingOut ? 'Keluar...' : 'Logout'}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
 

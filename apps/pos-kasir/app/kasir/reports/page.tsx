@@ -671,45 +671,19 @@ export default function ReportsPage() {
         </div>
       ) : (
         <>
-          {/* ── KPI Cards (6 Spacious Cards) ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Total Revenue (Omzet Kotor) */}
+          {/* ── KPI Cards (4 Spacious Cards) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Net Revenue (Omzet Bersih) */}
             <div className="card p-5 bg-amber-500 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
               <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
               <div className="min-w-0">
                 <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-2">
                   <Banknote className="w-4 h-4 text-white" strokeWidth={1.5} />
                 </div>
-                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet Kotor</p>
-                <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalRevenue)}</p>
-              </div>
-              <p className="text-[10px] text-white/70 mt-2 font-medium">*Sebelum potongan promo/diskon</p>
-            </div>
-
-            {/* Total Deductions (Potongan Promo & Diskon) */}
-            <div className="card p-5 bg-rose-500 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
-              <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
-              <div className="min-w-0">
-                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-2">
-                  <Minus className="w-4 h-4 text-white" strokeWidth={2} />
-                </div>
-                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Total Potongan</p>
-                <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">-{formatRupiah(analytics.totalDeductions)}</p>
-              </div>
-              <p className="text-[10px] text-white/70 mt-2 font-medium">*Promo Food Apps & Diskon</p>
-            </div>
-
-            {/* Net Revenue (Pendapatan Bersih) */}
-            <div className="card p-5 bg-emerald-600 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
-              <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
-              <div className="min-w-0">
-                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-2">
-                  <TrendingUp className="w-4 h-4 text-white" strokeWidth={2} />
-                </div>
-                <p className="text-xs font-bold text-white/90 uppercase tracking-wider">Pendapatan Bersih</p>
+                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet</p>
                 <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.netRevenue)}</p>
               </div>
-              <p className="text-[10px] text-white/90 mt-2 font-bold">✓ Bebas biaya potongan</p>
+              <p className="text-[10px] text-white/70 mt-2 font-medium">*Setelah potongan promo/diskon</p>
             </div>
 
             {/* Total Orders */}

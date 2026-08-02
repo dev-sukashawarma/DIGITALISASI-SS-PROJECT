@@ -211,8 +211,8 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
         </div>
       </div>
 
-      {/* ── KPI Cards (6 Spacious Cards) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Revenue (Omzet Kotor) */}
         <div className="bg-suka-orange p-5 rounded-2xl text-white relative overflow-hidden flex flex-col justify-between min-w-0 shadow-[0_4px_20px_rgba(249,115,22,0.2)]">
           <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
@@ -224,32 +224,6 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
             <p className="text-2xl sm:text-3xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalRevenue)}</p>
           </div>
           <p className="text-[10px] text-white/70 mt-3 font-medium">*Sebelum potongan promo/diskon</p>
-        </div>
-
-        {/* Total Deductions (Potongan Promo & Diskon) */}
-        <div className="bg-rose-500 p-5 rounded-2xl text-white relative overflow-hidden flex flex-col justify-between min-w-0 shadow-[0_4px_20px_rgba(244,63,94,0.2)]">
-          <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-          <div className="min-w-0">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">
-              <Minus className="w-5 h-5 text-white" strokeWidth={2.5} />
-            </div>
-            <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Total Potongan</p>
-            <p className="text-2xl sm:text-3xl font-black mt-1 leading-tight whitespace-nowrap">-{formatRupiah(analytics.totalDeductions)}</p>
-          </div>
-          <p className="text-[10px] text-white/70 mt-3 font-medium">*Promo Food Apps & Diskon</p>
-        </div>
-
-        {/* Net Revenue (Pendapatan Bersih) */}
-        <div className="bg-suka-green p-5 rounded-2xl text-white relative overflow-hidden flex flex-col justify-between min-w-0 shadow-[0_4px_20px_rgba(132,169,140,0.3)]">
-          <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-          <div className="min-w-0">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">
-              <TrendingUp className="w-5 h-5 text-white" strokeWidth={2.5} />
-            </div>
-            <p className="text-xs font-bold text-white/90 uppercase tracking-wider">Pendapatan Bersih</p>
-            <p className="text-2xl sm:text-3xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.netRevenue)}</p>
-          </div>
-          <p className="text-[10px] text-white/90 mt-3 font-bold">✓ Bebas biaya potongan</p>
         </div>
 
         {/* Total Orders */}
@@ -402,68 +376,45 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
         </div>
       </div>
 
-      {/* ── Hourly Traffic ── */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-suka-brown/10">
-        <h2 className="font-black text-suka-brown text-lg mb-1">Trafik Transaksi per Jam</h2>
-        <p className="text-suka-gray-400 text-xs mb-6 font-medium">Berdasarkan waktu penyelesaian (WIB)</p>
-        
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={analytics.hourly.map((val: number, i: number) => ({ hour: `${String(i).padStart(2, '0')}:00`, orders: val }))}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis 
-                dataKey="hour" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }} 
-                dy={10} 
-              />
-              <YAxis 
-                hide 
-                domain={[0, maxHourly > 0 ? maxHourly * 1.2 : 10]} 
-              />
-              <Tooltip 
-                cursor={{ fill: '#f8fafc' }}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                itemStyle={{ color: '#2c1810', fontWeight: 'bold' }}
-                labelStyle={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}
-                formatter={(val: any) => [`${val} Transaksi`, 'Total']}
-              />
-              <Bar 
-                dataKey="orders" 
-                fill="#f97316" 
-                radius={[4, 4, 0, 0]}
-                activeBar={{ fill: '#ea580c' }}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* ── Best Sellers ── */}
+      {/* ── Item Yang Terjual (Ranking Menu) ── */}
       {analytics.bestSellers && analytics.bestSellers.length > 0 && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-suka-brown/10">
-          <h2 className="font-black text-suka-brown text-lg mb-1">Menu Terlaris</h2>
-          <p className="text-suka-gray-400 text-xs mb-5 font-medium">10 Produk dengan penjualan tertinggi</p>
+          <div className="flex items-center gap-3 mb-6">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-suka-orange w-5 h-5"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+            <h2 className="font-black text-suka-brown text-lg">Item Yang Terjual</h2>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-            {analytics.bestSellers.map((item: any, idx: number) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-suka-gray-50 rounded-xl border border-suka-brown/5 hover:border-suka-orange/20 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-suka-orange/10 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-black text-suka-orange">{idx + 1}</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+            {analytics.bestSellers.map((item: any, index: number) => {
+              const maxQty = analytics.bestSellers[0]?.qty || 1;
+              const percentage = (item.qty / maxQty) * 100;
+              const isTop3 = index < 3;
+              
+              return (
+                <div key={index} className="group relative">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-2 min-w-0 pr-4">
+                      {isTop3 ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" className="text-blue-500 w-4 h-4 shrink-0"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+                      ) : (
+                        <span className="text-[11px] font-bold text-suka-gray-400 w-5 shrink-0 text-left">#{index + 1}</span>
+                      )}
+                      <span className="text-xs font-bold text-suka-brown truncate">{item.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] text-suka-gray-400 font-medium">{item.qty} terjual</span>
+                      <span className="text-xs font-black text-suka-brown">{formatRupiah(item.revenue)}</span>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-suka-brown truncate" title={item.name}>{item.name}</p>
-                    <p className="text-[10px] font-bold text-suka-gray-500">{item.qty} Porsi Terjual</p>
+                  <div className="w-full h-1 bg-transparent rounded-full overflow-hidden">
+                    <div 
+                      className="h-full rounded-full transition-all duration-500 bg-suka-orange"
+                      style={{ width: `${Math.max(percentage, 1)}%` }}
+                    />
                   </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-suka-brown">{formatRupiah(item.revenue)}</p>
-                  <p className="text-[10px] font-bold text-suka-orange">{((item.qty / analytics.totalItemsSold) * 100).toFixed(1)}% dr total</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

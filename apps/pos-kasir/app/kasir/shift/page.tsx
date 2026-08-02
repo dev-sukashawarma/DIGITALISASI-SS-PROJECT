@@ -284,7 +284,7 @@ export default function ShiftPage() {
         // shift terakhir yang sudah ditutup (closed) — BUKAN nominal tetap standar.
         const { data: lastShift } = await supabase
           .from('shifts')
-          .select('starting_petty_cash, expected_ending_petty_cash, actual_ending_petty_cash')
+          .select('starting_petty_cash, expected_ending_petty_cash, actual_ending_petty_cash, end_time, updated_at')
           .eq('outlet_id', outletId)
           .eq('status', 'closed')
           .order('start_time', { ascending: false })
@@ -292,7 +292,29 @@ export default function ShiftPage() {
           .maybeSingle()
 
         if (lastShift) {
-          const endingBalance = lastShift.actual_ending_petty_cash ?? lastShift.expected_ending_petty_cash ?? lastShift.starting_petty_cash ?? 0
+          let endingBalance = lastShift.actual_ending_petty_cash ?? lastShift.expected_ending_petty_cash ?? lastShift.starting_petty_cash ?? 0
+
+          // Calculate interim topups and expenses (occurred while shift was closed)
+          const refTime = lastShift.end_time || lastShift.updated_at
+          if (refTime) {
+            const [interimTopRes, interimExpRes] = await Promise.all([
+              supabase.from('petty_cash_topups')
+                .select('amount')
+                .eq('outlet_id', outletId)
+                .in('status', ['completed', 'approved'])
+                .gt('completed_at', refTime),
+              supabase.from('petty_cash_expenses')
+                .select('amount')
+                .eq('outlet_id', outletId)
+                .gt('created_at', refTime)
+            ])
+            
+            const interimTopups = (interimTopRes.data || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+            const interimExpenses = (interimExpRes.data || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+            
+            endingBalance = endingBalance + interimTopups - interimExpenses
+          }
+
           setStartingPettyCash(String(endingBalance))
           setPettyCashLocked(true)
         } else {

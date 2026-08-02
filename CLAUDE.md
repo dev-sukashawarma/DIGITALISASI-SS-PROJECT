@@ -1,4 +1,4 @@
-# Suka Shawarma Outlet Suite — Claude Code Project Guide
+﻿# Suka Shawarma Outlet Suite — Claude Code Project Guide
 
 ## Overview
 Digitalisasi operasional 19 outlet Suka Shawarma. Stack: Supabase + Next.js (app router), TypeScript, TailwindCSS.
@@ -1024,7 +1024,21 @@ Fix di-land sebagai `20300103000006` (bernomor setelah ranjau) — **bukan** ren
 ### Pelajaran
 Tiga analisis awal **terbukti keliru** setelah diverifikasi ke DB live (P1 pemicu, P4 dampak, P7 mekanisme), dan satu nyaris jadi laporan palsu (21 promo global disangka duplikat — ternyata 1 per outlet). **Nama file dan nama policy adalah klaim, bukan bukti.** Simulasi read-only sebelum menulis fix adalah yang memaksa koreksi P1.
 
+
+## Session 2026-08-01: Waterfall BOM Deduction (apps/pos-kasir & stok)
+
+**Status:** ✅ COMPLETED — migration applied.
+
+### Fitur
+Logika pemotongan bertingkat (Waterfall Deduction) untuk bahan baku yang bervarian (misal Pouch vs Kompan). Jika barang utama habis, sisa potong dilimpahkan otomatis ke barang pengganti.
+
+### Implementasi
+1. **Tabel `bahan_baku_substitusi`** — Tabel *mapping* prioritas pemotongan pengganti. Disiapkan data awal `SAOS CABE POUCH -> SAOS CABE` dan `SAOS TOMAT POUCH -> SAOS TOMAT KOMPAN`.
+2. **PL/pgSQL Function `process_waterfall_deduction`** — Fungsi utama dengan alur: potong bahan utama seadanya -> *looping* bahan substitusi berdasar `urutan` -> potong sisanya -> jika semua substitusi habis, paksa sisa potong kembali ke bahan utama (menjadi stok negatif).
+3. **Trigger `trg_process_bom_stok`** — *Refactor* logika `INSERT INTO ledger_stok` menjadi sekadar pemanggilan fungsi *helper* tersebut, mendukung baik menu satuan maupun komponen dalam *package*.
+4. **Keunggulan** — Ledger sangat transparan. Jika butuh 10 potong namun sisa bahan utama hanya 3, di ledger akan muncul pemotongan -3 untuk bahan utama, lalu -7 beruntun untuk substitusi.
+
 ---
 
-**Last updated:** 2026-07-21  
+**Last updated:** 2026-08-01  
 **Owner:** Dev Suka Shawarma

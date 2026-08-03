@@ -771,14 +771,18 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     }
 
     // 2. Kelompokkan per channel
+    const outletTypeMap = new Map<string, string>()
+    outlets.forEach(o => outletTypeMap.set(o.id, o.type || 'outlet'))
+
     const categoryMap: Record<string, {
       categoryName: string,
       grossRevenue: number,
-      itemMap: Record<string, { name: string; qty: number; revenue: number }>
+      itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number }>
     }> = {}
 
     validOrders.forEach(o => {
       const categoryName = resolveOrderSource(o.channel, o.sales_source, o.customer_name).label
+      const outletType = outletTypeMap.get(o.outlet_id)
       
       if (!categoryMap[categoryName]) {
         categoryMap[categoryName] = { categoryName, grossRevenue: 0, itemMap: {} }
@@ -788,10 +792,13 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
       o.order_items.forEach(oi => {
         const key = cleanItemName(oi.menu_item_name)
-        if (!catData.itemMap[key]) catData.itemMap[key] = { name: key, qty: 0, revenue: 0 }
+        if (!catData.itemMap[key]) catData.itemMap[key] = { name: key, qty: 0, revenue: 0, hppTotal: 0 }
+        
+        const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap)
         
         catData.itemMap[key].qty += oi.quantity
         catData.itemMap[key].revenue += oi.subtotal
+        catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
         catData.grossRevenue += oi.subtotal
       })
     })
@@ -800,6 +807,8 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     const categories = Object.values(categoryMap).map(cat => ({
       categoryName: cat.categoryName,
       grossRevenue: cat.grossRevenue,
+      totalQty: Object.values(cat.itemMap).reduce((acc, item) => acc + item.qty, 0),
+      totalHpp: Object.values(cat.itemMap).reduce((acc, item) => acc + item.hppTotal, 0),
       bestSellers: Object.values(cat.itemMap).sort((a, b) => b.qty - a.qty)
     }))
 

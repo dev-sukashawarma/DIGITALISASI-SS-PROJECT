@@ -25,6 +25,7 @@ export interface CategorizedReportData {
       name: string
       qty: number
       revenue: number
+      hppTotal: number
     }>
   }>
 }
@@ -238,19 +239,40 @@ export const generateCategorizedReportPDF = (data: CategorizedReportData): void 
     doc.text(`Kategori: ${cat.categoryName}`, margin, currentY)
     currentY += 4
 
-    const tableHead = [['#', 'Nama Menu / Item', 'Qty Terjual', 'Total Revenue (Rp)', '% Kontribusi Kategori']]
-    const totalRevenue = cat.grossRevenue > 0 ? cat.grossRevenue : 1
+    const tableHead = [['#', 'Nama Menu / Item', 'Harga Jual', 'HPP', 'Qty', 'Total HPP', 'Total Revenue']]
+    let totalKategoriQty = 0
+    let totalKategoriHpp = 0
+    let totalKategoriRev = 0
 
     const tableBody = cat.bestSellers.map((item, index) => {
-      const contributionPct = ((item.revenue / totalRevenue) * 100).toFixed(1)
+      const hargaJual = item.qty > 0 ? item.revenue / item.qty : 0
+      const hppSatuan = item.qty > 0 ? item.hppTotal / item.qty : 0
+      
+      totalKategoriQty += item.qty
+      totalKategoriHpp += item.hppTotal
+      totalKategoriRev += item.revenue
+
       return [
         (index + 1).toString(),
         item.name,
-        `${item.qty} Pcs`,
-        formatRupiah(item.revenue),
-        `${contributionPct}%`
+        formatRupiah(hargaJual),
+        formatRupiah(hppSatuan),
+        `${item.qty}`,
+        formatRupiah(item.hppTotal),
+        formatRupiah(item.revenue)
       ]
     })
+
+    // Add total row at the end
+    tableBody.push([
+      '',
+      'TOTAL',
+      '-',
+      '-',
+      `${totalKategoriQty}`,
+      formatRupiah(totalKategoriHpp),
+      formatRupiah(totalKategoriRev)
+    ])
 
     autoTable(doc, {
       startY: currentY,
@@ -272,9 +294,18 @@ export const generateCategorizedReportPDF = (data: CategorizedReportData): void 
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
         1: { cellWidth: 'auto' },
-        2: { cellWidth: 30, halign: 'right' },
-        3: { cellWidth: 40, halign: 'right' },
-        4: { cellWidth: 35, halign: 'right' }
+        2: { cellWidth: 25, halign: 'right' },
+        3: { cellWidth: 25, halign: 'right' },
+        4: { cellWidth: 15, halign: 'right' },
+        5: { cellWidth: 30, halign: 'right' },
+        6: { cellWidth: 30, halign: 'right' }
+      },
+      didParseCell: function(dataArg) {
+        // Highlight the "TOTAL" row
+        if (dataArg.row.index === tableBody.length - 1) {
+          dataArg.cell.styles.fontStyle = 'bold'
+          dataArg.cell.styles.fillColor = [241, 245, 249] // Slate-100
+        }
       },
       alternateRowStyles: {
         fillColor: [248, 250, 252]

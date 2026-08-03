@@ -29,11 +29,11 @@ export async function POST(request: Request) {
   // 1. Cek idempotency ketat di pos-kasir (cegah duplikasi order id / external_order_id)
   const { data: existingList } = await posDb
     .from('orders')
-    .select('id, order_number, source')
+    .select('id, order_number, source, external_order_id')
     .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
     .limit(1)
 
-  const existing = existingList && existingList.length > 0 ? existingList[0] : null
+  let existing = existingList && existingList.length > 0 ? existingList[0] : null
 
   if (existing) {
     if (existing.id === external_order_id && existing.source !== 'online') {
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     })
   }
 
-  // 2. Ambil data order dari SS_ORDER
+  // 2. Ambil data order dari SS_ORDER (kita butuh ini juga untuk soft-match jika existing belum ada)
   const { data: order, error: orderErr } = await ssOrderDb
     .from('orders')
     .select(`
@@ -77,6 +77,45 @@ export async function POST(request: Request) {
   
   if (!posOutletId) {
     return NextResponse.json({ error: 'Outlet belum dipetakan ke POS Kasir (pos_outlet_id kosong)' }, { status: 400 })
+  }
+
+  if (!existing) {
+    // Soft-match fallback: jika tidak ketemu by ID, cari berdasarkan outlet, nama, dan total dalam 1 jam terakhir
+    const timeLimit = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { data: softMatchList } = await posDb
+      .from('orders')
+      .select('id, order_number, source, external_order_id')
+      .eq('outlet_id', posOutletId)
+      .eq('customer_name', order.customer_name)
+      .eq('total_amount', order.total)
+      .is('external_order_id', null)
+      .gte('created_at', timeLimit)
+      .limit(1)
+
+    if (softMatchList && softMatchList.length > 0) {
+      existing = softMatchList[0]
+      console.log(`Soft-match (pull-online) berhasil untuk order: ${existing.id}`)
+      
+      // Lakukan update ke online seperti di blok awal
+      if (existing.source !== 'online' || !existing.external_order_id) {
+        await posDb
+          .from('orders')
+          .update({
+            source: 'online',
+            sales_source: 'online',
+            external_order_id: external_order_id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+      }
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Order sudah ditarik sebelumnya (via soft-match)',
+        order_id: existing.id,
+        order_number: existing.order_number,
+      })
+    }
   }
 
   // Parse pickup time and calculate release time

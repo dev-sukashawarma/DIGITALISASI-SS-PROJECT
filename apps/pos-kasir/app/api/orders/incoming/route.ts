@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   // Idempotency ketat: cek id ATAU external_order_id untuk cegah duplikasi orderan & double-counting omzet
   const { data: existingList } = await supabaseService
     .from('orders')
-    .select('id, order_number, source')
+    .select('id, order_number, source, external_order_id')
     .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
     .limit(1)
 
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     const timeLimit = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const { data: softMatchList } = await supabaseService
       .from('orders')
-      .select('id, order_number, source')
+      .select('id, order_number, source, external_order_id')
       .eq('outlet_id', pos_outlet_id)
       .eq('customer_name', customer_name)
       .eq('total_amount', total_amount)

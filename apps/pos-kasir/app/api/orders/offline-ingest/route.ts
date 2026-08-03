@@ -85,6 +85,37 @@ export async function POST(request: Request) {
     })
   }
 
+  // Soft-match: jika webhook (incoming/pull-online) sudah memasukkan order online
+  // lebih dulu sebelum sinkronisasi offline ini.
+  const timeLimit = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const { data: softMatchData } = await supabaseService
+    .from('orders')
+    .select('id, order_number, client_order_id')
+    .eq('outlet_id', outletId)
+    .eq('customer_name', body.customer_name)
+    .eq('total_amount', body.total_amount)
+    .gte('created_at', timeLimit)
+    .limit(1)
+
+  if (softMatchData && softMatchData.length > 0) {
+    const matched = softMatchData[0]
+    // Jika match dan belum punya client_order_id, kita update dengan client_order_id
+    if (!matched.client_order_id) {
+      await supabaseService
+        .from('orders')
+        .update({ client_order_id: body.client_order_id })
+        .eq('id', matched.id)
+      
+      console.log(`offline-ingest: Soft-match berhasil, update client_order_id untuk order ${matched.id}`)
+      
+      return NextResponse.json({
+        success: true,
+        order_id: matched.id,
+        order_number: matched.order_number,
+      })
+    }
+  }
+
   // ── Insert order. order_number SENGAJA tidak dikirim: trigger
   //    assign_order_number yang menetapkannya secara atomik. ───────────────
   const { data: order, error: orderError } = await supabaseService

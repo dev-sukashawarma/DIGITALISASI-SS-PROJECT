@@ -62,22 +62,23 @@ export async function POST(request: Request) {
 
   const supabaseService = createServiceClient()
 
-  // Idempotency ketat: cek id ATAU external_order_id untuk cegah duplikasi orderan & double-counting omzet
+  // Idempotency ketat: cek id ATAU external_order_id (Cek apakah sudah ada dari offline / pull-online)
   const { data: existingList } = await supabaseService
     .from('orders')
-    .select('id, order_number, source, external_order_id')
+    .select('id, status, source, external_order_id, outlet_id, order_number')
+    .eq('outlet_id', pos_outlet_id)
     .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
     .limit(1)
 
   let existing = existingList && existingList.length > 0 ? existingList[0] : null
-  
+
   if (!existing) {
     // Soft-match fallback: cari order di outlet yang sama dengan nama pelanggan dan total yang sama dalam 1 jam terakhir
     // yang external_order_id nya masih null (dibuat oleh kasir/kiosk secara lokal)
     const timeLimit = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const { data: softMatchList } = await supabaseService
       .from('orders')
-      .select('id, order_number, source, external_order_id')
+      .select('id, status, source, external_order_id, outlet_id, order_number')
       .eq('outlet_id', pos_outlet_id)
       .eq('customer_name', customer_name)
       .eq('total_amount', total_amount)

@@ -33,54 +33,10 @@ serve(async (req) => {
         return new Response(JSON.stringify({ message: 'Ignored: order not completed, done, or cancelled' }), { status: 200 })
     }
 
-    // Smart detection for online orders
-    let finalSalesSource = record.source || 'online';
-    
-    // Check notes for website/online order signatures
-    const notesLower = (record.notes || '').toLowerCase();
-    if (notesLower.includes('info pemesan online') || notesLower.includes('[website]')) {
-      finalSalesSource = 'online';
-    }
-
-    // Upsert into Suite project
-    let mappedPaymentMethod = record.payment_method || 'qris';
-    if (!['cash', 'qris', 'card'].includes(mappedPaymentMethod)) {
-      mappedPaymentMethod = 'qris';
-    }
-
-    let mappedStatus = record.status;
-    if (mappedStatus === 'paid' || mappedStatus === 'done') {
-      mappedStatus = 'completed';
-    }
-
-    const outletMap = {
-      '0a952b3e-3d12-46ce-b325-8244a0709765': '550e8400-e29b-41d4-a716-446655440004', // Cimanggu
-      '6e10168e-4cb6-492b-8412-eee4fef1bd20': '550e8400-e29b-41d4-a716-446655440013', // Dramaga
-      'f03b9742-f19f-431d-b278-6885c12434ac': '550e8400-e29b-41d4-a716-446655440014', // Cibinong
-      '8d79e331-9cea-41aa-8b08-6a4781ae6cd3': '00000000-0000-0000-0000-000000000000', // Tebet -> Global Outlet
-    };
-    const finalOutletId = outletMap[record.outlet_id] || record.outlet_id;
-
-    const { error: upsertError, data: upserted } = await suiteClient
-      .from('orders')
-      .upsert({
-        id: record.id,
-        outlet_id: finalOutletId,
-        customer_name: record.customer_name || 'Online Customer',
-        status: mappedStatus,
-        payment_method: mappedPaymentMethod,
-        total_amount: record.total_amount !== undefined ? record.total_amount : record.total,
-        notes: record.notes,
-        created_at: record.created_at,
-        updated_at: record.updated_at,
-        sales_source: finalSalesSource,
-        void_reason: record.void_reason,
-        void_at: record.void_at,
-        voided_by: record.voided_by
-      }, { onConflict: 'id' })
-      .select()
-
-    if (upsertError) throw upsertError
+    // BUGS FIXED: This webhook was creating zombie duplicate orders when an order in FormOrder_SS was marked as "done".
+    // FormOrder_SS now relies on `sync-status-to-pos` Edge Function to call `/api/orders/update-status`
+    // which correctly matches the `external_order_id` instead of inserting a zombie order.
+    // Therefore, this Edge Function is explicitly disabled.
 
     return new Response(
       JSON.stringify({

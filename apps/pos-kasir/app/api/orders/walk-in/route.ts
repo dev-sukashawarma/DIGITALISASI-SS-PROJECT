@@ -229,41 +229,61 @@ export async function POST(request: Request) {
     sales_source: 'pos',
   }
 
-  // Kolom audit kas (amount_received/change_amount) ditambahkan lewat migrasi
-  // aditif. Bila belum di-apply, insert di-retry tanpa kolom tersebut agar
-  // fitur tetap jalan (kembalian tetap dihitung & dikembalikan ke UI/struk).
+  // Payload insert lengkap
+  const fullPayload = { ...baseOrder, amount_received: amountReceived, change_amount: changeAmount }
+
   let order: { id: string; order_number: number } | null = null
   let orderError: { code?: string; message?: string } | null = null
 
-  {
-    const res = await supabaseService
-      .from('orders')
-      .insert({ ...baseOrder, amount_received: amountReceived, change_amount: changeAmount })
-      .select('id, order_number')
-      .single()
-    order = res.data
-    orderError = res.error
-  }
+  const res = await supabaseService
+    .from('orders')
+    .insert(fullPayload)
+    .select('id, order_number')
+    .single()
+  
+  order = res.data
+  orderError = res.error
 
   // 42703 = undefined_column (Postgres); PGRST204 = kolom tak dikenal (PostgREST)
-  const missingColumn =
-    orderError && (orderError.code === '42703' || orderError.code === 'PGRST204' ||
-      /amount_received|change_amount/i.test(orderError.message ?? ''))
+  if (orderError && (orderError.code === '42703' || orderError.code === 'PGRST204')) {
+    const errorMsg = orderError.message || ''
+    const fallbackPayload = { ...fullPayload }
+    let shouldRetry = false
 
-  if (missingColumn) {
-    console.warn('Kolom audit kas belum ada, insert tanpa amount_received/change_amount. Jalankan migration-walkin-payment.sql.')
-    const res = await supabaseService
-      .from('orders')
-      .insert(baseOrder)
-      .select('id, order_number')
-      .single()
-    order = res.data
-    orderError = res.error
+    if (/amount_received/i.test(errorMsg) || /change_amount/i.test(errorMsg)) {
+      delete (fallbackPayload as any).amount_received
+      delete (fallbackPayload as any).change_amount
+      shouldRetry = true
+    }
+    
+    if (/client_order_id/i.test(errorMsg)) {
+      delete (fallbackPayload as any).client_order_id
+      shouldRetry = true
+    }
+
+    // Fallback umum jika pesan error tidak eksplisit menyebutkan nama kolom
+    if (orderError.code === 'PGRST204' && !shouldRetry) {
+      delete (fallbackPayload as any).amount_received
+      delete (fallbackPayload as any).change_amount
+      delete (fallbackPayload as any).client_order_id
+      shouldRetry = true
+    }
+
+    if (shouldRetry) {
+      console.warn('Kolom baru belum ada di DB atau schema cache usang. Insert dengan fallback payload.')
+      const retryRes = await supabaseService
+        .from('orders')
+        .insert(fallbackPayload)
+        .select('id, order_number')
+        .single()
+      order = retryRes.data
+      orderError = retryRes.error
+    }
   }
 
   if (orderError || !order) {
     console.error('Gagal membuat order walk-in:', orderError)
-    return NextResponse.json({ error: 'Gagal membuat pesanan' }, { status: 500 })
+    return NextResponse.json({ error: `Gagal membuat pesanan: ${orderError?.message || JSON.stringify(orderError)}` }, { status: 500 })
   }
 
   const { error: itemsError } = await supabaseService.from('order_items').insert(

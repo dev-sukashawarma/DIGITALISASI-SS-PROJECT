@@ -118,36 +118,81 @@ export async function POST(request: Request) {
 
   // ── Insert order. order_number SENGAJA tidak dikirim: trigger
   //    assign_order_number yang menetapkannya secara atomik. ───────────────
-  const { data: order, error: orderError } = await supabaseService
-    .from('orders')
-    .insert({
-      outlet_id: outletId,
-      client_order_id: body.client_order_id,
-      customer_name: body.customer_name,
-      cashier_name: profile.name || null,
-      payment_method: body.payment_method,
-      total_amount: body.total_amount,
-      discount_amount: body.discount_amount,
-      promo_subsidy: body.promo_subsidy ?? 0,
-      payment_proof_url: body.payment_proof_url,
-      amount_received: body.amount_received,
-      change_amount: body.change_amount,
-      status: 'preparing',
-      kitchen_receipt_printed: true,
-      source: body.source,
-      channel: body.channel,
-      sales_source: body.channel || body.source,
-      // Waktu transaksi ASLI, bukan waktu sinkron -- kalau tidak, laporan
-      // penjualan dan tutup shift ikut melenceng.
-      created_at: body.created_at,
-    })
-    .select('id, order_number')
-    .single()
+  const fullPayload = {
+    outlet_id: outletId,
+    client_order_id: body.client_order_id,
+    customer_name: body.customer_name,
+    cashier_name: profile.name || null,
+    payment_method: body.payment_method,
+    total_amount: body.total_amount,
+    discount_amount: body.discount_amount,
+    promo_subsidy: body.promo_subsidy ?? 0,
+    payment_proof_url: body.payment_proof_url,
+    amount_received: body.amount_received,
+    change_amount: body.change_amount,
+    status: 'preparing',
+    kitchen_receipt_printed: true,
+    source: body.source,
+    channel: body.channel,
+    sales_source: body.channel || body.source,
+    // Waktu transaksi ASLI, bukan waktu sinkron -- kalau tidak, laporan
+    // penjualan dan tutup shift ikut melenceng.
+    created_at: body.created_at,
+    updated_at: body.created_at,
+  }
+
+  let order: { id: string; order_number: number } | null = null
+  let orderError: any = null
+
+  {
+    const res = await supabaseService
+      .from('orders')
+      .insert(fullPayload)
+      .select('id, order_number')
+      .single()
+    order = res.data
+    orderError = res.error
+  }
+
+  if (orderError && (orderError.code === '42703' || orderError.code === 'PGRST204')) {
+    const errorMsg = orderError.message || ''
+    const fallbackPayload = { ...fullPayload }
+    let shouldRetry = false
+
+    if (/amount_received/i.test(errorMsg) || /change_amount/i.test(errorMsg)) {
+      delete (fallbackPayload as any).amount_received
+      delete (fallbackPayload as any).change_amount
+      shouldRetry = true
+    }
+    
+    if (/client_order_id/i.test(errorMsg)) {
+      delete (fallbackPayload as any).client_order_id
+      shouldRetry = true
+    }
+
+    if (orderError.code === 'PGRST204' && !shouldRetry) {
+      delete (fallbackPayload as any).amount_received
+      delete (fallbackPayload as any).change_amount
+      delete (fallbackPayload as any).client_order_id
+      shouldRetry = true
+    }
+
+    if (shouldRetry) {
+      console.warn('offline-ingest: Kolom baru belum ada di DB atau schema cache usang. Insert dengan fallback payload.')
+      const retryRes = await supabaseService
+        .from('orders')
+        .insert(fallbackPayload)
+        .select('id, order_number')
+        .single()
+      order = retryRes.data
+      orderError = retryRes.error
+    }
+  }
 
   if (orderError || !order) {
     // 23505 = unique_violation. Bisa terjadi kalau dua percobaan berlomba;
     // ambil hasil pemenangnya supaya percobaan yang kalah tidak dianggap gagal.
-    if ((orderError as any)?.code === '23505') {
+    if (orderError?.code === '23505') {
       const { data: raced } = await supabaseService
         .from('orders')
         .select('id, order_number')

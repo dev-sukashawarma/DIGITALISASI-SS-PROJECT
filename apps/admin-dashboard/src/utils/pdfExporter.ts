@@ -26,6 +26,7 @@ export interface CategorizedReportData {
       qty: number
       revenue: number
       hppTotal: number
+      unitPrice?: number
     }>
   }>
 }
@@ -245,7 +246,7 @@ export const generateCategorizedReportPDF = (data: CategorizedReportData): void 
     let totalKategoriRev = 0
 
     const tableBody = cat.bestSellers.map((item, index) => {
-      const hargaJual = item.qty > 0 ? item.revenue / item.qty : 0
+      const hargaJual = item.unitPrice || (item.qty > 0 ? item.revenue / item.qty : 0)
       const hppSatuan = item.qty > 0 ? item.hppTotal / item.qty : 0
       
       totalKategoriQty += item.qty

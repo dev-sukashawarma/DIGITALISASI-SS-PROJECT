@@ -777,7 +777,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     const categoryMap: Record<string, {
       categoryName: string,
       grossRevenue: number,
-      itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number }>
+      itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number; unitPrice: number }>
     }> = {}
 
     validOrders.forEach(o => {
@@ -814,7 +814,15 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
       o.order_items.forEach(oi => {
         const key = cleanItemName(oi.menu_item_name)
-        if (!catData.itemMap[key]) catData.itemMap[key] = { name: key, qty: 0, revenue: 0, hppTotal: 0 }
+        if (!catData.itemMap[key]) {
+          catData.itemMap[key] = { 
+            name: key, 
+            qty: 0, 
+            revenue: 0, 
+            hppTotal: 0,
+            unitPrice: oi.unit_price || (oi.subtotal / oi.quantity) || 0
+          }
+        }
         
         const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap)
         

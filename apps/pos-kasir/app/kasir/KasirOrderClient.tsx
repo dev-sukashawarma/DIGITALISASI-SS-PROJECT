@@ -31,6 +31,7 @@ import { printReceipt, type ReceiptData, type ReceiptLine } from '@/lib/printRec
 import { useBrand } from '@/components/BrandContext'
 import { cleanItemName } from '@/lib/order-item-name'
 import { usePrinterStore } from '@/lib/printerStore'
+import NeedsAttentionPanel from '@/components/kasir/NeedsAttentionPanel'
 
 const DING_SOUND = '/sound-pesanan.mp3'
 
@@ -749,9 +750,11 @@ export default function KasirOrderClient({
     const triggerInvalidate = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
-        queryClient.invalidateQueries({ queryKey: ['target_progress', outletId] })
-      }, 300);
+        // Menggunakan refetchQueries dengan cancelRefetch: true memastikan request baru memaksa jalan
+        // dan menghindari React Query request deduplication menelan request jika masih ada yang berjalan.
+        queryClient.refetchQueries({ queryKey: ['orders', outletId] }, { cancelRefetch: true })
+        queryClient.refetchQueries({ queryKey: ['target_progress', outletId] }, { cancelRefetch: true })
+      }, 1500);
     };
 
     const channelName = `kasir-orders-realtime-${outletId}`
@@ -971,7 +974,7 @@ export default function KasirOrderClient({
     // Generate and print kitchen receipt
     const receiptData: ReceiptData = {
       outletName: outletName || 'SUKA SHAWARMA',
-      orderNumber: order.order_number,
+      orderNumber: order.order_number ?? '-',
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
       items: buildReceiptItems(order),
@@ -1025,7 +1028,7 @@ export default function KasirOrderClient({
     // Generate and print receipt
     const receiptData: ReceiptData = {
       outletName: outletName || 'SUKA SHAWARMA',
-      orderNumber: order.order_number,
+      orderNumber: order.order_number ?? '-',
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
       items: buildReceiptItems(order),
@@ -1060,7 +1063,7 @@ export default function KasirOrderClient({
   async function handleReprintReceipt(order: ParsedOrder, type: 'customer' | 'kitchen') {
     const receiptData: ReceiptData = {
       outletName: outletName || 'SUKA SHAWARMA',
-      orderNumber: order.order_number,
+      orderNumber: order.order_number ?? '-',
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
       items: buildReceiptItems(order),
@@ -1200,7 +1203,7 @@ export default function KasirOrderClient({
   const completedOrders = filteredOrders.filter((o) => o.status === 'completed')
   const filteredCompletedOrders = completedOrders.filter(o => {
     if (!searchQuery) return true
-    return o.order_number.toString().includes(searchQuery)
+    return (o.order_number?.toString() || '').includes(searchQuery)
   })
 
   const todayRevenue = completedOrders.reduce((sum, o) => sum + o.total_amount, 0)
@@ -1288,7 +1291,7 @@ export default function KasirOrderClient({
       </div>
 
       {/* Source Tabs Filter + Widget Stok */}
-      <div className="flex justify-between items-start flex-wrap gap-4">
+      <div className="flex justify-between items-start flex-wrap gap-4 mb-4">
         {(() => {
           const activeOnlineCount = orders.filter(o => o.source === 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
           const activeOfflineCount = orders.filter(o => o.source !== 'online' && (o.status === 'pending' || o.status === 'preparing')).length;
@@ -1326,6 +1329,8 @@ export default function KasirOrderClient({
           );
         })()}
       </div>
+
+      <NeedsAttentionPanel outletId={outletId as string} />
 
       {/* Bento Grid columns */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xl:gap-6 items-stretch pb-20">
@@ -1510,7 +1515,7 @@ export default function KasirOrderClient({
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 bg-[#0a7d2c]/5 rounded-2xl flex flex-col items-center justify-center border border-[#0a7d2c]/10 shadow-sm flex-shrink-0">
                         <span className="text-[10px] text-[#0a7d2c] font-bold uppercase tracking-wider leading-none mb-0.5">Antrian</span>
-                        <span className="font-bold text-[#0a7d2c] text-xl leading-none">#{order.order_number}</span>
+                        <span className="font-bold text-[#0a7d2c] text-xl leading-none">#{order.order_number ?? '-'}</span>
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2 flex-wrap mb-0.5">
@@ -1992,7 +1997,7 @@ export default function KasirOrderClient({
             
             <div className="p-5 flex flex-col gap-3">
               <p className="text-sm text-slate-600 font-medium mb-1 text-center">
-                Pilih jenis struk yang ingin dicetak untuk pesanan <strong className="text-slate-800">#{reprintTargetOrder.order_number}</strong>:
+                Pilih jenis struk yang ingin dicetak untuk pesanan <strong className="text-slate-800">#{reprintTargetOrder.order_number ?? '-'}</strong>:
               </p>
               
               <button

@@ -260,31 +260,54 @@ export async function POST(request: Request) {
     client_order_id: body.client_order_id ?? null,
   }
 
+  const fullPayload = { ...baseOrder, amount_received: amountReceived, change_amount: changeAmount }
+
   let order: { id: string; order_number: number } | null = null
   let orderError: { code?: string; message?: string } | null = null
 
   {
     const res = await supabaseService
       .from('orders')
-      .insert({ ...baseOrder, amount_received: amountReceived, change_amount: changeAmount })
+      .insert(fullPayload)
       .select('id, order_number')
       .single()
     order = res.data
     orderError = res.error
   }
 
-  const missingColumn =
-    orderError && (orderError.code === '42703' || orderError.code === 'PGRST204' ||
-      /amount_received|change_amount/i.test(orderError.message ?? ''))
+  if (orderError && (orderError.code === '42703' || orderError.code === 'PGRST204')) {
+    const errorMsg = orderError.message || ''
+    const fallbackPayload = { ...fullPayload }
+    let shouldRetry = false
 
-  if (missingColumn) {
-    const res = await supabaseService
-      .from('orders')
-      .insert(baseOrder)
-      .select('id, order_number')
-      .single()
-    order = res.data
-    orderError = res.error
+    if (/amount_received/i.test(errorMsg) || /change_amount/i.test(errorMsg)) {
+      delete (fallbackPayload as any).amount_received
+      delete (fallbackPayload as any).change_amount
+      shouldRetry = true
+    }
+    
+    if (/client_order_id/i.test(errorMsg)) {
+      delete (fallbackPayload as any).client_order_id
+      shouldRetry = true
+    }
+
+    if (orderError.code === 'PGRST204' && !shouldRetry) {
+      delete (fallbackPayload as any).amount_received
+      delete (fallbackPayload as any).change_amount
+      delete (fallbackPayload as any).client_order_id
+      shouldRetry = true
+    }
+
+    if (shouldRetry) {
+      console.warn('Kolom baru belum ada di DB atau schema cache usang. Insert dengan fallback payload.')
+      const retryRes = await supabaseService
+        .from('orders')
+        .insert(fallbackPayload)
+        .select('id, order_number')
+        .single()
+      order = retryRes.data
+      orderError = retryRes.error
+    }
   }
 
   if (orderError || !order) {

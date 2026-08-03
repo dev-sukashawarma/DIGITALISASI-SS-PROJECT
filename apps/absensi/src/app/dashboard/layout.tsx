@@ -53,7 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const mobileMainItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={22} /> },
     { href: "/dashboard/rekap", label: "Rekap", icon: <ClipboardList size={22} /> },
-    { href: "/dashboard/checklist-monitor", label: "Monitor", icon: <ClipboardCheck size={22} /> },
+    { href: "/dashboard/kru-checklist", label: "Isi Checklist", icon: <ClipboardCheck size={22} /> },
     { href: "/dashboard/enroll", label: "Enroll", icon: <UserPlus size={22} /> },
   ] : [
     { href: "/dashboard/kru", label: "Beranda", icon: <LayoutDashboard size={22} /> },

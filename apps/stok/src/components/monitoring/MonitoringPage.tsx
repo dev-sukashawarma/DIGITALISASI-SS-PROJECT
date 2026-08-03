@@ -19,13 +19,16 @@ export function MonitoringPage() {
   }
 
   const role = outletStaff.role;
-  const isLeader = role === 'leader';
+  // leader/korlap/area_manager: multi-outlet via staff_outlets (lihat
+  // useOutletScope), TIDAK otomatis akses semua outlet -- perlu allowedOutletIds
+  // supaya SPVDashboard tak menampilkan outlet di luar scope-nya.
+  const isMultiOutletScoped = role === 'leader' || role === 'korlap' || role === 'area_manager';
 
   if (role === 'spv' || role === 'kitchen' || role === 'admin' || role === 'admin_hr' || role === 'regional_manager') {
     return <SPVDashboard />;
   }
 
-  if (isLeader) {
+  if (isMultiOutletScoped) {
     return <SPVDashboard allowedOutletIds={boundOutlets.map((o) => o.id)} />;
   }
 

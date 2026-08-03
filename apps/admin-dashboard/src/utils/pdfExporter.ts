@@ -204,22 +204,38 @@ export const generateCategorizedReportPDF = (data: CategorizedReportData): void 
   let currentY = 20
 
   // ── Kop / Header Laporan ──
+  // Logo & Title Accent Bar
+  doc.setFillColor(245, 158, 11) // Amber-500
+  doc.rect(margin, currentY, 4, 18, 'F')
+
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
-  doc.setTextColor(15, 23, 42) // Slate-900
-  doc.text('LAPORAN RINCIAN ITEM TERJUAL (PER KATEGORI CHANNEL)', 105, currentY, { align: 'center' })
-  
-  currentY += 8
-  
+  doc.setTextColor(30, 41, 59) // Slate-800
+  doc.text('SS SHAWARMA', margin + 8, currentY + 6)
+
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(245, 158, 11) // Amber-500
+  doc.text('LAPORAN RINCIAN ITEM TERJUAL PER KATEGORI', margin + 8, currentY + 12)
+
+  // Right-aligned Metadata Box
+  doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  doc.setTextColor(71, 85, 105) // Slate-600
-  doc.text(`Outlet: ${data.outletName}`, 105, currentY, { align: 'center' })
-  currentY += 5
-  doc.text(`Periode: ${data.dateRangeLabel}`, 105, currentY, { align: 'center' })
-  currentY += 5
-  doc.text(`Channel: Semua Channel`, 105, currentY, { align: 'center' })
-  currentY += 10
+  doc.setTextColor(100, 116, 139) // Slate-500
+  
+  const rightX = doc.internal.pageSize.getWidth() - margin
+  doc.text(`Cabang: ${data.outletName}`, rightX, currentY + 4, { align: 'right' })
+  doc.text(`Periode: ${data.dateRangeLabel}`, rightX, currentY + 9, { align: 'right' })
+  doc.text(`Channel: Semua Channel`, rightX, currentY + 14, { align: 'right' })
+  doc.text(`Tgl Unduh: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, rightX, currentY + 19, { align: 'right' })
+
+  currentY += 24
+
+  // Divider line
+  doc.setDrawColor(226, 232, 240) // Slate-200
+  doc.setLineWidth(0.5)
+  doc.line(margin, currentY, doc.internal.pageSize.getWidth() - margin, currentY)
+  currentY += 8
 
   // ── Data Tables per Category ──
   data.categories.forEach((cat, idx) => {
@@ -234,11 +250,19 @@ export const generateCategorizedReportPDF = (data: CategorizedReportData): void 
       }
     }
 
+    // Category Header Background
+    doc.setFillColor(248, 250, 252) // Slate-50
+    doc.roundedRect(margin, currentY - 5, doc.internal.pageSize.getWidth() - (margin * 2), 10, 2, 2, 'F')
+    
+    // Category accent left border
+    doc.setFillColor(245, 158, 11) // Amber-500
+    doc.rect(margin, currentY - 5, 2, 10, 'F')
+
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
+    doc.setFontSize(10)
     doc.setTextColor(30, 41, 59)
-    doc.text(`Kategori: ${cat.categoryName}`, margin, currentY)
-    currentY += 4
+    doc.text(`KATEGORI: ${cat.categoryName.toUpperCase()}`, margin + 5, currentY + 1.5)
+    currentY += 8
 
     const tableHead = [['#', 'Nama Menu / Item', 'Harga Jual', 'HPP', 'Qty', 'Total HPP', 'Total Revenue']]
     let totalKategoriQty = 0
@@ -282,34 +306,44 @@ export const generateCategorizedReportPDF = (data: CategorizedReportData): void 
       theme: 'striped',
       margin: { left: margin, right: margin },
       headStyles: {
-        fillColor: [30, 41, 59], // Slate-800
-        textColor: [255, 255, 255],
+        fillColor: [248, 250, 252], // Slate-50
+        textColor: [71, 85, 105], // Slate-600
         fontStyle: 'bold',
-        fontSize: 8.5,
-        halign: 'left'
+        fontSize: 8,
+        halign: 'center',
+        lineWidth: 0.1,
+        lineColor: [226, 232, 240]
       },
       bodyStyles: {
         fontSize: 8,
-        textColor: [51, 65, 85] // Slate-700
+        textColor: [51, 65, 85], // Slate-700
+        lineWidth: 0.1,
+        lineColor: [241, 245, 249]
       },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 'auto' },
+        1: { cellWidth: 'auto', halign: 'left' },
         2: { cellWidth: 25, halign: 'right' },
         3: { cellWidth: 25, halign: 'right' },
-        4: { cellWidth: 15, halign: 'right' },
+        4: { cellWidth: 15, halign: 'center' },
         5: { cellWidth: 30, halign: 'right' },
         6: { cellWidth: 30, halign: 'right' }
       },
       didParseCell: function(dataArg) {
+        // Center headers except name
+        if (dataArg.section === 'head' && dataArg.column.index === 1) {
+          dataArg.cell.styles.halign = 'left'
+        }
+        
         // Highlight the "TOTAL" row
         if (dataArg.row.index === tableBody.length - 1) {
           dataArg.cell.styles.fontStyle = 'bold'
+          dataArg.cell.styles.textColor = [15, 23, 42] // Slate-900
           dataArg.cell.styles.fillColor = [241, 245, 249] // Slate-100
         }
       },
       alternateRowStyles: {
-        fillColor: [248, 250, 252]
+        fillColor: [250, 250, 250]
       }
     })
   })

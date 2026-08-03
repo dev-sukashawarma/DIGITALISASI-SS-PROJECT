@@ -973,16 +973,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               )}
             </div>
 
-            <button
-              onClick={downloadPDF}
-              disabled={analytics.completedOrders.length === 0}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              title="Download Laporan PDF Rincian Item Terjual (Filter Aktif)"
-            >
-              <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline">PDF Eksekutif</span>
-              <span className="sm:hidden">PDF 1</span>
-            </button>
+
 
             <button
               onClick={downloadPDFAllChannels}
@@ -1228,17 +1219,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             </div>
           </div>
           
-          <div className="flex justify-end gap-3 mt-6 no-print">
 
-            <button
-              onClick={downloadPDF}
-              disabled={analytics.completedOrders.length === 0}
-              className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-bold transition-all shadow-sm shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Printer className="w-5 h-5" />
-              <span>Cetak / Download PDF Eksekutif</span>
-            </button>
-          </div>
           
           {/* Advanced Data Table Transaksi */}
           <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80 mt-6 overflow-hidden no-print">

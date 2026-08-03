@@ -16,6 +16,7 @@
 ## Bahan Baku & Stok
 
 - **Bahan Baku (Raw Material)** — barang mentah/consumable outlet (daging, tortilla, saus, kemasan, gas). Punya satuan (kg/pcs/liter) & reorder point per outlet.
+- **Satuan Berjenjang (Tiered Unit)** — Bahan Baku bisa punya sampai 3 tingkat satuan: **Besar** (satuan beli, mis. Dus) → **Tengah** (mis. Kompan/Kg, opsional) → **Kecil** (satuan resep, mis. Gram). Faktor konversi antar tingkat didefinisikan di master Bahan Baku dan **konsisten** (0 pengecualian, diverifikasi 2026-08-02). **Satuan penyimpanan saldo (`stok_balance.saldo`) saat ini AMBIGU per baris (bahan+outlet)** — Stock Opname menulis dalam Satuan Kecil (sejak 2026-07-04 untuk bahan 2-tingkat, sejak 2026-08-01 untuk bahan 3-tingkat), sedangkan Manajemen Stok/Distribusi masih menulis dalam Satuan Besar/Tengah. Tidak ada penanda per baris yang mencatat satuan mana yang berlaku — pembaca (tampilan monitoring, alert reorder) harus menebak, dan tebakan itu salah untuk sebagian baris apa pun aturannya. Penyatuan sedang dikerjakan — lihat `docs/superpowers/specs/2026-08-01-satuan-kanonik-stok-design.md`.
 - **Inventarisasi / Stock Opname** — aktivitas **menghitung & mencatat** stok fisik bahan baku pada waktu tertentu. Output: stok aktual.
 - **Manajemen Stok** — operasi **transaksional** yang mengubah stok (masuk/keluar/waste/adjust) = ledger pergerakan.
 - **Monitoring Bahan Baku** — lapisan **baca/alert** di atas stok: level realtime semua outlet, alert < reorder point, deteksi waste tinggi.

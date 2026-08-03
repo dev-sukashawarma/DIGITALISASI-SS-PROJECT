@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
 import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
+import { decomposeTriUnitRaw } from '@/lib/format/compositeUnit';
 
 
 /** Konsisten dengan kategori di admin-dashboard: item core, bumbu, minuman, kemasan, lainnya */
@@ -356,62 +357,15 @@ export function SPVTable({
                       {grouped[outletName].map((item) => {
                         const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
                         const isEditing = editingId === editKey;
-                        const { large, medium, small } = (() => {
-                          let large = item.current_qty;
-                          let medium = 0;
-                          let small = 0;
+                        const { large, medium, small } = decomposeTriUnitRaw(
+                          item.current_qty,
+                          item.saldo_is_gram,
+                          item.satuan_tengah,
+                          item.faktor_tengah,
+                          item.satuan_kecil,
+                          item.faktor_tampilan
+                        );
 
-                          if (item.satuan_tengah && item.faktor_tengah) {
-                            let whole = Math.trunc(item.current_qty);
-                            let remainderBesar = item.current_qty - whole;
-                            large = whole;
-                            
-                            if (item.satuan_kecil && item.faktor_tampilan) {
-                              let totalSmall = remainderBesar * item.faktor_tampilan;
-                              totalSmall = Math.round(totalSmall * 100) / 100;
-                              
-                              let smallPerMedium = item.faktor_tampilan / item.faktor_tengah;
-                              
-                              let totalMedium = Math.trunc(totalSmall / smallPerMedium);
-                              let remSmall = totalSmall - (totalMedium * smallPerMedium);
-                              
-                              if (Math.abs(remSmall) >= smallPerMedium) {
-                                totalMedium += Math.sign(remSmall);
-                                remSmall = 0;
-                              }
-                              
-                              if (Math.abs(totalMedium) >= item.faktor_tengah) {
-                                large += Math.sign(totalMedium);
-                                totalMedium = 0;
-                              }
-                              
-                              medium = Math.abs(totalMedium);
-                              small = Math.abs(Math.round(remSmall * 100) / 100);
-                              
-                            } else {
-                              let rawMedium = remainderBesar * item.faktor_tengah;
-                              let remMedium = Math.round(rawMedium * 100) / 100;
-                              if (Math.abs(remMedium) >= item.faktor_tengah) {
-                                large += Math.sign(remMedium);
-                                remMedium = 0;
-                              }
-                              medium = Math.abs(remMedium);
-                            }
-                          } else if (item.satuan_kecil && item.faktor_tampilan) {
-                            let whole = Math.trunc(item.current_qty);
-                            const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
-                            let remainder = Math.round(remainderRaw * 100) / 100;
-                            if (Math.abs(remainder) >= item.faktor_tampilan) {
-                              whole += Math.sign(remainder);
-                              remainder = 0;
-                            }
-                            large = whole;
-                            small = Math.abs(remainder);
-                          }
-                          
-                          return { large, medium, small };
-                        })();
-                        
                         const statusColor = item.status === 'below' ? 'text-red-600' :
                                             item.status === 'warning' ? 'text-orange-600' : 'text-green-700';
 
@@ -548,62 +502,15 @@ export function SPVTable({
                       const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
                 const isEditing = editingId === editKey;
 
-                const { large, medium, small } = (() => {
-                  let large = item.current_qty;
-                  let medium = 0;
-                  let small = 0;
+                const { large, medium, small } = decomposeTriUnitRaw(
+                  item.current_qty,
+                  item.saldo_is_gram,
+                  item.satuan_tengah,
+                  item.faktor_tengah,
+                  item.satuan_kecil,
+                  item.faktor_tampilan
+                );
 
-                  if (item.satuan_tengah && item.faktor_tengah) {
-                    let whole = Math.trunc(item.current_qty);
-                    let remainderBesar = item.current_qty - whole;
-                    large = whole;
-                    
-                    if (item.satuan_kecil && item.faktor_tampilan) {
-                      let totalSmall = remainderBesar * item.faktor_tampilan;
-                      totalSmall = Math.round(totalSmall * 100) / 100;
-                      
-                      let smallPerMedium = item.faktor_tampilan / item.faktor_tengah;
-                      
-                      let totalMedium = Math.trunc(totalSmall / smallPerMedium);
-                      let remSmall = totalSmall - (totalMedium * smallPerMedium);
-                      
-                      if (Math.abs(remSmall) >= smallPerMedium) {
-                        totalMedium += Math.sign(remSmall);
-                        remSmall = 0;
-                      }
-                      
-                      if (Math.abs(totalMedium) >= item.faktor_tengah) {
-                        large += Math.sign(totalMedium);
-                        totalMedium = 0;
-                      }
-                      
-                      medium = Math.abs(totalMedium);
-                      small = Math.abs(Math.round(remSmall * 100) / 100);
-                      
-                    } else {
-                      let rawMedium = remainderBesar * item.faktor_tengah;
-                      let remMedium = Math.round(rawMedium * 100) / 100;
-                      if (Math.abs(remMedium) >= item.faktor_tengah) {
-                        large += Math.sign(remMedium);
-                        remMedium = 0;
-                      }
-                      medium = Math.abs(remMedium);
-                    }
-                  } else if (item.satuan_kecil && item.faktor_tampilan) {
-                    let whole = Math.trunc(item.current_qty);
-                    const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
-                    let remainder = Math.round(remainderRaw * 100) / 100;
-                    if (Math.abs(remainder) >= item.faktor_tampilan) {
-                      whole += Math.sign(remainder);
-                      remainder = 0;
-                    }
-                    large = whole;
-                    small = Math.abs(remainder);
-                  }
-                  
-                  return { large, medium, small };
-                })();
-                
                 const statusColor = item.status === 'below' ? 'text-red-600' :
                                     item.status === 'warning' ? 'text-orange-600' : 'text-green-700';
 
@@ -730,61 +637,14 @@ export function SPVTable({
             const renderCard = (item: MonitoringItem) => {
               const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
               const isEditing = editingId === editKey;
-              const { large, medium, small } = (() => {
-                let large = item.current_qty;
-                let medium = 0;
-                let small = 0;
-
-                if (item.satuan_tengah && item.faktor_tengah) {
-                  let whole = Math.trunc(item.current_qty);
-                  let remainderBesar = item.current_qty - whole;
-                  large = whole;
-                  
-                  if (item.satuan_kecil && item.faktor_tampilan) {
-                    let totalSmall = remainderBesar * item.faktor_tampilan;
-                    totalSmall = Math.round(totalSmall * 100) / 100;
-                    
-                    let smallPerMedium = item.faktor_tampilan / item.faktor_tengah;
-                    
-                    let totalMedium = Math.trunc(totalSmall / smallPerMedium);
-                    let remSmall = totalSmall - (totalMedium * smallPerMedium);
-                    
-                    if (Math.abs(remSmall) >= smallPerMedium) {
-                      totalMedium += Math.sign(remSmall);
-                      remSmall = 0;
-                    }
-                    
-                    if (Math.abs(totalMedium) >= item.faktor_tengah) {
-                      large += Math.sign(totalMedium);
-                      totalMedium = 0;
-                    }
-                    
-                    medium = Math.abs(totalMedium);
-                    small = Math.abs(Math.round(remSmall * 100) / 100);
-                    
-                  } else {
-                    let rawMedium = remainderBesar * item.faktor_tengah;
-                    let remMedium = Math.round(rawMedium * 100) / 100;
-                    if (Math.abs(remMedium) >= item.faktor_tengah) {
-                      large += Math.sign(remMedium);
-                      remMedium = 0;
-                    }
-                    medium = Math.abs(remMedium);
-                  }
-                } else if (item.satuan_kecil && item.faktor_tampilan) {
-                  let whole = Math.trunc(item.current_qty);
-                  const remainderRaw = (item.current_qty - whole) * item.faktor_tampilan;
-                  let remainder = Math.round(remainderRaw * 100) / 100;
-                  if (Math.abs(remainder) >= item.faktor_tampilan) {
-                    whole += Math.sign(remainder);
-                    remainder = 0;
-                  }
-                  large = whole;
-                  small = Math.abs(remainder);
-                }
-                
-                return { large, medium, small };
-              })();
+              const { large, medium, small } = decomposeTriUnitRaw(
+                item.current_qty,
+                item.saldo_is_gram,
+                item.satuan_tengah,
+                item.faktor_tengah,
+                item.satuan_kecil,
+                item.faktor_tampilan
+              );
               const statusColor = item.status === 'below' ? 'text-red-600' : item.status === 'warning' ? 'text-orange-600' : 'text-green-700';
 
               return (

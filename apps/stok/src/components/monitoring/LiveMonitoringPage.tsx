@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSPVMonitoringData, useMonitoringRealtime } from '@/hooks/useMonitoringData';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
-import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
+import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
 
 function getOutletRegion(slug: string, address: string | null): string {
   const addr = (address || '').toLowerCase();
@@ -305,7 +305,7 @@ export function LiveMonitoringPage() {
                   </p>
                   <p className="text-xs font-black font-mono text-[#ba1a1a] leading-none flex-shrink-0">
                     {/* Kartu kompak: satuan sengaja tak ditampilkan (ruang terbatas), makanya satuan='' lalu spasi ganda hasilnya di-collapse. Jangan copy pola ini ke tempat lain yang perlu tampilkan satuan asli. */}
-                    {formatCompositeSaldo(item.current_qty, '', item.satuan_kecil, item.faktor_tampilan).replace(/\s+/g, ' ').trim()}<span className="text-[10px] font-medium text-suka-brown/50 font-sans">/{item.threshold}</span>
+                    {formatCompositeSaldoAdaptive(item.current_qty, item.saldo_is_gram, '', item.satuan_kecil, item.faktor_tampilan).replace(/\s+/g, ' ').trim()}<span className="text-[10px] font-medium text-suka-brown/50 font-sans">/{item.threshold}</span>
                   </p>
                 </div>
               ))}
@@ -467,7 +467,7 @@ export function LiveMonitoringPage() {
                     <div className="mt-0.5">
                       <p className="text-xs font-black text-suka-ink uppercase tracking-wide truncate">{it.item_name}</p>
                       <p className="text-xs font-black font-mono text-[#ba1a1a] mt-0.5 leading-none">
-                        {formatCompositeSaldo(it.current_qty, it.satuan, it.satuan_kecil, it.faktor_tampilan)}/{it.threshold}
+                        {formatCompositeSaldoAdaptive(it.current_qty, it.saldo_is_gram, it.satuan, it.satuan_kecil, it.faktor_tampilan)}/{it.threshold}
                       </p>
                     </div>
                   </div>

@@ -13,6 +13,13 @@ export interface MonitoringItem {
   kategori: string;
   kategori_core: string | null;
   current_qty: number;
+  // true kalau tulisan TERAKHIR ke baris ini adalah opname_selisih (form
+  // dinamis, sejak 2026-08-01 20:32 WIB) -- artinya current_qty sudah pasti
+  // dalam satuan kecil (gram), bukan satuan besar. Dipakai
+  // formatTriUnitSaldoAdaptive/formatCompositeSaldoAdaptive untuk memilih
+  // arah dekomposisi yang benar. Lihat migration
+  // 20300105000003_saldo_is_gram_and_last_opname_date.sql.
+  saldo_is_gram: boolean;
   threshold: number;
   status: StockStatus;
   is_flagged: boolean;

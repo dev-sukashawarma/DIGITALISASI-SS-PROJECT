@@ -12,7 +12,7 @@ export function useStokBalance(outletId: string | undefined) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('stok_balance')
-        .select('id, outlet_id, bahan_baku_id, saldo, updated_at')
+        .select('id, outlet_id, bahan_baku_id, saldo, updated_at, saldo_is_gram')
         .eq('outlet_id', outletId as string)
       if (error) throw error
       return (data as StokBalance[]) ?? []

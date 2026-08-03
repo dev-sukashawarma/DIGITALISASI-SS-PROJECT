@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { StatusBadge } from './StatusBadge';
 import { fetchItemDetail } from '@/lib/queries/monitoring';
 import type { MonitoringItem, DetailItem } from '@/lib/types/monitoring';
-import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
+import { formatCompositeSaldoAdaptive, formatCompositeDelta } from '@/lib/format/compositeUnit';
 import { WasteModal } from '../stok/WasteModal';
 import { useQuery } from '@tanstack/react-query';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
@@ -102,7 +102,7 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
                 <div>
                   <p className="text-[10px] font-bold text-[#544437]/70 uppercase tracking-wider">Stok Aktual</p>
                   <p className="text-2xl font-black text-[#904d00] mt-1">
-                    {formatCompositeSaldo(detail.current_qty, detail.satuan ?? '', detail.satuan_kecil, detail.faktor_tampilan)}
+                    {formatCompositeSaldoAdaptive(detail.current_qty, detail.saldo_is_gram, detail.satuan ?? '', detail.satuan_kecil, detail.faktor_tampilan)}
                   </p>
                 </div>
                 <div>

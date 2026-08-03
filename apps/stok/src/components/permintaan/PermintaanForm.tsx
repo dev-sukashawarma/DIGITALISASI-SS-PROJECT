@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useSaranItem, usePermintaanActions, usePermintaanList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { fetchActiveResep, calculateBahanBakuRequest, type ResepMenu, type CalculatedBahan } from '@/app/actions/permintaan_target'
-import { formatTriUnitSaldo, convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
+import { formatTriUnitSaldoAdaptive, convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
 
 export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: { outletId: string; onSubmitSuccess?: () => void; onCartViewChange?: (isCart: boolean) => void }) {
   const { saran } = useSaranItem(outletId)
@@ -77,8 +77,8 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
 
   // Combine Final Cart
   const finalCart = useMemo(() => {
-    const map = new Map<string, { id: string, nama: string, satuan: string, dist_satuan: string, qty: number, source: 'calc' | 'manual' | 'both', current_qty?: number, kebutuhan?: number }>()
-    
+    const map = new Map<string, { id: string, nama: string, satuan: string, dist_satuan: string, qty: number, source: 'calc' | 'manual' | 'both', current_qty?: number, saldo_is_gram?: boolean, kebutuhan?: number }>()
+
     // Add Calculated
     calculatedResult.forEach(c => {
       if (pendingItemIds.has(c.bahan_baku_id)) return
@@ -94,6 +94,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
         qty: Math.ceil(qtyDist),
         source: 'calc',
         current_qty: c.sisa_stok,
+        saldo_is_gram: c.saldo_is_gram,
         kebutuhan: c.kebutuhan // Keep original kebutuhan for display if needed
       })
     })
@@ -103,7 +104,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
       if (qty <= 0 || pendingItemIds.has(id)) return
       const b = bahanBaku.find(x => x.id === id)
       if (!b) return
-      
+
       const existing = map.get(id)
       if (existing) {
         existing.qty += qty
@@ -118,7 +119,8 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
           dist_satuan: distUnit,
           qty,
           source: 'manual',
-          current_qty: saranItem?.current_qty
+          current_qty: saranItem?.current_qty,
+          saldo_is_gram: saranItem?.saldo_is_gram
         })
       }
     })
@@ -289,7 +291,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
                   <div className="flex justify-between items-center md:justify-center mt-2 md:mt-0">
                     <span className="md:hidden text-[10px] font-bold text-suka-gray-400 uppercase">Stok (Sisa)</span>
                     {item.current_qty !== undefined ? (
-                      <span className="text-[11px] md:text-[10px] text-red-500 font-bold uppercase whitespace-pre-line text-right md:text-center leading-tight">{formatTriUnitSaldo(item.current_qty, item.satuan, b?.satuan_tengah, b?.faktor_tengah, b?.satuan_kecil, b?.faktor_tampilan, true)}</span>
+                      <span className="text-[11px] md:text-[10px] text-red-500 font-bold uppercase whitespace-pre-line text-right md:text-center leading-tight">{formatTriUnitSaldoAdaptive(item.current_qty, item.saldo_is_gram ?? false, item.satuan, b?.satuan_tengah, b?.faktor_tengah, b?.satuan_kecil, b?.faktor_tampilan, true)}</span>
                     ) : (
                       <span className="text-suka-gray-400 font-bold">-</span>
                     )}
@@ -488,7 +490,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
                       <div key={s.bahan_baku_id} className="flex items-center justify-between bg-white p-2 rounded-lg border border-red-200 shadow-sm">
                         <div>
                           <p className="font-bold text-suka-ink text-sm">{b.nama}</p>
-                          <p className="text-xs text-red-500 font-medium">Sisa {formatTriUnitSaldo(s.current_qty, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan)}</p>
+                          <p className="text-xs text-red-500 font-medium">Sisa {formatTriUnitSaldoAdaptive(s.current_qty, s.saldo_is_gram, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan)}</p>
                         </div>
                         <button 
                           onClick={() => {
@@ -523,7 +525,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
                       <div>
                         <p className="font-bold text-suka-ink text-sm">{b.nama}</p>
                         <p className="text-xs text-suka-gray-500">
-                          {b.satuan_distribusi || b.satuan} {saranItem && <span className="text-red-500 ml-1">(Kritis: Sisa {formatTriUnitSaldo(saranItem.current_qty, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan)})</span>}
+                          {b.satuan_distribusi || b.satuan} {saranItem && <span className="text-red-500 ml-1">(Kritis: Sisa {formatTriUnitSaldoAdaptive(saranItem.current_qty, saranItem.saldo_is_gram, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan)})</span>}
                         </p>
                       </div>
                       <div className="flex items-center bg-suka-gray-50 rounded p-1 border border-suka-gray-200">

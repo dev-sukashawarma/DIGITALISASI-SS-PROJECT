@@ -9,7 +9,7 @@ import { useLedgerActions } from '@/hooks/useLedger'
 import { useStokBalance } from '@/hooks/useStokBalance'
 import { createClient } from '@/lib/supabase'
 import { submitWasteReport } from '@/app/actions/waste'
-import { formatTriUnitSaldo } from '@/lib/format/compositeUnit'
+import { formatTriUnitSaldoAdaptive } from '@/lib/format/compositeUnit'
 
 const TIPE_OPTIONS = [
   { value: 'waste', label: 'Waste (buang)' },
@@ -82,11 +82,20 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
     }
 
     if (tipe === 'adjustment') {
+      // CATATAN: finalQty di atas dihitung dalam satuan BESAR (dibagi
+      // faktor_tampilan/faktor_tengah bila kecil/tengah dipilih), sementara
+      // existingSaldo = bal?.saldo mentah -- kalau baris ini sudah "meloncat"
+      // ke gram (bal.saldo_is_gram=true), penjumlahan existingSaldo+delta
+      // MENCAMPUR satuan sebelum sampai ke formatter, bukan cuma soal tampil.
+      // Formatter di bawah diperbaiki (saldo_is_gram-aware) supaya tak lebih
+      // buruk, tapi akar arithmetic ini belum ditutup -- lihat
+      // docs/superpowers/specs/2026-08-01-satuan-kanonik-stok-design.md.
       const delta = adjDirection === 'in' ? finalQty : -finalQty
       const targetSaldo = existingSaldo + delta
 
-      const text = `Penyesuaian: ${adjDirection === 'in' ? 'Penambahan' : 'Pengurangan'} ${qty} ${unitName} -> Target: ${formatTriUnitSaldo(
+      const text = `Penyesuaian: ${adjDirection === 'in' ? 'Penambahan' : 'Pengurangan'} ${qty} ${unitName} -> Target: ${formatTriUnitSaldoAdaptive(
         targetSaldo,
+        bal?.saldo_is_gram ?? false,
         selectedBahan.satuan,
         selectedBahan.satuan_tengah,
         selectedBahan.faktor_tengah,
@@ -266,8 +275,9 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs font-bold ${existingSaldo <= 0 ? 'bg-[#ffdad6] border-[#ba1a1a]/20 text-[#ba1a1a]' : 'bg-[#e8f5e9] border-[#93f997]/40 text-[#006e24]'}`}>
           <span>Stok Existing System</span>
           <span>
-            {formatTriUnitSaldo(
+            {formatTriUnitSaldoAdaptive(
               existingSaldo,
+              bal?.saldo_is_gram ?? false,
               selectedBahan.satuan,
               selectedBahan.satuan_tengah,
               selectedBahan.faktor_tengah,

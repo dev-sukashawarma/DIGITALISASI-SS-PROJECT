@@ -49,6 +49,10 @@ export interface LedgerStok {
 export interface StokBalance {
   id: string; outlet_id: string; bahan_baku_id: string
   saldo: number; updated_at: string
+  // computed column (fungsi saldo_is_gram(stok_balance) di migration
+  // 20300105000003) -- true kalau tulisan terakhir ke baris ini adalah
+  // opname_selisih form dinamis, artinya `saldo` sudah pasti dalam gram.
+  saldo_is_gram: boolean
 }
 export interface ResepItem {
   id: string; resep_id: string; bahan_baku_id: string

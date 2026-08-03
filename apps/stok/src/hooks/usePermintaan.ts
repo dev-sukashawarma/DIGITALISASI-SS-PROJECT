@@ -22,6 +22,7 @@ export interface SaranItem {
   item_name: string
   satuan: string
   current_qty: number
+  saldo_is_gram: boolean
   threshold: number
   status: 'below' | 'warning'
 }
@@ -40,7 +41,7 @@ export function useSaranItem(outletId: string | undefined) {
       // monitoring_view_crew = SECURITY DEFINER view (bypass RLS stok_balance).
       const { data, error } = await supabase
         .from('monitoring_view_crew')
-        .select('bahan_baku_id, item_name, satuan, current_qty, threshold, status')
+        .select('bahan_baku_id, item_name, satuan, current_qty, saldo_is_gram, threshold, status')
         .eq('outlet_id', outletId as string)
 
       if (error) throw error
@@ -51,6 +52,7 @@ export function useSaranItem(outletId: string | undefined) {
           item_name: row.item_name,
           satuan: row.satuan,
           current_qty: row.current_qty,
+          saldo_is_gram: row.saldo_is_gram,
           threshold: row.threshold,
           status: row.status as 'below' | 'warning',
         }))

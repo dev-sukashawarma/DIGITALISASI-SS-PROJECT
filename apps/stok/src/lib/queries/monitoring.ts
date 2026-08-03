@@ -71,7 +71,7 @@ export async function fetchSPVMonitoringData() {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('monitoring_view_spv')
-    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram')
     .order('outlet_name')
     .order('item_name');
 
@@ -105,7 +105,7 @@ export async function fetchLeaderMonitoringData() {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('monitoring_view_scoped')
-    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram')
     .order('outlet_name')
     .order('item_name');
 
@@ -159,7 +159,7 @@ export async function fetchCrewMonitoringData(userId?: string) {
 
   const { data, error } = await supabase
     .from('monitoring_view_crew')
-    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram')
     .eq('outlet_id', staffData.outlet_id)
     .order('item_name');
 
@@ -208,7 +208,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 
   const { data: itemData, error: itemError } = await supabase
     .from('monitoring_view_spv')
-    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, last_updated')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, last_updated, saldo_is_gram')
     .eq('outlet_id', outletId)
     .eq('bahan_baku_id', bahan_baku_id)
     .single();

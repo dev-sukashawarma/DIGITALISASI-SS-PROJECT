@@ -164,6 +164,214 @@ export function convertToBaseUnit(qtyDistribusi: number, b: { satuan: string; sa
   return qtyDistribusi / factor;
 }
 
+/**
+ * Root cause (2026-08-02/03): stok_balance.saldo tidak punya penanda satuan
+ * per baris. formatCompositeSaldo/formatTriUnitSaldo DI ATAS mengasumsikan
+ * qty sudah dalam satuan besar (Math.trunc(qty) = satuan besar) -- itu benar
+ * untuk baris yang belum pernah diopname dengan form dinamis (masih legacy),
+ * tapi SALAH untuk baris yang sudah "meloncat" ke gram (opname_selisih form
+ * baru menulis total dalam satuan kecil). Contoh nyata: SAPI 8.553,755 gram
+ * yang oleh formatTriUnitSaldo dibaca sebagai "8.553 Blok" (17 ton, mustahil).
+ *
+ * Dua fungsi di bawah ini adalah pasangan "gram-scale" dari fungsi di atas:
+ * mendekomposisi qty yang SUDAH dipastikan dalam satuan kecil (gram/ml/dst),
+ * membagi dari bawah ke atas -- pola yang sama dengan `formatSystemQty` lokal
+ * di OpnameForm.tsx, diekspor di sini agar bisa dipakai ulang lintas
+ * komponen alih-alih disalin-tempel (lihat SPVTable.tsx/CrewList.tsx sebelum
+ * migrasi ini, keduanya menduplikasi algoritma besar-scale yang sama).
+ *
+ * `saldo_is_gram` (computed column dari migration
+ * 20300105000003_saldo_is_gram_and_last_opname_date.sql) adalah penentu mana
+ * yang dipakai -- lihat formatTriUnitSaldoAdaptive/formatCompositeSaldoAdaptive.
+ */
+export function formatCompositeSaldoFromGram(
+  totalKecil: number,
+  satuan: string,
+  satuanKecil: string | null,
+  faktorTampilan: number | null,
+  multiline: boolean = false
+): string {
+  if (!satuanKecil || !faktorTampilan) {
+    return `${round2(totalKecil)} ${satuan}`
+  }
+
+  const sign = totalKecil < 0 ? '-' : ''
+  const remaining = Math.abs(totalKecil)
+
+  const besar = Math.trunc(remaining / faktorTampilan)
+  const kecil = round2(remaining - besar * faktorTampilan)
+
+  const joiner = multiline ? '\n+ ' : ' + '
+  const parts: string[] = []
+  if (besar !== 0 || kecil === 0) parts.push(`${besar} ${satuan}`)
+  if (kecil !== 0) parts.push(`${kecil} ${satuanKecil}`)
+  return sign + parts.join(joiner)
+}
+
+export function formatTriUnitSaldoFromGram(
+  totalKecil: number,
+  satuanBesar: string,
+  satuanTengah?: string | null,
+  faktorTengah?: number | null,
+  satuanKecil?: string | null,
+  faktorTampilan?: number | null,
+  multiline: boolean = false
+): string {
+  if (!satuanTengah || !faktorTengah) {
+    return formatCompositeSaldoFromGram(totalKecil, satuanBesar, satuanKecil ?? null, faktorTampilan ?? null, multiline)
+  }
+  if (!satuanKecil || !faktorTampilan) {
+    return formatCompositeSaldoFromGram(totalKecil, satuanBesar, null, null, multiline)
+  }
+
+  const sign = totalKecil < 0 ? '-' : ''
+  const remaining = Math.abs(totalKecil)
+
+  const kecilPerBesar = faktorTampilan
+  const kecilPerTengah = faktorTampilan / faktorTengah
+
+  const besar = Math.trunc(remaining / kecilPerBesar)
+  const sisaSetelahBesar = remaining - besar * kecilPerBesar
+  const tengah = Math.trunc(sisaSetelahBesar / kecilPerTengah)
+  const kecil = round2(sisaSetelahBesar - tengah * kecilPerTengah)
+
+  const joiner = multiline ? '\n+ ' : ' + '
+  const parts: string[] = []
+  if (besar !== 0 || (tengah === 0 && kecil === 0)) parts.push(`${besar} ${satuanBesar}`)
+  if (tengah !== 0) parts.push(`${tengah} ${satuanTengah}`)
+  if (kecil !== 0) parts.push(`${kecil} ${satuanKecil}`)
+  return sign + parts.join(joiner)
+}
+
+/** Pemilih: pakai dekomposisi gram-scale kalau saldo_is_gram, kalau tidak pakai besar-scale (perilaku lama, tak berubah). */
+export function formatCompositeSaldoAdaptive(
+  qty: number,
+  saldoIsGram: boolean,
+  satuan: string,
+  satuanKecil: string | null,
+  faktorTampilan: number | null,
+  multiline: boolean = false
+): string {
+  return saldoIsGram
+    ? formatCompositeSaldoFromGram(qty, satuan, satuanKecil, faktorTampilan, multiline)
+    : formatCompositeSaldo(qty, satuan, satuanKecil, faktorTampilan, multiline)
+}
+
+export interface TriUnitBreakdown {
+  large: number
+  medium: number
+  small: number
+}
+
+/**
+ * Versi ANGKA MENTAH (bukan string) dari formatTriUnitSaldoAdaptive, dipakai
+ * layar yang menaruh besar/tengah/kecil di kolom terpisah (SPVTable.tsx,
+ * CrewList.tsx) alih-alih satu baris teks gabungan. Sebelum migrasi ini,
+ * kedua file itu menyalin-tempel algoritma besar-scale yang sama 3-4 kali --
+ * fungsi ini adalah satu sumber kebenarannya.
+ */
+export function decomposeTriUnitRaw(
+  qty: number,
+  saldoIsGram: boolean,
+  satuanTengah: string | null | undefined,
+  faktorTengah: number | null | undefined,
+  satuanKecil: string | null | undefined,
+  faktorTampilan: number | null | undefined
+): TriUnitBreakdown {
+  let large = qty
+  let medium = 0
+  let small = 0
+
+  if (saldoIsGram) {
+    const remaining = Math.abs(qty)
+    const sign = qty < 0 ? -1 : 1
+
+    if (satuanTengah && faktorTengah && satuanKecil && faktorTampilan) {
+      const kecilPerBesar = faktorTampilan
+      const kecilPerTengah = faktorTampilan / faktorTengah
+      const besar = Math.trunc(remaining / kecilPerBesar)
+      const sisa = remaining - besar * kecilPerBesar
+      const tengahVal = Math.trunc(sisa / kecilPerTengah)
+      const kecilVal = Math.round((sisa - tengahVal * kecilPerTengah) * 100) / 100
+      large = besar * sign
+      medium = tengahVal
+      small = kecilVal
+    } else if (satuanKecil && faktorTampilan) {
+      const besar = Math.trunc(remaining / faktorTampilan)
+      const kecilVal = Math.round((remaining - besar * faktorTampilan) * 100) / 100
+      large = besar * sign
+      small = kecilVal
+    }
+    return { large, medium, small }
+  }
+
+  // saldo_is_gram=false: perilaku LAMA, tidak diubah -- qty diasumsikan
+  // satuan besar (benar untuk baris yang belum pernah diopname form baru).
+  if (satuanTengah && faktorTengah) {
+    let whole = Math.trunc(qty)
+    let remainderBesar = qty - whole
+    large = whole
+
+    if (satuanKecil && faktorTampilan) {
+      let totalSmall = remainderBesar * faktorTampilan
+      totalSmall = Math.round(totalSmall * 100) / 100
+
+      let smallPerMedium = faktorTampilan / faktorTengah
+
+      let totalMedium = Math.trunc(totalSmall / smallPerMedium)
+      let remSmall = totalSmall - totalMedium * smallPerMedium
+
+      if (Math.abs(remSmall) >= smallPerMedium) {
+        totalMedium += Math.sign(remSmall)
+        remSmall = 0
+      }
+
+      if (Math.abs(totalMedium) >= faktorTengah) {
+        large += Math.sign(totalMedium)
+        totalMedium = 0
+      }
+
+      medium = Math.abs(totalMedium)
+      small = Math.abs(Math.round(remSmall * 100) / 100)
+    } else {
+      let rawMedium = remainderBesar * faktorTengah
+      let remMedium = Math.round(rawMedium * 100) / 100
+      if (Math.abs(remMedium) >= faktorTengah) {
+        large += Math.sign(remMedium)
+        remMedium = 0
+      }
+      medium = Math.abs(remMedium)
+    }
+  } else if (satuanKecil && faktorTampilan) {
+    let whole = Math.trunc(qty)
+    const remainderRaw = (qty - whole) * faktorTampilan
+    let remainder = Math.round(remainderRaw * 100) / 100
+    if (Math.abs(remainder) >= faktorTampilan) {
+      whole += Math.sign(remainder)
+      remainder = 0
+    }
+    large = whole
+    small = Math.abs(remainder)
+  }
+
+  return { large, medium, small }
+}
+
+export function formatTriUnitSaldoAdaptive(
+  qty: number,
+  saldoIsGram: boolean,
+  satuanBesar: string,
+  satuanTengah?: string | null,
+  faktorTengah?: number | null,
+  satuanKecil?: string | null,
+  faktorTampilan?: number | null,
+  multiline: boolean = false
+): string {
+  return saldoIsGram
+    ? formatTriUnitSaldoFromGram(qty, satuanBesar, satuanTengah, faktorTengah, satuanKecil, faktorTampilan, multiline)
+    : formatTriUnitSaldo(qty, satuanBesar, satuanTengah, faktorTengah, satuanKecil, faktorTampilan, multiline)
+}
+
 export function convertToDistribusiUnit(qtyBase: number, b: { satuan: string; satuan_tengah?: string | null; faktor_tengah?: number | null; satuan_kecil?: string | null; faktor_tampilan?: number | null; satuan_distribusi?: string | null }): number {
   const factor = getDistribusiFactor(b);
   return qtyBase * factor;

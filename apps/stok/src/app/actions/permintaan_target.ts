@@ -39,6 +39,7 @@ export interface CalculatedBahan {
   kebutuhan: number
   sisa_stok: number
   saran_qty: number
+  saldo_is_gram: boolean
 }
 
 // ---------------------------------------------------------------------------

@@ -289,7 +289,7 @@ export async function POST(request: Request) {
 
   if (orderError || !order) {
     console.error('Gagal membuat order manual:', orderError)
-    return NextResponse.json({ error: 'Gagal membuat pesanan' }, { status: 500 })
+    return NextResponse.json({ error: `Gagal membuat pesanan: ${orderError?.message || JSON.stringify(orderError)}` }, { status: 500 })
   }
 
   const { error: itemsError } = await supabaseService.from('order_items').insert(

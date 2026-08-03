@@ -111,7 +111,7 @@ export const generateExecutiveItemReportPDF = (data: ExecutiveReportData): void 
   currentY += 4
 
   // ── Data Table (jspdf-autotable) ──
-  const tableHead = [['#', 'Nama Menu / Item', 'Qty Terjual', 'Total Revenue (Rp)', '% Kontribusi Omzet']]
+  const tableHead = [['#', 'Nama Menu / Item', 'Channel', 'Qty Terjual', 'Total Revenue (Rp)', '% Kontribusi Omzet']]
   
   const totalRevenue = data.grossRevenue > 0 ? data.grossRevenue : 1
 
@@ -120,6 +120,7 @@ export const generateExecutiveItemReportPDF = (data: ExecutiveReportData): void 
     return [
       (index + 1).toString(),
       item.name,
+      data.channelLabel,
       `${item.qty} Pcs`,
       formatRupiah(item.revenue),
       `${contributionPct}%`
@@ -146,9 +147,10 @@ export const generateExecutiveItemReportPDF = (data: ExecutiveReportData): void 
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' },
       1: { cellWidth: 'auto' },
-      2: { cellWidth: 30, halign: 'right' },
-      3: { cellWidth: 45, halign: 'right' },
-      4: { cellWidth: 35, halign: 'right' }
+      2: { cellWidth: 30, halign: 'left' },
+      3: { cellWidth: 25, halign: 'right' },
+      4: { cellWidth: 35, halign: 'right' },
+      5: { cellWidth: 30, halign: 'right' }
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252]

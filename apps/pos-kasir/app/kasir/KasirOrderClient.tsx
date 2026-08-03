@@ -1362,7 +1362,7 @@ export default function KasirOrderClient({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 auto-rows-max items-start">
+                <div className="flex flex-col gap-4">
                   {pendingOrders.slice(0, visiblePendingCount).map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)}
                 </div>
                 
@@ -1477,7 +1477,7 @@ export default function KasirOrderClient({
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 auto-rows-max items-start">
+                  <div className="flex flex-col gap-4">
                     {antreanMasak.slice(0, visiblePreparingCount).map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)}
                   </div>
 
@@ -1502,7 +1502,7 @@ export default function KasirOrderClient({
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 auto-rows-max items-start opacity-70">
+                  <div className="flex flex-col gap-4 opacity-70">
                     {terjadwalMasak.slice(0, visibleTerjadwalCount).map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)}
                   </div>
 

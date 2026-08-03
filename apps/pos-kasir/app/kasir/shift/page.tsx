@@ -129,6 +129,7 @@ export default function ShiftPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
+  const [visibleLedgerCount, setVisibleLedgerCount] = useState(20)
 
   useEffect(() => {
     const tourParam = searchParams.get('tour')
@@ -807,7 +808,8 @@ export default function ShiftPage() {
                   {ledgerItems.length === 0 ? (
                     <div className="p-8 text-center text-gray-400 text-sm">Belum ada aktivitas shift ini</div>
                   ) : (
-                    ledgerItems.map((item, idx) => {
+                    <>
+                    {ledgerItems.slice(0, visibleLedgerCount).map((item, idx) => {
                       if (item.type === 'expense') {
                         const exp = item.data as Expense
                         const isVoided = !!exp.deleted_at;
@@ -902,7 +904,18 @@ export default function ShiftPage() {
                           </div>
                         )
                       }
-                    })
+                    })}
+                    {visibleLedgerCount < ledgerItems.length && (
+                      <div className="p-4 flex justify-center pb-6">
+                        <button
+                          onClick={() => setVisibleLedgerCount(c => c + 20)}
+                          className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all"
+                        >
+                          Tampilkan Lebih Banyak ({ledgerItems.length - visibleLedgerCount} tersisa)
+                        </button>
+                      </div>
+                    )}
+                    </>
                   )}
                 </div>
               </div>

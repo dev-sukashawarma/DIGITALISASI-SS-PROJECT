@@ -17,6 +17,7 @@ import { formatRupiah } from '@/lib/validations'
 import ChannelBadge from '@/components/ChannelBadge'
 import { db } from '@/lib/db'
 import { fetchWithTimeout } from '@/lib/offline-utils'
+import { fetchAnalyticsData } from './actions'
 
 interface ShiftRow {
   id: string
@@ -70,140 +71,15 @@ async function fetchOutletAnalytics(
   statusFilter: string = 'all'
 ): Promise<any> {
   try {
-    const supabase = createClient()
-
-    let p_start = new Date()
-    let p_end = new Date()
-
-    if (range === 'today') {
-      p_start.setHours(0, 0, 0, 0)
-      p_end.setHours(23, 59, 59, 999)
-    } else if (range === 'yesterday') {
-      p_start.setDate(p_start.getDate() - 1)
-      p_start.setHours(0, 0, 0, 0)
-      p_end.setDate(p_end.getDate() - 1)
-      p_end.setHours(23, 59, 59, 999)
-    } else if (range === '7days') {
-      p_start.setDate(p_start.getDate() - 7)
-      p_start.setHours(0, 0, 0, 0)
-      p_end.setHours(23, 59, 59, 999)
-    } else if (range === '30days') {
-      p_start.setDate(p_start.getDate() - 30)
-      p_start.setHours(0, 0, 0, 0)
-      p_end.setHours(23, 59, 59, 999)
-    } else if (range === 'all') {
-      p_start = new Date(0)
-      p_end.setHours(23, 59, 59, 999)
-    } else if (range === 'custom' && customStart && customEnd) {
-      p_start = new Date(customStart)
-      p_start.setHours(0, 0, 0, 0)
-      p_end = new Date(customEnd)
-      p_end.setHours(23, 59, 59, 999)
-    }
-
-    let ordersQuery = supabase
-      .from('orders')
-      .select('id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, voided_by, void_reason, cancellation_reason, order_items(id, menu_item_name, quantity, subtotal)')
-      .eq('outlet_id', outletId)
-      .gte('created_at', p_start.toISOString())
-      .lte('created_at', p_end.toISOString())
-
-    if (statusFilter !== 'all') {
-      ordersQuery = ordersQuery.eq('status', statusFilter)
-    }
-    if (paymentFilter !== 'all') {
-      ordersQuery = ordersQuery.eq('payment_method', paymentFilter)
-    }
-    if (channelFilter !== 'all') {
-      if (channelFilter === 'offline') {
-        ordersQuery = ordersQuery.is('channel', null)
-      } else if (channelFilter === 'food_apps') {
-        ordersQuery = ordersQuery.in('channel', ['gofood', 'grabfood', 'shopeefood', 'tiktokgo', 'tiktok', 'tiktok_go'])
-      } else if (channelFilter === 'tiktokgo' || channelFilter === 'tiktok') {
-        ordersQuery = ordersQuery.in('channel', ['tiktokgo', 'tiktok', 'tiktok_go'])
-      } else {
-        ordersQuery = ordersQuery.eq('channel', channelFilter)
-      }
-    }
-
-    const { data: ordersData, error } = await fetchWithTimeout(ordersQuery.then(res => res))
-    if (error) throw error
-
-    const completedOrders = (ordersData || []).filter((o: any) => o.status === 'completed')
-
-    // total_amount tersimpan SUDAH net (checkout/walk-in/manual sudah mengurangi
-    // discount_amount & promo_subsidy sebelum insert) — jangan dikurangi lagi di sini.
-    const netRevenue = completedOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0)
-
-    // Total Potongan: hanya deduksi yang benar-benar tercatat di order (diskon order-level
-    // & subsidi promo Food Apps). Diskon per-item yang dibakar langsung ke unit_price saat
-    // checkout tidak tercatat di kolom manapun, jadi tidak bisa direkonstruksi di sini.
-    const totalDeductions = completedOrders.reduce((s: number, o: any) => {
-      return s + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0)
-    }, 0)
-
-    // Omzet Kotor = net + deduksi yang tercatat (bukan gross sebenarnya bila ada diskon
-    // per-item yang tak tercatat, tapi ini batas atas terbaik dari data yang tersedia).
-    const totalRevenue = netRevenue + totalDeductions
-    const totalOrders = completedOrders.length
-    const pendingCount = (ordersData || []).filter((o: any) => o.status === 'pending').length
-    const canceledCount = (ordersData || []).filter((o: any) => o.status === 'cancelled').length
-    const avgOrderValue = totalOrders > 0 ? Math.round(netRevenue / totalOrders) : 0
-
-    const paymentBreakdown: Record<string, { count: number; revenue: number }> = {}
-    const hourly = Array(24).fill(0)
-    const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {}
-
-    completedOrders.forEach((o: any) => {
-      // Payment Breakdown
-      const pm = o.payment_method || 'unknown'
-      if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, revenue: 0 }
-      paymentBreakdown[pm].count++
-      paymentBreakdown[pm].revenue += Number(o.total_amount) || 0
-
-      // Hourly (Asia/Jakarta +7)
-      const d = new Date(o.created_at)
-      const h = (d.getUTCHours() + 7) % 24
-      hourly[h]++
-
-      // Best Sellers
-      if (Array.isArray(o.order_items)) {
-        o.order_items.forEach((oi: any) => {
-          const name = oi.menu_item_name || 'Item'
-          if (!itemMap[name]) itemMap[name] = { name, qty: 0, revenue: 0 }
-          itemMap[name].qty += Number(oi.quantity) || 0
-          itemMap[name].revenue += Number(oi.subtotal) || 0
-        })
-      }
-    })
-
-    const bestSellers = Object.values(itemMap).sort((a, b) => b.qty - a.qty).slice(0, 10)
-    const totalItemsSold = Object.values(itemMap).reduce((sum, item) => sum + item.qty, 0)
-
-    let maxHourlyCount = 0
-    let peakHour: number | null = null
-    for (let i = 0; i < 24; i++) {
-      if (hourly[i] > maxHourlyCount) {
-        maxHourlyCount = hourly[i]
-        peakHour = i
-      }
-    }
-
-    const analyticsResult = {
-      totalRevenue,
-      totalDeductions,
-      netRevenue,
-      totalOrders,
-      totalItemsSold,
-      avgOrderValue,
-      pendingCount,
-      canceledCount,
-      paymentBreakdown,
-      hourly,
-      peakHour,
-      bestSellers,
-      categoryData: []
-    }
+    const analyticsResult = await fetchAnalyticsData(
+      outletId,
+      range,
+      customStart,
+      customEnd,
+      channelFilter,
+      paymentFilter,
+      statusFilter
+    )
 
     await db.app_state.put({
       key: `reports_analytics:${outletId}:${range}:${channelFilter}:${paymentFilter}:${statusFilter}`,

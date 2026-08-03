@@ -69,10 +69,31 @@ export async function POST(request: Request) {
     .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
     .limit(1)
 
-  const existing = existingList && existingList.length > 0 ? existingList[0] : null
+  let existing = existingList && existingList.length > 0 ? existingList[0] : null
+  
+  if (!existing) {
+    // Soft-match fallback: cari order di outlet yang sama dengan nama pelanggan dan total yang sama dalam 1 jam terakhir
+    // yang external_order_id nya masih null (dibuat oleh kasir/kiosk secara lokal)
+    const timeLimit = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { data: softMatchList } = await supabaseService
+      .from('orders')
+      .select('id, order_number, source')
+      .eq('outlet_id', pos_outlet_id)
+      .eq('customer_name', customer_name)
+      .eq('total_amount', total_amount)
+      .is('external_order_id', null)
+      .gte('created_at', timeLimit)
+      .limit(1)
+
+    if (softMatchList && softMatchList.length > 0) {
+      existing = softMatchList[0]
+      console.log(`Soft-match berhasil untuk order: ${existing.id}`)
+    }
+  }
 
   if (existing) {
-    if (existing.id === external_order_id && existing.source !== 'online') {
+    // Update ke online dan set external_order_id jika itu belum diset
+    if (existing.source !== 'online' || !existing.external_order_id) {
       await supabaseService
         .from('orders')
         .update({

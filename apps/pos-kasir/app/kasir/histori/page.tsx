@@ -143,6 +143,7 @@ export default function AdminOrdersPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const { outletId, outletName } = useMyOutlet()
   const queryClient = useQueryClient()
+  const [visibleCount, setVisibleCount] = useState(20)
 
   const { data: orders = [], isLoading: loading, refetch } = useQuery({
     queryKey: ['histori', outletId, filter, dateFilter, customStart, customEnd, paymentFilter, channelFilter],
@@ -279,7 +280,7 @@ export default function AdminOrdersPage() {
             {(['all', ...Object.keys(STATUS_CONF)] as (OrderStatus | 'all')[]).map((s) => (
               <button
                 key={s}
-                onClick={() => setFilter(s)}
+                onClick={() => { setFilter(s); setVisibleCount(20); }}
                 className={`px-4 py-2 rounded-2xl text-sm font-semibold transition-all
                   ${filter === s
                     ? 'bg-gray-900 text-white'
@@ -296,6 +297,7 @@ export default function AdminOrdersPage() {
               value={dateFilter}
               onChange={(val) => {
                 setDateFilter(val)
+                setVisibleCount(20)
                 if (val !== 'custom') {
                   setCustomStart('')
                   setCustomEnd('')
@@ -371,7 +373,7 @@ export default function AdminOrdersPage() {
         </div>
       ) : (
         <div className="space-y-2.5">
-          {filteredOrders.map((order) => {
+          {filteredOrders.slice(0, visibleCount).map((order) => {
             const conf = STATUS_CONF[order.status as OrderStatus] || { label: order.status, color: 'text-gray-500', badge: 'badge-gray', icon: Clock }
             const Icon = conf.icon
             const expanded = expandedId === order.id
@@ -613,6 +615,17 @@ export default function AdminOrdersPage() {
               </div>
             )
           })}
+          
+          {visibleCount < filteredOrders.length && (
+            <div className="pt-4 flex justify-center pb-8">
+              <button
+                onClick={() => setVisibleCount((prev) => prev + 20)}
+                className="bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-all"
+              >
+                Tampilkan Lebih Banyak ({filteredOrders.length - visibleCount} tersisa)
+              </button>
+            </div>
+          )}
         </div>
       )}
         </>

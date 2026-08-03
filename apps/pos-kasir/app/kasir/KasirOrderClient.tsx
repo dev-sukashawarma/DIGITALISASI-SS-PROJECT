@@ -621,6 +621,10 @@ export default function KasirOrderClient({
   // Audio state
   const [audioPermission, setAudioPermission] = useState(true)
 
+  const [visiblePendingCount, setVisiblePendingCount] = useState(20)
+  const [visiblePreparingCount, setVisiblePreparingCount] = useState(20)
+  const [visibleTerjadwalCount, setVisibleTerjadwalCount] = useState(20)
+
   const [isMounted, setIsMounted] = useState(false)
   useEffect(() => {
     setIsMounted(true)
@@ -1357,7 +1361,22 @@ export default function KasirOrderClient({
                 <p className="text-xs text-slate-500/40 mt-1">Pesanan baru akan muncul otomatis di sini.</p>
               </div>
             ) : (
-              pendingOrders.map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 auto-rows-max items-start">
+                  {pendingOrders.slice(0, visiblePendingCount).map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)}
+                </div>
+                
+                {visiblePendingCount < pendingOrders.length && (
+                  <div className="pt-4 flex justify-center pb-8">
+                    <button
+                      onClick={() => setVisiblePendingCount((prev) => prev + 20)}
+                      className="bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-all"
+                    >
+                      Tampilkan Lebih Banyak ({pendingOrders.length - visiblePendingCount} tersisa)
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -1457,7 +1476,22 @@ export default function KasirOrderClient({
                   <p className="text-xs text-slate-500/40 mt-1">Dapur sedang santai, pesanan aktif akan muncul di sini.</p>
                 </div>
               ) : (
-                antreanMasak.map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 auto-rows-max items-start">
+                    {antreanMasak.slice(0, visiblePreparingCount).map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)}
+                  </div>
+
+                  {visiblePreparingCount < antreanMasak.length && (
+                    <div className="pt-4 flex justify-center pb-8">
+                      <button
+                        onClick={() => setVisiblePreparingCount((prev) => prev + 20)}
+                        className="bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-all"
+                      >
+                        Tampilkan Lebih Banyak ({antreanMasak.length - visiblePreparingCount} tersisa)
+                      </button>
+                    </div>
+                  )}
+                </>
               )
             ) : (
               terjadwalMasak.length === 0 ? (
@@ -1467,7 +1501,22 @@ export default function KasirOrderClient({
                   <p className="text-xs text-slate-500/40 mt-1">Pesanan pre-order akan ditahan di sini sebelum masuk antrean.</p>
                 </div>
               ) : (
-                terjadwalMasak.map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 auto-rows-max items-start opacity-70">
+                    {terjadwalMasak.slice(0, visibleTerjadwalCount).map((order) => <ActiveOrderCard key={order.id} order={order} isLocal={localOrderIds.has(order.id)} isEstimatedFuture={order._effectiveReleaseTime > now} handlersRef={handlersRef} />)}
+                  </div>
+
+                  {visibleTerjadwalCount < terjadwalMasak.length && (
+                    <div className="pt-4 flex justify-center pb-8">
+                      <button
+                        onClick={() => setVisibleTerjadwalCount((prev) => prev + 20)}
+                        className="bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-all"
+                      >
+                        Tampilkan Lebih Banyak ({terjadwalMasak.length - visibleTerjadwalCount} tersisa)
+                      </button>
+                    </div>
+                  )}
+                </>
               )
             )}
           </div>

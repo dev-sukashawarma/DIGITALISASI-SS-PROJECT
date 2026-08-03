@@ -29,7 +29,12 @@ interface IncomingOrderPayload {
 // Endpoint dipanggil oleh order-system (Edge Function push-order-to-kasir)
 // saat pembayaran customer berhasil dikonfirmasi.
 export async function POST(request: Request) {
-  const incomingToken = request.headers.get('x-internal-token') ?? ''
+  const authHeader = request.headers.get('authorization')
+  let incomingToken = request.headers.get('x-internal-token') ?? ''
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    incomingToken = authHeader.substring(7)
+  }
+  
   const expectedToken = process.env.ORDER_TO_KASIR_SECRET
 
   if (!expectedToken) {

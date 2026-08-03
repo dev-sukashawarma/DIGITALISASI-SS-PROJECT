@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Wallet, Landmark, Banknote, Clock, History, Flame, ChevronRight } from 'lucide-react'
+import { Wallet, Landmark, Banknote, Clock, History } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
 
 import { Spinner, EmptyState } from '@suka/design-system'
@@ -11,6 +12,8 @@ import { usePettyCashRequests } from '@/hooks/usePettyCash'
 import { summarizeBalances, countPendingApproval } from '@/lib/cashSummary'
 import { tanggal, rupiah } from '@/lib/format'
 import { TxStatusBadge } from '@/components/ui'
+import OutletRevenueTab from '@/components/OutletRevenueTab'
+import PettyCashExpensesTab from '@/components/PettyCashExpensesTab'
 
 const container = {
   hidden: { opacity: 0 },
@@ -26,7 +29,15 @@ const itemAnim = {
 }
 
 export default function DashboardClient() {
-  const [activeTab, setActiveTab] = useState('overview')
+  const searchParams = useSearchParams()
+  const initialTab = searchParams.get('tab') ?? 'overview'
+  const [activeTab, setActiveTab] = useState(initialTab)
+  
+  // Sync state if URL changes
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    setActiveTab(tab ?? 'overview')
+  }, [searchParams])
 
   const { locations, isLoading, error } = useCashOverview()
   const { data: txs = [], isLoading: loadingTx } = useCashTransactions(100)
@@ -82,22 +93,37 @@ export default function DashboardClient() {
         
         {/* Navigation Pills */}
         <div className="flex items-center gap-3 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-          {['overview', 'transaksi', 'tugas'].map((tab) => (
+          {[
+            { id: 'overview', label: 'Overview' },
+            { id: 'transaksi', label: 'Transaksi' },
+            { id: 'tugas', label: 'Tugas', badge: pending + pettyPending > 0 ? pending + pettyPending : undefined },
+            { id: 'omzet', label: 'Omzet Outlet' },
+            { id: 'petty-cash', label: 'Petty Cash Outlet' }
+          ].map((tab) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className="relative px-6 py-2.5 rounded-full text-sm font-bold capitalize transition-colors"
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="relative px-6 py-2.5 rounded-full text-sm font-bold capitalize transition-colors whitespace-nowrap flex items-center gap-1.5"
             >
-              {activeTab === tab ? (
+              {activeTab === tab.id ? (
                 <motion.div
                   layoutId="activeTab"
                   className="absolute inset-0 bg-suka-brown rounded-full"
                   transition={{ type: 'spring', stiffness: 200, damping: 20 }}
                 />
               ) : null}
-              <span className={`relative z-10 ${activeTab === tab ? 'text-white' : 'text-suka-ink/60 hover:text-suka-ink'}`}>
-                {tab}
+              <span className={`relative z-10 ${activeTab === tab.id ? 'text-white' : 'text-suka-ink/60 hover:text-suka-ink'}`}>
+                {tab.label}
               </span>
+              {tab.badge !== undefined && (
+                <span className={`relative z-10 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-black transition-colors ${
+                  activeTab === tab.id 
+                    ? 'bg-suka-orange text-white' 
+                    : 'bg-red-500 text-white'
+                }`}>
+                  {tab.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -258,6 +284,30 @@ export default function DashboardClient() {
                   </h3>
                 </div>
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'omzet' && (
+            <motion.div
+              key="omzet"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
+              transition={{ type: 'spring', stiffness: 120, damping: 15 }}
+            >
+              <OutletRevenueTab />
+            </motion.div>
+          )}
+
+          {activeTab === 'petty-cash' && (
+            <motion.div
+              key="petty-cash"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
+              transition={{ type: 'spring', stiffness: 120, damping: 15 }}
+            >
+              <PettyCashExpensesTab />
             </motion.div>
           )}
         </AnimatePresence>

@@ -27,6 +27,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BottomNav } from '@/components/common/BottomNav';
 import { ProductionEstimateWidget } from './ProductionEstimateWidget';
 import { updateThresholdAction } from '@/app/actions/threshold';
+import { useOutletScope } from '@/hooks/useOutletScope';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
   const name = outletName.toUpperCase();
@@ -46,6 +47,7 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'B
 
 export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[] } = {}) {
   useMonitoringRealtime();
+  const { boundOutlets } = useOutletScope();
   const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'approval' | 'waste_approval'>('overview');
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
   
@@ -203,6 +205,22 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
       status: 'below' | 'warning' | 'ok';
     }> = {};
 
+    // Pre-populate outlets from boundOutlets so that outlets with no stock balances are still shown
+    for (const outlet of boundOutlets) {
+      if (outlet.name.toUpperCase().includes('KANTOR PUSAT')) continue;
+      if (allowedOutletIds && !allowedOutletIds.includes(outlet.id)) continue;
+      
+      outletMap[outlet.id] = {
+        outlet_id: outlet.id,
+        outlet_name: outlet.name,
+        region: getOutletRegion(outlet.name),
+        items: [],
+        kritisCount: 0,
+        menipisCount: 0,
+        status: 'ok',
+      };
+    }
+
     for (const item of items) {
       if (!outletMap[item.outlet_id]) {
         outletMap[item.outlet_id] = {
@@ -242,7 +260,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     }
 
     return { byOutlet: outletList, byRegion: regionMap };
-  }, [items]);
+  }, [items, boundOutlets, allowedOutletIds]);
 
   const visibleOutlets = React.useMemo(() => {
     return outlets.byOutlet;

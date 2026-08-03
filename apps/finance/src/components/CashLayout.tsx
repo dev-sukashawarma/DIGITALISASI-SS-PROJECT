@@ -1,13 +1,15 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, Sparkles } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, Sparkles, TrendingUp, Store } from 'lucide-react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
+import { usePettyCashRequests } from '@/hooks/usePettyCash'
+import { usePendingPos } from '@/hooks/usePoApproval'
 
-type NavItem = { href: string; label: string; icon: any }
+type NavItem = { href: string; label: string; icon: any; isSub?: boolean }
 type NavGroup = { title: string; items: NavItem[] }
 
 const NAV_GROUPS: NavGroup[] = [
@@ -15,6 +17,8 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'UTAMA',
     items: [
       { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/?tab=omzet', label: 'Omzet Outlet', icon: TrendingUp, isSub: true },
+      { href: '/?tab=petty-cash', label: 'Petty Cash Outlet', icon: Store, isSub: true },
       { href: '/lokasi', label: 'Rekening & Kas', icon: Landmark },
     ],
   },
@@ -41,11 +45,64 @@ const NAV_GROUPS: NavGroup[] = [
 // Flattened for easy lookup of active path
 const ALL_LINKS = NAV_GROUPS.flatMap(g => g.items)
 
+// Web Audio API simple "ding" sound
+function playNotificationSound() {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+    osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1); // A6
+    
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+  } catch (e) {
+    // Ignore audio errors (e.g., autoplay blocked)
+  }
+}
+
 export function CashLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { outletStaff, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  const { data: pettyCashRequests } = usePettyCashRequests('forwarded_to_finance')
+  const { data: pendingPos } = usePendingPos()
+  const pettyPendingCount = pettyCashRequests?.length || 0
+  const poPendingCount = pendingPos?.length || 0
+  
+  const prevPendingRef = useRef(0)
+
+  useEffect(() => {
+    const totalPending = pettyPendingCount + poPendingCount
+    if (totalPending > 0) {
+      document.title = `(${totalPending}) Suka Finance`
+    } else {
+      document.title = 'Suka Finance'
+    }
+
+    // Play sound if the number of tasks increased
+    if (totalPending > prevPendingRef.current && prevPendingRef.current !== 0) {
+      playNotificationSound()
+    }
+    // Update ref for next comparison
+    // We only update if it actually loaded (prevent sound on first load if > 0)
+    prevPendingRef.current = totalPending
+  }, [pettyPendingCount, poPendingCount])
 
   const BOTTOM_NAV_ITEMS = [
     { href: '/', label: 'Beranda', icon: LayoutDashboard },
@@ -66,7 +123,16 @@ export function CashLayout({ children }: { children: ReactNode }) {
     return null
   }
 
-  const currentNavPath = ALL_LINKS.find(l => l.href !== '/' && pathname.startsWith(l.href))?.href ?? '/'
+  // Active logic that respects ?tab=
+  const currentTab = searchParams.get('tab')
+  let currentNavPath = '/'
+  if (pathname === '/') {
+    if (currentTab === 'omzet') currentNavPath = '/?tab=omzet'
+    else if (currentTab === 'petty-cash') currentNavPath = '/?tab=petty-cash'
+    else currentNavPath = '/'
+  } else {
+    currentNavPath = ALL_LINKS.find(l => l.href !== '/' && pathname.startsWith(l.href))?.href ?? '/'
+  }
   const currentLink = ALL_LINKS.find(l => l.href === currentNavPath)
 
   return (
@@ -96,13 +162,16 @@ export function CashLayout({ children }: { children: ReactNode }) {
                 {group.title}
               </h3>
               <div className="space-y-1 relative">
-                {group.items.map(({ href, label, icon: Icon }) => {
+                {group.items.map(({ href, label, icon: Icon, isSub }) => {
                   const active = currentNavPath === href
+                  const badgeCount = href === '/petty-cash' ? pettyPendingCount : href === '/po-approval' ? poPendingCount : undefined
                   return (
                     <Link
                       key={href}
                       href={href}
                       className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-bold transition-colors relative z-10 ${
+                        isSub ? 'ml-6 py-2.5 opacity-90' : ''
+                      } ${
                         active ? 'text-suka-brown' : 'text-white/70 hover:text-white hover:bg-white/5'
                       }`}
                     >
@@ -113,8 +182,15 @@ export function CashLayout({ children }: { children: ReactNode }) {
                           transition={{ type: 'spring', stiffness: 250, damping: 20 }}
                         />
                       )}
-                      <Icon className={`w-5 h-5 transition-colors ${active ? 'text-suka-orange' : 'text-white/50'}`} />
-                      <span className="flex-1 truncate">{label}</span>
+                      <Icon className={`${isSub ? 'w-4 h-4' : 'w-5 h-5'} transition-colors ${active ? 'text-suka-orange' : 'text-white/50'}`} />
+                      <span className={`flex-1 truncate ${isSub ? 'text-sm' : ''}`}>{label}</span>
+                      {badgeCount !== undefined && badgeCount > 0 && (
+                        <span className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-black transition-colors ${
+                          active ? 'bg-suka-orange text-white' : 'bg-red-500 text-white shadow-sm'
+                        }`}>
+                          {badgeCount}
+                        </span>
+                      )}
                     </Link>
                   )
                 })}
@@ -174,6 +250,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
         <nav className="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-suka-brown text-white backdrop-blur-xl rounded-[2rem] shadow-2xl shadow-suka-brown/20 flex items-center justify-around px-2 py-2 print:hidden">
           {BOTTOM_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = currentNavPath === href
+            const badgeCount = href === '/petty-cash' ? pettyPendingCount : href === '/po-approval' ? poPendingCount : undefined
             return (
               <Link
                 key={href}
@@ -190,8 +267,13 @@ export function CashLayout({ children }: { children: ReactNode }) {
                     transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                   />
                 )}
-                <div className={`p-1 transition-all ${active ? 'text-suka-orange' : ''}`}>
+                <div className={`p-1 transition-all relative ${active ? 'text-suka-orange' : ''}`}>
                   <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                  {badgeCount !== undefined && badgeCount > 0 && (
+                    <span className="absolute -top-1 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-white px-1 text-[9px] font-black">
+                      {badgeCount}
+                    </span>
+                  )}
                 </div>
                 <span className={`text-[9px] ${active ? 'font-black' : 'font-semibold'}`}>
                   {label}

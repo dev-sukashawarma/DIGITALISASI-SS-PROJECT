@@ -313,6 +313,48 @@ export const generateCategorizedReportPDF = (data: CategorizedReportData): void 
     })
   })
 
+  // ── GRAND TOTAL ──
+  let grandTotalQty = 0
+  let grandTotalHpp = 0
+  let grandTotalRev = 0
+
+  data.categories.forEach(cat => {
+    cat.bestSellers.forEach(item => {
+      grandTotalQty += item.qty
+      grandTotalHpp += item.hppTotal
+      grandTotalRev += item.revenue
+    })
+  })
+
+  let finalY = (doc as any).lastAutoTable.finalY + 10
+  if (finalY > 260) {
+    doc.addPage()
+    finalY = 20
+  }
+
+  autoTable(doc, {
+    startY: finalY,
+    head: [['', '', '', 'GRAND TOTAL', `${grandTotalQty}`, formatRupiah(grandTotalHpp), formatRupiah(grandTotalRev)]],
+    body: [],
+    theme: 'grid',
+    margin: { left: margin, right: margin },
+    headStyles: {
+      fillColor: [15, 23, 42], // Slate-900
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 9
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 'auto' },
+      2: { cellWidth: 25, halign: 'right' },
+      3: { cellWidth: 25, halign: 'right' },
+      4: { cellWidth: 15, halign: 'right' },
+      5: { cellWidth: 30, halign: 'right' },
+      6: { cellWidth: 30, halign: 'right' }
+    }
+  })
+
   // ── Footer ──
   const pageCount = (doc as any).internal.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
